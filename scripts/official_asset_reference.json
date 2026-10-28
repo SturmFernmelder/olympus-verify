@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 688909,
-      "sha256": "abc4d801fb758c92ea7a70243cd44ca119ef39d607f537ff4a9fa61d025be276"
+      "bytes": 690400,
+      "sha256": "c127e0208c20f18374268b615b47461f2c483a668ef653f9b3ee115b43ad85b8"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3605,6 +3605,8 @@
     "worker/public/static/army-qr-review/pilot.js",
     "worker/public/static/army-qr-review/protocol.js",
     "worker/public/static/legal-view196.js",
+    "worker/public/static/organization-context205.js",
+    "worker/public/static/organization-overview205.js",
     "worker/public/static/organization-view.css",
     "worker/public/static/organization-view.js",
     "worker/public/static/policies.css",
@@ -3620,11 +3622,17 @@
     "worker/public/static/rank-planner/styles.css",
     "worker/public/static/resources169.css",
     "worker/public/static/resources169.js",
+    "worker/public/static/role-rank199.js",
+    "worker/public/static/royal-writs199.js",
     "worker/public/static/talents/analysis.js",
     "worker/public/static/talents/calculator.css",
     "worker/public/static/talents/calculator.js",
     "worker/public/static/talents/guide-builds179.js",
     "worker/public/static/talents/stats60.js",
+    "worker/public/static/treasury-plan-content207.js",
+    "worker/public/static/treasury-plan-model207.js",
+    "worker/public/static/treasury-plan207.css",
+    "worker/public/static/treasury-plan207.js",
     "worker/public/static/wow-cursor.css",
     "worker/src/account-generation-contracts.ts",
     "worker/src/account-privacy-generations.ts",
@@ -3700,11 +3708,7 @@
     "worker/src/site-ranks.ts",
     "worker/src/site-resources.ts",
     "worker/src/site.ts",
-    "worker/src/unverified.ts",
-    "worker/public/static/role-rank199.js",
-    "worker/public/static/royal-writs199.js",
-    "worker/public/static/organization-overview205.js",
-    "worker/public/static/organization-context205.js"
+    "worker/src/unverified.ts"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -3720,7 +3724,8 @@
     "THIRD_PARTY_NOTICES.md",
     "docs/source-provenance.md",
     "docs/design.md",
-    "docs/deploy-checklist.md"
+    "docs/deploy-checklist.md",
+    "docs/treasury-plan207.md"
   ],
   "required_profile_paths": [
     "worker/wrangler.toml",
@@ -3823,8 +3828,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 688909,
-      "sha256": "abc4d801fb758c92ea7a70243cd44ca119ef39d607f537ff4a9fa61d025be276"
+      "bytes": 690400,
+      "sha256": "c127e0208c20f18374268b615b47461f2c483a668ef653f9b3ee115b43ad85b8"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3887,6 +3892,96 @@
   },
   "required_public_resources": [
     {
+      "path": "worker/public/static/approved-guild-helper196.js",
+      "mode": "100644",
+      "bytes": 13217,
+      "sha256": "456b7ae8e242a9462b81db74a6f958ffb6fa07dab7bcb203863b6a45312acd15"
+    },
+    {
+      "path": "worker/public/static/army-live/army.css",
+      "mode": "100644",
+      "bytes": 13331,
+      "sha256": "d2196be282c061eb8f610162e90f21698097ce9632384beda860366123f7a8c1"
+    },
+    {
+      "path": "worker/public/static/army-live/army.js",
+      "mode": "100644",
+      "bytes": 20401,
+      "sha256": "cf6ad74ffa5451d054f1e8a5fe766068ca9d4a8dd4ebbeb6969265ea3f2f3688"
+    },
+    {
+      "path": "worker/public/static/army-live/decoder.js",
+      "mode": "100644",
+      "bytes": 1514,
+      "sha256": "83e7a0ce725f43594b189d9ecd6309a199118d6c60d9563a263ff449b1520bdd"
+    },
+    {
+      "path": "worker/public/static/army-live/pilot.js",
+      "mode": "100644",
+      "bytes": 20517,
+      "sha256": "dc33ad6af179ee02718cb43a813c0845241d7adeed5ebabc51f2aa16817269fa"
+    },
+    {
+      "path": "worker/public/static/army-live/protocol.js",
+      "mode": "100644",
+      "bytes": 19221,
+      "sha256": "0c2b81961f0b92b1a88703320e4ab3a5dcb7da2c109d720a65d4a18c2139392f"
+    },
+    {
+      "path": "worker/public/static/army-live/report.js",
+      "mode": "100644",
+      "bytes": 19222,
+      "sha256": "42bc7876b33ea38ebd919f2a95d093cc53843b7e415f6ee7d4335fe561557f77"
+    },
+    {
+      "path": "worker/public/static/army-live/sanitized-export.js",
+      "mode": "100644",
+      "bytes": 6676,
+      "sha256": "c2ec728af166bfdb0a563c1991d05d40686e1840ab2cb6a5a0aff47de6e58194"
+    },
+    {
+      "path": "worker/public/static/army-live/savedvariables-import.js",
+      "mode": "100644",
+      "bytes": 4910,
+      "sha256": "b361d1f300135ea70117b2e5660ae0edeb229c9327f5d12a046b3692b07c31ae"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/decoder.js",
+      "mode": "100644",
+      "bytes": 1760,
+      "sha256": "d4807e5eaf233e2b15f6daeeeb38b4ec4a6e62c0556ba2e220184d1c66b97d2c"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/manifest.json",
+      "mode": "100644",
+      "bytes": 2852,
+      "sha256": "5b7550b9683fe0fec202334db053a3a4b3127710098588a1bf0a2e414ee18347"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/pilot.js",
+      "mode": "100644",
+      "bytes": 20202,
+      "sha256": "736000718ab10718cf99e4e5039ae5e3552a439f459790c7437a70c46dfe6a98"
+    },
+    {
+      "path": "worker/public/static/army-qr-review/protocol.js",
+      "mode": "100644",
+      "bytes": 17191,
+      "sha256": "d459c5f4693bf73c70e3bd0538f11d6e35a4e17ef0f0f096dc4cb50bea42e4bb"
+    },
+    {
+      "path": "worker/public/static/governance/council-composition-2026-10-19.md",
+      "mode": "100644",
+      "bytes": 3825,
+      "sha256": "c1a6969821135c369d1aef7c232cef2e628950d8a6ddd82f627b8dad90bcb1d8"
+    },
+    {
+      "path": "worker/public/static/governance/council-composition-2026-10-28.md",
+      "mode": "100644",
+      "bytes": 5523,
+      "sha256": "79637e9d0f67109a642e950553352d7e4f5cd8a4b1180387e9d61351af68c16b"
+    },
+    {
       "path": "worker/public/static/governance/downloads-manifest.json",
       "mode": "100644",
       "bytes": 1361,
@@ -3929,6 +4024,12 @@
       "sha256": "d8bb80fc30c41a3de34d631f4762f0224398af11d81c4c87b857c34f272b087c"
     },
     {
+      "path": "worker/public/static/governance/operational-charter.md",
+      "mode": "100644",
+      "bytes": 28218,
+      "sha256": "9c0e4a709645d02d934229eae7f1222ed6320eea414215da4e2e67c68c5fe3aa"
+    },
+    {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
       "bytes": 352552,
@@ -3939,6 +4040,30 @@
       "mode": "100644",
       "bytes": 262067,
       "sha256": "e0800f5eacba0151d31df57412ea47a0e28920a4e1995cb7273a8236ca9dc924"
+    },
+    {
+      "path": "worker/public/static/legal-view196.js",
+      "mode": "100644",
+      "bytes": 9220,
+      "sha256": "e3fe37f402b9cdf017c94118450269785aa2223008a03f60f53c3618303deb16"
+    },
+    {
+      "path": "worker/public/static/organization-context205.js",
+      "mode": "100644",
+      "bytes": 5714,
+      "sha256": "f4f4389f7f47034620ba5faff935ea07127b0cf849b4a9eb60b7ffd3ea05fca6"
+    },
+    {
+      "path": "worker/public/static/organization-overview205.js",
+      "mode": "100644",
+      "bytes": 21426,
+      "sha256": "9e2549499d88254763cf6329c360fa87bad1ffcc86f635348d9b73daf2c73981"
+    },
+    {
+      "path": "worker/public/static/organization-view.js",
+      "mode": "100644",
+      "bytes": 34654,
+      "sha256": "f058d7ff4741f94fcfba89749f5767db457ef393b391eaf4d8c0bb6669a968ba"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -3989,178 +4114,10 @@
       "sha256": "100c248c28a009ce9f4156d054d0703f53a7bb965476e51a173c78d2f6aee204"
     },
     {
-      "path": "worker/public/static/governance/operational-charter.md",
-      "mode": "100644",
-      "bytes": 28218,
-      "sha256": "9c0e4a709645d02d934229eae7f1222ed6320eea414215da4e2e67c68c5fe3aa"
-    },
-    {
-      "path": "worker/public/static/organization-view.js",
-      "mode": "100644",
-      "bytes": 34654,
-      "sha256": "f058d7ff4741f94fcfba89749f5767db457ef393b391eaf4d8c0bb6669a968ba"
-    },
-    {
-      "path": "worker/public/static/talents/data.json",
-      "mode": "100644",
-      "bytes": 494373,
-      "sha256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c"
-    },
-    {
-      "path": "worker/public/static/talents/provenance.json",
-      "mode": "100644",
-      "bytes": 2004,
-      "sha256": "3ab3a8c27e00d76e73ebb221b2c6d58f8a0c0b326ad15dbbb042cfe41ca119ed"
-    },
-    {
-      "path": "worker/public/static/talents/LICENSE-DATA.txt",
-      "mode": "100644",
-      "bytes": 750,
-      "sha256": "103dd54ada50422fd04d2276c2e6579e1dac5dac6de343b45acc3bfdcf42f6f9"
-    },
-    {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
       "bytes": 52292,
       "sha256": "dde4b68d6896372fdee12b97042751e0f31167908a2cc808e0a153443a24eecc"
-    },
-    {
-      "path": "worker/public/static/governance/council-composition-2026-10-19.md",
-      "mode": "100644",
-      "bytes": 3825,
-      "sha256": "c1a6969821135c369d1aef7c232cef2e628950d8a6ddd82f627b8dad90bcb1d8"
-    },
-    {
-      "path": "worker/public/static/talents/art.json",
-      "mode": "100644",
-      "bytes": 48178,
-      "sha256": "4ddf849cea41c422b9ece452eb4ef41d9401499cf3b959318e6f0e170b3bf91d"
-    },
-    {
-      "path": "worker/public/static/talents/art-provenance.json",
-      "mode": "100644",
-      "bytes": 154232,
-      "sha256": "777232d6c462961f902b6ead528d971451ca0a5c0ebcbf07a3083faa4df33745"
-    },
-    {
-      "path": "worker/public/static/wow/login/dark-portal-provenance.json",
-      "mode": "100644",
-      "bytes": 10267,
-      "sha256": "ec87cd525ae9419d18d0caae6885919de4c8899ed751b0fa74ede3ca0f88edc3"
-    },
-    {
-      "path": "worker/public/static/army-qr-review/protocol.js",
-      "mode": "100644",
-      "bytes": 17191,
-      "sha256": "d459c5f4693bf73c70e3bd0538f11d6e35a4e17ef0f0f096dc4cb50bea42e4bb"
-    },
-    {
-      "path": "worker/public/static/army-qr-review/decoder.js",
-      "mode": "100644",
-      "bytes": 1760,
-      "sha256": "d4807e5eaf233e2b15f6daeeeb38b4ec4a6e62c0556ba2e220184d1c66b97d2c"
-    },
-    {
-      "path": "worker/public/static/army-qr-review/pilot.js",
-      "mode": "100644",
-      "bytes": 20202,
-      "sha256": "736000718ab10718cf99e4e5039ae5e3552a439f459790c7437a70c46dfe6a98"
-    },
-    {
-      "path": "worker/public/static/army-qr-review/manifest.json",
-      "mode": "100644",
-      "bytes": 2852,
-      "sha256": "5b7550b9683fe0fec202334db053a3a4b3127710098588a1bf0a2e414ee18347"
-    },
-    {
-      "path": "worker/public/static/army-live/army.css",
-      "mode": "100644",
-      "bytes": 13331,
-      "sha256": "d2196be282c061eb8f610162e90f21698097ce9632384beda860366123f7a8c1"
-    },
-    {
-      "path": "worker/public/static/army-live/army.js",
-      "mode": "100644",
-      "bytes": 20401,
-      "sha256": "cf6ad74ffa5451d054f1e8a5fe766068ca9d4a8dd4ebbeb6969265ea3f2f3688"
-    },
-    {
-      "path": "worker/public/static/army-live/protocol.js",
-      "mode": "100644",
-      "bytes": 19221,
-      "sha256": "0c2b81961f0b92b1a88703320e4ab3a5dcb7da2c109d720a65d4a18c2139392f"
-    },
-    {
-      "path": "worker/public/static/army-live/report.js",
-      "mode": "100644",
-      "bytes": 19222,
-      "sha256": "42bc7876b33ea38ebd919f2a95d093cc53843b7e415f6ee7d4335fe561557f77"
-    },
-    {
-      "path": "worker/public/static/army-live/pilot.js",
-      "mode": "100644",
-      "bytes": 20517,
-      "sha256": "dc33ad6af179ee02718cb43a813c0845241d7adeed5ebabc51f2aa16817269fa"
-    },
-    {
-      "path": "worker/public/static/army-live/decoder.js",
-      "mode": "100644",
-      "bytes": 1514,
-      "sha256": "83e7a0ce725f43594b189d9ecd6309a199118d6c60d9563a263ff449b1520bdd"
-    },
-    {
-      "path": "worker/public/static/army-live/sanitized-export.js",
-      "mode": "100644",
-      "bytes": 6676,
-      "sha256": "c2ec728af166bfdb0a563c1991d05d40686e1840ab2cb6a5a0aff47de6e58194"
-    },
-    {
-      "path": "worker/public/static/army-live/savedvariables-import.js",
-      "mode": "100644",
-      "bytes": 4910,
-      "sha256": "b361d1f300135ea70117b2e5660ae0edeb229c9327f5d12a046b3692b07c31ae"
-    },
-    {
-      "path": "worker/public/static/talents/analysis.js",
-      "mode": "100644",
-      "bytes": 78170,
-      "sha256": "5a1605910cf971e3436d8541db11f2175ca924af92c9ef6ab5548814c4b04372"
-    },
-    {
-      "path": "worker/public/static/talents/guide-builds179.js",
-      "mode": "100644",
-      "bytes": 9410,
-      "sha256": "67db5ea92101ef63378ebbd776cacbdeb1f3b6b916d3a8c3a4d805e9ed4869b6"
-    },
-    {
-      "path": "worker/public/static/talents/naked60-186.json",
-      "mode": "100644",
-      "bytes": 356679,
-      "sha256": "ec528c0a3183cde1c619eed8868e9ebbb6257d52b98100caacd521bac3abee3f"
-    },
-    {
-      "path": "worker/public/static/talents/stat-effects186.json",
-      "mode": "100644",
-      "bytes": 237182,
-      "sha256": "42a079263a5b8faa2762eb8ba7095f14c48c244ae0257640e9869b264518aea0"
-    },
-    {
-      "path": "worker/public/static/talents/stats60.js",
-      "mode": "100644",
-      "bytes": 132507,
-      "sha256": "40fece1e0b6068b0a0f33875c75d81c9677d8284b77d9887bf6bf0573d443e9d"
-    },
-    {
-      "path": "worker/public/static/legal-view196.js",
-      "mode": "100644",
-      "bytes": 9220,
-      "sha256": "e3fe37f402b9cdf017c94118450269785aa2223008a03f60f53c3618303deb16"
-    },
-    {
-      "path": "worker/public/static/approved-guild-helper196.js",
-      "mode": "100644",
-      "bytes": 13217,
-      "sha256": "456b7ae8e242a9462b81db74a6f958ffb6fa07dab7bcb203863b6a45312acd15"
     },
     {
       "path": "worker/public/static/role-rank199.js",
@@ -4175,22 +4132,94 @@
       "sha256": "27b2d48a57602a9fc05aa50040f1b384835132329b1f551622e221d54638a49d"
     },
     {
-      "path": "worker/public/static/organization-overview205.js",
+      "path": "worker/public/static/talents/LICENSE-DATA.txt",
       "mode": "100644",
-      "bytes": 21426,
-      "sha256": "9e2549499d88254763cf6329c360fa87bad1ffcc86f635348d9b73daf2c73981"
+      "bytes": 750,
+      "sha256": "103dd54ada50422fd04d2276c2e6579e1dac5dac6de343b45acc3bfdcf42f6f9"
     },
     {
-      "path": "worker/public/static/organization-context205.js",
+      "path": "worker/public/static/talents/analysis.js",
       "mode": "100644",
-      "bytes": 5714,
-      "sha256": "f4f4389f7f47034620ba5faff935ea07127b0cf849b4a9eb60b7ffd3ea05fca6"
+      "bytes": 78170,
+      "sha256": "5a1605910cf971e3436d8541db11f2175ca924af92c9ef6ab5548814c4b04372"
     },
     {
-      "path": "worker/public/static/governance/council-composition-2026-10-28.md",
+      "path": "worker/public/static/talents/art-provenance.json",
       "mode": "100644",
-      "bytes": 5523,
-      "sha256": "79637e9d0f67109a642e950553352d7e4f5cd8a4b1180387e9d61351af68c16b"
+      "bytes": 154232,
+      "sha256": "777232d6c462961f902b6ead528d971451ca0a5c0ebcbf07a3083faa4df33745"
+    },
+    {
+      "path": "worker/public/static/talents/art.json",
+      "mode": "100644",
+      "bytes": 48178,
+      "sha256": "4ddf849cea41c422b9ece452eb4ef41d9401499cf3b959318e6f0e170b3bf91d"
+    },
+    {
+      "path": "worker/public/static/talents/data.json",
+      "mode": "100644",
+      "bytes": 494373,
+      "sha256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c"
+    },
+    {
+      "path": "worker/public/static/talents/guide-builds179.js",
+      "mode": "100644",
+      "bytes": 9410,
+      "sha256": "67db5ea92101ef63378ebbd776cacbdeb1f3b6b916d3a8c3a4d805e9ed4869b6"
+    },
+    {
+      "path": "worker/public/static/talents/naked60-186.json",
+      "mode": "100644",
+      "bytes": 356679,
+      "sha256": "ec528c0a3183cde1c619eed8868e9ebbb6257d52b98100caacd521bac3abee3f"
+    },
+    {
+      "path": "worker/public/static/talents/provenance.json",
+      "mode": "100644",
+      "bytes": 2004,
+      "sha256": "3ab3a8c27e00d76e73ebb221b2c6d58f8a0c0b326ad15dbbb042cfe41ca119ed"
+    },
+    {
+      "path": "worker/public/static/talents/stat-effects186.json",
+      "mode": "100644",
+      "bytes": 237182,
+      "sha256": "42a079263a5b8faa2762eb8ba7095f14c48c244ae0257640e9869b264518aea0"
+    },
+    {
+      "path": "worker/public/static/talents/stats60.js",
+      "mode": "100644",
+      "bytes": 132507,
+      "sha256": "40fece1e0b6068b0a0f33875c75d81c9677d8284b77d9887bf6bf0573d443e9d"
+    },
+    {
+      "path": "worker/public/static/treasury-plan-content207.js",
+      "mode": "100644",
+      "bytes": 40510,
+      "sha256": "dd1233e710327d1ce657600ed7fe3c826280000af5a715244b13bd63d6251ca1"
+    },
+    {
+      "path": "worker/public/static/treasury-plan-model207.js",
+      "mode": "100644",
+      "bytes": 4895,
+      "sha256": "1f25898e24420e6947274316aa8edba1ff0b7e7ae476103fd4836add4fde9910"
+    },
+    {
+      "path": "worker/public/static/treasury-plan207.css",
+      "mode": "100644",
+      "bytes": 9670,
+      "sha256": "9b4d872a524077bae4adbe81a40b54724eca6bd4f9a47244a38e29b8baea2f8a"
+    },
+    {
+      "path": "worker/public/static/treasury-plan207.js",
+      "mode": "100644",
+      "bytes": 14797,
+      "sha256": "4b8237537acb3205f964e5ee9e51d22bdca42ffc40da82bfdfe162031e06f00a"
+    },
+    {
+      "path": "worker/public/static/wow/login/dark-portal-provenance.json",
+      "mode": "100644",
+      "bytes": 10267,
+      "sha256": "ec87cd525ae9419d18d0caae6885919de4c8899ed751b0fa74ede3ca0f88edc3"
     }
   ],
   "login_art_exception": {

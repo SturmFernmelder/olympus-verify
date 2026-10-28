@@ -12,9 +12,10 @@ console.log("\n== the page scripts parse ==");
 const scripts = [...fs.readdirSync(staticDir).filter((f) => f.endsWith(".js")).map((f) => path.join(staticDir, f)), ...fs.readdirSync(dir).filter((f) => f.endsWith(".js")).map((f) => path.join(dir, f))];
 const organizationModule = path.join(staticDir, "organization-view.js");
 const organizationModules205 = [organizationModule, ...["organization-overview205.js", "organization-context205.js"].map(name => path.join(staticDir, name))];
+const pageModules207 = [...organizationModules205, ...["treasury-plan207.js", "treasury-plan-model207.js", "treasury-plan-content207.js"].map(name => path.join(staticDir, name))];
 const unparsed = [];
 for (const f of scripts) {
-  if (organizationModules205.includes(f)) {
+  if (pageModules207.includes(f)) {
     // The actual dynamic import is an ES module; parse its original bytes without evaluating or rewriting exports.
     const result = spawnSync(process.execPath, ["--input-type=module", "--check"], { input: read(f), encoding: "utf8", windowsHide: true, timeout: 10000, maxBuffer: 1024 * 1024 });
     if (result.error || result.status !== 0 || result.signal) unparsed.push(`${path.relative(root, f)}: ${result.error?.message || result.stderr || result.signal || result.status}`);
@@ -22,7 +23,7 @@ for (const f of scripts) {
     try { new vm.Script(read(f), { filename: f }); } catch (e) { unparsed.push(`${path.relative(root, f)}: ${e.message}`); }
   }
 }
-check("every page script parses in its actual format: organization ES modules and all existing classic scripts", scripts.length >= 4 && organizationModules205.every(file => scripts.includes(file)) && ["app.js", "catalogue.js", "model.js"].every((b) => scripts.some((f) => path.basename(f) === b)) && unparsed.length === 0, unparsed);
+check("every page script parses in its actual format: organization and treasury ES modules and all existing classic scripts", scripts.length >= 4 && pageModules207.every(file => scripts.includes(file)) && ["app.js", "catalogue.js", "model.js"].every((b) => scripts.some((f) => path.basename(f) === b)) && unparsed.length === 0, unparsed);
 
 console.log("\n== the current preset and preserved historical catalogue ==");
 const base = { console };
