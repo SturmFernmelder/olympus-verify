@@ -29,7 +29,7 @@ export interface RoleDirectory203 {
   readonly families: readonly RoleDirectoryFamily203[];
   readonly ranks: readonly Readonly<{ nativeSlot: number; nativeRankOrdinal: number; label: string; familyKey: string }>[];
   readonly keyToFamily: Readonly<Record<string, string>>;
-  readonly sourceKeyCount: 134;
+  readonly sourceKeyCount: 135;
 }
 
 interface FamilySeed203 {
@@ -59,6 +59,7 @@ const seeds203: readonly FamilySeed203[] = [
   { key: 'minister_heraldry', label: 'Minister of Heraldry', kind: 'role', tier: 'high_council', primaryKey: 'office_59', sourceKeys: ['office_59'] },
   { key: 'war_head', label: 'War Heads — MAIN Raid & PvP Leads', kind: 'role', tier: 'high_council', primaryKey: 'office_94', sourceKeys: ['office_94'] },
   { key: 'treasurer', label: 'Treasurer / Guild Bank', kind: 'role', tier: 'high_council', primaryKey: 'office_86', sourceKeys: ['office_86'], contexts: { treasurer: 'Treasurer — retained detailed financial stewardship guide', rank_treasurer: 'Historical Treasurer rank label — a current Council appointment, not an eleventh rank' } },
+  { key: 'head_trading', label: 'Head of Trading & Markets', kind: 'role', tier: 'high_council', primaryKey: 'office_96', sourceKeys: ['office_96'] },
   { key: 'officer', label: 'Officer', kind: 'role', tier: 'officer_corps', primaryKey: 'office_62', sourceKeys: ['office_62'] },
   { key: 'officer_alt', label: 'Officer Alt', kind: 'role', tier: 'officer_corps', primaryKey: 'office_63', sourceKeys: ['office_63'] },
   { key: 'chief_staff', label: 'Chief of Staff', kind: 'role', tier: 'officer_corps', primaryKey: 'office_15', sourceKeys: ['office_15'] },
@@ -140,7 +141,7 @@ function directory203(): RoleDirectory203 {
     add(familyKey, row.key);
   }
   const expected = [...OFFICE_APPOINTMENTS.map(row => row.key), 'member', 'raider', 'pvp_team'].sort();
-  if (expected.length !== 134 || new Set(expected).size !== 134 || JSON.stringify(Object.keys(keyToFamily).sort()) !== JSON.stringify(expected)) throw new Error('Incomplete .203 directory source coverage');
+  if (expected.length !== 135 || new Set(expected).size !== 135 || JSON.stringify(Object.keys(keyToFamily).sort()) !== JSON.stringify(expected)) throw new Error('Incomplete .203 directory source coverage');
 
   const families = seeds203.map(seed => {
     const sourceKeys = sources.get(seed.key)!;
@@ -158,7 +159,7 @@ function directory203(): RoleDirectory203 {
     return Object.freeze({ key: seed.key, label: seed.label, kind: seed.kind, tier: seed.tier, primaryKey: seed.primaryKey, sourceKeys: Object.freeze([...sourceKeys]), alternateTitles: Object.freeze(alternateTitles), variants: Object.freeze(variants), ...(seed.application ? { application: Object.freeze({ ...seed.application }) } : {}) });
   });
   const ranks = NATIVE_RANKS_199.map(rank => Object.freeze({ nativeSlot: rank.nativeSlot, nativeRankOrdinal: rank.nativeRankOrdinal, label: rank.name, familyKey: rankFamilies203[rank.nativeSlot] }));
-  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 134 });
+  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 135 });
 }
 
 /** Plain serializable display metadata. It is not read by backend admission. */

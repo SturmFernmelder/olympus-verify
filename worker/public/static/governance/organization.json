@@ -17,6 +17,7 @@
       "Guild Master — Council Chair",
       "Co-Guild Master",
       "Treasurer",
+      "Head of Trading & Markets",
       "MAIN Raid Lead",
       "MAIN PvP Lead",
       "Head of Justice",
@@ -25,8 +26,8 @@
       "Chief of Intake",
       "Systems / Addon Architect"
     ],
-    "summary": "The current Council brings together the Guild Master as chair, Co-Guild Master, Treasurer, MAIN Raid Lead, MAIN PvP Lead, Head of Justice, Artisanry, Heraldry, Intake and Systems remits. This current roster of responsibilities is not limited by the earlier poster.",
-    "formalStatus": "Owner clarification recorded on 28 October 2026 for the current website presentation. R7 adoption remains 13 October 2026; this is not an adopted R8 charter or a newly recorded constitutional vote or Founder ratification. Individual appointments, eligible votes and actual permissions remain separate.",
+    "summary": "The current Council brings together the Guild Master as chair, Co-Guild Master, Treasurer, Head of Trading & Markets, MAIN Raid Lead, MAIN PvP Lead, Head of Justice, Artisanry, Heraldry, Intake and Systems remits. Trading is a dedicated market portfolio, separate from Treasury custody; the current roster of responsibilities is not limited by the earlier poster.",
+    "formalStatus": "Owner clarification recorded on 28 October 2026, with the dedicated Trading & Markets portfolio added by the owner for Build .208. R7 adoption remains 13 October 2026; this current supplement is not an adopted R8 charter or a newly recorded constitutional vote or Founder ratification. Individual appointments, eligible votes and actual permissions remain separate.",
     "recommendationRecorded": false,
     "founderRatificationRecorded": false,
     "eligibleSeatIssued": false,
@@ -65,6 +66,17 @@
         ],
         "scope": "alliance",
         "description": "Alliance budgets, receipts and financial stewardship, with custody, spending approval and independent audit kept separate."
+      },
+      {
+        "id": "head-trading",
+        "label": "Head of Trading & Markets",
+        "familyKey": "head_trading",
+        "nodeId": "trading",
+        "officeKeys": [
+          "office_96"
+        ],
+        "scope": "alliance",
+        "description": "A reserved High Council portfolio devoted solely to Auction House optimization, direct buy/sell negotiation and the market economy. The Treasurer authorizes capital and risk limits and retains custody; realized results and inventory are independently reviewable. No holder or access is granted by this reference."
       },
       {
         "id": "main-raid-lead",
@@ -146,8 +158,8 @@
         "description": "Alliance architecture, compatibility, privacy and recovery planning across the addon, website and Discord tools. Engineering support remains Officer Corps; the title grants no production or signing access."
       }
     ],
-    "persistentAppointmentKeysAdded": false,
-    "seatReferenceNote": "The ten rows identify current alliance responsibilities, not ten new appointments, a fixed voting-seat count or an exhaustive list of every Council-classified title. Both MAIN War remits reference the one existing office_94 template; they do not create two persistent holder records. The Head of Justice reference does not grant blanket Council membership or votes to hearing-panel members.",
+    "persistentAppointmentKeysAdded": true,
+    "seatReferenceNote": "The eleven rows identify current alliance responsibilities, not eleven native ranks, issued appointments, a fixed voting-seat count or an exhaustive list of every Council-classified title. Build .208 appends the one reserved office_96 trading catalogue key; no holder, vote or permission is issued. Both MAIN War remits still reference the one existing office_94 template; they do not create two persistent holder records. The Head of Justice reference does not grant blanket Council membership or votes to hearing-panel members.",
     "historicalSourcePath": "/static/governance/council-composition-2026-10-19.md",
     "previousDirection": {
       "status": "owner_directed_20261023",
@@ -334,6 +346,20 @@
       "remit": "Dues accounting, approved budgets, receipts and Finance Emissaries.",
       "limits": "Treasurer is a High Council appointment associated with zero-based slot 1, not an extra native rank; bank permissions, custody and approval remain separate.",
       "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
+      "id": "trading",
+      "title": "Trading & Markets",
+      "parent": "council",
+      "relation": "accountability",
+      "kind": "dedicated High Council portfolio",
+      "icon": "treasurer",
+      "remit": "Optimize permitted Auction House and direct-trade decisions through price research, disciplined inventory and realized net trading profit.",
+      "limits": "Sole trading remit. Treasurer retains custody, approved capital and risk caps; independent audit remains separate. No dues, appeals, moderation, craft-commission management, paid rights or automatic access.",
+      "coordinates": [
+        "treasury"
+      ],
       "chapter": "organisation-and-offices"
     },
     {
@@ -3888,6 +3914,38 @@
       "applicationRoleKeys": [
         "office_95"
       ]
+    },
+    {
+      "ordinal": 96,
+      "label": "Head of Trading & Markets",
+      "classification": "portfolios",
+      "nodeId": "trading",
+      "note": "Owner-directed Build .208 High Council portfolio dedicated solely to Auction House, direct trades and market economics. Publication records a reserved office, not a holder, bank access, eligible vote or issued appointment.",
+      "nativeSlot": 1,
+      "nativeRelationship": ".208 display association: Rank 2 High Council, zero-based slot 1; no automatic appointment, vote, sanction, rank change or permission.",
+      "recommendedNativeSlots": [
+        1
+      ],
+      "nativeMappingNote": ".208 owner-directed Rank 2 High Council (zero-based slot 1) planning association. This trading portfolio adds no native rank, issued warrant, signing key or financial permission.",
+      "mappingApplies": false,
+      "officeKey": "office_96",
+      "nativeRankOrdinal": 2,
+      "nativeRankName": "High Council",
+      "tier": "high_council",
+      "tierLabel": "High Council",
+      "codexTitles": [
+        "II",
+        "III"
+      ],
+      "department": "Trading & Markets",
+      "applicationTrack": "high_council",
+      "applicationEligible": false,
+      "statusOverlay": false,
+      "acquisition": "Reserved royal appointment; no public application or payment creates this authority.",
+      "discordPortal": "High Council access requires a separately verified current appointment; this portfolio grants no automatic signing, bank, bot or portal permission.",
+      "applicationAliases": [],
+      "applicationLabel": "Head of Trading & Markets",
+      "applicationRoleKeys": []
     }
   ],
   "nativeRanks": [
@@ -4289,6 +4347,13 @@
       "duty": "Agrees a useful introduction with a named member.",
       "output": "Contact, learning goals and a review opportunity.",
       "boundary": "Support is voluntary and separate from the membership decision."
+    },
+    {
+      "nodeId": "trading",
+      "title": "Head of Trading & Markets",
+      "duty": "Researches prices and liquidity, negotiates direct trades and manages only expressly authorized trading inventory within recorded capital, concentration and loss limits.",
+      "output": "Weekly realized trading profit and loss, acquisition costs, fees, failed-auction deposits, cash, inventory age and exceptions handed to the Treasurer and independent auditor.",
+      "boundary": "Dedicated trading portfolio only; no financial custody, self-audit, unrestricted capital, public application, paid guild rights or automated game actions follow from the office."
     }
   ],
   "currentOwnerDirection": {
@@ -4322,7 +4387,8 @@
     "rulingEvidence": "Direct owner .199 confirmation in chat: Yes—High Council slot 1, Officer slot 2. Exact answer timestamp is not asserted by this static catalogue.",
     "coreCouncilOfficesScope": "Guild Master, Co-Guild Master and Treasurer identify the core executive responsibilities, not an exhaustive Council roster.",
     "councilClarificationRecordedAt": "2026-10-28",
-    "councilCompositionSourcePath": "/static/governance/council-composition-2026-10-28.md"
+    "councilCompositionSourcePath": "/static/governance/council-composition-2026-10-28.md",
+    "tradingPortfolioRuling": "Build .208: add Head of Trading & Markets as a reserved High Council appointment, Rank 2 / zero-based slot 1, devoted solely to Auction House, direct trades and market economics; Treasurer custody and independent audit remain separate."
   },
   "statutoryExpansion": {
     "source": "docs/master199-governance-titles.md",
@@ -4448,8 +4514,8 @@
     "schema": "olympus-role-rank-199/v1",
     "ownerConfirmedSlotBase": "zero-based",
     "nativeApplied": false,
-    "officeCount": 95,
-    "assignableKeyCount": 131,
+    "officeCount": 96,
+    "assignableKeyCount": 132,
     "availability": "This static register lists application routes, not vacancies. Current appointed/withheld holders and eligibility are checked by the portal; no seat is claimed open here.",
     "historicalProfileNote": "The beta-five observation and older ten-rank drafts are preserved as historical evidence, not competing current recommendations. Native adoption and key-signing profiles remain separately unverified."
   },
@@ -7339,6 +7405,35 @@
         2
       ],
       "nativeMappingNote": ".199 owner-directed Rank 3 Officer (zero-based slot 2) planning association. An accepted office, real native rank, eligible vote and actual permissions are separate; nothing is applied by this catalogue.",
+      "mappingApplies": false
+    },
+    {
+      "key": "office_96",
+      "label": "Head of Trading & Markets",
+      "group": "office",
+      "termOrdinal": 96,
+      "nativeRankOrdinal": 2,
+      "nativeSlot": 1,
+      "nativeRankName": "High Council",
+      "tier": "high_council",
+      "tierLabel": "High Council",
+      "codexTitles": [
+        "II",
+        "III"
+      ],
+      "department": "Trading & Markets",
+      "applicationTrack": "high_council",
+      "applicationEligible": false,
+      "applicationLabel": "Head of Trading & Markets",
+      "applicationAliases": [],
+      "applicationRoleKeys": [],
+      "statusOverlay": false,
+      "acquisition": "Reserved royal appointment; no public application or payment creates this authority.",
+      "discordPortal": "High Council access requires a separately verified current appointment; this portfolio grants no automatic signing, bank, bot or portal permission.",
+      "recommendedNativeSlots": [
+        1
+      ],
+      "nativeMappingNote": ".208 owner-directed Rank 2 High Council (zero-based slot 1) planning association. This trading portfolio adds no native rank, issued warrant, signing key or financial permission.",
       "mappingApplies": false
     },
     {

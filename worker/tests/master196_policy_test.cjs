@@ -111,8 +111,8 @@ const current199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Le
   nextRow = { ...nextRow, rank: 'High Council', rank_index: 2 };
   await assert.rejects(qr.rosterIdentity(env, 'Player-4613-005A70D8', true), /no_qualified_high_council/); checks++; console.log('PASS relocated Council label is not a qualified old-profile signer');
   check('every original office ordinal and every native slot has an immutable assignment key', () => {
-    assert.equal(offices.OFFICE_APPOINTMENTS.length, 131); assert.ok(Object.isFrozen(offices.OFFICE_APPOINTMENTS));
-    assert.equal(new Set(offices.OFFICE_APPOINTMENT_KEYS).size, 131);
+    assert.equal(offices.OFFICE_APPOINTMENTS.length, 132); assert.ok(Object.isFrozen(offices.OFFICE_APPOINTMENTS));
+    assert.equal(new Set(offices.OFFICE_APPOINTMENT_KEYS).size, 132);
     for (const term of organization.terms) {
       const entry = offices.OFFICE_APPOINTMENTS.find(e => e.key === 'office_' + String(term.ordinal).padStart(2, '0'));
       assert.equal(entry.label, term.label); assert.equal(entry.termOrdinal, term.ordinal); assert.ok(Object.isFrozen(entry));

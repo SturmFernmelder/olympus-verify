@@ -1423,14 +1423,58 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
 {
   "file": "worker/src/index.ts",
-  "startMarker": "const BUILD = \"2026-10-28.207 High Council treasury programme\";",
+  "startMarker": "const BUILD = \"2026-10-28.208 High Council trading portfolio\";",
   "singleLine": true,
-  "paragraphSha256": "a6f1eafb314fd3755fe33b2179dcb5a34c9e1afba011dbd3a78a705a473cbfba",
-  "paragraphBytes": 63,
+  "paragraphSha256": "8366e547e8c986eabaffc689deb146d02dcd08be8243fef6028db17153431c3d",
+  "paragraphBytes": 62,
   "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
   "count": 1,
-  "ownerRelease": 207,
-  "purpose": "Owner207 treasury programme: exact release label only; no general file or vocabulary allowance."
+  "ownerRelease": 208,
+  "purpose": "Owner208 Council trading portfolio: exact release label only; no general file or vocabulary allowance."
+},
+{
+  "file": "worker/public/static/app.js",
+  "startMarker": "      h(\"p\", { text: \"96 stable offices and 132 assignable keys share this bridge, including the dedicated High Council Head of Trading & Markets. Display classification and an application do not confer an office, game rank, Discord role or portal access. Olympus Link remains OFF; /oly discord is a future qualified verification path, not a currently active admission shortcut.\" }),",
+  "singleLine": true,
+  "paragraphSha256": "a228b5b9908b5163cb8094f18bc9b01f16e5af985bfe156323969c1369632c0c",
+  "paragraphBytes": 383,
+  "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+  "count": 1,
+  "ownerRelease": 208,
+  "purpose": "Owner208 dedicated Council trading portfolio: exact unique source line only; no general vocabulary allowance."
+},
+{
+  "file": "worker/public/static/app.js",
+  "startMarker": "      h(\"section\", { class: \"card\", id: \"trading-portfolio208\", \"aria-label\": \"Current High Council trading portfolio\" },",
+  "singleLine": true,
+  "paragraphSha256": "60d7ca9214564adea24a5cfb2752c45c8343b62b1f976153f38dfb2ad3bbb65e",
+  "paragraphBytes": 121,
+  "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+  "count": 1,
+  "ownerRelease": 208,
+  "purpose": "Owner208 dedicated Council trading portfolio: exact unique source line only; no general vocabulary allowance."
+},
+{
+  "file": "worker/public/static/app.js",
+  "startMarker": "        h(\"h2\", { text: \"Head of Trading & Markets · High Council\" }),",
+  "singleLine": true,
+  "paragraphSha256": "afc1507d07e8b8e575108afe0007feb4242a95be7053cba94f4fc1f6ea9dfe2f",
+  "paragraphBytes": 71,
+  "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+  "count": 1,
+  "ownerRelease": 208,
+  "purpose": "Owner208 dedicated Council trading portfolio: exact unique source line only; no general vocabulary allowance."
+},
+{
+  "file": "worker/public/static/app.js",
+  "startMarker": "        h(\"p\", { class: \"small muted\", text: \"The current catalogue has 96 offices and 132 assignment keys. The adopted R7 book retains its historical 95-office register and ten native ranks. The new portfolio is associated with High Council, native slot 1; it does not add a rank or open an application route.\" }),",
+  "singleLine": true,
+  "paragraphSha256": "5bc941c59f320250420eada7460ce61c89cd5b7c79267ea6305995f51d5cba50",
+  "paragraphBytes": 315,
+  "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+  "count": 1,
+  "ownerRelease": 208,
+  "purpose": "Owner208 dedicated Council trading portfolio: exact unique source line only; no general vocabulary allowance."
 }
 ]);
   const guardedCounts = (text) => {
@@ -1503,10 +1547,10 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current app contexts qualify exactly25 pinned icon, Title II, retained bridge, reserved-directory and owner203 family contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 25 && qualifiedIcon.credits[currentDigest] === 27 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly29 pinned icon, Title II, retained bridge, reserved-directory and owner203 family contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 29 && qualifiedIcon.credits[currentDigest] === 31 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the25 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 27 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the29 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 31 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
@@ -1563,15 +1607,25 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   check('.203 preserves the removed .201 descriptor as non-crediting history',RETIRED_CONTEXTS_203.length === 1 && retired203.paragraphSha256 === '6fcedb3ce38833ba61b5d0ccb4cc81e964209eb1e30423aee275e84cbbe03271' && !CURRENT_CONTEXTS.some(spec => spec.paragraphSha256 === retired203.paragraphSha256) && !iconText.includes(retiredText203) && sha(retiredText203) === retired203.paragraphSha256 && vocabularyOverages(iconFile,iconText+'\n\n'+retiredText203).some(value => value.includes(currentDigest.slice(0,12)+' x2')));
   check('.203 leaves every other withheld-digest allowance unchanged',[...GUARD].filter(digest => digest !== currentDigest).every(digest => qualifiedIcon.credits[digest] === undefined && overOriginalVocabularyAllowance(iconFile,{[digest]:((ALLOWED[iconFile] || {})[digest] || 0)+1},qualifiedIcon).some(value => value.includes(digest.slice(0,12)))));
 
+  // .208's four newly authorised display lines keep exact byte and negative-case gates.
+  const tradingContexts208=CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===208 && spec.file===iconFile);
+  check('.208 only four exact new trading-display lines receive one current-rank credit each',tradingContexts208.length===4 && tradingContexts208.every(spec=>spec.singleLine===true && spec.count===1 && spec.digest===currentDigest) && GUARD.size===28);
+  for(const spec of tradingContexts208){
+    const paragraph=qualifiedIcon.paragraphs.find(value=>value.startsWith(spec.startMarker))||'',changed=paragraph.slice(0,-1)+'!';
+    check('.208 trading display qualifies its exact source bytes '+spec.paragraphSha256.slice(0,12),qualifiedIcon.errors.length===0 && Buffer.byteLength(paragraph,'utf8')===spec.paragraphBytes && sha(paragraph)===spec.paragraphSha256 && (guardedCounts(paragraph)[currentDigest]||0)===1);
+    check('.208 edited or duplicate trading lines cannot borrow another credit '+spec.paragraphSha256.slice(0,12),!!paragraph && currentContextQualification(iconFile,iconText.replace(paragraph,changed)).errors.length>0 && vocabularyOverages(iconFile,iconText.replace(paragraph,changed)).length>0 && currentContextQualification(iconFile,iconText+'\n'+paragraph).errors.length>0 && vocabularyOverages(iconFile,iconText+'\n'+paragraph).length>0);
+    check('.208 trading bytes in a different guarded file receive no credit '+spec.paragraphSha256.slice(0,12),!!paragraph && Object.keys(currentContextQualification('README.md',paragraph).credits).length===0 && vocabularyOverages('README.md',paragraph).some(value=>value.includes(currentDigest.slice(0,12))));
+  }
+
   // The owner-directed current Council release label is one exact public-rank line.
   // This never raises ALLOWED or removes any original withheld digest.
-  const buildSpecs207 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===207), buildFile207='worker/src/index.ts';
-  const buildText207=guarded.find(([file])=>file===buildFile207)[1], buildQualification207=currentContextQualification(buildFile207,buildText207);
-  const buildLine207=buildSpecs207.length===1 ? buildQualification207.paragraphs.find(value=>value.startsWith(buildSpecs207[0].startMarker))||'' : '';
-  check('.207 qualifies exactly one byte-pinned current release label without expanding original allowances',buildSpecs207.length===1 && buildSpecs207[0].file===buildFile207 && buildSpecs207[0].singleLine===true && buildSpecs207[0].digest===currentDigest && buildSpecs207[0].count===1 && buildQualification207.errors.length===0 && buildQualification207.credits[currentDigest]===1 && Buffer.byteLength(buildLine207,'utf8')===buildSpecs207[0].paragraphBytes && sha(buildLine207)===buildSpecs207[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile207]).length===1 && ALLOWED[buildFile207][currentDigest]===undefined);
-  check('.207 changing or duplicating the release label loses its exact context credit',!!buildLine207 && currentContextQualification(buildFile207,buildText207.replace(buildLine207,buildLine207+'!')).errors.length>0 && vocabularyOverages(buildFile207,buildText207.replace(buildLine207,buildLine207+'!')).length>0 && currentContextQualification(buildFile207,buildText207+'\n'+buildLine207).errors.length>0 && vocabularyOverages(buildFile207,buildText207+'\n'+buildLine207).length>0);
-  check('.207 an extra occurrence outside the label or in another file stays restricted',!!buildLine207 && vocabularyOverages(buildFile207,buildText207+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine207).credits).length===0 && vocabularyOverages('README.md',buildLine207).some(value=>value.includes(currentDigest.slice(0,12))));
-  check('.207 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification207.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile207,{[digest]:((ALLOWED[buildFile207]||{})[digest]||0)+1},buildQualification207).some(value=>value.includes(digest.slice(0,12)))));
+  const buildSpecs208 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===208 && spec.file==='worker/src/index.ts'), buildFile208='worker/src/index.ts';
+  const buildText208=guarded.find(([file])=>file===buildFile208)[1], buildQualification208=currentContextQualification(buildFile208,buildText208);
+  const buildLine208=buildSpecs208.length===1 ? buildQualification208.paragraphs.find(value=>value.startsWith(buildSpecs208[0].startMarker))||'' : '';
+  check('.208 qualifies exactly one byte-pinned current release label without expanding original allowances',buildSpecs208.length===1 && buildSpecs208[0].file===buildFile208 && buildSpecs208[0].singleLine===true && buildSpecs208[0].digest===currentDigest && buildSpecs208[0].count===1 && buildQualification208.errors.length===0 && buildQualification208.credits[currentDigest]===1 && Buffer.byteLength(buildLine208,'utf8')===buildSpecs208[0].paragraphBytes && sha(buildLine208)===buildSpecs208[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile208]).length===1 && ALLOWED[buildFile208][currentDigest]===undefined);
+  check('.208 changing or duplicating the release label loses its exact context credit',!!buildLine208 && currentContextQualification(buildFile208,buildText208.replace(buildLine208,buildLine208+'!')).errors.length>0 && vocabularyOverages(buildFile208,buildText208.replace(buildLine208,buildLine208+'!')).length>0 && currentContextQualification(buildFile208,buildText208+'\n'+buildLine208).errors.length>0 && vocabularyOverages(buildFile208,buildText208+'\n'+buildLine208).length>0);
+  check('.208 an extra occurrence outside the label or in another file stays restricted',!!buildLine208 && vocabularyOverages(buildFile208,buildText208+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine208).credits).length===0 && vocabularyOverages('README.md',buildLine208).some(value=>value.includes(currentDigest.slice(0,12))));
+  check('.208 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification208.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile208,{[digest]:((ALLOWED[buildFile208]||{})[digest]||0)+1},buildQualification208).some(value=>value.includes(digest.slice(0,12)))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");

@@ -160,6 +160,7 @@ Use existing offices and current High Council remits; no appointment or permissi
 | --- | --- |
 | Guild Master / Co-GM | Sponsorship, budget priorities and target/deadline decisions |
 | Treasurer, High Council | Forecast, authorised custody records, reconciliation, obligations and reserves |
+| Head of Trading & Markets, High Council | Sole focus: auction-house and direct-item trading, market research, funded execution and inventory optimisation; report realised net profit, sell-through, capital exposure, stock age and time to cash within separately approved capital and loss limits |
 | Independent Bank Auditor | Independent review, discrepancy reporting, no revenue quota and no self-review |
 | Minister of Artisanry / Workshop leads | Demand, funded production, complete costs, quality and provider backups |
 | Main Raid Lead / Main PvP Lead, High Council remits | Useful activity needs, capacity and costed spending requests |
@@ -169,6 +170,8 @@ Use existing offices and current High Council remits; no appointment or permissi
 | Systems/reporting support | Aggregate assistance within existing access, privacy, retention and erasure boundaries |
 
 Daily: inspect orders, stock, overdue work and payment exceptions. Weekly: reconcile, settle authorised payments and publish the aggregate scorecard. Fortnightly: reconsider forecast, feedback, workload and channel profitability. Monthly: independent review and Council budget decisions. Quarterly: reassess benefits, reserves and succession.
+
+The dedicated trading portfolio is the owner's .208 addition, recorded 28 October 2026. It does not absorb the Treasurer's custody, budgets or reconciliation, independent audit, donation collection or Workshop commission administration. The trading head proposes opportunities and executes only within a separately authorised funded mandate. Costs include item acquisition, actual auction fees, lost deposits and agreed charges; turnover and unsold inventory do not count as realised profit. Report losses and conflicts openly. The 0g opening snapshot, unconfirmed demand and unchanged illustrative forecast establish no funded trading mandate or promised return.
 
 ## One programme, connected frameworks
 

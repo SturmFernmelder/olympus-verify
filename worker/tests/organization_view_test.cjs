@@ -58,7 +58,7 @@ class Element {
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [], overview205 = false } = {}) {
+function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [], overview205 = false, model = data } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
   doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
@@ -71,7 +71,7 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
   // The shared directory implementation is exercised by the actual app suites.
   // This module fixture supplies its documented canonical ordinary link contract.
-  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, allianceOverview205:overview205?()=>h('section',{class:'org-alliance'}):undefined, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
+  const dispose = sandbox.renderOrganization(main, model, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, allianceOverview205:overview205?()=>h('section',{class:'org-alliance'}):undefined, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
@@ -81,6 +81,11 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
+check('.208 chart search accessible name states all96 current labels', data.terms.length === 96 && p.doc.getElementById('organization-search').getAttribute('aria-label') === 'Search all offices and 96 labels');
+const originalDataCount208 = JSON.stringify(data), syntheticCountModel208 = { ...data, terms: [...data.terms, { ...data.terms[95], ordinal: 97, officeKey: 'office_97', label: 'Synthetic label-count witness only' }] };
+const syntheticCountView208 = open({ model: syntheticCountModel208 });
+check('.208 accessible search count follows its supplied model without mutating the canonical catalogue', syntheticCountModel208.terms.length === 97 && syntheticCountView208.doc.getElementById('organization-search').getAttribute('aria-label') === 'Search all offices and 97 labels' && JSON.stringify(data) === originalDataCount208 && data.terms.length === 96);
+syntheticCountView208.dispose();
 const wide205=open({overview205:true});
 check('.205 default wide overview keeps the exact map available in a collapsed disclosure',!wide205.one('org-relationship-map205').open&&!!wide205.one('org-alliance'));
 const deepOffice205=open({overview205:true,parts:['office_27']});
@@ -89,7 +94,7 @@ const deepNode205=open({overview205:true,parts:['treasury']});
 check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Federal Treasury'));
 wide205.main.all(n=>n.getAttribute('data-office-key')==='office_08')[0].children[0].click(0);
 check('.205 historical catalogue selections reveal the outer map before focusing its reader',wide205.one('org-relationship-map205').open&&wide205.doc.activeElement===wide205.detail);
-check(".199 exact ten ranks and individual High Council/Officer Corps cards are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 95 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
+check(".199 exact ten ranks and individual High Council/Officer Corps cards are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 96 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
 check("one shared canonical directory replaces repeated public office guides",p.main.all(n=>n.getAttribute('data-shared-families203')==='true').length===1&&p.main.all(n=>n.classList.contains('org-catalogue-history203')).some(n=>!n.open&&n.textContent.includes('original identifiers'))&&p.main.all(n=>n.getAttribute('data-office-application')).map(n=>n.getAttribute('data-office-application')).sort().join('|')==='member|office_07|raider');
 check("all reserved tiers have no application link even with the historical catalogue eligibility", !p.main.textContent.includes('Open seat') && data.terms.filter(t=>['leader','high_council','officer_corps'].includes(t.tier)).every(t=>!p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).length) && p.main.textContent.includes('Reserved seat — no applications. A missing holder is not a vacancy'));
 const occupied199=open({officeAvailability:{office_03:false,office_62:false,office_74:true,office_07:true,office_27:false},parts:['office_27']});
@@ -100,7 +105,7 @@ check("historical profiles are collapsed behind the named technical disclosure a
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
 check("the Council remains initially selected", p.node("council").getAttribute("aria-pressed") === "true");
 const council = p.one("org-council-overview"), offices = p.one("org-council-offices");
-check("the current Council names all ten alliance remits including Justice and both MAIN War heads", JSON.stringify(offices.children.map(n => n.textContent)) === JSON.stringify(data.councilComposition.currentSeats.map(row=>row.label)) && offices.children.length === 10 && ['Treasurer','Co-Guild Master','MAIN Raid Lead','MAIN PvP Lead','Head of Justice'].every(label=>offices.textContent.includes(label)));
+check("the current Council names all eleven alliance remits including Trading, Justice and both MAIN War heads", JSON.stringify(offices.children.map(n => n.textContent)) === JSON.stringify(data.councilComposition.currentSeats.map(row=>row.label)) && offices.children.length === 11 && ['Treasurer','Head of Trading & Markets','Co-Guild Master','MAIN Raid Lead','MAIN PvP Lead','Head of Justice'].every(label=>offices.textContent.includes(label)));
 check("regional operational leaders remain distinct from accepted alliance appointments", council.textContent.includes("Council seats require an accepted appointment") && council.textContent.includes("Regional Raid and PvP leads remain distinct Officer Corps responsibilities"));
 check("Justice keeps case designation and conflict review", council.textContent.includes("ordinarily serve the Council of Justice, subject to case designation and conflict review"));
 check("support, advisers and the current composition do not issue votes or permission", council.textContent.includes("shared support") && council.textContent.includes("not automatically voting councillors") && council.textContent.includes("does not itself issue an eligible vote, individual warrant, native rank or permission") && council.textContent.includes("One person still has one vote, subject to recusal"));
@@ -114,6 +119,8 @@ check("the dated Council record retains its entire original2939-byte historical 
 check("the owner supersession is one exact prefix and removing it recovers only the preserved historical record", councilNotice199.length === 886 && councilDigest199(councilNotice199) === "272199fde83ac5fa65d41c33711358c7ef8dc53bdd36d73c68b136a4818f5ac2" && Buffer.concat([councilNotice199, councilHistory199]).equals(councilRecord199));
 check("the current website notice states exactzero-based slots and appointments without claiming actual game or signing-profile adoption", councilNotice199.toString().includes("current .199 website hierarchy") && councilNotice199.toString().includes("Leader: zero-based slot 0; High Council: zero-based slot 1; Officer: zero-based slot 2") && councilNotice199.toString().includes("Co-Guild Master and Treasurer are High Council appointments, **not additional native ranks**") && councilNotice199.toString().includes("(/#/roles/rosetta-stone)") && councilNotice199.toString().includes("Actual in-game configuration, signing profiles, accepted warrants, Council votes and bank permissions require their separate attended verification and records."));
 check("the clarification links the existing operational charter", council.all(n => n.tagName === "A").some(n => n.getAttribute("href") === "#/governance/operational-charter-the-work-of-olympus" && n.textContent.includes("O3")));
+const tradingDeep208 = open({ overview205: true, parts: ['office_96'] });
+check('.208 dedicated trading deep link opens its own mandate with reserved Council classification', tradingDeep208.one('org-relationship-map205').open && tradingDeep208.doc.activeElement === tradingDeep208.detail && tradingDeep208.detail.textContent.includes('Head of Trading & Markets') && tradingDeep208.detail.textContent.includes('Auction House') && tradingDeep208.detail.textContent.includes('Rank 2 High Council') && tradingDeep208.main.all(node => node.getAttribute('data-office-key') === 'office_96').some(node => node.textContent.includes('Reserved seat — no applications')) && !tradingDeep208.detail.all(node => node.getAttribute('data-office-application') === 'office_96').length);
 check("the static model still issues no appointments", data.appointmentsIssued === false);
 const chartNodes = data.nodes.filter(n => n.relation !== "classification"), visibleIds = page => page.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.getAttribute("data-organization-node"));
 const scaleOf = page => Number(/scale\(([^)]+)\)/.exec(page.stage.style.transform)?.[1]);
@@ -155,7 +162,7 @@ check("closing full screen preserves the complete inline overview", visibleIds(o
 const disposedTransform183=overview183.stage.style.transform;overview183.dispose();overview183.resize(500);
 check("leaving the organization disconnects only its own resize observer and prevents late layout work", overview183.observers.every(observer=>observer.disconnected) && overview183.stage.style.transform===disposedTransform183);
 p.node("treasury").click(0); p.button("Fit branch").click();
-check("a selected branch includes incoming working partners without inventing reporting authority", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(["treasury", "council", "emissary-finance"].sort()) && p.node("treasury").getAttribute("aria-pressed") === "true" && scaleOf(p) >= .85);
+check("a selected branch includes incoming working partners without inventing reporting authority", JSON.stringify(visibleIds(p).sort()) === JSON.stringify(["treasury", "trading", "council", "emissary-finance"].sort()) && p.node("treasury").getAttribute("aria-pressed") === "true" && scaleOf(p) >= .85);
 p.node("council").click(0);
 
 let before = p.stage.style.transform;

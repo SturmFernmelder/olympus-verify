@@ -16,7 +16,7 @@ const enter174 = field => { const event = new Event("keydown", { bubbles: true }
 const directoryCoverage203 = page => {
   const model=page.boot.meta.roleDirectory203, expected=[...page.boot.meta.appointments.map(row=>row.key),"member","raider","pvp_team"].sort();
   const actual=page.app.querySelectorAll("[data-role-key201]").map(row=>row.getAttribute("data-role-key201")).sort();
-  return model?.version===1 && model.sourceKeyCount===134 && expected.length===134 && JSON.stringify(actual)===JSON.stringify(expected)
+  return model?.version===1 && model.sourceKeyCount===135 && expected.length===135 && JSON.stringify(actual)===JSON.stringify(expected)
     && page.app.querySelectorAll("details.role-family203").length===model.families.length;
 };
 (async () => {

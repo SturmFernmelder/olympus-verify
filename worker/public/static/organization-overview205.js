@@ -52,7 +52,7 @@ export function buildAllianceOverview205(data, directory) {
   }
   if (sourceKeys.size !== directory.sourceKeyCount || directory.ranks.length !== 10 || directory.ranks.some((rank, slot) => rank.nativeSlot !== slot || rank.nativeRankOrdinal !== slot + 1)) throw new Error("Incomplete canonical role or rank coverage.");
   const councilSeats = data.councilComposition?.currentSeats;
-  const seatIds = ["gm-chair", "co-gm", "treasurer", "main-raid-lead", "main-pvp-lead", "head-justice", "artisanry", "heraldry", "intake", "systems"];
+  const seatIds = ["gm-chair", "co-gm", "treasurer", "head-trading", "main-raid-lead", "main-pvp-lead", "head-justice", "artisanry", "heraldry", "intake", "systems"];
   const canonicalFamilies = new Map(directory.families.map(family => [family.key, family]));
   if (!Array.isArray(councilSeats) || councilSeats.length !== seatIds.length || new Set(councilSeats.map(seat => seat.id)).size !== seatIds.length || seatIds.some(id => !councilSeats.some(seat => seat.id === id)) || councilSeats.some(seat => {
     const family = canonicalFamilies.get(seat.familyKey);
@@ -127,7 +127,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     return row;
   }
   const councilRoster = h("section", { class: "org-alliance-current-council", "aria-label": "Current High Council composition" }, h("h4", { text: "The current Council seats and portfolios" }),
-    h("p", { text: "The Guild Master chairs the Council. The Co-GM, Treasurer, main Raid Lead, main PvP Lead and head of Justice sit alongside the other alliance portfolio heads below. These are alliance-wide responsibilities; regional and branch activity leaders have separate remits." }),
+    h("p", { text: "The Guild Master chairs the Council. The Co-GM, Treasurer, Head of Trading & Markets, main Raid Lead, main PvP Lead and head of Justice sit alongside the other alliance portfolio heads below. These are alliance-wide responsibilities; regional and branch activity leaders have separate remits." }),
     h("ul", { class: "org-alliance-council-seats" }, model.councilSeats.map(seat => seatReference(seat, true))),
     h("p", { class: "small muted", text: "Council composition identifies the remit, not a named holder. Leadership seats remain reserved appointments. Regional Raid Leaders and PvP Leads do not acquire a Council seat through an event assignment." }),
     h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council composition (28 October 2026)" }));

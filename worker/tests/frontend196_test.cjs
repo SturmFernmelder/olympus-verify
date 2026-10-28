@@ -44,7 +44,7 @@ const body196=String.raw`
   check('.198 real profile opt-out removes both profession and recipe cards',!workshop198.app.querySelector('.craft')&&!workshop198.app.querySelector('.workshop-commission'));
   await staff.go('#/admin/settings');
   await waitFor(()=>!!staff.app.querySelector('[data-appointment-status="office_95"]'),'all offices rendered');
-  check('all131 stable office and rank keys have a real Discord picker',staff.boot.meta.appointments.length===131 && staff.app.querySelectorAll('.appointed-row').length===131 && staff.app.querySelectorAll('.appointed-row [role="combobox"]').length===131);
+  check('all132 stable office and rank keys have a real Discord picker',staff.boot.meta.appointments.length===132 && staff.app.querySelectorAll('.appointed-row').length===132 && staff.app.querySelectorAll('.appointed-row [role="combobox"]').length===132);
   check('expanded picker consent does not confer native, bank or signer authority',staff.app.textContent.includes('do not change Discord roles, native ranks, bank access or signing authority'));
   check('annual member intent renewal is visible with exact application and date',staff.app.textContent.includes('1550176895671341076') && staff.app.textContent.includes('2027-10-23'));
   check('dormant Battle.net collection exposes no future enable checkbox',!staff.app.querySelector('#bnet-switch'));
