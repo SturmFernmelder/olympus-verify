@@ -58,7 +58,7 @@ class Element {
   showModal() { if (this.failModal) throw new Error("modal refused"); this.open = true; }
   close() { this.open = false; this.dispatch("close"); }
 }
-function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [] } = {}) {
+function open({ mobile = false, width = 800, officeAvailability = undefined, parts = [], overview205 = false } = {}) {
   const doc = new Element("#document"); doc.doc = doc; doc.head = new Element("head", doc); doc.body = new Element("body", doc); doc.append(doc.head, doc.body);
   doc.viewportWidth = width; doc.dialogWidth = mobile ? width : 1100;
   doc.createElement = t => new Element(t, doc); doc.createElementNS = (_ns, t) => new Element(t, doc);
@@ -71,7 +71,7 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   vm.runInNewContext(source.replace("export function renderOrganization", "function renderOrganization") + ";globalThis.renderOrganization=renderOrganization;", sandbox, { filename: "organization-view.js" });
   // The shared directory implementation is exercised by the actual app suites.
   // This module fixture supplies its documented canonical ordinary link contract.
-  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
+  const dispose = sandbox.renderOrganization(main, data, { h, add: (el, nodes) => el.append(nodes), clear: el => el.replaceChildren(), posIcon: () => h("img"), parts, officeAvailability, roleDirectory203:directory203, allianceOverview205:overview205?()=>h('section',{class:'org-alliance'}):undefined, roleFamilyDirectory203:()=>h('div',{'data-shared-families203':'true'},directory203.families.map(row=>h('article',null,h('a',{href:'#/roles/'+row.key,text:row.label}),row.application&&officeAvailability?.[row.primaryKey]!==false?h('a',{'data-office-application':row.primaryKey,href:'#/vote/'+row.application.applicationTrack+'/'+encodeURIComponent(row.application.targetOffice||'new'),text:'Review ordinary role application'}):null))) });
   const flush = () => { while (frames.length) frames.shift()(); }; flush();
   const one = cls => main.all(n => n.classList.contains(cls))[0];
   const button = text => main.all(n => n.tagName === "BUTTON" && n.textContent === text)[0];
@@ -81,6 +81,14 @@ function open({ mobile = false, width = 800, officeAvailability = undefined, par
   return { main, doc, flush, one, button, node, pointer, resize, dispose, observers, viewport: one("org-viewport"), stage: one("org-stage"), detail: one("org-inspector"), dialog: one("org-fullscreen") };
 }
 const p = open();
+const wide205=open({overview205:true});
+check('.205 default wide overview keeps the exact map available in a collapsed disclosure',!wide205.one('org-relationship-map205').open&&!!wide205.one('org-alliance'));
+const deepOffice205=open({overview205:true,parts:['office_27']});
+check('.205 an existing office deep link reveals its complete mandate inside the outer map',deepOffice205.one('org-relationship-map205').open&&deepOffice205.doc.activeElement===deepOffice205.detail&&deepOffice205.detail.textContent.includes('Crafter'));
+const deepNode205=open({overview205:true,parts:['treasury']});
+check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Federal Treasury'));
+wide205.main.all(n=>n.getAttribute('data-office-key')==='office_08')[0].children[0].click(0);
+check('.205 historical catalogue selections reveal the outer map before focusing its reader',wide205.one('org-relationship-map205').open&&wide205.doc.activeElement===wide205.detail);
 check(".199 exact ten ranks and individual High Council/Officer Corps cards are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 95 && p.main.all(n=>n.getAttribute('data-tier-group')==='high_council').length===1 && p.main.all(n=>n.getAttribute('data-tier-group')==='officer_corps').length===1);
 check("one shared canonical directory replaces repeated public office guides",p.main.all(n=>n.getAttribute('data-shared-families203')==='true').length===1&&p.main.all(n=>n.classList.contains('org-catalogue-history203')).some(n=>!n.open&&n.textContent.includes('original identifiers'))&&p.main.all(n=>n.getAttribute('data-office-application')).map(n=>n.getAttribute('data-office-application')).sort().join('|')==='member|office_07|raider');
 check("all reserved tiers have no application link even with the historical catalogue eligibility", !p.main.textContent.includes('Open seat') && data.terms.filter(t=>['leader','high_council','officer_corps'].includes(t.tier)).every(t=>!p.main.all(n=>n.getAttribute('data-office-application')===t.officeKey).length) && p.main.textContent.includes('Reserved seat — no applications. A missing holder is not a vacancy'));
@@ -236,3 +244,5 @@ check("compact fullscreen keeps zoom, branch fit, map and search while hiding on
 check("the organization renderer remains text-only", !/innerHTML|outerHTML|insertAdjacentHTML/.test(source));
 console.log(`\n${passed}/${passed + failed} organization view checks passed`);
 if (failed) process.exitCode = 1;
+// Keep the new wide view's semantic checks in the existing qualified CI leaf.
+require('./organization_overview205_test.cjs');

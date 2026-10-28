@@ -1,0 +1,202 @@
+// The real .205 overview modules and canonical .203 family directory, in a small DOM.
+// This suite checks presentation and interaction only; no appointment or authority is issued.
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), ts = require('typescript');
+const root = path.join(__dirname, '..'), staticRoot = path.join(root, 'public/static'), sourceRoot = path.join(root, 'src');
+const model = JSON.parse(fs.readFileSync(path.join(staticRoot, 'governance/organization.json'), 'utf8'));
+let passed = 0, failed = 0;
+function check(label, condition) {
+  if (condition) { passed++; console.log('PASS ' + label); }
+  else { failed++; console.error('FAIL ' + label); }
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const sorted = values => [...values].sort();
+
+function sourceLoader() {
+  const cache = new Map();
+  function load(relative) {
+    const file = path.resolve(sourceRoot, relative.endsWith('.ts') ? relative : relative + '.ts');
+    if (!file.startsWith(sourceRoot + path.sep)) throw Error('source escape');
+    if (cache.has(file)) return cache.get(file).exports;
+    const module = { exports: {} }; cache.set(file, module);
+    const result = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }, reportDiagnostics: true });
+    if ((result.diagnostics || []).some(row => row.category === ts.DiagnosticCategory.Error)) throw Error('source transpilation failed');
+    new Function('exports', 'require', 'module', result.outputText)(module.exports, key => key.startsWith('.') ? load(path.relative(sourceRoot, path.resolve(path.dirname(file), key))) : require(key), module);
+    return module.exports;
+  }
+  return load;
+}
+const loadSource = sourceLoader(), directory = loadSource('site-role-directory203').ROLE_DIRECTORY_203;
+const catalogue = loadSource('governance-offices').OFFICE_APPOINTMENTS;
+const guides = loadSource('site-role-guides201').roleGuides201(loadSource('site-data').POSITIONS);
+
+class Element {
+  constructor(tag, doc) { this.tagName = tag.toUpperCase(); this.doc = doc; this.children = []; this.parentNode = null; this.attributes = {}; this.listeners = {}; this.style = {}; this.hidden = false; this.open = false; this.value = ''; this._text = ''; }
+  append(...nodes) { for (const value of nodes.flat(Infinity).filter(value => value != null && value !== false)) { const node = typeof value === 'object' ? value : this.doc.createTextNode(value); node.remove(); node.parentNode = this; this.children.push(node); } }
+  remove() { if (this.parentNode) { this.parentNode.children = this.parentNode.children.filter(node => node !== this); this.parentNode = null; } }
+  replaceChildren(...nodes) { for (const node of this.children) node.parentNode = null; this.children = []; this._text = ''; this.append(...nodes); }
+  get textContent() { return this._text + this.children.map(node => node.textContent).join(''); }
+  set textContent(value) { this.replaceChildren(); this._text = String(value); }
+  get id() { return this.attributes.id || ''; } set id(value) { this.setAttribute('id', value); }
+  get className() { return this.attributes.class || ''; } set className(value) { this.setAttribute('class', value); }
+  setAttribute(key, value) { this.attributes[key] = String(value); }
+  getAttribute(key) { return this.attributes[key] ?? null; }
+  removeAttribute(key) { delete this.attributes[key]; }
+  get classList() {
+    const node = this, values = () => new Set(node.className.split(/\s+/).filter(Boolean));
+    return { contains: value => values().has(value), add(...items) { node.className = [...new Set([...values(), ...items])].join(' '); }, remove(...items) { node.className = [...values()].filter(value => !items.includes(value)).join(' '); }, toggle(value, force) { const set = values(), on = force ?? !set.has(value); if (on) set.add(value); else set.delete(value); node.className = [...set].join(' '); return on; } };
+  }
+  all(predicate) { return this.children.flatMap(node => [...(predicate(node) ? [node] : []), ...node.all(predicate)]); }
+  matches(selector) {
+    const tag = /^[a-z]+/i.exec(selector)?.[0];
+    if (tag && this.tagName !== tag.toUpperCase()) return false;
+    const id = /#([\w-]+)/.exec(selector)?.[1];
+    if (id && this.id !== id) return false;
+    if ([...selector.matchAll(/\.([\w-]+)/g)].some(match => !this.classList.contains(match[1]))) return false;
+    return [...selector.matchAll(/\[([\w-]+)(?:=["']?([^\]"']*)["']?)?\]/g)].every(([, key, value]) => value === undefined ? this.getAttribute(key) !== null : this.getAttribute(key) === value);
+  }
+  querySelectorAll(selector) { return this.all(node => selector.split(',').some(part => node.matches(part.trim()))); }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  closest(selector) { for (let node = this; node; node = node.parentNode) if (node.matches(selector)) return node; return null; }
+  contains(target) { for (let node = target; node; node = node.parentNode) if (node === this) return true; return false; }
+  addEventListener(type, listener) { (this.listeners[type] ||= []).push(listener); }
+  dispatch(type, init = {}) {
+    const event = { type, target: this, defaultPrevented: false, stopped: false, ...init, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+    for (let node = this; node; node = node.parentNode) { for (const listener of node.listeners[type] || []) listener(event); if (event.stopped) break; }
+    return event;
+  }
+  click() { return this.dispatch('click'); }
+  focus() { this.doc.activeElement = this; }
+}
+function open() {
+  const document = new Element('#document'); document.doc = document;
+  document.createElement = tag => new Element(tag, document);
+  document.createTextNode = text => { const node = new Element('#text', document); node.textContent = text; return node; };
+  document.getElementById = id => document.all(node => node.id === id)[0] || null;
+  const h = (tag, attrs, ...children) => {
+    const element = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs || {})) {
+      if (value == null || value === false) continue;
+      if (key === 'text') element.textContent = value;
+      else if (key.startsWith('on')) element.addEventListener(key.slice(2), value);
+      else if (['value', 'hidden', 'open', 'disabled', 'checked'].includes(key)) element[key] = value;
+      else element.setAttribute(key, value);
+    }
+    element.append(...children); return element;
+  };
+  const guideCalls = [], selected = [], requests = [], cache = new Map();
+  const sandbox = vm.createContext({ document, console, fetch: (...args) => { requests.push(args); throw Error('overview network request'); } });
+  function load(name) {
+    const file = path.resolve(staticRoot, name);
+    if (!['organization-overview205.js', 'organization-context205.js'].includes(path.relative(staticRoot, file))) throw Error('unlisted overview dependency');
+    if (cache.has(file)) return cache.get(file).exports;
+    const module = { exports: {} }; cache.set(file, module);
+    const result = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { allowJs: true, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }, reportDiagnostics: true });
+    if ((result.diagnostics || []).some(row => row.category === ts.DiagnosticCategory.Error)) throw Error('overview transpilation failed');
+    const wrapper = vm.runInContext('(function(exports, require, module) {\n' + result.outputText + '\n})', sandbox, { filename: path.basename(file) });
+    wrapper(module.exports, key => load(key.startsWith('/static/') ? key.slice('/static/'.length) : path.relative(staticRoot, path.resolve(path.dirname(file), key))), module);
+    return module.exports;
+  }
+  const overview = load('organization-overview205.js');
+  const section = overview.renderAllianceOverview205(model, { h, add: (parent, nodes) => parent.append(nodes), clear: element => element.replaceChildren(), posIcon: () => h('img'), roleDirectory203: directory, roleGuides201: guides, roleGuide201: key => {
+    guideCalls.push(key);
+    const guide = guides[key];
+    if (!guide) throw Error('missing real role guide ' + key);
+    return h('div', { 'data-real-guide-fixture': key }, h('p', { text: guide.definition }), h('ul', null, guide.responsibilities.map(text => h('li', { text }))), h('ul', null, guide.expectations.map(text => h('li', { text }))), h('p', { text: guide.commitment }), h('p', { text: guide.boundaries }));
+  } }, id => selected.push(id));
+  document.append(section);
+  const families = () => section.all(node => node.getAttribute('data-alliance-family') !== null);
+  const visible = () => families().filter(node => !node.hidden).map(node => node.getAttribute('data-alliance-family'));
+  const input = (id, value, type) => { const field = document.getElementById(id); if (!field) throw Error('missing field ' + id); field.value = value; field.dispatch(type); };
+  return { ...overview, section, document, guideCalls, selected, requests, families, visible, input, context: load('organization-context205.js') };
+}
+
+const originalModel = JSON.stringify(model), originalDirectory = JSON.stringify(directory), page = open();
+const overview = page.buildAllianceOverview205(model, directory), groups = overview.groups, entries = groups.flatMap(group => group.families);
+const expectedKeys = sorted([...catalogue.map(row => row.key), 'member', 'raider', 'pvp_team']);
+check('real canonical fixture contains exactly64 role families and134 original keys', directory.families.length === 64 && directory.sourceKeyCount === 134 && expectedKeys.length === 134);
+check('ten overview groups preserve the five portfolio lanes plus leadership and independent work', same(groups.map(group => group.key), ['leadership', 'council', 'independent', 'war', 'treasury', 'artisanry', 'heraldry', 'systems', 'officers', 'members']));
+check('all64 canonical families occur exactly once without a new presentation identity', entries.length === 64 && new Set(entries.map(row => row.family.key)).size === 64 && same(sorted(entries.map(row => row.family.key)), sorted(directory.families.map(row => row.key))));
+check('every family keeps its complete original primary, variants and source keys', entries.every(row => same(row.family, directory.families.find(family => family.key === row.family.key))) && same(sorted(entries.flatMap(row => row.family.sourceKeys)), expectedKeys) && overview.sourceKeyCount === 134);
+const expectedRelationships = model.nodes.filter(node => node.parent && node.relation !== 'classification').map(node => ({ from: node.id, to: node.parent, kind: node.relation }));
+check('relationship context preserves every original reporting and independent-review edge', same(overview.relationships, expectedRelationships) && overview.relationships.some(edge => edge.from === 'auditor' && edge.kind === 'independence') && overview.relationships.some(edge => edge.from === 'justice' && edge.kind === 'independence'));
+check('five departmental lanes retain their actual charter context and explicit boundaries', same(page.context.ORGANIZATION_LANES205.map(lane => lane.key), ['war', 'treasury', 'artisanry', 'heraldry', 'systems']) && page.context.ORGANIZATION_LANES205.every(lane => model.nodes.some(node => node.id === lane.rootId) && lane.duties.length === 3 && lane.boundary.length > 50) && page.section.all(node => node.getAttribute('data-lane') !== null).length === 5);
+const rankNames = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
+check('the overview preserves the exact ten native ranks and zero-based slots', overview.ranks.length === 10 && overview.ranks.every((rank, slot) => rank.nativeSlot === slot && rank.nativeRankOrdinal === slot + 1 && (rank.label || rank.name) === rankNames[slot]));
+check('rendered native strip has slots0–9 once and creates no eleventh native rank', same(page.section.all(node => node.getAttribute('data-alliance-rank') !== null).map(node => node.getAttribute('data-alliance-rank')), rankNames.map((_, slot) => String(slot))) && !page.section.all(node => node.getAttribute('data-native-rank') !== null).length);
+check('rendered overview contains every canonical family once before filtering', page.families().length === 64 && page.visible().length === 64 && new Set(page.visible()).size === 64 && page.section.classList.contains('org-alliance'));
+
+const sourceRows = new Map([...model.appointments, ...(model.roleRank199.offices || [])].map(row => [row.key, row]));
+check('rank filters use only each family original recommended or native slots', entries.every(row => {
+  const expected = [...new Set(row.family.sourceKeys.flatMap(key => {
+    const source = sourceRows.get(key); return source ? source.recommendedNativeSlots || [source.nativeSlot] : [];
+  }).filter(Number.isInteger))].sort((a, b) => a - b);
+  return same([...row.slots].sort((a, b) => a - b), expected);
+}));
+check('independent audit families stay outside Treasury delivery and bank custody', groups.find(group => group.key === 'independent').families.some(row => row.family.key === 'bank_auditor' && row.family.sourceKeys.includes('office_08')) && !groups.find(group => group.key === 'treasury').families.some(row => row.family.sourceKeys.includes('office_08')) && directory.keyToFamily.office_08 !== directory.keyToFamily.office_09 && directory.keyToFamily.office_08 !== directory.keyToFamily.office_86);
+
+const reserved = directory.families.filter(family => ['leader', 'high_council', 'officer_corps'].includes(family.tier));
+check('every reserved Leader Council and Officer family has its actual tier badge', reserved.every(family => page.families().find(node => node.getAttribute('data-alliance-family') === family.key).all(node => node.getAttribute('data-tier') === family.tier).length > 0));
+check('reserved offices cannot become vacancies when no holder is supplied', reserved.filter(family => ['role', 'institution'].includes(family.kind)).every(family => /Reserved seat|Reserved appointment/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
+check('overview exposes no application or appointment action and no request', page.section.all(node => node.tagName === 'A').every(node => !/^#\/vote(?:\/|$)/.test(node.getAttribute('href') || '')) && !page.section.all(node => node.getAttribute('data-apply-role201') !== null || node.getAttribute('data-office-application') !== null).length && page.requests.length === 0);
+const auditorCard = page.families().find(node => node.getAttribute('data-alliance-family') === 'bank_auditor');
+auditorCard.all(node => node.tagName === 'BUTTON' && node.textContent === 'Trace responsibilities')[0].click();
+check('responsibility action selects the original independent auditor node only', same(page.selected, ['auditor']) && page.requests.length === 0 && page.guideCalls.length === 0);
+
+page.input('org-alliance-rank205', '1', 'change');
+check('High Council rank filter shows exactly families whose original slots contain1', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1)).map(row => row.family.key))));
+const searchable = entries.find(row => row.slots.includes(1) && row.family.key === 'treasurer') || entries.find(row => row.slots.includes(1));
+page.input('org-alliance-rank205', '', 'change');
+page.input('org-alliance-search205', searchable.family.label, 'input');
+const searchOnly = page.visible();
+page.input('org-alliance-rank205', '1', 'change');
+check('search and rank filters intersect rather than replace one another', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1) && searchOnly.includes(row.family.key)).map(row => row.family.key))) && page.visible().includes(searchable.family.key));
+page.input('org-alliance-search205', 'zzzz-no-such-role-205', 'input');
+check('unmatched search hides all family rows and reports the empty state', page.visible().length === 0 && page.section.all(node => node.classList.contains('org-alliance-status')).some(node => /0|no matching|none/i.test(node.textContent)));
+const reset = page.section.all(node => node.tagName === 'BUTTON' && node.textContent === 'Reset overview filters')[0];
+if (!reset) throw Error('missing overview reset');
+reset.click();
+check('reset clears search and rank and restores all64 existing rows', page.document.getElementById('org-alliance-search205').value === '' && page.document.getElementById('org-alliance-rank205').value === '' && page.visible().length === 64 && page.families().length === 64);
+page.input('org-alliance-search205', 'Eastern time', 'input');
+check('search reaches the retained full NA regional guide without expanding its family', page.visible().includes(directory.keyToFamily.raid_leader_na) && page.guideCalls.length === 0);
+reset.click();
+page.input('org-alliance-search205', 'Raid Lead NA', 'input');
+check('the advertised abbreviated regional search finds Raid Leader despite punctuation', page.visible().includes(directory.keyToFamily.raid_leader_na));
+page.input('org-alliance-rank205', '4', 'change');
+check('regional search still intersects the Raid Leader native rank', page.visible().includes(directory.keyToFamily.raid_leader_na) && !page.visible().includes('treasurer'));
+page.input('org-alliance-search205', 'Raid Lead XY', 'input');
+check('an absent short regional token does not match arbitrary word fragments', page.visible().length === 0);
+reset.click();
+
+const branchField = page.document.getElementById('org-alliance-guild205');
+check('branch selector retains precisely the ten unappointed Olympus I–X directory scopes', branchField.children.filter(node => node.tagName === 'OPTION' && node.value !== '').map(node => node.value).join('|') === model.guildPlaceholders.map(branch => branch.name).join('|') && model.guildPlaceholders.every(branch => branch.state === 'Unappointed placeholder'));
+for (const branch of [model.guildPlaceholders[0], model.guildPlaceholders[9]]) {
+  page.input('org-alliance-guild205', branch.name, 'change');
+  check(branch.name + ' changes affiliation context without inventing holders or duplicating jobs', page.section.all(node => node.classList.contains('org-alliance-branches')).some(node => node.textContent.includes(branch.name) && /placeholder|unappointed/i.test(node.textContent)) && page.visible().length === 64 && page.families().length === 64);
+}
+reset.click();
+check('reset returns branch context to the all-branch view', branchField.value === '' && page.visible().length === 64);
+
+check('complete detailed guides are lazy before opening a family', page.guideCalls.length === 0);
+const raidFamily = directory.keyToFamily.raid_leader_na, raid = page.families().find(node => node.getAttribute('data-alliance-family') === raidFamily);
+raid.open = true; raid.dispatch('toggle');
+check('opening Raid Leader requests its original full primary guide', page.guideCalls.includes(directory.families.find(family => family.key === raidFamily).primaryKey));
+for (const detail of raid.all(node => node.tagName === 'DETAILS')) { detail.open = true; detail.dispatch('toggle'); }
+check('NA and EU retain separately reachable complete regional guides', page.guideCalls.includes('raid_leader_na') && page.guideCalls.includes('raid_leader_eu'));
+check('expanded regional guides retain their complete definitions duties expectations and boundaries', ['raid_leader_na', 'raid_leader_eu'].every(key => {
+  const rendered = raid.all(node => node.getAttribute('data-real-guide-fixture') === key)[0], guide = guides[key];
+  return rendered && [guide.definition, ...guide.responsibilities, ...guide.expectations, guide.commitment, guide.boundaries].every(text => rendered.textContent.includes(text));
+}));
+const guideCount = page.guideCalls.length; raid.open = false; raid.dispatch('toggle'); raid.open = true; raid.dispatch('toggle');
+check('reopening family details retains guides without duplicate work', page.guideCalls.length === guideCount);
+check('all interactions preserve canonical inputs and issue no network request', JSON.stringify(model) === originalModel && JSON.stringify(directory) === originalDirectory && page.requests.length === 0);
+function refuses(change) {
+  const changedModel = JSON.parse(originalModel), changedDirectory = JSON.parse(originalDirectory);
+  change(changedModel, changedDirectory);
+  try { page.buildAllianceOverview205(changedModel, changedDirectory); return false; } catch { return true; }
+}
+check('incomplete or duplicate original-key coverage is refused', refuses((_data, roles) => roles.families.pop()) && refuses((_data, roles) => roles.families[0].sourceKeys.push(roles.families[1].primaryKey)));
+check('an altered native slot order is refused', refuses((_data, roles) => { roles.ranks[1].nativeSlot = 2; }));
+check('cyclic reporting context is refused instead of inventing a hierarchy', refuses(data => { data.nodes.find(node => node.id === 'founder').parent = 'council'; }));
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) process.exitCode = 1;

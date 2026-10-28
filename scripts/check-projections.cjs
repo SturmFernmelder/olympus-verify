@@ -83,9 +83,11 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 48 && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
+    && ref.required_public_resources.length === 50 && new Set(ref.required_public_resources.map(row => row.path)).size === 50
+    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 562
+    && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset560-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset562-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
   check(talentComparisonResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art talent comparison resources');
@@ -98,6 +100,14 @@ function verify(snapshot) {
   const master196Resources = ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js'];
   check(master196Resources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.filter(path => path === file).length === 1 && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art master196 view resources');
+  // .205: the wide overview and its context are two exact non-art modules, not new art exceptions.
+  const organization205Resources = ['worker/public/static/organization-overview205.js', 'worker/public/static/organization-context205.js'];
+  check(organization205Resources.every(file => ref.required_public_resources.filter(row => row.path === file && row.mode === '100644').length === 1
+    && ref.runtime_paths.filter(path => path === file).length === 1 && !ref.assets.some(row => row.path === file)
+    && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art organization205 resources');
+  const staticReferences = file => [...new Set(text(file).match(/\/static\/[A-Za-z0-9_./-]*/g) || [])].sort();
+  check(JSON.stringify(staticReferences(organization205Resources[0])) === JSON.stringify(['/static/organization-context205.js'])
+    && staticReferences(organization205Resources[1]).length === 0, 'exact organization205 context dependency; context introduces no static asset dependency');
   for (const row of variantPins) pin(row);
   for (const row of [...ref.assets, ...ref.required_public_resources, ...ref.fixed_art_source_pins, ref.approved_extractor]) pin(row);
   // .179: only four exact dormant resources; no new artwork exception or runtime switch.
@@ -133,6 +143,7 @@ function verify(snapshot) {
   const folder = 'worker/public/static/governance/', model = json(get(folder + 'organization.json'));
   pin({ ...model.book, path: 'worker/public' + model.book.path });
   const app = text('worker/public/static/app.js');
+  check(app.includes('import("/static/organization-view.js")') && app.includes('import("/static/organization-overview205.js")'), 'organization app imports retain chart and exact wide overview modules');
   check(app.includes('const GOVERNANCE_SHA256 = "' + model.book.sha256 + '"'), 'governance reader digest drift');
   check(app.includes('bytes.length !== ' + model.book.bytes) && app.includes('data.book.bytes !== ' + model.book.bytes), 'both governance reader sizes');
   for (const row of json(get(folder + 'downloads-manifest.json')).artifacts) pin({ ...row, path: folder + row.file });
