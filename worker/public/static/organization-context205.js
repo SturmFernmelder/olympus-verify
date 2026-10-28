@@ -27,6 +27,18 @@ export const ORGANIZATION_LANES205 = Object.freeze([
     boundary: "Custody, spending approval and independent audit stay separate. The Treasurer appointment adds no native rank, bank permission or authority to resume paused gold services."
   },
   {
+    key: "trading",
+    rootId: "trading",
+    title: "Trading & Markets",
+    summary: "A dedicated High Council market specialist: Auction House and direct trades.",
+    duties: [
+      "Research executable prices, supply, demand, liquidity and sale timing instead of treating listing prices as earned value.",
+      "Optimize permitted buying, selling and inventory within the Treasurer’s written capital, concentration and loss limits.",
+      "Reconcile realized net trading profit after acquisition costs, fees and failed-auction deposits; report cash, stock age and exceptions weekly."
+    ],
+    boundary: "This portfolio does trading only. Treasury retains custody and spending approval; Audit stays independent. No dues, appeals, moderation, craft-commission management, paid rights or automatic bank access follow."
+  },
+  {
     key: "artisanry",
     rootId: "artisanry",
     title: "Association of Artisanry",

@@ -185,7 +185,7 @@
   function rosettaPanel199(open = false) {
     const headings = ["In-Game Rank Number & Name", "Tier & Statutory Codex Title", "Organization Department & Branch Offices", "Discord Role & Portal Access", "How to Attain It"];
     return h("details", { class: "card rosetta199", id: "role-rosetta-stone", tabindex: "-1", open }, h("summary", { text: "Olympus Role & Rank Rosetta Stone" }),
-      h("p", { text: "95 stable offices and 131 assignable keys share this bridge. Display classification and an application do not confer an office, game rank, Discord role or portal access. Olympus Link remains OFF; /oly discord is a future qualified verification path, not a currently active admission shortcut." }),
+      h("p", { text: "96 stable offices and 132 assignable keys share this bridge, including the dedicated High Council Head of Trading & Markets. Display classification and an application do not confer an office, game rank, Discord role or portal access. Olympus Link remains OFF; /oly discord is a future qualified verification path, not a currently active admission shortcut." }),
       h("table", { class: "rosetta-table199" }, h("thead", null, h("tr", null, headings.map(text => h("th", { scope: "col", text })))), h("tbody", null, ranks199().map(rank => {
         const rows = offices199().filter(row => row.nativeSlot === rank.nativeSlot), tiers = [...new Set(rows.map(row => row.tierLabel))], titles = [...new Set(rows.flatMap(row => row.codexTitles || []))];
         const cells = [h("strong", { text: `Rank ${rank.nativeRankOrdinal} ${rank.name}` }), h("div", null, tiers.join(" / "), h("br"), h("a", { href: "#/governance", text: `Title ${titles.join(" / ") || "I–V"}` })),
@@ -217,13 +217,13 @@
   // .203 groups presentation only: original application, appointment and history keys stay exact.
   function roleDirectory203() {
     const directory = M().roleDirectory203, guides = M().roleGuides201 || {};
-    if (!directory || directory.version !== 1 || directory.sourceKeyCount !== 134 || !Array.isArray(directory.families)
+    if (!directory || directory.version !== 1 || directory.sourceKeyCount !== 135 || !Array.isArray(directory.families)
       || !directory.families.length || !Array.isArray(directory.ranks) || directory.ranks.length !== 10
       || !directory.keyToFamily || typeof directory.keyToFamily !== "object") return null;
     const registry = M().appointments;
-    if (!Array.isArray(registry) || registry.length !== 131) return null;
+    if (!Array.isArray(registry) || registry.length !== 132) return null;
     const registeredKeys = registry.map(row => row?.key);
-    if (new Set(registeredKeys).size !== 131 || registeredKeys.some(key => typeof key !== "string"
+    if (new Set(registeredKeys).size !== 132 || registeredKeys.some(key => typeof key !== "string"
       || ["member", "raider", "pvp_team"].includes(key) || !Object.prototype.hasOwnProperty.call(directory.keyToFamily, key))) return null;
     const keys = [], familyKeys = new Set();
     for (const family of directory.families) {
@@ -455,7 +455,7 @@
   function officeAssignmentPanel() {
     const offices = M().appointments;
     const groups = [["native", "Native-rank display records"], ["leadership", "Leadership display records"], ["class", "Class display records"], ["office", "Extended offices and display aliases"]];
-    const valid = Array.isArray(offices) && offices.length > 0 && offices.length <= 131 && new Set(offices.map(office => office?.key)).size === offices.length && offices.every(office =>
+    const valid = Array.isArray(offices) && offices.length > 0 && offices.length <= 132 && new Set(offices.map(office => office?.key)).size === offices.length && offices.every(office =>
       office && typeof office.key === "string" && /^[a-z][a-z0-9_:]{0,79}$/.test(office.key) && typeof office.label === "string" && office.label.length > 0 && office.label.length <= 160 && groups.some(([group]) => group === office.group));
     if (!valid) return frame("Office and rank display records", null, h("p", { class: "muted", text: "The display catalogue is unavailable. No holder identities were loaded." }));
     if (!S.signedIn || S.denied || !communityReader()) return frame("Office and rank display records", null, h("p", { class: "muted", text: "A qualified current guild reader can view the separately consented website holder records." }));
@@ -494,7 +494,7 @@
     if (!labels.length && !titles.length) return () => {};
     const user = S.user, settings = S.settings, context = COM(), route = currentRoute();
     const offices = M().appointments;
-    if (!Array.isArray(offices) || offices.length < 1 || offices.length > 131 || offices.some(office => !office || typeof office.key !== "string")) return () => {};
+    if (!Array.isArray(offices) || offices.length < 1 || offices.length > 132 || offices.some(office => !office || typeof office.key !== "string")) return () => {};
     const appointmentKeys = new Set(offices.map(office => office.key));
     if (appointmentKeys.size !== offices.length) return () => {};
     const referencedKeys = new Set([...labels.map(node => node.getAttribute("data-appointment-label")), ...titles.map(node => node.getAttribute("data-appointment-title"))].filter(key => appointmentKeys.has(key) && Object.prototype.hasOwnProperty.call(settings?.appointed || {}, key)));
@@ -1584,13 +1584,13 @@
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
           !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 262067 || data.book.sha256 !== GOVERNANCE_SHA256 ||
-          !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 95 ||
+          !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 96 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
       const ids = new Set(data.nodes.map((n) => n.id));
       if (ids.size !== data.nodes.length || data.nodes.some((n) => !/^[a-z][a-z0-9-]*$/.test(n.id) || (n.parent !== null && !ids.has(n.parent)) ||
           !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id))) ||
-          data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 95) throw new Error("The organization model has an invalid relation.");
+          data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 96) throw new Error("The organization model has an invalid relation.");
       // A corrupt static file must not turn recursive rendering into a loop.
       for (const n of data.nodes) {
         const seen = new Set(); let current = n;
@@ -1868,6 +1868,14 @@
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
       h("h1", { text: "The Governance of Olympus" }), h("p", { text: "The adopted R7 book and its 25 October five-Title expansion: sovereign decrees, Council and Court procedure, Treasury stewardship, the Grand Alliance Concordat, and the Artisans' and Heralds' accords." }))), governanceDraftNotice(),
       noticeBox("info", "pos-officer", h("p", { text: reservedNotice201 }), h("p", null, "The adopted book retains its constitutional and historical procedures. For current eligibility and the individual duties of every office, see the ", h("a", { href: "#/roles", text: "complete role directory" }), ".")),
+      h("section", { class: "card", id: "trading-portfolio208", "aria-label": "Current High Council trading portfolio" },
+        h("h2", { text: "Head of Trading & Markets · High Council" }),
+        h("p", { text: "Owner direction recorded 28 October 2026: a dedicated reserved Council portfolio for auction-house trading, direct item trades and the guild's market strategy. This is a current office clarification alongside the adopted R7 book, not a newly ratified charter or a named appointment." }),
+        h("p", { text: "Its sole remit is trading performance: research actual prices and demand, choose funded buy/sell opportunities, negotiate direct trades and manage inventory and execution. Measure realised net profit after item costs, auction fees, lost deposits and agreed costs; turnover and unsold stock are not guild profit." }),
+        h("p", { text: "The Treasurer retains custody, authorised budgets, payment controls and reconciliation. Independent audit remains separate. Trading capital, position limits and stop rules need separate approval; this title grants no withdrawal, signing, Discord, website or provider permission. Donations, dues, appeals, discipline and Workshop commission administration are outside this portfolio." }),
+        h("p", { class: "small muted", text: "The current catalogue has 96 offices and 132 assignment keys. The adopted R7 book retains its historical 95-office register and ten native ranks. The new portfolio is associated with High Council, native slot 1; it does not add a rank or open an application route." }),
+        h("a", { class: "btn", href: "#/roles/head_trading", text: "Read the complete trading responsibilities & expectations" }), " ",
+        h("a", { class: "btn small", href: "/static/governance/council-composition-2026-10-28.md", text: "Current Council clarification" })),
       h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
         h("a", { class: "btn", href: "#/governance/reading-and-adopting-this-book", text: "Start here" }),
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
@@ -3597,7 +3605,7 @@
     }) : [h("p",{class:"muted small",text:"Family grouping is unavailable. The original scoped controls below remain unchanged."}),
       h("div",{class:"group-label",text:"Leadership"}),appointedGrid("leadership"),h("div",{class:"group-label",text:"Class leads"}),appointedGrid("class"),
       h("details",{class:"mt"},h("summary",{text:"Ten native rank display assignments"}),appointedGrid("native")),
-      h("details",{class:"mt"},h("summary",{text:"All 95 extended offices and historical aliases"}),appointedGrid("office"))];
+      h("details",{class:"mt"},h("summary",{text:"All 96 extended offices and historical aliases"}),appointedGrid("office"))];
     // .115 (Viktor's item C, 2 Oct 2026): a name is typed only after that person agreed; the Worker refuses a new or changed
     // name without this tick (400 confirm_names, shown in words). Each save asks again: the box is cleared after it.
     const [namesOk, namesOkRow] = box(false, "Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.");

@@ -25,9 +25,9 @@ const familyOf = key => byFamily.get(directory.keyToFamily[key]);
 const assigned = families.flatMap(row => row.sourceKeys);
 const same = (...keys) => keys.every(key => familyOf(key)?.key === familyOf(keys[0])?.key);
 const distinct = (...keys) => new Set(keys.map(key => familyOf(key)?.key)).size === keys.length && keys.every(key => familyOf(key));
-check('registered source identity is exactly131 original keys plus three ordinary paths', expectedKeys.length === 134 && new Set(expectedKeys).size === 134);
-check('all134 source keys appear exactly once under one family', directory.version === 1 && directory.sourceKeyCount === 134 && assigned.length === 134 && new Set(assigned).size === 134 && JSON.stringify(assigned.slice().sort()) === JSON.stringify(expectedKeys));
-check('key lookup is complete and has no extra presentation identity', Object.keys(directory.keyToFamily).length === 134 && JSON.stringify(Object.keys(directory.keyToFamily).sort()) === JSON.stringify(expectedKeys) && assigned.every(key => familyOf(key)?.sourceKeys.includes(key)));
+check('registered source identity is exactly132 registered keys plus three ordinary paths', expectedKeys.length === 135 && new Set(expectedKeys).size === 135);
+check('all135 source keys appear exactly once under one family', directory.version === 1 && directory.sourceKeyCount === 135 && assigned.length === 135 && new Set(assigned).size === 135 && JSON.stringify(assigned.slice().sort()) === JSON.stringify(expectedKeys));
+check('key lookup is complete and has no extra presentation identity', Object.keys(directory.keyToFamily).length === 135 && JSON.stringify(Object.keys(directory.keyToFamily).sort()) === JSON.stringify(expectedKeys) && assigned.every(key => familyOf(key)?.sourceKeys.includes(key)));
 check('families replace duplicate cards without pretending every key is an independent job', families.length < assigned.length && new Set(families.map(row => row.key)).size === families.length && families.every(row => row.sourceKeys.includes(row.primaryKey)));
 for (const family of families) {
   const nonPrimary = family.sourceKeys.filter(key => key !== family.primaryKey).sort();
@@ -64,6 +64,8 @@ for (const [label, keys] of [
 ]) check(label + ' share a family while keeping their own full guide keys', same(...keys) && keys.every(key => familyOf(key).primaryKey === key || familyOf(key).variants.some(row => row.key === key)));
 check('Council intake policy remains separate from officer intake operations', distinct('office_14', 'office_79'));
 check('Council and Officer native roles stay visibly separate', distinct('rank_high_council', 'rank_officer', 'rank_officer_alt') && familyOf('rank_high_council').tier === 'high_council' && familyOf('rank_officer').tier === 'officer_corps');
+check('Trading is one dedicated Council family separate from Treasury, custody, audit and Artisanry', familyOf('office_96').key === 'head_trading' && familyOf('office_96').tier === 'high_council' && familyOf('office_96').primaryKey === 'office_96' && familyOf('office_96').sourceKeys.length === 1 && !familyOf('office_96').application && distinct('office_96', 'office_86', 'office_09', 'office_08', 'office_58'));
+check('the current register adds one trading family without another native rank or ordinary admission', families.length === 65 && families.filter(row => row.tier === 'high_council').length === 12 && admissions.length === 3 && directory.ranks.length === 10);
 check('Treasury custody cannot absorb independent audit or the Treasurer appointment', distinct('office_08', 'office_86', 'office_09') && ['office_09', 'office_10', 'office_72'].every(key => !same(key, 'office_08') && !same(key, 'office_86')));
 check('judicial hearings, Privy advice and the Court institution stay distinct', distinct('office_26', 'office_67', 'office_84') && familyOf('office_84').kind === 'institution');
 check('portfolio categories link into Council rather than extra native jobs', same('office_28', 'office_57', 'office_45', 'rank_high_council') && familyOf('office_28').kind === 'institution');
