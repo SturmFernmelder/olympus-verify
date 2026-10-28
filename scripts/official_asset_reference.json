@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 688465,
-      "sha256": "29d533be4ec466183ac0fad78ccea880a938fd2b1aa03fbed4c4b36c10642b6c"
+      "bytes": 688909,
+      "sha256": "abc4d801fb758c92ea7a70243cd44ca119ef39d607f537ff4a9fa61d025be276"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -626,8 +626,8 @@
     {
       "path": "worker/public/static/organization-view.css",
       "mode": "100644",
-      "bytes": 10801,
-      "sha256": "1414e4d9e6c6d92eff04e15e3c982b0efc117f53e1d772138fbf21f37971eb96"
+      "bytes": 33147,
+      "sha256": "c94de4dbd5b2dbebe784d601baa65e09e97c02f6932305f2ca51b5e80c0b5e77"
     },
     {
       "path": "worker/public/static/wow/cursor-point.png",
@@ -3702,7 +3702,9 @@
     "worker/src/site.ts",
     "worker/src/unverified.ts",
     "worker/public/static/role-rank199.js",
-    "worker/public/static/royal-writs199.js"
+    "worker/public/static/royal-writs199.js",
+    "worker/public/static/organization-overview205.js",
+    "worker/public/static/organization-context205.js"
   ],
   "runtime_prefixes": [
     "/static/",
@@ -3821,8 +3823,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 688465,
-      "sha256": "29d533be4ec466183ac0fad78ccea880a938fd2b1aa03fbed4c4b36c10642b6c"
+      "bytes": 688909,
+      "sha256": "abc4d801fb758c92ea7a70243cd44ca119ef39d607f537ff4a9fa61d025be276"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3995,8 +3997,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 32988,
-      "sha256": "50f8b281aa61ff623fb010f4a9fb383cd9546faea2db6f3b83db572f1f413a7e"
+      "bytes": 34395,
+      "sha256": "3f0f1aa184c0d18794e7793e722bd91dd5dc1e6afc94c6f9653ee5a703c23fc1"
     },
     {
       "path": "worker/public/static/talents/data.json",
@@ -4171,6 +4173,18 @@
       "mode": "100644",
       "bytes": 13849,
       "sha256": "27b2d48a57602a9fc05aa50040f1b384835132329b1f551622e221d54638a49d"
+    },
+    {
+      "path": "worker/public/static/organization-overview205.js",
+      "mode": "100644",
+      "bytes": 16320,
+      "sha256": "baa16c8764240974788ea57bc97fb2570e40d760163ff741eec2b104215cee87"
+    },
+    {
+      "path": "worker/public/static/organization-context205.js",
+      "mode": "100644",
+      "bytes": 5714,
+      "sha256": "f4f4389f7f47034620ba5faff935ea07127b0cf849b4a9eb60b7ffd3ea05fca6"
     }
   ],
   "login_art_exception": {

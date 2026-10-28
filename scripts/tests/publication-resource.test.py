@@ -58,10 +58,17 @@ public = {**assets, **resources}
 runtime = sorted(p for p in payloads if gate.runtime_path(p))
 prefixes = set(ref['runtime_prefixes'])
 check(len(assets) == 512 and len(ref['official_paths']) == 494, '512 exact assets: all510 prior assets plus two independently approved custom variants;493 official image/font paths and1 historical video unchanged')
-check(len(resources) == 48 and len(public) == 560, '48 exact non-art resources: accepted198 inventory plus two199 canonical catalogue projections')
-check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed560-path union')
+check(len(resources) == 50 and len(public) == 562, '50 exact non-art resources: accepted204 inventory plus two205 organization presentation modules')
+check({p for p in payloads if p.startswith('worker/public/')} == set(public), 'actual tracked public tree is the exact closed562-path union')
 check(len(ref['_fixed_art_sources']) == 7 and assets[gate.BRAND_EXCEPTION['path']] == gate.BRAND_EXCEPTION, 'six original art-sensitive producer pins plus the finite login verifier and original crest contract')
-check(all(pin(p) == row for p, row in public.items()), 'all560 current public byte pins match the reviewed reference')
+check(all(pin(p) == row for p, row in public.items()), 'all562 current public byte pins match the reviewed reference')
+organization_overview = 'worker/public/static/organization-overview205.js'
+organization_context = 'worker/public/static/organization-context205.js'
+organization_resources = {organization_overview, organization_context}
+check(organization_resources.issubset(resources) and not organization_resources.intersection(assets)
+      and not organization_resources.intersection(ref['official_paths']) and not organization_resources.intersection(ref['native_paths'])
+      and all(ref['runtime_paths'].count(p) == 1 and resources[p]['mode'] == '100644' for p in organization_resources), 'two exact205 organization modules are runtime resources without official/native art exceptions')
+refused(lambda: gate.resource_rows(list(resources.values()) + [{**resources[organization_context], 'path': 'worker/public/static/organization-unreviewed205.js'}], 'official_public_resource_pin_invalid'), 'official_public_resource_pin_invalid', 'the closed50-resource cap rejects a51st unique module')
 master196_resources = {'worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js', 'worker/public/static/army-live/sanitized-export.js', 'worker/public/static/army-live/savedvariables-import.js'}
 retired_army_zip = 'worker/public/static/army-live/olympus-army-addon-0.2.0.zip'
 check(master196_resources.issubset(resources) and not master196_resources.intersection(assets) and all(gate.runtime_path(p) and resources[p]['mode'] == '100644' for p in master196_resources), 'four exact master196 runtime helpers add no official/native art exception')
@@ -92,11 +99,14 @@ expected_app = {
     '/static/governance/olympus-governance-r6.zip', '/static/governance/olympus-guide-r6.pdf',
     '/static/governance/olympus-release-preparation.pdf', '/static/governance/olympus-templates-r6.pdf',
     '/static/governance/organization.json', '/static/governance/reconciled-book.md', '/static/qr-phase1.html',
-    '/static/organization-view.js', '/static/talents/calculator.js', '/static/talents/calculator.css',
+    '/static/organization-view.js', '/static/organization-overview205.js', '/static/talents/calculator.js', '/static/talents/calculator.css',
     '/static/resources169.js', '/static/resources169.css'
 }
-check(expected_app.issubset(covered[app]), 'all ten actual governance/organization/QR app URLs have finite coverage')
+check(expected_app.issubset(covered[app]), 'actual governance, organization, QR and resource app URLs have finite coverage')
 check(covered['worker/public/static/organization-view.js'] == ['/static/organization-view.css'], 'actual organization module dependency is its exact native stylesheet')
+check(covered[organization_overview] == ['/static/organization-context205.js'] and covered[organization_context] == [], 'actual205 overview imports its exact context module and context adds no static dependencies')
+for source, dependency in ((app, organization_overview), (organization_overview, organization_context)):
+    refused(lambda source=source, dependency=dependency: gate.references(payloads[source], source, assets, prefixes, {p: row for p, row in resources.items() if p != dependency}), 'unlisted_website_runtime_reference', 'each205 module dependency requires its exact non-art resource pin: ' + dependency)
 qr_edges = {
     'worker/public/static/qr-phase1.html': ['/static/app.css', '/static/qr-phase1.mjs'],
     'worker/public/static/qr-phase1.mjs': ['/static/qr-phase1-decoder.js'],
@@ -201,7 +211,7 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
 
     admitted = load()
     proof = gate.validate_result_tree(rows, payloads, admitted)
-    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 560 and proof['required_non_art_resource_pins_verified'] == 48, 'real load_contract then validate_result_tree accepts the complete current source')
+    check(proof['result'] == 'PASS' and proof['public_asset_count'] == 562 and proof['required_non_art_resource_pins_verified'] == 50, 'real load_contract then validate_result_tree accepts the complete current source')
     check(proof['official_image_font_count'] == 493 and proof['official_video_count'] == 1 and proof['official_art_file_count'] == 494, 'result evidence counts the video separately from the493 images/fonts')
     check(proof['login_art_exception_byte_pin_verified'] is True and proof['nonofficial_owner_approved_login_art_count'] == 3 and proof['login_art_exception'] == ref['login_art_exception'], 'result evidence reports the approved custom still separately from all494 official assets')
     check(proof['login_art_variants_byte_pins_verified'] is True and proof['login_art_variants'] == ref['login_art_variants'], 'result evidence separately verifies both current variants while preserving the historical singleton proof')
@@ -274,6 +284,16 @@ with tempfile.TemporaryDirectory(prefix='olympus-publication-resource-test-') as
     m = copy.deepcopy(manifest)
     next(r for r in m['reference_coverage'] if r['path'].endswith('qr-phase1.mjs'))['references'] = []
     refused(lambda: gate.validate_result_tree(rows, payloads, load(m)), 'website_runtime_reference_coverage_mismatch', 'module references must equal the actual source scan')
+    for path in sorted(organization_resources):
+        m = copy.deepcopy(manifest)
+        m['runtime_files'] = [r for r in m['runtime_files'] if r['path'] != path]
+        refused(lambda m=m: load(m), 'official_runtime_file_pin_invalid', 'each205 module requires a runtime pin: ' + path)
+        m = copy.deepcopy(manifest)
+        next(r for r in m['runtime_files'] if r['path'] == path)['sha256'] = '0' * 64
+        refused(lambda m=m: load(m), 'official_runtime_public_pin_binding_mismatch', 'each205 runtime pin binds to the exact non-art resource bytes: ' + path)
+        m = copy.deepcopy(manifest)
+        next(r for r in m['reference_coverage'] if r['path'] == path)['references'] = ['/static/organization-view.css']
+        refused(lambda m=m: gate.validate_result_tree(rows, payloads, load(m)), 'website_runtime_reference_coverage_mismatch', 'each205 module coverage equals its actual dependency scan: ' + path)
     m = copy.deepcopy(manifest)
     next(r for r in m['files'] if r['path'] == gate.BRAND_EXCEPTION['path'])['sha256'] = '0'*64
     refused(lambda: load(m), 'fixed_official_asset_bytes_changed_requires_new_reference', 'unchanged crest bytes cannot be repinned through a final manifest')

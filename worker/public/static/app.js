@@ -174,6 +174,7 @@
   function hierarchyPanel199() {
     const directory = roleDirectory203();
     return frame("The exact 10-rank Olympus In-Game Hierarchy", h("a", { class: "btn small", href: "#/roles/rosetta-stone", text: "Open the Rosetta Stone" }),
+      h("a", { class: "btn small", href: "#/organization/alliance-overview", text: "Explore the Alliance organization" }),
       h("p", { text: "Leader and High Council govern; the Officer Corps administers; members and specialists build the guild. Co-Guild Master and Treasurer are appointments, not extra native ranks. Actual game permissions are set separately by the Guild Master." }),
       directory ? h("ol", { class: "role-ranks203" }, directory.ranks.map(rank => {
         const source = offices199().find(row => row.group === "native" && row.nativeSlot === rank.nativeSlot);
@@ -1910,6 +1911,7 @@
     const data = await governanceModel();
     if (!current()) return;
     const { renderOrganization } = await import("/static/organization-view.js");
+    const { renderAllianceOverview205 } = await import("/static/organization-overview205.js");
     if (!current()) return;
     const currentData201 = {...data, terms:data.terms.map(term => {
       const row = office199(term.officeKey);
@@ -1917,6 +1919,8 @@
     })};
     disposeOrganization = renderOrganization(main, currentData201, { h, add, clear, posIcon, parts, scrollToSection,
       roleGuide201:key => guideBody201((M().roleGuides201 || {})[key],positionOf(key)),
+      roleGuides201:M().roleGuides201,
+      allianceOverview205:renderAllianceOverview205,
       roleDirectory203:M().roleDirectory203,
       roleFamilyDirectory203:() => applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; }, {}, {showCharacters:true}),
       officeAvailability: Object.fromEntries(offices199().map(row => [row.key, reservedKey201(row.key) || S.settings?.applicationsOpen === false || displayHolder(row.key) ? false : true])) });
@@ -5275,6 +5279,7 @@
     const reader = h("div", { class: "army-reader" }, h("p", { role: "status", class: "muted", text: "Opening Army snapshots…" }));
     add(body, [capacity.element, betaEpochArchiveCard(), h("section", { class: "stack", "data-army-qr-review": "public-reader" },
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
+        h("a", { class: "btn small", href: "#/organization/alliance-overview", text: "Explore Olympus I–X roles & organization" }),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
         h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Unified guild addon; optional website snapshot export requires publisher adoption."),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "#/army/report", text: "Report a guild snapshot" }) : null,
