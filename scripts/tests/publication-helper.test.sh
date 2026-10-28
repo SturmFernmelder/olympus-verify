@@ -52,7 +52,13 @@ for row in ref["assets"] + ref["fixed_art_source_pins"] + ref["required_public_r
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 48
+assert len(ref["required_public_resources"]) == 50
+assert len({row["path"] for row in ref["assets"] + ref["required_public_resources"]}) == 562
+# .205 adds exactly two non-art organization modules; neither broadens official/native artwork.
+organization205_resources = {"worker/public/static/organization-overview205.js", "worker/public/static/organization-context205.js"}
+assert all(sum(row["path"] == path and row["mode"] == "100644" for row in ref["required_public_resources"]) == 1 for path in organization205_resources)
+assert all(ref["runtime_paths"].count(path) == 1 for path in organization205_resources)
+assert not organization205_resources.intersection(ref["official_paths"] + ref["native_paths"] + [row["path"] for row in ref["assets"]])
 # .199 adds the exact rank bridge and reference-only royal-writ catalogue; neither is official artwork.
 master199_resources = {"worker/public/static/role-rank199.js", "worker/public/static/royal-writs199.js"}
 assert master199_resources.issubset({row["path"] for row in ref["required_public_resources"]})

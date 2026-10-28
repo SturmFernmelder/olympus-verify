@@ -574,18 +574,19 @@ async function frontendOwner197() {
     const currentClient199=loadClient199(),model199=await currentClient199.read();
     check('.199 actual authenticated Worker HTTP and current app loader accept every345654 source byte with95 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===95&&model199.appointments.length===131);
     // Reuse the existing Organization DOM fixture definitions, not its test body.
-    // Only that fixture's data binding is supplied from the real loader above;
-    // its actual organization-view.js renderer remains unchanged.
+    // Only that fixture's data binding is supplied from the real loader above.
+    // Keep this original focused relationship-map witness explicit; the wide
+    // overview and its actual context module have their own qualified leaf.
     const rendererFixturePath199=path.join(root,'tests/organization_view_test.cjs'),rendererFixtureSource199=fs.readFileSync(rendererFixturePath199,'utf8'),rendererCut199=rendererFixtureSource199.indexOf('const p = open();');
     const rendererPrefix199=rendererFixtureSource199.slice(0,rendererCut199);
-    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='0c366a056a103c086de61489af9943864496e8d56296201a0041a8d07e1236c9')throw Error('owner199_original_organization_fixture_prefix_drift');
+    if(rendererCut199<0||require('node:crypto').createHash('sha256').update(rendererPrefix199).digest('hex')!=='acf31d37bcffc860d853779696e518c2f2f945a6d0771cff7bb76f8d50690502')throw Error('owner199_original_organization_fixture_prefix_drift');
     const dataBinding199='const data = JSON.parse(fs.readFileSync(path.join(root, "public/static/governance/organization.json"), "utf8"));';
     if(rendererPrefix199.split(dataBinding199).length!==2)throw Error('owner199_original_organization_fixture_data_boundary');
     const FixtureModule199=require('node:module').Module,rendererExecution199=new FixtureModule199(rendererFixturePath199,module);rendererExecution199.filename=rendererFixturePath199;rendererExecution199.paths=FixtureModule199._nodeModulePaths(path.dirname(rendererFixturePath199));
     rendererExecution199.loadedModel199=model199;
     rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
-    const rendered199=rendererExecution199.exports();
-    check('.199 the actual Organization renderer paints the model returned by the real app HTTP loader',rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
+    const rendered199=rendererExecution199.exports({overview205:false});
+    check('.199 the actual focused Organization renderer paints the model returned by the real app HTTP loader',!rendered199.one('org-alliance')&&rendered199.one('org-relationship-map205').open&&rendered199.main.all(node=>node.classList.contains('organization-term')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===95&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
     // Follow the canonical Artisan link through the real app and Worker. The
     // former Crafter/Core Raider URLs below remain explicit historical intent
     // compatibility, not additional publicly offered jobs or canonical aliases.
@@ -644,7 +645,8 @@ async function frontendOwner197() {
   // Organization model read and its module load. No timer chooses this order.
   // These are the exact production handlers/API/DOM helpers. Only dynamic
   // module transport/rendering is a counted stand-in; real model HTTP and the
-  // unchanged Organization renderer are exercised independently just above.
+  // focused Organization renderer are exercised independently just above. The
+  // real wide-overview/context modules remain in organization_view_test's leaf.
   {
     const cut199 = (start, end) => { const a=APP_JS.indexOf(start),b=APP_JS.indexOf(end,a);if(a<0||b<=a)throw Error('owner199_overview_source_boundary');return APP_JS.slice(a,b); };
     const domSource199=cut199('  function h(tag, props, ...kids) {','  // ---------------------------------------------------------------- the game');
@@ -652,23 +654,27 @@ async function frontendOwner197() {
     const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
     const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
     const moduleExpression199='await import("/static/organization-view.js")';
-    if(orgOriginal199.split(moduleExpression199).length!==2)throw Error('owner199_organization_module_boundary');
-    const orgSource199=orgOriginal199.replace(moduleExpression199,'await loadOrganization199()');
+    const overviewModuleExpression205='await import("/static/organization-overview205.js")';
+    if(orgOriginal199.split(moduleExpression199).length!==2||orgOriginal199.split(overviewModuleExpression205).length!==2)throw Error('owner199_organization_module_boundary');
+    const orgSource199=orgOriginal199.replace(moduleExpression199,'await loadOrganization199()').replace(overviewModuleExpression205,'await loadAllianceOverview205()');
     const deferred199=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
     const realOverview199=await request('GET','/api/admin/overview',undefined,STAFF);
     if(realOverview199.response.status!==200||!realOverview199.body.settings)throw Error('owner199_original_overview_fixture_refused');
     const actualModel199=JSON.parse(fs.readFileSync(path.join(root,'public/static/governance/organization.json'),'utf8'));
+    const roleDirectory205=directoryModel203(page),roleGuides205=page.boot.meta.roleGuides201,guideKeys205=roleDirectory205.families.flatMap(family=>family.sourceKeys);
     function lifecycle199(status=200){
       const w=makeWindow('{}'),oldMain=w.app.appendChild(new Element('main')),body=oldMain.appendChild(new Element('div'));
       body.textContent='Loading original overview';
       const initialSettings={appointed:{},applicationsOpen:true,notice:'original settings'},state={signedIn:true,denied:false,user:{id:STAFF,isAdmin:true},settings:initialSettings},context={},response=deferred199(),model=deferred199();
-      const seen={fetches:[],toasts:0,renders:0,reloads:0,heat:0,module:0,organization:0};let route='admin';
+      const seen={fetches:[],toasts:0,renders:0,reloads:0,heat:0,module:0,overviewModule:0,overviewBinding:false,guideBinding:false,organization:0};let route='admin';
       const plainFrame=title=>{const element=new Element('section');element.textContent=title;return element;};
+      const renderAllianceOverview205=()=>{throw Error('owner205_race_fixture_must_not_render_overview');};
       const deps={document:w.document,Node,S:state,app:w.app,currentRoute:()=>route,COM:()=>context,ROUTES:{},
         fetch:async(pathname,init)=>{seen.fetches.push({pathname,init});await response.promise;return new Response(JSON.stringify(status===200?{...realOverview199.body,settings:{...realOverview199.body.settings,notice:'late overview'}}:status===409?{error:'reload'}:{error:'signed_out'}),{status,headers:{'Content-Type':'application/json'}});},
         toast:()=>{seen.toasts++;},dirtyKeys:new Set(['original-unsaved']),render:()=>{seen.renders++;},reloadNotice:()=>{seen.reloads++;},
-        M:()=>({positions:[],professions:[],ballots:[]}),A:{heat:'',apps:{}},statusText:value=>value,posIcon:()=>null,frame:plainFrame,icon:()=>null,plural:(count,word)=>count+' '+word,seatsStaffText:()=>'',zoneName:()=>'',myZone:'UTC',drawHeat:async()=>{seen.heat++;},
-        governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data)=>{seen.organization++;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
+        M:()=>({positions:[],professions:[],ballots:[],roleDirectory203:roleDirectory205,roleGuides201:roleGuides205}),A:{heat:'',apps:{}},statusText:value=>value,posIcon:()=>null,frame:plainFrame,icon:()=>null,plural:(count,word)=>count+' '+word,seatsStaffText:()=>'',zoneName:()=>'',myZone:'UTC',drawHeat:async()=>{seen.heat++;},
+        governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data,ui)=>{seen.organization++;seen.overviewBinding=ui.allianceOverview205===renderAllianceOverview205;seen.guideBinding=ui.roleDirectory203===roleDirectory205&&ui.roleGuides201===roleGuides205;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
+        loadAllianceOverview205:async()=>{seen.overviewModule++;return{renderAllianceOverview205};},
         offices199:()=>[],office199:()=>null,reservedKey201:()=>false,guideBody201:()=>null,positionOf:()=>null,displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
       const handlers=new Function(...Object.keys(deps),domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization};')(...Object.values(deps));
       return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
@@ -677,11 +683,12 @@ async function frontendOwner197() {
     race199.route('organization/office_03');race199.oldMain.remove();
     const organizationMain199=race199.app.appendChild(new Element('main'));organizationMain199.dataset.viewRequest='2';
     const organizationRead199=race199.handlers.organization(organizationMain199,['office_03']);
-    check('.199 deterministic race starts Organization while the original admin answer and model are both pending',race199.seen.fetches.length===1&&race199.seen.fetches[0].pathname==='/api/admin/overview'&&organizationMain199.textContent==='Opening the organization…'&&race199.seen.module===0);
+    check('.199 deterministic race starts Organization while the original admin answer and model are both pending',race199.seen.fetches.length===1&&race199.seen.fetches[0].pathname==='/api/admin/overview'&&organizationMain199.textContent==='Opening the organization…'&&race199.seen.module===0&&race199.seen.overviewModule===0);
     race199.response.resolve();await oldRead199;
     check('.199 detached Admin overview success changes neither global settings nor its stale DOM',race199.state.settings===race199.initialSettings&&race199.body.textContent==='Loading original overview'&&race199.seen.heat===0);
     race199.model.resolve();await organizationRead199;
     check('.199 initial Organization navigation reaches its module and renders after the late old admin response',race199.seen.module===1&&race199.seen.organization===1&&organizationMain199.textContent==='Organization loaded 95 offices'&&!organizationMain199.textContent.includes('Opening the organization'));
+    check('.205 the actual Organization route loads its overview once and passes the same renderer and canonical guide references',race199.seen.overviewModule===1&&race199.seen.overviewBinding&&race199.seen.guideBinding&&roleDirectory205.families.length===64&&guideKeys205.length===134&&new Set(guideKeys205).size===134&&guideKeys205.every(key=>!!roleGuides205[key]));
     for(const [label,invalidate]of[
       ['same-route detached body',page=>page.oldMain.remove()],
       ['changed route with attached body',page=>page.route('roles')],

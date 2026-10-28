@@ -4177,8 +4177,8 @@
     {
       "path": "worker/public/static/organization-overview205.js",
       "mode": "100644",
-      "bytes": 16320,
-      "sha256": "baa16c8764240974788ea57bc97fb2570e40d760163ff741eec2b104215cee87"
+      "bytes": 16577,
+      "sha256": "aee67aac6c376b7d384e0b85c67db3d6ddec0e716dfe815a79c57a11521a8698"
     },
     {
       "path": "worker/public/static/organization-context205.js",

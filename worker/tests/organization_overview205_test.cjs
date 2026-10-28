@@ -145,8 +145,11 @@ check('responsibility action selects the original independent auditor node only'
 page.input('org-alliance-rank205', '1', 'change');
 check('High Council rank filter shows exactly families whose original slots contain1', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1)).map(row => row.family.key))));
 const searchable = entries.find(row => row.slots.includes(1) && row.family.key === 'treasurer') || entries.find(row => row.slots.includes(1));
+page.input('org-alliance-rank205', '', 'change');
 page.input('org-alliance-search205', searchable.family.label, 'input');
-check('search and rank filters intersect rather than replace one another', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1) && row.searchText.includes(searchable.family.label.toLowerCase())).map(row => row.family.key))) && page.visible().includes(searchable.family.key));
+const searchOnly = page.visible();
+page.input('org-alliance-rank205', '1', 'change');
+check('search and rank filters intersect rather than replace one another', same(sorted(page.visible()), sorted(entries.filter(row => row.slots.includes(1) && searchOnly.includes(row.family.key)).map(row => row.family.key))) && page.visible().includes(searchable.family.key));
 page.input('org-alliance-search205', 'zzzz-no-such-role-205', 'input');
 check('unmatched search hides all family rows and reports the empty state', page.visible().length === 0 && page.section.all(node => node.classList.contains('org-alliance-status')).some(node => /0|no matching|none/i.test(node.textContent)));
 const reset = page.section.all(node => node.tagName === 'BUTTON' && node.textContent === 'Reset overview filters')[0];
@@ -155,6 +158,13 @@ reset.click();
 check('reset clears search and rank and restores all64 existing rows', page.document.getElementById('org-alliance-search205').value === '' && page.document.getElementById('org-alliance-rank205').value === '' && page.visible().length === 64 && page.families().length === 64);
 page.input('org-alliance-search205', 'Eastern time', 'input');
 check('search reaches the retained full NA regional guide without expanding its family', page.visible().includes(directory.keyToFamily.raid_leader_na) && page.guideCalls.length === 0);
+reset.click();
+page.input('org-alliance-search205', 'Raid Lead NA', 'input');
+check('the advertised abbreviated regional search finds Raid Leader despite punctuation', page.visible().includes(directory.keyToFamily.raid_leader_na));
+page.input('org-alliance-rank205', '4', 'change');
+check('regional search still intersects the Raid Leader native rank', page.visible().includes(directory.keyToFamily.raid_leader_na) && !page.visible().includes('treasurer'));
+page.input('org-alliance-search205', 'Raid Lead XY', 'input');
+check('an absent short regional token does not match arbitrary word fragments', page.visible().length === 0);
 reset.click();
 
 const branchField = page.document.getElementById('org-alliance-guild205');

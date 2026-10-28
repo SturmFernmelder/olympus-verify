@@ -2,6 +2,7 @@
 import { ORGANIZATION_LANES205, ORGANIZATION_HISTORY205 } from "/static/organization-context205.js";
 
 const TIERS205 = Object.freeze({ leader: "Leader", high_council: "High Council", officer_corps: "Officer Corps", member_specialist: "Member & Specialist" });
+const searchWords205 = text => String(text).normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
 
 export function buildAllianceOverview205(data, directory) {
   if (!directory?.families?.length || !Array.isArray(data.nodes) || !Array.isArray(data.nativeRanks)) throw new Error("The canonical organization directory is unavailable.");
@@ -94,7 +95,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
       }
     });
     const searchable = row.searchText + " " + family.sourceKeys.map(key => JSON.stringify(ui.roleGuides201?.[key] || "")).join(" ").toLowerCase();
-    families.push({ ...row, element: card, searchable });
+    families.push({ ...row, element: card, words: new Set(searchWords205(searchable)) });
     return card;
   }
   function groupCards(key) {
@@ -117,10 +118,11 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     branchDescription.textContent = branch ? branch.state + ". The cards describe shared local duties for this directory scope, not confirmed officeholders, a formed guild or live capacity. Alliance portfolios still coordinate across branches; the role catalogue below remains shared." : "Choose Olympus I–X to explore a directory scope. Local Guild Masters retain local command. These placeholders establish no formed guild, officeholder or live roster capacity.";
   }
   function filter() {
-    const q = search.value.trim().toLowerCase(), slot = rank.value === "" ? null : Number(rank.value);
+    const query = searchWords205(search.value), slot = rank.value === "" ? null : Number(rank.value);
     let count = 0;
     for (const row of families) {
-      row.element.hidden = !!(q && !row.searchable.includes(q)) || (slot !== null && !row.slots.includes(slot));
+      const matches = query.every(word => word.length <= 2 ? row.words.has(word) : [...row.words].some(candidate => candidate.startsWith(word)));
+      row.element.hidden = !matches || (slot !== null && !row.slots.includes(slot));
       if (!row.element.hidden) count++;
     }
     for (const { group, counter } of familyCounts) {
