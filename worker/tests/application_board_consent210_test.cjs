@@ -164,7 +164,7 @@ async function nativeConsent210(){
  return{checks:local210,passed:local210,outcomes:outcomes210};
 }
 module.exports=(async()=>{
- const front=prefix210('frontend_check.cjs',/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g,'7b72fd253e127dfa0379b0528adb5a05c9ae8e92655fd6c9b2e468ce201300f1');
+ const front=prefix210('frontend_check.cjs',/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g,'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5');
  const ordinary=new Module(__filename,module);ordinary.filename=__filename;ordinary.paths=Module._nodeModulePaths(__dirname);ordinary._compile(front+'\nmodule.exports=('+workerConsent210.toString()+')();',__filename);const worker=await ordinary.exports;
  const nativePrefix=prefix210('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'83b4fe71835e987ede23c482568ab067ce84700b51cca4b4efac6119f262896a');
  const native=new Module(__filename,module);native.filename=__filename;native.paths=Module._nodeModulePaths(__dirname);native._compile(nativePrefix+'\nmodule.exports=('+nativeConsent210.toString()+')();',__filename);return{worker,native:await native.exports};

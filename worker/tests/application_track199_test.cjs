@@ -7,7 +7,7 @@
 'use strict';
 const fs199=require('node:fs'),path199=require('node:path'),crypto199=require('node:crypto'),{Module}=require('node:module');
 function prefix199(file,pattern,pin){const source=fs199.readFileSync(path199.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];if(cuts.length!==1)throw Error('application199_original_fixture_boundary');const prefix=source.slice(0,cuts[0].index);if(crypto199.createHash('sha256').update(prefix).digest('hex')!==pin)throw Error('application199_original_fixture_drift');return prefix;}
-const frontPrefix199=prefix199('frontend_check.cjs',/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g,'7b72fd253e127dfa0379b0528adb5a05c9ae8e92655fd6c9b2e468ce201300f1');
+const frontPrefix199=prefix199('frontend_check.cjs',/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g,'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5');
 async function applicationTrackWorker199(){
  const assert199=require('node:assert/strict'),sd199=load('./site-data'),api199=load('./site-api'),intent199=load('./application-track199'),catalogue199=load('./governance-offices');
  const schema199=()=>JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all());

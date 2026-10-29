@@ -59,7 +59,7 @@
     "test:owner201": "node tests/reserved_seats201_test.cjs && node tests/role_guides201_test.cjs",
     "test:owner203": "node tests/role_directory203_test.cjs",
     "test:owner207": "node tests/treasury_plan207_test.cjs",
-    "test:qa210": "node tests/qa210_regressions_test.cjs"
+    "test:qa210": "node tests/qa210_regressions_test.cjs && node tests/privacy_rejection_decision_test.cjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261023.1",

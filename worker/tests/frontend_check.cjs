@@ -260,9 +260,11 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
     __delay: null, // .102: when set, a matching request waits this many milliseconds before the Worker sees it (a slow reply)
     __garble: null, // .104: when set, the Worker's answer to a matching request is replaced by an unreadable 200 page
     __answer: null, // .107: when set and it returns a value, the Worker's answer to a matching request is replaced by that value as a 200 JSON body (a readable but wrong receipt)
+    __intercept: null, // RT16 fixture only: an owned gate or early Response before the real Worker; default null.
     __before: null, // .107: when set and true, a matching request fails before the Worker sees it (never sent)
     __hold: null, // .110: when set and it returns a number, the Worker's completed answer to a matching request is held that many ms before the page sees it
     fetch: async (pathname, init = {}) => {
+      if (sandbox.__intercept) { const early = await sandbox.__intercept(pathname, init); if (early instanceof Response) return early; }
       const ms = sandbox.__delay ? sandbox.__delay(pathname, init) : 0;
       if (ms) await new Promise((r) => setTimeout(r, ms));
       if (sandbox.__before && sandbox.__before(pathname, init)) throw new TypeError("the network dropped the request"); // .107: before the Worker
@@ -279,7 +281,7 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
   vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });
   await settle();
-  return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, hold: (fn) => { sandbox.__hold = fn; }, clock: clockNow === undefined ? null : (value) => { if (!Number.isSafeInteger(value)) throw new Error("invalid page fixture clock"); pageClockNow = value; } };
+  return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, intercept: (fn) => { sandbox.__intercept = fn; }, hold: (fn) => { sandbox.__hold = fn; }, clock: clockNow === undefined ? null : (value) => { if (!Number.isSafeInteger(value)) throw new Error("invalid page fixture clock"); pageClockNow = value; } };
 }
 // .116: current script-free policy forms, through the real Worker and genuine cookies/tokens.
 // This is a finite HTML field reader for these server templates, not a DOM or transport replacement.
@@ -386,6 +388,19 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await out210.go("#/admin");
     await waitFor(() => !/Staff/.test(header210()), ".210 the signed-out header after a 401", 8000);
     check(".210 after a mid-session 401 the header drops the Staff menu and the Stream Shield toggle", before210 && !/Staff/.test(header210()) && !out210.app.querySelector(".stream-shield-toggle"));
+  }
+  {
+    // .210 QA: a second navigation while "Leave without saving?" is open must not stack a second confirmation.
+    const leave210 = await openPage(MEMBER);
+    await leave210.go("#/apply");
+    await waitFor(() => !!leave210.app.querySelector("#f-experience"), ".210 application form for the leave guard");
+    const experience210 = leave210.app.querySelector("#f-experience");
+    experience210.value = "QA unsaved answer"; experience210.dispatchEvent(new Event("input", { bubbles: true }));
+    leave210.location.hash = "#/vote"; await new Promise(resolve => setTimeout(resolve, 50));
+    leave210.location.hash = "#/roles"; await new Promise(resolve => setTimeout(resolve, 50));
+    await waitFor(() => leave210.document.body.querySelectorAll("dialog").length > 0, ".210 the leave confirmation");
+    const dialogs210 = leave210.document.body.querySelectorAll("dialog").length;
+    check(".210 a second navigation while the leave confirmation is open does not stack another", dialogs210 === 1 && leave210.location.hash === "#/apply", String(dialogs210) + " " + leave210.location.hash);
   }
   let page = await openPage(MEMBER);
   {
@@ -3045,6 +3060,235 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => heldLogout === 1, "held census logout"); const logoutInput = input(signingOut); byText(signingOut.app, "button", "Sign out").click();
     check("census sign-out clears and aborts synchronously before the logout await", logoutSignal.aborted && logoutInput.value === "");
     await new Promise(resolve => setTimeout(resolve, 130)); check("census late answer after sign-out never returns private rows", !accepted(signingOut) && results(signingOut).textContent === "");
+  }
+
+  {
+    // .210 QA (RT-16): every membership decision the admin page sent answered 409 original_membership_decision_held: the
+    // Worker admits one only with a single-use target prepared for that account, route and action, and the page sent none.
+    const APP210 = "300000000000000210", DEL210 = "300000000000000211";
+    for (const id of [APP210, DEL210]) {
+      await siteUser(id);
+      await fixtureRun("INSERT INTO site_applications (discord_id, position, answers, status, created_at, updated_at) VALUES (?, 'member', '{}', 'submitted', ?, ?)", id, now - 3600, now - 3600);
+    }
+    const app210 = () => one("SELECT status, admin_note FROM site_applications WHERE discord_id = ?", APP210);
+    const denied210 = () => one("SELECT denied FROM site_users WHERE discord_id = ?", APP210).denied;
+    const adm210 = await openPage(STAFF);
+    const sent210 = [];
+    adm210.before((pathname, init) => { if (/^\/api\/admin\/(users|applications)\/30000000000000021/.test(pathname)) sent210.push([init.method || "GET", pathname, (init.headers || {})["X-Olympus-Decision-Action"] || "", typeof (init.headers || {})["X-Olympus-Decision-Target"] === "string"]); return false; });
+    const dialog210 = () => adm210.document.body.querySelector("dialog");
+    await adm210.go(`#/admin/applications/${APP210}`);
+    await waitFor(() => !!byText(adm210.app, "button", "Save note"), ".210 the application page");
+    const note210 = adm210.app.querySelector("textarea"); if (note210) note210.value = "Checked by the QA lane";
+    byText(adm210.app, "button", "Save note")?.click();
+    await waitFor(() => app210().admin_note === "Checked by the QA lane", ".210 the saved note");
+    check(".210 Save note is admitted: the page prepares the decision target, then sends the status with it (business decision)",
+      app210().admin_note === "Checked by the QA lane" && app210().status === "submitted"
+      && sent210.some(([m, p]) => m === "GET" && p === `/api/admin/users/${APP210}/decision-target?route=status&decisionAction=business_only`)
+      && sent210.some(([m, p, action, target]) => m === "POST" && p === `/api/admin/applications/${APP210}/status` && action === "business_only" && target),
+      JSON.stringify(sent210), JSON.stringify(app210()));
+    await waitFor(() => !!byText(adm210.app, "button", "Accept"), ".210 the redrawn application");
+    byText(adm210.app, "button", "Accept")?.click();
+    await waitFor(() => app210().status === "accepted", ".210 the accepted application");
+    check(".210 Accept on the admin page records the decision", app210().status === "accepted", JSON.stringify(app210()));
+    await waitFor(() => !!byText(adm210.app, "button", "Deny permanently"), ".210 the deny control");
+    byText(adm210.app, "button", "Deny permanently")?.click();
+    await waitFor(() => !!dialog210() && !!dialog210().querySelector("textarea"), ".210 the deny prompt");
+    if (dialog210()?.querySelector("textarea")) { dialog210().querySelector("textarea").value = "QA check"; byText(dialog210(), "button", "Deny permanently")?.click(); }
+    await waitFor(() => denied210() === 1, ".210 the denial");
+    check(".210 Deny permanently on the admin page records the denial", denied210() === 1);
+    await waitFor(() => !!byText(adm210.app, "button", "Lift the denial"), ".210 the lift control");
+    const wasDenied210 = denied210() === 1;
+    byText(adm210.app, "button", "Lift the denial")?.click();
+    await waitFor(() => !!dialog210() && !!byText(dialog210(), "button", "Lift it"), ".210 the lift confirmation");
+    if (dialog210()) byText(dialog210(), "button", "Lift it")?.click();
+    await waitFor(() => denied210() === 0, ".210 the lifted denial");
+    check(".210 Lift the denial on the admin page clears a recorded denial through an admitted decision",
+      wasDenied210 && denied210() === 0 && sent210.some(([m, p, action, target]) => m === "POST" && p === `/api/admin/users/${APP210}/undeny` && action === "business_only" && target));
+    await adm210.go(`#/admin/applications/${DEL210}`);
+    await waitFor(() => !!byText(adm210.app, "button", "Delete their site data"), ".210 the second application page");
+    byText(adm210.app, "button", "Delete their site data")?.click();
+    await waitFor(() => !!dialog210() && !!dialog210().querySelector("input[type=text]"), ".210 the delete confirmation");
+    const typed210 = dialog210()?.querySelector("input[type=text]");
+    if (typed210) { typed210.value = "DELETE"; typed210.dispatchEvent(new Event("input", { bubbles: true })); byText(dialog210(), "button", "Delete their data")?.click(); }
+    await waitFor(() => !one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210), ".210 the deleted site data");
+    check(".210 Delete their site data on the admin page is admitted as a partial delete and removes the application",
+      !one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210)
+      && sent210.some(([m, p, action, target]) => m === "POST" && p === `/api/admin/users/${DEL210}/delete` && action === "partial_delete" && target),
+      JSON.stringify(sent210.filter(([, p]) => p.includes(DEL210))));
+  }
+
+  {
+    // RT16 successor proposal: actual UI + Native Worker unless explicitly labelled early-response transport fixture.
+    // No product/test clock override. Tokens are never read/decoded by these UI assertions.
+    let next210 = 220;
+    const seed210 = async () => {
+      const id = "300000000000000" + String(next210++);
+      await siteUser(id);
+      await fixtureRun("INSERT INTO site_applications (discord_id, position, answers, status, admin_note, created_at, updated_at) VALUES (?, 'member', '{}', 'submitted', 'Original reviewed note', ?, ?)", id, now - 3600, now - 3600);
+      return id;
+    };
+    const status210 = id => one("SELECT status, admin_note, updated_at, reviewed_at FROM site_applications WHERE discord_id = ?", id);
+    const preparations210 = rows => rows.filter(r => r.method === "GET" && r.path.includes("/decision-target?"));
+    const posts210 = rows => rows.filter(r => r.method === "POST");
+    const open210 = async (id, intercept = null) => {
+      const p = await openPage(STAFF), rows = [];
+      p.intercept(async (pathname, init) => {
+        if (pathname.startsWith("/api/admin/")) rows.push({ path: pathname, method: init.method || "GET", target: typeof init.headers?.["X-Olympus-Decision-Target"] === "string" });
+        return intercept ? await intercept(pathname, init) : null;
+      });
+      await p.go(`#/admin/applications/${id}`);
+      return { p, rows };
+    };
+    const ready210 = async p => await waitFor(() => !!byText(p.app, "button", "Save note"), "RT16 prepared actual application controls", 8000);
+    const refused210 = async p => await waitFor(() => p.app.textContent.includes("The decision result could not be confirmed."), "RT16 spent refused application view", 8000);
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      const detail = rows.findIndex(r => r.path === `/api/admin/applications/${id}`);
+      check("RT16 all four route/action preparations precede the displayed detail GET", detail === 4 && preparations210(rows).length === 4 && ["status", "deny", "undeny", "delete"].every((route, i) => rows[i]?.path === `/api/admin/users/${id}/decision-target?route=${route}&decisionAction=${route === "delete" ? "partial_delete" : "business_only"}`));
+      await fixtureRun("UPDATE site_applications SET status = 'reviewing', admin_note = 'Separate reviewed state', updated_at = updated_at + 1 WHERE discord_id = ?", id);
+      byText(p.app, "button", "Save note")?.click(); await refused210(p);
+      const first = posts210(rows).length; byText(p.app, "button", "Save note")?.click(); await settle();
+      check("RT16 stale covered application proof refuses the old note/status without renewed tokens", status210(id).status === "reviewing" && status210(id).admin_note === "Separate reviewed state" && first === 1 && posts210(rows).length === 1 && preparations210(rows).length === 4);
+    }
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      byText(p.app, "button", "Delete their site data")?.click();
+      await waitFor(() => !!p.document.body.querySelector("dialog input[type=text]"), "RT16 old incarnation delete confirmation");
+      const oldBirth = one("SELECT account_incarnation FROM site_users WHERE discord_id = ?", id).account_incarnation;
+      await fixtureRun("DELETE FROM site_applications WHERE discord_id = ?", id);
+      await fixtureRun("DELETE FROM site_users WHERE discord_id = ?", id);
+      await siteUser(id, { global_name: "Replacement account" });
+      await fixtureRun("INSERT INTO site_applications (discord_id, position, answers, status, admin_note, created_at, updated_at) VALUES (?, 'member', '{}', 'submitted', 'Replacement remains', ?, ?)", id, now, now);
+      const replacementBirth = one("SELECT account_incarnation FROM site_users WHERE discord_id = ?", id).account_incarnation;
+      const dialog = p.document.body.querySelector("dialog"), typed = dialog?.querySelector("input[type=text]");
+      if (typed) { typed.value = "DELETE"; fire(typed, "input"); byText(dialog, "button", "Delete their data")?.click(); }
+      await refused210(p);
+      check("RT16 an old confirmed delete cannot silently rebase onto a recreated account", oldBirth !== replacementBirth && one("SELECT account_incarnation FROM site_users WHERE discord_id = ?", id)?.account_incarnation === replacementBirth && status210(id)?.admin_note === "Replacement remains" && posts210(rows).length === 1 && preparations210(rows).length === 4);
+    }
+
+    { const id = await seed210(); let replaced = false;
+      const { p, rows } = await open210(id, async pathname => {
+        if (!replaced && pathname === `/api/admin/applications/${id}`) {
+          replaced = true; await fixtureRun("DELETE FROM site_applications WHERE discord_id = ?", id);
+          await fixtureRun("INSERT INTO site_applications (discord_id, position, answers, status, admin_note, created_at, updated_at) VALUES (?, 'member', '{}', 'reviewing', 'New displayed application', ?, ?)", id, now, now);
+        } return null;
+      }); await ready210(p);
+      const displayed = p.app.querySelector("textarea")?.value;
+      byText(p.app, "button", "Save note")?.click(); await refused210(p);
+      check("RT16 application replacement between preparation and final detail fails closed for covered proof fields", replaced && displayed === "New displayed application" && status210(id).status === "reviewing" && status210(id).admin_note === "New displayed application" && posts210(rows).length === 1 && preparations210(rows).length === 4);
+    }
+
+    for (const interruption of ["navigation", "session-revocation", "sign-out"]) {
+      const id = await seed210(); let release, entered = false, responseCompleted = false;
+      const gate = new Promise(resolve => { release = resolve; });
+      const { p, rows } = await open210(id, async pathname => {
+        if (!entered && pathname.includes("/decision-target?")) { entered = true; await gate; }
+        if (interruption === "sign-out" && pathname === "/auth/logout") return new Response(null, { status: 204 });
+        return null;
+      });
+      // Existing transport hook observes completion of the actual Native request, not private client state.
+      p.hold(pathname => { if (pathname.includes("/decision-target?")) responseCompleted = true; return 0; });
+      const reached = await waitFor(() => entered, `RT16 held preparation before ${interruption}`);
+      let genuineRevocation = true;
+      try {
+        if (interruption === "navigation") await p.go("#/admin");
+        else if (interruption === "session-revocation") {
+          const originalVersion = one("SELECT session_version FROM site_users WHERE discord_id = ?", STAFF).session_version;
+          await fixtureRun("UPDATE site_users SET session_version = 2 WHERE discord_id = ?", STAFF);
+          genuineRevocation = originalVersion === 1 && one("SELECT session_version FROM site_users WHERE discord_id = ?", STAFF).session_version === 2;
+        } else byText(p.app, "button", "Sign out")?.click();
+        release();
+        const completed = await waitFor(() => responseCompleted, `RT16 actual preparation response completed after ${interruption}`, 8000);
+        let signedOut = true;
+        if (interruption === "session-revocation") signedOut = await waitFor(() => p.document.body.textContent.includes("You were signed out. Sign in with Discord again."), "RT16 actual Native 401 adopted as signed out before fixture restore", 8000);
+        await settle(); await settle();
+        check(`RT16 ${interruption} invalidates the original preparing view before details or a write`, reached && completed && genuineRevocation && signedOut && preparations210(rows).length === 1 && !rows.some(r => r.path === `/api/admin/applications/${id}`) && posts210(rows).length === 0 && !byText(p.app, "button", "Save note") && status210(id).admin_note === "Original reviewed note");
+        if (!completed || !signedOut) throw new Error("RT16 original preparation did not reach its required observed outcome");
+      } finally {
+        release();
+        // Existing original cookie is retained, not reissued; cleanup follows the observed 401, never a 100ms guess.
+        if (interruption === "session-revocation") await fixtureRun("UPDATE site_users SET session_version = 1 WHERE discord_id = ?", STAFF);
+      }
+    }
+
+    { const id = await seed210(); let release, entered = false;
+      const gate = new Promise(resolve => { release = resolve; });
+      const { p, rows } = await open210(id, async (pathname, init) => {
+        if (!entered && init.method === "POST") { entered = true; await gate; } return null;
+      }); await ready210(p);
+      const save = byText(p.app, "button", "Save note"), deny = byText(p.app, "button", "Deny permanently");
+      p.app.querySelector("textarea").value = "One pending action";
+      save?.click(); save?.click(); deny?.click();
+      await waitFor(() => entered, "RT16 owned pending POST");
+      const once = posts210(rows).length === 1 && preparations210(rows).length === 4 && !p.document.body.querySelector("dialog") && save.disabled && deny.disabled;
+      release(); await waitFor(() => status210(id).admin_note === "One pending action", "RT16 acknowledged single write");
+      check("RT16 duplicate clicks and another decision while pending dispatch exactly one write", once && status210(id).admin_note === "One pending action");
+    }
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      byText(p.app, "button", "Deny permanently")?.click();
+      await waitFor(() => !!p.document.body.querySelector("dialog"), "RT16 cancel prompt");
+      const dialog = p.document.body.querySelector("dialog"); byText(dialog, "button", "Cancel")?.click();
+      await waitFor(() => !p.document.body.querySelector("dialog"), "RT16 canceled prompt removed"); await settle();
+      check("RT16 cancel sends no write and does not silently renew prepared targets", posts210(rows).length === 0 && preparations210(rows).length === 4 && !byText(p.app, "button", "Save note")?.disabled && one("SELECT denied FROM site_users WHERE discord_id = ?", id).denied === 0);
+    }
+
+    { const id = await seed210(); let refused = false;
+      const { p, rows } = await open210(id, async (pathname, init) => {
+        // Explicit transport fixture for an expired/refused answer; real token expiry is exercised by the Native backend suite.
+        if (init.method === "POST") { refused = true; return new Response(JSON.stringify({ error: "original_membership_decision_held" }), { status: 409, headers: { "Content-Type": "application/json" } }); }
+        return null;
+      }); await ready210(p); const save = byText(p.app, "button", "Save note"); save?.click(); await refused210(p); save?.click(); await settle();
+      check("RT16 an expired/refused 409 fixture spends the UI view with no automatic preparation or retry", refused && posts210(rows).length === 1 && preparations210(rows).length === 4 && save.disabled && status210(id).admin_note === "Original reviewed note");
+    }
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      p.drop((pathname, init) => pathname === `/api/admin/applications/${id}/status` && init.method === "POST");
+      p.app.querySelector("textarea").value = "Landed but answer lost";
+      const save = byText(p.app, "button", "Save note"); save?.click(); await refused210(p); save?.click(); await settle();
+      check("RT16 a real landed write with lost answer is not resubmitted or automatically re-prepared", status210(id).admin_note === "Landed but answer lost" && posts210(rows).length === 1 && preparations210(rows).length === 4 && save.disabled);
+      p.drop(null); byText(p.app, "button", "Reload application")?.click(); await ready210(p);
+      check("RT16 explicit reload creates a fresh reviewed view after an unknown result", p.app.querySelector("textarea")?.value === "Landed but answer lost" && preparations210(rows).length === 8 && posts210(rows).length === 1 && !byText(p.app, "button", "Save note")?.disabled);
+    }
+
+    { const id = await seed210(); let changed = false;
+      const { p, rows } = await open210(id, async pathname => {
+        if (!changed && pathname.includes("/decision-target?route=deny&")) { changed = true; await fixtureRun("UPDATE site_applications SET status = 'reviewing', updated_at = updated_at + 1 WHERE discord_id = ?", id); } return null;
+      }); await ready210(p); byText(p.app, "button", "Save note")?.click(); await refused210(p);
+      check("RT16 mixed-state route preparations never refresh an earlier stale route at click time", changed && status210(id).status === "reviewing" && posts210(rows).length === 1 && preparations210(rows).length === 4);
+    }
+
+    for (const action of ["status", "delete"]) {
+      const id = await seed210();
+      const { p, rows } = await open210(id, async (pathname, init) => init.method === "POST" ? new Response(JSON.stringify({ user: { id: OTHER, denied: false }, application: { status: "submitted" }, ok: false }), { status: 200, headers: { "Content-Type": "application/json" } }) : null);
+      await ready210(p);
+      if (action === "status") byText(p.app, "button", "Save note")?.click();
+      else {
+        byText(p.app, "button", "Delete their site data")?.click();
+        await waitFor(() => !!p.document.body.querySelector("dialog input[type=text]"), "RT16 malformed delete receipt confirmation");
+        const dialog = p.document.body.querySelector("dialog"), typed = dialog?.querySelector("input[type=text]");
+        if (typed) { typed.value = "DELETE"; fire(typed, "input"); byText(dialog, "button", "Delete their data")?.click(); }
+      }
+      await refused210(p);
+      check(`RT16 readable wrong 2xx ${action} receipt fixture cannot announce success or renew authority`, posts210(rows).length === 1 && preparations210(rows).length === 4 && status210(id).admin_note === "Original reviewed note" && p.location.hash === `#/admin/applications/${id}` && byText(p.app, "button", "Save note")?.disabled);
+    }
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      byText(p.app, "button", "Deny permanently")?.click();
+      await waitFor(() => !!p.document.body.querySelector("dialog textarea"), "RT16 pending modal before navigation");
+      const dialog = p.document.body.querySelector("dialog"); await p.go("#/admin");
+      if (dialog?.querySelector("textarea")) { dialog.querySelector("textarea").value = "A late old-view confirmation"; byText(dialog, "button", "Deny permanently")?.click(); }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      check("RT16 navigation before an old confirmation resolves prevents its write and late UI effects", posts210(rows).length === 0 && preparations210(rows).length === 4 && one("SELECT denied FROM site_users WHERE discord_id = ?", id).denied === 0 && p.location.hash === "#/admin");
+    }
+
+    { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
+      p.hold((pathname, init) => pathname === `/api/admin/applications/${id}/status` && init.method === "POST" ? 150 : 0);
+      p.app.querySelector("textarea").value = "Already dispatched before leaving"; byText(p.app, "button", "Save note")?.click();
+      await waitFor(() => status210(id).admin_note === "Already dispatched before leaving", "RT16 actual landed write before held answer");
+      await p.go("#/admin"); await new Promise(resolve => setTimeout(resolve, 200));
+      check("RT16 a dispatched write may land but its late answer cannot toast, redraw, navigate or prepare a replacement view", status210(id).admin_note === "Already dispatched before leaving" && posts210(rows).length === 1 && preparations210(rows).length === 4 && rows.filter(r => r.path === `/api/admin/applications/${id}`).length === 1 && p.location.hash === "#/admin" && !p.document.body.textContent.includes("Marked submitted."));
+    }
   }
 
   console.log(`\n${ok}/${n} passed`);

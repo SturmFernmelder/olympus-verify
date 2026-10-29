@@ -7,7 +7,7 @@ const fs197=require('node:fs'),path197=require('node:path'),crypto197=require('n
 const helper197=fs197.readFileSync(path197.join(__dirname,'frontend_check.cjs'),'utf8'),starts197=[...helper197.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if(starts197.length!==1)throw Error('talent197_original_frontend_setup_boundary');
 const prefix197=helper197.slice(0,starts197[0].index);
-if(crypto197.createHash('sha256').update(prefix197).digest('hex')!=='7b72fd253e127dfa0379b0528adb5a05c9ae8e92655fd6c9b2e468ce201300f1')throw Error('talent197_original_frontend_setup_drift');
+if(crypto197.createHash('sha256').update(prefix197).digest('hex')!=='bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5')throw Error('talent197_original_frontend_setup_drift');
 async function applicationTalentCollection197(){
  await siteUser(MEMBER,{global_name:'Mia'});await character(MEMBER,'Mia One','Player-1-0001');
  await siteUser(OTHER,{global_name:'Oz'});await character(OTHER,'Oz Two','Player-1-0002');

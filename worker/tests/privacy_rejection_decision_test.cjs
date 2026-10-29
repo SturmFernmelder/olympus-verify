@@ -206,7 +206,230 @@ async function expiryAndScheduler(layout){
  for(let bits=0;bits<8;bits++){const f=await rejected(layout);try{const event=f.events()[0];clock=T+YEAR;await f.admitted.prepare('UPDATE site_users SET last_login=?').bind(clock).run();f.env.PRIVACY_ACCESS_ENABLED=bits&1?'true':'false';f.env.PRIVACY_ERASURE_ENABLED=bits&2?'true':'false';f.env.PRIVACY_RETENTION_ENABLED=bits&4?'true':'false';f.reset();const promises=[],errors=[],oldError=console.error;console.error=(...s)=>errors.push(s.join(' '));try{await f.L('index').runSourceEpoch2ScheduledBody(f.env,{waitUntil(p){promises.push(p);}});for(const p of promises)await p;}finally{console.error=oldError;}eq(layout+' all old flag combination '+bits+' has original expiry result',[f.events().length,f.proof().rejection_window_expired],[0,1]);eq(layout+' old jobs plus mandatory expiry registered '+bits,promises.length,21);ok(layout+' flag combination '+bits+' no swallowed error',errors.length===0);scheduled.push({bits,statements:f.trace.length,groups:f.groups.map(g=>g.length),registered:promises.length,errors});eq(layout+' unrelated foreign row retained '+bits,f.db.prepare('SELECT COUNT(*) n FROM site_users WHERE discord_id=?').get(FOREIGN).n,1);}finally{f.close();}}
  MEASURED[layout].flagBodies=scheduled;
 }
-async function main(){for(const layout of['canonical','recorded-live-20261010']){await installerCases(layout);await cases(layout);await sourceCopies(layout);await markerConsumer(layout);await fullTerminalChain(layout,'cookie');await fullTerminalChain(layout,'identify-original-absence');await partialCases(layout);await expiryAndScheduler(layout);}eq('no real external provider calls',providerCalls,0);console.log('MEASURED_REJECTION_DECISION '+JSON.stringify({layouts:MEASURED,originalCoreExpected:11,expiryExpected:7,nativeClockTrust:'synthetic_only',providerOriginQualified:false,providerDrainQualified:false,normalScheduled700Qualified:false,scheduledEntryQualified:false,sourceBodyFlagCombinationsOnly:true,syntheticManagedOpenOnly:true,actualSourceOpenerQualified:false,readyToReopen:false}));console.log(`rejection decision native: ${checks}/${checks} passed`);}
+// SOURCE-ONLY extension for the original same-VM Native rejection fixture.
+// No new clock override: these cases retain that fixture's deterministic JS/SQLite T.
+// They do not qualify real wall-clock transport, provider admission, or deployment.
+const REVIEW_COLUMNS=Object.freeze(['discord_id','position','class_lead','backup1','backup2','fallback','character','char_key','class','role','region','avail','avail_tz','fit_na','fit_eu','board_at','answers','status','admin_note','reviewed_by','reviewed_at','created_at','updated_at','rejection_event_id','rejection_subject_key','rejection_scope','rejection_window_expired']);
+const FRESH_REVIEW_SELECT='AS review_raw FROM site_users u JOIN site_users actor ON actor.discord_id=?1 WHERE u.discord_id=?2';
+function reviewState(f){return {applications:f.db.prepare('SELECT * FROM site_applications ORDER BY discord_id').all(),target:f.db.prepare('SELECT * FROM site_users WHERE discord_id=?').get(TARGET),users:f.db.prepare('SELECT * FROM site_users ORDER BY discord_id').all(),subjects:f.db.prepare('SELECT * FROM privacy_subjects ORDER BY subject_id').all(),events:f.events()};}
+function rawApplicationReview(f){return f.db.prepare('SELECT json_array('+REVIEW_COLUMNS.flatMap(c=>['typeof(a.'+c+')','a.'+c]).join(',')+') AS raw FROM site_applications a WHERE a.discord_id=?').get(TARGET)?.raw??null;}
+const freshReviewReads=f=>f.trace.filter(r=>r.sql.includes(FRESH_REVIEW_SELECT));
+const consumingReviewGroups=f=>f.groups.filter(g=>g.some(sql=>sql.includes('CAST(?18 AS BLOB)')));
+async function reviewWrite(f,sql,...binds){await f.admitted.prepare(sql).bind(...binds).run();}
+function decodedReviewToken(token){return JSON.parse(Buffer.from(token.slice(0,token.indexOf('.')),'base64url').toString('utf8'));}
+// Negative MAC/shape fixtures use the ACTUAL core signer with dummy fixture secret.
+// They never hand-format a session/cookie or claim a forged positive capability.
+async function signReviewNegative(f,payload,purpose='site-membership-decision-target-incarnation-v2'){
+ const raw=Buffer.from(JSON.stringify(payload),'utf8').toString('base64url');return raw+'.'+await f.core.sign(f.env.COOKIE_SECRET,purpose,raw);
+}
+async function assertReviewHeld(f,label,token,before,body={status:'reviewing',note:'must-not-land'}){
+ const r=await f.post('status',body,'business_only',token);eq(label+' typed409',r.status,409);eq(label+' preserves admitted state',reviewState(f),before);return r;
+}
+const REVIEW_DRIFTS=Object.freeze([
+ ['discord_id','UPDATE site_applications SET discord_id=? WHERE discord_id=?',[FOREIGN,TARGET]],
+ ['position','UPDATE site_applications SET position=? WHERE discord_id=?',['officer',TARGET]],
+ ['class_lead','UPDATE site_applications SET class_lead=? WHERE discord_id=?',['mage',TARGET]],
+ ['backup1','UPDATE site_applications SET backup1=? WHERE discord_id=?',['officer',TARGET]],
+ ['backup2','UPDATE site_applications SET backup2=? WHERE discord_id=?',['raider',TARGET]],
+ ['fallback','UPDATE site_applications SET fallback=? WHERE discord_id=?',[0,TARGET]],
+ ['character','UPDATE site_applications SET character=? WHERE discord_id=?',['Native Changed',TARGET]],
+ ['char_key','UPDATE site_applications SET char_key=? WHERE discord_id=?',['native-changed',TARGET]],
+ ['class','UPDATE site_applications SET class=? WHERE discord_id=?',['mage',TARGET]],
+ ['role','UPDATE site_applications SET role=? WHERE discord_id=?',['healer',TARGET]],
+ ['region','UPDATE site_applications SET region=? WHERE discord_id=?',['eu',TARGET]],
+ ['avail','UPDATE site_applications SET avail=? WHERE discord_id=?',['f'.repeat(42),TARGET]],
+ ['avail_tz','UPDATE site_applications SET avail_tz=? WHERE discord_id=?',['Etc/UTC',TARGET]],
+ ['fit_na','UPDATE site_applications SET fit_na=? WHERE discord_id=?',[2,TARGET]],
+ ['fit_eu','UPDATE site_applications SET fit_eu=? WHERE discord_id=?',[3,TARGET]],
+ ['board_at','UPDATE site_applications SET board_at=? WHERE discord_id=?',[T,TARGET]],
+ ['answers','UPDATE site_applications SET answers=? WHERE discord_id=?',['{"private":"changed"}',TARGET]],
+ ['status','UPDATE site_applications SET status=? WHERE discord_id=?',['reviewing',TARGET]],
+ ['admin_note','UPDATE site_applications SET admin_note=? WHERE discord_id=?',['other admin note',TARGET]],
+ ['reviewed_by','UPDATE site_applications SET reviewed_by=? WHERE discord_id=?',[FOREIGN,TARGET]],
+ ['reviewed_at','UPDATE site_applications SET reviewed_at=? WHERE discord_id=?',[T,TARGET]],
+ ['created_at','UPDATE site_applications SET created_at=? WHERE discord_id=?',[T-1,TARGET]],
+ ['updated_at','UPDATE site_applications SET updated_at=? WHERE discord_id=?',[T-1,TARGET]],
+ // Genuine rejected setup supplies coherent original fields before each mutation.
+ ['rejection_event_id','UPDATE site_applications SET rejection_event_id=? WHERE discord_id=?',['d'.repeat(32),TARGET],true],
+ ['rejection_subject_key','UPDATE site_applications SET rejection_subject_key=? WHERE discord_id=?',['A'.repeat(43),TARGET],true],
+ ['rejection_scope','UPDATE site_applications SET rejection_scope=? WHERE discord_id=?',['pure_member_including_fallback0',TARGET],true],
+ // The schema requires event_id=NULL together with expired=1. This one is an
+ // explicitly coupled, schema-admissible transition, not a disabled CHECK.
+ ['rejection_window_expired','UPDATE site_applications SET rejection_event_id=NULL,rejection_window_expired=1 WHERE discord_id=?',[TARGET],true],
+]);
+async function applicationReviewCases(layout){
+ const start=checks;
+ eq(layout+' review drift inventory covers27 schema columns',REVIEW_DRIFTS.map(x=>x[0]),REVIEW_COLUMNS);
+ {const f=await opened(layout);try{
+  eq(layout+' review columns match actual Native schema',f.db.prepare('PRAGMA table_info(site_applications)').all().map(x=>x.name),REVIEW_COLUMNS);
+  await reviewWrite(f,'UPDATE site_applications SET answers=?,admin_note=? WHERE discord_id=?',' { "n":1e500, "z":-0, "q":"\\u0061" } ','private-review-sentinel',TARGET);
+  const raw=rawApplicationReview(f),t=await f.token('status'),payload=decodedReviewToken(t);
+  ok(layout+' review digest mandatory64hex',typeof payload.reviewDigest==='string'&&/^[0-9a-f]{64}$/.test(payload.reviewDigest));
+  ok(layout+' opaque token contains no private raw',!JSON.stringify(payload).includes('private-review-sentinel')&&!Object.hasOwn(payload,'review_raw')&&!Object.hasOwn(payload,'answers')&&t.length<=8192);
+  f.reset();eq(layout+' unchanged lexical answers actual status200',(await f.post('status',{status:'reviewing'},'business_only',t)).status,200);
+  eq(layout+' status keeps exact answers TEXT',f.db.prepare('SELECT answers FROM site_applications WHERE discord_id=?').get(TARGET).answers,' { "n":1e500, "z":-0, "q":"\\u0061" } ');
+  const g=consumingReviewGroups(f);eq(layout+' unchanged review consumes one physical11 group',g.map(x=>x.length),[11]);
+  const guard=f.trace.find(r=>r.sql.includes('CAST(?18 AS BLOB)'));ok(layout+' consuming bind retains private exact Native raw',!!guard&&guard.values.includes(raw));
+ }finally{f.close();}}
+ // Raw-row encoding only: not a fresh-form maximum or malformed-UTF8 claim.
+ {const f=await opened(layout);try{
+  const nonBMP='\u{1F642}',combining='e\u0301',mixed=nonBMP+combining+'\u0000\t\n\\path',answers=' { "private":'+JSON.stringify(mixed)+', "n":1e500 } ',note='raw-note:'+mixed;
+  await reviewWrite(f,'UPDATE site_applications SET answers=?,admin_note=? WHERE discord_id=?',answers,note,TARGET);
+  const expression='json_array('+REVIEW_COLUMNS.flatMap(c=>['typeof(a.'+c+')','a.'+c]).join(',')+')',observed=f.db.prepare('SELECT '+expression+' AS raw,length(CAST('+expression+' AS BLOB)) AS bytes FROM site_applications a WHERE a.discord_id=?').get(TARGET),protectedBytes=f.L('privacy-recovery-data-json').recoveryDataUtf8Length(observed.raw);
+  eq(layout+' mixed raw encoding Native BLOB bytes equal protected UTF8',observed.bytes,protectedBytes);ok(layout+' mixed raw encoding bytes exceed UTF16 units',observed.bytes>observed.raw.length);
+  const t=await f.token('status'),payload=decodedReviewToken(t);ok(layout+' mixed raw encoding genuine compact token',t.length<=8192&&/^[0-9a-f]{64}$/.test(payload.reviewDigest)&&!JSON.stringify(payload).includes(nonBMP)&&!Object.hasOwn(payload,'review_raw'));
+  eq(layout+' mixed raw encoding actual positive200',(await f.post('status',{status:'reviewing'},'business_only',t)).status,200);eq(layout+' mixed raw encoding exact answers and note retained',f.db.prepare('SELECT answers,admin_note FROM site_applications WHERE discord_id=?').get(TARGET),{answers,admin_note:note});
+  const fresh=await f.token('status'),proof=decodedReviewToken(fresh).app,changed=answers.replace(nonBMP,'changed-'+nonBMP)+'\n';await reviewWrite(f,'UPDATE site_applications SET answers=? WHERE discord_id=?',changed,TARGET);
+  eq(layout+' mixed raw encoding content drift leaves APP13 unchanged',f.db.prepare('SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?').get(TARGET).p,proof);
+  const before=canon(reviewState(f));f.reset();await assertReviewHeld(f,layout+' mixed raw encoding stale content and whitespace',fresh,before);eq(layout+' mixed raw encoding fresh private read observed',freshReviewReads(f).length,1);eq(layout+' mixed raw encoding no consuming group',consumingReviewGroups(f).length,0);
+ }finally{f.close();}}
+ for(const stage of['before-fresh-read','after-fresh-read-before-group'])for(const[column,sql,binds,rejectedSetup]of REVIEW_DRIFTS){
+  const f=rejectedSetup?await rejected(layout):await opened(layout);try{
+   const t=await f.token('status'),original=canon(reviewState(f));let externalState,hit=false;
+   if(stage==='before-fresh-read'){await reviewWrite(f,sql,...binds);externalState=canon(reviewState(f));f.reset();}
+   else{f.reset();f.hook(async(plan,next)=>{if(!plan.some(r=>r.sql.includes('CAST(?18 AS BLOB)')))return next();f.hook(null);hit=true;await reviewWrite(f,sql,...binds);externalState=canon(reviewState(f));return next();});}
+   const r=await f.post('status',{status:'accepted',note:'must-not-land'},'business_only',t),label=layout+' '+stage+' '+column;
+   eq(label+' stale review409',r.status,409);if(stage==='after-fresh-read-before-group'){eq(label+' exact consuming race reached',hit,true);ok(label+' fresh review completed before race',freshReviewReads(f).length===1);}
+   ok(label+' external mutation genuinely changed row',JSON.stringify(externalState)!==JSON.stringify(original));
+   eq(label+' no decision effect beyond external mutation',reviewState(f),externalState);
+  }finally{f.hook(null);f.close();}
+ }
+ for(const value of['{ "n": 1 }','{"n":1.0}','{"n":1e0}']){const f=await opened(layout);try{
+  await reviewWrite(f,'UPDATE site_applications SET answers=? WHERE discord_id=?','{"n":1}',TARGET);const t=await f.token('status');await reviewWrite(f,'UPDATE site_applications SET answers=? WHERE discord_id=?',value,TARGET);f.reset();
+  await assertReviewHeld(f,layout+' changed raw answers '+value,t,canon(reviewState(f)));eq(layout+' raw answers stale fails before consuming group',consumingReviewGroups(f).length,0);
+ }finally{f.close();}}
+ // Demonstrate the original same-second omitted-content hole: APP13 is seeded
+ // reviewed_at=T before either preparation and stays exactly unchanged.
+ {const f=await opened(layout);try{
+  await reviewWrite(f,'UPDATE site_applications SET reviewed_at=?,reviewed_by=?,admin_note=? WHERE discord_id=?',T,ACTOR,'initial same-second note',TARGET);
+  const proofSQL='SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?',beforeProof=f.db.prepare(proofSQL).get(TARGET).p,a=await f.token('status'),b=await f.token('status');
+  eq(layout+' independently prepared same-actor B token note200',(await f.post('status',{status:'submitted',note:'B note'},'business_only',b)).status,200);eq(layout+' same-actor note changed without APP13 change',f.db.prepare(proofSQL).get(TARGET).p,beforeProof);const afterB=canon(reviewState(f));f.reset();await assertReviewHeld(f,layout+' same fixture second stale A note',a,afterB,{status:'submitted',note:'A stale'});eq(layout+' actual unchanged deterministic Native second',f.db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").get().n,T);
+ }finally{f.close();}}
+ {const f=await opened(layout);try{
+  // Both administrator identities and cookies come from the unchanged original
+  // site OAuth producer. Only the synthetic server admin list is expanded.
+  f.env.SITE_ADMINS=ACTOR+','+FOREIGN;
+  await reviewWrite(f,"INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?,?,'active',1,?,?)",FOREIGN,G,T,T);
+  const cookieB=await f.issueCookie(FOREIGN);await reviewWrite(f,'UPDATE site_applications SET reviewed_at=?,reviewed_by=?,admin_note=? WHERE discord_id=?',T,ACTOR,'A reviewed note',TARGET);
+  const proofSQL='SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?',beforeProof=f.db.prepare(proofSQL).get(TARGET).p,a=await f.token('status');
+  const prepB=await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status&decisionAction=business_only`,undefined,{Cookie:cookieB}));eq(layout+' distinct actual admin B prepares200',prepB.status,200);const b=(await prepB.json()).targetToken;
+  const replyB=await f.fetch(f.req('POST',`/api/admin/applications/${TARGET}/status`,{status:'submitted',note:'B distinct-admin note'},{Cookie:cookieB,'X-Olympus-Decision-Target':b,'X-Olympus-Decision-Action':'business_only'}));eq(layout+' distinct actual admin B note200',replyB.status,200);
+  eq(layout+' distinct B is actual Native reviewer',f.db.prepare('SELECT reviewed_by,admin_note,reviewed_at FROM site_applications WHERE discord_id=?').get(TARGET),{reviewed_by:FOREIGN,admin_note:'B distinct-admin note',reviewed_at:T});eq(layout+' distinct B changes no original APP13 field',f.db.prepare(proofSQL).get(TARGET).p,beforeProof);
+  const afterB=canon(reviewState(f));f.reset();await assertReviewHeld(f,layout+' distinct-admin same-second stale A',a,afterB,{status:'submitted',note:'A stale distinct-admin note'});eq(layout+' A refusal retains actual B reviewer and note',f.db.prepare('SELECT reviewed_by,admin_note FROM site_applications WHERE discord_id=?').get(TARGET),{reviewed_by:FOREIGN,admin_note:'B distinct-admin note'});
+ }finally{f.close();}}
+ {const f=await opened(layout);try{
+  await reviewWrite(f,'UPDATE site_applications SET reviewed_at=?,reviewed_by=?,admin_note=? WHERE discord_id=?',T,ACTOR,'before replay',TARGET);const proofSQL='SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?',beforeProof=f.db.prepare(proofSQL).get(TARGET).p,t=await f.token('status');
+  eq(layout+' first same token note200',(await f.post('status',{status:'submitted',note:'once'},'business_only',t)).status,200);eq(layout+' first note leaves original APP13 identical',f.db.prepare(proofSQL).get(TARGET).p,beforeProof);f.reset();await assertReviewHeld(f,layout+' replay after changed content',t,canon(reviewState(f)),{status:'submitted',note:'twice'});
+ }finally{f.close();}}
+ // No claim of durable one-time token storage: exact content-preserving no-ops
+ // are outside this content-CAS repair's contract.
+ for(const invalid of[
+  ['answers BLOB',"UPDATE site_applications SET answers=X'7B7D' WHERE discord_id=?",[TARGET]],
+  ['position BLOB',"UPDATE site_applications SET position=X'6D656D626572' WHERE discord_id=?",[TARGET]],
+  ['note BLOB',"UPDATE site_applications SET admin_note=X'00FF' WHERE discord_id=?",[TARGET]],
+  ['integer REAL','UPDATE site_applications SET fit_na=1.5 WHERE discord_id=?',[TARGET]],
+ ])for(const stage of['before-mint','before-fresh-read','after-fresh-read-before-group']){const f=await opened(layout);try{
+  const[label,sql,args]=invalid,t=stage==='before-mint'?null:await f.token('status');let before,hit=false;
+  if(stage==='after-fresh-read-before-group'){f.reset();f.hook(async(plan,next)=>{if(!plan.some(r=>r.sql.includes('CAST(?18 AS BLOB)')))return next();f.hook(null);hit=true;await reviewWrite(f,sql,...args);before=canon(reviewState(f));return next();});}
+  else{await reviewWrite(f,sql,...args);before=canon(reviewState(f));f.reset();}
+  const r=stage==='before-mint'?await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status`)):await f.post('status',{status:'reviewing'},'business_only',t);
+  eq(layout+' '+stage+' invalid '+label+' holds409 without JSON BLOB exception',r.status,409);if(stage==='after-fresh-read-before-group')eq(layout+' invalid '+label+' race reached',hit,true);eq(layout+' invalid '+label+' retained unchanged',reviewState(f),before);
+ }finally{f.hook(null);f.close();}}
+ for(const stage of['missing-at-mint','removed-before-read','created-before-read']){const f=await opened(layout);try{
+  let t;if(stage==='missing-at-mint'||stage==='created-before-read')await reviewWrite(f,'DELETE FROM site_applications WHERE discord_id=?',TARGET);if(stage!=='missing-at-mint')t=await f.token(stage==='created-before-read'?'deny':'status');
+  if(stage==='removed-before-read')await reviewWrite(f,'DELETE FROM site_applications WHERE discord_id=?',TARGET);
+  if(stage==='created-before-read')await reviewWrite(f,"INSERT INTO site_applications(discord_id,position,fallback,answers,status,created_at,updated_at)VALUES(?,'member',1,'{}','submitted',?,?)",TARGET,T,T);
+  const before=canon(reviewState(f));f.reset();
+  if(stage==='missing-at-mint'){const noApp=await f.token('deny');eq(layout+' absent application genuine deny200',(await f.post('deny',{},'business_only',noApp)).status,200);eq(layout+' absence stays absence',f.db.prepare('SELECT COUNT(*) n FROM site_applications').get().n,0);}
+  else{const route=stage==='created-before-read'?'deny':'status';eq(layout+' '+stage+' cannot reuse other presence token',(await f.post(route,route==='status'?{status:'reviewing'}:{},'business_only',t)).status,409);eq(layout+' '+stage+' no effects',reviewState(f),before);}
+ }finally{f.close();}}
+ for(const extra of[0,1]){const f=await opened(layout);try{
+  await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','',TARGET);const base=Buffer.byteLength(rawApplicationReview(f),'utf8'),size=256000-base+extra;
+  assert.ok(size>0);await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','x'.repeat(size),TARGET);eq(layout+' review envelope actual UTF8 bytes '+extra,Buffer.byteLength(rawApplicationReview(f),'utf8'),256000+extra);
+  const before=canon(reviewState(f)),r=await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status`));eq(layout+' review envelope mint status '+extra,r.status,extra?409:200);
+  if(extra===0){const t=(await r.json()).targetToken;ok(layout+' raw ceiling still compact token',t.length<=8192);eq(layout+' raw ceiling positive existing route200',(await f.post('status',{status:'reviewing'},'business_only',t)).status,200);eq(layout+' raw ceiling retained note bytes',f.db.prepare('SELECT length(CAST(admin_note AS BLOB)) n FROM site_applications WHERE discord_id=?').get(TARGET).n,size);}
+  else eq(layout+' over envelope no mutation/truncation',reviewState(f),before);
+ }finally{f.close();}}
+ for(const stage of['before-read','before-group']){const f=await opened(layout);try{
+  const t=await f.token('status');let before,hit=false;const grow=async()=>{await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','x'.repeat(256001),TARGET);before=canon(reviewState(f));};
+  if(stage==='before-read')await grow();else f.hook(async(plan,next)=>{if(!plan.some(r=>r.sql.includes('CAST(?18 AS BLOB)')))return next();f.hook(null);hit=true;await grow();return next();});
+  eq(layout+' over envelope '+stage+'409',(await f.post('status',{status:'reviewing'},'business_only',t)).status,409);if(stage==='before-group')eq(layout+' over envelope race reached',hit,true);eq(layout+' over envelope '+stage+' unchanged',reviewState(f),before);
+ }finally{f.hook(null);f.close();}}
+ // The shared raw snapshot also protects each other actual consuming route.
+ for(const route of['deny','undeny','delete']){
+  {const f=await opened(layout,{denied:route!=='deny'});try{eq(layout+' unchanged '+route+' actual route positive200',(await f.post(route,route==='deny'?{reason:'allowed'}:route==='delete'?{mentions:false}:{},route==='delete'?'partial_delete':'business_only')).status,200);}finally{f.close();}}
+  for(const stage of['before-fresh-read','after-fresh-read-before-group']){const f=await opened(layout,{denied:route!=='deny'});try{
+   const action=route==='delete'?'partial_delete':'business_only',t=await f.token(route,action);let externalState,hit=false;
+   const mutate=async()=>{await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','changed '+route+' review',TARGET);externalState=canon(reviewState(f));};
+   if(stage==='before-fresh-read'){await mutate();f.reset();}else{f.reset();f.hook(async(plan,next)=>{if(!plan.some(r=>r.sql.includes('CAST(?18 AS BLOB)')))return next();f.hook(null);hit=true;await mutate();return next();});}
+   const r=await f.post(route,route==='deny'?{reason:'must-not-land'}:route==='delete'?{mentions:false}:{},action,t);eq(layout+' '+route+' '+stage+' content drift409',r.status,409);if(stage==='after-fresh-read-before-group'){eq(layout+' '+route+' exact consuming race reached',hit,true);eq(layout+' '+route+' fresh read occurred first',freshReviewReads(f).length,1);}eq(layout+' '+route+' '+stage+' no effect beyond external mutation',reviewState(f),externalState);
+  }finally{f.hook(null);f.close();}}
+ }
+ // Determine the exact token boundary from a genuine source token's shape.
+ // The template only sizes the stored Native app proof. Positive tokens always
+ // come from the actual GET; there is no synthetic positive signing shortcut.
+ {const f=await opened(layout);try{
+  const template=decodedReviewToken(await f.token('status')),app=JSON.parse(template.app);app[1]='"'.repeat(1000);template.app=JSON.stringify(app);
+  const padding=6111-Buffer.byteLength(JSON.stringify(template),'utf8');assert.ok(Number.isSafeInteger(padding)&&padding>=0);app[1]+='x'.repeat(padding);template.app=JSON.stringify(app);eq(layout+' exact mint template serialized bytes6111',Buffer.byteLength(JSON.stringify(template),'utf8'),6111);
+  await reviewWrite(f,'UPDATE site_applications SET position=? WHERE discord_id=?',app[1],TARGET);
+  const proofSQL='SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?';ok(layout+' exact mint retained APP13 within4096',Buffer.byteLength(f.db.prepare(proofSQL).get(TARGET).p,'utf8')<=4096);
+  const r=await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status`));eq(layout+' exact complete8192 mint200',r.status,200);const t=(await r.json()).targetToken;eq(layout+' actual minted token exactly8192',t.length,8192);eq(layout+' actual accepted input8192 reaches status200',(await f.post('status',{status:'submitted'},'business_only',t)).status,200);
+ }finally{f.close();}}
+ {const f=await opened(layout);try{
+  const template=decodedReviewToken(await f.token('status')),app=JSON.parse(template.app);app[1]='"'.repeat(1000);template.app=JSON.stringify(app);const padding=6112-Buffer.byteLength(JSON.stringify(template),'utf8');assert.ok(Number.isSafeInteger(padding)&&padding>=0);app[1]+='x'.repeat(padding);template.app=JSON.stringify(app);eq(layout+' first over-mint serialized bytes6112',Buffer.byteLength(JSON.stringify(template),'utf8'),6112);eq(layout+' first would-be token size8194',Buffer.from(JSON.stringify(template),'utf8').toString('base64url').length+1+43,8194);
+  await reviewWrite(f,'UPDATE site_applications SET position=? WHERE discord_id=?',app[1],TARGET);const proof=f.db.prepare('SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?').get(TARGET).p;ok(layout+' over-mint proof still within original4096',Buffer.byteLength(proof,'utf8')<=4096);const before=canon(reviewState(f));eq(layout+' complete over8192 actual mint409',(await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status`))).status,409);eq(layout+' over8192 mint no mutation',reviewState(f),before);
+ }finally{f.close();}}
+ for(const test of['proof4096','mint8192']){const f=await opened(layout);try{
+  await reviewWrite(f,'UPDATE site_applications SET position=? WHERE discord_id=?',test==='proof4096'?'x'.repeat(4100):'"'.repeat(1900),TARGET);
+  const proof=f.db.prepare('SELECT json_array(status,position,class_lead,backup1,backup2,fallback,created_at,updated_at,reviewed_at,rejection_event_id,rejection_subject_key,rejection_scope,rejection_window_expired) p FROM site_applications WHERE discord_id=?').get(TARGET).p;
+  ok(layout+' '+test+' actual original proof bound precondition',test==='proof4096'?Buffer.byteLength(proof,'utf8')>4096:Buffer.byteLength(proof,'utf8')<=4096);
+  const before=canon(reviewState(f)),r=await f.fetch(f.req('GET',`/api/admin/users/${TARGET}/decision-target?route=status`));eq(layout+' '+test+' complete mint holds409',r.status,409);eq(layout+' '+test+' no writes',reviewState(f),before);
+ }finally{f.close();}}
+ for(const mode of['missing','upper','nonhex','mismatch','old-purpose','tamper','oversized-input']){const f=await opened(layout);try{
+  const t=await f.token('status'),p=decodedReviewToken(t);let bad;
+  if(mode==='missing')delete p.reviewDigest;else if(mode==='upper')p.reviewDigest='A'.repeat(64);else if(mode==='nonhex')p.reviewDigest='g'.repeat(64);else if(mode==='mismatch')p.reviewDigest=(p.reviewDigest[0]==='0'?'1':'0')+p.reviewDigest.slice(1);
+  if(mode==='old-purpose')bad=await signReviewNegative(f,p,'site-membership-decision-target-incarnation-v1');else if(mode==='tamper'){const dot=t.indexOf('.');bad=t.slice(0,dot+1)+(t[dot+1]==='A'?'B':'A')+t.slice(dot+2);}else if(mode==='oversized-input')bad='x'.repeat(8193);else bad=await signReviewNegative(f,p);
+  const before=canon(reviewState(f));f.reset();await assertReviewHeld(f,layout+' review token '+mode,bad,before);eq(layout+' token '+mode+' zero consuming groups',consumingReviewGroups(f).length,0);eq(layout+' token '+mode+' fresh raw admission count',freshReviewReads(f).length,mode==='mismatch'?1:0);
+ }finally{f.close();}}
+ // Direct genuine origin/authentication followed by revocation, WITHOUT a
+ // privacyBoundSiteEnv wrapper: the new SELECT must enforce its own fences.
+ for(const change of['actor-session','actor-incarnation','actor-generation','actor-retiring','target-session','target-incarnation','target-generation','target-revision','target-retiring']){const f=await opened(layout);try{
+  const t=await f.token('status'),request=f.req('POST',`/api/admin/applications/${TARGET}/status`,{status:'reviewing'},{'X-Olympus-Decision-Target':t,'X-Olympus-Decision-Action':'business_only'}),origin=f.source.captureMembershipDecisionOrigin(request,f.env);
+  ok(layout+' direct SELECT '+change+' genuine origin',!!origin);ok(layout+' direct SELECT '+change+' genuine prior authentication',!!await f.source.authenticateMembershipDecision(origin,f.admittedEnv));
+  const subject=change.startsWith('actor-')?ACTOR:TARGET;
+  if(change.endsWith('-session'))await reviewWrite(f,'UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?',subject);
+  else if(change.endsWith('-incarnation')){await reviewWrite(f,'DELETE FROM site_users WHERE discord_id=?',subject);await reviewWrite(f,'INSERT INTO site_users(discord_id,first_login,last_login,session_version)VALUES(?,?,?,1)',subject,T,T);}
+  else if(change.endsWith('-generation'))await reviewWrite(f,'UPDATE privacy_subjects SET generation=? WHERE subject_id=?',NEXT,subject);
+  else if(change.endsWith('-revision'))await reviewWrite(f,'UPDATE privacy_subjects SET revision=revision+1 WHERE subject_id=?',subject);
+  else await reviewWrite(f,"UPDATE privacy_subjects SET state='retiring' WHERE subject_id=?",subject);
+  const before=canon(reviewState(f));let observed=0,returnedRows=null;f.reset();
+  f.hook((plan,next)=>{const out=next(),index=plan.findIndex(r=>r.sql.includes(FRESH_REVIEW_SELECT));if(index>=0){observed++;returnedRows=canon(out[index].results);}return out;});
+  await held(layout+' direct SELECT '+change+' prepare holds',()=>f.source.prepareMembershipDecision(origin,f.admittedEnv));
+  eq(layout+' direct SELECT '+change+' actual Native SELECT observed',observed,1);eq(layout+' direct SELECT '+change+' no private row returned',returnedRows,[]);eq(layout+' direct SELECT '+change+' no consuming group',consumingReviewGroups(f).length,0);eq(layout+' direct SELECT '+change+' no additional effect',reviewState(f),before);
+  // Empty rowset is directly observed; this makes no uninstrumented assertion
+  // about whether a crypto function was called or an expression evaluated.
+ }finally{f.hook(null);f.close();}}
+ // Genuine original source producer/session, then private VM descriptor drift.
+ // These are direct core-boundary cases, not whole Worker error-rendering claims.
+ for(const phase of['before-digest','after-digest'])for(const slot of['JSON','TextEncoder','crypto']){const f=await opened(layout);let restore;try{
+  const t=await f.token('status'),request=f.req('POST',`/api/admin/applications/${TARGET}/status`,{status:'reviewing'},{'X-Olympus-Decision-Target':t,'X-Olympus-Decision-Action':'business_only'}),origin=f.source.captureMembershipDecisionOrigin(request,f.env);
+  ok(layout+' '+phase+' '+slot+' actual origin exists',!!origin);ok(layout+' '+phase+' '+slot+' actual original authentication',!!await f.source.authenticateMembershipDecision(origin,f.admittedEnv));
+  if(phase==='after-digest'){await f.source.prepareMembershipDecision(origin,f.admittedEnv);eq(layout+' '+slot+' digest completed through actual fresh SELECT',freshReviewReads(f).length,1);}
+  const g=f.L.fixtureOriginalGlobal(),d=Object.getOwnPropertyDescriptor(g,slot);assert.ok(d&&d.configurable);let getters=0;restore=()=>Object.defineProperty(g,slot,d);Object.defineProperty(g,slot,{configurable:true,get(){getters++;throw Error('changed global getter must not run');}});
+  const before=canon(reviewState(f));f.reset();await held(layout+' '+phase+' '+slot+' protected original boundary holds',()=>phase==='before-digest'?f.source.prepareMembershipDecision(origin,f.admittedEnv):f.source.applyMembershipDecision(origin,f.admittedEnv,'status',{status:'reviewing',at:T}));
+  eq(layout+' '+phase+' '+slot+' getter never invoked',getters,0);eq(layout+' '+phase+' '+slot+' no raw or writes issued',[f.trace.length,consumingReviewGroups(f).length],[0,0]);eq(layout+' '+phase+' '+slot+' native state untouched',reviewState(f),before);
+ }finally{if(restore)restore();f.close();}}
+ // Whole Worker route after-digest seam: accepted-only status SELECT follows
+ // prepareMembershipDecision's awaited hash, without replacing any helper.
+ for(const slot of['TextEncoder','crypto']){const f=await opened(layout);let restore;try{
+  const t=await f.token('status'),g=f.L.fixtureOriginalGlobal(),d=Object.getOwnPropertyDescriptor(g,slot);assert.ok(d&&d.configurable);let getters=0,hit=false;
+  f.reset();f.hook((plan,next)=>{const out=next();if(plan.some(r=>r.sql==='SELECT status FROM site_applications WHERE discord_id = ?1')){hit=true;f.hook(null);restore=()=>Object.defineProperty(g,slot,d);Object.defineProperty(g,slot,{configurable:true,get(){getters++;throw Error('changed global getter must not run');}});}return out;});
+  const before=canon(reviewState(f)),r=await f.post('status',{status:'accepted'},'business_only',t);eq(layout+' route after-digest '+slot+' original held503',r.status,503);eq(layout+' route after-digest '+slot+' actual seam reached',hit,true);eq(layout+' route after-digest '+slot+' original fresh read first',freshReviewReads(f).length,1);eq(layout+' route after-digest '+slot+' no getter or consuming group',[getters,consumingReviewGroups(f).length],[0,0]);eq(layout+' route after-digest '+slot+' no write',reviewState(f),before);
+ }finally{f.hook(null);if(restore)restore();f.close();}}
+ MEASURED[layout].applicationReview={checks:checks-start,declaredColumns:27,driftStages:2,clock:'original_deterministic_fixture_T',realWallClockQualified:false,providerQualified:false,durableSingleUseQualified:false,malformedUTF8Qualified:false};
+}
+
+async function main(){for(const layout of['canonical','recorded-live-20261010']){await installerCases(layout);await cases(layout);await sourceCopies(layout);await markerConsumer(layout);await fullTerminalChain(layout,'cookie');await fullTerminalChain(layout,'identify-original-absence');await partialCases(layout);await expiryAndScheduler(layout);await applicationReviewCases(layout);}eq('no real external provider calls',providerCalls,0);console.log('MEASURED_REJECTION_DECISION '+JSON.stringify({layouts:MEASURED,originalCoreExpected:11,expiryExpected:7,nativeClockTrust:'synthetic_only',providerOriginQualified:false,providerDrainQualified:false,normalScheduled700Qualified:false,scheduledEntryQualified:false,sourceBodyFlagCombinationsOnly:true,syntheticManagedOpenOnly:true,actualSourceOpenerQualified:false,readyToReopen:false}));console.log(`rejection decision native: ${checks}/${checks} passed`);}
 if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1;});
 // Fixture-only bridges preserve the original same-VM source producers; they issue no copied capabilities.
 module.exports={fixture,opened,loader,fixtureAdvance:value=>{assert.ok(Number.isSafeInteger(value)&&value>=T);clock=value;},fixtureOriginalClock:()=>clock,fixtureProvider:value=>{assert.ok(value===null||typeof value==='function');const prior=providerStub;providerStub=value;return prior;},fixtureIdentifyAdmission:identifyAdmission};

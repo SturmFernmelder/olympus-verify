@@ -8,6 +8,7 @@
     try { return JSON.parse(document.getElementById("boot").textContent || "{}"); } catch { return {}; }
   })();
   const S = Object.assign({ signedIn: false, meta: null, settings: null }, BOOT);
+  let decisionActorRevision = 0; // Invalidate a prepared admin view before sign-out transport.
   const skew = BOOT.now ? BOOT.now * 1000 - Date.now() : 0; // the server's clock drives every countdown
   const nowMs = () => Date.now() + skew;
   const nowSec = () => Math.floor(nowMs() / 1000);
@@ -671,7 +672,7 @@
   // left alone (no sign-out, toast, render or reload notice from an operation whose view is gone); the error is still thrown.
   async function api(method, path, body, options = {}) {
     if (method !== "GET") boardSummaryRead = null; // A lost write answer must invalidate the read cache too.
-    const init = { method, headers: { "X-Olympus": PAGE_VERSION }, credentials: "same-origin" };
+    const init = { method, headers: { "X-Olympus": PAGE_VERSION, ...(options.headers || {}) }, credentials: "same-origin" };
     if (body !== undefined) {
       init.headers["Content-Type"] = "application/json";
       init.body = JSON.stringify(body);
@@ -692,6 +693,7 @@
     if (res.status === 401) {
       boardSummaryRead = null;
       if (current) {
+        decisionActorRevision++;
         S.signedIn = false;
         toast("You were signed out. Sign in with Discord again.", "bad");
         dirtyKeys.clear();
@@ -1291,6 +1293,7 @@
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
     if (dirtyKeys.size && !(await confirmBox("Leave without saving?", "You have changes that are not saved yet.", "Sign out anyway"))) return;
+    decisionActorRevision++;
     if (disposeArmyCapacity) disposeArmyCapacity(); // Clear dated capacity before logout transport; preserve publisher custody.
     try { await api("POST", "/auth/logout"); } catch { /* signed out either way */ }
     location.href = "/";
@@ -1329,7 +1332,7 @@
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
     const community = { "": "Overview", directory: "Member directory", profile: "My profile", workshop: "Crafters & Artisans", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", army: "Army", leadership: "Leadership" };
-    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Directory preferences", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
     if (head === "community") {
@@ -1346,6 +1349,7 @@
   }
   let lastHash = location.hash;
   let ignoreHash = false;
+  let leavePending = false; // .210: one "Leave without saving?" at a time; a second navigation while it is open is dropped
   document.addEventListener("click", event => {
     if (!S.signedIn || S.denied || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button && event.button !== 0) return;
     const anchor = event.target instanceof Element ? event.target.closest("a") : null;
@@ -1366,7 +1370,11 @@
       const target = location.hash;
       ignoreHash = true;
       location.hash = lastHash;
-      if (!(await confirmBox("Leave without saving?", "You have changes on this page that are not saved yet.", "Leave anyway"))) return;
+      if (leavePending) return;
+      leavePending = true;
+      let leave = false;
+      try { leave = await confirmBox("Leave without saving?", "You have changes on this page that are not saved yet.", "Leave anyway"); } finally { leavePending = false; }
+      if (!leave) return;
       dirtyKeys.clear();
       ignoreHash = true;
       location.hash = target;
@@ -4656,48 +4664,88 @@
     restoreAdminFilterFocus(body, filterState);
   }
 
+  const applicationDecisionReads = new WeakMap();
   async function adminApplication(body, id) {
+    const read = {}, actor = S.user, actorState = JSON.stringify(actor), actorRevision = decisionActorRevision, route = currentRoute();
+    applicationDecisionReads.set(body, read);
+    const live = () => applicationDecisionReads.get(body) === read && app.contains(body) && currentRoute() === route
+      && S.signedIn && !S.denied && S.user === actor && actor?.isAdmin && JSON.stringify(actor) === actorState && decisionActorRevision === actorRevision;
+    // Tokens precede the displayed detail. A stale view never prepares a replacement target at click time.
+    const targets = new Map();
+    clear(body); add(body, h("p", { role: "status", text: "Opening the application…" }));
     let d;
-    try { d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`); }
+    try {
+      for (const targetRoute of ["status", "deny", "undeny", "delete"]) {
+        if (!live()) return;
+        const action = targetRoute === "delete" ? "partial_delete" : "business_only";
+        const prepared = await api("GET", `/api/admin/users/${encodeURIComponent(id)}/decision-target?route=${targetRoute}&decisionAction=${action}`, undefined, { live });
+        if (!live()) return;
+        if (!prepared || typeof prepared.targetToken !== "string" || !prepared.targetToken || prepared.targetToken.length > 8192) throw new ApiError(409, { message: "The decision could not be prepared. Reload the application and review it again." });
+        targets.set(targetRoute, Object.freeze({ token: prepared.targetToken, action }));
+      }
+      d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`, undefined, { live });
+      if (!live()) return;
+      if (!d || d.user?.id !== id || !d.account) throw new ApiError(409, { message: "The application answer did not match this account. Reload it before deciding." });
+    }
     catch (err) {
-      if (!app.contains(body) || err && err.status === 401) return;
+      if (!live() || err && err.status === 401) return;
       const held = err && err.status === 409 && codeOf(err) === "original_membership_decision_held";
       clear(body);
-      add(body, frame(held ? "Application temporarily held" : "Application could not be opened", h("a", { class: "btn small", href: "#/admin/applications", text: "Back to all applications" }),
+      add(body, frame(held ? "Application decision held" : "Application could not be opened", h("a", { class: "btn small", href: "#/admin/applications", text: "Back to all applications" }),
         noticeBox("warn", "icon-warning", h("p", { text: held
-          ? "The original membership decision for this account could not be safely confirmed. Its application details remain withheld. Return to the list and ask the site administrator to review the existing decision; no access or decision has been changed."
+          ? "The original membership decision for this account could not be safely confirmed. No data or access was changed. Ask a site administrator to investigate. Reopening alone may not resolve this hold."
           : "This application could not be read. Return to the list and try again. No changes were made." }))));
       return;
     }
-    if (!app.contains(body)) return;
+    if (!live()) return;
     const u = d.user;
     const a = d.application;
     const acct = d.account;
     const note = h("textarea", { rows: "3", maxlength: "1000" });
     if (a) note.value = a.adminNote || "";
-    const setStatus = async (status) => {
+    let pending = false, spent = false;
+    const controls = [], decisionNotice = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+    const reload = h("button", { type: "button", class: "btn small", text: "Reload application", onclick: () => { if (live() && !pending) adminApplication(body, id); } });
+    const sync = () => { for (const control of controls) control.disabled = !live() || pending || spent; reload.disabled = !live() || pending; };
+    const decide = async (targetRoute, makeBody, success) => {
+      if (!live() || pending || spent) return;
+      pending = true; sync(); // Own the dialog as well as the write; a second click cannot open another.
       try {
-        await api("POST", `/api/admin/applications/${id}/status`, { status, note: note.value });
-        toast(`Marked ${statusText(status).toLowerCase()}.`, "good");
-        adminApplication(body, id);
-      } catch (err) { toast(err.message, "bad"); }
+        const payload = await makeBody();
+        if (payload === null || !live()) return;
+        const target = targets.get(targetRoute);
+        if (!target) throw new ApiError(409, { message: "Reload the application and review it again." });
+        // Once dispatched, neither a lost answer nor a refusal renews any authority on this old view.
+        spent = true; targets.clear(); sync();
+        const path = targetRoute === "status" ? `/api/admin/applications/${encodeURIComponent(id)}/status` : `/api/admin/users/${encodeURIComponent(id)}/${targetRoute}`;
+        const result = await api("POST", path, payload, { live, headers: { "X-Olympus-Decision-Target": target.token, "X-Olympus-Decision-Action": target.action } });
+        if (!live()) return;
+        const confirmed = targetRoute === "delete" ? result?.ok === true : result?.user?.id === id
+          && (targetRoute === "status" ? result.application?.status === payload.status : result.user.denied === (targetRoute === "deny"));
+        if (!confirmed) throw new ApiError(409, { message: "The decision answer did not match this account and action. Reload the application before another decision." });
+        success(); // An acknowledged success may start a fresh, visibly loading review; never retry this write.
+      } catch (err) {
+        if (!live()) return;
+        toast(err.message, "bad");
+        decisionNotice.textContent = spent ? "The decision result could not be confirmed. Reload and review the current account before another decision. If it remains held, ask a site administrator to investigate; reloading alone may not resolve it." : "No decision was sent. Review the application before trying again.";
+      } finally { pending = false; sync(); }
     };
+    const setStatus = status => decide("status", async () => ({ status, note: note.value }), () => {
+      toast(`Marked ${statusText(status).toLowerCase()}.`, "good"); adminApplication(body, id);
+    });
     const denyBtn = u.denied
-      ? h("button", { class: "btn", type: "button", text: "Lift the denial", onclick: async () => {
-          if (!(await confirmBox("Lift the denial?", "They can use the site again. Reserved names released by the denial stay released.", "Lift it"))) return;
-          try { await api("POST", `/api/admin/users/${id}/undeny`); toast("Denial lifted."); adminApplication(body, id); } catch (err) { toast(err.message, "bad"); }
-        } })
-      : h("button", { class: "btn danger", type: "button", text: "Deny permanently", onclick: async () => {
+      ? h("button", { class: "btn", type: "button", text: "Lift the denial", onclick: () => decide("undeny", async () =>
+          await confirmBox("Lift the denial?", "They can use the site again. Reserved names released by the denial stay released.", "Lift it") ? undefined : null,
+          () => { toast("Denial lifted."); adminApplication(body, id); }) })
+      : h("button", { class: "btn danger", type: "button", text: "Deny permanently", onclick: () => decide("deny", async () => {
           const reason = await promptBox("Deny permanently", "For joke, troll or abusive applications. They are signed out, cannot save anything again, their votes stop counting, their application leaves the board, and their reserved names are released.", "Reason (only site admins see it; an officer's lookup shows only that the account was denied)", "Deny permanently", { danger: true });
-          if (reason === null) return;
-          try { await api("POST", `/api/admin/users/${id}/deny`, { reason }); toast("Denied."); adminApplication(body, id); } catch (err) { toast(err.message, "bad"); }
-        } });
-    const deleteBtn = h("button", { class: "btn danger", type: "button", text: "Delete their site data", onclick: async () => {
+          return reason === null ? null : { reason };
+        }, () => { toast("Denied."); adminApplication(body, id); }) });
+    const deleteBtn = h("button", { class: "btn danger", type: "button", text: "Delete their site data", onclick: () => decide("delete", async () => {
       const mentions = h("input", { type: "checkbox", checked: true });
       const extra = h("label", { class: "check field" }, mentions, h("span", null, "Also remove other members' write-ins, friends-list entries and references that name this account", h("span", { class: "hint", text: "Their Discord name, with any reason or note written about them. Leave it ticked for a request to be forgotten." })));
-      if (!(await confirmBox("Delete everything the site holds about this account?", "For a request to be forgotten. Their application, votes, write-ins, friends list and reserved names are removed, votes others cast on their application too, and they are signed out. Names already in the invite queue are taken out of it. A permanent denial is kept (only the id and the decision). This cannot be undone.", "Delete their data", { danger: true, typeToConfirm: "DELETE", extra }))) return;
-      try { await api("POST", `/api/admin/users/${id}/delete`, { mentions: mentions.checked }); toast("Their site data is deleted.", "good"); location.hash = "#/admin/applications"; } catch (err) { toast(err.message, "bad"); }
-    } });
+      return await confirmBox("Delete everything the site holds about this account?", "For a request to be forgotten. Their application, votes, write-ins, friends list and reserved names are removed, votes others cast on their application too, and they are signed out. Names already in the invite queue are taken out of it. A permanent denial is kept (only the id and the decision). This cannot be undone.", "Delete their data", { danger: true, typeToConfirm: "DELETE", extra }) ? { mentions: mentions.checked } : null;
+    }, () => { toast("Their site data is deleted.", "good"); location.hash = "#/admin/applications"; }) });
     const list = (items, fn, empty) => (items && items.length ? h("div", { class: "stack" }, items.map(fn)) : h("p", { class: "muted small", text: empty }));
     // A role without a public vote has no board: listed only with votes from before it was taken off the vote.
     const boardRows = (d.board || []).filter((b) => !noVoteFor(b.role) || b.yes || b.no);
@@ -4724,7 +4772,7 @@
           a && a.status !== "submitted" ? h("button", { class: "btn", type: "button", text: "Back to submitted", onclick: () => setStatus("submitted") }) : null,
           a ? h("button", { class: "btn", type: "button", text: "Save note", onclick: () => setStatus(a.status) }) : null),
         h("div", { class: "rule" }),
-        h("div", { class: "btn-row" }, denyBtn, deleteBtn)),
+        h("div", { class: "btn-row" }, denyBtn, deleteBtn), decisionNotice, reload),
       frame("On the voting board", h("span", { class: "aside", text: `They voted on ${plural(d.boardVotesCast || 0, "applicant")}` }),
         boardRows.length
           ? h("div", null, h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every voting column." }), h("div", { class: "table-wrap" }, h("table", { class: "data admin-application-board" },
@@ -4750,6 +4798,8 @@
         frame("Their own write-ins", null, list(d.votesCast, (v) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: v.label }), h("small", { text: `${roleName(v.ballot)}${v.slot > 1 ? `, choice ${v.slot}` : ""}${v.reason ? " — " + v.reason : ""}` }))), "None."))),
       frame("Reserved names", null, list(acct.site.reserved, (r) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: r.name })), h("span", { class: "badge", text: r.status })), "None entered.")),
     ]);
+    controls.push(note, ...Array.from(body.querySelectorAll("button")).filter(button => button !== reload));
+    sync();
   }
 
   // ---------- votes: the board and write-ins, per role ----------
