@@ -344,6 +344,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  and a repeated request remains held with the schema unchanged", await legacyHeld());
 
   globalThis.Date = RealDate;
+  await require('./admin_deferred210_test.cjs');
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

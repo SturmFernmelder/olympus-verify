@@ -70,7 +70,7 @@
   function mount(container, options) {
     const view = options && options.view;
     if (!["addons", "guides", "updates"].includes(view)) throw new Error("Unsupported resource view");
-    let destroyed = false, request = null, poll = null, generation = 0, admitted = true;
+    let destroyed = false, request = null, poll = null, generation = 0, admitted = true, paused = false, updatesEpoch = 0;
     let catalog = null, updateData = null, visibleSources = null;
     const wrap = el("section", undefined, "resources169"), message = el("p", "Loading sources…", "resources169-note");
     const controls = el("div", undefined, "resources169-controls"), results = el("div", undefined, "resources169-grid");
@@ -91,6 +91,7 @@
     function stopPoll() { if (poll !== null) clearInterval(poll); poll = null; }
     function refused(status) {
       admitted = false; stopPoll(); abort(); updateData = null; results.replaceChildren();
+      refresh.disabled = true; automatic.disabled = true;
       if (typeof options.onRefused === "function") options.onRefused(status);
     }
     async function read(url) {
@@ -168,14 +169,22 @@
         renderCatalog("", "all");
       } catch (error) { if (alive() && error.name !== "AbortError") message.textContent = "The source catalog could not be loaded. Try reopening this view."; }
     }
+    // .210: a refresh keeps each source's open retrieval details and the exact focused control.
+    const openRetrieval = new Set();
+    let renderedLinks = new Map();
     function renderUpdates() {
+      const active = document.activeElement;
+      const focusKey = active ? [...renderedLinks].find(([, node]) => node === active)?.[0] : undefined;
+      const links = new Map(), keep = (key, node) => { if (!links.has(key)) links.set(key, node); return node; };
       results.replaceChildren();
       for (const source of updateData.sources) {
         if (!visibleSources.has(source.sourceId)) continue;
-        const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(link(source.publisher, source.sourceUrl));
+        const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(keep(source.sourceId + "|source", link(source.publisher, source.sourceUrl)));
         card.append(heading, badge("Automatic feed: " + source.status), el("p", source.scope, "resources169-note"));
         const retrieval = el("details", undefined, "resources169-provenance");
-        retrieval.append(el("summary", "Retrieval details"), el("p", `Last successful retrieval: ${time(source.fetchedAt)}. Last retrieval attempt: ${time(source.checkedAt)}.`, "resources169-meta"));
+        retrieval.open = openRetrieval.has(source.sourceId);
+        retrieval.addEventListener("toggle", () => { if (retrieval.open) openRetrieval.add(source.sourceId); else openRetrieval.delete(source.sourceId); });
+        retrieval.append(keep(source.sourceId + "|retrieval-summary", el("summary", "Retrieval details")), el("p", `Last successful retrieval: ${time(source.fetchedAt)}. Last retrieval attempt: ${time(source.checkedAt)}.`, "resources169-meta"));
         if (source.failure) card.append(el("p", `This source could not be refreshed automatically. ${source.status === "stale" ? "The older headlines below are marked stale." : "No automatically retrieved headlines are available."} The publisher's website may still be available; open the original source.`, "resources169-warning"));
         else if (source.status === "unavailable") card.append(el("p", "Automatic headlines are unavailable. The publisher's website may still be available; open the original source.", "resources169-warning"));
         if (source.failure) retrieval.append(el("p", `Reported failure: ${source.failure}`, "resources169-meta"));
@@ -193,13 +202,13 @@
         for (const entries of groups.values()) {
           const li = el("li"), first = entries[0].item;
           if (entries.length > 1) {
-            li.append(link(first.title, first.url), el("span", `${entries.length} posts from this development-notes thread`, "resources169-meta"));
+            li.append(keep(source.sourceId + "|" + first.url, link(first.title, first.url)), el("span", `${entries.length} posts from this development-notes thread`, "resources169-meta"));
             const posts = el("ul", undefined, "resources169-thread-posts");
-            for (const { item, post } of entries) { const row = el("li"); row.append(link(`Thread post ${post}`, item.url), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); posts.append(row); }
+            for (const { item, post } of entries) { const row = el("li"); row.append(keep(source.sourceId + "|thread-post|" + item.url, link(`Thread post ${post}`, item.url)), el("span", `Published: ${time(item.publishedAt)}`, "resources169-meta")); posts.append(row); }
             li.append(posts);
           } else {
             const region = headlineRegion(source, first);
-            li.append(link(first.title, first.url), el("span", `${region ? "Region: " + region + " · " : ""}${entries[0].post ? "Thread post " + entries[0].post + " · " : ""}Published: ${time(first.publishedAt)}`, "resources169-meta"));
+            li.append(keep(source.sourceId + "|" + first.url, link(first.title, first.url)), el("span", `${region ? "Region: " + region + " · " : ""}${entries[0].post ? "Thread post " + entries[0].post + " · " : ""}Published: ${time(first.publishedAt)}`, "resources169-meta"));
           }
           ul.append(li);
         }
@@ -208,48 +217,63 @@
         results.append(card);
       }
       if (!results.children.length) results.append(el("p", "Choose a source above to show its headlines."));
+      renderedLinks = links;
+      const again = focusKey !== undefined && links.get(focusKey);
+      if (again && typeof again.focus === "function") again.focus({ preventScroll: true });
     }
     function validUpdates(data) {
       return data && data.enabled === true && Array.isArray(data.sources) && data.sources.length === 3 && new Set(data.sources.map(x => x.sourceId)).size === 3 && data.sources.every(source => sourceIds.has(source.sourceId) && typeof source.publisher === "string" && typeof source.scope === "string" && safeUrl(source.sourceUrl) && ["fresh", "stale", "unavailable"].includes(source.status) && Array.isArray(source.items) && source.items.length <= 12 && source.items.every(item => typeof item.title === "string" && Array.from(item.title).length <= 240 && safeUrl(item.url) && (item.publishedAt === null || Number.isSafeInteger(item.publishedAt))));
     }
     const refresh = el("button", "Refresh sources", "resources169-refresh"); refresh.type = "button";
+    const automatic = el("button", "Pause automatic updates", "resources169-refresh"); automatic.type = "button";
     async function loadUpdates() {
-      if (!alive() || !admitted || document.visibilityState !== "visible" || request) return;
+      if (!alive() || !admitted || paused || document.visibilityState !== "visible" || request) return;
+      const own = ++updatesEpoch;
       refresh.disabled = true;
       try {
-        const data = await read(UPDATES); if (!data) return;
+        const data = await read(UPDATES); if (!data || !alive() || paused || own !== updatesEpoch) return;
         if (!validUpdates(data)) throw new Error("shape");
+        const unchanged = !!updateData && JSON.stringify(updateData) === JSON.stringify(data);
         updateData = data;
         if (visibleSources === null) {
           visibleSources = new Set(data.sources.map(source => source.sourceId));
           for (const source of data.sources) {
             const label = el("label", undefined, "resources169-source-filter"), input = el("input"); input.type = "checkbox"; input.checked = true;
-            input.addEventListener("change", () => { if (input.checked) visibleSources.add(source.sourceId); else visibleSources.delete(source.sourceId); renderUpdates(); });
+            input.addEventListener("change", () => { if (!alive() || !admitted || !updateData) return; if (input.checked) visibleSources.add(source.sourceId); else visibleSources.delete(source.sourceId); renderUpdates(); });
             label.append(input, el("span", source.publisher)); controls.append(label);
           }
         }
         message.textContent = "Original publisher headlines. Publication dates belong to each post; retrieval details show when Olympus last read the source.";
-        renderUpdates();
+        if (!unchanged) renderUpdates();
       } catch (error) {
-        if (alive() && error.name !== "AbortError") {
+        if (alive() && !paused && own === updatesEpoch && error.name !== "AbortError") {
           message.textContent = "Updates could not be read. Access may have changed or the service may be unavailable; no fresh source check is claimed.";
           if (updateData) { updateData = { ...updateData, sources: updateData.sources.map(source => ({ ...source, status: source.items.length ? "stale" : "unavailable" })) }; renderUpdates(); }
         }
-      } finally { if (alive()) refresh.disabled = !admitted; }
+      } finally { if (alive() && own === updatesEpoch) refresh.disabled = paused || !admitted; }
     }
     function visibility() {
       stopPoll();
-      if (document.visibilityState !== "visible") { abort(); return; }
+      if (document.visibilityState !== "visible" || paused) { updatesEpoch++; abort(); return; }
       if (view === "updates" && admitted && alive()) { void loadUpdates(); poll = setInterval(() => { void loadUpdates(); }, 60000); }
     }
     if (view === "updates") {
       const timing = el("details", undefined, "resources169-provenance");
-      timing.append(el("summary", "How updates refresh"), el("p", "Sources refresh when this page opens, on request and every 60 seconds while it is visible. Cached source data may be reused for ten minutes. Publisher headlines are separate from guild decisions.", "resources169-note"));
+      timing.append(el("summary", "How updates refresh"), el("p", "Sources refresh when this page opens, on request and every 60 seconds while it is visible. Pause automatic updates to keep the current view; Resume reads the sources again. Cached source data may be reused for ten minutes. Publisher headlines are separate from guild decisions.", "resources169-note"));
       heading.append(timing);
-      controls.append(refresh); refresh.addEventListener("click", () => { void loadUpdates(); });
+      message.setAttribute("role", "status");
+      controls.append(refresh, automatic); refresh.addEventListener("click", () => { void loadUpdates(); });
+      automatic.addEventListener("click", () => {
+        if (!alive() || !admitted) return;
+        paused = !paused; stopPoll(); updatesEpoch++; abort();
+        automatic.textContent = paused ? "Resume automatic updates" : "Pause automatic updates";
+        refresh.disabled = paused;
+        if (paused) message.textContent = "Automatic updates are paused. The current view will not refresh until you resume.";
+        else { message.textContent = "Reading sources…"; visibility(); }
+      });
       document.addEventListener("visibilitychange", visibility); visibility();
     } else void loadCatalog();
-    return { destroy() { if (destroyed) return; destroyed = true; stopPoll(); abort(); document.removeEventListener("visibilitychange", visibility); wrap.remove(); } };
+    return { destroy() { if (destroyed) return; destroyed = true; stopPoll(); updatesEpoch++; abort(); document.removeEventListener("visibilitychange", visibility); wrap.remove(); } };
   }
   window.OlympusResources = Object.freeze({ mount });
 })();

@@ -1,0 +1,709 @@
+{
+  "schema": "source-closed-ban210-successor-v1",
+  "baselineHead": "539007767a106f34d4209e085f99ff25f1a02975",
+  "interactionsSHA256": "b7d24eea98da3b7342d98f6f6b4e97a43b3f618835dffda7c78f9bef6ee8ec0f",
+  "historicalPINSSHA256": "641ec8b99bf7d2c67b74737aefd396bfb413e78a7c7d28fbe5f7c18e7b904879",
+  "cases": {
+    "pre/plain/absent": {
+      "rawTraceSHA256": "fa86523109b728673236f1015a3e0e0a9cb87792687238979155527ee2fc71c7",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "9dabe4706e45b83c70d47ceb80a357850d986ad6f5a6703bb7885a3541680502",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "pre/plain/empty": {
+      "rawTraceSHA256": "fa86523109b728673236f1015a3e0e0a9cb87792687238979155527ee2fc71c7",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "9dabe4706e45b83c70d47ceb80a357850d986ad6f5a6703bb7885a3541680502",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "pre/plain/staffFalse": {
+      "rawTraceSHA256": "fa86523109b728673236f1015a3e0e0a9cb87792687238979155527ee2fc71c7",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "9dabe4706e45b83c70d47ceb80a357850d986ad6f5a6703bb7885a3541680502",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "pre/plain/configured": {
+      "rawTraceSHA256": "fa86523109b728673236f1015a3e0e0a9cb87792687238979155527ee2fc71c7",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "9dabe4706e45b83c70d47ceb80a357850d986ad6f5a6703bb7885a3541680502",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "pre/plain/held": {
+      "rawTraceSHA256": "fa86523109b728673236f1015a3e0e0a9cb87792687238979155527ee2fc71c7",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "9dabe4706e45b83c70d47ceb80a357850d986ad6f5a6703bb7885a3541680502",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "pre/settlement/absent": {
+      "rawTraceSHA256": "28dc8fa86f8bf06369b4515254f280e12926934c3c3819d6ca3d3988c5c91910",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "e9b7e6f0003bcf85115fccf547996d471ab021dd03eb4177e4032a31181837f2",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "0fb166518dc581fc308fadcd9bdc6bc69ac82265dacfce1d0a293d386a018010",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "pre/settlement/empty": {
+      "rawTraceSHA256": "28dc8fa86f8bf06369b4515254f280e12926934c3c3819d6ca3d3988c5c91910",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "e9b7e6f0003bcf85115fccf547996d471ab021dd03eb4177e4032a31181837f2",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "0fb166518dc581fc308fadcd9bdc6bc69ac82265dacfce1d0a293d386a018010",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "pre/settlement/staffFalse": {
+      "rawTraceSHA256": "28dc8fa86f8bf06369b4515254f280e12926934c3c3819d6ca3d3988c5c91910",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "e9b7e6f0003bcf85115fccf547996d471ab021dd03eb4177e4032a31181837f2",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "0fb166518dc581fc308fadcd9bdc6bc69ac82265dacfce1d0a293d386a018010",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "pre/settlement/configured": {
+      "rawTraceSHA256": "28dc8fa86f8bf06369b4515254f280e12926934c3c3819d6ca3d3988c5c91910",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "e9b7e6f0003bcf85115fccf547996d471ab021dd03eb4177e4032a31181837f2",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "0fb166518dc581fc308fadcd9bdc6bc69ac82265dacfce1d0a293d386a018010",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "pre/settlement/held": {
+      "rawTraceSHA256": "28dc8fa86f8bf06369b4515254f280e12926934c3c3819d6ca3d3988c5c91910",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "e9b7e6f0003bcf85115fccf547996d471ab021dd03eb4177e4032a31181837f2",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "0fb166518dc581fc308fadcd9bdc6bc69ac82265dacfce1d0a293d386a018010",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "live/plain/absent": {
+      "rawTraceSHA256": "7766e93712e3467cfa72551de793a3a355bfbfa2bb34de00317a9c3ad63b5db1",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "df51973152ba0d052024ac7c20fbeffa59a77a19b75cf11a0cd94a77bc2aafe3",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "18e25a95602233efa7a0fec0598a8996448faf2a9e01c7975064c4a06772b9a9",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "live/plain/empty": {
+      "rawTraceSHA256": "7766e93712e3467cfa72551de793a3a355bfbfa2bb34de00317a9c3ad63b5db1",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "df51973152ba0d052024ac7c20fbeffa59a77a19b75cf11a0cd94a77bc2aafe3",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "18e25a95602233efa7a0fec0598a8996448faf2a9e01c7975064c4a06772b9a9",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "live/plain/staffFalse": {
+      "rawTraceSHA256": "7766e93712e3467cfa72551de793a3a355bfbfa2bb34de00317a9c3ad63b5db1",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "df51973152ba0d052024ac7c20fbeffa59a77a19b75cf11a0cd94a77bc2aafe3",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "18e25a95602233efa7a0fec0598a8996448faf2a9e01c7975064c4a06772b9a9",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "live/plain/configured": {
+      "rawTraceSHA256": "78dd27e587f91c85c7f7e6b37da0110a955f9c13dec0cecf818ef99a4900dc7a",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "df51973152ba0d052024ac7c20fbeffa59a77a19b75cf11a0cd94a77bc2aafe3",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "18e25a95602233efa7a0fec0598a8996448faf2a9e01c7975064c4a06772b9a9",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "live/plain/held": {
+      "rawTraceSHA256": "7766e93712e3467cfa72551de793a3a355bfbfa2bb34de00317a9c3ad63b5db1",
+      "rawLegacySQLSequenceSHA256": "700ad382b43c8294d1bf36bb39dfa56702805767dd1dfef49d1da15d27627462",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "businessSQLSequenceSHA256": "fb78900b1d833b42202c021a7d2b70456fea912815037c70ca19f02c5c121586",
+      "successorDigest": {
+        "trace": "df51973152ba0d052024ac7c20fbeffa59a77a19b75cf11a0cd94a77bc2aafe3",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "18e25a95602233efa7a0fec0598a8996448faf2a9e01c7975064c4a06772b9a9",
+        "statements": 57,
+        "requests": 4
+      }
+    },
+    "live/settlement/absent": {
+      "rawTraceSHA256": "c5e966a9bc9c340d48bab0cca644ff921883bdbf3ef71fc5e4262844da6f834c",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "a4db17086f82a8903883499ed5a3850d204aeb4200b9b7ba775024bfb486ff4d",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "9aed1154d0053656e09f776c2a472dc84b2f9214196765dad7612b595d2d263a",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "live/settlement/empty": {
+      "rawTraceSHA256": "c5e966a9bc9c340d48bab0cca644ff921883bdbf3ef71fc5e4262844da6f834c",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "a4db17086f82a8903883499ed5a3850d204aeb4200b9b7ba775024bfb486ff4d",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "9aed1154d0053656e09f776c2a472dc84b2f9214196765dad7612b595d2d263a",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "live/settlement/staffFalse": {
+      "rawTraceSHA256": "c5e966a9bc9c340d48bab0cca644ff921883bdbf3ef71fc5e4262844da6f834c",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "a4db17086f82a8903883499ed5a3850d204aeb4200b9b7ba775024bfb486ff4d",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "9aed1154d0053656e09f776c2a472dc84b2f9214196765dad7612b595d2d263a",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "live/settlement/configured": {
+      "rawTraceSHA256": "cc8e41efb4b5c1d1c615535f439fa7b196ff9239a8b7ae59283018393d4d4ee9",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "a4db17086f82a8903883499ed5a3850d204aeb4200b9b7ba775024bfb486ff4d",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "9aed1154d0053656e09f776c2a472dc84b2f9214196765dad7612b595d2d263a",
+        "statements": 97,
+        "requests": 9
+      }
+    },
+    "live/settlement/held": {
+      "rawTraceSHA256": "c5e966a9bc9c340d48bab0cca644ff921883bdbf3ef71fc5e4262844da6f834c",
+      "rawLegacySQLSequenceSHA256": "adf1840c11df1818bfe6171651e07b6b56d9f51695ee31c7c2c473dfc869e19d",
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        6,
+        6,
+        6,
+        6,
+        6,
+        3,
+        3,
+        3,
+        6,
+        3,
+        6,
+        3,
+        6,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "businessSQLSequenceSHA256": "a683b141cc310485dc70843bb778cf797282c761a6c3b6fa8dc6ba42f05207fb",
+      "successorDigest": {
+        "trace": "a4db17086f82a8903883499ed5a3850d204aeb4200b9b7ba775024bfb486ff4d",
+        "response": "9c8f7ca6d8191a51f57f1d9f26b1319e5922d27c9b8ab2dc9311b24efb4f77f5",
+        "twelve": "9aed1154d0053656e09f776c2a472dc84b2f9214196765dad7612b595d2d263a",
+        "statements": 97,
+        "requests": 9
+      }
+    }
+  },
+  "providerShape": {
+    "plain": [
+      {
+        "method": "DELETE",
+        "path": "/guilds/810000000000000001/members/810000000000000202/roles/1552077551839617104",
+        "reason": "olympus-verify%3A%20banned%20by%20810000000000000209"
+      },
+      {
+        "method": "POST",
+        "path": "/channels/810000000000000008/messages",
+        "reason": null
+      },
+      {
+        "method": "POST",
+        "path": "/channels/810000000000000007/messages",
+        "reason": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/webhooks/810000000000000002/synthetic-token/messages/@original",
+        "reason": null
+      }
+    ],
+    "settlement": [
+      {
+        "method": "GET",
+        "path": "/users/@me",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "GET",
+        "path": "/guilds/810000000000000001/roles",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "GET",
+        "path": "/guilds/810000000000000001/members/810000000000000002",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "GET",
+        "path": "/guilds/810000000000000001/members/810000000000000202",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "DELETE",
+        "path": "/guilds/810000000000000001/members/810000000000000202/roles/1552077551839617104",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "GET",
+        "path": "/guilds/810000000000000001/members/810000000000000202",
+        "reason": "Olympus%20verified%20role%20settlement"
+      },
+      {
+        "method": "POST",
+        "path": "/channels/810000000000000008/messages",
+        "reason": null
+      },
+      {
+        "method": "POST",
+        "path": "/channels/810000000000000007/messages",
+        "reason": null
+      },
+      {
+        "method": "PATCH",
+        "path": "/webhooks/810000000000000002/synthetic-token/messages/@original",
+        "reason": null
+      }
+    ]
+  }
+}

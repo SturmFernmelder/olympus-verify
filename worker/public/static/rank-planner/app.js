@@ -128,6 +128,7 @@
       if (!rank.permissions.speak) parts.push('Guild chat: muted');
       return parts.length ? parts.join(' · ') : 'Community access';
     }
+    function displayRankName(rank) { return rank.id === 'gm' && rank.name === 'Guild Master' ? 'Leader (Guild Master)' : rank.name; }
     function can(operation) { try { operation(); return { allowed: true }; } catch (error) { return { allowed: false, reason: error.message }; } }
     function button(text, className, callback, options = {}) {
       const node = element('button', className, text);
@@ -174,9 +175,9 @@
       draft.ranks.forEach((rank, index) => {
         const row = element('li', `ladder-row${rank.id === selectedId ? ' selected' : ''}`);
         row.append(element('span', 'rank-number', String(index + 1)));
-        const choice = button('', 'rank-choice', () => { selectedId = rank.id; renderLadder(); renderEditor(); $('editor-feedback').textContent = ''; $('editor').showModal(); }, { label: `Review ${rank.name}, rank ${index + 1}` });
+        const choice = button('', 'rank-choice', () => { selectedId = rank.id; renderLadder(); renderEditor(); $('editor-feedback').textContent = ''; $('editor').showModal(); }, { label: `Review ${displayRankName(rank)}, rank ${index + 1}` });
         choice.setAttribute('aria-pressed', String(rank.id === selectedId));
-        choice.append(rankIcon(rank.id), element('span', 'rank-name', rank.name), element('span', 'rank-summary', index === 0 ? 'Fixed leadership rank' : index === draft.ranks.length - 1 ? 'Entry rank · authenticator off' : permissionSummary(rank)));
+        choice.append(rankIcon(rank.id), element('span', 'rank-name', displayRankName(rank)), element('span', 'rank-summary', index === 0 ? 'Fixed leadership rank' : index === draft.ranks.length - 1 ? 'Entry rank · authenticator off' : permissionSummary(rank)));
         row.append(choice);
         const actions = element('span', 'row-actions');
         for (const [symbol, direction, name] of [['Up', -1, 'up'], ['Down', 1, 'down']]) { // .112: words, not arrow glyphs (the official set has no arrow art)
@@ -214,13 +215,22 @@
       const rank = draft.ranks[index];
       if (!rank) return;
       const template = byId.get(rank.id);
-      $('editor-title').textContent = rank.name;
+      $('editor-title').textContent = displayRankName(rank);
       $('editor-position').textContent = `Rank ${index + 1} of ${draft.ranks.length}`;
       const content = element('div');
       const source = element('details', 'source-details');
       source.append(element('summary', '', 'Historical draft recommendation'), element('p', 'editor-purpose', template.purpose), element('p', '', template.note), element('p', 'muted', `Suggested bank access: ${template.limits}`));
       content.append(source);
-      if (index === 0) { content.append(element('p', 'gm-note', 'Guild Master keeps full guild authority and unlimited bank access. Its position and permissions stay fixed.')); $('editor-content').replaceChildren(content); return; }
+      if (index === 0) {
+        content.append(element('p', 'gm-note', 'Guild Master keeps full guild authority and unlimited bank access. Its position and permissions stay fixed.'));
+        if (rank.name === 'Leader') {
+          content.append(element('p', 'field-hint', 'This historical draft uses Leader as its native name. The exact native name for website role sync is Guild Master. This action changes only this browser draft’s rank 0 name; it does not rename any rank in game.'));
+          const correction = () => Model.useGuildMasterNativeName(draft, catalogue);
+          const availability = can(correction);
+          content.append(button('Use Guild Master as native rank 0 name', 'button primary', () => perform(correction, 'Only rank 0’s native name changed in this browser draft. No game changes were applied.'), { disabled: !availability.allowed, title: availability.reason }));
+        }
+        $('editor-content').replaceChildren(content); return;
+      }
       const form = element('form');
       form.noValidate = true;
       const nameLabel = element('label', 'field', 'Rank name');

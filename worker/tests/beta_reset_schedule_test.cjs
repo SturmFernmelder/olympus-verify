@@ -80,7 +80,7 @@ async function scheduled(name,cron){
  check(name+' preserves every typed local row/schema/provider/env descriptor',true);
  check(name+' public lookups refuse with the original typed class',!result.callbackCaptured&&!result.costRootAvailable&&result.cost===null);
  check(name+' has no source executions groups provider effects or deferred calls',cost.physical===0&&cost.nativeExecutions===0&&cost.nativeBatchGroups===0&&cost.http===0&&effects().length===0&&result.jobs===0&&result.values.length===0&&Object.values(result.calls).every(n=>n===0));
- check(name+' returns undefined with only the original redacted catch log',result.returned===undefined&&JSON.stringify(result.logs)===JSON.stringify([['schema check failed; skipping this run','error']]));
+ check(name+' returns undefined with only the original redacted catch log',result.returned===undefined&&JSON.stringify(result.logs)===JSON.stringify([['cron entry held; skipping this run','error']]));
  scheduleCosts.push(cost);console.log('SCHEDULE_ENTRY_REFUSAL '+JSON.stringify(cost));return {result,cost};
 }
 
@@ -141,7 +141,7 @@ function sourceInventory(){
  assert.equal(expected[13].split(originalPrefix).length,2,'original final dispatch has one ordinary body invocation');
  expected.forEach((text,i)=>exactSyntax(guarded.tryBlock.statements[i<13?i:i+costReaders.length],i===13?text.replace(originalPrefix,extendedPrefix):text,'scheduled guard/order '+i));
  check('exact two job-bound original cost readers add no new callback authority or top-level scheduled work',true);
- exactSyntax(guarded.catchClause,"catch(e){console.error(\"schema check failed; skipping this run\",errorRef(e));}",'original redacted catch');
+ exactSyntax(guarded.catchClause,"catch(e){console.error(\"cron entry held; skipping this run\",errorRef(e));}",'original redacted catch');
  assertFalseExport('beta-reset.ts','BETA_RESET_SCHEDULE_QUALIFIED');assertTrueExport('scheduled-budget.ts','EPOCH2_SCHEDULE_QUALIFIED');
  check('source scheduled capture precedes inactive/false qualifiers and global dispatch',true);
  check('the synchronous entry restriction is passed unchanged to both minute and ordinary bodies, retaining the original schedule slot',true);

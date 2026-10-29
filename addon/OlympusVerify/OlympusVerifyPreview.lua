@@ -151,11 +151,11 @@ local function Need(level)
 end
 local function FillCandidates(f)
   local spec = {
-    { level = 1, days = 6.3, rank = "Initiate", rankIndex = 4 },
-    { level = 1, days = 4.2, rank = "Initiate", rankIndex = 4 },
-    { level = 4, days = 11.6, rank = "Initiate", rankIndex = 4 },
-    { level = 13, days = 17.4, rank = "Member", rankIndex = 3, note = "alt of " .. Name(340) },
-    { level = 27, days = 24.1, rank = "Member", rankIndex = 3 },
+    { level = 1, days = 6.3, rank = "Initiate", rankIndex = 9 },
+    { level = 1, days = 4.2, rank = "Initiate", rankIndex = 9 },
+    { level = 4, days = 11.6, rank = "Initiate", rankIndex = 9 },
+    { level = 13, days = 17.4, rank = "Member", rankIndex = 7, note = "alt of " .. Name(340) },
+    { level = 27, days = 24.1, rank = "Member", rankIndex = 7 },
   }
   for i, s in ipairs(spec) do
     local name = Name(300 + i)
@@ -183,18 +183,18 @@ local function FillUnverified(f)
                           class = CLASSES[k % #CLASSES + 1], days = days, here = 4 + days0 + i * 0.9, why = why }
     end
   end
-  add("Recruit", 5, 3, nil, 1, 1.2)
-  add("Initiate", 4, 9, nil, 1, 0.8)
-  add("Member", 3, 4, nil, 8, 3)
-  add("Veteran", 2, 2, nil, 22, 5)
-  add("Recruit", 5, 2, "grace period", 1, 0.2)
-  add("Initiate", 4, 3, "online now", 3, 0)
-  add("Initiate", 4, 2, "grace period", 2, 0.5)
-  add("Initiate", 4, 1, "verifying now", 1, 0.3)
-  add("Member", 3, 2, "hold note", 17, 12)
-  add("Member", 3, 1, "online now", 12, 0)
-  add("Veteran", 2, 2, "grace period", 30, 1)
-  add("Officer", 1, 3, "protected rank", 60, 2)
+  add("Alt", 8, 3, nil, 1, 1.2)
+  add("Initiate", 9, 9, nil, 1, 0.8)
+  add("Member", 7, 4, nil, 8, 3)
+  add("Veteran", 5, 2, nil, 22, 5)
+  add("Alt", 8, 2, "grace period", 1, 0.2)
+  add("Initiate", 9, 3, "online now", 3, 0)
+  add("Initiate", 9, 2, "grace period", 2, 0.5)
+  add("Initiate", 9, 1, "verifying now", 1, 0.3)
+  add("Member", 7, 2, "hold note", 17, 12)
+  add("Member", 7, 1, "online now", 12, 0)
+  add("Veteran", 5, 2, "grace period", 30, 1)
+  add("Officer", 2, 3, "protected rank", 60, 2)
   f.unv = { members = list, excluded = { Veteran = true }, gone = 4, nextEligible = f.now + 31 * 3600 + 1200,
             graceDays = 3, listAt = f.now - 3 * 3600 }
 end
@@ -213,7 +213,7 @@ local function UnverifiedFor(f, limit)
   for _, m in ipairs(U.members) do
     local br = info.byRank[m.rank]
     if not br then
-      br = { rank = m.rank, rankIndex = m.rankIndex, offered = 0, held = 0, protected = m.rankIndex <= 1 }
+      br = { rank = m.rank, rankIndex = m.rankIndex, offered = 0, held = 0, protected = m.rankIndex <= 3 }
       info.byRank[m.rank] = br
     end
     local shown = not U.excluded[m.rank]

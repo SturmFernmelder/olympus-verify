@@ -456,7 +456,7 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     'audit(env, "system", "role.refused_banned", name, { discordId },reference)',
     'audit(env, "system", "role.add_failed", name, { discordId, error: String(e) },reference)',
   ];
-  check("(writer fidelity) all five reviewed roster calls still have their exact character/discordId shapes, and the other removal writer uses target ID", roleCalls.every(call => rosterSrc.includes(call)) && interactionSrc.includes('audit(env, "system", "role.remove_failed", target, { error: String(e) })'));
+  check("(writer fidelity) all five reviewed roster calls retain character/discordId shapes; the ban writer keeps target ID and category-only errorRef", roleCalls.every(call => rosterSrc.includes(call)) && interactionSrc.includes('audit(env, "system", "role.remove_failed", target, { error: errorRef(e) })'));
   const roleStart = Number(one("SELECT COALESCE(MAX(id), 0) + 1 AS id FROM audit").id);
   const discordSaved = { rest: stubs["./discord"].rest, addRole: stubs["./discord"].addRole, removeRole: stubs["./discord"].removeRole, guildMember: stubs["./discord"].guildMember };
   const memberSaved = one("SELECT banned, ban_reason FROM members WHERE discord_id = ?", MEMBER);
@@ -487,6 +487,8 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     await run("UPDATE members SET banned = ?, ban_reason = ? WHERE discord_id = ?", memberSaved.banned, memberSaved.ban_reason, MEMBER);
   }
   const writtenRoles = all("SELECT * FROM audit WHERE id >= ? AND action IN ('role.add_failed','role.deferred','role.refused_banned','role.remove_failed','roles.read_failed') ORDER BY id", roleStart);
+  const actualBanRemoval=writtenRoles.filter(row=>row.action==='role.remove_failed'&&row.subject===MEMBER);
+  check("the actual ban removal stores exactly its fixed error category without the synthetic upstream marker",actualBanRemoval.length===1&&actualBanRemoval[0].details==='{"error":"error"}'&&!actualBanRemoval[0].details.includes(roleMarker),actualBanRemoval);
   check("the real roster and interaction paths wrote six rows covering the five required actions and both removal subject kinds", writtenRoles.length === 6 && new Set(writtenRoles.map(row => row.action)).size === 5 && writtenRoles.filter(row => row.action === "role.remove_failed").map(row => row.subject).join() === ["Writer Left", MEMBER].join(), writtenRoles.map(({ action, subject }) => ({ action, subject })));
   const rolePage = await measured(() => log({ window: "all", limit: "100" }));
   const roleEntries = new Map(rolePage.r.body.entries.map(row => [row.id, row]));

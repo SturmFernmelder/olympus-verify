@@ -10,10 +10,12 @@
 > commit from its `git archive` with `bash scripts/deploy-commit.sh <sha>`; the never-run list in `CLAUDE.md` applies
 > to agents throughout. Each dated section below records what was true and done on its date.
 >
-> **Current qualification (renewed request, 14–15 Oct 2026):** this integration requires genuine Claude Code and Codex
+> **Qualification record (renewed request, 14–15 Oct 2026):** that integration required genuine Claude Code and Codex
 > signatures on the same exact final commit/tree and evidence tuple, with the substantive source, tests, shipping-commit
 > CI, actual-version/live and owner gates in `docs/launch-runbook.md` section 0. The owner's 3 October single-Codex
 > takeover remains the historical procedure for that earlier work; it does not override this renewed request.
+> The later .210 Master QA owner override in `CLAUDE.md` governs the current task: external Claude signature waived,
+> internal independent review, exact-head automated review, all13 CI jobs and the single final qualification retained.
 
 Two things stay with you by design: secrets (bot token, client secret, the shared secrets) and the Cloudflare login.
 Everything else in the Discord Developer Portal and on the server is done or scripted.
@@ -7327,3 +7329,151 @@ Before one deployment, take a fresh D1 export and verify its full portable resto
 Local and actual live readbacks cover the new role's reserved classification, detailed duties, Council chart/deep link, governance clarification, Treasury responsibilities and owner Admin field, plus desktop1280 and mobile390/375/320 document overflow. Check the actual served changed static bodies against merged Git, signed-out static denial and existing authenticated privacy/public-health gates. Preserve observed browser errors and capture limits honestly. No protected appointment, settings save, game action, member isolation or bank transfer is exercised by observational QA.
 
 Rollback is a separately authorised exact-commit release; no destructive restoration or settings rewind is implied. Final status records the actual merged commit/version/ETag, single deployment, verified backup, live evidence and remaining Master debts. Keep Royal Writs, Treasury cosmetic dispatch, Army aggregation and Olympus Link held/OFF.
+
+## Worker .209 — trading portfolio mobile links (28 October 2026)
+
+The .208 live governance card exposed a long unwrapped trading-guide button at 375px. Bound both links inside `#trading-portfolio208` to their card and allow their complete labels to wrap. Fresh .209 browser verification then isolated an existing unwrapped Treasury programme quick link at 320px; apply the same bounds and wrapping only to `.governance-quicklinks .btn`. Other button groups, the adopted R7 book and its contained historical table scrollers, trading remit, ranks, permissions, settings, schema and launch gates remain unchanged. Preserve the .208 live failure and first .209 candidate's 320px observation as history; neither is accepted by these source checks.
+
+Qualify the actual rendered guide-link and Treasury quick-link targets plus scoped CSS constraints in the existing frontend suite, the three exact health-build pins, TypeScript and fast projections. Source assertions do not establish browser geometry: verify the trading links and governance quick links after the .209 deployment at desktop1280 and mobile390/375/320, retaining document and element bounds, complete readable labels and honest screenshots. Require independent exact-head and automated review, sharded PR/main CI, a fresh verified D1 backup and one exact-source deployment/readback under Root's existing release procedure. No full local aggregate, new cron observation, transferred timing exception, protected action or provider-feature activation is claimed.
+
+
+## Worker .210 — QA admission and operator safety (28 October 2026)
+
+The Master QA audit reproduced an admin-pause/application-save race, bearer forwarding through operator-helper
+redirects, unsafe upstream error echoes, malformed backfill success summaries, and addon rank-removal guards that
+still followed an older ladder. This candidate includes the separate .209 mobile trading-link correction in its
+ancestry; it does not relabel the deployed .208 release or its held mobile finding as accepted.
+
+Application INSERT/UPSERT now checks the current applicationsOpen and Patron Royal Writs switches in the same SQL
+statement as the write. A refusal creates no application row or audit. Operator helpers accept only a bare HTTPS
+origin, never follow redirects, validate success summaries and print bounded fixed error guidance. The authenticated
+Worker backfill response also uses status-only errors rather than provider bodies or arbitrary exceptions.
+
+Addon 0.6.12 uses the approved ten-rank guide. Leader, High Council, Officer and Officer Alt are protected even when
+an older private configuration says index 1; unknown/malformed indices are held. Both attended API clicks and macro
+aiming recheck current eligibility. Observed roster changes and successful verification cancel stale unverified aims;
+roster-response revalidation reads the cache without asking for another response. Disarming clears the old reason.
+If combat prevents editing an already-written macro, the addon says it remains armed and retries after combat.
+The addon cannot intercept an arbitrary manual action-bar macro press or guarantee a server change arrived before
+that press. Officers must inspect the target immediately before using it. Real protected-action/client acceptance
+and installation of these bytes remain separate gates.
+
+Focused local evidence: 14 Lua suites passed with 56 new removal regressions; operator transport/summary 137 checks
+passed on Python 3.12 and 3.14; permission review 38 on each; Worker role-budget/error hygiene 28; site 382;
+application track 159 and reserved-seat 186 including their Native fixtures, with identify-copy 99 statements.
+The four application races failed before repair and passed afterward. Original failure artifacts are retained.
+These component results do not certify the full Master inventory, full local expansion, hosted review, live users,
+Discord outputs, upstream distribution or real game behaviour.
+
+Config/DDL: no configuration or schema change, no new dependency or cron. Native E2 custody and default-OFF Treasury
+cosmetic dispatch, Army aggregate and Olympus Link remain required. No source edit activates them.
+
+Rollout gates: exact shipping-head TypeScript/projections and focused checks, current desktop/mobile browser QA,
+all 13 hosted jobs, independently attributable internal review and genuine completed exact-head automated PR review.
+Only after those gates run the full current expansion once: 204 occurrences preserving the original 198 and repeats,
+roster-effects occurrence 48 at 900 seconds, others 600, overall 5400. Do not reuse a spent historical once intent.
+Then use the exact-commit merge/deploy procedure, fresh D1 backup with local restore/integrity/FK verification and
+442 app/443 live objects, unchanged five-private-Worker/settings checks and fresh read-honest production acceptance.
+Do not run an automatic reset, real guild mutation or feature activation as a QA shortcut.
+
+Rollback: before deployment, keep the candidate unmerged if a gate fails. After an actual deployment, prefer a
+reviewed roll-forward for a discovered defect. Any revert/deploy follows the same exact-commit gates and preserves
+the schema/settings/private custody. Addon host rollback is a separately attended reinstall of preserved bytes;
+saved data needs no migration. No database restoration is introduced by this candidate.
+
+The same QA pass reproduced a separate local maintenance defect: `watcher/scrub_state.py` ignored an offline
+recovery lease and copied retained proof bodies into its pre-scrub backup. It now refuses pending/retained custody
+unchanged. A legacy-only seen-key migration acquires the existing shared state lease and uses private exclusive
+backup/temporary files, fsync, source identity/byte checks, atomic replacement and exact readback. Existing digests
+stay unchanged; nonfinite JSON is refused even on a no-op. A failed or ambiguous replacement asks for inspection
+and does not claim rollback or retry safety. The normal watcher, custody primitives and protocols are unchanged.
+The expanded custody suite passed 39/39 on Python 3.12 and 3.14; adjacent attended custody 19/19 and restart 7/7
+passed. These are disposable local-state checks, not installed-host recovery or erasure acceptance.
+
+The headed browser pass also reproduced a separate mobile Admin Overview overflow: the Treasury programme link
+extended the document to 423px at 390/375/320px viewports. Content anchors directly inside frames, cards, their
+paragraph/action rows and notice bodies now keep complete wrapping labels within their panel. The compact header,
+navigation and fixed 44px Stream Shield control retain their existing rules. The focused DOM regression checks
+actual rendered links and selector exclusions; fresh final-source browser geometry remains a separate gate.
+
+The public publisher state was refreshed on 29 October UTC: upstream PR72 is merged and CurseForge lists
+Olympus-1.3.3.zip for Forever, Classic and TBC. Home/Army copy must therefore describe published snapshot export
+without claiming the local compatibility sidecar is identical to that release. Publication does not establish
+download integrity, installed-client behaviour or Army site admission. Those acceptance states remain separate,
+and Army aggregation remains OFF.
+
+The route inventory and headed browser then reproduced encoded Rosetta Class Lead links opening the High Council
+card instead of the requested mandate. Organization selection now decodes one URI component before exact
+registered-key lookup. Malformed, double-encoded and path-shaped values retain the safe fallback; no normalization
+or permission change is introduced. The affected frontend suite checks all nine emitted class aliases, an encoded
+ordinary office and negative selectors (121/121); existing organization checks passed 84/84 plus 46/46 overview
+checks. Repeat the actual emitted-link journey on the frozen final source before browser acceptance.
+
+Historical, decided and paused application summaries now offer an explicit remove-only voting-board privacy
+action. The existing authenticated PUT accepts only `consentOnly: true` and one or more selected sharing flags
+set to false; it cannot submit a role, re-enable sharing, replace answers or withdraw the application. Exact-row
+compare-and-swap and original actor/incarnation/database-clock/Native admission fences remain. JSON1 changes only
+closed consent paths, preserving unrelated private numeric values; ambiguous duplicate consent keys refuse safely.
+Ordinary reserved-role saves remain refused. Local evidence includes 39 Worker and 20 Native cases, all seven flag
+subsets on both valid modes, unchanged 99-statement identify copies and the original Native 75-check suite. Actual
+browser verification of the final composed source remains required. Late replies from a departed privacy panel do
+not sign out or repaint a different view.
+
+The Lua runner now records a failing row and diagnostic for every missing declared suite, including a directory in
+place of a file. A partial or empty run cannot pass silently. The standalone CLI regression uses disposable copies
+and the real LuaJIT interpreter; CI runs it before the actual addon suites. Source census and manual source review
+remain distinct, and no runner result establishes installed game-client acceptance.
+
+### .210 additions from the Claude QA lane (29 October 2026)
+
+The earlier .210 additions were integrated on Root's candidate `166e2b92`; their historical findings and receipts are in `Olympus/qa-master-2026-10-29/`. The later RT14 leave-confirmation guard, RT15 Directory preferences title and RT16 admin-decision client successor are composed on H8 `4c76afeff1ff2d77032703c793037f6e4a957984`; acceptance of these exact new bytes remains pending focused checks and review. Earlier receipts on another head do not qualify this composition. Root's own AddOn rank guide, officer removal protection and operator-helper transport changes are retained.
+
+Website: long `.btn` labels wrap below 720px (the directory opt-in, Army roles and ruleset return buttons still widened the page at 320px); the top bar is not pinned at most 480px wide or 500px tall (228px, 36% of a 320x640 screen); an application track page (`#/vote/<track>/<office>`) starts at the top instead of keeping the board's scroll; a link navigation moves focus to the new page; required application fields carry `aria-required`; date-only values (trial due dates, dues weeks, case review and expiry) print as their UTC day instead of a day early in the Americas; the Staff menu and Stream Shield leave the header after a mid-session 401; the Game updates refresh keeps open retrieval details and the focused headline and no longer redraws unchanged data; the Raider guide states Rank 7 Raider (zero-based slot 6); the leadership board heading no longer says members vote on who leads Olympus; the organization catalogue summary says 96 offices / 132 keys; the rank planner warns that the role sync recognises the ten-rank roster only with "Guild Master" in slot 0. A second navigation while "Leave without saving?" is open no longer stacks a second confirmation. The Directory preferences admin tab has its own page title (it read "Admin · Overview"). Bot: `/olympus-lookup` and its autocomplete are routed in the shared server (they answered "Unknown command." since GUILD_ID equals INTROS_GUILD_ID); every ephemeral reply is cut to Discord's 2,000 characters; a ban reason over 400 characters is refused before anything is written (`register.mjs` gains `max_length: 400`, effective at the owner's next registration); the post-launch `/verify` reply names the guide's real **Get my code** button. Watcher endpoints answer a body that is not a JSON object with 400 `bad_json`/`bad_body` instead of a retried 500.
+
+Admin decisions (High; composed source proposal, Native acceptance pending): the Worker requires an authenticated target bound to the account, route, action and selected state (`GET /api/admin/users/<id>/decision-target`, then `X-Olympus-Decision-Target` and `X-Olympus-Decision-Action`); the prior client omitted those headers. The safer client prepares all four route/action targets before fetching the detail to be reviewed, owns one pending action, spends all view targets before dispatch, suppresses late effects after navigation/sign-out, and requires explicit renewed review after refusal or an uncertain answer. It never automatically prepares or retries a write. Root's actual H8 Native diagnostic reproduced a same-second two-admin stale-note overwrite with both POSTs200, unchanged old proof, and every recorded JavaScript/Native/reviewed timestamp in one second. The separate same-actor replay world crossed a clock boundary and remains inconclusive. The backend successor therefore signs a fixed-size digest of a storage-type-tagged Native serialization of all27 application columns, keeping answers as raw TEXT. A fresh Native read is fenced to the original actor/session/privacy and target incarnation/state before private payload consumption; protected encoding/hash helpers retain intrinsic witnesses. The same existing first guard compares the server-held raw serialization as BLOBs in the original six-slot consuming group, closing changes after digest verification without a new table or authority. Unsupported types are checked before all affected JSON constructors, and absent applications stay distinct from invalid rows. Original APP proof4096, complete minted/consumed token8192, Native bind2m and physical/process caps remain. The explicit256000-byte review envelope is a fail-closed resource limit, not a universal maximum for legal rows. Oversized accumulated current notes/historical data or unsupported-type rows retain stored data and existing authorized backend read/export paths but refuse preparation/action409; operator investigation/manual recovery is a residual, and reopening alone need not resolve it. The client all-target preparation may withhold its detail view on that hold. Business decisions remain `business_only`, delete remains `partial_delete`, and the client does not select `membership_rejection_v1` or a new365-day policy. This fences the fixed application record, not the complete multi-read account/friends/votes DTO; content-identical ABA and durable single-use/exactly-once replay refusal are not claimed. These exact composed bytes and executable Native regression cases remain unrun pending focused verification and independent review.
+
+Officer PC (Root installs): watcher 0.6.9 escapes characters a redirected console cannot encode (one whisper from a name outside cp1252 stalled every lane), splits chat lines on newline only (a relayed U+2028 could forge a whisper line), refuses a `watcher_token` with spaces or line breaks without echoing it, floors `poll_seconds` at 1 and `queue_poll_seconds` at 5, and reports a missing or malformed `config.json` instead of a traceback. AddOn: the example's placeholder secret is refused (codes made from it were queued and confirmed) with one warning per session; a Worker row an officer removed stays out for a day instead of returning on the 45-second merge with a false alert. CI cancels only superseded pull-request runs, never a main run. `THIRD_PARTY_NOTICES.md` names jsQR 1.4.0 (Apache-2.0); README and CLAUDE.md commands and check counts are current.
+
+No schema, setting, binding, secret, role, permission or launch-gate change. The launch-day announcement drafted under .161 ("press **Verify** in the pinned guide") must say **Get my code** when it is posted. The earlier additions retain their historical regression references (`test:qa210`; `.210` checks in `frontend_check`, `site_test`, `hosts_test`, `bnet_retention_test`, `rank_planner_test`, `resources169_test`, the watcher suite and the Lua suites `secret_placeholder` and `queue_dismiss`). The later RT14/RT15 checks,17 RT16 client assertions and extended Native content/authority/descriptor regressions are proposed tests, not observed passes on this composed source. The script-only test:qa210 successor keeps the existing static command first and appends the actual Native rejection suite: original204 command occurrences/order/repeats remain the prefix of205. This adds final CI coverage without changing13 jobs or their budgets, and does not authorize or reset a full-run attempt. Their focused original-versus-successor runs, exact asset pins and source review remain required before release qualification. Rollback is the same exact-commit redeploy; watcher 0.6.9 rolls back by reinstalling 0.6.8.
+
+The canonical main deploy command is `bash scripts/deploy-commit.sh <qualified-main-sha> --keep-vars`.
+The flag preserves dashboard-only plain variables; it does not establish complete binding equality or authorize
+deployment. Keep the existing exact archived configuration, source-tree annotations where required, fresh verified
+backup and before/after configuration checks. The script accepts the flag once for main and refuses it for private
+targets. Its argument regression uses a fake Wrangler and cannot certify provider behavior or a live release.
+See [Cloudflare's source-of-truth documentation](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth).
+
+### .210 final composition follow-ups (29 October 2026; qualification in progress)
+
+New rank-planner drafts export the native name `Guild Master` at rank0 and display `Leader (Guild Master)`.
+Historical `Leader` drafts remain unchanged until their owner explicitly selects the name-only local correction.
+The native adapter, signing profiles, rank order, permissions and game state are unchanged. Resources now have a
+Pause/Resume control; pausing retains the view and focus, cancels polling and rejects late responses. A resumed
+pending read retains the current filtered snapshot. Actual final browser keyboard/layout acceptance is separate.
+
+Hosted admin ban/sync requests register unstarted work before an ephemeral deferred response, then edit only that
+original response. Original actor checks precede effects and delayed publication; target-generation checks protect
+private ban summaries. Malformed ban targets/reasons refuse before work, and error summaries/audits retain only
+bounded categories/status. A refused registration starts no admin effects. Configured global serving mode retains
+its existing child-settlement rule and explicitly holds these commands; no early-response constructor is introduced.
+The held-restoration note names the officer next step without claiming success or notification. The outer scheduled
+catch identifies a cron entry hold; the actual inner schema catch keeps its schema diagnostic and unknown custody.
+The historical identity PINS remain; strictly bounded ban and held-warning successor tests retain their original
+content/row oracles and add exact physical traces and negative mutations. Their source review does not authorize release.
+
+The primary tool declarations now pin Wrangler4.155.0, workers-types5.20261023.1 and TypeScript5.9.3; obsolete
+Miniflare-version-specific overrides are removed. A separate ordinary profile with bundled Node24.22.1 passed
+archive/vendor/audit checks and eight bounded H6 compatibility checks. Existing shared dependency directories and
+the retired local CLI remain untouched; do not reinstall through their junctions or use the old q199 bundle as cleared.
+Final-source qualification must use its explicit reviewed tool bindings. Preserve all failed tooling attempts and the
+watcher deep-Win32-path limitation; a shorter TEMP pass is not a deep-path or installed-client acceptance.
+
+These follow-ups introduce no DDL, private-service authority, closed scheduled catalogue/cap change, provider
+activation or game write. Require final clean source, independent review, actual exact-head CI/automated review,
+final desktop/mobile/persona journeys and the single current204 qualification before the separately gated rollout.
+
+The H7 CI run exposed stale historical-source seals and the current SDK's rejection of the bundle fixture's
+`workers[0].config.type`. The successor removes only that obsolete root key. Finite test-context reversals preserve
+the historical scheduled/Link hashes as static authorities while executing current source; they never execute the
+historical inline ban or raw-error implementation. The audit writer check now requires the actual category-only
+ban-removal row. These repairs still require focused execution, composed exact-head CI/review and final qualification.

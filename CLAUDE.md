@@ -37,14 +37,14 @@ npm run check:vectors                      # the 12 shared code vectors (Python,
 npm run check:policies                     # src/policy-content.ts is what policies/*.html give (regenerate: npm run build:policies)
 npm run test:all                           # typecheck + vectors + every node suite (real src/*.ts over SQLite) + the bundle in workerd
 node tests/bundle_runtime_test.cjs         # the exact dry-run bundle loaded in local Miniflare/workerd (~15 s)
-node tests/site_test.cjs                   # one suite (361 checks); each suite prints PASS/FAIL and a total
-node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (271 checks, .93-.115)
+node tests/site_test.cjs                   # one suite (383 checks at .210); each suite prints PASS/FAIL and a total
+node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (602 expected checks in the current .210 assertion index; exact-head runtime results are authoritative)
 node tests/role_budget_test.cjs            # the role writer's request budget: the real discord.ts rest() behind a stubbed fetch (.95/.99)
 node tests/guild_seats_test.cjs            # .115: whether Olympus I has room (latest snapshot, trust, the texts, the staff lines, the ingest's statement bound; 171 checks)
-node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 167)
-node tests/scheduled_budget_test.cjs       # .115: the cron's D1 statement budget (scheduled-budget.ts): each job, the role sweep's per-account costs exactly, cold and warm schema, the whole run, continuation (65)
+node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 346 at .210)
+node tests/scheduled_budget_test.cjs       # .115: the cron's D1 statement budget (scheduled-budget.ts): each job, the role sweep's per-account costs exactly, cold and warm schema, the whole run, continuation (70 at .210)
 node tests/roster_effects_test.cjs         # .115: worklist, notice debt, incomplete/legacy snapshots, retries, binding races and sync (87 focused checks at takeover repair; final exact-head receipt remains authoritative)
-node tests/rank_planner_test.cjs           # .115: every page script parses, every planner file equals its pin, the planner's own buttons (20)
+node tests/rank_planner_test.cjs           # .115: every page script parses, every planner file equals its pin, the planner's own buttons (44 at .210)
 python tests/unverified_sql_test.py        # SQL suites (from worker/)
 python tests/backfill_sql_test.py
 npx wrangler deploy --dry-run --outdir <scratch>   # bundle without deploying
@@ -76,7 +76,7 @@ There is no ESLint or Prettier;
 `.editorconfig` sets the style (2 spaces, LF, final newline; Python 4 spaces).
 
 **Never run:** `npm run deploy` or `wrangler deploy` (the owner deploys, from an exact commit with
-`bash scripts/deploy-commit.sh <sha>`); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
+`bash scripts/deploy-commit.sh <sha> --keep-vars` for main); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
 against the remote database (it re-applies `schema.sql`; the Worker migrates itself in `src/schema.ts`);
 `wrangler d1 create olympus-link` or any remote `wrangler d1 execute` against `olympus-link` (.186: Olympus Link's
 separate database; owner-only Phase 2 steps in `docs/olympus-link.md`); `npm run register` / `register:intros` (owner, they rewrite the guild's command list); the watcher against the live
@@ -261,6 +261,10 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 - Files are LF; `*.bak*` siblings are ignored by git and should not be created any more (git is the history).
 
 ## Collaboration and release qualification (renewed request, 14–15 Oct 2026)
+
+**Build .210 Master QA owner override (28–29 Oct 2026):** The direct Master QA request supersedes the external Claude release signature and host-lane wait for this task. Codex Root owns integration, Git, qualification and the gated rollout. Independently attributable internal source review, completed exact-head automated review with zero findings and all original 13 CI jobs remain required. Iteration uses affected suites, TypeScript and projection checks. The single task-global final local expansion preserves all original198 occurrences/order/repeats and includes additive suites (currently204); run it at most once after final CI/review pass, with occurrence48 roster-effects900 seconds, other occurrences600 seconds and overall5400 seconds. Never reset that intent or transfer historical passes to changed source. Preserve live443/application442 D1 objects with zero DDL, identify-copy physical statements below100 and Native E2 custody; Treasury cosmetics, Army aggregation and Olympus Link remain OFF. A fresh private D1 SQL backup with successful local restore is required before any deployment. No real user, Discord role or webhook is a test fixture. Historical override tolerances apply only where explicitly carried by the current request; no general clock correction, cap increase or feature activation is authorized. The request attachment SHA256 is `e453f4fe2a775c56c9df79706cbf6b19e40ab948f5ca025fa04aab08bc6aab9b`.
+
+**Current command count and consumed-budget clarification (29 Oct 2026):** At the H12 source checkpoint, the package/CI `test:all` expansion contains 205 command occurrences. The recorded H8 run's exact 204-command order remains its prefix; the Native rejection suite is appended through `test:qa210`. This is a source-derived command count, not 205 observed passes. The single task-global H8 full-204 attempt is already consumed and completed with 203 PASS and occurrence 058 (`frontend_check.cjs`) FAIL. The larger package/CI count grants no aggregate retry or new intent. The original occurrence-48 roster-effects limit of 900 seconds, other-occurrence limit of 600 seconds and overall limit of 5,400 seconds, preserved feature flags and release gates remain unchanged. This clarification records the existing budget state and grants no new execution authority.
 
 **Build .198 owner override (25 Oct 2026):** Start from accepted main `78cf7531b526855f6168525bd54b1ffc266633f0`. Claude remains offline; Codex Root owns runtime, Git and deployment, with independent internal review, all13 PR CI jobs and completed exact-head automated review with zero findings. During development/review fixes run only affected suites, TypeScript and the fast projection check. Run the complete198-command local expansion at most once, on the final candidate after CI and automated review pass: roster-effects occurrence48 has900 seconds, other occurrences600 seconds, overall5400 seconds. No15UTC wall-clock wait: unchanged scheduled/digest paths may carry the accepted prior proof, or use an explicitly labelled local synthetic15UTC test clock. For this exact .198 rollout only, the owner preauthorizes84 strict public passes plus bot-host robots GET/HEAD200 comment-body exceptions, and a maximum60000ms full-audit-bin extension beyond the first healthy callback's reported trace interval. Preserve raw timestamps, exception results and unknown clock/cause; do not claim a clock correction. These terms do not change historical197 failures, global policy or future releases.
 

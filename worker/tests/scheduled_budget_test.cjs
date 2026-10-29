@@ -465,7 +465,7 @@ const everyColumnMissing = Object.assign((sql) => /^SELECT \w+ FROM \w+ LIMIT 0$
     const pending = [];
     try { await quiet(async () => { await index.default.scheduled({}, rawEnv(), { waitUntil(p) { pending.push(Promise.resolve(p)); } }); await Promise.all(pending); }); }
     finally { FAIL = null; }
-    return { ...COUNT, jobs: pending.length, held: quietLines.length === 1 && quietLines[0] === 'schema check failed; skipping this run error', unchanged: before === wholeState() };
+    return { ...COUNT, jobs: pending.length, held: quietLines.length === 1 && quietLines[0] === 'cron entry held; skipping this run error', unchanged: before === wholeState() };
   };
   const warm = await wholeRun('warm');
   check('warm ordinary callback is exactly held, with no jobs or Native work', warm.held && warm.unchanged && warm.jobs === 0 && warm.physicalStatements === 0 && warm.physicalTrips === 0, warm);

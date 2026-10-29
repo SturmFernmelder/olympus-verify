@@ -496,6 +496,7 @@ export function validateApplication(body: Record<string, unknown>, selfId: strin
 }
 
 async function saveApplication(env: Env, user: SiteUser, body: Record<string, unknown>): Promise<Response> {
+  if (Object.hasOwn(body, 'consentOnly')) return withdrawApplicationBoardConsent(env, user, body);
   const s = await loadSettings(env);
   if (!s.applicationsOpen) return apiJson({ error: "closed", message: "Applications are closed right now." }, 403);
   const existing = await env.DB.prepare("SELECT status, answers FROM site_applications WHERE discord_id = ?1").bind(user.discord_id).first<{ status: string; answers: string }>();
@@ -541,25 +542,93 @@ async function saveApplication(env: Env, user: SiteUser, body: Record<string, un
   }
   if (changed) a.answers = JSON.stringify(answers);
   const t = now();
+  // Master QA, 28 Oct 2026: a settings pause can commit during the awaited
+  // reference lookup. Admit both inserts and edits against the live switches
+  // in this statement, preserving the settings parser's exact boolean rules.
   // board_at keeps the first time they agreed; an application with no voted leadership role left has nothing on the board.
   const saved = await env.DB.prepare(
     `INSERT INTO site_applications (discord_id, position, class_lead, backup1, backup2, fallback, character, char_key, class, role, region, avail, avail_tz, fit_na, fit_eu, board_at, answers, status, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, CASE WHEN ?16 = 1 THEN ?18 END, ?17, 'submitted', ?18, ?18)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, CASE WHEN ?16 = 1 THEN ?18 END, ?17, 'submitted', ?18, ?18
+     WHERE COALESCE((SELECT value FROM site_settings WHERE key='applicationsOpen'), '1') IN ('1', 'true')
+       AND (?19 <> 'patron' OR (SELECT value FROM site_settings WHERE key='royalWritsOn') = '1')
      ON CONFLICT(discord_id) DO UPDATE SET position = ?2, class_lead = ?3, backup1 = ?4, backup2 = ?5, fallback = ?6, character = ?7, char_key = ?8,
        class = ?9, role = ?10, region = ?11, avail = ?12, avail_tz = ?13, fit_na = ?14, fit_eu = ?15,
        board_at = CASE WHEN ?16 = 1 THEN COALESCE(site_applications.board_at, ?18) END, answers = ?17, updated_at = ?18,
        status = CASE WHEN site_applications.status = 'withdrawn' THEN 'submitted' ELSE site_applications.status END
      WHERE site_applications.status NOT IN ('accepted','declined')`,
   )
-    .bind(user.discord_id, a.position, a.class_lead, a.backup1, a.backup2, a.fallback, a.character, a.char_key, a.class, a.role, a.region, a.avail, a.avail_tz, a.fit_na, a.fit_eu, a.board ? 1 : 0, a.answers, t)
+    .bind(user.discord_id, a.position, a.class_lead, a.backup1, a.backup2, a.fallback, a.character, a.char_key, a.class, a.role, a.region, a.avail, a.avail_tz, a.fit_na, a.fit_eu, a.board ? 1 : 0, a.answers, t, answers.applicationTrack ?? '')
     .run();
   // .114 (Codex, log 19:56 UTC): a decision that landed while this save was being prepared (the read above, the reference
   // labels) wins: the decided application is not overwritten with answers nobody reviewed, and the member is told so.
   // A rename hold's approval relies on the accepted application being the one the member submitted (rename-review.ts).
-  if (!saved.meta.changes) return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
+  if (!saved.meta.changes) {
+    const current = await env.DB.prepare(`SELECT
+      (SELECT status FROM site_applications WHERE discord_id=?1) AS status,
+      COALESCE((SELECT value FROM site_settings WHERE key='applicationsOpen'), '1') AS applications_open,
+      (SELECT value FROM site_settings WHERE key='royalWritsOn') AS royal_writs_on`).bind(user.discord_id)
+      .first<{ status: string | null; applications_open: string; royal_writs_on: string | null }>();
+    if (current?.status === 'accepted' || current?.status === 'declined') return apiJson({ error: "decided", message: "Your application has already been decided, so it can no longer be changed." }, 409);
+    if (current && !['1', 'true'].includes(current.applications_open)) return apiJson({ error: "closed", message: "Applications are closed right now. Your existing application is unchanged." }, 403);
+    if (answers.applicationTrack === 'patron' && current?.royal_writs_on !== '1') return apiJson({ error: 'royal_writs_paused', field: 'applicationTrack', message: 'Royal Writs and Patron applications are paused. Your existing application is unchanged; other application tracks remain available.' }, 403);
+    return apiJson({ error: 'application_changed', message: 'Application availability changed while this save was pending. Nothing was saved. Reload the page before editing again.' }, 409);
+  }
   forgetBoardCounts(); // this isolate's cached board counts: the applicant sees their own change at once
   await audit(env, user.discord_id, existing ? "site.application_updated" : "site.application_submitted", undefined, { position: a.position, backups: [a.backup1, a.backup2].filter(Boolean) });
   const row = await env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(user.discord_id).first<AppRow>();
+  return apiJson({ ok: true, application: row ? appOut(row) : null });
+}
+
+/** Master QA, 29 Oct 2026: a reserved historical application may stop sharing
+ * without resubmitting its role or rewriting the answers leadership reviewed.
+ * The original authenticated, incarnation-bound write route supplies env/user.
+ * Only this explicit envelope can bypass ordinary application edit admission. */
+async function withdrawApplicationBoardConsent(env: Env, user: SiteUser, body: Record<string, unknown>): Promise<Response> {
+  const choices = [
+    ['boardPortrait', 'boardPortraitOptIn'],
+    ['boardTalentBuilds', 'boardTalentBuildsOptIn'],
+    ['boardApplicationIntent', 'boardApplicationIntentOptIn'],
+  ] as const;
+  const selected = choices.filter(([field]) => Object.hasOwn(body, field));
+  if (body.consentOnly !== true || !selected.length
+    || Object.keys(body).some(key => key !== 'consentOnly' && !choices.some(([field]) => field === key))
+    || selected.some(([field]) => body[field] !== false)) {
+    return bad(fail('consentOnly', 'Withdraw sharing with only the selected sharing choices set to false. No application edits can be included.'));
+  }
+  const existing = await env.DB.prepare('SELECT * FROM site_applications WHERE discord_id = ?1').bind(user.discord_id).first<AppRow>();
+  if (!existing) return apiJson({ error: 'not_found', message: 'There is no application whose sharing can be withdrawn.' }, 404);
+  let answers: Record<string, unknown>;
+  try {
+    const value: unknown = JSON.parse(existing.answers);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+    answers = value as Record<string, unknown>;
+  } catch {
+    return apiJson({ error: 'application_changed', message: 'The stored application could not be read. Nothing was changed; ask leadership to review it.' }, 409);
+  }
+  const withdrawn = selected.filter(([, stored]) => answers[stored] === true);
+  // Repeated withdrawal neither changes the application time nor creates a new
+  // audit event. Missing/legacy flags never imply permission to publish.
+  if (!withdrawn.length) return apiJson({ ok: true, application: appOut(existing) });
+  // Only these closed source paths enter SQL. JSON1 changes their booleans in
+  // the original text; JavaScript number conversion must not rewrite private
+  // historical values elsewhere in the answers. Duplicate consent keys are
+  // ambiguous between JSON1 and the reader, so that row remains unchanged.
+  const changes = withdrawn.map(([, stored]) => "'$." + stored + "', json('false')").join(', ');
+  const saved = await env.DB.prepare(
+    'UPDATE site_applications SET answers = json_set(answers, ' + changes + '), updated_at = ?2 '
+    + 'WHERE discord_id = ?1 AND answers = ?3 AND updated_at = ?4 AND status = ?5 AND board_at IS ?6 '
+    + "AND NOT EXISTS (SELECT 1 FROM json_each(site_applications.answers) WHERE key IN ('boardPortraitOptIn','boardTalentBuildsOptIn','boardApplicationIntentOptIn') GROUP BY key HAVING COUNT(*) > 1)",
+  ).bind(user.discord_id, now(), existing.answers, existing.updated_at, existing.status, existing.board_at).run();
+  if (!saved.meta.changes) {
+    return apiJson({ error: 'application_changed', message: 'Your application changed while sharing was being withdrawn. Reload it and try again.' }, 409);
+  }
+  forgetBoardCounts();
+  await audit(env, user.discord_id, 'site.application_board_consent_withdrawn', undefined, {
+    portrait: selected.some(([field]) => field === 'boardPortrait'),
+    talentBuilds: selected.some(([field]) => field === 'boardTalentBuilds'),
+    applicationIntent: selected.some(([field]) => field === 'boardApplicationIntent'),
+  });
+  const row = await env.DB.prepare('SELECT * FROM site_applications WHERE discord_id = ?1').bind(user.discord_id).first<AppRow>();
   return apiJson({ ok: true, application: row ? appOut(row) : null });
 }
 

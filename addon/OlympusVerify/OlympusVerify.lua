@@ -32,6 +32,9 @@ BINDING_HEADER_OLYMPUSVERIFY = "Olympus Verify"
 BINDING_NAME_OLYMPUSVERIFY_FLUSH = "Send queued guild invites"
 
 local SECRET = cfg.secret
+-- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
+if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
+local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or "?"
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -94,7 +97,9 @@ local MERGE_INTERVAL = tonumber(cfg.mergeSeconds) or 45  -- how often to re-merg
 -- officer clicks. See docs/design.md — the heuristics below are weak proxies for "inactive", and the cost of a wrong
 -- removal (the member also loses their Discord access, because the roster diff sees the departure) is far higher than
 -- the cost of asking a human.
-local PROTECT_RANK_INDEX = tonumber(cfg.protectRankIndex) or 1   -- rank index <= this is never suggested (0 = GM, 1 = Officer)
+-- Current ten-rank ladder (.199 owner decision): protect Leader through Officer Alt.
+-- Old private configurations used 1; they may make this stricter, never expose officers.
+local PROTECT_RANK_INDEX = math.floor(math.min(9, math.max(3, tonumber(cfg.protectRankIndex) or 3)))
 -- How long a character must have been offline before the panel will even suggest it, by level.
 --
 -- A single threshold could not express what "inactive" actually means here. Olympus is two days old, so a flat
@@ -327,7 +332,10 @@ end
 
 -- guid: the sender's character ID, from the whisper event itself (arg 12), when the client lets the addon read it
 local function HandleCode(source, sender, text, guid)
-  if not SECRET then Print("Config.lua is missing or has no secret — codes cannot be checked.") return end
+  if not SECRET then
+    if not secretWarned then secretWarned = true; Print("Config.lua is missing or still has the example secret — codes cannot be checked. Put the shared secret in Config.lua and /reload.") end
+    return
+  end
   local token = VerifyToken(text, true)
   if not token then return end
   local base = BaseName(sender)
@@ -361,6 +369,9 @@ local function HandleCode(source, sender, text, guid)
   Event({ type = source, name = base, target = sender, code = code, ok = ok, inGuild = member, kind = kind, guid = guid })
   if ok then
     Unverified.session[key] = true  -- verified now: the unverified list on disk predates this
+    if kickMacroTarget and L.normalizeCharacter(kickMacroTarget) == key and Unverified.aim[key] == "unverified" then
+      Unverified.DisarmMacro()
+    end
     local reply
     if member then
       -- no invite to send: the Worker grants the role as soon as the watcher relays this code (it checks its roster copy)
@@ -573,10 +584,16 @@ local function DaysOffline(i, online)
   return (y or 0) * 365 + (m or 0) * 30 + (d or 0) + (h or 0) / 24
 end
 
-local function RemovalCandidates(limit)
+function Unverified.ProtectedRank(rankIndex)
+  -- Missing or malformed roster data cannot establish that a member is removable.
+  return type(rankIndex) ~= "number" or rankIndex ~= rankIndex or rankIndex < 0 or rankIndex > 9
+    or rankIndex ~= math.floor(rankIndex) or rankIndex <= PROTECT_RANK_INDEX
+end
+
+local function RemovalCandidates(limit, cachedOnly)
   if not IsInGuild() then return {}, 0, "not in a guild" end
-  ShowOfflineMembers()
-  if not EnsureShowOffline() then return {}, 0, "full roster visibility is unavailable" end
+  if not cachedOnly then ShowOfflineMembers() end
+  if not (cachedOnly and RosterVisibilityCurrent() or not cachedOnly and EnsureShowOffline()) then return {}, 0, "full roster visibility is unavailable" end
   local me = Presence.MyName()  -- the whole name: on the 27 Sep client UnitName("player") gives only its first part
   local total = GetNumGuildMembers()
   local out, enumerated = {}, 0
@@ -596,7 +613,7 @@ local function RemovalCandidates(limit)
         and not held
         and days ~= nil
         and days >= need
-        and (rankIndex == nil or rankIndex > PROTECT_RANK_INDEX)
+        and not Unverified.ProtectedRank(rankIndex)
       then
         out[#out + 1] = { name = base, full = name, rank = rank, rankIndex = rankIndex, level = level or 0,
                           class = classFile, days = days, need = need, note = note, index = i }
@@ -616,6 +633,20 @@ local function RemovalCandidates(limit)
   local capped = {}
   for i = 1, math.min(#out, limit or MAX_CANDIDATES) do capped[i] = out[i] end
   return capped, #out
+end
+
+function Unverified.TargetEligible(name, reason, cachedOnly)
+  -- Re-read eligibility at each attended action: the displayed row may be stale.
+  if type(name) ~= "string" or name == "" then return false end
+  local list
+  if reason == "unverified" then list = Unverified.Candidates(1000, cachedOnly)
+  elseif reason == nil or reason == "space" then list = RemovalCandidates(1000, cachedOnly)
+  else return false end
+  local key = L.normalizeCharacter(BaseName(name))
+  for _, candidate in ipairs(list) do
+    if L.normalizeCharacter(candidate.name) == key then return true end
+  end
+  return false
 end
 
 -- Point a one-line macro at a member, so removing them is one click on an action bar.
@@ -661,8 +692,12 @@ local function GuildKickCommand()
   return kickCommandCache, kickCommandSource
 end
 
-local function PointKickMacro(name)
+local function PointKickMacro(name, reason)
   if macroForbidden or type(name) ~= "string" or name == "" then return false, "unavailable" end
+  if not Unverified.TargetEligible(name, reason) then
+    Unverified.DisarmMacro()
+    return false, "no longer an eligible removal candidate; refresh the roster"
+  end
   if not (CreateMacro and EditMacro and GetMacroIndexByName) then return false, "no macro API on this client" end
   if InCombatLockdown and InCombatLockdown() then return false, "not in combat" end
   if kickMacroTarget == name then return true end
@@ -679,6 +714,7 @@ local function PointKickMacro(name)
   editingMacro = false
   if macroForbidden then return false, "macros are forbidden for addons on this client" end
   if not ok then return false, "the macro list may be full (18 per character)" end
+  if kickMacroTarget and kickMacroTarget ~= name then Unverified.aim[L.normalizeCharacter(kickMacroTarget)] = nil end
   kickMacroTarget = name
   if OlympusVerifyDB then OlympusVerifyDB.kickMacro = true end
   return true
@@ -688,12 +724,18 @@ end
 -- the first arms, the second inside CONFIRM_WINDOW performs it. Nothing else in this addon removes a member.
 function OlympusVerify_RemoveMember(name, reason)
   if type(name) ~= "string" or name == "" then return end
+  if not Unverified.TargetEligible(name, reason) then
+    armedRemoval = nil
+    Print("removal held: this member is no longer an eligible candidate; refresh the roster.")
+    return false
+  end
   if kickForbidden then
     Print("this client does not let addons remove guild members — do it by hand with /gkick " .. name .. ".")
     return false
   end
-  if not (armedRemoval and armedRemoval.name == name and time() <= armedRemoval.until_) then
-    armedRemoval = { name = name, until_ = time() + CONFIRM_WINDOW }
+  reason = reason or "space"
+  if not (armedRemoval and armedRemoval.name == name and armedRemoval.reason == reason and time() <= armedRemoval.until_) then
+    armedRemoval = { name = name, reason = reason, until_ = time() + CONFIRM_WINDOW }
     Print(string.format("click again within %ds to remove %s from the guild.", CONFIRM_WINDOW, name))
     if OlympusVerifyUI and OlympusVerifyUI.Refresh then OlympusVerifyUI.Refresh() end
     return false
@@ -779,7 +821,7 @@ end
 -- Returns the offered candidates (best first, capped), a summary, and an error text when there is nothing to judge.
 -- Held members are counted by reason rather than listed: the panel acts on the top row, and "why is X not here" is
 -- answered by /olv unverified.
-function Unverified.Candidates(limit)
+function Unverified.Candidates(limit, cachedOnly)
   local info = { total = 0, inGuild = 0, gone = 0, offered = 0, held = {}, byRank = {}, nextEligible = nil }
   local src = Unverified.Source()
   if not src then return {}, info, "no list yet — deploy Worker .34, restart the watcher, then /reload" end
@@ -789,8 +831,8 @@ function Unverified.Candidates(limit)
   -- request codes out that nobody has whispered yet: their holders are not marked "verifying now" (no name until then)
   info.openTickets = tonumber(src.openTickets) or 0
   info.listAt = tonumber(src.snapshotAt)
-  Unverified.GrabRoster()
-  if not EnsureShowOffline() then return {}, info, "offline roster visibility unavailable — kept the previous export; no removal candidates" end
+  if not cachedOnly then Unverified.GrabRoster() end
+  if not (cachedOnly and RosterVisibilityCurrent() or not cachedOnly and EnsureShowOffline()) then return {}, info, "offline roster visibility unavailable — kept the previous export; no removal candidates" end
   local live, enumerated = {}, 0
   local total = GetNumGuildMembers()
   for i = 1, (total or 0) do
@@ -816,7 +858,7 @@ function Unverified.Candidates(limit)
       info.inGuild = info.inGuild + 1
       local rank = lv.rank or m.rank or "?"
       local rankIndex = lv.rankIndex
-      local protected = rankIndex ~= nil and rankIndex <= PROTECT_RANK_INDEX
+      local protected = Unverified.ProtectedRank(rankIndex)
       local hold = (string.find(string.lower(lv.note or ""), HOLD_NOTE, 1, true) ~= nil)
         or (string.find(string.lower(lv.onote or ""), HOLD_NOTE, 1, true) ~= nil)
       local eligibleAt = tonumber(m.eligibleAt)
@@ -1004,14 +1046,22 @@ end
 
 -- Point OlvKick at nothing once its target is gone, so a second press cannot quietly act on stale state.
 function Unverified.DisarmMacro()
+  if kickMacroTarget then Unverified.aim[L.normalizeCharacter(kickMacroTarget)] = nil end
   kickMacroTarget = nil
+  Unverified.disarmPending = true
   if macroForbidden or not (EditMacro and GetMacroIndexByName) then return end
-  if InCombatLockdown and InCombatLockdown() then return end
+  if InCombatLockdown and InCombatLockdown() then
+    Print("removal macro is still armed: combat prevents editing it. Do not press it; it will be disarmed after combat.")
+    return
+  end
   local idx = GetMacroIndexByName(KICK_MACRO)
   if idx and idx > 0 then
     editingMacro = true
-    pcall(EditMacro, idx, KICK_MACRO, "INV_Misc_QuestionMark", "/olv unaimed")
+    local ok = pcall(EditMacro, idx, KICK_MACRO, "INV_Misc_QuestionMark", "/olv unaimed")
     editingMacro = false
+    if ok and not macroForbidden then Unverified.disarmPending = false end
+  else
+    Unverified.disarmPending = false
   end
 end
 
@@ -1033,6 +1083,7 @@ function Unverified.TestMacro()
   editingMacro = false
   if macroForbidden then return false, "this client forbids addons from writing macros" end
   if not ok then return false, "could not create it — the macro list may be full" end
+  if kickMacroTarget then Unverified.aim[L.normalizeCharacter(kickMacroTarget)] = nil end
   kickMacroTarget = nil
   if OlympusVerifyDB then OlympusVerifyDB.kickMacro = true end
   return true
@@ -2609,13 +2660,32 @@ function Presence.PrintTrace(arg)
 end
 
 -- ---------------------------------------------------------------- queue file (written by the watcher)
+-- 0.6.12: a Worker row an officer removed here (x, Clear queue, /olv clear) stays out for a day; the 45-second merge
+-- re-added it from the loaded queue file with a false "new invite" alert, and the next press could invite them.
+local DISMISS_SECONDS = 86400
+local function DismissedIds()
+  local db = OlympusVerifyDB
+  if type(db.dismissedIds) ~= "table" then db.dismissedIds = {} end
+  local now = time()
+  for id, at in pairs(db.dismissedIds) do
+    if type(at) ~= "number" or now - at >= DISMISS_SECONDS then db.dismissedIds[id] = nil end
+  end
+  return db.dismissedIds
+end
+local function DismissRows(rows)
+  local ids = DismissedIds()
+  for _, row in ipairs(rows) do
+    if type(row) == "table" and row.source == "worker" and row.id ~= nil then ids[tostring(row.id)] = time() end
+  end
+end
 local function MergeQueueFile()
   local q = OlympusQueue
   if type(q) ~= "table" or type(q.entries) ~= "table" then return 0 end
   local added, ready = 0, 0
   local recent = time() - 86400
+  local dismissed = DismissedIds()
   for _, e in ipairs(q.entries) do
-    if e.character and e.character ~= "" then
+    if e.character and e.character ~= "" and not (e.id ~= nil and dismissed[tostring(e.id)]) then
       local known = nil
       local nk = L.normalizeCharacter(e.character)
       -- The same Worker row first, then the same name already queued / invited / joined here within a day (the addon
@@ -2869,7 +2939,7 @@ OlympusVerifyAPI = {
   -- for the same reason as Text: nothing here for /olv preview to stand in for.
   Name = { Mine = Presence.MyName, Via = Presence.MyNameVia, Pending = function() return Presence.pendingNotes end },
   PointKickMacro = function(name, reason)
-    local ok, why = PointKickMacro(name)
+    local ok, why = PointKickMacro(name, reason)
     -- remembered so the removal, when the officer presses the macro, is recorded with why it was made
     if ok and type(name) == "string" then Unverified.aim[L.normalizeCharacter(name)] = reason or "space" end
     if ok then
@@ -2882,10 +2952,10 @@ OlympusVerifyAPI = {
   end,
   Remove = function(entry)
     local db = OlympusVerifyDB
-    for i, q in ipairs(db.queue) do if q == entry then table.remove(db.queue, i) break end end
+    for i, q in ipairs(db.queue) do if q == entry then DismissRows({ q }); table.remove(db.queue, i) break end end
     frame:UpdateButton()
   end,
-  ClearQueue = function() OlympusVerifyDB.queue = {}; OlympusVerifyDB.notePending = {}; frame:UpdateButton() end,
+  ClearQueue = function() DismissRows(OlympusVerifyDB.queue); OlympusVerifyDB.queue = {}; OlympusVerifyDB.notePending = {}; frame:UpdateButton() end,
   ExportRoster = function()
     local n = ExportRoster(true)
     frame:UpdateButton()
@@ -3184,6 +3254,7 @@ frame:RegisterEvent("MAIL_SHOW")
 frame:RegisterEvent("MAIL_CLOSED")
 frame:RegisterEvent("MAIL_INBOX_UPDATE")
 frame:RegisterEvent("GUILD_ROSTER_UPDATE")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterEvent("ADDON_ACTION_BLOCKED")
@@ -3263,7 +3334,12 @@ frame:SetScript("OnEvent", function(self, event, ...)
     -- This is already the response/update we were waiting for. Reading its
     -- cache must not request another response, including an empty first page.
     ExportRoster(false, true)
+    if kickMacroTarget and not Unverified.TargetEligible(kickMacroTarget, Unverified.aim[L.normalizeCharacter(kickMacroTarget)], true) then
+      Unverified.DisarmMacro()
+    end
     Presence.Safely("sending notes that waited for your name", Presence.SendWaiting)
+  elseif event == "PLAYER_REGEN_ENABLED" then
+    if Unverified.disarmPending then Unverified.DisarmMacro() end
   elseif event == "PLAYER_LOGOUT" then
     ExportRoster(true)
     local db = OlympusVerifyDB
@@ -3337,8 +3413,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     local n = ExportRoster(true)
     Print(string.format("roster exported: %s members (written to SavedVariables at logout or /reload).", tostring(n or 0)))
   elseif cmd == "clear" then
-    db.queue = {}; db.notePending = {}
-    frame:UpdateButton()
+    OlympusVerifyAPI.ClearQueue()
     Print("queue cleared.")
   elseif cmd == "sync" then
     OlympusVerifyAPI.Sync()

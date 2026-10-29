@@ -263,8 +263,16 @@ export async function logLine(env: Env, text: string, references?:import('./db')
 // ---- interaction payload helpers ----
 export const EPHEMERAL = 64;
 
+// .210: Discord refuses a message over 2,000 characters, so an echoed 4,000-character name lost the whole answer.
+const CONTENT_MAX = 2000;
+export const fitContent = (content: string): string => {
+  if (content.length <= CONTENT_MAX) return content;
+  const cut = content.slice(0, CONTENT_MAX - 1);
+  return (/[\uD800-\uDBFF]$/.test(cut) ? cut.slice(0, -1) : cut) + "…";
+};
+
 export const reply = (content: string, extra: Record<string, unknown> = {}) =>
-  json({ type: 4, data: { content, flags: EPHEMERAL, allowed_mentions: { parse: [] }, ...extra } });
+  json({ type: 4, data: { content: fitContent(content), flags: EPHEMERAL, allowed_mentions: { parse: [] }, ...extra } });
 
 export const replyPublic = (data: Record<string, unknown>) => json({ type: 4, data: { allowed_mentions: { parse: [] }, ...data } });
 

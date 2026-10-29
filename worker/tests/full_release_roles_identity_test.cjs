@@ -26,6 +26,8 @@
 const fs = require('node:fs'), path = require('node:path'), ts = require('typescript'), nodeCrypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite'), { AsyncLocalStorage } = require('node:async_hooks');
 const entry = require('./helpers/privacy129_fixture.cjs');
+const ban210 = require('./ban210_identity_contract.cjs');
+const held210 = require('./restore_held210_identity_contract.cjs');
 const root = path.join(__dirname, '..');
 const SRC = process.env.IDENTITY_SRC ? path.resolve(process.env.IDENTITY_SRC) : path.join(root, 'src');
 const RECORD = process.env.IDENTITY_RECORD === '1', DUMP = process.env.IDENTITY_DUMP || '';
@@ -83,13 +85,21 @@ function load(name) {
 }
 
 // --- trace: native statements, batch shapes, Discord requests, each with its context
-let trace = [], members = {}, messageSeq = {}, TWELVE = null;
+let trace = [], members = {}, messageSeq = {}, patchReceipts = [], TWELVE = null;
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: { 'Content-Type': 'application/json' } });
 globalThis.fetch = async (input, init = {}) => {
   const u = new URL(String(input)), method = (init.method || 'GET').toUpperCase();
   if (u.origin !== 'https://discord.com' || !u.pathname.startsWith('/api/v10/')) throw Error('blocked synthetic network');
   const p = u.pathname.slice('/api/v10'.length), headers = new Headers(init.headers || {}), tag = tagNow();
   trace.push({ k: 'http', tag, method, path: p + u.search, body: init.body == null ? null : String(init.body), reason: headers.get('X-Audit-Log-Reason') });
+  // The ban210 successor uses exactly this original response edit. Other new
+  // endpoints still refuse; this receipt is separate from the untouched trace.
+  if (method === 'PATCH' && p === `/webhooks/${BOT}/synthetic-token/messages/@original` && !u.search) {
+    const body = JSON.parse(init.body);
+    if (Object.keys(body).sort().join(',') !== 'allowed_mentions,content' || typeof body.content !== 'string' || body.content.length > 2000 || JSON.stringify(body.allowed_mentions) !== '{"parse":[]}') throw Error('unexpected original-response body');
+    patchReceipts.push({status:200,path:p,contentSHA256:nodeCrypto.createHash('sha256').update(body.content).digest('hex'),mentionsDisabled:true});
+    return json({id:'synthetic-original-message'});
+  }
   if (p === '/users/@me') return json({ id: BOT, username: 'olympus-verify', bot: true });
   if (p === `/guilds/${G}/roles` && method === 'GET') return json(inventory());
   let m = p.match(/^\/channels\/(\d+)\/messages$/);
@@ -171,7 +181,7 @@ const SCENARIOS = {
   },
 };
 async function runOnce(phase, profile, variant, scenario, refuse = false) {
-  T = PHASES[phase]; streams = {}; trace = []; messageSeq = {}; laneCalls = []; modules = new Map();
+  T = PHASES[phase]; streams = {}; trace = []; messageSeq = {}; patchReceipts = []; laneCalls = []; modules = new Map();
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys = ON');
   db.function('strftime', (format, value) => { if (format !== '%s' || value !== 'now') throw Error('unexpected fixture clock input'); return String(T); });
   entry.installCurrentEntryEpoch(db, { now: T });
@@ -190,7 +200,7 @@ async function runOnce(phase, profile, variant, scenario, refuse = false) {
   const twelve = db.prepare(`SELECT * FROM role_settlements WHERE role_id IN (${TWELVE.map(() => '?').join(',')}) ORDER BY id`).all(...TWELVE);
   const freshFailed = db.prepare("SELECT subject, details FROM audit WHERE actor='system' AND action='role.fresh_failed' ORDER BY id").all();
   db.close();
-  return { trace, response, twelve, errors, laneCalls: laneCalls.slice(), discord: JSON.parse(JSON.stringify(members)), freshFailed };
+  return { trace, response, twelve, errors, laneCalls: laneCalls.slice(), discord: JSON.parse(JSON.stringify(members)), freshFailed, patchReceipts:patchReceipts.slice() };
 }
 
 // --- comparison
@@ -232,7 +242,7 @@ const laneOf = (r) => r.trace.filter((e) => e.tag === 'lane');
 const A6 = [
   [/(\\+n|\n)New guild roles: removal runs right after this reply \(or at the next role pass\)\./g, ''],
   [/ Your guild roles open the member channels once your verified character appears on a current guild roster export and the access checks pass\./g, ' Your **Olympus Guild Member** role opens the member channels once your verified character appears on the officer-exported guild roster and the access checks pass.'],
-  [/ is already linked to your account\. For the guild roles, press \*\*Verify\*\* in the guide and whisper the code from your highest-ranked character in the guild\./g, ' is already verified and in the guild.'],
+  [/ is already linked to your account\. For the guild roles, press \*\*Get my code\*\* in the guide and whisper the code from your highest-ranked character in the guild\./g, ' is already verified and in the guild.'],
   [/Your guild roles follow automatically once that character is on a current guild roster export\./g, 'Your Guild Member role follows automatically once that character is on the guild roster — already in the guild? Then it follows as soon as the code is confirmed.'],
   [/The guild roles are removed automatically if no other character of this account is still in the guild\./g, 'The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.'],
 ];
@@ -357,7 +367,7 @@ let passed = 0, failed = 0;
 function check(name, value, detail) { if (value) { passed++; console.log('PASS ' + name); } else { failed++; console.log('FAIL ' + name); if (detail !== undefined) console.log('   ', typeof detail === 'string' ? detail : JSON.stringify(detail).slice(0, 2000)); } }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (or at the next role pass).', guide: 'Your guild roles open the member channels',
-  verify: 'is already linked to your account. For the guild roles, press **Verify**', button: 'Your guild roles follow automatically once that character is on a current guild roster export.',
+  verify: 'is already linked to your account. For the guild roles, press **Get my code**', button: 'Your guild roles follow automatically once that character is on a current guild roster export.',
   unbind: 'The guild roles are removed automatically if no other character of this account is still in the guild.' };
 
 (async () => {
@@ -383,6 +393,10 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
     return;
   }
   if (!PINS) throw Error('PINS not recorded');
+  const banSources=ban210.sourceChecks(SRC,PINS);
+  check('ban210 successor binds exact reviewed interactions source, finite paired fixture and unchanged historical PINS',Object.values(banSources).every(Boolean),banSources);
+  const heldSources=held210.sourceChecks(SRC);
+  check('RT06 held-verify successor binds exact full restore source and finite H4/H6/current fixture',Object.values(heldSources).every(Boolean),heldSources);
 
   // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
   for (const name of PROTECTED) check(SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
@@ -445,13 +459,25 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
     for (const variant of Object.keys(VARIANTS)) {
       const r = await runOnce(phase, profile, variant, scenario), where = `${phase}/${profile}/${scenario}/${variant}`, lane = laneOf(r);
       check(`${where}: no deferred work threw`, r.errors.length === 0, r.errors);
+      const banContext={phase,profile,variant,pin,mask,digestOf};
+      const banResult=scenario==='ban'?ban210.inspect(r,banContext):null;
+      const heldScope=phase==='pre'&&profile==='settlement'&&scenario==='verify';
+      const heldContext={variant,pin,digestOf},heldResult=heldScope?held210.inspect(r,heldContext):null;
+      if(scenario==='ban'&&phase==='pre'&&variant==='absent'){
+        for(const mutation of ban210.negativeMutations(r,banContext))check(`ban210 ${profile} successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);
+      }
+      if(heldScope&&variant==='absent')for(const mutation of held210.negativeMutations(r,heldContext))check(`RT06 held-verify successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);
       if (UNCONFIGURED.includes(variant)) {
-        check(`${where}: identical to .160${scenario === 'guide' ? ' after only the bounded known public-guide first-line projection' : ''} (statements, binds, batch shapes, Discord requests, response, twelve rows); no lane function ran`,
+        if(scenario==='ban')check(`${where}: exact finite ban210 physical successor; historical reply/row oracles remain active; no lane function ran`,banResult.all&&lane.length===0&&r.laneCalls.length===0,banResult);
+        else if(heldScope)check(`${where}: exact RT06 whole held-warning response and sole replay-cache bind successor; historical SQL/order/rows remain active`,heldResult.all&&lane.length===0&&r.laneCalls.length===0,heldResult);
+        else check(`${where}: identical to .160${scenario === 'guide' ? ' after only the bounded known public-guide first-line projection' : ''} (statements, binds, batch shapes, Discord requests, response, twelve rows); no lane function ran`,
           same(digestOf(r), pin) && lane.length === 0 && r.laneCalls.length === 0, { got: digestOf(r), pin, laneCalls: r.laneCalls });
         continue;
       }
       const open = variant === 'configured' && phase === 'live';
-      check(`${where}: the legacy subsequence equals .160${open ? ' after masking only the documented A6 texts' : ' (unmasked)'}${scenario === 'guide' ? ' plus the bounded known public-guide first-line projection' : ''}; the twelve rows end as under .160`, same(digestOf(r, open), pin), { got: digestOf(r, open), pin });
+      if(scenario==='ban')check(`${where}: exact finite ban210 physical successor, original response content and all historical row fields except two exact correlated identities`,banResult.all,banResult);
+      else if(heldScope)check(`${where}: exact RT06 whole held-warning response and sole cache-bind successor; every other historical trace/row field retained`,heldResult.all,heldResult);
+      else check(`${where}: the legacy subsequence equals .160${open ? ' after masking only the documented A6 texts' : ' (unmasked)'}${scenario === 'guide' ? ' plus the bounded known public-guide first-line projection' : ''}; the twelve rows end as under .160`, same(digestOf(r, open), pin), { got: digestOf(r, open), pin });
       const touched = lane.filter((e) => TWELVE.some((t) => JSON.stringify(e).includes(t)));
       check(`${where}: no lane statement or request names a twelve role ID`, touched.length === 0, touched.slice(0, 3));
       const effects = lane.filter((e) => e.k === 'http' && (e.method === 'PUT' || e.method === 'DELETE'));
@@ -481,6 +507,12 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
   // unconfigured run's under the same refusal (that branch is .160's statement verbatim), an error unlike the normal pin.
   for (const scenario of ['queue', 'ingest', 'ban']) {
     const r = await runOnce('live', 'plain', 'configured', scenario, true), pin = PINS.traces.live.plain[scenario];
+    if(scenario==='ban'){
+      const expected={status:200,body:JSON.stringify({type:4,data:{content:'The command could not be deferred. Nothing was started.',flags:64,allowed_mentions:{parse:[]}}})};
+      const adminEffects=r.trace.filter(e=>e.k==='sql'&&(e.sql.startsWith('INSERT INTO members')||e.sql.startsWith('UPDATE invite_queue')||e.sql.startsWith('UPDATE pending')||e.params.includes('admin.ban')));
+      check('live/plain/ban/configured registration refused: fixed ephemeral refusal before every admin safety/provider/nested-lane effect',same(r.response,expected)&&adminEffects.length===0&&r.trace.every(e=>e.k!=='http')&&r.errors.length===0&&r.laneCalls.length===0&&r.freshFailed.length===0&&r.patchReceipts.length===0&&sha(r.twelve)===pin.twelve,{response:r.response,adminEffects,errors:r.errors,laneCalls:r.laneCalls,freshFailed:r.freshFailed});
+      continue;
+    }
     const base = scenario === 'queue' ? (await runOnce('live', 'plain', 'absent', scenario, true)).response : null;
     const shape = (res) => res && { status: res.status, body: String(res.body).replace(/"requestId":"[0-9a-f]+"/g, '"requestId":"#"') }; // a fresh id per request
     const matches = scenario === 'queue' ? sha(mask(JSON.stringify(shape(r.response)))) === sha(JSON.stringify(shape(base))) && base.status !== 200

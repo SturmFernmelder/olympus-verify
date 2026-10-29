@@ -14,18 +14,18 @@ local function lastPrint(pat) for i = #PRINTS, 1, -1 do if PRINTS[i]:find(pat, 1
 -- ---- fixtures: the live roster, and the unverified list the watcher wrote ----
 local P, OPEN, GRACE = 1, UTC(2026, 9, 25), 3 * 86400
 ROSTER = {
-  { name = "Fern Melder", rank = "Officer", rankIndex = 1, level = 60, online = true },
-  { name = "Tater Toe",    rank = "Initiate", rankIndex = 4, level = 1,  away = 10 },
-  { name = "Lazy Larry",   rank = "Initiate", rankIndex = 4, level = 5,  away = 2 },
-  { name = "Online Olly",  rank = "Initiate", rankIndex = 4, level = 9,  online = true },
-  { name = "Holdy Hold",   rank = "Member",   rankIndex = 3, level = 30, away = 40, note = "HOLD - alt of Fern" },
-  { name = "Pending Pat",  rank = "Initiate", rankIndex = 4, level = 3,  away = 9 },
-  { name = "Officer Ollie",rank = "Officer",  rankIndex = 1, level = 60, away = 50 },
-  { name = "New Nancy",    rank = "Initiate", rankIndex = 4, level = 2,  away = 1 },
-  { name = "Unknown Una",  rank = "Initiate", rankIndex = 4, level = 4,  away = 20 },
-  { name = "Veteran Vic",  rank = "Veteran",  rankIndex = 2, level = 40, away = 20 },
-  { name = "Mid Member",   rank = "Member",   rankIndex = 3, level = 20, away = 30 },
-  { name = "Whisper Wendy",rank = "Initiate", rankIndex = 4, level = 7,  away = 15 },
+  { name = "Fern Melder", rank = "Officer", rankIndex = 2, level = 60, online = true },
+  { name = "Tater Toe",    rank = "Initiate", rankIndex = 9, level = 1,  away = 10 },
+  { name = "Lazy Larry",   rank = "Initiate", rankIndex = 9, level = 5,  away = 2 },
+  { name = "Online Olly",  rank = "Initiate", rankIndex = 9, level = 9,  online = true },
+  { name = "Holdy Hold",   rank = "Member",   rankIndex = 7, level = 30, away = 40, note = "HOLD - alt of Fern" },
+  { name = "Pending Pat",  rank = "Initiate", rankIndex = 9, level = 3,  away = 9 },
+  { name = "Officer Ollie",rank = "Officer",  rankIndex = 2, level = 60, away = 50 },
+  { name = "New Nancy",    rank = "Initiate", rankIndex = 9, level = 2,  away = 1 },
+  { name = "Unknown Una",  rank = "Initiate", rankIndex = 9, level = 4,  away = 20 },
+  { name = "Veteran Vic",  rank = "Veteran",  rankIndex = 5, level = 40, away = 20 },
+  { name = "Mid Member",   rank = "Member",   rankIndex = 7, level = 20, away = 30 },
+  { name = "Whisper Wendy",rank = "Initiate", rankIndex = 9, level = 7,  away = 15 },
 }
 local function M(name, rank, ri, first, pending, elig)
   return { name = name, rank = rank, rankIndex = ri, level = 1, firstSeen = first, pending = pending or false,
@@ -33,10 +33,10 @@ local function M(name, rank, ri, first, pending, elig)
 end
 OlympusQueue = { version = 1, entries = {}, unverified = { graceDays = 3, verifyOpenSince = OPEN, firstSeenAvailable = true, snapshotAt = OPEN,
   members = {
-    M("Tater Toe", "Initiate", 4, UTC(2026,9,20)), M("Lazy Larry", "Initiate", 4, UTC(2026,9,21)), M("Online Olly", "Initiate", 4, UTC(2026,9,20)),
-    M("Holdy Hold", "Member", 3, UTC(2026,9,20)), M("Pending Pat", "Initiate", 4, UTC(2026,9,20), true), M("Officer Ollie", "Officer", 1, UTC(2026,9,20)),
-    M("New Nancy", "Initiate", 4, UTC(2026,9,28)), M("Unknown Una", "Initiate", 4, nil, false, false), M("Veteran Vic", "Veteran", 2, UTC(2026,9,20)),
-    M("Mid Member", "Member", 3, UTC(2026,9,21)), M("Whisper Wendy", "Initiate", 4, UTC(2026,9,20)), M("Gone Gary", "Initiate", 4, UTC(2026,9,20)),
+    M("Tater Toe", "Initiate", 9, UTC(2026,9,20)), M("Lazy Larry", "Initiate", 9, UTC(2026,9,21)), M("Online Olly", "Initiate", 9, UTC(2026,9,20)),
+    M("Holdy Hold", "Member", 7, UTC(2026,9,20)), M("Pending Pat", "Initiate", 9, UTC(2026,9,20), true), M("Officer Ollie", "Officer", 2, UTC(2026,9,20)),
+    M("New Nancy", "Initiate", 9, UTC(2026,9,28)), M("Unknown Una", "Initiate", 9, nil, false, false), M("Veteran Vic", "Veteran", 5, UTC(2026,9,20)),
+    M("Mid Member", "Member", 7, UTC(2026,9,21)), M("Whisper Wendy", "Initiate", 9, UTC(2026,9,20)), M("Gone Gary", "Initiate", 9, UTC(2026,9,20)),
   } } }
 OlympusVerifyConfig = { secret = "harness-only-not-a-real-secret" }
 OlympusVerifyDB = nil
@@ -159,7 +159,7 @@ local saved = OlympusQueue.unverified
 OlympusQueue.unverified = nil
 local _, _, e1 = API.UnverifiedList(5)
 check("older watcher (no list in the file): says so, offers nobody", e1 and e1:find("no list yet", 1, true) ~= nil, true)
-OlympusQueue.unverified = { firstSeenAvailable = false, members = { M("Veteran Vic", "Veteran", 2, nil, false, false) } }
+OlympusQueue.unverified = { firstSeenAvailable = false, members = { M("Veteran Vic", "Veteran", 5, nil, false, false) } }
 local c2, i2 = API.UnverifiedList(5)
 check("migration missing: nobody offered", #c2, 0)
 check("  and the panel/print can say why", i2.noFirstSeen, true)

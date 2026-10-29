@@ -1382,6 +1382,15 @@ async function legacySchemaHeld(old) {
   console.log("\n== lookups in Asmongold's server (/olympus-lookup) ==");
   const inter = (name, over = {}, roles = [OFFICER_ROLE]) => ({ type: 2, id: "1", token: "t", guild_id: GUILD, member: { user: { id: "500000000000000001", username: "officer" }, roles, permissions: "0" }, data: { name, ...over } });
   check("routed ahead of the Olympus-only guard only in Asmongold's server", lookup.isAsmongoldLookup(env(), inter("olympus-lookup")) && !lookup.isAsmongoldLookup(env(), { ...inter("olympus-lookup"), guild_id: OLYMPUS }));
+  {
+    // .210: production after the move (GUILD_ID equals INTROS_GUILD_ID): the registered command and its autocomplete are
+    // routed instead of "Unknown command."; the right-click menu stays with interactions.ts; other servers stay refused.
+    const shared = { ...env(), GUILD_ID: GUILD };
+    const menu = { ...inter("Olympus linked characters"), data: { ...inter("Olympus linked characters").data, type: 2, target_id: "300000000000000001" } };
+    check(".210 after the move /olympus-lookup and its autocomplete are routed in the one shared server, the user menu is not",
+      lookup.isAsmongoldLookup(shared, inter("olympus-lookup")) && lookup.isAsmongoldLookup(shared, { ...inter("olympus-lookup"), type: 4 })
+      && !lookup.isAsmongoldLookup(shared, menu) && !lookup.isAsmongoldLookup(shared, { ...inter("olympus-lookup"), guild_id: OLYMPUS }));
+  }
   let r = await (await lookup.handleLookup(env(), inter("olympus-lookup", { options: [{ name: "member", type: 6, value: "300000000000000001" }] }, []))).json();
   check("members without an Olympus role are refused", /officers only/i.test(r.data.content));
   r = await (await lookup.handleLookup(env(), inter("olympus-lookup", { options: [{ name: "member", type: 6, value: "300000000000000001" }] }))).json();
@@ -1431,7 +1440,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-28.208 High Council trading portfolio" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-28.210 QA admission and operator safety" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

@@ -60,11 +60,45 @@ const recordTool169 = (page, namespace, calls) => {
   }
   const avatarPage = await openPage(MEMBER);
   const promotion185 = avatarPage.app.querySelector('[data-addon-promotion="olympus-guild"]');
-  check(".196 signed-in Home promotes the unified optional addon, keeps verification separate and states that snapshot export awaits publisher adoption", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("Verification remains separate.") && promotion185.textContent.includes("website snapshot export still needs publisher adoption"));
+  check(".210 signed-in Home names the published unified addon with separate website setup and verification", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.") && !promotion185.textContent.includes("publisher adoption"));
   const promotionLink185 = promotion185?.querySelector('a[href="https://www.curseforge.com/wow/addons/olympus-guild"]');
   check(".185 the prominent publisher link opens safely and the catalog stays available", !!promotionLink185 && promotionLink185.getAttribute("target") === "_blank" && promotionLink185.getAttribute("rel") === "noopener noreferrer" && !!promotion185.querySelector('a[href="#/addons"]'));
   const anonymousPromotion185 = await openPage(null);
   check(".185 signed-out Home has no addon promotion", anonymousPromotion185.app === null && !anonymousPromotion185.html.includes('data-addon-promotion="olympus-guild"'));
+  // .210: use the actual Rosetta anchors, then the actual organization renderer
+  // with its existing minimal DOM. No replacement link generator or route lookup.
+  const organizationFixture210 = path.join(__dirname, 'organization_view_test.cjs');
+  const organizationFixtureSource210 = fs.readFileSync(organizationFixture210, 'utf8');
+  const organizationBoundary210 = 'const p = open();';
+  if (organizationFixtureSource210.split(organizationBoundary210).length !== 2) throw Error('One original organization fixture boundary required');
+  const OrganizationModule210 = require('node:module').Module;
+  const organizationModule210 = new OrganizationModule210(organizationFixture210, module);
+  organizationModule210.filename = organizationFixture210;
+  organizationModule210.paths = OrganizationModule210._nodeModulePaths(path.dirname(organizationFixture210));
+  organizationModule210._compile(organizationFixtureSource210.split(organizationBoundary210)[0] + '\nmodule.exports = {open, data};', organizationFixture210);
+  const organization210 = organizationModule210.exports;
+  const rosetta210 = await openPage(MEMBER); await rosetta210.go('#/roles/rosetta-stone');
+  const classAliases210 = rosetta210.boot.meta.appointments.filter(row => row.group === 'class');
+  check('.210 actual Rosetta emits all nine registered class-lead alias links', classAliases210.length === 9 && classAliases210.every(row => !!rosetta210.app.querySelector('a[href="#/organization/' + encodeURIComponent(row.key) + '"]')));
+  const inspectOrganization210 = (parts, term) => {
+    const view = organization210.open({overview205:true, parts});
+    const selected = !!term && view.node(term.nodeId)?.getAttribute('aria-pressed') === 'true' && view.detail.textContent.includes(term.label + ':') && view.one('org-relationship-map205').open && view.doc.activeElement === view.detail;
+    const fallback = view.node('council').getAttribute('aria-pressed') === 'true' && !view.one('org-relationship-map205').open;
+    view.dispose(); return {selected, fallback};
+  };
+  for (const row of classAliases210) {
+    const link = rosetta210.app.querySelector('a[href="#/organization/' + encodeURIComponent(row.key) + '"]');
+    const term = organization210.data.terms.find(term => term.officeKey === (row.aliasOf || row.key));
+    check('.210 emitted Rosetta ' + row.key + ' opens its exact registered office mandate', !!link && !!term && inspectOrganization210(link.getAttribute('href').slice(2).split('/').slice(1), term).selected);
+  }
+  const warriorAlias210 = classAliases210.find(row => row.key === 'class_lead:warrior');
+  const warriorTerm210 = organization210.data.terms.find(term => term.officeKey === warriorAlias210.aliasOf);
+  check('.210 literal colon legacy alias keeps its original selected mandate', inspectOrganization210([warriorAlias210.key], warriorTerm210).selected);
+  const tradingTerm210 = organization210.data.terms.find(term => term.officeKey === 'office_96');
+  check('.210 encoded ordinary office identifier uses the same single decode', inspectOrganization210(['%6Fffice_96'], tradingTerm210).selected);
+  for (const invalid210 of ['%', '%E0%A4%A', '..%2Ftreasury', 'class_lead%253Awarrior', '%2F..%2Ftreasury']) {
+    check('.210 malformed or nonmatching organization selector stays a safe default: ' + invalid210, inspectOrganization210([invalid210]).fallback);
+  }
   const good = [
     "https://cdn.discordapp.com/avatars/300000000000000004/0123456789abcdef0123456789abcdef.png?size=64",
     "https://cdn.discordapp.com/avatars/300000000000000004/a_0123456789abcdef0123456789abcdef.png?size=64",

@@ -259,6 +259,7 @@ export default {
       }
       return res;
     } catch (e) {
+      if(e instanceof RecoveryFloorHeld)throw e;
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
       if(e instanceof PrivacySiteRequestHeld)return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
       // .49: the message goes to the log with a short id; the caller gets the id and nothing else (a D1 or upstream
@@ -297,7 +298,7 @@ export default {
       };
       await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost);});
     } catch(e) {
-      console.error("schema check failed; skipping this run",errorRef(e));
+      console.error("cron entry held; skipping this run",errorRef(e));
     }
   },
 };
@@ -555,7 +556,12 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     // version asks for a protocol this Worker does not implement (the generation-3 proposal stays an unshipped
     // candidate); it is told so, never served the legacy answer as if it were that protocol. Unversioned clients see
     // no difference.
-    const body: any = request.method === "POST" ? await request.json() : null; // each handler validates its own body, exactly as before .66
+    let body: any = null; // each handler validates its own body, exactly as before .66
+    if (request.method === "POST") {
+      // .210: a body that is not a JSON object is a final 400; it was a 500, which the watcher retries forever.
+      try { body = await request.json(); } catch { return json({ error: "bad_json", message: "The request body is not valid JSON." }, 400); }
+      if (body === null || typeof body !== "object" || Array.isArray(body)) return json({ error: "bad_body", message: "The request body must be a JSON object." }, 400);
+    }
     if (query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       return json({ error: "unsupported_protocol", message: "This Worker serves the unversioned protocol only; a keyVersion is not supported." }, 400);
     }
@@ -628,7 +634,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-28.208 High Council trading portfolio";
+const BUILD = "2026-10-28.210 QA admission and operator safety";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

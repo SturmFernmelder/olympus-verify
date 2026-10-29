@@ -5,7 +5,7 @@ const fixture197 = fs197.readFileSync(path197.join(__dirname, 'frontend_check.cj
 const boundaries197 = [...fixture197.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if (boundaries197.length !== 1) throw Error('owner197_original_frontend_boundary');
 const prefix197 = fixture197.slice(0, boundaries197[0].index);
-if (crypto197.createHash('sha256').update(prefix197).digest('hex') !== '7b72fd253e127dfa0379b0528adb5a05c9ae8e92655fd6c9b2e468ce201300f1') throw Error('owner197_original_frontend_prefix_drift');
+if (crypto197.createHash('sha256').update(prefix197).digest('hex') !== 'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5') throw Error('owner197_original_frontend_prefix_drift');
 async function frontendOwner197() {
   await siteUser(MEMBER, { global_name: 'Mia' }); await character(MEMBER, 'Mia One', 'Player-1-0001');
   await siteUser(OTHER, { global_name: 'Oz' }); await character(OTHER, 'Oz Two', 'Player-1-0002');
@@ -654,6 +654,10 @@ async function frontendOwner197() {
     const cut199 = (start, end) => { const a=APP_JS.indexOf(start),b=APP_JS.indexOf(end,a);if(a<0||b<=a)throw Error('owner199_overview_source_boundary');return APP_JS.slice(a,b); };
     const domSource199=cut199('  function h(tag, props, ...kids) {','  // ---------------------------------------------------------------- the game');
     const apiSource199=cut199('  class ApiError extends Error {','  // Optional census previews');
+    // The extracted API closes over this actual IIFE lexical binding too.
+    const revisionSources199=[...APP_JS.matchAll(/^  let decisionActorRevision = 0;[^\r\n]*\r?\n/gm)];
+    if(revisionSources199.length!==1)throw Error('owner199_decision_revision_source_boundary');
+    const revisionSource199=revisionSources199[0][0];
     const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
     const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
     const moduleExpression199='await import("/static/organization-view.js")';
@@ -679,7 +683,7 @@ async function frontendOwner197() {
         governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data,ui)=>{seen.organization++;seen.overviewBinding=ui.allianceOverview205===renderAllianceOverview205;seen.guideBinding=ui.roleDirectory203===roleDirectory205&&ui.roleGuides201===roleGuides205;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
         loadAllianceOverview205:async()=>{seen.overviewModule++;return{renderAllianceOverview205};},
         offices199:()=>[],office199:()=>null,reservedKey201:()=>false,guideBody201:()=>null,positionOf:()=>null,displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
-      const handlers=new Function(...Object.keys(deps),domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization};')(...Object.values(deps));
+      const handlers=new Function(...Object.keys(deps),revisionSource199+domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization,revision199:()=>decisionActorRevision};')(...Object.values(deps));
       return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
     }
     const race199=lifecycle199(),oldRead199=race199.handlers.overview(race199.body);
@@ -707,12 +711,99 @@ async function frontendOwner197() {
     check('.199 current admitted admin overview still adopts settings and paints its original report',active199.state.settings!==active199.initialSettings&&active199.state.settings.notice==='late overview'&&active199.seen.heat===1&&!active199.body.textContent.includes('Loading original overview'));
     for(const status of[401,409]){
       const stale=lifecycle199(status),pending=stale.handlers.overview(stale.body).catch(error=>error);stale.oldMain.remove();stale.route('organization/office_03');stale.response.resolve();const error=await pending;
-      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1);
+      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1&&stale.handlers.revision199()===0);
     }
     const refused199=lifecycle199(401),refusalRead199=refused199.handlers.overview(refused199.body).catch(error=>error);refused199.response.resolve();const currentRefusal199=await refusalRead199;
-    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0);
+    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0&&refused199.handlers.revision199()===1,{errorName:currentRefusal199?.name,status:currentRefusal199?.status,revision:refused199.handlers.revision199(),signedIn:refused199.state.signedIn,toasts:refused199.seen.toasts,renders:refused199.seen.renders,dirtySize:refused199.dirty.size});
     const updated199=lifecycle199(409),updateRead199=updated199.handlers.overview(updated199.body).catch(error=>error);updated199.response.resolve();const currentUpdate199=await updateRead199;
-    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings);
+    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings&&updated199.handlers.revision199()===0);
+  }
+  // .210: remove-only privacy remains usable when an application is readonly.
+  // Every save below runs the original Worker before any held/dropped answer.
+  const privacyFields210 = [['boardPortrait','boardPortraitOptIn','Discord profile picture'],['boardTalentBuilds','boardTalentBuildsOptIn','declared characters'],['boardApplicationIntent','boardApplicationIntentOptIn','application track']];
+  const privacyFailure210 = 'Privacy changes could not be confirmed. Reload your application and check its sharing settings before trying again.';
+  for (const [key,value] of [['appointed','{}'],['noVote','[]'],['applicationsOpen','0'],['royalWritsOn','0']]) await fixtureRun('INSERT INTO site_settings(key,value,updated_at)VALUES(?,?,?)ON CONFLICT(key)DO UPDATE SET value=excluded.value',key,value,now);
+  const PRIVACY_READER210='740000000000210000'; await siteUser(PRIVACY_READER210,{global_name:'Privacy reader'}); await character(PRIVACY_READER210,'Privacy Reader','Player-210-1000');
+  let privacyOrdinal210=0;
+  const privacyRow210=id=>one('SELECT * FROM site_applications WHERE discord_id=?',id);
+  const privacyAnswers210=id=>JSON.parse(privacyRow210(id).answers);
+  const privacyInvariant210=row=>{const clean={...row,answers:{...JSON.parse(row.answers)}};delete clean.updated_at;for(const [,key]of privacyFields210)delete clean.answers[key];return JSON.stringify(clean);};
+  const privacySeed210=async(kind='reserved',shared=true)=>{
+    const id=String(740000000000210000n+BigInt(++privacyOrdinal210)); await siteUser(id,{global_name:'Privacy owner '+privacyOrdinal210});
+    const payload={...body,position:kind==='patron'||kind==='ordinary'?'member':'officer',backups:[],board:true,boardPortrait:shared,boardTalentBuilds:shared,boardApplicationIntent:shared,applicationTrack:kind==='patron'?'patron':kind==='ordinary'?'member':'officer',targetOffice:kind==='patron'||kind==='ordinary'?null:'office_62',answers:{...body.answers,talentBuilds:collection(),extra:'Private210 sentinel '+id}};
+    const setup=await historical201(id,payload);if(setup.response.status!==200)throw Error('privacy210 historical own read refused');
+    // A stored Patron consent row is a schema-valid compatibility fixture, not a
+    // claim that today's non-voted Patron parser can create public board flags.
+    if(kind==='patron'&&shared){const answers=privacyAnswers210(id);for(const [,key]of privacyFields210)answers[key]=true;await fixtureRun('UPDATE site_applications SET answers=? WHERE discord_id=?',JSON.stringify(answers),id);}
+    if(kind==='accepted'||kind==='declined')await fixtureRun('UPDATE site_applications SET status=? WHERE discord_id=?',kind,id);
+    return id;
+  };
+  const privacyControls210=page=>{const panel=page.app.querySelector('.board-privacy210');return{panel,save:panel&&byText(panel,'button','Apply privacy changes'),inputs:panel?panel.querySelectorAll('input[type="checkbox"]'):[]};};
+  const privacySelect210=(panel,index)=>{const label=panel.querySelectorAll('label').find(label=>label.textContent.includes(privacyFields210[index][2]));const input=label&&label.querySelector('input');if(!input)throw Error('privacy210 actual checkbox missing');input.checked=true;fire(input,'change');return input;};
+  const privacyPage210=async id=>{const page=await openPage(id),sends=[];page.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sends.push(JSON.parse(init.body));return false;});await page.go('#/apply');return{page,sends,...privacyControls210(page)};};
+  const privacyBoard210=async id=>{const out=await request('GET','/api/board/officer',undefined,PRIVACY_READER210);if(out.response.status!==200)throw Error('privacy210 actual board read refused');return out.body.candidates.find(candidate=>candidate.id===id);};
+  const privacyInitial210=await privacySeed210(),privacyInitialRow210=privacyRow210(privacyInitial210),privacyPublic210=await privacyBoard210(privacyInitial210);
+  check('.210 historical reserved fixture has all three actual public board projections before UI withdrawal',!!privacyPublic210?.avatarUrl&&privacyPublic210.talentBuilds?.length===6&&privacyPublic210.applicationIntent?.applicationTrack==='officer'&&privacyPublic210.applicationIntent?.targetOffice==='office_62');
+  const partial210=await privacyPage210(privacyInitial210);
+  check('.210 readonly reserved application exposes three unchecked remove-only choices and a disabled Apply action',!!partial210.panel&&partial210.inputs.length===3&&partial210.inputs.every(input=>!input.checked)&&partial210.save?.disabled===true&&!partial210.page.app.querySelector('form'));
+  if(partial210.panel){
+    const hold210={};hold210.promise=new Promise(resolve=>{hold210.resolve=resolve;});partial210.page.hold((url,init)=>url==='/api/application'&&init.method==='PUT'?hold210.promise:0);
+    privacySelect210(partial210.panel,0);partial210.save.focus();partial210.save.click();
+    await must(()=>privacyAnswers210(privacyInitial210).boardPortraitOptIn===false,'privacy210 actual held consent commit');
+    partial210.save.click();partial210.save.click();await settle();
+    check('.210 pending withdrawal retains Apply focus, disables choices semantically and rejects duplicate raw clicks',partial210.sends.length===1&&partial210.save.getAttribute('aria-disabled')==='true'&&partial210.inputs.every(input=>input.disabled)&&partial210.page.document.activeElement===partial210.save&&partial210.save.textContent==='Saving privacy changes…');
+    check('.210 actual partial consent PUT contains only strict false removal and no application edits',JSON.stringify(partial210.sends[0])===JSON.stringify({consentOnly:true,boardPortrait:false}));
+    hold210.resolve();await must(()=>partial210.page.app.querySelector('.board-privacy210 input')&&!partial210.page.app.querySelector('.board-privacy210').textContent.includes('Discord profile picture'),'privacy210 partial withdrawal receipt');
+    const partialBoard210=await privacyBoard210(privacyInitial210);
+    check('.210 portrait removal withholds only that actual public projection and preserves all private application fields',partialBoard210?.avatarUrl===null&&partialBoard210.talentBuilds?.length===6&&partialBoard210.applicationIntent?.targetOffice==='office_62'&&privacyInvariant210(privacyRow210(privacyInitial210))===privacyInvariant210(privacyInitialRow210));
+    const remaining210=privacyControls210(partial210.page);remaining210.inputs.forEach(input=>{input.checked=true;fire(input,'change');});remaining210.save.click();await must(()=>!partial210.page.app.querySelector('.board-privacy210'),'privacy210 all remaining flags removed');
+    const hidden210=await privacyBoard210(privacyInitial210);
+    check('.210 all remaining removals use a second explicit false-only action and clear actual board builds/intent without withdrawing',partial210.sends.length===2&&JSON.stringify(partial210.sends[1])===JSON.stringify({consentOnly:true,boardTalentBuilds:false,boardApplicationIntent:false})&&hidden210?.avatarUrl===null&&hidden210.talentBuilds?.length===0&&hidden210.applicationIntent===null&&privacyRow210(privacyInitial210).status==='submitted'&&privacyRow210(privacyInitial210).board_at===privacyInitialRow210.board_at&&privacyInvariant210(privacyRow210(privacyInitial210))===privacyInvariant210(privacyInitialRow210));
+  }else console.log('INFO .210 pre-UI baseline: action/pending checks skipped because the actual privacy panel is absent');
+  for(const kind of ['accepted','declined','patron']){
+    const id=await privacySeed210(kind),before=privacyRow210(id),view=await privacyPage210(id);
+    check('.210 '+kind+' readonly application exposes independent removal without a full application form',!!view.panel&&view.inputs.length===3&&!view.page.app.querySelector('form'));
+    if(!view.panel)continue;
+    view.inputs.forEach(input=>{input.checked=true;fire(input,'change');});view.save.click();await must(()=>privacyFields210.every(([,key])=>privacyAnswers210(id)[key]===false)&&!view.page.app.querySelector('.board-privacy210'),'privacy210 '+kind+' withdrawal');
+    check('.210 '+kind+' removal is an actual consent-only PUT preserving status, board timestamp and complete private answers',view.sends.length===1&&Object.keys(view.sends[0]).sort().join('|')==='boardApplicationIntent|boardPortrait|boardTalentBuilds|consentOnly'&&privacyFields210.every(([field])=>view.sends[0][field]===false)&&view.sends[0].consentOnly===true&&privacyInvariant210(privacyRow210(id))===privacyInvariant210(before));
+  }
+  const noShared210=await privacyPage210(await privacySeed210('reserved',false));
+  check('.210 readonly private application has no removal control and performs no consent PUT',!noShared210.panel&&noShared210.sends.length===0);
+  const ordinaryPrivacy210=await privacyPage210(await privacySeed210('ordinary',false));
+  check('.210 ordinary editable Member application retains its full form without the readonly consent action',!!ordinaryPrivacy210.page.app.querySelector('form')&&!ordinaryPrivacy210.panel&&ordinaryPrivacy210.sends.length===0);
+  for(const mode of ['before-send','lost-answer','wrong-receipt']){
+    const id=await privacySeed210(),view=await privacyPage210(id),before=privacyRow210(id);
+    check('.210 '+mode+' failure case starts at the actual readonly privacy action',!!view.panel);
+    if(!view.panel)continue;
+    if(mode==='before-send')view.page.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT'){view.sends.push(JSON.parse(init.body));return true;}return false;});
+    if(mode==='lost-answer')view.page.drop((url,init)=>url==='/api/application'&&init.method==='PUT');
+    if(mode==='wrong-receipt')view.page.answer((url,init)=>url==='/api/application'&&init.method==='PUT'?{ok:true,application:view.page.boot.application}:null);
+    privacySelect210(view.panel,0);view.save.click();await must(()=>view.panel.textContent.includes(privacyFailure210),'privacy210 fixed '+mode+' failure copy');
+    check('.210 '+mode+' reports unconfirmed privacy outcome without success or automatic retry',view.sends.length===1&&view.panel.textContent.includes(privacyFailure210)&&!view.page.document.body.textContent.includes('Voting-board privacy changes saved.')&&privacyInvariant210(privacyRow210(id))===privacyInvariant210(before)&&(mode==='before-send'?privacyAnswers210(id).boardPortraitOptIn===true:privacyAnswers210(id).boardPortraitOptIn===false));
+  }
+  for(const outcome of ['success','lost-answer','401','409-reload']){
+    const id=await privacySeed210(),view=await privacyPage210(id);
+    check('.210 detached '+outcome+' case starts at the original removal panel',!!view.panel);
+    if(!view.panel)continue;
+    const held={};held.promise=new Promise(resolve=>{held.resolve=resolve;});view.page.hold((url,init)=>url==='/api/application'&&init.method==='PUT'?held.promise:0);
+    if(outcome==='lost-answer')view.page.answer((url,init)=>url==='/api/application'&&init.method==='PUT'?new Response('unreadable',{status:500}):null);
+    if(outcome==='401'||outcome==='409-reload')view.page.answer((url,init)=>url==='/api/application'&&init.method==='PUT'?new Response(JSON.stringify({error:outcome==='401'?'signed_out':'reload'}),{status:outcome==='401'?401:409,headers:{'Content-Type':'application/json'}}):null);
+    privacySelect210(view.panel,0);view.save.click();await must(()=>privacyAnswers210(id).boardPortraitOptIn===false,'privacy210 detached actual commit');
+    await view.page.go('#/guide/member');const nextMain=view.page.app.querySelector('main');held.resolve();await settle();await settle();
+    check('.210 late detached '+outcome+' changes no current view, toast or route and sends no replacement',view.sends.length===1&&view.page.location.hash==='#/guide/member'&&view.page.app.querySelector('main')===nextMain&&!view.page.document.body.textContent.includes('Voting-board privacy changes saved.')&&!view.page.document.body.textContent.includes(privacyFailure210)&&!view.page.document.body.textContent.includes('You were signed out.')&&!view.page.document.querySelector('.reload-bar'));
+  }
+  const identityPrivacyId210=await privacySeed210(),identityPrivacy210=await privacyPage210(identityPrivacyId210);
+  check('.210 owner-change case starts at the original removal panel',!!identityPrivacy210.panel);
+  if(identityPrivacy210.panel){
+    const held={};held.promise=new Promise(resolve=>{held.resolve=resolve;});identityPrivacy210.page.hold((url,init)=>url==='/api/application'&&init.method==='PUT'?held.promise:0);
+    privacySelect210(identityPrivacy210.panel,0);identityPrivacy210.save.click();await must(()=>privacyAnswers210(identityPrivacyId210).boardPortraitOptIn===false,'privacy210 owner-change actual commit');
+    const logout=byText(identityPrivacy210.page.app,'button','Sign out');if(!logout)throw Error('privacy210 actual sign-out control missing');logout.click();await must(()=>identityPrivacy210.page.location.navigated==='/','privacy210 actual sign-out navigation');
+    const revoked=await request('GET','/api/me',undefined,identityPrivacyId210);
+    // The minimal DOM records location.href rather than destroying its document.
+    // Detach that old app as real navigation does, then load another real session.
+    identityPrivacy210.page.app.remove();const nextIdentity210=await openPage(PRIVACY_READER210);await nextIdentity210.go('#/guide/member');
+    const nextIdentityMain210=nextIdentity210.app.querySelector('main');held.resolve();await settle();await settle();
+    check('.210 completed old-owner withdrawal cannot redraw or toast across actual logout and a new identity document',revoked.response.status===401&&nextIdentity210.app.querySelector('main')===nextIdentityMain210&&nextIdentity210.boot.user.id===PRIVACY_READER210&&!nextIdentity210.document.body.textContent.includes('Voting-board privacy changes saved.')&&!identityPrivacy210.page.document.body.textContent.includes('Voting-board privacy changes saved.')&&identityPrivacy210.sends.length===1);
   }
   console.log('\n' + ok + '/' + n + ' owner197/199 focused frontend checks passed; actual app/Worker with presentation-only DTO cases identified');
   process.exit(ok === n ? 0 : 1);
@@ -727,4 +818,9 @@ const pageWindow201='  const w = makeWindow(JSON.stringify(boot));';
 if(prefix197.split(pageWindow201).length!==2)throw Error('owner201_original_window_boundary');
 const rememberedPrefix201=prefix197.replace(pageWindow201,pageWindow201+'\n  if(module.cachedPick201)w.sessionStorage.setItem("olympus.pick",module.cachedPick201);');
 const exposedPrefix201=rememberedPrefix201.replace(runLine201, 'vm.runInNewContext(APP_JS.replace("  render();\\n})();", "  window.__roleDialog201 = key => roleDialog(positionOf(key));\\n  render();\\n})();"), sandbox, { filename: "app.js" });');
-execution197._compile(exposedPrefix201 + '\n(' + frontendOwner197.toString() + ')().catch(error => { console.error(error.stack); process.exit(1); });', __filename);
+// Deterministic post-Worker hold: the exact original Worker handles the request
+// first, then this test-only response seam can await a manually released promise.
+const holdSeam210='{ const ms2 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (ms2) await new Promise((res) => setTimeout(res, ms2)); }';
+if(exposedPrefix201.split(holdSeam210).length!==2)throw Error('privacy210_original_post_worker_hold_boundary');
+const deferredPrefix210=exposedPrefix201.replace(holdSeam210,'{ const hold210 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (hold210 && typeof hold210.then === "function") await hold210; else if (hold210) await new Promise(res => setTimeout(res, hold210)); }');
+execution197._compile(deferredPrefix210 + '\n(' + frontendOwner197.toString() + ')().catch(error => { console.error(error.stack); process.exit(1); });', __filename);

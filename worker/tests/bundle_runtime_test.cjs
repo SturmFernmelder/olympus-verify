@@ -186,7 +186,7 @@ function splitFixtureSchema(source) {
     log: new Log(LogLevel.NONE),
     workers: [{
       config: {
-        name: "olympus-verify-runtime-test", type: "worker", compatibilityDate: "2026-09-01", compatibilityFlags: ["nodejs_compat"],
+        name: "olympus-verify-runtime-test", compatibilityDate: "2026-09-01", compatibilityFlags: ["nodejs_compat"],
         manifest: { mainModule: "index.js", modulesRoot: outdir, modules: { "index.js": { type: "esm", contents: bundle } } },
         env: {
           DB: { type: "d1", id: "runtime-test-db" },

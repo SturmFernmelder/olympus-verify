@@ -8,6 +8,7 @@
     try { return JSON.parse(document.getElementById("boot").textContent || "{}"); } catch { return {}; }
   })();
   const S = Object.assign({ signedIn: false, meta: null, settings: null }, BOOT);
+  let decisionActorRevision = 0; // Invalidate a prepared admin view before sign-out transport.
   const skew = BOOT.now ? BOOT.now * 1000 - Date.now() : 0; // the server's clock drives every countdown
   const nowMs = () => Date.now() + skew;
   const nowSec = () => Math.floor(nowMs() / 1000);
@@ -110,6 +111,9 @@
   const fmtDateTime = (t) => (t ? DT({ weekday: "short", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(t * 1000)) : "—");
   const fmtDay = (t) => (t ? DT({ weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(t * 1000)) : "—");
   const fmtShort = (t) => (t ? DT({ day: "numeric", month: "short", year: "numeric" }).format(new Date(t * 1000)) : "—");
+  // .210: a date-only value is stored as 00:00 UTC; shown in the viewer's zone it read a day early across the Americas.
+  const fmtDayUtc = (t) => (t ? DT({ weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(t * 1000)) : "—");
+  const fmtShortUtc = (t) => (t ? DT({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(t * 1000)) : "—");
   const fmtPacific = (t, withTime = true) =>
     new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" }, withTime ? { hour: "numeric", minute: "2-digit", timeZoneName: "short" } : {})).format(new Date(t * 1000));
   function ago(t) {
@@ -668,7 +672,7 @@
   // left alone (no sign-out, toast, render or reload notice from an operation whose view is gone); the error is still thrown.
   async function api(method, path, body, options = {}) {
     if (method !== "GET") boardSummaryRead = null; // A lost write answer must invalidate the read cache too.
-    const init = { method, headers: { "X-Olympus": PAGE_VERSION }, credentials: "same-origin" };
+    const init = { method, headers: { "X-Olympus": PAGE_VERSION, ...(options.headers || {}) }, credentials: "same-origin" };
     if (body !== undefined) {
       init.headers["Content-Type"] = "application/json";
       init.body = JSON.stringify(body);
@@ -689,6 +693,7 @@
     if (res.status === 401) {
       boardSummaryRead = null;
       if (current) {
+        decisionActorRevision++;
         S.signedIn = false;
         toast("You were signed out. Sign in with Discord again.", "bad");
         dirtyKeys.clear();
@@ -811,10 +816,16 @@
     document.body.appendChild(bar);
     stackBars();
   }
+  /** .210: the top bar's height while it is pinned; on a phone it scrolls away (app.css) and covers nothing. */
+  function pinnedBarHeight() {
+    const bar = document.querySelector(".topbar");
+    if (!bar) return 0;
+    const position = typeof getComputedStyle === "function" ? getComputedStyle(bar).position : "sticky";
+    return position === "sticky" || position === "fixed" ? bar.getBoundingClientRect().height : 0;
+  }
   /** .109: the reload notice and the receipt bar both sit over the page under the top bar; when both show they stack (in document order) instead of covering each other. */
   function stackBars() {
-    const top = document.querySelector(".topbar");
-    let y = (top ? top.getBoundingClientRect().height : 0) + 8;
+    let y = pinnedBarHeight() + 8;
     for (const b of document.querySelectorAll(".reload-bar, .receipt-bar")) { if (b.style) b.style.top = `${y}px`; y += b.getBoundingClientRect().height + 8; }
   }
 
@@ -1242,9 +1253,10 @@
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
-    if (S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
+    // .210: a mid-session 401 signs the page out, and the staff menu and Stream Shield go with it.
+    if (S.signedIn && !S.denied && S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
     let shield = null;
-    if (S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
+    if (S.signedIn && !S.denied && S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
       // Owner .198: compact, named icon control; the preference remains presentation-only.
       shield = h("button", { class: "btn small stream-shield-toggle", type: "button", "aria-label": "Stream Shield", "aria-pressed": String(streamShield), title: "Stream Shield" }, icon("icon-shield"));
       shield.addEventListener("click", () => {
@@ -1281,6 +1293,7 @@
   async function signOut() {
     if (disposeCensusPreview) disposeCensusPreview();
     if (dirtyKeys.size && !(await confirmBox("Leave without saving?", "You have changes that are not saved yet.", "Sign out anyway"))) return;
+    decisionActorRevision++;
     if (disposeArmyCapacity) disposeArmyCapacity(); // Clear dated capacity before logout transport; preserve publisher custody.
     try { await api("POST", "/auth/logout"); } catch { /* signed out either way */ }
     location.href = "/";
@@ -1319,7 +1332,7 @@
   function routeTitle(route) {
     const [head, sub, detail, action] = route.split("/");
     const community = { "": "Overview", directory: "Member directory", profile: "My profile", workshop: "Crafters & Artisans", calendar: "Calendar", census: "Census preview", trial: "My trial", dues: "My dues", news: "Guild news", army: "Army", leadership: "Leadership" };
-    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", community: "Community" };
+    const staff = { "": "Overview", applications: detail ? "Application details" : "Applications", votes: "Votes", names: "Reserved names", friends: "Friends", lookup: "Lookup", settings: "Settings", ranks: "Rank planner", treasury: "Treasury", "approved-guilds": "Signed guild list", renames: "Renames", news: "News", audit: "Audit log", "ruleset-publication": "Ruleset publication", "directory-visibility": "Directory preferences", community: "Community" };
     const staffCommunity = { trials: "Trials", departures: "Departures", cases: "Restriction cases", ledger: "Contribution ledger", inbox: "Private requests", claims: "Character claims" };
     if (head === "admin") return `Admin · ${sub === "community" && own(staffCommunity, detail) ? staffCommunity[detail] : own(staff, sub || "") ? staff[sub || ""] : "Overview"}`;
     if (head === "community") {
@@ -1336,6 +1349,7 @@
   }
   let lastHash = location.hash;
   let ignoreHash = false;
+  let leavePending = false; // .210: one "Leave without saving?" at a time; a second navigation while it is open is dropped
   document.addEventListener("click", event => {
     if (!S.signedIn || S.denied || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button && event.button !== 0) return;
     const anchor = event.target instanceof Element ? event.target.closest("a") : null;
@@ -1356,13 +1370,21 @@
       const target = location.hash;
       ignoreHash = true;
       location.hash = lastHash;
-      if (!(await confirmBox("Leave without saving?", "You have changes on this page that are not saved yet.", "Leave anyway"))) return;
+      if (leavePending) return;
+      leavePending = true;
+      let leave = false;
+      try { leave = await confirmBox("Leave without saving?", "You have changes on this page that are not saved yet.", "Leave anyway"); } finally { leavePending = false; }
+      if (!leave) return;
       dirtyKeys.clear();
       ignoreHash = true;
       location.hash = target;
     }
+    // .210: a page chosen by a link (a navigation menu item above all) moves keyboard and screen-reader focus to the new
+    // page; the link itself is gone or hidden. Form controls that navigate (choosers) keep their focus.
+    const fromLink = !!document.activeElement && document.activeElement.tagName === "A";
     lastHash = location.hash;
     render();
+    if (fromLink) { const page = app.querySelector("main"); if (page) { page.setAttribute("tabindex", "-1"); page.focus({ preventScroll: true }); } }
   });
   window.addEventListener("beforeunload", (e) => { if (dirtyKeys.size || navigationGuard && !navigationGuard.canLeave() || window.OlympusArmyReportTool?.isNavigationHeld()) { e.preventDefault(); e.returnValue = ""; } });
   // "#/names" and "#/friends" are sections of Home. Clicked on Home itself, they only scroll there: no new page, so
@@ -1377,8 +1399,7 @@
   });
   /** Scrolls so `el` starts just below the sticky top bar (which would otherwise cover its heading). */
   function scrollToSection(el, smooth = false) {
-    const bar = document.querySelector(".topbar");
-    const top = el.getBoundingClientRect().top + window.scrollY - (bar ? bar.getBoundingClientRect().height : 0) - 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - pinnedBarHeight() - 12;
     window.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
   }
   const setDirty = (key, on, el) => { if (on) dirtyKeys.add(key); else dirtyKeys.delete(key); if (el) el.hidden = !on; };
@@ -1432,6 +1453,8 @@
     }
     const keepBoard = reuseChrome && head === "vote" && previousMain.dataset.routeHead === "vote" && S.signedIn && !S.denied;
     const main = keepBoard ? previousMain : h("main", { class: "shell", id: "main" });
+    // Only a ballot switch keeps the board's scroll; entering or leaving an application track page starts at the top.
+    const trackSwitch = keepBoard && (route.split("/").length > 2 || !!main.dataset.applicationTrack199);
     main.dataset.routeHead = head;
     if (reuseChrome && !keepBoard) previousMain.replaceWith(main);
     else if (!reuseChrome) app.appendChild(main);
@@ -1453,7 +1476,7 @@
     if (!reuseChrome) app.appendChild(footer());
     const target = scrollTo && document.getElementById(scrollTo);
     if (target) scrollToSection(target);
-    else if (!keepBoard) window.scrollTo(0, 0);
+    else if (!keepBoard || trackSwitch) window.scrollTo(0, 0);
   }
   const showError = (main) => (e) => {
     if (e && e.status === 401 || main.parentNode !== app) return;
@@ -2115,7 +2138,7 @@
         h("div", { class: "btn-row" },
           h("a", { class: "btn", href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Get Olympus Guild" }),
           h("a", { class: "btn small", href: "#/addons", text: "Browse all addons" })),
-        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild is the optional unified guild addon for census and Army reporting; website snapshot export still needs publisher adoption. Verification remains separate." })),
+        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate." })),
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -2279,6 +2302,8 @@
     if (!control.id) control.id = `f-${key}`;
     box.querySelector("label").setAttribute("for", control.id);
     control.setAttribute("aria-describedby", `err-${key}`);
+    // .210: the visible asterisk is hidden from assistive technology, so state the requirement there too (no native popup).
+    if (required) control.setAttribute("aria-required", "true");
     return box;
   }
   function withCounter(el, max) {
@@ -2316,6 +2341,55 @@
       h("optgroup", { label: "Membership" }, meta.positions.filter((p) => p.group === "membership" && p.key !== "member" && !reservedKey201(p.key)).map((p) => opt(p.key, p.label))));
   }
 
+  // Readonly applications retain an independent, remove-only privacy action.
+  function applicationBoardPrivacy210(application) {
+    if (!application) return null;
+    const answers = application.answers || {};
+    const fields = [
+      ["boardPortrait", "boardPortraitOptIn", "Remove my Discord profile picture from the voting board"],
+      ["boardTalentBuilds", "boardTalentBuildsOptIn", "Remove my declared characters and talent builds from the voting board"],
+      ["boardApplicationIntent", "boardApplicationIntentOptIn", "Remove my application track and chosen office from the voting board"],
+    ].filter(([, key]) => answers[key] === true);
+    if (!fields.length) return null;
+    const owner = S.user;
+    let busy = false;
+    const controls = fields.map(([flag, key, label]) => ({ flag, key, label, input: h("input", { type: "checkbox" }) }));
+    const save = h("button", { class: "btn small", type: "button", text: "Apply privacy changes", disabled: true });
+    const status = h("p", { class: "small", role: "status", "aria-live": "polite" });
+    const panel = h("section", { class: "board-privacy210", "aria-label": "Voting-board privacy" },
+      h("h3", { text: "Voting-board privacy" }),
+      h("p", { text: "You can stop sharing optional board details without changing or withdrawing your application. Select the details to remove; this action cannot turn sharing on." }),
+      controls.map(({ input, label }) => h("label", { class: "check" }, input, h("span", { text: label }))),
+      h("div", { class: "btn-row" }, save), status);
+    const sync = () => {
+      controls.forEach(({ input }) => { input.disabled = busy; });
+      // aria-disabled has the shared disabled styling while preserving keyboard focus during the request.
+      save.disabled = !busy && !controls.some(({ input }) => input.checked);
+      save.setAttribute("aria-disabled", String(busy || save.disabled));
+      save.textContent = busy ? "Saving privacy changes…" : "Apply privacy changes";
+    };
+    controls.forEach(({ input }) => input.addEventListener("change", sync));
+    save.addEventListener("click", async () => {
+      if (busy) return;
+      const selected = controls.filter(({ input }) => input.checked);
+      if (!selected.length) return;
+      const body = { consentOnly: true };
+      selected.forEach(({ flag }) => { body[flag] = false; });
+      busy = true; sync(); status.textContent = "Saving privacy changes…";
+      try {
+        const out = await api("PUT", "/api/application", body, { live: () => S.user === owner && panel.isConnected });
+        if (!out?.application || selected.some(({ key }) => out.application.answers?.[key] !== false)) throw Error("privacy_unconfirmed");
+        if (S.user !== owner) return;
+        if (S.application === application) S.application = out.application;
+        if (panel.isConnected) { toast("Voting-board privacy changes saved.", "good"); render(); }
+      } catch {
+        if (panel.isConnected && S.user === owner) status.textContent = "Privacy changes could not be confirmed. Reload your application and check its sharing settings before trying again.";
+      } finally { busy = false; sync(); }
+    });
+    sync();
+    return panel;
+  }
+
   ROUTES.apply = function apply(main) {
     const meta = M();
     const a = S.application;
@@ -2326,7 +2400,7 @@
     if (locked) {
       add(main, frame("Your application", status,
         h("p", { text: a.status === "accepted" ? "Your application was accepted. The guild's leadership will be in touch in Discord." : "Your application was not accepted this time. It can no longer be changed." }),
-        applicationSummary(a)));
+        applicationSummary(a), applicationBoardPrivacy210(a)));
       return;
     }
     if (!s.applicationsOpen && !a) {
@@ -2346,7 +2420,7 @@
       add(main, [frame("Reserved seats — applications are closed", null,
         h("p", {text:reservedNotice201}),
         a ? h("p", {text:"Your original application and choices remain on record. You may withdraw it, or explicitly choose an eligible ordinary role below. Nothing changes until you save a replacement application."}) : null,
-        a ? applicationSummary(a) : null,
+        a ? applicationSummary(a) : null, applicationBoardPrivacy210(a),
         a && a.status !== "withdrawn" ? h("button", {class:"btn small",type:"button",text:"Withdraw my application",onclick:withdraw}) : null),
         applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; },intent199 || {})]);
       return;
@@ -2354,7 +2428,7 @@
     if (intent199?.applicationTrack === "patron" && !royalWritsVisible200()) {
       add(main, [frame("Patron applications are paused", null,
         h("p", {text:"Royal Writs are currently switched off. You can explore the other application paths below. Any existing application and its original track remain recorded; choosing another path is a new, explicit edit."}),
-        a ? applicationSummary(a) : null,
+        a ? applicationSummary(a) : null, applicationBoardPrivacy210(a),
         a && a.status !== "withdrawn" ? h("button", {class:"btn small",type:"button",text:"Withdraw my application",onclick:withdraw}) : null),
         applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; })]);
       return;
@@ -2943,8 +3017,8 @@
     if (shell) shell.content.replaceWith(content);
     else add(main, [
       h("section", { class: "frame" },
-        h("div", { class: "plaque" }, h("h2", { text: "Vote on who leads Olympus" })),
-        h("p", { text: "Choose a role, read its applications and vote for or against a candidate." }),
+        h("div", { class: "plaque" }, h("h2", { text: "Leadership applications board" })), // .210: seats are reserved appointments, not elections
+        h("p", { text: "Choose a role, read its retained applications and record a view for or against a candidate. Leadership seats are filled by appointment; these views inform the leadership review." }),
         h("details", { class: "voting-help" }, h("summary", { text: "How the board works" }),
           h("p", null, "Leadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote ", h("b", { text: "for" }), " the people you want in a role and ", h("b", { text: "against" }), " the ones you do not; click again to take a vote back. You can change your mind until voting closes."),
           anyQuiet ? h("p", { class: "muted small" }, "Roles marked with the crown ", crown(), " are chosen by the guild's leadership without a public vote: they have no board and no write-ins.") : null),
@@ -4590,48 +4664,88 @@
     restoreAdminFilterFocus(body, filterState);
   }
 
+  const applicationDecisionReads = new WeakMap();
   async function adminApplication(body, id) {
+    const read = {}, actor = S.user, actorState = JSON.stringify(actor), actorRevision = decisionActorRevision, route = currentRoute();
+    applicationDecisionReads.set(body, read);
+    const live = () => applicationDecisionReads.get(body) === read && app.contains(body) && currentRoute() === route
+      && S.signedIn && !S.denied && S.user === actor && actor?.isAdmin && JSON.stringify(actor) === actorState && decisionActorRevision === actorRevision;
+    // Tokens precede the displayed detail. A stale view never prepares a replacement target at click time.
+    const targets = new Map();
+    clear(body); add(body, h("p", { role: "status", text: "Opening the application…" }));
     let d;
-    try { d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`); }
+    try {
+      for (const targetRoute of ["status", "deny", "undeny", "delete"]) {
+        if (!live()) return;
+        const action = targetRoute === "delete" ? "partial_delete" : "business_only";
+        const prepared = await api("GET", `/api/admin/users/${encodeURIComponent(id)}/decision-target?route=${targetRoute}&decisionAction=${action}`, undefined, { live });
+        if (!live()) return;
+        if (!prepared || typeof prepared.targetToken !== "string" || !prepared.targetToken || prepared.targetToken.length > 8192) throw new ApiError(409, { message: "The decision could not be prepared. Reload the application and review it again." });
+        targets.set(targetRoute, Object.freeze({ token: prepared.targetToken, action }));
+      }
+      d = await api("GET", `/api/admin/applications/${encodeURIComponent(id)}`, undefined, { live });
+      if (!live()) return;
+      if (!d || d.user?.id !== id || !d.account) throw new ApiError(409, { message: "The application answer did not match this account. Reload it before deciding." });
+    }
     catch (err) {
-      if (!app.contains(body) || err && err.status === 401) return;
+      if (!live() || err && err.status === 401) return;
       const held = err && err.status === 409 && codeOf(err) === "original_membership_decision_held";
       clear(body);
-      add(body, frame(held ? "Application temporarily held" : "Application could not be opened", h("a", { class: "btn small", href: "#/admin/applications", text: "Back to all applications" }),
+      add(body, frame(held ? "Application decision held" : "Application could not be opened", h("a", { class: "btn small", href: "#/admin/applications", text: "Back to all applications" }),
         noticeBox("warn", "icon-warning", h("p", { text: held
-          ? "The original membership decision for this account could not be safely confirmed. Its application details remain withheld. Return to the list and ask the site administrator to review the existing decision; no access or decision has been changed."
+          ? "The original membership decision for this account could not be safely confirmed. No data or access was changed. Ask a site administrator to investigate. Reopening alone may not resolve this hold."
           : "This application could not be read. Return to the list and try again. No changes were made." }))));
       return;
     }
-    if (!app.contains(body)) return;
+    if (!live()) return;
     const u = d.user;
     const a = d.application;
     const acct = d.account;
     const note = h("textarea", { rows: "3", maxlength: "1000" });
     if (a) note.value = a.adminNote || "";
-    const setStatus = async (status) => {
+    let pending = false, spent = false;
+    const controls = [], decisionNotice = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
+    const reload = h("button", { type: "button", class: "btn small", text: "Reload application", onclick: () => { if (live() && !pending) adminApplication(body, id); } });
+    const sync = () => { for (const control of controls) control.disabled = !live() || pending || spent; reload.disabled = !live() || pending; };
+    const decide = async (targetRoute, makeBody, success) => {
+      if (!live() || pending || spent) return;
+      pending = true; sync(); // Own the dialog as well as the write; a second click cannot open another.
       try {
-        await api("POST", `/api/admin/applications/${id}/status`, { status, note: note.value });
-        toast(`Marked ${statusText(status).toLowerCase()}.`, "good");
-        adminApplication(body, id);
-      } catch (err) { toast(err.message, "bad"); }
+        const payload = await makeBody();
+        if (payload === null || !live()) return;
+        const target = targets.get(targetRoute);
+        if (!target) throw new ApiError(409, { message: "Reload the application and review it again." });
+        // Once dispatched, neither a lost answer nor a refusal renews any authority on this old view.
+        spent = true; targets.clear(); sync();
+        const path = targetRoute === "status" ? `/api/admin/applications/${encodeURIComponent(id)}/status` : `/api/admin/users/${encodeURIComponent(id)}/${targetRoute}`;
+        const result = await api("POST", path, payload, { live, headers: { "X-Olympus-Decision-Target": target.token, "X-Olympus-Decision-Action": target.action } });
+        if (!live()) return;
+        const confirmed = targetRoute === "delete" ? result?.ok === true : result?.user?.id === id
+          && (targetRoute === "status" ? result.application?.status === payload.status : result.user.denied === (targetRoute === "deny"));
+        if (!confirmed) throw new ApiError(409, { message: "The decision answer did not match this account and action. Reload the application before another decision." });
+        success(); // An acknowledged success may start a fresh, visibly loading review; never retry this write.
+      } catch (err) {
+        if (!live()) return;
+        toast(err.message, "bad");
+        decisionNotice.textContent = spent ? "The decision result could not be confirmed. Reload and review the current account before another decision. If it remains held, ask a site administrator to investigate; reloading alone may not resolve it." : "No decision was sent. Review the application before trying again.";
+      } finally { pending = false; sync(); }
     };
+    const setStatus = status => decide("status", async () => ({ status, note: note.value }), () => {
+      toast(`Marked ${statusText(status).toLowerCase()}.`, "good"); adminApplication(body, id);
+    });
     const denyBtn = u.denied
-      ? h("button", { class: "btn", type: "button", text: "Lift the denial", onclick: async () => {
-          if (!(await confirmBox("Lift the denial?", "They can use the site again. Reserved names released by the denial stay released.", "Lift it"))) return;
-          try { await api("POST", `/api/admin/users/${id}/undeny`); toast("Denial lifted."); adminApplication(body, id); } catch (err) { toast(err.message, "bad"); }
-        } })
-      : h("button", { class: "btn danger", type: "button", text: "Deny permanently", onclick: async () => {
+      ? h("button", { class: "btn", type: "button", text: "Lift the denial", onclick: () => decide("undeny", async () =>
+          await confirmBox("Lift the denial?", "They can use the site again. Reserved names released by the denial stay released.", "Lift it") ? undefined : null,
+          () => { toast("Denial lifted."); adminApplication(body, id); }) })
+      : h("button", { class: "btn danger", type: "button", text: "Deny permanently", onclick: () => decide("deny", async () => {
           const reason = await promptBox("Deny permanently", "For joke, troll or abusive applications. They are signed out, cannot save anything again, their votes stop counting, their application leaves the board, and their reserved names are released.", "Reason (only site admins see it; an officer's lookup shows only that the account was denied)", "Deny permanently", { danger: true });
-          if (reason === null) return;
-          try { await api("POST", `/api/admin/users/${id}/deny`, { reason }); toast("Denied."); adminApplication(body, id); } catch (err) { toast(err.message, "bad"); }
-        } });
-    const deleteBtn = h("button", { class: "btn danger", type: "button", text: "Delete their site data", onclick: async () => {
+          return reason === null ? null : { reason };
+        }, () => { toast("Denied."); adminApplication(body, id); }) });
+    const deleteBtn = h("button", { class: "btn danger", type: "button", text: "Delete their site data", onclick: () => decide("delete", async () => {
       const mentions = h("input", { type: "checkbox", checked: true });
       const extra = h("label", { class: "check field" }, mentions, h("span", null, "Also remove other members' write-ins, friends-list entries and references that name this account", h("span", { class: "hint", text: "Their Discord name, with any reason or note written about them. Leave it ticked for a request to be forgotten." })));
-      if (!(await confirmBox("Delete everything the site holds about this account?", "For a request to be forgotten. Their application, votes, write-ins, friends list and reserved names are removed, votes others cast on their application too, and they are signed out. Names already in the invite queue are taken out of it. A permanent denial is kept (only the id and the decision). This cannot be undone.", "Delete their data", { danger: true, typeToConfirm: "DELETE", extra }))) return;
-      try { await api("POST", `/api/admin/users/${id}/delete`, { mentions: mentions.checked }); toast("Their site data is deleted.", "good"); location.hash = "#/admin/applications"; } catch (err) { toast(err.message, "bad"); }
-    } });
+      return await confirmBox("Delete everything the site holds about this account?", "For a request to be forgotten. Their application, votes, write-ins, friends list and reserved names are removed, votes others cast on their application too, and they are signed out. Names already in the invite queue are taken out of it. A permanent denial is kept (only the id and the decision). This cannot be undone.", "Delete their data", { danger: true, typeToConfirm: "DELETE", extra }) ? { mentions: mentions.checked } : null;
+    }, () => { toast("Their site data is deleted.", "good"); location.hash = "#/admin/applications"; }) });
     const list = (items, fn, empty) => (items && items.length ? h("div", { class: "stack" }, items.map(fn)) : h("p", { class: "muted small", text: empty }));
     // A role without a public vote has no board: listed only with votes from before it was taken off the vote.
     const boardRows = (d.board || []).filter((b) => !noVoteFor(b.role) || b.yes || b.no);
@@ -4658,7 +4772,7 @@
           a && a.status !== "submitted" ? h("button", { class: "btn", type: "button", text: "Back to submitted", onclick: () => setStatus("submitted") }) : null,
           a ? h("button", { class: "btn", type: "button", text: "Save note", onclick: () => setStatus(a.status) }) : null),
         h("div", { class: "rule" }),
-        h("div", { class: "btn-row" }, denyBtn, deleteBtn)),
+        h("div", { class: "btn-row" }, denyBtn, deleteBtn), decisionNotice, reload),
       frame("On the voting board", h("span", { class: "aside", text: `They voted on ${plural(d.boardVotesCast || 0, "applicant")}` }),
         boardRows.length
           ? h("div", null, h("p", { class: "table-scroll-hint small muted", text: "Scroll sideways to see every voting column." }), h("div", { class: "table-wrap" }, h("table", { class: "data admin-application-board" },
@@ -4684,6 +4798,8 @@
         frame("Their own write-ins", null, list(d.votesCast, (v) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: v.label }), h("small", { text: `${roleName(v.ballot)}${v.slot > 1 ? `, choice ${v.slot}` : ""}${v.reason ? " — " + v.reason : ""}` }))), "None."))),
       frame("Reserved names", null, list(acct.site.reserved, (r) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: r.name })), h("span", { class: "badge", text: r.status })), "None entered.")),
     ]);
+    controls.push(note, ...Array.from(body.querySelectorAll("button")).filter(button => button !== reload));
+    sync();
   }
 
   // ---------- votes: the board and write-ins, per role ----------
@@ -5303,9 +5419,9 @@
       frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("a", { class: "btn small", href: "#/organization/alliance-overview", text: "Explore Olympus I–X roles & organization" }),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
-        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Unified guild addon; optional website snapshot export requires publisher adoption."),
+        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Olympus Guild 1.3.3 is published. Website reporting is available only when enabled by site administrators."),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "#/army/report", text: "Report a guild snapshot" }) : null,
-        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. The optional website export still needs publisher adoption." }), reader))]);
+        h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting." }), reader))]);
     const load = async (namespace, file) => {
       if (window[namespace]) return;
       if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
@@ -6320,7 +6436,7 @@
       add(body, frame("My trial", h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }),
         h("dl", { class: "kv" },
           h("dt", { text: "Started" }), h("dd", { text: fmtDay(sec(t.startedAt)) }),
-          h("dt", { text: open ? "Review due" : "Review was due" }), h("dd", { text: fmtDay(sec(t.reviewDueAt)) }),
+          h("dt", { text: open ? "Review due" : "Review was due" }), h("dd", { text: fmtDayUtc(sec(t.reviewDueAt)) }),
           t.outcome ? [h("dt", { text: "Outcome" }), h("dd", { text: `${TRIAL_WORDS[t.status] || t.status}${t.reason ? ` (${TRIAL_REASONS[t.reason] || t.reason})` : ""}` })] : null,
           h("dt", { text: "Last change" }), h("dd", { text: fmtDateTime(sec(t.updatedAt)) })),
         h("p", { class: "muted small", text: TRIAL_ABOUT })));
@@ -6336,7 +6452,7 @@
     let current = null;
     // .102 (F96-2): the committed result's receipt lives OUTSIDE the page view (a bar on the document, like the reload notice): a later
     // refused read clears the private ledger, a changed context redraws the page, and the receipt stays until Dismiss or a navigation
-    const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShort(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
+    const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShortUtc(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
     const fail = (e) => {
       clear(holder);
       holder.appendChild(frame("My dues", null, noticeBox(codeOf(e) === "contributions_disabled" ? "info" : "warn", codeOf(e) === "contributions_disabled" ? "icon-clock" : "icon-warning", h("p", { text: explain(e, "Your ledger could not be read.") }))));
@@ -6376,8 +6492,8 @@
         if (o.finalAcknowledgedAt) contacts.push(`final notice acknowledged ${fmtShort(sec(o.finalAcknowledgedAt))}`);
         if (o.finalOfficerContactAt) contacts.push(`final officer contact ${fmtShort(sec(o.finalOfficerContactAt))}`);
         weeks.appendChild(h("tr", null,
-          h("td", { text: fmtShort(sec(o.periodStart)) }),
-          h("td", { text: fmtShort(sec(o.dueAt)) }),
+          h("td", { text: fmtShortUtc(sec(o.periodStart)) }),
+          h("td", { text: fmtShortUtc(sec(o.dueAt)) }),
           h("td", { class: "num", text: gold(o.amountCopper) }),
           h("td", { class: "num", text: gold(o.paidCopper) }),
           h("td", { class: "wrap" }, STAGE_WORDS[o.stage] || o.stage, o.eligible ? null : [" ", h("span", { class: "badge muted", text: "exempt as a new member" })], h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}` })),
@@ -6979,7 +7095,7 @@
         });
         add(actions, [due, extend, outcome, reason, conclude]);
       }
-      return h("tr", null, h("td", null, h("b", { text: t.displayName || "(no name)" }), h("span", { class: "muted small", text: ` ${t.discordId}` })), h("td", null, h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }), t.reason ? h("span", { class: "muted small", text: ` ${TRIAL_REASONS[t.reason] || t.reason}` }) : null), h("td", { text: fmtShort(sec(t.startedAt)) }), h("td", { text: fmtShort(sec(t.reviewDueAt)) }), h("td", { text: t.sponsorDiscordId || "—" }), h("td", null, actions));
+      return h("tr", null, h("td", null, h("b", { text: t.displayName || "(no name)" }), h("span", { class: "muted small", text: ` ${t.discordId}` })), h("td", null, h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }), t.reason ? h("span", { class: "muted small", text: ` ${TRIAL_REASONS[t.reason] || t.reason}` }) : null), h("td", { text: fmtShort(sec(t.startedAt)) }), h("td", { text: fmtShortUtc(sec(t.reviewDueAt)) }), h("td", { text: t.sponsorDiscordId || "—" }), h("td", null, actions));
     };
     filter.addEventListener("change", () => load(true));
     more.addEventListener("click", () => load(false));
@@ -7157,8 +7273,8 @@
         h("dl", { class: "kv" },
           h("dt", { text: "Member" }), h("dd", { class: "small", text: `${c.discordId} · case ${c.caseId}` }),
           h("dt", { text: "Set" }), h("dd", { text: `${fmtShort(sec(c.setAt))}${c.setBy ? ` by ${c.setBy}` : ""}` }),
-          h("dt", { text: "Review" }), h("dd", { text: `${fmtShort(sec(c.reviewAt))}${c.reviewOutcome ? ` (${c.reviewOutcome} ${c.reviewedAt ? fmtShort(sec(c.reviewedAt)) : ""})` : ""}` }),
-          h("dt", { text: "Expires" }), h("dd", { text: c.expiresAt ? fmtShort(sec(c.expiresAt)) : "never (ban)" }),
+          h("dt", { text: "Review" }), h("dd", { text: `${fmtShortUtc(sec(c.reviewAt))}${c.reviewOutcome ? ` (${c.reviewOutcome} ${c.reviewedAt ? fmtShort(sec(c.reviewedAt)) : ""})` : ""}` }),
+          h("dt", { text: "Expires" }), h("dd", { text: c.expiresAt ? fmtShortUtc(sec(c.expiresAt)) : "never (ban)" }),
           c.returnedAt ? [h("dt", { text: "Returned" }), h("dd", { text: `signed in here ${fmtDateTime(sec(c.returnedAt))}${c.acknowledgedAt ? `; acknowledged ${fmtShort(sec(c.acknowledgedAt))}` : "; not yet acknowledged"}` })] : null,
           c.resolvedAt ? [h("dt", { text: "Resolved" }), h("dd", { text: fmtShort(sec(c.resolvedAt)) })] : null,
           h("dt", { text: "Watch-list" }), h("dd", null, watch || "none", c.charactersRenewalRequired ? h("span", { class: "badge warn", text: "renewal required" }) : null, c.charactersRetainUntil ? h("span", { class: "muted small", text: ` kept until ${fmtShort(sec(c.charactersRetainUntil))}` }) : null)),
@@ -7268,14 +7384,14 @@
           acts.appendChild(caseInput);
           acts.appendChild(h("button", { class: "btn small danger", type: "button", text: "Record the removal", onclick: async () => { if (await confirmBox("Record a removal?", "Records that the officers resolved this week after an in-game removal. It links an existing case if you name one; it opens none and touches no role.", "Record", { danger: true })) action({ action: "removal", discordId: sub, obligationId: o.id, expectedRevision: rev, caseId: caseInput.value.trim() || null }, "Removal recorded."); } }));
         }
-        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShort(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
+        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
       }
       const receipts = h("tbody");
       for (const r of L.receipts) {
         const acts = h("div", { class: "btn-row" });
         if (!r.voidedAt && r.id) {
           acts.appendChild(h("button", { class: "btn small danger", type: "button", text: "Void", onclick: async () => { if (await confirmBox("Void this payment?", "Its allocations are reversed, the weeks' contact facts cleared, and it can never pay again.", "Void", { danger: true })) action({ action: "void", discordId: sub, receiptId: r.id, expectedRevision: rev }, "Voided."); } }));
-          const week = named(selectOf(L.obligations.map((o) => ({ key: String(o.id), label: `${fmtShort(sec(o.periodStart))} (#${o.id})` })), "", { placeholder: "Reverse from week…" }), "Week to reverse from");
+          const week = named(selectOf(L.obligations.map((o) => ({ key: String(o.id), label: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` })), "", { placeholder: "Reverse from week…" }), "Week to reverse from");
           acts.appendChild(week);
           acts.appendChild(h("button", { class: "btn small", type: "button", text: "Reverse", onclick: () => { if (!week.value) { toast("Choose the week.", "bad"); return; } action({ action: "reverse", discordId: sub, receiptId: r.id, obligationId: Number(week.value), expectedRevision: rev }, "Reversed."); } }));
         }

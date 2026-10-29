@@ -128,7 +128,7 @@ const A = "111111111111111111", B = "222222222222222222";
   const rh = await restoreMemberRole(env(), A, [OTHER], "status");
   check("an account under a reapply hold gets nothing back (held)", rh === "held" && ADDS.length === 0);
   check("  audited as role.held_reapply", AUDIT.some((a) => a.action === "role.held_reapply" && a.subject === A));
-  check("  and the restore note stays silent (the /verify-status line explains the hold)", restoreNote(rh) === "");
+  check("  and the member sees a hold without losing the separate detailed reapply explanation", restoreNote(rh) === "Automatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.");
   reset(); ROWS[A] = { n: 1, banned: 1 }; HELD.add(A);
   check("  banned still wins over held (checked first)", (await restoreMemberRole(env(), A, [OTHER], "status")) === "banned" && ADDS.length === 0);
   // a hold stored (and its one-time removal done) while the grant's PUT was in flight: the PUT lands last, the writer undoes it
@@ -150,6 +150,17 @@ const A = "111111111111111111", B = "222222222222222222";
   stubs["./discord"].guildMember = async () => ({ roles: [OTHER] });
   check("revokeForReapply: no role held: nothing to remove (not-held)", (await rolesMod.exports.revokeForReapply(env(), A, "test")) === "not-held" && REMOVES.length === 0);
   stubs["./discord"].guildMember = async () => ({ roles: [] });
+
+  console.log("\n== held restoration is visible without changing its authority (.210 RT06) ==");
+  reset(); ROWS[A] = { n: 1, banned: 0 };
+  const betaHeld = await restoreMemberRole(env({ ROLE_GUILD_MEMBER: betaPolicyMod.exports.BETA_RESET_ROLE_IDS[0], BETA_RESET_SOURCE_EPOCH: 'olympus-full-release-fixture210' }), A, [], 'status');
+  check("the actual original beta source-epoch gate still holds without any provider effect, audit or notification", betaHeld === 'held' && ADDS.length === 0 && REMOVES.length === 0 && AUDIT.length === 0 && LOGS.length === 0 && SQL.length === 1);
+  check("a policy-held member gets an honest next step instead of silence or a success/notification claim", restoreNote(betaHeld) === "Automatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.");
+  reset(); ROWS[A] = { n: 1, banned: 0, privacy_state: 'retiring', privacy_generation: 'e'.repeat(32), privacy_revision: 2 };
+  const privacyHeld = await restoreMemberRole(env(), A, [], 'status');
+  check("an original retiring subject remains held before all provider effects and notifications", privacyHeld === 'held' && ADDS.length === 0 && REMOVES.length === 0 && AUDIT.length === 0 && LOGS.length === 0 && SQL.length === 1);
+  check("privacy-held restoration uses the same generic hold and discloses no subject state or raw policy code", restoreNote(privacyHeld) === restoreNote(betaHeld) && restoreNote(privacyHeld).includes('on hold') && !/retiring|generation|epoch|privacy|restored|Staff have been told/.test(restoreNote(privacyHeld)));
+  check("unchanged/no-standing outcomes retain their original silent notes", ['has-role', 'not-member', 'banned', 'unknown'].every(result => restoreNote(result) === ''));
 
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

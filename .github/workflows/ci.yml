@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-${{ github.ref }}
-  cancel-in-progress: true
+  # PR updates share one group; other runs have unique groups so GitHub's pending-slot replacement cannot cancel them.
+  group: review-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # .168 conserves the original test:all occurrences, including repeated invocations.
@@ -143,6 +144,8 @@ jobs:
           persist-credentials: false
       - name: Install Lupa 2.8 (LuaJIT 2.1 runtime for the suites)
         run: python3 -m pip install --user 'lupa==2.8'
+      - name: Declared Lua suite failure contract
+        run: python3 addon/tests/test_lua_runner.py
       - name: Addon suites
         run: python3 addon/tests/run_lua_suites.py
       - name: Dedicated aggregate producer

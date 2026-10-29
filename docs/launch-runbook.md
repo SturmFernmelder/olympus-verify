@@ -16,6 +16,12 @@ secret put`, `db:init` against the remote database, `register`, the watcher agai
 
 ## 0. What "signed" means
 
+For the current .210 Master QA task, the direct owner override recorded in `CLAUDE.md` supersedes the external Claude
+signature and host-lane wait described below. Root integration authority retains independent internal source review,
+completed exact-head automated review, all13 CI jobs and the single final local qualification. It also requires a
+fresh private D1 backup and successful local restore before deployment, with all production feature gates preserved.
+The older signatures, publication topology and dated release procedures below remain records of their stated scope.
+
 For the owner's renewed 14 October 2026 request, the task log must hold genuine Claude Code and Codex signatures on
 the same exact final commit/tree and evidence tuple. Each records its own scope, independent peer evidence and the
 applicable source, tests, bundle, policies/assets, exact shipping-commit CI and actual-version/live gates or expressly

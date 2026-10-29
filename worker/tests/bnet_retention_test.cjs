@@ -301,6 +301,9 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the ban command and its card show no tag for a stale link either (Codex 23:55)", !text.includes("Late#9") && /Battle\.net: not linked/.test(text) && !JSON.stringify(POSTS).includes("Late#9"), text.slice(0, 160));
   text = await admin("unban", { user: "100000000000000009" });
   LOGS = []; POSTS = [];
+  text = await admin("ban", { user: "100000000000000009", reason: "r".repeat(401) });
+  check(".210 a ban reason over 400 characters is refused before anything is written, logged or posted", /Keep the reason to 400 characters or fewer\. Nothing was changed\./.test(text) && LOGS.length === 0 && POSTS.length === 0, text.slice(0, 120));
+  LOGS = []; POSTS = [];
   const banRes = await interactions.handleInteraction({ ...env(), CHANNEL_MOD_ALERTS: "555000000000000001" }, { type: 2, id: "4", token: "t", guild_id: GUILD, member: { user: { id: "999999999999999999", username: "officer" }, roles: [OFFICER] }, data: { name: "olympus-admin", options: [{ name: "ban", type: 1, options: [{ name: "user", type: 3, value: "100000000000000001" }, { name: "reason", type: 3, value: "test" }] }] } });
   text = banRes.body?.data?.content ?? "";
   const persistent = JSON.stringify(LOGS) + JSON.stringify(POSTS);
@@ -464,7 +467,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the historical plain cron object cannot bypass the original epoch-2 callback gate", JSON.stringify(db.prepare('SELECT * FROM members ORDER BY discord_id').all())===beforeUnqualifiedCron && m("100000000000000015").battletag==='Cron#15');
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-10-28.208 High Council trading portfolio" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
+  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-10-28.210 QA admission and operator safety" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");

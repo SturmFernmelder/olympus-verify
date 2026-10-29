@@ -43,12 +43,12 @@ check("a missing printer is refused without a client call", OlympusVerifyRanks.P
 
 local guide = {}
 check("the standalone guide can use a supplied printer", OlympusVerifyRanks.Print(function(line) guide[#guide + 1] = line end), true)
-local expectedRanks = { "Guild Master (GM)", "High Council", "Treasurer", "Officer", "Raid Leader", "Veteran", "Raider", "Member", "Alt", "Initiate" }
+local expectedRanks = { "Leader (Guild Master)", "High Council", "Officer", "Officer Alt", "Raid Leader", "Veteran", "Raider", "Member", "Alt", "Initiate" }
 check("the heading distinguishes a recommended preset from live configuration", guide[1], "Recommended ten-rank preset (highest first; native indices 0-9):")
 for i, rank in ipairs(expectedRanks) do
   check("native index " .. (i - 1) .. " is " .. rank, guide[i + 1], "  " .. (i - 1) .. ": " .. rank)
 end
-check("current B slots and historical Officer Alt office alias remain distinct", guide[12], "Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (native index 1, second rank); Treasurer is native index 2 (third rank) and Officer is native index 3 (fourth rank). Officer Alt is a historical office alias, not an extra native rank.")
+check("current native ranks and appointments remain distinct", guide[12], "Appointments: Co-Guild Master (Co-GM) and Treasurer are High Council offices (native index 1, second rank), not extra native ranks. Officer is native index 2; Officer Alt is native index 3.")
 check("withdrawal and tab management explicitly apply to every High Council member", contains(guide, "every High Council member Withdraw Gold and Modify Bank Tabs"), true)
 check("Raid Leader keeps the authenticator safeguard", contains(guide, "Raid Leader retains the authenticator safeguard"), true)
 check("numeric bank allowances are explicitly unapproved", contains(guide, "No numeric bank withdrawal allowances have been approved"), true)
@@ -60,7 +60,7 @@ check("the complete guide has ten rank lines plus six guidance lines", #guide, 1
 local tocFile = assert(io.open("../OlympusVerify/OlympusVerify.toc", "r"))
 local toc = tocFile:read("*a"); tocFile:close()
 local version = toc:match("## Version:%s*([^\r\n]+)")
-check("TOC version is 0.6.11", version, "0.6.11")
+check("TOC version is 0.6.12", version, "0.6.12")
 check("TOC loads the guide before the slash handler", toc:find("OlympusVerifyRanks.lua\nOlympusVerify.lua", 1, true) ~= nil, true)
 C_AddOns.GetAddOnMetadata = function(_, field) if field == "Version" then return version end end
 OlympusVerifyConfig = { uiAutoShow = false, checkBeforeInvite = false }
@@ -109,7 +109,7 @@ check("ranks preserves persisted state identity", OlympusVerifyDB, db)
 check("ranks preserves the full synthetic queue, notes, events and state", same(OlympusVerifyDB, snapshot), true)
 check("ranks sends no whisper", #WHISPERS, beforeWhispers)
 check("ranks prints one complete guide", #messagesSince(beforePrint), #guide)
-check("ordinary status still derives version from the TOC metadata", OlympusVerifyAPI.Status().version, "0.6.11")
+check("ordinary status still derives version from the TOC metadata", OlympusVerifyAPI.Status().version, "0.6.12")
 beforePrint = #PRINTS
 SlashCmdList.OLYMPUSVERIFY("help")
 check("help makes ranks discoverable", contains(messagesSince(beforePrint), "| ranks |"), true)

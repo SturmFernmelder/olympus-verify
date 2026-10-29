@@ -38,7 +38,7 @@ Further donor recoveries remain explicit: v3 attestation and source-proof depend
 
 ## Attended known-outcome recovery and same-process persistence
 
-The normal watcher entry point and the offline recovery tool acquire the same exclusive state lease before writing. State and every parent must be ordinary paths: symbolic links, Windows reparse/junction paths and multi-link state files are refused. The .197 successor (watcher 0.6.8, owner-authorized 24 October 2026) holds an OS-owned advisory lock: a nonblocking byte lock on Windows and `flock` on Linux/POSIX. The kernel releases it on normal exit, forced termination, logoff or reboot. Its ordinary marker file deliberately remains on disk and is reused without deletion; deleting a live lock could split ownership across different files. No PID, timestamp or timeout proves ownership ended.
+The normal watcher entry point, offline recovery tool and legacy dedupe-key migration acquire the same exclusive state lease before writing. Stop the watcher and every other state writer before an attended maintenance operation; a stopped watcher alone does not prove an offline recovery process released its lease. State and every parent must be ordinary paths: symbolic links, Windows reparse/junction paths and multi-link state files are refused. The .197 successor (watcher 0.6.8, owner-authorized 24 October 2026) holds an OS-owned advisory lock: a nonblocking byte lock on Windows and `flock` on Linux/POSIX. The kernel releases it on normal exit, forced termination, logoff or reboot. Its ordinary marker file deliberately remains on disk and is reused without deletion; deleting a live lock could split ownership across different files. No PID, timestamp or timeout proves ownership ended.
 
 The old .196 PID/token lock format is never adopted, even if its PID looks absent or its timestamp is old: an older writer does not participate in OS locking. Stop every old writer and inspect that legacy lock before an attended, one-time removal of that lock alone. Unknown, malformed or partially initialized marker files also require inspection. State and custody archives must not be deleted to bypass a hold. Direct imports/older processes that bypass the entry-point lease, deliberate private-file changes and nonlocal filesystem lock semantics remain outside the cooperating-writer exclusion.
 
@@ -63,6 +63,22 @@ This does not solve genuinely unknown legacy delivery or a provider acknowledgme
 HTTP409 remains held: the Worker can return a privacy hold after an inner write already applied, so it is not evidence of definite nonapplication. A policy for attended retirement of possibly applied work is a separate owner decision. Token/origin/officer rotation still changes the custody binding; queued originals are not rebound, replayed under new authority or silently discarded. Drain and inspect known custody before planned rotation when possible; unresolved or legacy records need genuine outcome/owner evidence and a separately reviewed recovery procedure. Installing 0.6.8 on officer machines, changing scheduled tasks and migrating any existing private state/legacy lock are attended operator steps, not effects of a Worker deployment. Copy the complete watcher source package, including `custody_recovery.py`; copying only `watcher.py` is insufficient.
 
 The .197 focused tests use temporary synthetic files and stubbed transport. They exercise actual child-process termination/restart and live-writer exclusion, precommit and commit-then-error reservation reloads, and archive-first retirement of a recorded roster422 followed by later verification delivery. Windows results are recorded separately from the Linux/POSIX implementation; local Windows tests do not claim Linux execution or live installation.
+
+### Legacy dedupe-key migration (Master QA, 28 October 2026)
+
+`python scrub_state.py [exact-state-path]` hashes only old cleartext `seen` keys, using the current `State._k`
+digest. It refuses any nonempty outbox, pending queue acknowledgment IDs, captured queue acknowledgment or malformed
+state without changing the source or creating a backup. Retained proof bodies must never be scrubbed, silently
+copied to a migration backup, replayed or discarded by this utility. Use the attended custody process above for
+those formats. The migration reads no credential configuration and makes no network request.
+
+For a supported state with no pending custody, stop every state writer first. The migration holds the actual shared
+lease, validates ordinary paths, and writes a private exclusive `.prescrub.json` sibling and `.scrub.tmp` before
+atomic replacement and readback. Both contain the transformed state and all unchanged private metadata; they are
+private continuing local copies, not public or automatically erased artifacts. Existing backup/temp files, changed
+source bytes or identity, an occupied/legacy lease and uncertain replacement require inspection; never delete them
+to bypass a refusal or retry blindly. A state whose keys are already digests is a successful no-op and leaves any
+existing backup unchanged. No normal watcher delivery, retry, protocol, clock or installed-host behavior changes.
 
 ## Later bounded host acceptance (25 October 2026)
 

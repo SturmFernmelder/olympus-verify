@@ -310,7 +310,7 @@ async function cronTick(over={}){
  await readyCurrentProfile();resetCount();const pending=[],lines=[],before=JSON.stringify(all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").map(t=>[t.name,all('SELECT * FROM '+t.name)]));const prior=console.error;console.error=(...a)=>lines.push(a.map(String).join(' '));
  try{await activeLoader('./index').default.scheduled({},rawCurrentEnvironment(env(over)),{waitUntil:p=>pending.push(p)});await Promise.all(pending);}finally{console.error=prior;}
  const after=JSON.stringify(all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").map(t=>[t.name,all('SELECT * FROM '+t.name)]));
- if(COUNT!==0||PHYSICAL!==0||pending.length!==0||before!==after||!lines.some(x=>x==='schema check failed; skipping this run error'))throw Error('ordinary scheduled HOLD contract changed');
+ if(COUNT!==0||PHYSICAL!==0||pending.length!==0||before!==after||!lines.some(x=>x==='cron entry held; skipping this run error'))throw Error('ordinary scheduled HOLD contract changed');
  return {statements:COUNT,physicalStatements:PHYSICAL,jobs:pending.length,held:true};
 }
 /** Same fixture source realm for admission and component calls. */

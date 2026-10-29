@@ -86,7 +86,8 @@ export async function backfillRoles(env: Env, opts: BackfillOptions,originalDisp
       // account: the page stops here, `next` continues AT this account (the last finished one is the cursor), and the
       // operator sees why; a 404 is a definitive answer (not in the server, below) and finishes the account
       const status = e instanceof DiscordError ? String(e.status) : "no answer";
-      failed.push({ id: r.discord_id, error: String(e).slice(0, 160) });
+      failed.push({ id: r.discord_id, error: e instanceof DiscordError
+        ? `Discord member lookup failed (HTTP ${e.status})` : "Discord member lookup did not answer" });
       return `stopped: Discord did not answer a member lookup (${status}); run the page again from the cursor once it does`;
     }
     if(!originalMembershipCurrent())return "stopped: original membership configuration is held; no provider retry";
@@ -128,7 +129,8 @@ export async function backfillRoles(env: Env, opts: BackfillOptions,originalDisp
       await new Promise((res) => setTimeout(res, 200));
       return "done";
     } catch (e) {
-      const msg = e instanceof DiscordError ? `${e.status}: ${e.body.slice(0, 120)}` : String(e).slice(0, 160);
+      const msg = e instanceof DiscordError ? `Discord role grant failed (HTTP ${e.status})`
+        : "Role backfill attempt could not be completed; verify current role state";
       failed.push({ id: r.discord_id, error: msg });
       // 403 here almost always means the bot's own role sits below ROLE_GUILD_MEMBER in the destination server.
       // That is a one-line fix in Discord and it will fail identically for every remaining row, so stop.

@@ -106,7 +106,7 @@ const commands = [
     default_member_permissions: "268435456", // MANAGE_ROLES as a first gate; the Worker checks Officer/Moderator/Guild Leader roles too
     options: [
       { type: SUB, name: "unbind", description: "Release a character name from its Discord account", options: [{ type: STRING, name: "character", description: "Character", required: true }] },
-      { type: SUB, name: "ban", description: "Refuse verification for a Discord account and its characters", options: [{ type: USER, name: "user", description: "Member", required: true }, { type: STRING, name: "reason", description: "Reason", required: false }] },
+      { type: SUB, name: "ban", description: "Refuse verification for a Discord account and its characters", options: [{ type: USER, name: "user", description: "Member", required: true }, { type: STRING, name: "reason", description: "Reason", required: false, max_length: 400 }] },
       { type: SUB, name: "unban", description: "Allow verification again", options: [{ type: USER, name: "user", description: "Member", required: true }] },
       { type: SUB, name: "queue", description: "Show pending invites" },
       { type: SUB, name: "sync", description: "Re-apply the latest roster export now (grants and removals)" },

@@ -11,8 +11,43 @@ let tabPreference196=null;
  await siteUser(MEMBER,{global_name:'Member'});await character(MEMBER,'Member One','Player-1-0001');await siteUser(STAFF);
  await fixtureRun("INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn','true',?)ON CONFLICT(key)DO UPDATE SET value='true'",now);
  const staff=await openPage(STAFF),shield=staff.app.querySelector(".stream-shield-toggle");
- check('unified addon promo names publisher adoption and no longer separates Army reporting',staff.app.textContent.includes('optional unified guild addon')&&staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
+ check('unified addon promo names published1.3.3 with separate website setup and availability',staff.app.textContent.includes('Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.')&&!staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
  check('Stream Shield control sits outside both navigation and the private identity area',!!shield&&!shield.closest('nav')&&!shield.closest('.who')&&!!shield.closest('.topbar-actions'));
+ // .210 Master QA: bind the shared content-link rule to actual rendered panels.
+ // This minimal DOM checks scope/wiring only; real viewport geometry is separate.
+ const contentCss210=fs.readFileSync(path.join(root,'public/static/app.css'),'utf8');
+ const contentRules210=[...contentCss210.replace(/\/\*[\s\S]*?\*\//g,'').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+   .filter(rule=>rule[1].split(',').some(selector=>selector.trim()==='.frame > a.btn'));
+ const contentSelectors210=(contentRules210[0]?.[1]||'').split(',').map(selector=>selector.trim()).filter(Boolean);
+ const contentDeclarations210=new Map((contentRules210[0]?.[2]||'').split(';').map(value=>value.trim()).filter(Boolean).map(value=>value.split(/:\s*/,2)));
+ const directSelector210=(node,selector)=>{
+   let current=node;
+   for(const part of selector.split(/\s*>\s*/).reverse()){
+     if(!current||typeof current.matches!=='function'||!current.matches(part))return false;
+     current=current.parentNode;
+   }
+   return true;
+ };
+ const contentWrapped210=node=>!!node&&contentSelectors210.some(selector=>directSelector210(node,selector));
+ check('.210 panel content links have one bounded full-text wrapping rule without clipping',contentRules210.length===1&&contentDeclarations210.get('max-width')==='100%'&&contentDeclarations210.get('min-width')==='0'&&contentDeclarations210.get('white-space')==='normal'&&contentDeclarations210.get('overflow-wrap')==='anywhere'&&!contentDeclarations210.has('overflow')&&!contentDeclarations210.has('text-overflow'));
+ const wrappingPage210=await openPage(STAFF),treasuryText210='Open the treasury programme & financial model';
+ for(const route210 of ['#/admin','#/admin/treasury']){
+   await wrappingPage210.go(route210);
+   const link210=byText(wrappingPage210.app,'a',treasuryText210);
+   check('.210 '+route210+' retains the complete Treasury CTA and selects shared content wrapping',!!link210&&link210.textContent===treasuryText210&&link210.getAttribute('href')==='#/treasury-plan'&&contentWrapped210(link210));
+   const navLinks210=wrappingPage210.app.querySelectorAll('nav a.btn'),currentShield210=wrappingPage210.app.querySelector('.stream-shield-toggle');
+   check('.210 '+route210+' keeps all header/section navigation and Shield outside content wrapping',navLinks210.length>0&&navLinks210.every(link=>!contentWrapped210(link))&&!!currentShield210&&!contentWrapped210(currentShield210));
+ }
+ await wrappingPage210.go('#/');
+ const archiveLink210=byText(wrappingPage210.app,'a','Guild charter and adoption record');
+ check('.210 Home archive action rows use the same bounded content-link rule',!!archiveLink210&&archiveLink210.getAttribute('href')==='#/governance'&&contentWrapped210(archiveLink210));
+ await wrappingPage210.go('#/guide/officer');
+ const guideAdmin210=byText(wrappingPage210.app,'a','Open Admin');
+ check('.210 officer guide paragraph CTA uses the same rule without changing its target',!!guideAdmin210&&guideAdmin210.getAttribute('href')==='#/admin'&&contentWrapped210(guideAdmin210));
+ await wrappingPage210.go('#/army');
+ check('.210 Army reader distinguishes the published addon from administrator-enabled website reporting',wrappingPage210.app.textContent.includes('Olympus Guild 1.3.3 is published. Website reporting is available only when enabled by site administrators.')&&wrappingPage210.app.textContent.includes('Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting.')&&!wrappingPage210.app.textContent.includes('publisher adoption'));
+ const shieldRule210=/\.stream-shield-toggle\.btn\s*\{([^}]+)\}/.exec(contentCss210)?.[1]||'';
+ check('.210 content wrapping preserves the fixed44px header control and compact ordinary-button default',/width:\s*44px(?:;|$)/.test(shieldRule210)&&/height:\s*44px(?:;|$)/.test(shieldRule210)&&/min-width:\s*44px(?:;|$)/.test(shieldRule210)&&/\.btn\s*\{[^}]*white-space:\s*nowrap\s*;/.test(contentCss210));
  await staff.go('#/apply');const detail=staff.app.querySelectorAll('button').find(button=>(button.getAttribute('aria-label')||'').startsWith('Details:'));
  if(!detail)throw Error('actual role dialog trigger missing');detail.click();await settle();
  check('actual role detail opens an ordinary named modal before shielding',staff.document.querySelector('dialog')?.open===true);

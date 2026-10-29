@@ -5,7 +5,7 @@ const fs196=require('node:fs'),path196=require('node:path'),crypto196=require('n
 const helper196=fs196.readFileSync(path196.join(__dirname,'frontend_check.cjs'),'utf8'),starts196=[...helper196.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if(starts196.length!==1)throw Error('portrait196_original_frontend_setup_boundary');
 const prefix196=helper196.slice(0,starts196[0].index),prefixSHA196=crypto196.createHash('sha256').update(prefix196).digest('hex');
-if(prefixSHA196!=='7b72fd253e127dfa0379b0528adb5a05c9ae8e92655fd6c9b2e468ce201300f1')throw Error('portrait196_original_frontend_setup_drift');
+if(prefixSHA196!=='bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5')throw Error('portrait196_original_frontend_setup_drift');
 async function portraitConsent196(){
  await siteUser(MEMBER,{global_name:'Mia'});await character(MEMBER,'Mia One','Player-1-0001');
  await siteUser(OTHER,{global_name:'Oz'});await character(OTHER,'Oz Two','Player-1-0002');
@@ -61,6 +61,7 @@ async function portraitConsent196(){
  saved=await request('PUT','/api/application',{...body,position:'member',backups:[],board:false,boardPortrait:true});
  check('a role with no board cannot store portrait publication authority',saved.response.status===200&&stored().boardAt===null&&stored().answers.boardPortraitOptIn===false);
  check('new consent changes no Native schema, board vote or separate Discord directory preference',JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all())===originalSchema&&!one('SELECT 1 FROM site_board_votes')&&JSON.stringify(db.prepare("SELECT key,value FROM site_settings WHERE key='discordDirectoryHidden'").all())===originalDirectoryPreference);
+ await require('./application_board_consent210_test.cjs');
  console.log('\n'+ok+'/'+n+' historical portrait parser/board/copy checks passed; current reserved edits denied and withdrawal admitted');process.exit(ok===n?0:1);
 }
 const run196=new Module(__filename,module);run196.filename=__filename;run196.paths=Module._nodeModulePaths(__dirname);run196._compile(prefix196+'\n('+portraitConsent196.toString()+')().catch(error=>{console.error(error.stack);process.exit(1);});',__filename);

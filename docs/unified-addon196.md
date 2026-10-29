@@ -2,13 +2,34 @@
 
 Owner: Codex subagent `master196_recovery_inventory`. Source ownership is limited to the `/olv invite` alias and native verification-column tooltip in `addon/OlympusVerify`, the new compatibility candidate in `addon/OlympusGuildCompatibility196`, Army page/report assets, this document, and new pure parser/module tests. Expanded delegation includes Army artifact retirement/build/reference entries, `site-army.ts`, projection checks and Army-focused expectations. Root owns other backend routes, `app.js`, remaining asset/build manifests, CI and provider operations. This is local implementation evidence, not upstream, game-client, peer or production acceptance.
 
-## Current source and publisher dependency
+## Publication status checked 28 October 2026
 
-The official [Olympus Guild CurseForge project](https://www.curseforge.com/wow/addons/olympus-guild) currently supplies Olympus 1.3.2, file 9273643. Its upstream commit/tag is `d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`. The inspected immutable `Olympus/Bridge.lua` is SHA-256 `d9127c4009903c8535a3e4de88785e7af31ab033fdf343e3f5f039a753e95d43`; `Olympus.toc` is `415c437e8a6f12253da14f72fbd11575d504b2e8a30cfc136e62138de578f400`. Its read-only `GetCensusCheckpoint()` API v1 is real. The earlier proposed `GetCensusSnapshot()` API and the site's OLCS2 Army frames are **not** that upstream contract.
+[PR #72](https://github.com/dnl-gentile/olympus-addon/pull/72) merged on 26 October 2026 as
+`71bc357c251b49a167821cc0b7f922eb69fa35b6`. A public [GitHub v1.3.3 release](https://github.com/dnl-gentile/olympus-addon/releases/tag/v1.3.3)
+exists and the official [CurseForge project](https://www.curseforge.com/wow/addons/olympus-guild) lists
+`Olympus-1.3.3.zip`. This closes the historical source-adoption/publication-pending statement; it does not verify
+downloaded package bytes, installed client behavior or website admission. No installation or activation follows
+from this documentation update.
 
-The Army reporter now links the official project and has no standalone Army download or install prompt. It explains that the current CurseForge package cannot emit the new dedicated file. `addon/OlympusGuildCompatibility196/upstream-1.3.2.patch` is a reviewable optional upstream package patch, not an installation or a claim of adoption. It adds `OlympusSiteAggregate` beside `Olympus` in the **same release ZIP**. This separate addon folder is necessary because WoW writes SavedVariables by addon folder: adding a variable to the main Olympus TOC would put it into sensitive `Olympus.lua`.
+The retained local compatibility source targets the older 1.3.2 checkpoint and differs from the maintainer's
+1.3.3 implementation. Upstream's `1.3.3-site.1` TOC intentionally keeps wire producer `1.3.2-site.1`; the producer is
+a format label, not the package version or an origin signature. The current upstream exporter adds server-clock,
+fresh own-roster and withdrawal-lifecycle guards. Client loading/export and the site's separate admission and
+privacy/consent gates still require qualification.
 
-Publisher adoption, an actual packaged release, and supported-client UI checks remain dependencies. No upstream PR/message, CurseForge publication, game installation, protected action or provider operation was performed. The website must not imply that installing unmodified 1.3.2 supplies this module or `/olv`.
+## Historical .196 source and publisher dependency
+
+The original inspection used Olympus 1.3.2, CurseForge file 9273643, upstream commit/tag
+`d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2`. The inspected immutable `Olympus/Bridge.lua` is SHA-256 `d9127c4009903c8535a3e4de88785e7af31ab033fdf343e3f5f039a753e95d43`; `Olympus.toc` is `415c437e8a6f12253da14f72fbd11575d504b2e8a30cfc136e62138de578f400`. Its read-only `GetCensusCheckpoint()` API v1 is real. The earlier proposed `GetCensusSnapshot()` API and the site's OLCS2 Army frames are **not** that upstream contract.
+
+The .196 Army reporter linked the official project and had no standalone Army download or install prompt. At that
+checkpoint, unmodified 1.3.2 could not emit the new dedicated file. The retained
+`addon/OlympusGuildCompatibility196/upstream-1.3.2.patch` describes that historical optional package patch. It adds
+`OlympusSiteAggregate` beside `Olympus` in the **same release ZIP**. This separate addon folder is necessary because
+WoW writes SavedVariables by addon folder: adding a variable to the main Olympus TOC would put it into sensitive
+`Olympus.lua`. The original implementation lane did not publish or install it. The current status above supersedes
+its draft/publication-pending labels; supported-client acceptance remains separate. Installing unmodified 1.3.2
+does not supply this module or `/olv`.
 
 ## Implemented and retained capabilities
 

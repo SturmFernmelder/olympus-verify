@@ -76,6 +76,18 @@ async function main() {
   check('an invalid concurrency limit is rejected', true);
 
   const shardJob = job('worker_shard'), collector = job('worker'), final = job('check');
+  const concurrency = /\nconcurrency:\n([\s\S]*?)\n(?=\S)/.exec(workflow)?.[1] || '';
+  // Parse the actual supported selector shape; do not simulate GitHub's queue or evaluate arbitrary workflow code.
+  const uniqueNonPr = /^  group: review-\$\{\{\s*github\.event_name == 'pull_request' && github\.ref \|\| github\.run_id\s*\}\}$/m.test(concurrency);
+  const selectedGroup = (event, ref, runId) => uniqueNonPr ? 'review-' + (event === 'pull_request' ? ref : runId) : null;
+  check('each non-PR run has its own group, so a newer pending main run cannot replace it', uniqueNonPr
+    && ['push', 'workflow_dispatch', 'pull_request_target'].every(event => selectedGroup(event, 'refs/heads/main', 101) !== selectedGroup(event, 'refs/heads/main', 102)));
+  check('runs of the same PR share one group and distinct PRs keep separate groups', uniqueNonPr
+    && selectedGroup('pull_request', 'refs/pull/1/merge', 101) === selectedGroup('pull_request', 'refs/pull/1/merge', 102)
+    && selectedGroup('pull_request', 'refs/pull/1/merge', 101) !== selectedGroup('pull_request', 'refs/pull/2/merge', 101));
+  check('only pull-request runs cancel their in-progress predecessor', /^  cancel-in-progress: \$\{\{\s*github\.event_name == 'pull_request'\s*\}\}$/m.test(concurrency));
+  check('the addon job retains the missing-declared-suite contract before every Lua suite', job('addon').includes('run: python3 addon/tests/test_lua_runner.py')
+    && job('addon').indexOf('run: python3 addon/tests/test_lua_runner.py') < job('addon').indexOf('run: python3 addon/tests/run_lua_suites.py'));
   const matrix = /\n        shard: (\[[^\n]+\])/.exec(shardJob);
   check('the workflow schedules every required matrix value 1 through 8', !!matrix && JSON.stringify(JSON.parse(matrix[1])) === '[1,2,3,4,5,6,7,8]');
   check('matrix fail-fast remains false without continue-on-error', /\n      fail-fast: false\n/.test(shardJob) && !/continue-on-error:\s*true/.test(workflow));

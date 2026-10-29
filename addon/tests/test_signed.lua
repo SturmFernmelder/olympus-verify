@@ -130,6 +130,7 @@ onEvent(frame, "CHAT_MSG_SYSTEM", "Kicked Kim has been kicked out of the guild b
 check("a removal by someone else: kind 'kicked'", whispersTo(w4, ME)[1], "Olympus: Kicked Kim was removed from the guild (ref OLVl-" .. L.leaveToken(SECRET, "kicked", "Kicked Kim", L.utcDay(NOW)) .. ")")
 local w5 = #WHISPERS
 -- the panel aims the kick macro with a reason; the addon keeps it in Unverified.aim (reached through the API)
+ROSTER[#ROSTER + 1] = { name = "Seat Sam", rank = "Member", rankIndex = 7, level = 60, away = 200 }
 API.PointKickMacro("Seat Sam", "space")
 onEvent(frame, "CHAT_MSG_SYSTEM", "Seat Sam has been kicked out of the guild by Fern Melder.")
 check("a removal aimed to free a seat: kind 'space', reason carried in the note", whispersTo(w5, ME)[1], "Olympus: Seat Sam was removed to free a seat (ref OLVl-" .. L.leaveToken(SECRET, "space", "Seat Sam", L.utcDay(NOW)) .. ")")
@@ -239,6 +240,8 @@ onEvent(frame, "CHAT_MSG_SYSTEM", "|Hplayer:Linked Larry-Forever|h[Linked Larry]
 check("the note names Linked Larry, and its MAC is over that name", whispersTo(w12, ME)[1],
   "Olympus: Linked Larry joined the guild (ref OLVj-" .. L.joinToken(SECRET, "Linked Larry", L.utcDay(NOW)) .. ")")
 local w13 = #WHISPERS
+ROSTER[#ROSTER + 1] = { name = "Link Lou", rank = "Member", rankIndex = 7, level = 60, away = 200 }
+OlympusQueue.unverified = { members = { { name = "Link Lou", firstSeen = NOW - 100 * 86400, eligibleAt = NOW - 90 * 86400 } }, firstSeenAvailable = true }
 API.PointKickMacro("Link Lou", "unverified")
 onEvent(frame, "CHAT_MSG_SYSTEM", "|Hplayer:Link Lou-Forever|h[Link Lou]|h has been kicked out of the guild by |Hplayer:Fern Melder|h[Fern Melder]|h.")
 local lastE = OlympusVerifyDB.events[#OlympusVerifyDB.events]
