@@ -60,6 +60,7 @@ const PENDING_TTL = 24 * 3600; // one code per character per day, plus the bound
 const NONCE_REUSE_AFTER = 48 * 3600;
 // Forever uses two-part names; allow one space and apostrophes, and accented letters (EU realms) via Unicode classes.
 const NAME_RE = /^\p{L}[\p{L}' ]{1,30}$/u;
+const BAN_REASON_MAX = 400; // .210: the reason appears in the reply and the staff card, both inside Discord's 2,000 characters
 export const USER_MENU_LOOKUP = "Olympus linked characters"; // user context-menu command (right-click a member → Apps)
 
 export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,originalDispatch?:BetaRoleDispatch): Promise<Response> {
@@ -122,7 +123,7 @@ async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCap
     // This is the answer someone gets after MEE6 has taken their role away (see restore.ts), so it comes back here.
     const note = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "verify",roleDispatch));
     // Revision 4 (A6): a same-name beta member creates no pending row here, so the fresh roles need the guide's button.
-    if (freshGrantText(lane)) return reply(`**${existing.name}** is already linked to your account. For the guild roles, press **Verify** in the guide and whisper the code from your highest-ranked character in the guild.${note ? `\n${note}` : ""}`);
+    if (freshGrantText(lane)) return reply(`**${existing.name}** is already linked to your account. For the guild roles, press **Get my code** in the guide and whisper the code from your highest-ranked character in the guild.${note ? `\n${note}` : ""}`);
     return reply(`**${existing.name}** is already verified and in the guild.${note ? `\n${note}` : ""}`);
   }
 
@@ -412,6 +413,8 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       const removalDispatch=roleDispatch.capture;
       const target = option<string>(i, "user") ?? "";
       const reason = option<string>(i, "reason") ?? "";
+      // .210: the reason is shown twice (reply and staff card); a longer one pushed both past Discord's 2,000 characters.
+      if (reason.length > BAN_REASON_MAX) return reply(`Keep the reason to ${BAN_REASON_MAX} characters or fewer. Nothing was changed.`);
       const targetCapture=membershipSettlementEnabled(env)?await readPrivacySubject(env,target):undefined;
       await env.DB.prepare(
         "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",

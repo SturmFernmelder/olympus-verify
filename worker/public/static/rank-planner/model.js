@@ -185,6 +185,8 @@
     out.push({ level: 'info', text: 'The current ten-rank recommendation is Leader, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. High Council is zero-based slot 1; Officer is slot 2. Co-Guild Master and Treasurer are appointments, not native ranks. Council membership, real native rank, signing profiles and actual bank permissions remain separate; this draft applies none of them.' });
     const result = compatibility(draft);
     if (!result.captainCompatible) out.push({ level: 'warning', text: `The community addon treats the second rank as Captain. ${result.captainName} is there now; review that authority before adopting this ladder.` });
+    // .210: the qualified full-release role sync recognises the ten-rank roster only with "Guild Master" in slot 0.
+    if (draft.ranks[0] && draft.ranks[0].name !== 'Guild Master') out.push({ level: 'warning', text: `Rank 0 is named “${draft.ranks[0].name}”. The website's role sync currently recognises the ten-rank roster only when in-game rank 0 is named exactly “Guild Master”; with any other name it holds every native rank role. Keep “Guild Master” in game until the owner approves another name.` });
     draft.ranks.slice(1).forEach(rank => {
       if ((rank.permissions.bundle || rank.permissions.gold || rank.permissions.tabs) && !rank.permissions.auth) out.push({ level: 'warning', text: `${rank.name} has sensitive permissions without an authenticator requirement.` });
     });

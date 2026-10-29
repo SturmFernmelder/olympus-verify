@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: review-${{ github.ref }}
-  cancel-in-progress: true
+  # .210: only a newer push to the same pull request cancels its older run; every main commit keeps its own result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # .168 conserves the original test:all occurrences, including repeated invocations.

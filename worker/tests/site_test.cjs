@@ -1382,6 +1382,15 @@ async function legacySchemaHeld(old) {
   console.log("\n== lookups in Asmongold's server (/olympus-lookup) ==");
   const inter = (name, over = {}, roles = [OFFICER_ROLE]) => ({ type: 2, id: "1", token: "t", guild_id: GUILD, member: { user: { id: "500000000000000001", username: "officer" }, roles, permissions: "0" }, data: { name, ...over } });
   check("routed ahead of the Olympus-only guard only in Asmongold's server", lookup.isAsmongoldLookup(env(), inter("olympus-lookup")) && !lookup.isAsmongoldLookup(env(), { ...inter("olympus-lookup"), guild_id: OLYMPUS }));
+  {
+    // .210: production after the move (GUILD_ID equals INTROS_GUILD_ID): the registered command and its autocomplete are
+    // routed instead of "Unknown command."; the right-click menu stays with interactions.ts; other servers stay refused.
+    const shared = { ...env(), GUILD_ID: GUILD };
+    const menu = { ...inter("Olympus linked characters"), data: { ...inter("Olympus linked characters").data, type: 2, target_id: "300000000000000001" } };
+    check(".210 after the move /olympus-lookup and its autocomplete are routed in the one shared server, the user menu is not",
+      lookup.isAsmongoldLookup(shared, inter("olympus-lookup")) && lookup.isAsmongoldLookup(shared, { ...inter("olympus-lookup"), type: 4 })
+      && !lookup.isAsmongoldLookup(shared, menu) && !lookup.isAsmongoldLookup(shared, { ...inter("olympus-lookup"), guild_id: OLYMPUS }));
+  }
   let r = await (await lookup.handleLookup(env(), inter("olympus-lookup", { options: [{ name: "member", type: 6, value: "300000000000000001" }] }, []))).json();
   check("members without an Olympus role are refused", /officers only/i.test(r.data.content));
   r = await (await lookup.handleLookup(env(), inter("olympus-lookup", { options: [{ name: "member", type: 6, value: "300000000000000001" }] }))).json();

@@ -150,6 +150,12 @@ check("  the script writes no markup and fetches nothing", !/\.innerHTML\s*[=+]|
 console.log("\n== owner policy, provenance and compatibility ==");
 const current = Model.createDraft(catalogue.ranks);
 const rank = id => current.ranks.find(r => r.id === id);
+{
+  // .210: the qualified role sync identifies the ten-rank roster only with "Guild Master" in slot 0; the planner says so.
+  const syncWarning = draft => Model.notices(draft).filter(n => n.level === "warning" && n.text.includes("exactly “Guild Master”"));
+  const renamed = JSON.parse(JSON.stringify(current)); renamed.ranks[0].name = "Guild Master";
+  check(".210 the recommended draft (rank 0 'Leader') warns that role sync needs 'Guild Master'; a draft that keeps it does not", current.ranks[0].name === "Leader" && syncWarning(current).length === 1 && syncWarning(renamed).length === 0);
+}
 check("the actual current 26-idea catalogue retains its exact current Treasurer metadata", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "1880c72fed9b7ae4855bfa936db50936f195eb2a564fa680cbf87c814f0f6f4b");
 check("High Council retains every original planning permission without applying a live grant", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]));
 const treasurerIdea = Model.makeRank(catalogue.ranks.find(r => r.id === 'treasurer'));

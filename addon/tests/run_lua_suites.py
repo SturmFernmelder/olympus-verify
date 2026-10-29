@@ -29,6 +29,8 @@ SUITES = {
     "roster": (TESTS, Path("test_roster.lua")),
     "roster_feedback196": (TESTS, Path("test_roster_feedback196.lua")),
     "preview": (ADDON, Path("test/preview.lua")),
+    "secret_placeholder": (TESTS, Path("test_secret_placeholder.lua")),
+    "queue_dismiss": (TESTS, Path("test_queue_dismiss.lua")),
 }
 
 

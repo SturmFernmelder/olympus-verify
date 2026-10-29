@@ -204,10 +204,13 @@ export async function ownerOfCharacter(env: Env, raw: string): Promise<{ id: str
   return null;
 }
 
-/** True when this interaction is one of the lookup commands in Asmongold's server (and that server is not GUILD_ID). */
+/** True when this interaction is one of the lookup commands in Asmongold's server. */
 export function isAsmongoldLookup(env: Env, i: Interaction): boolean {
   const guild = (env.INTROS_GUILD_ID ?? "").trim();
-  if (!guild || guild === env.GUILD_ID || i.guild_id !== guild) return false;
+  if (!guild || i.guild_id !== guild) return false;
+  // .210: since the move the two servers are one, and register.mjs registers /olympus-lookup in it; route the command
+  // and its autocomplete here (it answered "Unknown command."). The right-click menu keeps its route in interactions.ts.
+  if (guild === env.GUILD_ID) return (i.type === 2 || i.type === 4) && i.data?.type !== 2 && i.data?.name === LOOKUP_COMMAND;
   if (i.type === 2) return i.data?.name === LOOKUP_COMMAND || (i.data?.type === 2 && i.data?.name === LOOKUP_USER_MENU);
   if (i.type === 4) return i.data?.name === LOOKUP_COMMAND;
   return false;

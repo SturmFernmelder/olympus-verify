@@ -354,6 +354,39 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check(".196 canonical public policies remain script-free branded readers without default legal navigation", [publicPrivacy, publicTerms].every(p => p.response.status === 200 && scriptFreePolicy(p) && p.text.includes('<main id="policy-content"') && p.text.includes('class="brand"') && p.text.includes('src="/static/olympus-icon.png"') && !p.text.includes('<img src="/static/wow/icon-shield.png"') && p.text.includes('href="/static/policies.css"') && p.text.includes('href="/static/wow-cursor.css"') && p.text.includes('aria-label="On this page"') && !/<nav\b[^>]*aria-label="Policies"|<footer\b|class="footer-links"/.test(p.text) && !p.response.headers.has('Set-Cookie')));
   const oldPrivacy = await policyHTML("/privacy"), oldTerms = await policyHTML("/terms");
   check("retired root policy addresses are empty 410 responses without redirects, sign-in fallback or private payload", oldPrivacy.response.status === 410 && !oldPrivacy.response.headers.has("Location") && oldTerms.response.status === 410 && !oldTerms.response.headers.has("Location") && oldPrivacy.text === "" && oldTerms.text === "" && !oldPrivacy.response.headers.has("Set-Cookie") && !oldTerms.response.headers.has("Set-Cookie"));
+  {
+    // .210 QA: an application track page reuses the board shell, so it must reset the scroll itself.
+    const track210 = await openPage(MEMBER);
+    const scrolls210 = [], top210 = () => scrolls210.some(([x, y]) => x === 0 && y === 0);
+    track210.window.scrollTo = (...args) => { scrolls210.push(args); };
+    await track210.go("#/vote/officer");
+    await waitFor(() => track210.app.textContent.includes("No historical applications are listed for this role"), ".210 board read before a track switch");
+    scrolls210.length = 0;
+    await track210.go("#/vote/raid_leader_na");
+    const ballotKeeps210 = !top210();
+    scrolls210.length = 0;
+    await track210.go("#/vote/member/new");
+    await waitFor(() => !!track210.app.querySelector("main")?.dataset.applicationTrack199, ".210 member application track page");
+    const enterTop210 = top210();
+    scrolls210.length = 0;
+    await track210.go("#/vote");
+    await waitFor(() => track210.location.hash === "#/vote" && top210(), ".210 back on the board at the top", 8000);
+    check(".210 a ballot switch keeps the board's scroll, while entering or leaving an application track page starts at the top", ballotKeeps210 && enterTop210 && top210());
+    await track210.go("#/apply");
+    await waitFor(() => !!track210.app.querySelector("#f-class"), ".210 application form");
+    const req210 = id => track210.app.querySelector("#" + id)?.getAttribute("aria-required");
+    check(".210 required application fields announce it (aria-required), optional ones do not", ["f-class", "f-role", "f-region", "f-voice"].every(id => req210(id) === "true") && req210("f-character") === null && req210("f-logs") === null);
+  }
+  {
+    // .210 QA: a mid-session 401 signs the page out; the Staff menu and the Stream Shield toggle must go with it.
+    const out210 = await openPage(STAFF);
+    const header210 = () => out210.app.querySelector("header")?.textContent || "";
+    const before210 = /Staff/.test(header210()) && !!out210.app.querySelector(".stream-shield-toggle");
+    out210.answer(pathname => pathname.startsWith("/api/admin/") ? new Response('{"error":"signed_out"}', { status: 401, headers: { "Content-Type": "application/json" } }) : null);
+    await out210.go("#/admin");
+    await waitFor(() => !/Staff/.test(header210()), ".210 the signed-out header after a 401", 8000);
+    check(".210 after a mid-session 401 the header drops the Staff menu and the Stream Shield toggle", before210 && !/Staff/.test(header210()) && !out210.app.querySelector(".stream-shield-toggle"));
+  }
   let page = await openPage(MEMBER);
   {
     const fast = await openPage(MEMBER);

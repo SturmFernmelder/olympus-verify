@@ -37,14 +37,14 @@ npm run check:vectors                      # the 12 shared code vectors (Python,
 npm run check:policies                     # src/policy-content.ts is what policies/*.html give (regenerate: npm run build:policies)
 npm run test:all                           # typecheck + vectors + every node suite (real src/*.ts over SQLite) + the bundle in workerd
 node tests/bundle_runtime_test.cjs         # the exact dry-run bundle loaded in local Miniflare/workerd (~15 s)
-node tests/site_test.cjs                   # one suite (361 checks); each suite prints PASS/FAIL and a total
-node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (271 checks, .93-.115)
+node tests/site_test.cjs                   # one suite (383 checks at .210); each suite prints PASS/FAIL and a total
+node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (579 checks at .210)
 node tests/role_budget_test.cjs            # the role writer's request budget: the real discord.ts rest() behind a stubbed fetch (.95/.99)
 node tests/guild_seats_test.cjs            # .115: whether Olympus I has room (latest snapshot, trust, the texts, the staff lines, the ingest's statement bound; 171 checks)
-node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 167)
-node tests/scheduled_budget_test.cjs       # .115: the cron's D1 statement budget (scheduled-budget.ts): each job, the role sweep's per-account costs exactly, cold and warm schema, the whole run, continuation (65)
+node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 346 at .210)
+node tests/scheduled_budget_test.cjs       # .115: the cron's D1 statement budget (scheduled-budget.ts): each job, the role sweep's per-account costs exactly, cold and warm schema, the whole run, continuation (70 at .210)
 node tests/roster_effects_test.cjs         # .115: worklist, notice debt, incomplete/legacy snapshots, retries, binding races and sync (87 focused checks at takeover repair; final exact-head receipt remains authoritative)
-node tests/rank_planner_test.cjs           # .115: every page script parses, every planner file equals its pin, the planner's own buttons (20)
+node tests/rank_planner_test.cjs           # .115: every page script parses, every planner file equals its pin, the planner's own buttons (37 at .210)
 python tests/unverified_sql_test.py        # SQL suites (from worker/)
 python tests/backfill_sql_test.py
 npx wrangler deploy --dry-run --outdir <scratch>   # bundle without deploying

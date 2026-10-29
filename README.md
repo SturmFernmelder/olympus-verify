@@ -162,8 +162,10 @@ Run it from Task Scheduler ("at log on", `pythonw.exe watcher.py --config C:\pat
 folder) so it is always up when the client is. `--check` prints a digest of the day's code rather than a working
 code. Since watcher 0.6.5 `worker_url` must be the Worker's bare HTTPS origin; a 401, 403 or 429 from the Worker (or a
 redirect, which means the wrong origin) pauses every request for 15 minutes or the Worker's `Retry-After`, the pause is
-kept in the state file across restarts, and `--check` reports it. `python -m unittest discover -s tests` runs the
-offline tests.
+kept in the state file across restarts, and `--check` reports it. The offline tests are `python tests/test_watcher.py`
+and `python tests/test_discord_relay.py` (the relay script exits at import, so `unittest discover` reports an error).
+`pythonw.exe` shows no messages; to keep them, run `python watcher.py --config config.json >> watcher.log 2>&1`
+(watcher 0.6.9 and later write such a redirected log safely whatever characters a name contains).
 
 ## Commands
 > The September baseline: the officers for `/olympus-admin` are now Officer, Guild Leader and Guild Master (Moderator
@@ -364,8 +366,10 @@ what never to run, conventions, ownership and the owner gates. The task log is
 `Olympus/consolidation-2026-09-30/claude_code_x_codex.md`.
 
 - **Checks:** from `worker/`, `npm run test:all` (typecheck, the code vectors, every node suite); the SQL suites with
-  `python tests/*.py`; from `watcher/`, `python tests/test_watcher.py` and `python tests/test_discord_relay.py`; the
-  tools tests `python tools/tests/*.py`; the addon suites through the lupa venv (`addon/tests/run_lua_suites.py`).
+  `python tests/unverified_sql_test.py` and `python tests/backfill_sql_test.py` (one file per command: `python tests/*.py`
+  runs only the first); from `watcher/`, `python tests/test_watcher.py` and `python tests/test_discord_relay.py`; the
+  tools tests `python tools/tests/test_backfill_roles.py` and `python tools/tests/test_review.py`; the addon suites
+  through the lupa venv (`addon/tests/run_lua_suites.py`).
   `.github/workflows/ci.yml` runs all of that, plus a Gitleaks history scan and a dry-run bundle, once the repository
   is on GitHub.
 - **Deploys** are the owner's, from an exact commit both agents signed: `bash scripts/deploy-commit.sh <sha>` from the

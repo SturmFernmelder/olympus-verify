@@ -555,7 +555,12 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     // version asks for a protocol this Worker does not implement (the generation-3 proposal stays an unshipped
     // candidate); it is told so, never served the legacy answer as if it were that protocol. Unversioned clients see
     // no difference.
-    const body: any = request.method === "POST" ? await request.json() : null; // each handler validates its own body, exactly as before .66
+    let body: any = null; // each handler validates its own body, exactly as before .66
+    if (request.method === "POST") {
+      // .210: a body that is not a JSON object is a final 400; it was a 500, which the watcher retries forever.
+      try { body = await request.json(); } catch { return json({ error: "bad_json", message: "The request body is not valid JSON." }, 400); }
+      if (body === null || typeof body !== "object" || Array.isArray(body)) return json({ error: "bad_body", message: "The request body must be a JSON object." }, 400);
+    }
     if (query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       return json({ error: "unsupported_protocol", message: "This Worker serves the unversioned protocol only; a keyVersion is not supported." }, 400);
     }

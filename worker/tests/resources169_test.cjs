@@ -148,6 +148,26 @@ function renderer(fetcher) {
   u.hide(); check('hidden view stops polling immediately', u.intervals.size === 0);
   u.show(); await settle(); check('visible view resumes one bounded same-origin source read', u.calls.length === 2 && u.intervals.size === 1 && u.calls.every(([url, init]) => url === '/api/resource-updates' && init.cache === 'no-store' && init.credentials === 'same-origin'));
   updates.destroy(); check('updates destroy stops polling and aborts its controller', u.intervals.size === 0 && updateHolder.children.length === 0);
+  {
+    // .210: the 60-second refresh keeps an open "Retrieval details" and the focused headline; unchanged data is not redrawn.
+    let serve = good, focusedNode = null;
+    Element.prototype.focus = function () { focusedNode = this; };
+    const keepUi = renderer(async () => Response.json(serve)), keepHolder = new Element('div');
+    const keepMount = keepUi.api.mount(keepHolder, { view: 'updates' }); await settle();
+    const tick = async () => { [...keepUi.intervals.values()][0].fn(); await settle(); };
+    const firstArticle = () => walk(keepHolder).find(x => x.tagName === 'ARTICLE');
+    const before = firstArticle();
+    await tick();
+    const unchangedKept = firstArticle() === before && keepUi.calls.length === 2;
+    const details = walk(before).find(x => x.tagName === 'DETAILS'); details.open = true; details.fire('toggle');
+    const headline = walk(before).filter(x => x.tagName === 'A')[1]; keepUi.document.activeElement = headline;
+    serve = { ...good, sources: good.sources.map(source => ({ ...source, checkedAt: source.checkedAt + 60 })) };
+    await tick();
+    const after = firstArticle(), reopened = walk(after).find(x => x.tagName === 'DETAILS');
+    check('.210 a refresh with unchanged data keeps the page; a changed refresh keeps the open retrieval details and the focused headline',
+      unchangedKept && after !== before && reopened.open === true && !!focusedNode && focusedNode !== headline && focusedNode.href === headline.href);
+    keepMount.destroy(); delete Element.prototype.focus;
+  }
   const groupedData = structuredClone(good);
   groupedData.sources[0].items = [6, 7].map((post, i) => ({ title: 'Development notes updated October 15', url: `https://us.forums.blizzard.com/en/wow/t/notes/2360696/${post}`, publishedAt: AT - (i + 1) * DAY }));
   groupedData.sources[1] = { ...groupedData.sources[1], items: [], status: 'unavailable', failure: 'upstream', upstreamStatus: 503 };

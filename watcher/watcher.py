@@ -100,7 +100,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.8"
+WATCHER_VERSION = "0.6.9"
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -140,7 +140,14 @@ def line_epoch(line: str, now: float | None = None) -> float | None:
 
 
 def log(msg: str) -> None:
-    print(f"{datetime.now().strftime('%H:%M:%S')} {msg}", flush=True)
+    line = f"{datetime.now().strftime('%H:%M:%S')} {msg}"
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        # 0.6.9: a redirected Windows console is cp1252. A character name it cannot encode must not raise here,
+        # or the chat lane re-reads the same line forever and every later lane in the loop is skipped.
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        print(line.encode(encoding, "backslashreplace").decode(encoding), flush=True)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -178,6 +185,9 @@ class Worker:
         if not valid:
             raise ValueError("worker_url must be an HTTPS origin without credentials, path, query or fragment")
         self.base = base.rstrip("/")
+        # 0.6.9: a token with spaces or line breaks (a stray newline when pasting) made http.client's error text print it.
+        if not isinstance(token, str) or not token or any(ord(c) <= 32 or ord(c) == 127 for c in token):
+            raise ValueError("watcher_token is empty or contains spaces or line breaks; paste the Worker secret WATCHER_TOKEN again")
         self.token = token
         self.opener = urllib.request.build_opener(NoRedirect())
         self.pause_state: State | None = None  # set by Watcher, so the pause lives in the state file
@@ -390,8 +400,9 @@ class Watcher:
         self.officer_id = str(cfg.get("officer_id") or codes.normalize_character(self.officer) or "").strip()[:64]
         self.state = State(Path(cfg.get("state_file", "watcher-state.json")))
         self.worker.pause_state = self.state  # 0.6.5: the transport pause is kept with the rest of the state
-        self.poll = float(cfg.get("poll_seconds", 2))
-        self.queue_poll = float(cfg.get("queue_poll_seconds", 30))
+        # 0.6.9: floors, so a 0 cannot turn the loop into a request storm against the Worker (650 requests in 8 s).
+        self.poll = max(1.0, float(cfg.get("poll_seconds", 2)))
+        self.queue_poll = max(5.0, float(cfg.get("queue_poll_seconds", 30)))
         self._last_queue_pull = 0.0
         # Who is in the guild but not verified. Slow on purpose: the addon reads the queue file only at login or
         # /reload, so fetching this more often than a person reloads buys nothing and costs D1 reads (the free tier
@@ -649,7 +660,9 @@ class Watcher:
         tail = chunk[nl + 1 :]
         chunk = chunk[: nl + 1]
         consumed -= len(tail)
-        lines = [raw.strip("\r\n\ufeff") for raw in chunk.decode("utf-8", errors="replace").splitlines()]
+        # 0.6.9: split on "\n" only. str.splitlines() also breaks at U+2028, U+0085, \x0b and similar, so one relayed
+        # chat line could carry a second, forged "... whispers: !verify" line inside it.
+        lines = [raw.strip("\r\n\ufeff") for raw in chunk.decode("utf-8", errors="replace").split("\n") if raw.strip("\r\n\ufeff")]
         # The addon writes its identity note right after the whisper it confirms, and both reach the file in one flush:
         # read the notes first, so the verification relayed from the whisper line can carry the character's GUID.
         for line in lines:
@@ -1488,8 +1501,23 @@ def main() -> int:
     ap.add_argument("--config", default="config.json")
     ap.add_argument("--check", action="store_true", help="validate configuration and exit")
     a = ap.parse_args()
-    with open(a.config, encoding="utf-8") as f:
-        cfg = json.load(f)
+    # 0.6.9: a missing, unreadable or malformed config.json is a message and exit 2, never a traceback.
+    try:
+        with open(a.config, encoding="utf-8-sig") as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        log(f"config: {a.config} not found; copy config.example.json to config.json and fill it in")
+        return 2
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        log(f"config: {a.config} could not be read as JSON ({type(e).__name__}); fix the file and start again")
+        return 2
+    if not isinstance(cfg, dict):
+        log("config: config.json must be a JSON object (see config.example.json)")
+        return 2
+    missing = [k for k in ("worker_url", "watcher_token", "verify_secret", "wow_dir", "account") if k not in cfg]
+    if missing:
+        log("config: missing " + ", ".join(missing) + " (see config.example.json)")
+        return 2
     try:
         # Acquire before Watcher construction, which can persist trusted_keys_since.
         # The offline recovery command uses this same cooperating-writer lease.

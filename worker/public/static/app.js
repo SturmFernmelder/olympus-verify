@@ -110,6 +110,9 @@
   const fmtDateTime = (t) => (t ? DT({ weekday: "short", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(t * 1000)) : "—");
   const fmtDay = (t) => (t ? DT({ weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(t * 1000)) : "—");
   const fmtShort = (t) => (t ? DT({ day: "numeric", month: "short", year: "numeric" }).format(new Date(t * 1000)) : "—");
+  // .210: a date-only value is stored as 00:00 UTC; shown in the viewer's zone it read a day early across the Americas.
+  const fmtDayUtc = (t) => (t ? DT({ weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(t * 1000)) : "—");
+  const fmtShortUtc = (t) => (t ? DT({ day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(t * 1000)) : "—");
   const fmtPacific = (t, withTime = true) =>
     new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric" }, withTime ? { hour: "numeric", minute: "2-digit", timeZoneName: "short" } : {})).format(new Date(t * 1000));
   function ago(t) {
@@ -811,10 +814,16 @@
     document.body.appendChild(bar);
     stackBars();
   }
+  /** .210: the top bar's height while it is pinned; on a phone it scrolls away (app.css) and covers nothing. */
+  function pinnedBarHeight() {
+    const bar = document.querySelector(".topbar");
+    if (!bar) return 0;
+    const position = typeof getComputedStyle === "function" ? getComputedStyle(bar).position : "sticky";
+    return position === "sticky" || position === "fixed" ? bar.getBoundingClientRect().height : 0;
+  }
   /** .109: the reload notice and the receipt bar both sit over the page under the top bar; when both show they stack (in document order) instead of covering each other. */
   function stackBars() {
-    const top = document.querySelector(".topbar");
-    let y = (top ? top.getBoundingClientRect().height : 0) + 8;
+    let y = pinnedBarHeight() + 8;
     for (const b of document.querySelectorAll(".reload-bar, .receipt-bar")) { if (b.style) b.style.top = `${y}px`; y += b.getBoundingClientRect().height + 8; }
   }
 
@@ -1242,9 +1251,10 @@
       if (S.qrVerification && S.qrVerification.enabled === true) resources.push(["/static/qr-phase1.html", "Verify in game"]);
       add(nav, group("Resources", resources));
     }
-    if (S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
+    // .210: a mid-session 401 signs the page out, and the staff menu and Stream Shield go with it.
+    if (S.signedIn && !S.denied && S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"], ["#/guide/officer", "Officer guide"]]));
     let shield = null;
-    if (S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
+    if (S.signedIn && !S.denied && S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
       // Owner .198: compact, named icon control; the preference remains presentation-only.
       shield = h("button", { class: "btn small stream-shield-toggle", type: "button", "aria-label": "Stream Shield", "aria-pressed": String(streamShield), title: "Stream Shield" }, icon("icon-shield"));
       shield.addEventListener("click", () => {
@@ -1361,8 +1371,12 @@
       ignoreHash = true;
       location.hash = target;
     }
+    // .210: a page chosen by a link (a navigation menu item above all) moves keyboard and screen-reader focus to the new
+    // page; the link itself is gone or hidden. Form controls that navigate (choosers) keep their focus.
+    const fromLink = !!document.activeElement && document.activeElement.tagName === "A";
     lastHash = location.hash;
     render();
+    if (fromLink) { const page = app.querySelector("main"); if (page) { page.setAttribute("tabindex", "-1"); page.focus({ preventScroll: true }); } }
   });
   window.addEventListener("beforeunload", (e) => { if (dirtyKeys.size || navigationGuard && !navigationGuard.canLeave() || window.OlympusArmyReportTool?.isNavigationHeld()) { e.preventDefault(); e.returnValue = ""; } });
   // "#/names" and "#/friends" are sections of Home. Clicked on Home itself, they only scroll there: no new page, so
@@ -1377,8 +1391,7 @@
   });
   /** Scrolls so `el` starts just below the sticky top bar (which would otherwise cover its heading). */
   function scrollToSection(el, smooth = false) {
-    const bar = document.querySelector(".topbar");
-    const top = el.getBoundingClientRect().top + window.scrollY - (bar ? bar.getBoundingClientRect().height : 0) - 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - pinnedBarHeight() - 12;
     window.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
   }
   const setDirty = (key, on, el) => { if (on) dirtyKeys.add(key); else dirtyKeys.delete(key); if (el) el.hidden = !on; };
@@ -1432,6 +1445,8 @@
     }
     const keepBoard = reuseChrome && head === "vote" && previousMain.dataset.routeHead === "vote" && S.signedIn && !S.denied;
     const main = keepBoard ? previousMain : h("main", { class: "shell", id: "main" });
+    // Only a ballot switch keeps the board's scroll; entering or leaving an application track page starts at the top.
+    const trackSwitch = keepBoard && (route.split("/").length > 2 || !!main.dataset.applicationTrack199);
     main.dataset.routeHead = head;
     if (reuseChrome && !keepBoard) previousMain.replaceWith(main);
     else if (!reuseChrome) app.appendChild(main);
@@ -1453,7 +1468,7 @@
     if (!reuseChrome) app.appendChild(footer());
     const target = scrollTo && document.getElementById(scrollTo);
     if (target) scrollToSection(target);
-    else if (!keepBoard) window.scrollTo(0, 0);
+    else if (!keepBoard || trackSwitch) window.scrollTo(0, 0);
   }
   const showError = (main) => (e) => {
     if (e && e.status === 401 || main.parentNode !== app) return;
@@ -2279,6 +2294,8 @@
     if (!control.id) control.id = `f-${key}`;
     box.querySelector("label").setAttribute("for", control.id);
     control.setAttribute("aria-describedby", `err-${key}`);
+    // .210: the visible asterisk is hidden from assistive technology, so state the requirement there too (no native popup).
+    if (required) control.setAttribute("aria-required", "true");
     return box;
   }
   function withCounter(el, max) {
@@ -2992,8 +3009,8 @@
     if (shell) shell.content.replaceWith(content);
     else add(main, [
       h("section", { class: "frame" },
-        h("div", { class: "plaque" }, h("h2", { text: "Vote on who leads Olympus" })),
-        h("p", { text: "Choose a role, read its applications and vote for or against a candidate." }),
+        h("div", { class: "plaque" }, h("h2", { text: "Leadership applications board" })), // .210: seats are reserved appointments, not elections
+        h("p", { text: "Choose a role, read its retained applications and record a view for or against a candidate. Leadership seats are filled by appointment; these views inform the leadership review." }),
         h("details", { class: "voting-help" }, h("summary", { text: "How the board works" }),
           h("p", null, "Leadership applicants are on this board under each voted role they chose, first choice or backup, with their answers. Vote ", h("b", { text: "for" }), " the people you want in a role and ", h("b", { text: "against" }), " the ones you do not; click again to take a vote back. You can change your mind until voting closes."),
           anyQuiet ? h("p", { class: "muted small" }, "Roles marked with the crown ", crown(), " are chosen by the guild's leadership without a public vote: they have no board and no write-ins.") : null),
@@ -6369,7 +6386,7 @@
       add(body, frame("My trial", h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }),
         h("dl", { class: "kv" },
           h("dt", { text: "Started" }), h("dd", { text: fmtDay(sec(t.startedAt)) }),
-          h("dt", { text: open ? "Review due" : "Review was due" }), h("dd", { text: fmtDay(sec(t.reviewDueAt)) }),
+          h("dt", { text: open ? "Review due" : "Review was due" }), h("dd", { text: fmtDayUtc(sec(t.reviewDueAt)) }),
           t.outcome ? [h("dt", { text: "Outcome" }), h("dd", { text: `${TRIAL_WORDS[t.status] || t.status}${t.reason ? ` (${TRIAL_REASONS[t.reason] || t.reason})` : ""}` })] : null,
           h("dt", { text: "Last change" }), h("dd", { text: fmtDateTime(sec(t.updatedAt)) })),
         h("p", { class: "muted small", text: TRIAL_ABOUT })));
@@ -6385,7 +6402,7 @@
     let current = null;
     // .102 (F96-2): the committed result's receipt lives OUTSIDE the page view (a bar on the document, like the reload notice): a later
     // refused read clears the private ledger, a changed context redraws the page, and the receipt stays until Dismiss or a navigation
-    const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShort(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
+    const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShortUtc(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
     const fail = (e) => {
       clear(holder);
       holder.appendChild(frame("My dues", null, noticeBox(codeOf(e) === "contributions_disabled" ? "info" : "warn", codeOf(e) === "contributions_disabled" ? "icon-clock" : "icon-warning", h("p", { text: explain(e, "Your ledger could not be read.") }))));
@@ -6425,8 +6442,8 @@
         if (o.finalAcknowledgedAt) contacts.push(`final notice acknowledged ${fmtShort(sec(o.finalAcknowledgedAt))}`);
         if (o.finalOfficerContactAt) contacts.push(`final officer contact ${fmtShort(sec(o.finalOfficerContactAt))}`);
         weeks.appendChild(h("tr", null,
-          h("td", { text: fmtShort(sec(o.periodStart)) }),
-          h("td", { text: fmtShort(sec(o.dueAt)) }),
+          h("td", { text: fmtShortUtc(sec(o.periodStart)) }),
+          h("td", { text: fmtShortUtc(sec(o.dueAt)) }),
           h("td", { class: "num", text: gold(o.amountCopper) }),
           h("td", { class: "num", text: gold(o.paidCopper) }),
           h("td", { class: "wrap" }, STAGE_WORDS[o.stage] || o.stage, o.eligible ? null : [" ", h("span", { class: "badge muted", text: "exempt as a new member" })], h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}` })),
@@ -7028,7 +7045,7 @@
         });
         add(actions, [due, extend, outcome, reason, conclude]);
       }
-      return h("tr", null, h("td", null, h("b", { text: t.displayName || "(no name)" }), h("span", { class: "muted small", text: ` ${t.discordId}` })), h("td", null, h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }), t.reason ? h("span", { class: "muted small", text: ` ${TRIAL_REASONS[t.reason] || t.reason}` }) : null), h("td", { text: fmtShort(sec(t.startedAt)) }), h("td", { text: fmtShort(sec(t.reviewDueAt)) }), h("td", { text: t.sponsorDiscordId || "—" }), h("td", null, actions));
+      return h("tr", null, h("td", null, h("b", { text: t.displayName || "(no name)" }), h("span", { class: "muted small", text: ` ${t.discordId}` })), h("td", null, h("span", { class: "badge " + (t.status === "passed" ? "green" : open ? "warn" : "muted"), text: TRIAL_WORDS[t.status] || t.status }), t.reason ? h("span", { class: "muted small", text: ` ${TRIAL_REASONS[t.reason] || t.reason}` }) : null), h("td", { text: fmtShort(sec(t.startedAt)) }), h("td", { text: fmtShortUtc(sec(t.reviewDueAt)) }), h("td", { text: t.sponsorDiscordId || "—" }), h("td", null, actions));
     };
     filter.addEventListener("change", () => load(true));
     more.addEventListener("click", () => load(false));
@@ -7206,8 +7223,8 @@
         h("dl", { class: "kv" },
           h("dt", { text: "Member" }), h("dd", { class: "small", text: `${c.discordId} · case ${c.caseId}` }),
           h("dt", { text: "Set" }), h("dd", { text: `${fmtShort(sec(c.setAt))}${c.setBy ? ` by ${c.setBy}` : ""}` }),
-          h("dt", { text: "Review" }), h("dd", { text: `${fmtShort(sec(c.reviewAt))}${c.reviewOutcome ? ` (${c.reviewOutcome} ${c.reviewedAt ? fmtShort(sec(c.reviewedAt)) : ""})` : ""}` }),
-          h("dt", { text: "Expires" }), h("dd", { text: c.expiresAt ? fmtShort(sec(c.expiresAt)) : "never (ban)" }),
+          h("dt", { text: "Review" }), h("dd", { text: `${fmtShortUtc(sec(c.reviewAt))}${c.reviewOutcome ? ` (${c.reviewOutcome} ${c.reviewedAt ? fmtShort(sec(c.reviewedAt)) : ""})` : ""}` }),
+          h("dt", { text: "Expires" }), h("dd", { text: c.expiresAt ? fmtShortUtc(sec(c.expiresAt)) : "never (ban)" }),
           c.returnedAt ? [h("dt", { text: "Returned" }), h("dd", { text: `signed in here ${fmtDateTime(sec(c.returnedAt))}${c.acknowledgedAt ? `; acknowledged ${fmtShort(sec(c.acknowledgedAt))}` : "; not yet acknowledged"}` })] : null,
           c.resolvedAt ? [h("dt", { text: "Resolved" }), h("dd", { text: fmtShort(sec(c.resolvedAt)) })] : null,
           h("dt", { text: "Watch-list" }), h("dd", null, watch || "none", c.charactersRenewalRequired ? h("span", { class: "badge warn", text: "renewal required" }) : null, c.charactersRetainUntil ? h("span", { class: "muted small", text: ` kept until ${fmtShort(sec(c.charactersRetainUntil))}` }) : null)),
@@ -7317,14 +7334,14 @@
           acts.appendChild(caseInput);
           acts.appendChild(h("button", { class: "btn small danger", type: "button", text: "Record the removal", onclick: async () => { if (await confirmBox("Record a removal?", "Records that the officers resolved this week after an in-game removal. It links an existing case if you name one; it opens none and touches no role.", "Record", { danger: true })) action({ action: "removal", discordId: sub, obligationId: o.id, expectedRevision: rev, caseId: caseInput.value.trim() || null }, "Removal recorded."); } }));
         }
-        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShort(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
+        weeks.appendChild(h("tr", null, h("td", { text: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` }), h("td", { class: "num", text: gold(o.amountCopper) }), h("td", { class: "num", text: gold(o.paidCopper) }), h("td", { class: "wrap" }, `${o.state} · ${STAGE_WORDS[o.stage] || o.stage}`, h("span", { class: "muted small", text: ` · ${EVIDENCE_WORDS[o.evidence] || o.evidence}${o.eligible ? "" : " · exempt (new member)"}` })), h("td", { class: "wrap small", text: [o.acknowledgedAt && `ack ${fmtShort(sec(o.acknowledgedAt))}`, o.officerContactAt && `officer ${fmtShort(sec(o.officerContactAt))}`, o.finalNoticeAt && `final ${fmtShort(sec(o.finalNoticeAt))}`, o.finalAcknowledgedAt && `final ack ${fmtShort(sec(o.finalAcknowledgedAt))}`, o.finalOfficerContactAt && `final officer ${fmtShort(sec(o.finalOfficerContactAt))}`].filter(Boolean).join(" · ") || "—" }), h("td", null, acts)));
       }
       const receipts = h("tbody");
       for (const r of L.receipts) {
         const acts = h("div", { class: "btn-row" });
         if (!r.voidedAt && r.id) {
           acts.appendChild(h("button", { class: "btn small danger", type: "button", text: "Void", onclick: async () => { if (await confirmBox("Void this payment?", "Its allocations are reversed, the weeks' contact facts cleared, and it can never pay again.", "Void", { danger: true })) action({ action: "void", discordId: sub, receiptId: r.id, expectedRevision: rev }, "Voided."); } }));
-          const week = named(selectOf(L.obligations.map((o) => ({ key: String(o.id), label: `${fmtShort(sec(o.periodStart))} (#${o.id})` })), "", { placeholder: "Reverse from week…" }), "Week to reverse from");
+          const week = named(selectOf(L.obligations.map((o) => ({ key: String(o.id), label: `${fmtShortUtc(sec(o.periodStart))} (#${o.id})` })), "", { placeholder: "Reverse from week…" }), "Week to reverse from");
           acts.appendChild(week);
           acts.appendChild(h("button", { class: "btn small", type: "button", text: "Reverse", onclick: () => { if (!week.value) { toast("Choose the week.", "bad"); return; } action({ action: "reverse", discordId: sub, receiptId: r.id, obligationId: Number(week.value), expectedRevision: rev }, "Reversed."); } }));
         }

@@ -32,6 +32,9 @@ BINDING_HEADER_OLYMPUSVERIFY = "Olympus Verify"
 BINDING_NAME_OLYMPUSVERIFY_FLUSH = "Send queued guild invites"
 
 local SECRET = cfg.secret
+-- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
+if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
+local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or "?"
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -329,7 +332,10 @@ end
 
 -- guid: the sender's character ID, from the whisper event itself (arg 12), when the client lets the addon read it
 local function HandleCode(source, sender, text, guid)
-  if not SECRET then Print("Config.lua is missing or has no secret — codes cannot be checked.") return end
+  if not SECRET then
+    if not secretWarned then secretWarned = true; Print("Config.lua is missing or still has the example secret — codes cannot be checked. Put the shared secret in Config.lua and /reload.") end
+    return
+  end
   local token = VerifyToken(text, true)
   if not token then return end
   local base = BaseName(sender)
@@ -2654,13 +2660,32 @@ function Presence.PrintTrace(arg)
 end
 
 -- ---------------------------------------------------------------- queue file (written by the watcher)
+-- 0.6.12: a Worker row an officer removed here (x, Clear queue, /olv clear) stays out for a day; the 45-second merge
+-- re-added it from the loaded queue file with a false "new invite" alert, and the next press could invite them.
+local DISMISS_SECONDS = 86400
+local function DismissedIds()
+  local db = OlympusVerifyDB
+  if type(db.dismissedIds) ~= "table" then db.dismissedIds = {} end
+  local now = time()
+  for id, at in pairs(db.dismissedIds) do
+    if type(at) ~= "number" or now - at >= DISMISS_SECONDS then db.dismissedIds[id] = nil end
+  end
+  return db.dismissedIds
+end
+local function DismissRows(rows)
+  local ids = DismissedIds()
+  for _, row in ipairs(rows) do
+    if type(row) == "table" and row.source == "worker" and row.id ~= nil then ids[tostring(row.id)] = time() end
+  end
+end
 local function MergeQueueFile()
   local q = OlympusQueue
   if type(q) ~= "table" or type(q.entries) ~= "table" then return 0 end
   local added, ready = 0, 0
   local recent = time() - 86400
+  local dismissed = DismissedIds()
   for _, e in ipairs(q.entries) do
-    if e.character and e.character ~= "" then
+    if e.character and e.character ~= "" and not (e.id ~= nil and dismissed[tostring(e.id)]) then
       local known = nil
       local nk = L.normalizeCharacter(e.character)
       -- The same Worker row first, then the same name already queued / invited / joined here within a day (the addon
@@ -2927,10 +2952,10 @@ OlympusVerifyAPI = {
   end,
   Remove = function(entry)
     local db = OlympusVerifyDB
-    for i, q in ipairs(db.queue) do if q == entry then table.remove(db.queue, i) break end end
+    for i, q in ipairs(db.queue) do if q == entry then DismissRows({ q }); table.remove(db.queue, i) break end end
     frame:UpdateButton()
   end,
-  ClearQueue = function() OlympusVerifyDB.queue = {}; OlympusVerifyDB.notePending = {}; frame:UpdateButton() end,
+  ClearQueue = function() DismissRows(OlympusVerifyDB.queue); OlympusVerifyDB.queue = {}; OlympusVerifyDB.notePending = {}; frame:UpdateButton() end,
   ExportRoster = function()
     local n = ExportRoster(true)
     frame:UpdateButton()
@@ -3388,8 +3413,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     local n = ExportRoster(true)
     Print(string.format("roster exported: %s members (written to SavedVariables at logout or /reload).", tostring(n or 0)))
   elseif cmd == "clear" then
-    db.queue = {}; db.notePending = {}
-    frame:UpdateButton()
+    OlympusVerifyAPI.ClearQueue()
     Print("queue cleared.")
   elseif cmd == "sync" then
     OlympusVerifyAPI.Sync()

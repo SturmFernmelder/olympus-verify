@@ -109,6 +109,14 @@ These files are the contributors' work under their licence; this repository's ow
 Build .186 (and the planned .190) was never released; the copies ship with build .194. Its fourth patch group keeps
 an uncertain role grant or rollback pending rather than treating the stored character as a completed grant.
 
+## jsQR 1.4.0: copied under the Apache License 2.0
+
+The councillor QR scanner and the officer QR pilot ship the unchanged browser build of jsQR 1.4.0 (`dist/jsQR.js` of
+`cozmo/jsQR` at commit `34d8eec1ec5d85496f3948ff02fcfe6406f89d81`) as `worker/public/static/qr-vendor/jsqr-1.4.0.js`
+and `tools/guild-qr-pilot/vendor/jsqr-1.4.0.js`. The Apache License 2.0 is kept beside each copy as
+`jsqr-1.4.0.LICENSE.txt`; the source record is `worker/public/static/qr-vendor/jsqr-1.4.0.source.json` and the pilot's
+`vendor/NOTICE.txt`. This is the jsQR authors' work under their licence; this repository's own `LICENSE` does not cover it.
+
 ## Trademarks
 
 World of Warcraft, Battle.net and Blizzard Entertainment are trademarks or registered trademarks of Blizzard

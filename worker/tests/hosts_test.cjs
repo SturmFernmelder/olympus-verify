@@ -403,6 +403,15 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   check("  exactly 32 is accepted", await auth("exactly-32-characters-long-tok1x", "Bearer exactly-32-characters-long-tok1x"));
   res = await get("https://verify.example/queue?officer=x", env({ WATCHER_TOKEN: "" }), { headers: { Authorization: "Bearer " } });
   check("through the route: 401", res.status === 401);
+  {
+    // .210: with the right bearer, a watcher POST whose body is not a JSON object is a final 400, not a retried 500.
+    const post = (path, body) => get("https://verify.example" + path, env(), { method: "POST", headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" }, body });
+    const answers = [];
+    for (const path of ["/ingest/verify", "/ingest/roster", "/ingest/events", "/queue/written"])
+      for (const body of ["{not json", "null", "[]", "7"]) { const r = await post(path, body); answers.push([r.status, (await r.json()).error]); }
+    check(".210 malformed, null, array or scalar watcher bodies get 400 bad_json/bad_body on every POST endpoint",
+      answers.length === 16 && answers.every(([status, error], n) => status === 400 && error === (n % 4 === 0 ? "bad_json" : "bad_body")), JSON.stringify(answers));
+  }
   res = await get("https://verify.example/admin/guild-map", env({ WATCHER_TOKEN: "" }), { headers: { Authorization: "Bearer " } });
   check("  the admin routes too", res.status === 401);
 

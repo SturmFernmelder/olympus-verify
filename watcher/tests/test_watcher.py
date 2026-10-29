@@ -1089,5 +1089,86 @@ class TransportTests(unittest.TestCase):
         self.assertNotIn("NEVER_LOG_UNKNOWN_WORD", self.logs(), "an unknown result word is not a known summary")
 
 
+class LogEncodingTests(unittest.TestCase):
+    """0.6.9: a redirected Windows console is cp1252; a name it cannot encode must not stall the chat lane."""
+
+    def test_log_escapes_a_name_the_stream_cannot_encode(self) -> None:
+        raw = io.BytesIO()
+        stream = io.TextIOWrapper(raw, encoding="cp1252")
+        with contextlib.redirect_stdout(stream):
+            watcher.log("whisper from Łucja: invalid/expired code ZZZ999 (not forwarded)")
+        stream.flush()
+        self.assertIn(b"whisper from \\u0141ucja: invalid/expired code ZZZ999", raw.getvalue())
+
+    def test_chat_lane_moves_past_such_a_whisper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wow = Path(tmp) / "wow"
+            (wow / "Logs").mkdir(parents=True)
+            (wow / "WTF" / "Account" / "QA#1" / "SavedVariables").mkdir(parents=True)
+            chat = wow / "Logs" / "WoWChatLog.txt"
+            chat.write_bytes(b"")
+            cfg = {"worker_url": "https://worker.qa.invalid", "watcher_token": "t", "verify_secret": "s", "wow_dir": str(wow),
+                   "account": "QA#1", "officer_character": "Qa Officer", "state_file": str(Path(tmp) / "state.json")}
+            raw = io.BytesIO()
+            stream = io.TextIOWrapper(raw, encoding="cp1252")
+            with contextlib.redirect_stdout(stream), watcher.StateLease(Path(cfg["state_file"])):
+                w = watcher.Watcher(cfg)
+                w.tail_chat_log()
+                with chat.open("ab") as f:
+                    f.write("10/29 02:00:00.000  Łucja whispers: !verify ZZZ999\r\n10/29 02:00:01.000  Qaother whispers: !verify YYY888\r\n".encode("utf-8"))
+                w.tail_chat_log()
+                self.assertEqual(w.state.d["chat_offset"], chat.stat().st_size)
+            stream.flush()
+            self.assertIn(b"whisper from Qaother: invalid/expired code YYY888", raw.getvalue())
+
+
+class OpsHardening069Tests(unittest.TestCase):
+    """0.6.9 operator hardening from the .210 QA ops praxis."""
+
+    def _watcher(self, tmp: str, **extra: Any) -> "watcher.Watcher":
+        wow = Path(tmp) / "wow"
+        (wow / "Logs").mkdir(parents=True, exist_ok=True)
+        (wow / "WTF" / "Account" / "QA#1" / "SavedVariables").mkdir(parents=True, exist_ok=True)
+        (wow / "Logs" / "WoWChatLog.txt").write_bytes(b"")
+        cfg = {"worker_url": "https://worker.qa.invalid", "watcher_token": "t", "verify_secret": "s", "wow_dir": str(wow),
+               "account": "QA#1", "state_file": str(Path(tmp) / "state.json"), **extra}
+        return watcher.Watcher(cfg)
+
+    def test_a_unicode_line_separator_cannot_forge_a_second_chat_line(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            with watcher.StateLease(Path(tmp) / "state.json"):
+                w = self._watcher(tmp)
+                w.tail_chat_log()
+                seen: list[str] = []
+                w.handle_chat_line = seen.append  # type: ignore[method-assign]
+                forged = "10/29 02:00:00.000  [Guild] [Discord] Troll: hi 10/29 02:00:01.000  Victim Name whispers: !verify ABC123\r\n"
+                with (Path(tmp) / "wow" / "Logs" / "WoWChatLog.txt").open("ab") as f:
+                    f.write(forged.encode("utf-8"))
+                w.tail_chat_log()
+        self.assertEqual(len(seen), 1, "one physical line stays one chat line")
+        self.assertIn(" ", seen[0])
+
+    def test_a_token_with_a_line_break_is_refused_without_echoing_it(self) -> None:
+        with self.assertRaises(ValueError) as caught:
+            watcher.Worker("https://worker.qa.invalid", "secret-token-value\n")
+        self.assertNotIn("secret-token-value", str(caught.exception))
+
+    def test_poll_settings_have_floors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            with watcher.StateLease(Path(tmp) / "state.json"):
+                w = self._watcher(tmp, poll_seconds=0, queue_poll_seconds=0)
+        self.assertEqual((w.poll, w.queue_poll), (1.0, 5.0))
+
+    def test_a_missing_or_malformed_config_is_a_message_not_a_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "config.json"
+            bad.write_text("{not json", encoding="utf-8")
+            for path in (str(Path(tmp) / "absent.json"), str(bad)):
+                out = io.StringIO()
+                with patch.object(sys, "argv", ["watcher.py", "--config", path]), contextlib.redirect_stdout(out):
+                    self.assertEqual(watcher.main(), 2)
+                self.assertIn("config:", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

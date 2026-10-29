@@ -232,7 +232,7 @@ const laneOf = (r) => r.trace.filter((e) => e.tag === 'lane');
 const A6 = [
   [/(\\+n|\n)New guild roles: removal runs right after this reply \(or at the next role pass\)\./g, ''],
   [/ Your guild roles open the member channels once your verified character appears on a current guild roster export and the access checks pass\./g, ' Your **Olympus Guild Member** role opens the member channels once your verified character appears on the officer-exported guild roster and the access checks pass.'],
-  [/ is already linked to your account\. For the guild roles, press \*\*Verify\*\* in the guide and whisper the code from your highest-ranked character in the guild\./g, ' is already verified and in the guild.'],
+  [/ is already linked to your account\. For the guild roles, press \*\*Get my code\*\* in the guide and whisper the code from your highest-ranked character in the guild\./g, ' is already verified and in the guild.'],
   [/Your guild roles follow automatically once that character is on a current guild roster export\./g, 'Your Guild Member role follows automatically once that character is on the guild roster — already in the guild? Then it follows as soon as the code is confirmed.'],
   [/The guild roles are removed automatically if no other character of this account is still in the guild\./g, 'The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.'],
 ];
@@ -357,7 +357,7 @@ let passed = 0, failed = 0;
 function check(name, value, detail) { if (value) { passed++; console.log('PASS ' + name); } else { failed++; console.log('FAIL ' + name); if (detail !== undefined) console.log('   ', typeof detail === 'string' ? detail : JSON.stringify(detail).slice(0, 2000)); } }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (or at the next role pass).', guide: 'Your guild roles open the member channels',
-  verify: 'is already linked to your account. For the guild roles, press **Verify**', button: 'Your guild roles follow automatically once that character is on a current guild roster export.',
+  verify: 'is already linked to your account. For the guild roles, press **Get my code**', button: 'Your guild roles follow automatically once that character is on a current guild roster export.',
   unbind: 'The guild roles are removed automatically if no other character of this account is still in the guild.' };
 
 (async () => {

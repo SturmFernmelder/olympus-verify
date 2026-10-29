@@ -440,8 +440,10 @@ const OFFICE_APPLICATION_POSITIONS_199: Position[] = OFFICE_APPOINTMENTS
       info: { about: guide.definition, duties: [...guide.responsibilities], expect: [...guide.expectations], time: guide.commitment, works: guide.worksWith, game: guide.boundaries } };
   });
 export const POSITIONS: Position[] = [...HISTORICAL_POSITION_COPY, ...OFFICE_APPLICATION_POSITIONS_199].map(position => {
+  // A role without its own office row takes its native rank row (rank_raider is Rank 7, slot 6); others fall back to Member.
   const office = OFFICE_APPOINTMENTS.find(row => row.key === position.key)
-    ?? (position.key === 'class_lead' ? OFFICE_APPOINTMENTS.find(row => row.group === 'class') : undefined);
+    ?? (position.key === 'class_lead' ? OFFICE_APPOINTMENTS.find(row => row.group === 'class') : undefined)
+    ?? OFFICE_APPOINTMENTS.find(row => row.key === `rank_${position.key}`);
   const rank = office ? NATIVE_RANKS_199.find(row => row.nativeSlot === office.nativeSlot) : NATIVE_RANKS_199[7];
   const game = rank ? `Rank ${rank.nativeRankOrdinal} ${rank.name} (zero-based slot ${rank.nativeSlot}). This is not verification of the holder’s current game rank. Co-Guild Master and Treasurer are appointments, not additional native ranks. Applying grants no rank, moderation, bank permission or addon access; the Guild Master reviews actual game permissions separately.` : 'Actual rank and permissions require separate Guild Master review.';
   return { ...position, info: { ...position.info, game } };
