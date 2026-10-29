@@ -126,7 +126,7 @@ assert(not frames.OlympusVerifyButton.shown or frames.OlympusVerifyButton.text:f
 -- Aelin accepts and appears on the roster; the next flush sets her note; roster export captures everyone
 roster = {
   { name = "Fernmelder", rank = "Guild Master", rankIndex = 0, level = 60, class = "Warlock", online = true, guid = "Player-1-A" },
-  { name = "Aelin Stormwarden", rank = "Member", rankIndex = 4, level = 5, class = "Hunter", online = true, guid = "Player-1-B" },
+  { name = "Aelin Stormwarden", rank = "Member", rankIndex = 7, level = 5, class = "Hunter", online = true, guid = "Player-1-B" },
 }
 f:Fire("GUILD_ROSTER_UPDATE")
 runTimers()
@@ -164,7 +164,7 @@ forbidNotes = true
 OlympusQueue = { version = 1, generatedAt = 2, setGuildNote = true, entries = { { id = 8, character = "Brann Ironfoot", discordId = "223456789012345678", note = "D:223456789012345678" } } }
 f:Fire("PLAYER_LOGIN")
 OlympusVerify_Flush()                                   -- invite fires; note queued
-roster[#roster + 1] = { name = "Brann Ironfoot", rank = "Member", rankIndex = 4, level = 3, class = "Warrior", online = true, guid = "Player-1-C" }
+roster[#roster + 1] = { name = "Brann Ironfoot", rank = "Member", rankIndex = 7, level = 3, class = "Warrior", online = true, guid = "Player-1-C" }
 f:Fire("GUILD_ROSTER_UPDATE")
 local before = #calls.messages
 OlympusVerify_Flush()                                   -- SetNote → forbidden → notes off
@@ -180,7 +180,7 @@ assert(calls.invites[#calls.invites] == "Brann Ironfoot" or calls.invites[#calls
 assert(#OlympusVerifyDB.notePending == 1, "pending note survives later flushes while notes are off")
 
 -- an existing guild member verifies (e.g. the officer's own character): confirmed, no invite queued, different reply
-roster[#roster + 1] = { name = "Fern Melder", rank = "Initiate", rankIndex = 4, level = 1, class = "Warrior", online = true, guid = "Player-1-D" }
+roster[#roster + 1] = { name = "Fern Melder", rank = "Initiate", rankIndex = 9, level = 1, class = "Warrior", online = true, guid = "Player-1-D" }
 local queueBefore, whispersBefore = #OlympusVerifyDB.queue, #calls.whispers
 local memberCode = OlympusHmac.codeFor("olympus-test-secret", "Fern Melder", OlympusHmac.utcDay(time()))
 f:Fire("CHAT_MSG_WHISPER", "!verify " .. memberCode, "Fern Melder")
@@ -231,13 +231,13 @@ do
   for i, m in ipairs(roster) do savedRoster[i] = m end
   for i = #roster, 1, -1 do roster[i] = nil end
   local function add(t) roster[#roster + 1] = t end
-  add({ name = "Fern Melder", rank = "Initiate", rankIndex = 4, level = 60, class = "WARRIOR", online = true, daysOffline = 0 })   -- me
-  add({ name = "Online Now", rank = "Member", rankIndex = 3, level = 60, class = "MAGE", online = true, daysOffline = 0 })          -- online
-  add({ name = "Old Officer", rank = "Officer", rankIndex = 1, level = 60, class = "PRIEST", online = false, daysOffline = 200 })   -- senior rank
-  add({ name = "Held Member", rank = "Member", rankIndex = 3, level = 60, class = "ROGUE", online = false, daysOffline = 300, note = "hold - deployed" })
-  add({ name = "Recent Away", rank = "Member", rankIndex = 3, level = 60, class = "DRUID", online = false, daysOffline = 5 })       -- too recent
-  add({ name = "Long Gone", rank = "Initiate", rankIndex = 4, level = 22, class = "HUNTER", online = false, daysOffline = 120 })
-  add({ name = "Longer Gone", rank = "Member", rankIndex = 3, level = 60, class = "SHAMAN", online = false, daysOffline = 180 })
+  add({ name = "Fern Melder", rank = "Initiate", rankIndex = 9, level = 60, class = "WARRIOR", online = true, daysOffline = 0 })   -- me
+  add({ name = "Online Now", rank = "Member", rankIndex = 7, level = 60, class = "MAGE", online = true, daysOffline = 0 })          -- online
+  add({ name = "Old Officer", rank = "Officer", rankIndex = 2, level = 60, class = "PRIEST", online = false, daysOffline = 200 })   -- senior rank
+  add({ name = "Held Member", rank = "Member", rankIndex = 7, level = 60, class = "ROGUE", online = false, daysOffline = 300, note = "hold - deployed" })
+  add({ name = "Recent Away", rank = "Member", rankIndex = 7, level = 60, class = "DRUID", online = false, daysOffline = 5 })       -- too recent
+  add({ name = "Long Gone", rank = "Initiate", rankIndex = 9, level = 22, class = "HUNTER", online = false, daysOffline = 120 })
+  add({ name = "Longer Gone", rank = "Member", rankIndex = 7, level = 60, class = "SHAMAN", online = false, daysOffline = 180 })
 
   local list, total = OlympusVerifyAPI.Candidates(10)
   local names = {}
@@ -398,7 +398,7 @@ do
   local before = #calls.whispers
   local q = { name = "Signed Joiner", target = "Signed Joiner", status = "invited", invitedAt = time() }
   table.insert(OlympusVerifyDB.queue, q)
-  table.insert(roster, { name = "Signed Joiner", rank = "Member", rankIndex = 4, level = 60, class = "WARRIOR", guid = "Player-1-Z" })
+  table.insert(roster, { name = "Signed Joiner", rank = "Member", rankIndex = 7, level = 60, class = "WARRIOR", guid = "Player-1-Z" })
   f:Fire("GUILD_ROSTER_UPDATE")
   runTimers()
   assert(q.status == "joined", "the addon saw the join via MemberExistsByName, got " .. tostring(q.status))

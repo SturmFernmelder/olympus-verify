@@ -18,6 +18,7 @@ SUITES = {
     "harness": (ADDON, Path("test/harness.lua")),
     "status": (TESTS, Path("test_status.lua")),
     "ranks": (TESTS, Path("test_ranks.lua")),
+    "removal_ranks": (TESTS, Path("test_removal_ranks.lua")),
     "browser_qr": (TESTS, Path("test_browser_qr.lua")),
     "presence": (TESTS, Path("test_presence.lua")),
     "unverified": (TESTS, Path("test_unverified.lua")),

@@ -1,7 +1,7 @@
 # Guild roster verification and Olympus Guild coexistence
 
 Olympus Verify's **Discord verification** column sits beside the native Guild & Communities
-**Roster** view. Current AddOn source is **0.6.11**; the bounded native-layout acceptance below
+**Roster** view. Current AddOn source is **0.6.12**; the bounded native-layout acceptance below
 belongs to **0.6.9**. The column uses the actual visible member rows, not their screen
 positions or a separate alphabetical list. It does not replace Blizzard functions, change native columns,
 sort the guild, edit notes, invite, remove members, or send a whisper.
@@ -160,6 +160,6 @@ panel command and member-details placement, as recorded in the
 [member-experience .154 handoff](member-experience154-owner-handoff.md#readback-and-acceptance).
 The editable exact-recipient reminder remained untested because the loaded lists were stale;
 no reminder, roster sync or verification proof was sent during that acceptance. This is
-bounded layout evidence, not whole-client acceptance of current **0.6.11**, a protected invite,
+bounded layout evidence, not whole-client acceptance of current **0.6.12**, a protected invite,
 publisher exporter adoption or activation of Link/B1. This documentation correction adds
 no new test or game observation and leaves the frozen erasure/B1 evidence unchanged.

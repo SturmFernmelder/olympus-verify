@@ -311,7 +311,7 @@ The member cap is real and close: the probe read `GetNumGuildMembers()` at 450/4
 
 The addon does not solve that by removing anyone. When the server refuses an invite for space it ranks who *could* go
 and leaves the decision to a person. The ranking is longest-away-first with a lower level as the tiebreak, and it
-excludes anyone currently online, anyone at or above `protectRankIndex` (Guild Master and Officer by default), anyone
+excludes anyone currently online, anyone at or above `protectRankIndex` (Leader through Officer Alt by default), anyone
 whose public or officer note contains the `holdNote` word, and anyone seen more recently than `minDaysOffline`. Those
 guards matter more than the sort: `GetGuildRosterLastOnline` returns a *duration* and reads zero for anyone online, so
 an unguarded "longest offline" list puts the people playing right now at the top of it. The in-game ladder decision

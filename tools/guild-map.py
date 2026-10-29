@@ -14,6 +14,7 @@ bitfields.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import pathlib
 import sys
@@ -32,30 +33,58 @@ NOTABLE = [
 ]
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """The map bearer is valid for one configured origin, never a redirect target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def worker_origin(base: str) -> str:
+    # Master QA, 28 Oct 2026: match the watcher's bare-HTTPS-origin admission before adding credentials.
+    try:
+        url = urllib.parse.urlsplit(base)
+        valid = (isinstance(base, str) and not any(ord(c) <= 32 or ord(c) == 127 for c in base)
+                 and not any(c in base for c in "\\?#") and url.scheme == "https" and bool(url.hostname)
+                 and url.username is None and url.password is None and not url.query and not url.fragment
+                 and url.path in ("", "/"))
+        url.port
+    except (TypeError, ValueError, AttributeError):
+        valid = False
+    if not valid:
+        sys.exit("worker_url must be an HTTPS origin without credentials, path, query or fragment.")
+    return base.rstrip("/")
+
+
 def fetch(base: str, token: str, guild: str = "") -> dict[str, Any]:
-    url = base.rstrip("/") + "/admin/guild-map"
+    url = worker_origin(base) + "/admin/guild-map"
     if guild:
         url += "?guild=" + urllib.parse.quote(guild)
     req = urllib.request.Request(url, method="GET")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("User-Agent", "olympus-guild-map/1.0")
     try:
-        with urllib.request.urlopen(req, timeout=60) as res:
-            return json.loads(res.read().decode("utf-8"))
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=60) as res:
+            result = json.loads(res.read().decode("utf-8"))
+            if not isinstance(result, dict):
+                sys.exit("Worker returned an invalid JSON response.")
+            return result
     except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", "replace")[:300]
+        # The body and reason may echo credentials or other private data. Keep only the status.
+        e.close()
+        if 300 <= e.code < 400:
+            sys.exit("Worker redirect refused; check worker_url against the Worker's own HTTPS origin.")
         if e.code == 401:
             sys.exit("401 from the Worker: watcher_token in config.json does not match the deployed WATCHER_TOKEN.")
         if e.code == 404:
             sys.exit("404: this Worker build has no /admin/guild-map. Deploy build .25 or later, then retry.")
-        if "Discord 401" in body:
-            sys.exit("Discord rejected the Worker's bot token (401). The DISCORD_BOT_TOKEN secret is stale — usually because\n"
-                     "the token was reset in the Developer Portal. From the worker folder: npx wrangler secret put DISCORD_BOT_TOKEN")
-        if "Discord 403" in body:
-            sys.exit(f"Discord refused the bot (403) — the token is valid but the bot lacks access to part of the server: {body}")
-        sys.exit(f"Worker returned {e.code}: {body}")
-    except urllib.error.URLError as e:
-        sys.exit(f"could not reach the Worker: {e.reason}")
+        sys.exit(f"Worker returned HTTP {e.code}; no response body was logged.")
+    except urllib.error.URLError:
+        sys.exit("Could not reach the Worker; check the origin and connection.")
+    except (UnicodeDecodeError, ValueError):
+        sys.exit("Worker returned an invalid JSON response.")
+    except (TimeoutError, OSError, http.client.HTTPException):
+        sys.exit("Could not read the Worker response; check the connection and retry.")
 
 
 def esc(s: Any) -> str:

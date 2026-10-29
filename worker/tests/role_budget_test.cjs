@@ -40,6 +40,7 @@ const D1 = {
 };
 
 let NOW = 1790380800;
+let AUDIT_FAILURE = false;
 const GUILD = "236932545793490944", ROLE = "1549581282227265566", BLOCK = "1399774654893133864";
 const stubs = {
   // This budget fixture has no privacy subject or rank mapping; refuse accidental expansion of its mocked lane.
@@ -49,6 +50,7 @@ const stubs = {
   "./db": {
     now: () => NOW,
     audit: async (_env, actor, action, subject, details) => {
+      if (AUDIT_FAILURE && action === "role.backfilled") throw new Error("SYNTHETIC-PRIVATE-UPSTREAM-BODY");
       db.prepare("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?1, ?2, ?3, ?4, ?5)").run(NOW, actor, action, subject ?? null, details === undefined ? null : JSON.stringify(details));
     },
   },
@@ -76,6 +78,7 @@ const backfill = load("backfill.ts", stubs);
 // ---- the network: every request is recorded; RATE answers the FIRST request of EVERY call with a 429 and its retry normally
 // (a call is one method+path; its requests come in pairs, so the odd request of a key is the limited one): Codex's scenario
 let FETCHES = [], MEMBERS = {}, RATE = false, INVENTORY_DOWN = false, BAN_ON_PUT = null, hits = new Map(), LOOKUP_FAIL = new Set();
+let LOOKUP_ERROR_BODY = "down", TRANSPORT_ERROR = null, PUT_ERROR_BODY = null;
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 originalTestFetch = async (url, init = {}) => {
   const u = new URL(String(url)), method = init.method || "GET", key = `${method} ${u.pathname}`;
@@ -85,10 +88,13 @@ originalTestFetch = async (url, init = {}) => {
   if (RATE && hit % 2 === 1) return json({ message: "You are being rate limited.", retry_after: 0.001, global: false }, 429);
   let m;
   if ((m = u.pathname.match(/^\/api\/v10\/guilds\/(\d+)\/roles$/))) return INVENTORY_DOWN ? json({ message: "down" }, 500) : json([{ id: ROLE }, { id: BLOCK }]);
-  if ((m = u.pathname.match(/^\/api\/v10\/guilds\/(\d+)\/members\/(\d+)$/)) && method === "GET") return LOOKUP_FAIL.has(m[2]) ? json({ message: "down" }, 500) : MEMBERS[m[2]] === undefined ? json({ code: 10007 }, 404) : json({ roles: MEMBERS[m[2]], user: { id: m[2], username: "u" } });
+  if ((m = u.pathname.match(/^\/api\/v10\/guilds\/(\d+)\/members\/(\d+)$/)) && method === "GET") {
+    if (TRANSPORT_ERROR) throw new Error(TRANSPORT_ERROR);
+    return LOOKUP_FAIL.has(m[2]) ? json({ message: LOOKUP_ERROR_BODY }, 500) : MEMBERS[m[2]] === undefined ? json({ code: 10007 }, 404) : json({ roles: MEMBERS[m[2]], user: { id: m[2], username: "u" } });
+  }
   if ((m = u.pathname.match(/^\/api\/v10\/guilds\/(\d+)\/members\/(\d+)\/roles\/(\d+)$/))) {
     const id = m[2], role = m[3];
-    if (method === "PUT") { MEMBERS[id] = [...new Set([...(MEMBERS[id] || []), role])]; if (BAN_ON_PUT === id) db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?1").run(id); return new Response(null, { status: 204 }); }
+    if (method === "PUT") { if (PUT_ERROR_BODY) return json({message: PUT_ERROR_BODY}, 403); MEMBERS[id] = [...new Set([...(MEMBERS[id] || []), role])]; if (BAN_ON_PUT === id) db.prepare("UPDATE members SET banned = 1 WHERE discord_id = ?1").run(id); return new Response(null, { status: 204 }); }
     if (method === "DELETE") { MEMBERS[id] = (MEMBERS[id] || []).filter((r) => r !== role); return new Response(null, { status: 204 }); }
   }
   return json({ message: "unexpected in this suite: " + key }, 500);
@@ -223,6 +229,28 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   out = await backfill.backfillRoles(env({ ROLE_CALL_BUDGET: "40" }), bq(`apply=1&limit=10&after=${THREE[0]}`));
   check("  once Discord answers, the continuation from the cursor finishes the two remaining accounts", out.examined === 2 && out.granted === 2 && out.finished === true && THREE.every((d) => MEMBERS[d].includes(ROLE)), JSON.stringify(out));
 
+  console.log("\n== untrusted provider and transport errors never enter operator summaries ==");
+  const sentinel = "SYNTHETIC-PRIVATE-UPSTREAM-BODY";
+  const privateAccount = id(90);
+  member(privateAccount); MEMBERS[privateAccount] = [];
+  reset(); await roles.rolesConfigured(env());
+  LOOKUP_FAIL = new Set([privateAccount]); LOOKUP_ERROR_BODY = sentinel;
+  out = await backfill.backfillRoles(env({ROLE_CALL_BUDGET:"40"}), bq(`apply=1&limit=1&after=${id(89)}`));
+  check("failed lookup reports its HTTP status without provider body", out.failed.length === 1 && out.failed[0].error === "Discord member lookup failed (HTTP 500)" && !JSON.stringify(out).includes(sentinel), JSON.stringify(out));
+  reset(); await roles.rolesConfigured(env()); TRANSPORT_ERROR = sentinel;
+  out = await backfill.backfillRoles(env({ROLE_CALL_BUDGET:"40"}), bq(`apply=1&limit=1&after=${id(89)}`));
+  check("failed lookup never echoes arbitrary transport exception", out.failed.length === 1 && out.failed[0].error === "Discord member lookup did not answer" && !JSON.stringify(out).includes(sentinel), JSON.stringify(out));
+  TRANSPORT_ERROR = null; LOOKUP_ERROR_BODY = "down";
+  reset(); await roles.rolesConfigured(env()); PUT_ERROR_BODY = sentinel;
+  out = await backfill.backfillRoles(env({ROLE_CALL_BUDGET:"40"}), bq(`apply=1&limit=1&after=${id(89)}`));
+  check("failed grant keeps status and continuation guidance without provider body", out.failed.length === 1 && out.failed[0].error === "Discord role grant failed (HTTP 403)" && !JSON.stringify(out).includes(sentinel) && !MEMBERS[privateAccount].includes(ROLE), JSON.stringify(out));
+  PUT_ERROR_BODY = null;
+  const auditAccount = id(91);
+  member(auditAccount); MEMBERS[auditAccount] = [];
+  reset(); await roles.rolesConfigured(env()); AUDIT_FAILURE = true;
+  out = await backfill.backfillRoles(env({ROLE_CALL_BUDGET:"40"}), bq(`apply=1&limit=1&after=${id(90)}`));
+  check("post-grant audit failure preserves the confirmed role result and safe verification guidance", out.granted === 1 && MEMBERS[auditAccount].includes(ROLE) && out.failed.length === 1 && out.failed[0].error === "Role backfill attempt could not be completed; verify current role state" && !JSON.stringify(out).includes(sentinel), JSON.stringify(out));
+  AUDIT_FAILURE = false;
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch((e) => { console.error(e); process.exit(1); });

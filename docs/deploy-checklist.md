@@ -7333,3 +7333,48 @@ Rollback is a separately authorised exact-commit release; no destructive restora
 The .208 live governance card exposed a long unwrapped trading-guide button at 375px. Bound both links inside `#trading-portfolio208` to their card and allow their complete labels to wrap. Fresh .209 browser verification then isolated an existing unwrapped Treasury programme quick link at 320px; apply the same bounds and wrapping only to `.governance-quicklinks .btn`. Other button groups, the adopted R7 book and its contained historical table scrollers, trading remit, ranks, permissions, settings, schema and launch gates remain unchanged. Preserve the .208 live failure and first .209 candidate's 320px observation as history; neither is accepted by these source checks.
 
 Qualify the actual rendered guide-link and Treasury quick-link targets plus scoped CSS constraints in the existing frontend suite, the three exact health-build pins, TypeScript and fast projections. Source assertions do not establish browser geometry: verify the trading links and governance quick links after the .209 deployment at desktop1280 and mobile390/375/320, retaining document and element bounds, complete readable labels and honest screenshots. Require independent exact-head and automated review, sharded PR/main CI, a fresh verified D1 backup and one exact-source deployment/readback under Root's existing release procedure. No full local aggregate, new cron observation, transferred timing exception, protected action or provider-feature activation is claimed.
+
+
+## Worker .210 — QA admission and operator safety (28 October 2026)
+
+The Master QA audit reproduced an admin-pause/application-save race, bearer forwarding through operator-helper
+redirects, unsafe upstream error echoes, malformed backfill success summaries, and addon rank-removal guards that
+still followed an older ladder. This candidate includes the separate .209 mobile trading-link correction in its
+ancestry; it does not relabel the deployed .208 release or its held mobile finding as accepted.
+
+Application INSERT/UPSERT now checks the current applicationsOpen and Patron Royal Writs switches in the same SQL
+statement as the write. A refusal creates no application row or audit. Operator helpers accept only a bare HTTPS
+origin, never follow redirects, validate success summaries and print bounded fixed error guidance. The authenticated
+Worker backfill response also uses status-only errors rather than provider bodies or arbitrary exceptions.
+
+Addon 0.6.12 uses the approved ten-rank guide. Leader, High Council, Officer and Officer Alt are protected even when
+an older private configuration says index 1; unknown/malformed indices are held. Both attended API clicks and macro
+aiming recheck current eligibility. Observed roster changes and successful verification cancel stale unverified aims;
+roster-response revalidation reads the cache without asking for another response. Disarming clears the old reason.
+If combat prevents editing an already-written macro, the addon says it remains armed and retries after combat.
+The addon cannot intercept an arbitrary manual action-bar macro press or guarantee a server change arrived before
+that press. Officers must inspect the target immediately before using it. Real protected-action/client acceptance
+and installation of these bytes remain separate gates.
+
+Focused local evidence: 14 Lua suites passed with 56 new removal regressions; operator transport/summary 137 checks
+passed on Python 3.12 and 3.14; permission review 38 on each; Worker role-budget/error hygiene 28; site 382;
+application track 159 and reserved-seat 186 including their Native fixtures, with identify-copy 99 statements.
+The four application races failed before repair and passed afterward. Original failure artifacts are retained.
+These component results do not certify the full Master inventory, full local expansion, hosted review, live users,
+Discord outputs, upstream distribution or real game behaviour.
+
+Config/DDL: no configuration or schema change, no new dependency or cron. Native E2 custody and default-OFF Treasury
+cosmetic dispatch, Army aggregate and Olympus Link remain required. No source edit activates them.
+
+Rollout gates: exact shipping-head TypeScript/projections and focused checks, current desktop/mobile browser QA,
+all 13 hosted jobs, independently attributable internal review and genuine completed exact-head automated PR review.
+Only after those gates run the full current expansion once: 203 occurrences preserving the original 198 and repeats,
+roster-effects occurrence 48 at 900 seconds, others 600, overall 5400. Do not reuse a spent historical once intent.
+Then use the exact-commit merge/deploy procedure, fresh D1 backup with local restore/integrity/FK verification and
+442 app/443 live objects, unchanged five-private-Worker/settings checks and fresh read-honest production acceptance.
+Do not run an automatic reset, real guild mutation or feature activation as a QA shortcut.
+
+Rollback: before deployment, keep the candidate unmerged if a gate fails. After an actual deployment, prefer a
+reviewed roll-forward for a discovered defect. Any revert/deploy follows the same exact-commit gates and preserves
+the schema/settings/private custody. Addon host rollback is a separately attended reinstall of preserved bytes;
+saved data needs no migration. No database restoration is introduced by this candidate.

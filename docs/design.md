@@ -2213,3 +2213,19 @@ The trading head owns market evidence, trade selection and execution, funded inv
 Roles, Vote, Admin display records and both organization views share the new catalogue row and complete guide. Reserved-seat guards reject public applications, including a forged deep link or remembered choice. Identity pagination retains its 32-row cap with the fifth full-catalogue page increasing from three to four. No identity backend, own-copy/erasure implementation, schema, config or provider gate is changed.
 
 The adopted R7 book is already near its finite 256KiB reader bound. Its exact bytes and historical 95-office register remain unchanged. Current trading direction is a clearly separate governance panel and a dated update to the existing Council clarification, rather than a silent book rewrite. The Treasury plan adds the portfolio and actual-cost/risk metrics without changing its arithmetic, owner-reported 0g snapshot or speculative 90-day scenario.
+
+
+### Build .210 — current authority at the final write and attended action (28 October 2026)
+
+The Master QA reproductions showed why an earlier switch check or rendered candidate row is insufficient. Application
+admission now reads pause switches in the write statement, while addon removal rechecks the current candidate at each
+attended action. The approved ladder protects native indices 0 through 3; private legacy settings cannot lower that
+floor. Missing or malformed rank data is not removal authority. Read-only roster-update revalidation must not create
+a new roster request loop. An already-written game macro remains subject to the actual client/combat boundary; the
+addon explicitly reports a deferred disarm and does not claim to intercept arbitrary manual macro execution.
+
+Bearer-bearing operator requests use a validated HTTPS origin and refuse every redirect. Success JSON is also
+untrusted: malformed or incomplete backfill summaries cannot be presented as a successful zero result. Upstream error
+bodies and exception text are replaced with fixed guidance in both helpers and the authenticated backfill response.
+The synthetic tests retain original failure evidence and exercise the real implementations. They establish no live
+Discord, bank, protected-action or distribution acceptance. No DDL, provider setting or launch gate changes here.

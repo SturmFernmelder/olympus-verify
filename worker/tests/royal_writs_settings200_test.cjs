@@ -22,6 +22,7 @@ const body200 = String.raw`
   const adminLogin200 = await signIn(VIKTOR), memberLogin200 = await signIn(member200), otherLogin200 = await signIn(otherMember200);
   if (adminLogin200.status !== 303 || memberLogin200.status !== 303 || otherLogin200.status !== 303 || !jar.get(VIKTOR) || !jar.get(member200) || !jar.get(otherMember200)) throw Error('original OAuth fixture did not issue the three sessions');
   const beforeSettings200 = JSON.stringify(db.prepare('SELECT key,value FROM site_settings ORDER BY key').all());
+  const originalApplicationsSwitch200 = db.prepare("SELECT value FROM site_settings WHERE key='applicationsOpen'").get();
   const providerAfterLogin200 = D.calls.length;
   let res200 = await call('GET', '/api/admin/overview', { who: VIKTOR }), result200 = await J(res200);
   check('actual admin overview defaults Royal Writs OFF without writing a row', res200.status === 200 && result200.settings.royalWritsOn === false && !setting200());
@@ -105,6 +106,47 @@ const body200 = String.raw`
       check(track + ' remains available while Royal Writs and Patron are OFF', res200.status === 200 && result200.application?.answers.applicationTrack === track && setting200().value === '0', res200.status, result200);
     }
   }
+  // The owner's Master QA (28 Oct 2026): settings must still admit the exact
+  // application at its write, after any asynchronous reference-label lookup.
+  for (const [switchKey200, track200, refusal200] of [
+    ['royalWritsOn', 'patron', 'royal_writs_paused'],
+    ['applicationsOpen', 'member', 'closed'],
+  ]) for (const existing200 of [false, true]) {
+    T += 61;
+    await call('PUT', '/api/admin/settings', { who: VIKTOR, body: { applicationsOpen: true, royalWritsOn: true } });
+    await fixtureRun('DELETE FROM site_applications WHERE discord_id=?', member200);
+    const racePayload200 = { ...applicationBody200, applicationTrack: track200, targetOffice: null,
+      answers: { ...applicationBody200.answers, references: [{ kind: 'discord', key: otherMember200, label: 'Original synthetic reference' }] } };
+    if (existing200) {
+      const setup200 = await call('PUT', '/api/application', { who: member200, body: racePayload200 });
+      if (setup200.status !== 200) throw Error('original application race setup failed: ' + setup200.status);
+    }
+    const beforeApplication200 = JSON.stringify(application200() ?? null);
+    const applicationAudits200 = () => JSON.stringify(db.prepare("SELECT id,action,details FROM audit WHERE action IN ('site.application_submitted','site.application_updated') ORDER BY id").all());
+    const beforeApplicationAudit200 = applicationAudits200();
+    let interleaved200 = false, adminSwitchStatus200 = null, observedSwitch200 = null;
+    PREPARE_HOOK = async sql => {
+      if (!interleaved200 && /^SELECT discord_id, username, global_name, nick FROM site_users WHERE discord_id IN/.test(sql)) {
+        interleaved200 = true;
+        // The original currentEntry Native port awaits this hook before BEGIN,
+        // so the real Admin request commits before the member batch resumes.
+        const changed200 = await call('PUT', '/api/admin/settings', { who: VIKTOR, body: { [switchKey200]: false } });
+        adminSwitchStatus200 = changed200.status;
+        observedSwitch200 = db.prepare('SELECT value FROM site_settings WHERE key=?').get(switchKey200)?.value;
+      }
+    };
+    try {
+      res200 = await call('PUT', '/api/application', { who: member200, body: { ...racePayload200, character: 'Changed Racer' } });
+      result200 = await J(res200);
+    } finally { PREPARE_HOOK = null; }
+    const label200 = switchKey200 + ' switched OFF during ' + (existing200 ? 'existing application update' : 'first application insert');
+    check(label200 + ' genuinely completed the original reentrant Admin save', interleaved200 && adminSwitchStatus200 === 200 && observedSwitch200 === '0');
+    check(label200 + ' refuses at the atomic application write without changing its row or audit', res200.status === 403 && result200.error === refusal200 && JSON.stringify(application200() ?? null) === beforeApplication200 && applicationAudits200() === beforeApplicationAudit200, res200.status, result200.error);
+    console.log('MEASURED_APPLICATION_SWITCH_RACE ' + JSON.stringify({ switchKey: switchKey200, existing: existing200, adminStatus: adminSwitchStatus200, observedSwitch: observedSwitch200, status: res200.status, error: result200.error, rowUnchanged: JSON.stringify(application200() ?? null) === beforeApplication200, auditUnchanged: applicationAudits200() === beforeApplicationAudit200 }));
+  }
+  await call('PUT', '/api/admin/settings', { who: VIKTOR, body: { applicationsOpen: true, royalWritsOn: false } });
+  if (originalApplicationsSwitch200) await fixtureRun("UPDATE site_settings SET value=? WHERE key='applicationsOpen'", originalApplicationsSwitch200.value);
+  else await fixtureRun("DELETE FROM site_settings WHERE key='applicationsOpen'");
   const beforeLogout200 = snapshot200();
   const logout200 = await call('POST', '/auth/logout', { who: VIKTOR });
   res200 = await call('PUT', '/api/admin/settings', { who: VIKTOR, body: { royalWritsOn: true } });

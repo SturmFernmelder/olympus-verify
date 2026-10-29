@@ -20,7 +20,7 @@ OlympusVerifyConfig = {
   -- Freeing a seat when the guild is full. The addon never removes anyone by itself: it ranks candidates in the
   -- officer panel and each removal takes two clicks. These are the guards on that ranking — loosen them carefully,
   -- because a removed member also loses their Discord access (the roster diff sees the departure).
-  protectRankIndex = 1,   -- rank index <= this is never suggested (0 = Guild Master, 1 = Officer on the default ladder)
+  protectRankIndex = 3,   -- protect Leader (0), High Council (1), Officer (2), Officer Alt (3); smaller legacy values are held at 3
   -- Inactivity thresholds, by level: how long someone must have been offline before the panel will suggest them.
   -- A flat number could not say what was meant. On a guild two days old, "21 days" matched nobody while the guild
   -- sat at its cap -- and the seats were being held by level 1s made in the launch rush and never logged into

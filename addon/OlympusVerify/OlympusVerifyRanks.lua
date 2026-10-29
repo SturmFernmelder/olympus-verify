@@ -1,8 +1,8 @@
 -- Informational preset only (owner decisions, 9 Oct 2026). Keep it separate
 -- from queue/roster code so reading the guide never applies guild changes.
--- Current recommendation follows the owner-selected B ladder of 23 Oct 2026.
+-- Current recommendation follows the owner-confirmed .199 ten-rank ladder.
 local ranks = {
-  "Guild Master (GM)", "High Council", "Treasurer", "Officer", "Raid Leader",
+  "Leader (Guild Master)", "High Council", "Officer", "Officer Alt", "Raid Leader",
   "Veteran", "Raider", "Member", "Alt", "Initiate",
 }
 
@@ -13,7 +13,7 @@ function OlympusVerifyRanks.Print(printLine)
   for i, rank in ipairs(ranks) do
     printLine(string.format("  %d: %s", i - 1, rank))
   end
-  printLine("Appointments: Co-Guild Master (Co-GM) is an office recommended for High Council (native index 1, second rank); Treasurer is native index 2 (third rank) and Officer is native index 3 (fourth rank). Officer Alt is a historical office alias, not an extra native rank.")
+  printLine("Appointments: Co-Guild Master (Co-GM) and Treasurer are High Council offices (native index 1, second rank), not extra native ranks. Officer is native index 2; Officer Alt is native index 3.")
   printLine("The approved preset gives every High Council member Withdraw Gold and Modify Bank Tabs.")
   printLine("Raid Leader retains the authenticator safeguard in the preset.")
   printLine("No numeric bank withdrawal allowances have been approved.")
