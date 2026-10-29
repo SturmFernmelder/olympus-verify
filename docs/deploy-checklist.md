@@ -7378,3 +7378,12 @@ Rollback: before deployment, keep the candidate unmerged if a gate fails. After 
 reviewed roll-forward for a discovered defect. Any revert/deploy follows the same exact-commit gates and preserves
 the schema/settings/private custody. Addon host rollback is a separately attended reinstall of preserved bytes;
 saved data needs no migration. No database restoration is introduced by this candidate.
+
+The same QA pass reproduced a separate local maintenance defect: `watcher/scrub_state.py` ignored an offline
+recovery lease and copied retained proof bodies into its pre-scrub backup. It now refuses pending/retained custody
+unchanged. A legacy-only seen-key migration acquires the existing shared state lease and uses private exclusive
+backup/temporary files, fsync, source identity/byte checks, atomic replacement and exact readback. Existing digests
+stay unchanged; nonfinite JSON is refused even on a no-op. A failed or ambiguous replacement asks for inspection
+and does not claim rollback or retry safety. The normal watcher, custody primitives and protocols are unchanged.
+The expanded custody suite passed 39/39 on Python 3.12 and 3.14; adjacent attended custody 19/19 and restart 7/7
+passed. These are disposable local-state checks, not installed-host recovery or erasure acceptance.

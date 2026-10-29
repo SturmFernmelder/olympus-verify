@@ -4,6 +4,8 @@ import contextlib
 import copy
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -15,6 +17,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import watcher
 import codes
+import scrub_state
+import custody_recovery as recovery
 
 
 class Custody196Tests(unittest.TestCase):
@@ -181,6 +185,7 @@ class Custody196Tests(unittest.TestCase):
         # Real transport classification remains (True, None); the typed status is separate evidence.
         self.w.worker.call = watcher.Worker.call.__get__(self.w.worker)
         error = urllib.error.HTTPError("https://example.invalid/ingest/events", 400, "synthetic", {}, io.BytesIO(b"NEVER_LOG_REFUSAL"))
+        self.addCleanup(error.close)
         with patch.object(self.w.worker.opener, "open", side_effect=error) as opened:
             self.assertIs(self.w.post("/ingest/events", {}, "event"), watcher.Delivery.HELD)
             self.w.flush_outbox()
@@ -369,6 +374,156 @@ class Custody196Tests(unittest.TestCase):
         self.assertTrue(bool(watcher.Delivery.DELIVERED))
         self.assertNotIn(self.cfg["watcher_token"], self.w._delivery_binding())
         self.assertNotIn(self.cfg["watcher_token"], self.w.state.path.read_text(encoding="utf-8"))
+
+    def scrub_seed(self):
+        key = "w:synthetic-member:SYNTHETIC-PRIVATE-CODE"
+        self.w.state.d["seen"] = [key, watcher.State._k("existing synthetic key")]
+        self.w.state.save()
+        return key, self.w.state.path, self.w.state.path.with_suffix(".prescrub.json")
+
+    def test_legacy_scrub_hashes_only_keys_and_keeps_private_backup(self):
+        key, path, backup = self.scrub_seed()
+        before = self.disk()
+        result = scrub_state.scrub(path)
+        after = self.disk()
+        self.assertEqual(result, {"keys": 2, "rewritten": 1})
+        self.assertEqual(after["seen"], [watcher.State._k(key), before["seen"][1]])
+        self.assertEqual({k: v for k, v in after.items() if k != "seen"}, {k: v for k, v in before.items() if k != "seen"})
+        self.assertEqual(backup.read_bytes(), path.read_bytes())
+        self.assertNotIn(key, backup.read_text(encoding="utf-8"))
+        self.assertTrue(watcher.State(path).was_seen(key))
+        if os.name != "nt":
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.calls, [])
+
+    def test_legacy_scrub_rejects_retained_outbox_without_copy_or_mutation(self):
+        _, path, backup = self.scrub_seed()
+        original = self.w._freeze_original("/ingest/events", {"code": "SYNTHETIC-PRIVATE-PROOF"}, "synthetic")
+        self.assertTrue(recovery.retained(original))
+        self.w.state.d["outbox"] = [original]
+        self.w.state.save()
+        before = path.read_bytes()
+        with self.assertRaises(ValueError): scrub_state.scrub(path)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(backup.exists())
+        self.assertEqual(self.calls, [])
+
+    def test_legacy_scrub_rejects_queue_original_and_bare_pending_ids(self):
+        _, path, backup = self.scrub_seed()
+        for field, value in [("queue_written_pending", [7]), ("queue_written_original", self.w._freeze_original("/queue/written", {"ids": []}, "synthetic"))]:
+            with self.subTest(field=field):
+                self.w.state.d["queue_written_pending"] = []
+                self.w.state.d["queue_written_original"] = None
+                self.w.state.d[field] = value
+                self.w.state.save()
+                before = path.read_bytes()
+                with self.assertRaises(ValueError): scrub_state.scrub(path)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertFalse(backup.exists())
+
+    def test_legacy_scrub_real_cli_respects_existing_offline_recovery_lease(self):
+        _, path, backup = self.scrub_seed()
+        before = path.read_bytes()
+        with recovery.StateLease(path):
+            result = subprocess.run([sys.executable, str(Path(scrub_state.__file__)), str(path)], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn("SYNTHETIC-PRIVATE", result.stdout + result.stderr)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(backup.exists())
+
+    def test_legacy_scrub_repeat_is_noop_without_overwriting_backup(self):
+        _, path, backup = self.scrub_seed()
+        scrub_state.scrub(path)
+        before, saved = path.read_bytes(), backup.read_bytes()
+        self.assertEqual(scrub_state.scrub(path), {"keys": 2, "rewritten": 0})
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(backup.read_bytes(), saved)
+
+    def test_legacy_scrub_refuses_existing_backup_or_temporary_without_overwriting(self):
+        _, path, backup = self.scrub_seed()
+        tmp = path.with_name(path.name + ".scrub.tmp")
+        before = path.read_bytes()
+        for blocked in [backup, tmp]:
+            with self.subTest(file=blocked.name):
+                blocked.write_bytes(b"synthetic prior migration file")
+                with self.assertRaises(FileExistsError): scrub_state.scrub(path)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(blocked.read_bytes(), b"synthetic prior migration file")
+                blocked.unlink()
+
+    def test_legacy_scrub_failed_replace_keeps_original_and_private_recovery_files(self):
+        _, path, backup = self.scrub_seed()
+        before = path.read_bytes()
+        with patch.object(scrub_state.os, "replace", side_effect=OSError("SYNTHETIC-PRIVATE-ERROR")):
+            self.assertEqual(scrub_state.main([str(path)]), 2)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertTrue(backup.exists())
+        self.assertEqual(backup.read_bytes(), path.with_name(path.name + ".scrub.tmp").read_bytes())
+
+    def test_legacy_scrub_archive_fsync_failure_never_replaces_source(self):
+        _, path, backup = self.scrub_seed()
+        before = path.read_bytes()
+        with recovery.StateLease(path): pass  # initialize marker before injecting the archive fsync failure
+        with patch.object(scrub_state.os, "fsync", side_effect=OSError("synthetic durability failure")):
+            with self.assertRaises(OSError): scrub_state.scrub(path)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertTrue(backup.exists())
+        self.assertFalse(path.with_name(path.name + ".scrub.tmp").exists())
+
+    def test_legacy_scrub_committed_replace_error_requires_inspection_without_rollback(self):
+        key, path, backup = self.scrub_seed()
+        replace = os.replace
+        def committed_then_error(source, target):
+            replace(source, target)
+            raise OSError("SYNTHETIC-PRIVATE-ERROR")
+        with patch.object(scrub_state.os, "replace", side_effect=committed_then_error):
+            self.assertEqual(scrub_state.main([str(path)]), 2)
+        self.assertEqual(path.read_bytes(), backup.read_bytes())
+        self.assertTrue(watcher.State(path).was_seen(key))
+        self.assertNotIn(key, path.read_text(encoding="utf-8"))
+
+    def test_legacy_scrub_rejects_malformed_state_before_backup(self):
+        _, path, backup = self.scrub_seed()
+        for state in [[], {"seen": "SYNTHETIC-PRIVATE"}, {"seen": [7]}, {"seen": [], "outbox": {}}, {"seen": [], "queue_written_pending": None}, {"seen": ["key"], "extra": float("nan")},
+                      {"seen": [], "extra": float("nan")}, {"seen": [watcher.State._k("synthetic")], "extra": float("nan")}]:
+            with self.subTest(state=state):
+                path.write_text(json.dumps(state), encoding="utf-8")
+                before = path.read_bytes()
+                self.assertEqual(scrub_state.main([str(path)]), 2)
+                self.assertEqual(path.read_bytes(), before)
+                self.assertFalse(backup.exists())
+
+    def test_legacy_scrub_refuses_multi_link_state(self):
+        _, path, backup = self.scrub_seed()
+        alias = path.with_name("synthetic-hard-link.json")
+        try: os.link(path, alias)
+        except OSError: self.skipTest("local filesystem did not allow a synthetic hard link")
+        before = path.read_bytes()
+        with self.assertRaises(ValueError): scrub_state.scrub(path)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(backup.exists())
+
+    def test_legacy_scrub_detects_changed_state_before_replacement(self):
+        _, path, backup = self.scrub_seed()
+        create = scrub_state.private_create
+        newer = b'{"seen": ["synthetic other writer"]}'
+        def changed_after_archive(target):
+            if target == path.with_name(path.name + ".scrub.tmp"): path.write_bytes(newer)
+            return create(target)
+        with patch.object(scrub_state, "private_create", side_effect=changed_after_archive):
+            with self.assertRaises(ValueError): scrub_state.scrub(path)
+        self.assertEqual(path.read_bytes(), newer)
+        self.assertTrue(backup.exists())
+
+    def test_legacy_scrub_real_cli_help_and_refusal_do_not_read_config(self):
+        script = str(Path(scrub_state.__file__))
+        result = subprocess.run([sys.executable, script, "--help"], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0)
+        result = subprocess.run([sys.executable, script, str(self.root / "missing.json")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("requires inspection", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
 
 if __name__ == "__main__":
