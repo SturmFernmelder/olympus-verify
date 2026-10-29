@@ -259,6 +259,7 @@ export default {
       }
       return res;
     } catch (e) {
+      if(e instanceof RecoveryFloorHeld)throw e;
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
       if(e instanceof PrivacySiteRequestHeld)return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
       // .49: the message goes to the log with a short id; the caller gets the id and nothing else (a D1 or upstream
