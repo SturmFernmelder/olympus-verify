@@ -14,6 +14,7 @@ import { parseNativeRoleMap,mappedNativeRole,identifyNativeProfile,identifyConfi
 import { privacyGenerationFenceSql,readPrivacySubject,privacyProviderCustodyDatabase } from './privacy-serving-authority';
 import { fenceSql } from './community-context';
 import { isSiteAdmin } from './site-core';
+import { captureTreasuryReservedRoles } from './treasury-reserved-roles';
 import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,captureBetaRoleDispatch,betaRoleDispatchHeld,betaGrantDispatchHeld,betaGrantDispatchSql,type BetaGrantCapture,type BetaRoleDispatch } from './beta-reset-policy';
 import { type LaneCapture,type LaneKind,type LaneRemovalPurpose,type LaneTupleRow } from './full-release-roles';
 
@@ -46,10 +47,10 @@ const removalHeld=betaRoleDispatchHeld;
 const now=()=>Math.floor(Date.now()/1000);
 const budget=():AttemptBudget=>({limit:8,attempts:0,retries:0});
 /** This path counts every network request and disables the legacy 429 retry. */
-async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,readAdmission?:()=>Promise<boolean>):Promise<T> {
+async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,readAdmission?:()=>Promise<boolean>,beforeDispatch?:()=>void):Promise<T> {
  if(readAdmission&&method==='GET'&&!await readAdmission())throw Error('retirement_original_read_admission_changed');
  if(b.attempts>=b.limit)throw new Error('role_budget');b.attempts++;if('calls' in b)(b as AttemptBudget&{calls:number}).calls++;
- return rest<T>(env,method,path,undefined,1,'Olympus verified role settlement',b);
+ return rest<T>(env,method,path,undefined,1,'Olympus verified role settlement',b,false,beforeDispatch);
 }
 async function member(env:Env,b:AttemptBudget,subject:string,readAdmission?:()=>Promise<boolean>):Promise<Member|null> {
  try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`,readAdmission);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
@@ -1373,7 +1374,7 @@ export async function settleTreasuryCosmeticRole(env:Env,authority:import('./tre
  catch{return await refuseBeforeDispatch();}
  let acknowledged=false;
  try{
-  a.check();await request(env,b,a.desired===1?'PUT':'DELETE',`/guilds/${a.config.guildId}/members/${a.target.id}/roles/${a.roleId}`);acknowledged=true;a.check();
+  a.check();await request(env,b,a.desired===1?'PUT':'DELETE',`/guilds/${a.config.guildId}/members/${a.target.id}/roles/${a.roleId}`,undefined,a.check);acknowledged=true;a.check();
   // A completed HTTP ACK cannot be a late original call. A changed target/actor
   // withholds the page result and requires erasure's later role observation.
   if(!await T.treasuryAuthorityCurrent(env,authority)){await receipt('held','treasury_acknowledged_admission_changed');return result('held','treasury_acknowledged_admission_changed',id);}
@@ -1398,6 +1399,10 @@ export const TREASURY_EXPIRY_HTTP_MAX=8;
 export async function expireTreasuryCosmeticRoles(env:Env,limits:{sqlRemaining:number;calls:AttemptBudget}):Promise<Settlement>{
  if(!Number.isSafeInteger(limits.sqlRemaining)||limits.sqlRemaining<TREASURY_EXPIRY_SQL_MAX||limits.calls.limit-limits.calls.attempts<TREASURY_EXPIRY_HTTP_MAX)return result('held','treasury_expiry_budget');
  if(!ID.test(env.GUILD_ID)||!ID.test(env.DISCORD_APP_ID)||!env.DISCORD_BOT_TOKEN)return result('held','treasury_expiry_configuration');
+ // TC-03 (owner deferred repair, 2026-10-29): classify current markers without new-grant configuration.
+ // Capture absent slots too, before any await, and keep that exact footprint.
+ let reserved:ReturnType<typeof captureTreasuryReservedRoles>;
+ try{reserved=captureTreasuryReservedRoles(env);}catch{return result('held','treasury_expiry_configuration');}
  const facts=await env.DB.batch([env.DB.prepare(`SELECT r.*,NULL AS beta_window_id FROM role_settlements r WHERE r.purpose='treasury_cosmetic' AND r.guild_id=?1 AND r.desired=1 AND r.attempts=1 AND r.claim_nonce IS NOT NULL AND r.state IN('settled','held') AND r.reason IN('treasury_effect_acknowledged','treasury_acknowledged_admission_changed','treasury_acknowledged_unconfirmed') AND r.expires_at<=${DB_NOW}
  AND NOT EXISTS(SELECT 1 FROM role_settlements x WHERE x.purpose='treasury_cosmetic_expiry' AND x.request_digest=r.id AND (x.attempts=1 OR x.state='settled' OR x.checked_at>${DB_NOW}-3600))
  AND NOT EXISTS(SELECT 1 FROM role_settlements x WHERE x.subject=r.subject AND x.guild_id=r.guild_id AND x.role_id=r.role_id AND x.id<>r.id AND (x.purpose<>'treasury_cosmetic_expiry' OR x.request_digest IS NOT r.id) AND ((x.attempts=1 AND x.state IN('dispatching','unknown')) OR (x.purpose='treasury_cosmetic' AND x.desired=1 AND x.expires_at>r.expires_at)))
@@ -1405,7 +1410,7 @@ export async function expireTreasuryCosmeticRoles(env:Env,limits:{sqlRemaining:n
  const original=captureOriginalSettlementFacts(facts,env),p=original.intent;if(!p)return result('settled','no_expired_treasury_role');
  const sourceSlots=(['DISCORD_APP_ID','DISCORD_BOT_TOKEN','DB'] as const).map(k=>[k,Object.getOwnPropertyDescriptor(env,k)] as const);
  if(sourceSlots.some(([,d])=>!d||!Object.hasOwn(d,'value')))return result('held','treasury_expiry_configuration');
- const check=()=>{original.check();for(const[k,d]of sourceSlots){const live=Object.getOwnPropertyDescriptor(env,k);if(!live||!Object.hasOwn(live,'value')||live.value!==d!.value)throw Error('treasury_expiry_configuration_changed');}};
+ const check=()=>{original.check();reserved.check();for(const[k,d]of sourceSlots){const live=Object.getOwnPropertyDescriptor(env,k);if(!live||!Object.hasOwn(live,'value')||live.value!==d!.value)throw Error('treasury_expiry_configuration_changed');}};
  const op=(await sha256('treasury-cosmetic-expiry-v1:'+p.id)).slice(0,32);check();
  const parent=`EXISTS(SELECT 1 FROM role_settlements p WHERE p.id=?1 AND p.subject=?2 AND p.guild_id=?3 AND p.role_id=?4 AND p.subject_generation IS ?5 AND p.claim_nonce=?6 AND p.created_at=?7 AND p.expires_at=?8 AND p.purpose='treasury_cosmetic' AND p.desired=1 AND p.attempts=1 AND p.state IN('settled','held') AND p.reason IN('treasury_effect_acknowledged','treasury_acknowledged_admission_changed','treasury_acknowledged_unconfirmed') AND p.expires_at<=${DB_NOW})`;
  const noSuccessor=`NOT EXISTS(SELECT 1 FROM role_settlements x WHERE x.subject=?2 AND x.guild_id=?3 AND x.role_id=?4 AND x.id<>?1 AND x.id<>?9 AND ((x.attempts=1 AND x.state IN('dispatching','unknown')) OR (x.purpose='treasury_cosmetic' AND x.desired=1 AND x.expires_at>?8)))`;
@@ -1417,18 +1422,19 @@ export async function expireTreasuryCosmeticRoles(env:Env,limits:{sqlRemaining:n
  const b=limits.calls,get=async(path:string)=>{const x=await request<unknown>(env,b,'GET',path,current);check();if(!await current())throw Error('treasury_expiry_custody_changed');return x;};
  let present=false;
  try{
+  check();if(reserved.roles.includes(p.role_id))throw Error('treasury_reserved_role');
   const me=await get('/users/@me');if((me as {id?:string;bot?:boolean})?.id!==env.DISCORD_APP_ID||(me as {bot?:boolean})?.bot!==true)throw Error('bot_identity');
   const roles=await get(`/guilds/${p.guild_id}/roles`),channels=await get(`/guilds/${p.guild_id}/channels`),bot=await get(`/guilds/${p.guild_id}/members/${env.DISCORD_APP_ID}`),target=await get(`/guilds/${p.guild_id}/members/${p.subject}`),guild=await get(`/guilds/${p.guild_id}`);
   // The source-owned one-role projection is cleanup custody, never a grant
   // configuration. Reuse complete inventory/overwrite/hierarchy validation.
   const T=await import('./treasury-cosmetic'),historical={raw:'',guildId:p.guild_id,applicationId:env.DISCORD_APP_ID,seasonStartsAt:0,roles:{tithePayer:p.role_id,patron:p.role_id,benefactor:p.role_id}};
   const held=T.validateTreasuryInventory(historical,roles,channels,bot,target,guild);if((target as Member)?.user?.id!==p.subject)throw Error('expiry_target');present=held.includes(p.role_id);
- }catch(error){const reason=error instanceof Error&&['treasury_role_inventory','treasury_member_inventory','treasury_hierarchy','treasury_role_not_cosmetic','treasury_channel_inventory','treasury_channel_access'].includes(error.message)?'expiry_'+error.message.slice('treasury_'.length):'expiry_qualification_held';await custody.prepare(`UPDATE role_settlements SET checked_at=${DB_NOW},reason=?2 WHERE id=?1 AND purpose='treasury_cosmetic_expiry' AND attempts=0`).bind(op,reason).run();return result('held','treasury_'+reason,op);}
+ }catch(error){const reason=error instanceof Error&&['treasury_role_inventory','treasury_member_inventory','treasury_hierarchy','treasury_role_not_cosmetic','treasury_channel_inventory','treasury_channel_access','treasury_reserved_role'].includes(error.message)?'expiry_'+error.message.slice('treasury_'.length):'expiry_qualification_held';await custody.prepare(`UPDATE role_settlements SET checked_at=${DB_NOW},reason=?2 WHERE id=?1 AND purpose='treasury_cosmetic_expiry' AND attempts=0`).bind(op,reason).run();return result('held','treasury_'+reason,op);}
  if(!present){const absent=await custody.prepare(`UPDATE role_settlements SET state='settled',reason='expired_role_observed_absent',checked_at=${DB_NOW} WHERE id=?9 AND attempts=0 AND ${guard} RETURNING id`).bind(...v).first();return absent?result('settled','expired_role_observed_absent',op,now()):result('held','treasury_expiry_custody_changed',op);}
  const nonce=randomGeneration(),child=`id=?9 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND purpose='treasury_cosmetic_expiry' AND request_digest=?1`,claimed=await custody.prepare(`UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?10,reason='expiry_dispatching' WHERE ${child} AND attempts=0 AND state='pending' AND ${guard} RETURNING id`).bind(...v,nonce).first();check();
  if(!claimed||!await current())return result('held','treasury_expiry_claim_held',op);
  const owned=`${child} AND attempts=1 AND state='dispatching' AND claim_nonce=?10`;
- try{check();await request(env,b,'DELETE',`/guilds/${p.guild_id}/members/${p.subject}/roles/${p.role_id}`);check();
+ try{check();await request(env,b,'DELETE',`/guilds/${p.guild_id}/members/${p.subject}/roles/${p.role_id}`,undefined,check);check();
   const after=await request<Member>(env,b,'GET',`/guilds/${p.guild_id}/members/${p.subject}`);check();if(after?.user?.id!==p.subject||!Array.isArray(after.roles)||after.roles.includes(p.role_id)||!await current())throw Error('expiry_confirmation');
   const closed=await custody.prepare(`UPDATE role_settlements SET state='settled',reason='season_expiry_delete_acknowledged',checked_at=${DB_NOW} WHERE ${owned} AND ${guard} RETURNING id`).bind(...v,nonce).first();return closed?result('settled','season_expiry_delete_acknowledged',op,now()):result('unknown','treasury_expiry_ack_unknown',op);
  }catch{try{await custody.prepare(`UPDATE role_settlements SET state='unknown',reason='season_expiry_outcome_unknown',checked_at=${DB_NOW} WHERE ${owned}`).bind(...v,nonce).run();}catch{/* Never release a spent attempt if even its receipt is uncertain. */}return result('unknown','season_expiry_outcome_unknown',op);}

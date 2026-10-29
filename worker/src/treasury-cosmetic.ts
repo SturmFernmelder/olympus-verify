@@ -7,7 +7,7 @@ import { apiJson, b64u, isSiteAdmin, PAGE_VERSION, rateLimited, sameOrigin, sign
 import { admittedRead, captureCommunitySubject, communityContext, DB_NOW, fenceSql, FENCE_REFUSED, randomToken, type CommunityContext } from './community-context';
 import { contributionRetentionDays, contributionsWritable, contributionScope, mailReference } from './community-contributions';
 import { privacyGenerationLiteralFenceSql } from './privacy-serving-authority';
-import { BETA_RESET_ROLE_IDS } from './beta-reset-policy';
+import { captureTreasuryReservedRoles } from './treasury-reserved-roles';
 import { parseNativeRoleMap } from './native-rank-adapter';
 
 export const TREASURY_PURPOSE = 'treasury_cosmetic';
@@ -36,15 +36,12 @@ const ENV_KEYS = ['DB', 'COOKIE_SECRET', 'VERIFY_SECRET', 'GUILD_ID', 'SITE_GUIL
 function environment(env: TreasuryEnv) {
   const proto = Object.getPrototypeOf(env), slots = ENV_KEYS.map(k => Object.getOwnPropertyDescriptor(env, k));
   if (slots.some((d, i) => !d && ENV_KEYS[i]! in env || d && !Object.hasOwn(d, 'value'))) return fail('treasury_configuration', 503);
-  const check = () => { if (Object.getPrototypeOf(env) !== proto) fail('treasury_configuration_changed'); for (let i = 0; i < slots.length; i++) { const old = slots[i], live = Object.getOwnPropertyDescriptor(env, ENV_KEYS[i]!); if (!old ? !!live : !live || ['value', 'writable', 'enumerable', 'configurable', 'get', 'set'].some(k => old[k as keyof PropertyDescriptor] !== live[k as keyof PropertyDescriptor])) fail('treasury_configuration_changed'); } };
+  let reserved: ReturnType<typeof captureTreasuryReservedRoles>;
+  try { reserved = captureTreasuryReservedRoles(env); } catch { return fail('treasury_configuration', 503); }
+  const check = () => { if (Object.getPrototypeOf(env) !== proto) fail('treasury_configuration_changed'); for (let i = 0; i < slots.length; i++) { const old = slots[i], live = Object.getOwnPropertyDescriptor(env, ENV_KEYS[i]!); if (!old ? !!live : !live || ['value', 'writable', 'enumerable', 'configurable', 'get', 'set'].some(k => old[k as keyof PropertyDescriptor] !== live[k as keyof PropertyDescriptor])) fail('treasury_configuration_changed'); } reserved.check(); };
   const text = (k: typeof ENV_KEYS[number]): string | undefined => { const value = slots[ENV_KEYS.indexOf(k)]?.value; if (value !== undefined && typeof value !== 'string') return fail('treasury_configuration', 503); return value; };
-  const reserved: string[] = [...BETA_RESET_ROLE_IDS];
-  for (const k of ['ROLE_GUILD_MEMBER', 'MEMBERSHIP_RETIRED_ROLE_ID', 'ROLE_OFFICER', 'ROLE_MODERATOR', 'ROLE_GUILD_LEADER', 'ROLE_GUILD_MASTER', 'ROLE_RAID_LEADER', 'LINK_ROLE_ID'] as const) { const value = text(k); if (value) { if (!id(value)) fail('treasury_configuration', 503); reserved.push(value); } }
-  for (const k of ['BLOCKING_ROLE_IDS', 'INTROS_ROLES'] as const) for (const value of (text(k) ?? '').split(',').map(s => s.trim()).filter(Boolean)) { if (!id(value)) fail('treasury_configuration', 503); reserved.push(value); }
-  const native = text('QR_NATIVE_ROLE_MAP'); if (native) try { reserved.push(...parseNativeRoleMap(native).roles); } catch { return fail('treasury_configuration', 503); }
-  const full = text('FULL_RELEASE_ROLES'); if (full) { let f: Record<string, unknown>; try { f = JSON.parse(full); } catch { return fail('treasury_configuration', 503); } if (!f || !id(f.membership) || !Array.isArray(f.native) || f.native.length !== 10 || !f.native.every(id)) return fail('treasury_configuration', 503); reserved.push(f.membership, ...f.native); }
   check(); if (env.SITE_GUILD_ID !== env.GUILD_ID || !env.COOKIE_SECRET || !env.DISCORD_BOT_TOKEN) return fail('treasury_configuration', 503);
-  return { check, config: parseTreasuryConfig(text('TREASURY_COSMETIC_ROLES'), env.GUILD_ID, env.DISCORD_APP_ID, reserved) };
+  return { check, config: parseTreasuryConfig(text('TREASURY_COSMETIC_ROLES'), env.GUILD_ID, env.DISCORD_APP_ID, reserved.roles) };
 }
 type Target = { id: string; birth: string; generation: string | null; revision: number | null };
 const targetStanding = (alias: string) => `${alias}.in_server=1 AND ${alias}.denied=0 AND NOT EXISTS(SELECT 1 FROM members m WHERE m.discord_id=${alias}.discord_id AND m.banned=1)

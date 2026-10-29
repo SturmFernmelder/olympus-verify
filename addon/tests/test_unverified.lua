@@ -134,7 +134,7 @@ for _, f in ipairs(FRAMES) do
   if f.kick then table.insert(rows, f) end
 end
 check("the Unverified toggle exists", unv ~= nil, true)
-check("five rank-filter buttons, hidden until used", #fbtn == 5 and not fbtn[1]:IsShown(), true)
+check("six rank-filter buttons, hidden until used", #fbtn == 6 and not fbtn[1]:IsShown(), true)
 unv:Click()
 local header; for _, fs in ipairs(FONTS) do if type(fs._text) == "string" and fs._text:find("Unverified|r", 1, true) then header = fs._text end end
 check("header counts the removable", header and header:find("3 removable of", 1, true) ~= nil, true)
@@ -165,6 +165,44 @@ check("migration missing: nobody offered", #c2, 0)
 check("  and the panel/print can say why", i2.noFirstSeen, true)
 OlympusQueue.unverified = saved
 check("the panel's refresh survives both", pcall(OlympusVerifyUI.Refresh), true)
+
+print("\n== every eligible native rank has a working filter ==")
+-- Fill the three missing buckets using the same real roster/watcher inputs as
+-- the original cases. Click the actual sixth widget through the real API.
+for _, extra in ipairs({
+  { name = "Synthetic Alt", rank = "Alt", rankIndex = 8 },
+  { name = "Synthetic Raider", rank = "Raider", rankIndex = 6 },
+  { name = "Synthetic Raidleader", rank = "Raid Leader", rankIndex = 4 },
+}) do
+  ROSTER[#ROSTER + 1] = { name = extra.name, rank = extra.rank, rankIndex = extra.rankIndex, level = 60, away = 20 }
+  OlympusQueue.unverified.members[#OlympusQueue.unverified.members + 1] = M(extra.name, extra.rank, extra.rankIndex, UTC(2026, 9, 20))
+end
+SlashCmdList.OLYMPUSVERIFY("unverified all")
+unv:Click()
+local expectedRanks = { "Initiate", "Alt", "Member", "Raider", "Veteran", "Raid Leader" }
+for i, rank in ipairs(expectedRanks) do
+  check("actual filter " .. i .. " exposes " .. rank, fbtn[i] and fbtn[i]:IsShown() and fbtn[i].rank == rank, true)
+end
+local beforeFilter = API.UnverifiedList(100)
+check("all six eligible ranks initially have an offered member", #beforeFilter, 6)
+local protectedActions = 0
+local oldInvite, oldUninvite, oldCreate, oldEdit = C_GuildInfo.Invite, C_GuildInfo.Uninvite, CreateMacro, EditMacro
+C_GuildInfo.Invite = function(...) protectedActions = protectedActions + 1; return oldInvite(...) end
+C_GuildInfo.Uninvite = function(...) protectedActions = protectedActions + 1; return oldUninvite(...) end
+CreateMacro = function(...) protectedActions = protectedActions + 1; return oldCreate(...) end
+EditMacro = function(...) protectedActions = protectedActions + 1; return oldEdit(...) end
+if fbtn[6] then fbtn[6]:Click() end
+local afterFilter = API.UnverifiedList(100)
+local sixthStillOffered = false
+for _, member in ipairs(afterFilter) do if member.rank == "Raid Leader" then sixthStillOffered = true end end
+check("clicking the sixth control persists its exact rank exclusion", OlympusVerifyDB.unverifiedExcluded["Raid Leader"], true)
+check("clicking the sixth control hides its actual candidate", sixthStillOffered, false)
+check("clicking the sixth control keeps all other candidates", #afterFilter, #beforeFilter - 1)
+if fbtn[6] then fbtn[6]:Click() end
+check("the sixth control restores its actual candidate", #API.UnverifiedList(100), #beforeFilter)
+check("restoring the sixth rank clears its saved exclusion", API.UnverifiedExcluded()["Raid Leader"] == true, false)
+check("rank-filter clicks perform no invite, removal or macro write", protectedActions, 0)
+C_GuildInfo.Invite, C_GuildInfo.Uninvite, CreateMacro, EditMacro = oldInvite, oldUninvite, oldCreate, oldEdit
 
 print(string.format("\n%d/%d passed", tests - fails, tests))
 os.exit(fails == 0 and 0 or 1)
