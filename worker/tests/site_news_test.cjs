@@ -1423,14 +1423,14 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
 {
   "file": "worker/src/index.ts",
-  "startMarker": "const BUILD = \"2026-10-28.208 High Council trading portfolio\";",
+  "startMarker": "const BUILD = \"2026-10-28.209 Trading portfolio mobile links\";",
   "singleLine": true,
-  "paragraphSha256": "8366e547e8c986eabaffc689deb146d02dcd08be8243fef6028db17153431c3d",
+  "paragraphSha256": "fb99f31034a0aa88b38b92332e604074ab02bf90d8b9cb30393b71cca3d9f90f",
   "paragraphBytes": 62,
   "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-  "count": 1,
-  "ownerRelease": 208,
-  "purpose": "Owner208 Council trading portfolio: exact release label only; no general file or vocabulary allowance."
+  "count": 0,
+  "ownerRelease": 209,
+  "purpose": "Owner209 mobile-link fix: exact release label has no guarded rank occurrence and grants zero vocabulary credit; no general file or vocabulary allowance."
 },
 {
   "file": "worker/public/static/app.js",
@@ -1617,15 +1617,17 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     check('.208 trading bytes in a different guarded file receive no credit '+spec.paragraphSha256.slice(0,12),!!paragraph && Object.keys(currentContextQualification('README.md',paragraph).credits).length===0 && vocabularyOverages('README.md',paragraph).some(value=>value.includes(currentDigest.slice(0,12))));
   }
 
-  // The owner-directed current Council release label is one exact public-rank line.
-  // This never raises ALLOWED or removes any original withheld digest.
-  const buildSpecs208 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===208 && spec.file==='worker/src/index.ts'), buildFile208='worker/src/index.ts';
-  const buildText208=guarded.find(([file])=>file===buildFile208)[1], buildQualification208=currentContextQualification(buildFile208,buildText208);
-  const buildLine208=buildSpecs208.length===1 ? buildQualification208.paragraphs.find(value=>value.startsWith(buildSpecs208[0].startMarker))||'' : '';
-  check('.208 qualifies exactly one byte-pinned current release label without expanding original allowances',buildSpecs208.length===1 && buildSpecs208[0].file===buildFile208 && buildSpecs208[0].singleLine===true && buildSpecs208[0].digest===currentDigest && buildSpecs208[0].count===1 && buildQualification208.errors.length===0 && buildQualification208.credits[currentDigest]===1 && Buffer.byteLength(buildLine208,'utf8')===buildSpecs208[0].paragraphBytes && sha(buildLine208)===buildSpecs208[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile208]).length===1 && ALLOWED[buildFile208][currentDigest]===undefined);
-  check('.208 changing or duplicating the release label loses its exact context credit',!!buildLine208 && currentContextQualification(buildFile208,buildText208.replace(buildLine208,buildLine208+'!')).errors.length>0 && vocabularyOverages(buildFile208,buildText208.replace(buildLine208,buildLine208+'!')).length>0 && currentContextQualification(buildFile208,buildText208+'\n'+buildLine208).errors.length>0 && vocabularyOverages(buildFile208,buildText208+'\n'+buildLine208).length>0);
-  check('.208 an extra occurrence outside the label or in another file stays restricted',!!buildLine208 && vocabularyOverages(buildFile208,buildText208+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine208).credits).length===0 && vocabularyOverages('README.md',buildLine208).some(value=>value.includes(currentDigest.slice(0,12))));
-  check('.208 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification208.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile208,{[digest]:((ALLOWED[buildFile208]||{})[digest]||0)+1},buildQualification208).some(value=>value.includes(digest.slice(0,12)))));
+  // .209's exact release label contains no guarded rank term, so it grants zero credit.
+  // Keep the byte, duplicate, planted-term and wrong-file refusals without raising ALLOWED or changing GUARD.
+  const buildSpecs209 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===209 && spec.file==='worker/src/index.ts'), buildFile209='worker/src/index.ts';
+  const buildText209=guarded.find(([file])=>file===buildFile209)[1], buildQualification209=currentContextQualification(buildFile209,buildText209);
+  const buildLine209=buildSpecs209.length===1 ? buildQualification209.paragraphs.find(value=>value.startsWith(buildSpecs209[0].startMarker))||'' : '';
+  check('.209 pins exactly one current release label with zero guarded vocabulary credit',buildSpecs209.length===1 && buildSpecs209[0].file===buildFile209 && buildSpecs209[0].singleLine===true && buildSpecs209[0].digest===currentDigest && buildSpecs209[0].count===0 && buildQualification209.errors.length===0 && buildQualification209.credits[currentDigest]===0 && Object.keys(guardedCounts(buildLine209)).length===0 && Buffer.byteLength(buildLine209,'utf8')===buildSpecs209[0].paragraphBytes && sha(buildLine209)===buildSpecs209[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile209]).length===1 && ALLOWED[buildFile209][currentDigest]===undefined);
+  check('.209 changing or duplicating the release label loses its exact context qualification',!!buildLine209 && currentContextQualification(buildFile209,buildText209.replace(buildLine209,buildLine209+'!')).errors.length>0 && vocabularyOverages(buildFile209,buildText209.replace(buildLine209,buildLine209+'!')).length>0 && currentContextQualification(buildFile209,buildText209+'\n'+buildLine209).errors.length>0 && vocabularyOverages(buildFile209,buildText209+'\n'+buildLine209).length>0);
+  check('.209 a guarded occurrence planted outside the label or in another file stays restricted',!!buildLine209 && !!approvedGram && vocabularyOverages(buildFile209,buildText209+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine209).credits).length===0 && Object.keys(currentContextQualification('README.md',buildLine209+'\n'+approvedGram).credits).length===0 && vocabularyOverages('README.md',buildLine209+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
+  const retiredBuildLine208='const BUILD = "2026-10-28.208 High Council trading portfolio";';
+  check('.209 the retired .208 label cannot reclaim its former rank credit in the current or another file',sha(retiredBuildLine208)==='8366e547e8c986eabaffc689deb146d02dcd08be8243fef6028db17153431c3d' && !CURRENT_CONTEXTS.some(spec=>spec.startMarker===retiredBuildLine208) && vocabularyOverages(buildFile209,buildText209+'\n'+retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',retiredBuildLine208).credits).length===0 && vocabularyOverages('README.md',retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
+  check('.209 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification209.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile209,{[digest]:((ALLOWED[buildFile209]||{})[digest]||0)+1},buildQualification209).some(value=>value.includes(digest.slice(0,12)))));
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");
