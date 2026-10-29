@@ -342,8 +342,12 @@ const PROTECTED = ['role-settlements', 'roles', 'role-rank-continuation', 'beta-
 // .196 exact current-source projection: immutable historical whole seals and
 // dynamic oracles remain unchanged. The pure helper cannot start either suite.
 const { SOURCE196_COMPAT, SOURCE196_CRON, SOURCE198_ROLE_SETTLEMENTS, source196HistoricalDigest } = require('./source196-historical-projection.cjs');
+// .211 changes restriction-only Treasury/provider seams. Authenticate the
+// finite static reconstruction helper; the runtime loader above is untouched.
+if (nodeCrypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname, 'source211-historical-projection.cjs'))).digest('hex') !== 'db8684b7c2a202c99cfc58442cd1ba500fc0b572230029d357be8e64cf1b5093') throw Error('reviewed211 identity helper differs');
+const source211 = require('./source211-historical-projection.cjs');
 function sourceDigest(name) {
-  return source196HistoricalDigest(name, fs.readFileSync(path.join(SRC, name + '.ts'), 'utf8'));
+  return source211.source211HistoricalDigest(name, fs.readFileSync(path.join(SRC, name + '.ts'), 'utf8'));
 }
 /** Static value imports among src/*.ts (type-only imports and dynamic import() excluded). */
 function staticGraph() {
@@ -397,12 +401,16 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
   check('ban210 successor binds exact reviewed interactions source, finite paired fixture and unchanged historical PINS',Object.values(banSources).every(Boolean),banSources);
   const heldSources=held210.sourceChecks(SRC);
   check('RT06 held-verify successor binds exact full restore source and finite H4/H6/current fixture',Object.values(heldSources).every(Boolean),heldSources);
+  const sources211 = source211.sourceChecks(SRC, PINS);
+  check('.211 identity reconstruction binds both exact current sources, accepted H16 bytes and all restriction support', Object.values(sources211).every(Boolean), sources211);
+  for (const row of source211.driftControls(SRC)) check('.211 identity reconstruction refuses ' + row.source + ' ' + row.name, row.refused);
 
   // --- static: whole reviewed .164 integrated sources; the lane modules are never part of a module-load cycle
-  for (const name of PROTECTED) check(SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
+  for (const name of PROTECTED) check(['role-settlements', 'privacy-global-serving-origin'].includes(name) ? `${name}.ts reconstructs accepted H16 through exact .211 contexts before unchanged historical whole seals` : SOURCE196_COMPAT[name] ? `${name}.ts reconstructs the reviewed .164 whole source through exact pinned .196 contextual reversals only` : `${name}.ts is byte-identical to the reviewed .164 integrated source`, sourceDigest(name) === PINS.files[name]);
   // .198: the owner-approved absent empty duplicate changes three qualification
   // contexts only. Historical file seals and every dynamic trace below stay fixed.
-  const role198Raw = fs.readFileSync(path.join(SRC, 'role-settlements.ts'), 'utf8'), role198Pin = SOURCE198_ROLE_SETTLEMENTS;
+  // Historical intermediate controls inspect reconstructed text only; no old code executes.
+  const role198Raw = source211.original211Source('role-settlements', fs.readFileSync(path.join(SRC, 'role-settlements.ts'), 'utf8')) ?? '', role198Pin = SOURCE198_ROLE_SETTLEMENTS;
   check('.198 role compatibility accepts only the exact raw source and three unique reviewed contexts', sha(role198Raw) === role198Pin.exactCurrentRawSHA256 && role198Pin.edits.length === 3 && role198Pin.edits.every(edit => edit.count === 1 && role198Raw.split(edit.from).length === 2) && source196HistoricalDigest('role-settlements', role198Raw) === PINS.files['role-settlements']);
   const role197Raw = role198Pin.edits.reduce((raw, edit) => raw.replace(edit.from, edit.to), role198Raw);
   check('.198 role compatibility reconstructs the entire accepted .197 source before all unchanged historical seals', sha(role197Raw) === role198Pin.exact197RawSHA256 && source196HistoricalDigest('role-settlements', role197Raw) === PINS.files['role-settlements']);
