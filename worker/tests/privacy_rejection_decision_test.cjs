@@ -329,7 +329,13 @@ async function applicationReviewCases(layout){
  const start=checks;
  eq(layout+' review drift inventory covers27 schema columns',REVIEW_DRIFTS.map(x=>x[0]),REVIEW_COLUMNS);
  {const f=await opened(layout);try{
-  eq(layout+' review columns match actual Native schema',f.db.prepare('PRAGMA table_info(site_applications)').all().map(x=>x.name),REVIEW_COLUMNS);
+   const expectedPhysicalByLayout=Object.freeze({
+    canonical:Object.freeze(["discord_id","position","class_lead","backup1","backup2","fallback","character","char_key","class","role","region","avail","avail_tz","fit_na","fit_eu","board_at","answers","status","admin_note","reviewed_by","reviewed_at","created_at","updated_at","rejection_event_id","rejection_subject_key","rejection_scope","rejection_window_expired"]),
+    'recorded-live-20261010':Object.freeze(["discord_id","position","class_lead","fallback","character","char_key","class","role","region","answers","status","admin_note","reviewed_by","reviewed_at","created_at","updated_at","backup1","backup2","avail","avail_tz","fit_na","fit_eu","board_at","rejection_event_id","rejection_subject_key","rejection_scope","rejection_window_expired"])
+   });
+   if(!Object.hasOwn(expectedPhysicalByLayout,layout))throw Error('review physical schema layout held');
+   const expectedPhysicalColumns=expectedPhysicalByLayout[layout],physicalColumns=f.db.prepare('PRAGMA table_info(site_applications)').all().map(x=>x.name);
+   eq(layout+' review columns match actual Native schema',{physical:physicalColumns,physicalUnique:new Set(physicalColumns).size,expectedPhysicalUnique:new Set(expectedPhysicalColumns).size,semanticUnique:new Set(REVIEW_COLUMNS).size,expectedPhysicalNames:expectedPhysicalColumns.slice().sort()},{physical:expectedPhysicalColumns,physicalUnique:27,expectedPhysicalUnique:27,semanticUnique:27,expectedPhysicalNames:REVIEW_COLUMNS.slice().sort()});
   await reviewWrite(f,'UPDATE site_applications SET answers=?,admin_note=? WHERE discord_id=?',' { "n":1e500, "z":-0, "q":"\\u0061" } ','private-review-sentinel',TARGET);
   const raw=rawApplicationReview(f),t=await f.token('status'),payload=decodedReviewToken(t);
   ok(layout+' review digest mandatory64hex',typeof payload.reviewDigest==='string'&&/^[0-9a-f]{64}$/.test(payload.reviewDigest));
