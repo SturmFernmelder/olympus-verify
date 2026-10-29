@@ -38,7 +38,7 @@ npm run check:policies                     # src/policy-content.ts is what polic
 npm run test:all                           # typecheck + vectors + every node suite (real src/*.ts over SQLite) + the bundle in workerd
 node tests/bundle_runtime_test.cjs         # the exact dry-run bundle loaded in local Miniflare/workerd (~15 s)
 node tests/site_test.cjs                   # one suite (383 checks at .210); each suite prints PASS/FAIL and a total
-node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (579 checks at .210)
+node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (602 expected checks in the current .210 assertion index; exact-head runtime results are authoritative)
 node tests/role_budget_test.cjs            # the role writer's request budget: the real discord.ts rest() behind a stubbed fetch (.95/.99)
 node tests/guild_seats_test.cjs            # .115: whether Olympus I has room (latest snapshot, trust, the texts, the staff lines, the ingest's statement bound; 171 checks)
 node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 346 at .210)
