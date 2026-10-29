@@ -176,7 +176,7 @@ local function Print(msg) DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: " 
 -- later, at the 19:08 logout. So the automatic flush is off from 0.6.3 (FLUSH_LOG): it never wrote the file early,
 -- and every toggle can drop the lines that arrive while logging is off. The client writes the file every 48 KiB of
 -- chat and at /reload or logout; the Sync & reload button is the way to push it now. /olv flushlog, the panel's
--- Flush chat log button and /olv logtest still toggle it by hand, for measuring.
+-- Restart chat log button and /olv logtest still toggle it by hand, for measuring.
 local function FlushChatLog()
   if not FLUSH_LOG or not LoggingChat or flushScheduled then return end
   flushScheduled = true
@@ -393,7 +393,7 @@ local function HandleCode(source, sender, text, guid)
       -- which character this is, signed, for the watcher: the link is pinned to it at once rather than to whatever
       -- character has this name at the next roster export
       if guid then Presence.Safely("noting the whisperer's character", Presence.NoteIdentity, base, guid) end
-      FlushChatLog() -- the watcher reads this whisper from the chat log; push it to disk now
+      FlushChatLog() -- automatic logging restarts are disabled; Sync & reload is the documented exchange
     end
     frame:UpdateButton()
   else
@@ -652,7 +652,7 @@ end
 -- Point a one-line macro at a member, so removing them is one click on an action bar.
 --
 -- The client refuses C_GuildInfo.Uninvite from an addon (ADDON_ACTION_FORBIDDEN, measured 19 Sep), and there is no
--- way around that -- nor should there be. But /gkick typed by a player is ordinary, and a macro is the same thing:
+-- way around that -- nor should there be. A supported removal command typed by a player is ordinary, and a macro is the same thing:
 -- its body runs because the officer pressed the button, not because an addon asked. So the addon keeps doing the
 -- part it is allowed to do, which is working out who is least invested, and hands over a single click for the part
 -- only a person may do. The alternative was reading a name out of a chat frame that cannot even be selected.
@@ -730,7 +730,7 @@ function OlympusVerify_RemoveMember(name, reason)
     return false
   end
   if kickForbidden then
-    Print("this client does not let addons remove guild members — do it by hand with /gkick " .. name .. ".")
+    Print("this client does not let addons remove guild members — do it by hand with " .. (GuildKickCommand()) .. " " .. name .. ".")
     return false
   end
   reason = reason or "space"
@@ -3358,7 +3358,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
       if pendingReply then Presence.Safely("reading the server's answer to an invite", NoteServerReply, msg) end
       Presence.Safely("signing a guild join or departure", SignGuildLine, msg)
       Presence.Safely("reading a removal notice", Unverified.OnSystemMessage, msg)
-      -- guild joins and departures reach Discord through the chat log; push them to disk right away
+      -- guild joins and departures reach Discord through the chat log; request a restart if automatic restarts are enabled
       if msg:find("has joined the guild", 1, true) or msg:find("has left the guild", 1, true) or msg:find("kicked out of the guild", 1, true) then
         FlushChatLog()
       end
@@ -3378,11 +3378,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
     if addon == ADDON and removingMember and not kickForbidden then
       kickForbidden = true
       if OlympusVerifyDB then OlympusVerifyDB.kickForbidden = true end
-      Print("this client does not let addons remove guild members (ADDON_ACTION_FORBIDDEN) — use /gkick by hand; the panel still ranks who to remove.")
+      Print("this client does not let addons remove guild members (ADDON_ACTION_FORBIDDEN) — use " .. (GuildKickCommand()) .. " by hand; the panel still ranks who to remove.")
     end
     if addon == ADDON and editingMacro and not macroForbidden then
       macroForbidden = true
-      Print("this client does not let addons write macros either — the panel can only name who to remove; type /gkick <name> by hand.")
+      Print("this client does not let addons write macros either — the panel can only name who to remove; type " .. (GuildKickCommand()) .. " <name> by hand.")
     end
     if addon == ADDON and flushingNotes and not notesForbidden then
       notesForbidden = true
@@ -3421,7 +3421,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     if not LoggingChat then Print("LoggingChat is not available on this client.") return end
     local was = FLUSH_LOG; FLUSH_LOG = true
     FlushChatLog(); FLUSH_LOG = was
-    Print(string.format("chat log flush requested (logging %s, delay %ds).", LoggingChat() and "on" or "off", FLUSH_LOG_DELAY))
+    Print(string.format("chat logging restart requested (logging %s, delay %ds). This does not guarantee a disk flush.", LoggingChat() and "on" or "off", FLUSH_LOG_DELAY))
   elseif cmd == "logtest" then
     -- Does the flush work? This writes a whisper to yourself carrying the time it was sent, and flushes. The watcher
     -- notes how many seconds that line took to reach Logs\\WoWChatLog.txt: seconds means the toggle writes the
@@ -3434,7 +3434,7 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
     end
     pcall(SendChatMessage, "Olympus log test OLVDIAG flush " .. time(), "WHISPER", nil, me)
     local was = FLUSH_LOG; FLUSH_LOG = true; FlushChatLog(); FLUSH_LOG = was
-    Print("wrote a test whisper to " .. me .. " and flushed. Give it a minute before any /reload (a /reload writes the chat log by itself and would hide the answer). The watcher's window shows how many seconds it took (\"diag: marker 'flush' reached WoWChatLog.txt ...\").")
+    Print("requested a test whisper to " .. me .. " and a logging restart. This does not guarantee a disk flush. Give it a minute before any /reload (a /reload writes the chat log by itself and would hide the answer). The watcher's window shows how many seconds it took (\"diag: marker 'flush' reached WoWChatLog.txt ...\").")
   elseif cmd == "diag" then
     local arg = string.lower(string.match(msg or "", "^%s*%S+%s+(%S+)") or "")
     if arg == "discord" then Diag.Discord()
@@ -3505,12 +3505,12 @@ SlashCmdList.OLYMPUSVERIFY = function(msg)
       Print(string.format("no removal candidates: nobody is past their inactivity threshold (%s) and below rank index %d without a \"%s\" note.", OfflineRuleText(), PROTECT_RANK_INDEX, HOLD_NOTE))
     else
       if kickForbidden then
-        Print(string.format("%d eligible, showing %d. This client will not let an addon remove members, so these are for /gkick by hand:", total or 0, #list))
+        Print(string.format("%d eligible, showing %d. This client will not let an addon remove members, so these are for %s by hand:", total or 0, #list, (GuildKickCommand())))
       else
         Print(string.format("%d eligible, showing %d (longest past their threshold first). Remove from the panel — /olv opens it.", total or 0, #list))
       end
       for i, c in ipairs(list) do
-        Print(string.format("  %d. %s%s — level %s, %s, away %s (threshold %dd)%s", i, kickForbidden and "/gkick " or "", c.name,
+        Print(string.format("  %d. %s%s — level %s, %s, away %s (threshold %dd)%s", i, kickForbidden and ((GuildKickCommand()) .. " ") or "", c.name,
           tostring(c.level), tostring(c.rank), AwayText(c.days), c.need or 0, (c.note and c.note ~= "") and (", note: " .. c.note) or ""))
       end
     end

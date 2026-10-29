@@ -7477,3 +7477,17 @@ The H7 CI run exposed stale historical-source seals and the current SDK's reject
 the historical scheduled/Link hashes as static authorities while executing current source; they never execute the
 historical inline ban or raw-error implementation. The audit writer check now requires the actual category-only
 ban-removal row. These repairs still require focused execution, composed exact-head CI/review and final qualification.
+
+
+## Worker .211 — deferred addon and Treasury safeguards (29 October 2026)
+
+Candidate PR only. The owner requested these post-.210 repairs with focused tests and a clean exact-head automated review. Build .210 stays live; this change authorizes no deployment, feature activation, native client installation or restart of the consumed full-suite, custom Workerd-loader or companion npm/permission experiments.
+
+- Bind the Treasury member picker to its owning live administrator view and refuse lookups/selections while its operation is busy. Preserve legitimate current-view 401/409 handling, original target attribution and spent-operation recovery.
+- Describe the existing exact-original stored no-send recovery conditions; missing/unknown/dispatching or failed receipts remain held and the original is never resent.
+- Refuse historical cosmetic cleanup when the role is a current protected marker, including marker drift across awaited inventory and final provider admission. Preserve config-absent genuine cosmetic cleanup, original custody and existing HTTP/SQL budgets.
+- Correct addon removal/whisper/logging copy and expose all six eligible unverified-rank filters. Keep one attended keypress per action and the current authority rechecks.
+
+Configuration and data: no DDL, role/config/provider changes, added dependencies or feature flags. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. The app-source reference/helper and local-overlay declarations follow the reviewed frontend bytes; this updates pins without running publication helpers.
+
+Validation: focused Treasury core/expiry/audit, frontend lifecycle, addon Lua and affected provider-guard regressions, TypeScript, current health-build pins and projection checks. Exact observed results and automated-review state belong to the PR and task evidence; this entry does not predeclare them passing. Full local qualification is not restarted. A future rollout requires its own owner instruction and verified backup; rollback would use the previously accepted .210 commit, not a database restore or a new role command.

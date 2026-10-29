@@ -13,9 +13,9 @@ export const API = "https://discord.com/api/v10";
  * Olympus Forever's discordFetch.
  */
 export const CREDENTIAL_FETCH_TIMEOUT_MS = 8000;
-export function credentialFetch(input: string, init: RequestInit = {}): Promise<Response> {
+export function credentialFetch(input: string, init: RequestInit = {}, beforeDispatch?: () => void): Promise<Response> {
   const original=captureOriginalProviderInit(init);
-  return dispatchOriginalProviderFetch(input, { ...original, redirect: "manual", signal: withDeadline(original.signal ?? undefined) });
+  return dispatchOriginalProviderFetch(input, { ...original, redirect: "manual", signal: withDeadline(original.signal ?? undefined) }, beforeDispatch);
 }
 
 /**
@@ -145,7 +145,7 @@ export interface AttemptBudget {
  * it was appended to the URL as ?reason=, which the role endpoints ignore, so role grants and removals showed up in
  * the audit log with no reason at all.
  */
-export async function rest<T = unknown>(env: Env, method: string, path: string, body?: unknown, attempt = 0, reason?: string, budget?: AttemptBudget, mandatory = false): Promise<T> {
+export async function rest<T = unknown>(env: Env, method: string, path: string, body?: unknown, attempt = 0, reason?: string, budget?: AttemptBudget, mandatory = false, beforeDispatch?: () => void): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
     "Content-Type": "application/json",
@@ -156,7 +156,7 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }, beforeDispatch);
   if (res.status === 429 && attempt < 1) {
     const text = await res.text();
     if (budget) {
@@ -171,7 +171,7 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
       /* no usable body: wait a second */
     }
     await new Promise((r) => setTimeout(r, Math.ceil(((j.retry_after ?? 1) as number) * 1000)));
-    return rest<T>(env, method, path, body, attempt + 1, reason, budget, mandatory);
+    return rest<T>(env, method, path, body, attempt + 1, reason, budget, mandatory, beforeDispatch);
   }
   if (!res.ok) throw new DiscordError(res.status, await res.text());
   if (res.status === 204) return undefined as T;

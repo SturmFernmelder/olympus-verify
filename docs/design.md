@@ -2229,3 +2229,12 @@ untrusted: malformed or incomplete backfill summaries cannot be presented as a s
 bodies and exception text are replaced with fixed guidance in both helpers and the authenticated backfill response.
 The synthetic tests retain original failure evidence and exercise the real implementations. They establish no live
 Discord, bank, protected-action or distribution acceptance. No DDL, provider setting or launch gate changes here.
+
+
+### Build .211 — protect the current owner of a view or role (29 October 2026)
+
+A Treasury lookup belongs to the administrator panel that requested it, and selection cannot change the target of a busy operation. The picker now supplies the same live-view/idle predicate to lookup responses and cached choices. A departed panel cannot sign out or redraw a replacement panel; current 401/409 responses still receive their normal handling.
+
+A historical cosmetic grant does not establish that its Discord role remains cosmetic. Cleanup reuses the current protected-marker classification before and across asynchronous qualification and at the final guarded provider dispatch. Missing new-grant configuration does not disable legitimate historical cleanup, and no new provider request, retry, SQL reservation or role authority is introduced. The runbook distinguishes an exact stored definitive nonapplication receipt from an unknown result; only the former can release the original UI marker for a new reviewed operation.
+
+The addon filter change exposes the sixth already-eligible rank; it does not widen removal eligibility or bypass current per-keypress checks. Copy describes the actual safe attended controls and local logging/roster behavior. These repairs are prepared separately from the live .210 release and carry no deployment or installed-client acceptance.

@@ -55,6 +55,7 @@ local state = {
 }
 local pc = { filtering = false, ready = 0, unchecked = 0, checking = 0, offline = 0, guilded = 0 }
 local candidates = {}
+local rankBuckets
 OlympusVerifyConfig = { uiAutoShow = false }
 OlympusVerifyDB = {}
 OlympusVerifyAPI = {
@@ -63,7 +64,7 @@ OlympusVerifyAPI = {
   PresenceOf = function(q) return "ready", { level = 60, what = "Human Paladin", zone = "The Hinterlands - very long synthetic zone name" } end,
   Candidates = function() return candidates end,
   UnverifiedList = function() return candidates, { offered = #candidates, inGuild = 99 } end,
-  UnverifiedRanks = function() return { { rank = "Initiate", offered = #candidates, protected = false } } end,
+  UnverifiedRanks = function() return rankBuckets or { { rank = "Initiate", offered = #candidates, protected = false } } end,
   UnverifiedExcluded = function() return {} end,
   When = function() return "a synthetic future date" end,
 }
@@ -85,7 +86,10 @@ check("alert badge ends before the version field", separated(UI.newBadge, UI.ver
 check("queue header ends before the Check control", separated(UI.queueHeader, UI.checkButton), true)
 check("Check and Unverified controls have separate bounds", separated(UI.checkButton, UI.unvButton), true)
 check("toolbar actions have separate bounds", separated(UI.sendButton, UI.exportButton) and separated(UI.exportButton, UI.flushButton) and separated(UI.flushButton, UI.clearButton), true)
-check("0.6.4 Members button fits between Flush chat log and Clear queue", separated(UI.flushButton, UI.membersButton) and separated(UI.membersButton, UI.clearButton), true)
+check("Members button fits between Restart chat log and Clear queue", separated(UI.flushButton, UI.membersButton) and separated(UI.membersButton, UI.clearButton), true)
+check("manual logging button describes a restart", UI.flushButton:GetText(), "Restart chat log")
+check("manual logging tooltip does not promise a disk flush", contains(hover(UI.flushButton), "does not guarantee a disk flush"), true)
+check("manual logging tooltip preserves the documented exchange", contains(hover(UI.flushButton), "Sync & reload"), true)
 check("custom primary action owns its assigned font string", UI.sendButton:GetFontString(), UI.sendButton.label)
 local title = plain(UI.title._text)
 local rows = {}
@@ -197,6 +201,45 @@ UI.Refresh()
 check("unverified rendering performs no action", actions, 0)
 local filterRect, unverifiedFirst = rect(UI.rankFilters[1]), rect(candRows[1])
 check("unverified candidate begins below the rank-filter row", unverifiedFirst.y >= filterRect.y + filterRect.h, true)
+-- Default protection of indices 0-3 leaves all six native ranks 4-9 eligible.
+rankBuckets = {
+  { rank = "Initiate", rankIndex = 9, offered = 6, protected = false },
+  { rank = "Alt", rankIndex = 8, offered = 5, protected = false },
+  { rank = "Member", rankIndex = 7, offered = 4, protected = false },
+  { rank = "Raider", rankIndex = 6, offered = 3, protected = false },
+  { rank = "Veteran", rankIndex = 5, offered = 2, protected = false },
+  { rank = "Raid Leader", rankIndex = 4, offered = 1, protected = false },
+  { rank = "Officer Alt", rankIndex = 3, offered = 0, protected = true },
+  { rank = "Officer", rankIndex = 2, offered = 0, protected = true },
+  { rank = "High Council", rankIndex = 1, offered = 0, protected = true },
+  { rank = "Leader", rankIndex = 0, offered = 0, protected = true },
+}
+UI.Refresh()
+check("all six current eligible ranks have filter controls", #UI.rankFilters, 6)
+local expectedFilterRanks = { "Initiate", "Alt", "Member", "Raider", "Veteran", "Raid Leader" }
+local filtersInside, filtersSeparated, filtersSameRow = true, true, true
+local filterPanelRect, firstFilterRect = rect(panel), rect(UI.rankFilters[1])
+for i, rank in ipairs(expectedFilterRanks) do
+  local button = UI.rankFilters[i]
+  check("filter " .. i .. " exposes " .. rank .. " instead of a protected rank", button and button:IsShown() and button.rank == rank, true)
+  if button then
+    local box = rect(button)
+    filtersInside = filtersInside and box.x >= filterPanelRect.x + 8 and box.x + box.w <= filterPanelRect.x + filterPanelRect.w - 8
+    filtersSameRow = filtersSameRow and box.y == firstFilterRect.y
+    if i > 1 then filtersSeparated = filtersSeparated and separated(UI.rankFilters[i - 1], button) end
+  end
+end
+check("all rank filters stay inside the panel border", filtersInside, true)
+check("six rank filters have nonoverlapping bounds", filtersSeparated, true)
+check("six rank filters fit one existing row", filtersSameRow, true)
+check("the sixth filter tooltip identifies its full rank", contains(hover(UI.rankFilters[6]), "Raid Leader"), true)
+local selectedFilterRank, originalToggleRank = nil, OlympusVerifyAPI.ToggleUnverifiedRank
+OlympusVerifyAPI.ToggleUnverifiedRank = function(rank) selectedFilterRank = rank end
+if UI.rankFilters[6] then UI.rankFilters[6]:Click("LeftButton") end
+check("the sixth filter dispatches the full current rank", selectedFilterRank, "Raid Leader")
+check("the sixth filter dispatch performs no invite, macro or removal action", actions, 0)
+OlympusVerifyAPI.ToggleUnverifiedRank = originalToggleRank
+
 UIParent:SetSize(640, 480)
 UI.Refresh()
 check("small viewport scales the whole expanded panel down", panel:GetScale() > 0 and panel:GetScale() < 1, true)
