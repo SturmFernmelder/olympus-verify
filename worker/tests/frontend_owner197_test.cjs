@@ -654,6 +654,10 @@ async function frontendOwner197() {
     const cut199 = (start, end) => { const a=APP_JS.indexOf(start),b=APP_JS.indexOf(end,a);if(a<0||b<=a)throw Error('owner199_overview_source_boundary');return APP_JS.slice(a,b); };
     const domSource199=cut199('  function h(tag, props, ...kids) {','  // ---------------------------------------------------------------- the game');
     const apiSource199=cut199('  class ApiError extends Error {','  // Optional census previews');
+    // The extracted API closes over this actual IIFE lexical binding too.
+    const revisionSources199=[...APP_JS.matchAll(/^  let decisionActorRevision = 0;[^\r\n]*\r?\n/gm)];
+    if(revisionSources199.length!==1)throw Error('owner199_decision_revision_source_boundary');
+    const revisionSource199=revisionSources199[0][0];
     const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
     const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
     const moduleExpression199='await import("/static/organization-view.js")';
@@ -679,7 +683,7 @@ async function frontendOwner197() {
         governanceModel:()=>model.promise.then(()=>actualModel199),loadOrganization199:async()=>{seen.module++;return{renderOrganization:(main,data,ui)=>{seen.organization++;seen.overviewBinding=ui.allianceOverview205===renderAllianceOverview205;seen.guideBinding=ui.roleDirectory203===roleDirectory205&&ui.roleGuides201===roleGuides205;while(main.firstChild)main.removeChild(main.firstChild);const label=new Element('h1');label.textContent='Organization loaded '+data.terms.length+' offices';main.appendChild(label);return()=>{};}};},
         loadAllianceOverview205:async()=>{seen.overviewModule++;return{renderAllianceOverview205};},
         offices199:()=>[],office199:()=>null,reservedKey201:()=>false,guideBody201:()=>null,positionOf:()=>null,displayHolder:()=>'',writsPanel199:()=>null,officeAssignmentPanel:()=>null,scrollToSection:()=>{}};
-      const handlers=new Function(...Object.keys(deps),domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization};')(...Object.values(deps));
+      const handlers=new Function(...Object.keys(deps),revisionSource199+domSource199+apiSource199+overviewSource199+'\nlet disposeOrganization=null;\n'+orgSource199+'\nreturn {overview:adminOverview,organization:ROUTES.organization,revision199:()=>decisionActorRevision};')(...Object.values(deps));
       return{...w,state,initialSettings,oldMain,body,seen,response,model,handlers,dirty:deps.dirtyKeys,route:value=>{route=value;}};
     }
     const race199=lifecycle199(),oldRead199=race199.handlers.overview(race199.body);
@@ -707,12 +711,12 @@ async function frontendOwner197() {
     check('.199 current admitted admin overview still adopts settings and paints its original report',active199.state.settings!==active199.initialSettings&&active199.state.settings.notice==='late overview'&&active199.seen.heat===1&&!active199.body.textContent.includes('Loading original overview'));
     for(const status of[401,409]){
       const stale=lifecycle199(status),pending=stale.handlers.overview(stale.body).catch(error=>error);stale.oldMain.remove();stale.route('organization/office_03');stale.response.resolve();const error=await pending;
-      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1);
+      check('.199 stale overview '+status+' cannot sign out, toast, redraw or show reload UI in the new view',error.status===status&&stale.state.signedIn===true&&stale.state.settings===stale.initialSettings&&stale.seen.toasts===0&&stale.seen.renders===0&&stale.seen.reloads===0&&stale.dirty.size===1&&stale.handlers.revision199()===0);
     }
     const refused199=lifecycle199(401),refusalRead199=refused199.handlers.overview(refused199.body).catch(error=>error);refused199.response.resolve();const currentRefusal199=await refusalRead199;
-    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0);
+    check('.199 a current overview 401 retains the original sign-out and unsaved-state safety effects',currentRefusal199.status===401&&!refused199.state.signedIn&&refused199.seen.toasts===1&&refused199.seen.renders===1&&refused199.dirty.size===0&&refused199.handlers.revision199()===1,{errorName:currentRefusal199?.name,status:currentRefusal199?.status,revision:refused199.handlers.revision199(),signedIn:refused199.state.signedIn,toasts:refused199.seen.toasts,renders:refused199.seen.renders,dirtySize:refused199.dirty.size});
     const updated199=lifecycle199(409),updateRead199=updated199.handlers.overview(updated199.body).catch(error=>error);updated199.response.resolve();const currentUpdate199=await updateRead199;
-    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings);
+    check('.199 a current overview 409 retains the original reload notice without adopting settings',currentUpdate199.status===409&&updated199.seen.reloads===1&&updated199.state.settings===updated199.initialSettings&&updated199.handlers.revision199()===0);
   }
   // .210: remove-only privacy remains usable when an application is readonly.
   // Every save below runs the original Worker before any held/dropped answer.

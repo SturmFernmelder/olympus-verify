@@ -76,24 +76,27 @@ const directoryCoverage203 = page => {
 
   staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response(JSON.stringify({ error: "original_membership_decision_held", message: "PRIVATE_GUARD_DETAIL_MUST_NOT_RENDER" }), { status: 409, headers: { "Content-Type": "application/json" } }) : null);
   await staff.go("#/admin/applications/" + OTHER);
-  await waitFor(() => !!byText(staff.app, "h2", "Application temporarily held"), ".174 held application explanation");
-  check("held application read clears Loading and provides a safe back action without raw guard/private detail", !!byText(staff.app, "h2", "Application temporarily held") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("Something went wrong") && !staff.app.textContent.includes("PRIVATE_GUARD_DETAIL") && !staff.app.textContent.includes("original_membership_decision_held") && byText(staff.app, "a", "Back to all applications")?.getAttribute("href") === "#/admin/applications");
-  check("held read exposes no status, denial or deletion mutation controls", !byText(staff.app, "button", "Deny permanently") && !byText(staff.app, "button", "Delete their site data") && staff.app.textContent.includes("application details remain withheld"));
+  await waitFor(() => !!byText(staff.app, "h2", "Application decision held"), ".174 held application explanation");
+  check("held application read clears Loading and provides a safe back action without raw guard/private detail", !!byText(staff.app, "h2", "Application decision held") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("Opening the application…") && !staff.app.textContent.includes("Something went wrong") && !staff.app.textContent.includes("PRIVATE_GUARD_DETAIL") && !staff.app.textContent.includes("original_membership_decision_held") && byText(staff.app, "a", "Back to all applications")?.getAttribute("href") === "#/admin/applications");
+  check("held read exposes no status, denial or deletion mutation controls", !byText(staff.app, "button", "Deny permanently") && !byText(staff.app, "button", "Delete their site data") && ["Under review", "Accept", "Not accepted", "Back to submitted", "Save note", "Lift the denial"].every(label => !byText(staff.app, "button", label)) && !staff.app.querySelector("textarea") && !staff.app.querySelector("table.admin-application-board") && staff.app.textContent.includes("No data or access was changed.") && staff.app.textContent.includes("Ask a site administrator to investigate.") && staff.app.textContent.includes("Reopening alone may not resolve this hold."));
   staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response('{"error":"unavailable","message":"PRIVATE_OTHER_ERROR"}', { status: 503, headers: { "Content-Type": "application/json" } }) : null);
   await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
   await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened"), ".174 unavailable application");
-  check("other read failures also replace the loading state without leaking server detail", !!byText(staff.app, "h2", "Application could not be opened") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("PRIVATE_OTHER_ERROR") && !!byText(staff.app, "a", "Back to all applications"));
+  check("other read failures also replace the loading state without leaking server detail", !!byText(staff.app, "h2", "Application could not be opened") && !staff.app.textContent.includes("Loading…") && !staff.app.textContent.includes("Opening the application…") && !staff.app.textContent.includes("PRIVATE_OTHER_ERROR") && !!byText(staff.app, "a", "Back to all applications"));
   staff.answer(null); await staff.go("#/admin/applications");
   await staff.go("#/admin/applications/" + OTHER);
   await waitFor(() => !!byText(staff.app, "button", "Deny permanently"), ".174 genuine readable application");
-  check("a genuine admitted application still opens its existing staff controls", !!byText(staff.app, "button", "Deny permanently") && !!byText(staff.app, "button", "Delete their site data") && !staff.app.textContent.includes("Application temporarily held"));
+  check("a genuine admitted application still opens its existing staff controls", !!byText(staff.app, "button", "Deny permanently") && !!byText(staff.app, "button", "Delete their site data") && !staff.app.textContent.includes("Application decision held"));
   const applicationBoard = staff.app.querySelector("table.admin-application-board");
   check("application detail keeps every voting field in a scrollable table with a separate wrapping role label", !!applicationBoard && applicationBoard.querySelectorAll("th").length === 5 && !!applicationBoard.querySelector(".admin-board-role-label") && staff.app.textContent.includes("Scroll sideways to see every voting column"));
   staff.answer(pathname => pathname === "/api/admin/applications/" + OTHER ? new Response('{"error":"original_membership_decision_held"}', { status: 409, headers: { "Content-Type": "application/json" } }) : null);
-  staff.hold(pathname => pathname === "/api/admin/applications/" + OTHER ? 80 : 0);
-  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER); await staff.go("#/");
+  let heldDetailAnswers174 = 0;
+  staff.hold(pathname => { if (pathname !== "/api/admin/applications/" + OTHER) return 0; heldDetailAnswers174++; return 80; });
+  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => heldDetailAnswers174 === 1, ".174 actual held application read before leaving");
+  await staff.go("#/");
   await new Promise(resolve => setTimeout(resolve, 120));
-  check("a late held read cannot add its error panel to the newly selected Home", !!staff.app.querySelector(".welcome") && !staff.app.textContent.includes("Application temporarily held") && !staff.app.textContent.includes("Application could not be opened"));
+  check("a late held read cannot add its error panel to the newly selected Home", heldDetailAnswers174 === 1 && !!staff.app.querySelector(".welcome") && !staff.app.textContent.includes("Application decision held") && !staff.app.textContent.includes("Application could not be opened"));
   staff.answer(null); staff.hold(null);
 
   await fixtureRun("INSERT INTO audit (ts,actor,action,subject,details) VALUES (?,?,'role.sweep',?,?)", now, STAFF, MEMBER, JSON.stringify({ checked: 1, privateNote: "PRIVATE_AUDIT_SENTINEL" }));
