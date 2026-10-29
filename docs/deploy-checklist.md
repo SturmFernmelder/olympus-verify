@@ -7406,3 +7406,18 @@ registered-key lookup. Malformed, double-encoded and path-shaped values retain t
 or permission change is introduced. The affected frontend suite checks all nine emitted class aliases, an encoded
 ordinary office and negative selectors (121/121); existing organization checks passed 84/84 plus 46/46 overview
 checks. Repeat the actual emitted-link journey on the frozen final source before browser acceptance.
+
+Historical, decided and paused application summaries now offer an explicit remove-only voting-board privacy
+action. The existing authenticated PUT accepts only `consentOnly: true` and one or more selected sharing flags
+set to false; it cannot submit a role, re-enable sharing, replace answers or withdraw the application. Exact-row
+compare-and-swap and original actor/incarnation/database-clock/Native admission fences remain. JSON1 changes only
+closed consent paths, preserving unrelated private numeric values; ambiguous duplicate consent keys refuse safely.
+Ordinary reserved-role saves remain refused. Local evidence includes 39 Worker and 20 Native cases, all seven flag
+subsets on both valid modes, unchanged 99-statement identify copies and the original Native 75-check suite. Actual
+browser verification of the final composed source remains required. Late replies from a departed privacy panel do
+not sign out or repaint a different view.
+
+The Lua runner now records a failing row and diagnostic for every missing declared suite, including a directory in
+place of a file. A partial or empty run cannot pass silently. The standalone CLI regression uses disposable copies
+and the real LuaJIT interpreter; CI runs it before the actual addon suites. Source census and manual source review
+remain distinct, and no runner result establishes installed game-client acceptance.

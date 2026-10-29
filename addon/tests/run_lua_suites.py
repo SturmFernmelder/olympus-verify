@@ -39,7 +39,7 @@ def input_hashes() -> dict[str, str]:
     ]
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())
-    return {str(path.relative_to(ADDON)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths if path.exists()}
+    return {str(path.relative_to(ADDON)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths if path.is_file()}
 
 
 def main() -> int:
@@ -65,17 +65,21 @@ def main() -> int:
     before = input_hashes()
     results = []
     for name, (cwd, script) in SUITES.items():
-        if not (cwd / script).exists():
-            continue
-        result = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--suite", name],
-            text=True, encoding="utf-8", errors="replace", capture_output=True,
-        )
-        output = result.stdout + result.stderr
+        if not (cwd / script).is_file():
+            # O1_OPS-03 (Master QA, 28 Oct 2026): a missing declared suite must never yield a green partial run.
+            row = {"suite": name, "exit_code": 1, "error": "missing_suite"}
+            output = f"Required suite file is missing: {name} ({script.as_posix()}).\n"
+        else:
+            result = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()), "--suite", name],
+                text=True, encoding="utf-8", errors="replace", capture_output=True,
+            )
+            row = {"suite": name, "exit_code": result.returncode}
+            output = result.stdout + result.stderr
         if args.logdir:
             (args.logdir / f"{name}.log").write_text(output, encoding="utf-8")
-        results.append({"suite": name, "exit_code": result.returncode})
-        print(f"{name}: exit {result.returncode}", flush=True)
+        results.append(row)
+        print(f"{name}: exit {row['exit_code']}", flush=True)
         print("\n".join(output.splitlines()[-4:]), flush=True)
     after = input_hashes()
     stable = before == after

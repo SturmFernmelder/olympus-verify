@@ -143,6 +143,8 @@ jobs:
           persist-credentials: false
       - name: Install Lupa 2.8 (LuaJIT 2.1 runtime for the suites)
         run: python3 -m pip install --user 'lupa==2.8'
+      - name: Declared Lua suite failure contract
+        run: python3 addon/tests/test_lua_runner.py
       - name: Addon suites
         run: python3 addon/tests/run_lua_suites.py
       - name: Dedicated aggregate producer

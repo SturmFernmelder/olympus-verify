@@ -61,6 +61,7 @@ async function portraitConsent196(){
  saved=await request('PUT','/api/application',{...body,position:'member',backups:[],board:false,boardPortrait:true});
  check('a role with no board cannot store portrait publication authority',saved.response.status===200&&stored().boardAt===null&&stored().answers.boardPortraitOptIn===false);
  check('new consent changes no Native schema, board vote or separate Discord directory preference',JSON.stringify(db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all())===originalSchema&&!one('SELECT 1 FROM site_board_votes')&&JSON.stringify(db.prepare("SELECT key,value FROM site_settings WHERE key='discordDirectoryHidden'").all())===originalDirectoryPreference);
+ await require('./application_board_consent210_test.cjs');
  console.log('\n'+ok+'/'+n+' historical portrait parser/board/copy checks passed; current reserved edits denied and withdrawal admitted');process.exit(ok===n?0:1);
 }
 const run196=new Module(__filename,module);run196.filename=__filename;run196.paths=Module._nodeModulePaths(__dirname);run196._compile(prefix196+'\n('+portraitConsent196.toString()+')().catch(error=>{console.error(error.stack);process.exit(1);});',__filename);

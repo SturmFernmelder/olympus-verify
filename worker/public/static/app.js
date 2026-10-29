@@ -2316,6 +2316,55 @@
       h("optgroup", { label: "Membership" }, meta.positions.filter((p) => p.group === "membership" && p.key !== "member" && !reservedKey201(p.key)).map((p) => opt(p.key, p.label))));
   }
 
+  // Readonly applications retain an independent, remove-only privacy action.
+  function applicationBoardPrivacy210(application) {
+    if (!application) return null;
+    const answers = application.answers || {};
+    const fields = [
+      ["boardPortrait", "boardPortraitOptIn", "Remove my Discord profile picture from the voting board"],
+      ["boardTalentBuilds", "boardTalentBuildsOptIn", "Remove my declared characters and talent builds from the voting board"],
+      ["boardApplicationIntent", "boardApplicationIntentOptIn", "Remove my application track and chosen office from the voting board"],
+    ].filter(([, key]) => answers[key] === true);
+    if (!fields.length) return null;
+    const owner = S.user;
+    let busy = false;
+    const controls = fields.map(([flag, key, label]) => ({ flag, key, label, input: h("input", { type: "checkbox" }) }));
+    const save = h("button", { class: "btn small", type: "button", text: "Apply privacy changes", disabled: true });
+    const status = h("p", { class: "small", role: "status", "aria-live": "polite" });
+    const panel = h("section", { class: "board-privacy210", "aria-label": "Voting-board privacy" },
+      h("h3", { text: "Voting-board privacy" }),
+      h("p", { text: "You can stop sharing optional board details without changing or withdrawing your application. Select the details to remove; this action cannot turn sharing on." }),
+      controls.map(({ input, label }) => h("label", { class: "check" }, input, h("span", { text: label }))),
+      h("div", { class: "btn-row" }, save), status);
+    const sync = () => {
+      controls.forEach(({ input }) => { input.disabled = busy; });
+      // aria-disabled has the shared disabled styling while preserving keyboard focus during the request.
+      save.disabled = !busy && !controls.some(({ input }) => input.checked);
+      save.setAttribute("aria-disabled", String(busy || save.disabled));
+      save.textContent = busy ? "Saving privacy changes…" : "Apply privacy changes";
+    };
+    controls.forEach(({ input }) => input.addEventListener("change", sync));
+    save.addEventListener("click", async () => {
+      if (busy) return;
+      const selected = controls.filter(({ input }) => input.checked);
+      if (!selected.length) return;
+      const body = { consentOnly: true };
+      selected.forEach(({ flag }) => { body[flag] = false; });
+      busy = true; sync(); status.textContent = "Saving privacy changes…";
+      try {
+        const out = await api("PUT", "/api/application", body, { live: () => S.user === owner && panel.isConnected });
+        if (!out?.application || selected.some(({ key }) => out.application.answers?.[key] !== false)) throw Error("privacy_unconfirmed");
+        if (S.user !== owner) return;
+        if (S.application === application) S.application = out.application;
+        if (panel.isConnected) { toast("Voting-board privacy changes saved.", "good"); render(); }
+      } catch {
+        if (panel.isConnected && S.user === owner) status.textContent = "Privacy changes could not be confirmed. Reload your application and check its sharing settings before trying again.";
+      } finally { busy = false; sync(); }
+    });
+    sync();
+    return panel;
+  }
+
   ROUTES.apply = function apply(main) {
     const meta = M();
     const a = S.application;
@@ -2326,7 +2375,7 @@
     if (locked) {
       add(main, frame("Your application", status,
         h("p", { text: a.status === "accepted" ? "Your application was accepted. The guild's leadership will be in touch in Discord." : "Your application was not accepted this time. It can no longer be changed." }),
-        applicationSummary(a)));
+        applicationSummary(a), applicationBoardPrivacy210(a)));
       return;
     }
     if (!s.applicationsOpen && !a) {
@@ -2346,7 +2395,7 @@
       add(main, [frame("Reserved seats — applications are closed", null,
         h("p", {text:reservedNotice201}),
         a ? h("p", {text:"Your original application and choices remain on record. You may withdraw it, or explicitly choose an eligible ordinary role below. Nothing changes until you save a replacement application."}) : null,
-        a ? applicationSummary(a) : null,
+        a ? applicationSummary(a) : null, applicationBoardPrivacy210(a),
         a && a.status !== "withdrawn" ? h("button", {class:"btn small",type:"button",text:"Withdraw my application",onclick:withdraw}) : null),
         applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; },intent199 || {})]);
       return;
@@ -2354,7 +2403,7 @@
     if (intent199?.applicationTrack === "patron" && !royalWritsVisible200()) {
       add(main, [frame("Patron applications are paused", null,
         h("p", {text:"Royal Writs are currently switched off. You can explore the other application paths below. Any existing application and its original track remain recorded; choosing another path is a new, explicit edit."}),
-        a ? applicationSummary(a) : null,
+        a ? applicationSummary(a) : null, applicationBoardPrivacy210(a),
         a && a.status !== "withdrawn" ? h("button", {class:"btn small",type:"button",text:"Withdraw my application",onclick:withdraw}) : null),
         applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; })]);
       return;
