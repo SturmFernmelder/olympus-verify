@@ -427,10 +427,23 @@ async function applicationReviewCases(layout){
  for(const route of['deny','undeny','delete']){
   {const f=await opened(layout,{denied:route!=='deny'});try{eq(layout+' unchanged '+route+' actual route positive200',(await f.post(route,route==='deny'?{reason:'allowed'}:route==='delete'?{mentions:false}:{},route==='delete'?'partial_delete':'business_only')).status,200);}finally{f.close();}}
   for(const stage of['before-fresh-read','after-fresh-read-before-group']){const f=await opened(layout,{denied:route!=='deny'});try{
-   const action=route==='delete'?'partial_delete':'business_only',t=await f.token(route,action);let externalState,hit=false;
-   const mutate=async()=>{await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','changed '+route+' review',TARGET);externalState=canon(reviewState(f));};
-   if(stage==='before-fresh-read'){await mutate();f.reset();}else{f.reset();f.hook(async(plan,next)=>{if(!plan.some(r=>r.sql.includes('CAST(?18 AS BLOB)')))return next();f.hook(null);hit=true;await mutate();return next();});}
-   const r=await f.post(route,route==='deny'?{reason:'must-not-land'}:route==='delete'?{mentions:false}:{},action,t);eq(layout+' '+route+' '+stage+' content drift409',r.status,409);if(stage==='after-fresh-read-before-group'){eq(layout+' '+route+' exact consuming race reached',hit,true);eq(layout+' '+route+' fresh read occurred first',freshReviewReads(f).length,1);}eq(layout+' '+route+' '+stage+' no effect beyond external mutation',reviewState(f),externalState);
+   const action=route==='delete'?'partial_delete':'business_only',t=await f.token(route,action),lateDelete=route==='delete'&&stage==='after-fresh-read-before-group',providerBefore=[providerCalls,syntheticProviderCalls.length];let externalState,hit=false,nativeBeforeGuardSHA256=null,guardTraceOffset=null,guardPhysicalIndex=null,plannedGuardPrefix=null;
+   // Fixture-only direct Native snapshots do not contribute a source service-query qualification.
+   const nativeStateSHA256=()=>createHash('sha256').update(JSON.stringify(f.db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all().map(({name})=>[name,f.db.prepare('SELECT * FROM "'+name.replaceAll('"','""')+'"').all()])),'utf8').digest('hex');
+   const sqlSHA256=sql=>createHash('sha256').update(JSON.stringify(sql),'utf8').digest('hex');
+   const mutate=async()=>{await reviewWrite(f,'UPDATE site_applications SET admin_note=? WHERE discord_id=?','changed '+route+' review',TARGET);externalState=canon(reviewState(f));if(lateDelete)nativeBeforeGuardSHA256=nativeStateSHA256();};
+   if(stage==='before-fresh-read'){await mutate();f.reset();}else{f.reset();f.hook(async(plan,next)=>{const at=plan.findIndex(r=>r.sql.includes('CAST(?18 AS BLOB)'));if(at<0)return next();f.hook(null);hit=true;await mutate();if(lateDelete){guardPhysicalIndex=at;plannedGuardPrefix=plan.slice(0,at+1).map(r=>r.sql);guardTraceOffset=f.trace.length;}return next();});}
+   const r=await f.post(route,route==='deny'?{reason:'must-not-land'}:route==='delete'?{mentions:false}:{},action,t);eq(layout+' '+route+' '+stage+' content drift'+(lateDelete?'503':'409'),r.status,lateDelete?503:409);if(stage==='after-fresh-read-before-group'){eq(layout+' '+route+' exact consuming race reached',hit,true);eq(layout+' '+route+' fresh read occurred first',freshReviewReads(f).length,1);}eq(layout+' '+route+' '+stage+' no effect beyond external mutation',reviewState(f),externalState);
+   if(lateDelete){
+    const body=await r.json(),trace=f.trace.slice(guardTraceOffset),attemptedSQL=trace.map(row=>row.sql),nativeAfterGuardSHA256=nativeStateSHA256(),groups=consumingReviewGroups(f).length,providerDelta=[providerCalls-providerBefore[0],syntheticProviderCalls.length-providerBefore[1]];
+    eq(layout+' late partial delete exact erasure hold and inspection guidance',body,{error:'erasure_held',message:"Site-only deletion was not confirmed. Inspect the account and its audit record before trying again. Full erasure remains unavailable."});
+    eq(layout+' late partial delete original guard follows two Native controls',guardPhysicalIndex,2);
+    eq(layout+' late partial delete only original guard prefix attempted',[trace.length,sqlSHA256(attemptedSQL)],[3,sqlSHA256(plannedGuardPrefix)]);
+    eq(layout+' late partial delete one consuming group without retry',groups,1);
+    eq(layout+' late partial delete full Native state hash unchanged after external mutation',nativeAfterGuardSHA256,nativeBeforeGuardSHA256);
+    eq(layout+' late partial delete no additional provider attempts',providerDelta,[0,0]);
+    console.log('MEASURED_LATE_PARTIAL_DELETE_HOLD '+JSON.stringify({layout,route,stage,status:r.status,error:body.error,operatorMessageSHA256:createHash('sha256').update(body.message,'utf8').digest('hex'),guardPhysicalIndex,attemptedPhysicalStatements:trace.length,attemptedSQLSHA256:sqlSHA256(attemptedSQL),plannedPrefixSQLSHA256:sqlSHA256(plannedGuardPrefix),nativeBeforeSHA256:nativeBeforeGuardSHA256,nativeAfterSHA256:nativeAfterGuardSHA256,consumingGroups:groups,providerAttemptDelta:providerDelta,automaticRetry:false,completeErasureQualified:false,providerQualified:false,scope:'This late original-guard refusal only; other503 outcomes may have committed effects.'}));
+   }
   }finally{f.hook(null);f.close();}}
  }
  // Determine the exact token boundary from a genuine source token's shape.
