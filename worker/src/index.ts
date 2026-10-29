@@ -297,7 +297,7 @@ export default {
       };
       await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost);});
     } catch(e) {
-      console.error("schema check failed; skipping this run",errorRef(e));
+      console.error("cron entry held; skipping this run",errorRef(e));
     }
   },
 };

@@ -7431,3 +7431,39 @@ Website: long `.btn` labels wrap below 720px (the directory opt-in, Army roles a
 Officer PC (Root installs): watcher 0.6.9 escapes characters a redirected console cannot encode (one whisper from a name outside cp1252 stalled every lane), splits chat lines on newline only (a relayed U+2028 could forge a whisper line), refuses a `watcher_token` with spaces or line breaks without echoing it, floors `poll_seconds` at 1 and `queue_poll_seconds` at 5, and reports a missing or malformed `config.json` instead of a traceback. AddOn: the example's placeholder secret is refused (codes made from it were queued and confirmed) with one warning per session; a Worker row an officer removed stays out for a day instead of returning on the 45-second merge with a false alert. CI cancels only superseded pull-request runs, never a main run. `THIRD_PARTY_NOTICES.md` names jsQR 1.4.0 (Apache-2.0); README and CLAUDE.md commands and check counts are current.
 
 No schema, setting, binding, secret, role, permission or launch-gate change. The launch-day announcement drafted under .161 ("press **Verify** in the pinned guide") must say **Get my code** when it is posted. Each addition has a regression check that fails on `166e2b92` (`test:qa210`; `.210` checks in `frontend_check`, `site_test`, `hosts_test`, `bnet_retention_test`, `rank_planner_test`, `resources169_test`, the watcher suite and the Lua suites `secret_placeholder` and `queue_dismiss`). Rollback is the same exact-commit redeploy; watcher 0.6.9 rolls back by reinstalling 0.6.8.
+
+The canonical main deploy command is `bash scripts/deploy-commit.sh <qualified-main-sha> --keep-vars`.
+The flag preserves dashboard-only plain variables; it does not establish complete binding equality or authorize
+deployment. Keep the existing exact archived configuration, source-tree annotations where required, fresh verified
+backup and before/after configuration checks. The script accepts the flag once for main and refuses it for private
+targets. Its argument regression uses a fake Wrangler and cannot certify provider behavior or a live release.
+See [Cloudflare's source-of-truth documentation](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth).
+
+### .210 final composition follow-ups (29 October 2026; qualification in progress)
+
+New rank-planner drafts export the native name `Guild Master` at rank0 and display `Leader (Guild Master)`.
+Historical `Leader` drafts remain unchanged until their owner explicitly selects the name-only local correction.
+The native adapter, signing profiles, rank order, permissions and game state are unchanged. Resources now have a
+Pause/Resume control; pausing retains the view and focus, cancels polling and rejects late responses. A resumed
+pending read retains the current filtered snapshot. Actual final browser keyboard/layout acceptance is separate.
+
+Hosted admin ban/sync requests register unstarted work before an ephemeral deferred response, then edit only that
+original response. Original actor checks precede effects and delayed publication; target-generation checks protect
+private ban summaries. Malformed ban targets/reasons refuse before work, and error summaries/audits retain only
+bounded categories/status. A refused registration starts no admin effects. Configured global serving mode retains
+its existing child-settlement rule and explicitly holds these commands; no early-response constructor is introduced.
+The held-restoration note names the officer next step without claiming success or notification. The outer scheduled
+catch identifies a cron entry hold; the actual inner schema catch keeps its schema diagnostic and unknown custody.
+The historical identity PINS remain; strictly bounded ban and held-warning successor tests retain their original
+content/row oracles and add exact physical traces and negative mutations. Their source review does not authorize release.
+
+The primary tool declarations now pin Wrangler4.155.0, workers-types5.20261023.1 and TypeScript5.9.3; obsolete
+Miniflare-version-specific overrides are removed. A separate ordinary profile with bundled Node24.22.1 passed
+archive/vendor/audit checks and eight bounded H6 compatibility checks. Existing shared dependency directories and
+the retired local CLI remain untouched; do not reinstall through their junctions or use the old q199 bundle as cleared.
+Final-source qualification must use its explicit reviewed tool bindings. Preserve all failed tooling attempts and the
+watcher deep-Win32-path limitation; a shorter TEMP pass is not a deep-path or installed-client acceptance.
+
+These follow-ups introduce no DDL, private-service authority, closed scheduled catalogue/cap change, provider
+activation or game write. Require final clean source, independent review, actual exact-head CI/automated review,
+final desktop/mobile/persona journeys and the single current204 qualification before the separately gated rollout.

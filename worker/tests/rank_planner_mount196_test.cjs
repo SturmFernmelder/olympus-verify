@@ -147,7 +147,8 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
     p.$('editor').close();
   });
   await check('planner buttons preserve floor, ceiling, fixed GM and unprotected entry rank', async () => {
-    assert.equal(p.label('Move Leader down').disabled, true);
+    assert.ok(p.label('Review Leader (Guild Master), rank 1'));
+    assert.equal(p.label('Move Guild Master down').disabled, true);
     const staleCard = p.label('Review High Council in your ladder');
     await p.$('minimum').click(); const small = JSON.parse(b.store.get(key(OWNER))); assert.deepEqual(small.ranks.map(r => r.id), ['gm', 'initiate']);
     assert.equal(p.label('Remove Initiate').disabled, true); assert.equal(staleCard.listeners.click.length, 0);
@@ -170,6 +171,23 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
     const legacy = read(path.join(__dirname, 'fixtures/rank-planner-v1.json')); b.store.set(key(OWNER), legacy);
     instance = api.mount(p.root, { owner: OWNER, isCurrent: () => current }); assert.equal(b.store.get(key(OWNER)), legacy); assert.ok(p.$('notices').textContent.includes('earlier draft is preserved'));
     const oldCount = p.$('recommended').listeners.click.length; instance = api.mount(p.root, { owner: OWNER }); assert.equal(oldCount, 1); assert.equal(p.$('recommended').listeners.click.length, 1); assert.equal(b.store.get(key(OWNER)), legacy);
+  });
+  await check('historical Leader repair is explicit, name-only, account-current and disarms its old button', async () => {
+    const isolated = browser(), ownModel = isolated.sandbox.OlympusStaffRankPlanner, ownCatalogue = isolated.sandbox.OlympusStaffRankCatalogue.ranks;
+    const historical = JSON.parse(ownModel.exportDraft(ownModel.createDraft(ownCatalogue),ownCatalogue)); historical.ranks[0].name = 'Leader';
+    const raw = JSON.stringify(historical,null,2)+'\n'; isolated.store.set(key(OWNER),raw);
+    const own = isolated.template(html); let current = true;
+    const mounted = isolated.sandbox.OlympusRankPlanner.mount(own.root,{owner:OWNER,isCurrent:()=>current});
+    assert.equal(isolated.store.get(key(OWNER)),raw); assert.equal(isolated.writes.length,0); assert.ok(own.$('notices').textContent.includes('exactly “Guild Master”'));
+    await own.label('Review Leader, rank 1').click(); assert.equal(own.$('edit-name'),null);
+    const correction = own.root.all(node=>node.tagName==='BUTTON'&&node.textContent==='Use Guild Master as native rank 0 name'); assert.equal(correction.length,1);
+    current=false; await correction[0].click(); assert.equal(isolated.store.get(key(OWNER)),raw);
+    current=true; own.root.dataset.draftOwner=OTHER; await correction[0].click(); assert.equal(isolated.store.get(key(OWNER)),raw);
+    own.root.dataset.draftOwner=OWNER; await correction[0].click();
+    const expected = JSON.parse(raw); expected.ranks[0].name='Guild Master'; assert.deepEqual(JSON.parse(isolated.store.get(key(OWNER))),expected);
+    assert.ok(own.$('ladder-list').children[0].textContent.includes('Leader (Guild Master)')); assert.ok(!own.$('notices').textContent.includes('exactly “Guild Master”'));
+    assert.equal(correction[0].listeners.click.length,0); const saved=isolated.store.get(key(OWNER)); await correction[0].click(); assert.equal(isolated.store.get(key(OWNER)),saved);
+    mounted.destroy(); assert.equal(own.listeners(),0); assert.equal(isolated.timers.size,0); assert.equal(networkCalls,0);
   });
   await check('mismatched/missing/malformed account or markup is refused before storage', () => {
     const before = b.writes.length;

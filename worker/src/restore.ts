@@ -72,6 +72,7 @@ export function restoreNote(r: RestoreResult): string {
   if (r === "restored") return "Your **Guild Member** role had gone missing. It is back now.";
   if (r === "failed") return "Your **Guild Member** role is missing and the bot could not put it back. Staff have been told.";
   if (r === "blocked") return "Your **Guild Member** role is on hold while a server restriction is on your account; ask a server moderator about that.";
+  if (r === "held") return "Automatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.";
   return "";
 }
 

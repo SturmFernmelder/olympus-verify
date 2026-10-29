@@ -151,15 +151,36 @@ console.log("\n== owner policy, provenance and compatibility ==");
 const current = Model.createDraft(catalogue.ranks);
 const rank = id => current.ranks.find(r => r.id === id);
 {
-  // .210: the qualified role sync identifies the ten-rank roster only with "Guild Master" in slot 0; the planner says so.
+  // .210: actual exported draft names must satisfy the unchanged native adapter.
   const syncWarning = draft => Model.notices(draft).filter(n => n.level === "warning" && n.text.includes("exactly “Guild Master”"));
-  const renamed = JSON.parse(JSON.stringify(current)); renamed.ranks[0].name = "Guild Master";
-  check(".210 the recommended draft (rank 0 'Leader') warns that role sync needs 'Guild Master'; a draft that keeps it does not", current.ranks[0].name === "Leader" && syncWarning(current).length === 1 && syncWarning(renamed).length === 0);
+  const historicLeader = JSON.parse(JSON.stringify(current)); historicLeader.ranks[0].name = "Leader";
+  const saved = JSON.stringify(historicLeader, null, 2) + '\n', restored = Model.importDraft(saved, catalogue.ranks);
+  const adapter = require('./helpers/privacy129_fixture.cjs').load('native-rank-adapter');
+  const rows = draft => draft.ranks.map((rank, rank_index) => ({ rank: rank.name, rank_index }));
+  const exported = JSON.parse(Model.exportDraft(current, catalogue.ranks));
+  check(".210 actual default/export names identify as the existing ten-rank native profile without a compatibility warning", exported.ranks[0].name === "Guild Master" && adapter.identifyNativeProfile(rows(exported)) === 'ten-rank' && syncWarning(current).length === 0);
+  const roleMap = adapter.parseNativeRoleMap(JSON.stringify({profile:'ten-rank', roles:Array.from({length:10},(_,i)=>String(1551234567890123456n+BigInt(i)))}));
+  check(".210 every default exported name/ordinal maps through the actual unchanged native role adapter", rows(exported).every(row => adapter.mappedNativeRole(row.rank, row.rank_index, roleMap) === roleMap.roles[row.rank_index]));
+  let historicalHeld = false; try { adapter.identifyNativeProfile(rows(restored)); } catch (error) { historicalHeld = error.message === 'native_profile_ambiguous_or_contradictory'; }
+  check(".210 importing a historical Leader draft preserves its exact bytes and retains the native sync hold/warning", Model.exportDraft(restored,catalogue.ranks) === saved && syncWarning(restored).length === 1 && historicalHeld);
+  const corrected = Model.useGuildMasterNativeName(restored,catalogue.ranks), expectedCorrection = JSON.parse(saved); expectedCorrection.ranks[0].name = 'Guild Master';
+  check(".210 explicit correction changes only rank0 name, preserving every permission, bank choice, order and policy stamp", JSON.stringify(corrected) === JSON.stringify(expectedCorrection) && Model.exportDraft(restored,catalogue.ranks) === saved && adapter.identifyNativeProfile(rows(corrected)) === 'ten-rank' && syncWarning(corrected).length === 0);
+  let fixedGuard = false; try { Model.updateRank(restored,catalogue.ranks,0,{permissions:{}}); } catch { fixedGuard = true; }
+  let nonLeaderGuard = false; try { Model.useGuildMasterNativeName(current,catalogue.ranks); } catch { nonLeaderGuard = true; }
+  const duplicate = JSON.parse(saved); duplicate.ranks[1].name = 'Guild Master'; let duplicateGuard = false; try { Model.useGuildMasterNativeName(duplicate,catalogue.ranks); } catch { duplicateGuard = true; }
+  check(".210 the explicit correction cannot weaken fixed-GM guards, rewrite another native name or introduce a duplicate", fixedGuard && nonLeaderGuard && duplicateGuard);
+  const historicalStore = new Map([[STORAGE_KEY,saved]]), historicalPage = openPlanner(historicalStore);
+  check(".210 opening the stored Leader draft never silently repairs or saves it", historicalStore.get(STORAGE_KEY) === saved && historicalPage.notices().some(note=>note.includes('exactly “Guild Master”')));
+  historicalPage.buttonByLabel('Review Leader, rank 1').click();
+  const correctionButton = historicalPage.buttonByText('Use Guild Master as native rank 0 name');
+  check(".210 actual rank0 editor offers one explicit local name-only repair with no generic rank0 form", !!correctionButton && !historicalPage.$('edit-name') && historicalPage.$('editor-content').textContent.includes('does not rename any rank in game'));
+  correctionButton.click();
+  check(".210 actual repair click saves the name-only change and displays Leader (Guild Master)", JSON.stringify(historicalPage.saved()) === JSON.stringify(expectedCorrection) && historicalPage.$('ladder-list').children[0].textContent.includes('Leader (Guild Master)') && !historicalPage.buttonByText('Use Guild Master as native rank 0 name'));
 }
 check("the actual current 26-idea catalogue retains its exact current Treasurer metadata", crypto.createHash("sha256").update(JSON.stringify(catalogue.ranks.filter(r => r.id !== "highcouncil"))).digest("hex") === "1880c72fed9b7ae4855bfa936db50936f195eb2a564fa680cbf87c814f0f6f4b");
 check("High Council retains every original planning permission without applying a live grant", ["bundle","promote","demote","invite","remove","repair","gold","tabs","auth"].every(key => rank("highcouncil").permissions[key]));
 const treasurerIdea = Model.makeRank(catalogue.ranks.find(r => r.id === 'treasurer'));
-check("Treasurer remains a historical catalogue idea, not a current native slot; Officers gain no gold withdrawal", ["gold","tabs","auth"].every(key => treasurerIdea.permissions[key]) && !rank("treasurer") && rank("officer").permissions.gold === false && current.ranks[1].id === "highcouncil" && current.ranks[3].id === "officeralt" && current.ranks[0].name === "Leader");
+check("Treasurer remains a historical catalogue idea, not a current native slot; Officers gain no gold withdrawal", ["gold","tabs","auth"].every(key => treasurerIdea.permissions[key]) && !rank("treasurer") && rank("officer").permissions.gold === false && current.ranks[1].id === "highcouncil" && current.ranks[3].id === "officeralt" && current.ranks[0].name === "Guild Master");
 check("Raid Leader retains authenticator and Veteran has the requested invitations plus repairs", rank("raidlead").permissions.auth && rank("veteran").permissions.invite && rank("veteran").permissions.repair);
 check("the rendered planner reference agrees with the Veteran preset and records the actual owner basis", PAGE_HTML.includes("Veteran has Invite Member (owner item 26) and Guild Bank Repair (owner answer of 7 October); no amount is set.") && !PAGE_HTML.includes("without Invite") && !PAGE_HTML.includes("following the owner’s later decision"));
 check("new exports distinguish .199 owner policy from the historical attachment and remain unapproved", current.schema === "olympus-rank-draft/v5" && current.source.policy === Model.POLICY && current.review.claudeCode === "pending" && current.review.codex === "pending" && current.review.liveChangesApplied === false);

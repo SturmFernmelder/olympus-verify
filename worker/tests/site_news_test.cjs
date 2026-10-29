@@ -642,7 +642,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
       await Promise.all(pending);
     });
     return { trips: COUNT.trips, statements: COUNT.statements, physicalTrips: COUNT.physicalTrips, physicalStatements: COUNT.physicalStatements,
-      held: held.lines.length === 1 && held.lines[0] === 'schema check failed; skipping this run error',
+      held: held.lines.length === 1 && held.lines[0] === 'cron entry held; skipping this run error',
       unchanged: before === JSON.stringify([all('SELECT * FROM site_news_notices ORDER BY id'), all('SELECT * FROM site_settings ORDER BY key')]) };
   };
   for (const throttled of [true, false]) {

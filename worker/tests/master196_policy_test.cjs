@@ -60,7 +60,10 @@ const current199 = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Le
     assert.deepEqual(Array.from(qr.COUNCIL_TREASURER_NATIVE_RANKS), expected);
     assert.equal(qr.NATIVE_RANKS[1], 'High Council'); assert.equal(qr.SIGNER_NATIVE_RANKS, qr.NATIVE_RANKS);
     assert.deepEqual(organization.nativeRanks.map(r => r.name), current199);
-    assert.deepEqual(Model.createDraft(catalogue).ranks.map(r => r.name), current199);
+    // Leader remains the public title; a new game-facing draft uses the exact
+    // qualified native name without reinterpreting either historical catalogue.
+    assert.deepEqual(Model.createDraft(catalogue).ranks.map(r => r.name), ['Guild Master', ...current199.slice(1)]);
+    assert.equal(native.identifyNativeProfile(Model.createDraft(catalogue).ranks.map((r,rank_index)=>({rank:r.name,rank_index}))), 'ten-rank');
     assert.deepEqual(Array.from(offices.NATIVE_RANKS_199,r=>r.name),current199);
     assert.equal(Model.RECOMMENDED[1], 'highcouncil'); assert.equal(Model.createDraft(catalogue).review.liveChangesApplied, false);
     const page=fs.readFileSync(path.join(worker,'src/site-ranks.ts'),'utf8');const html=JSON.parse(page.match(/const HTML = (".*");/)[1]);assert.ok(html.includes('Exact 10-rank hierarchy · High Council slot 1 · Officer slot 2'));assert.ok(html.includes('Co-Guild Master and Treasurer are appointments'));assert.ok(!html.includes('Treasurer Slot 3'));

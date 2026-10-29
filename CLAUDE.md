@@ -76,7 +76,7 @@ There is no ESLint or Prettier;
 `.editorconfig` sets the style (2 spaces, LF, final newline; Python 4 spaces).
 
 **Never run:** `npm run deploy` or `wrangler deploy` (the owner deploys, from an exact commit with
-`bash scripts/deploy-commit.sh <sha>`); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
+`bash scripts/deploy-commit.sh <sha> --keep-vars` for main); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
 against the remote database (it re-applies `schema.sql`; the Worker migrates itself in `src/schema.ts`);
 `wrangler d1 create olympus-link` or any remote `wrangler d1 execute` against `olympus-link` (.186: Olympus Link's
 separate database; owner-only Phase 2 steps in `docs/olympus-link.md`); `npm run register` / `register:intros` (owner, they rewrite the guild's command list); the watcher against the live

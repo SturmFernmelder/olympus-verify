@@ -32,8 +32,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 20442,
-      "sha256": "3c86d84431b8692519fa3f6de356ab274c2e708f944be55e1bff3e9d8caf7271"
+      "bytes": 21363,
+      "sha256": "ad0341034f142442076a54007a81afe2192847b2927e0393835a4f0837e8eedc"
     },
     {
       "path": "worker/public/static/rank-planner/catalogue.js",
@@ -44,8 +44,8 @@
     {
       "path": "worker/public/static/rank-planner/model.js",
       "mode": "100644",
-      "bytes": 15616,
-      "sha256": "cb6472781bb514a0cd1ad13619059e6d8a74b9a4db12dde62874e61f21a1c4f1"
+      "bytes": 16094,
+      "sha256": "d6a724cfee03ae73d8214aed944f8f4511e1c9215192fdb22149c9c08503458c"
     },
     {
       "path": "worker/public/static/rank-planner/styles.css",
@@ -662,8 +662,8 @@
     {
       "path": "worker/public/static/resources169.js",
       "mode": "100644",
-      "bytes": 22581,
-      "sha256": "ed7660b408b3b2330c47bfb8ef69409a5f069ead9f1920d73d5539ca2298c09a"
+      "bytes": 23757,
+      "sha256": "2600309918b1b9d2b85063f878ea9539cbfc81d0688999e1f50f2790f8c58d87"
     },
     {
       "path": "worker/public/static/resources169.css",
@@ -3834,8 +3834,8 @@
     {
       "path": "worker/public/static/rank-planner/app.js",
       "mode": "100644",
-      "bytes": 20442,
-      "sha256": "3c86d84431b8692519fa3f6de356ab274c2e708f944be55e1bff3e9d8caf7271"
+      "bytes": 21363,
+      "sha256": "ad0341034f142442076a54007a81afe2192847b2927e0393835a4f0837e8eedc"
     },
     {
       "path": "worker/src/site-core.ts",

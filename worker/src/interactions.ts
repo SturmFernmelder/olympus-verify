@@ -1,5 +1,7 @@
 /** Slash commands and message components. Discord calls POST /interactions (HTTP interactions, no gateway). */
 import { membershipSettlementEnabled } from './membership-role-transition';
+import { errorRef } from './log';
+import { globalServingMode } from './privacy-global-serving-origin';
 import { callBudget, revokeForBan } from './roles';
 import {captureBetaRoleDispatch,betaRoleDispatchHeld,betaSourceEpochState,type BetaRoleDispatch} from './beta-reset-policy';
 import type { Env } from "./env";
@@ -7,7 +9,7 @@ import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound } f
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
-import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, focusedOption, hasAnyRole, type Interaction, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
+import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
 import { SNAPSHOT_WRITE_GRACE_S, syncFromLatest } from "./roster";
 import { explainRefusal } from "./ingest";
 import { guildSeats, seatsStaffLine, seatsText } from "./guild-seats";
@@ -388,6 +390,207 @@ async function cmdUserMenu(env: Env, i: Interaction): Promise<Response> {
 }
 
 // ---------- /olympus-admin ... (Officer / Moderator / Guild Leader) ----------
+/** Discord requires the first response within three seconds. The existing
+ * authenticated Defer retains original entry/Native custody; effects are an
+ * unstarted thunk, guarded even if registration calls it and then throws. */
+async function deferredAdminReply(env: Env, i: Interaction, defer: Defer | undefined, label: 'interaction_admin_ban' | 'interaction_admin_sync', work: () => Promise<Response>): Promise<Response> {
+  if (!defer) return work(); // Existing direct callers retain their inline contract.
+  // The configured global gate joins its children before releasing HTTP. An
+  // inert ACK constructor is not qualified there, so do not start these effects.
+  if (globalServingMode(env) === 'configured') {
+    return reply('The command is held by the current deployment’s safety mode. No ban or sync was started. Ask the operator to review the deployment.');
+  }
+  const app = env.DISCORD_APP_ID, token = i.token;
+  if (!app || typeof token !== 'string' || !token) return reply('The command could not be deferred. Nothing was started.');
+  let registered = false;
+  try {
+    defer(label, () => Promise.resolve().then(async () => {
+      if (!registered) return;
+      let content: string;
+      try {
+        await env.DB.prepare('SELECT 1 AS admin_actor_current').first();
+        const response = await work();
+        const result = await response.json() as { type?: unknown; data?: { content?: unknown } };
+        content = result.type === 4 && typeof result.data?.content === 'string'
+          ? result.data.content : 'The command finished without a confirmed summary. Inspect current state before running a new command.';
+      } catch (error) {
+        console.error('admin deferred work failed', errorRef(error));
+        content = 'The command stopped before its summary was confirmed. Some changes may already have completed. Inspect current state before running a new command.';
+      }
+      try {
+        // Recheck the original actor before publishing a delayed private result.
+        await env.DB.prepare('SELECT 1 AS admin_actor_current').first();
+        await rest(env, 'PATCH', '/webhooks/' + app + '/' + encodeURIComponent(token) + '/messages/@original', { content, allowed_mentions: { parse: [] } });
+      } catch (error) {
+        // A lost edit is not permission to repeat a ban/sync or renew its token.
+        console.error('admin deferred response unavailable', errorRef(error));
+      }
+    }));
+    registered = true;
+  } catch (error) {
+    console.error('admin deferred registration refused', errorRef(error));
+    return reply('The command could not be deferred. Nothing was started.');
+  }
+  return json({ type: 5, data: { flags: EPHEMERAL } });
+}
+
+function adminBanFailure(error: unknown): string {
+  const ref = errorRef(error);
+  if (error instanceof DiscordError && error.status === 401) return `${ref}: Discord rejected the bot token; ask the operator to review the token.`;
+  if (error instanceof DiscordError && error.status === 403) return `${ref}: review the bot's permissions, channel access and role hierarchy.`;
+  return `${ref}; the provider outcome is unconfirmed. Inspect current state before another command.`;
+}
+
+async function runAdminBan(env: Env, actor: string, target: string, reason: string, lane: LaneCapture | undefined, defer: Defer | undefined, roleDispatch: BetaRoleDispatch, removalDispatch: BetaRoleDispatch['capture'], targetCapture: Awaited<ReturnType<typeof readPrivacySubject>> | undefined): Promise<Response> {
+  await env.DB.prepare(
+    "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
+  )
+    .bind(target, reason)
+    .run();
+  // .48: a ban binds this Discord account and the characters bound to it; the BattleTag is purged 29 days after
+  // its last login like everyone's and nothing derived from it is kept (bnet-retention.ts).
+  await env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE discord_id = ?1 AND status IN ('queued','written')").bind(target).run();
+  // Their open codes die with the ban, so one whispered afterwards links nothing (postVerify checks the ban too).
+  await env.DB.prepare("UPDATE pending SET consumed_at = ?2, consumed_source = 'banned' WHERE discord_id = ?1 AND consumed_at IS NULL").bind(target, now()).run();
+  await audit(env, actor, "admin.ban", target, { reason });
+
+  // Take the Discord access away now — a ban that leaves the guild channels open is not a ban.
+  // With ROLE_GUILD_MEMBER unset there is no member role to take away, and saying "could not remove" on every
+  // ban would be noise about a role that no longer exists.
+  let roleNote = "";
+  if (env.ROLE_GUILD_MEMBER) {
+    try {
+      if(betaRoleDispatchHeld(env,roleDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)
+        &&(betaSourceEpochState(roleDispatch.env,removalDispatch).mode!=='active'||!membershipSettlementEnabled(env))){
+        // v1 or any other present/changed mode: no DELETE is sent; the hold is recorded and told to staff as a hold.
+        roleNote="\nGuild Member removal is held by the beta dispatch mode; nothing was sent to Discord.";
+        await audit(env, "system", "role.remove_held", target, { reason: "beta_dispatch_mode_held", source: "interaction:ban" });
+      }else if(membershipSettlementEnabled(env)){
+        const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,"interaction:ban",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null},removalDispatch,roleDispatch);
+        roleNote=removed?"\nGuild Member absence confirmed.":"\nGuild Member removal is held or unconfirmed; no blind retry.";
+      }else{await removeRole(env, target, env.ROLE_GUILD_MEMBER, `olympus-verify: banned by ${actor}`);roleNote = "\nGuild Member removed.";}
+    } catch (e) {
+      roleNote = `\n\u26a0\ufe0f Could not remove Guild Member: ${adminBanFailure(e)}`;
+      await audit(env, "system", "role.remove_failed", target, { error: errorRef(e) });
+    }
+  }
+  // Revision 4 (A3): configured mode with the fresh or staff lane open. The fresh roles and the staff roles in the bot's ban
+  // custody are removed by one deferral after this reply, on what the legacy removal above leaves of ROLE_CALL_BUDGET; a
+  // refused registration is audited and the cause rotation covers the account at the next pass. The note is the same.
+  if (lane?.configured && defer) {
+    const clock = laneClock(lane, now());
+    if (clock.fresh || clock.staff) {
+      const parent = { ...callBudget(env), limit: Math.max(0, lane.callLimit - LEGACY_BAN_ALLOWANCE) };
+      try {
+        defer("fresh_roles_ban", () => import("./full-release-pass").then((m) => m.settleLaneBan(env, target, lane, parent)));
+      } catch {
+        await audit(env, "system", FRESH_AUDIT.failed, "ban", { error: "registration_refused" }).catch(() => {});
+      }
+      roleNote += "\nNew guild roles: removal runs right after this reply (or at the next role pass).";
+    }
+  }
+
+  // A deferred summary cannot borrow private details from a replacement
+  // target generation. This adds no authority to the ban safety write.
+  let who: { text: string; inGuild: string[] };
+  try {
+    const summaryEnv = targetCapture === undefined ? env : privacyBoundSubjectEnv(env, target, targetCapture);
+    who = await describeUser(summaryEnv, target);
+  } catch {
+    await env.DB.prepare('SELECT 1 AS admin_actor_current').first();
+    who = { text: 'Private account details are unavailable for the original target generation.', inGuild: [] };
+  }
+  const inGame = who.inGuild.length
+    ? `\n**Still in the guild in game:** ${who.inGuild.join(", ")} \u2014 remove them there (/gkick); the next roster export then reconciles.`
+    : "";
+
+  // The Discord ban itself is irreversible and wider than this command's audience, so it is a separate,
+  // deliberate click by a narrower set of people, recorded where staff will see it.
+  const channel = staffChannel(env);
+  let cardNote = "";
+  if (channel) {
+    try {
+      // .55: the Discord-ban button needs the bot to hold Ban Members, a separate approval (tracker D03); until
+      // BAN_BUTTON_ENABLED is on, the card lists the account and says what a Guild Leader can do by hand.
+      const button = env.BAN_BUTTON_ENABLED === "true";
+      await postMessage(env, channel, {
+        content: `\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`,
+        components: button
+          ? [
+              {
+                type: 1,
+                components: [
+                  { type: 2, style: 4, label: "Ban from Discord", custom_id: `ban:discord:${target}` },
+                  { type: 2, style: 2, label: "Leave it", custom_id: "ban:dismiss" },
+                ],
+              },
+            ]
+          : [],
+        allowed_mentions: { parse: [] },
+      });
+      cardNote = button
+        ? `\nA card with the **Ban from Discord** button is in <#${channel}> \u2014 only <@&${env.ROLE_GUILD_LEADER}> can press it.`
+        : `\nA card is in <#${channel}>; a Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made by hand (the bot does not hold Ban Members).`;
+    } catch (e) {
+      cardNote = `\n\u26a0\ufe0f Could not post the ban card: ${adminBanFailure(e)}`;
+    }
+  }
+  await logLine(env, `\u{1F528} ban: <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}`);
+  return reply(
+    `<@${target}> marked banned for verification: this Discord account cannot verify or link again, and the characters bound to it stay bound.${roleNote}\n${who.text}${inGame}${cardNote}`,
+  );
+}
+
+async function runAdminSync(env: Env, actor: string, roleDispatch: BetaRoleDispatch): Promise<Response> {
+  const out = await syncFromLatest(env,roleDispatch);
+  if (!out) return reply("No roster export has been received yet, so there is nothing to sync from.");
+  if ("refused" in out) {
+    // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 1): refused before any link, character or role
+    // change (roster.ts SyncRefused), never vouched for, and audited with the counts only.
+    await audit(env, actor, "admin.sync_refused", String(out.snapshot), { reason: out.refused, memberCount: out.memberCount, stored: out.stored });
+    return reply(
+      out.refused === "writing"
+        ? `Nothing applied: roster snapshot #${out.snapshot} is still being written${out.firstReceivedAt ? ` (it arrived <t:${out.firstReceivedAt}:R>)` : ""}, ` +
+            "so it cannot say yet who is in the guild. No role or link was changed. Run sync again in a few minutes."
+        : // Review of 3 Oct 2026: the snapshot number, not "a newer export": an identical export first only marks a row
+          // from before .115 unfinished (it keeps its number and moves its export time), and the export after that is
+          // written in full as a new snapshot, so the time alone would send the officer back to the same refusal.
+          `Nothing applied: roster snapshot #${out.snapshot} stores ${out.stored} of the ${out.memberCount} members its export listed, so it cannot say who left. ` +
+            `No role or link was changed. The addon's next exports write the roster again in full as a new snapshot (an identical export may first only mark #${out.snapshot} unfinished); ` +
+            `run sync once \`/olympus-admin roster\` shows a snapshot newer than #${out.snapshot}.`,
+    );
+  }
+  // .115 (item B): an officer applying the export also vouches for it as the seat count (roster.ts keeps a large
+  // shrink distrusted until a person says so; this is the house's own remedy). A pre-.115 row counts only when
+  // its member rows are all there; a row still being written (complete 0) is left alone until SNAPSHOT_WRITE_GRACE_S
+  // has passed, and then (review of 3 Oct 2026) counts like a pre-.115 row, once every member row is there. Codex's
+  // review of f975 (3 Oct 2026, 13:15 UTC, finding 2): a complete but distrusted row is vouched for only on the same
+  // count, so a member count larger than the rows stored can never become a trusted seat count; first_received_at is
+  // read as seatsFrom reads it (NULL as 0).
+  const vouched = await env.DB.prepare(
+    `UPDATE roster_snapshots SET trusted = 1, complete = 1
+      WHERE id = ?1 AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count
+        AND ((complete = 1 AND trusted = 0) OR complete IS NULL
+             OR (complete = 0 AND COALESCE(first_received_at, 0) <= ?2 - ${SNAPSHOT_WRITE_GRACE_S}))`,
+  )
+    .bind(out.snapshot, now())
+    .run();
+  const trustedSet = (vouched.meta?.changes ?? 0) > 0;
+  await audit(env, actor, "admin.sync", String(out.snapshot), { promoted: out.promoted.length, stripped: out.stripped.length, released: out.released.length, renamed: out.renamed.length, deferred: out.deferred, trustedSet });
+  const body =
+    `Re-applied roster snapshot #${out.snapshot}.\n` +
+    (trustedSet ? "This export now counts for the seat count.\n" : "") +
+    `Granted (${out.promoted.length}): ${out.promoted.join(", ") || "\u2014"}\n` +
+    `Removed (${out.stripped.length}): ${out.stripped.join(", ") || "\u2014"}` +
+    (out.renamed.length ? `\nRenamed, link kept (${out.renamed.length}): ${out.renamed.join(", ")}` : "") +
+    (out.released.length ? `\nLinks released \u2014 not the character that was linked (${out.released.length}): ${out.released.join(", ")}` : "") +
+    (out.held ? `\nLeft for an officer (${out.held}): characters that appear to have swapped names \u2014 see the server log.` : "") +
+    // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): one sync applies only what fits in its
+    // invocation's statement budget (roster.ts syncFromLatest); a repeat applies only what is still due
+    (out.deferred ? `\nNot applied yet (${out.deferred}): more than one sync can change in one go. Run sync again to apply the rest.` : "");
+  return reply(body.length > 1900 ? body.slice(0, 1890) + "\u2026" : body);
+}
+
 async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: Defer,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
   if (!hasAnyRole(i, officerRoles(env))) return reply("Officers only.");
   const actor = userOf(i).id;
@@ -411,99 +614,17 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       // Item 15: the beta dispatch mode is captured here, before this case's first await, and decides the role removal
       // below on the fixed beta guild and its twelve fixed roles. Absent and unchanged keeps the original path exactly.
       const removalDispatch=roleDispatch.capture;
-      const target = option<string>(i, "user") ?? "";
-      const reason = option<string>(i, "reason") ?? "";
+      // Signed HTTP authenticates Discord's payload bytes, not this runtime cast.
+      // Keep malformed values away from capture, registration and safety writes.
+      const target = option<unknown>(i, "user");
+      if (typeof target !== 'string' || !/^[1-9]\d{16,19}$/.test(target) || BigInt(target) > 18446744073709551615n) return reply('Choose a valid Discord member for the verification ban. Nothing was changed.');
+      const suppliedReason = option<unknown>(i, "reason");
+      if (suppliedReason !== undefined && typeof suppliedReason !== 'string') return reply('Give the ban reason as text, or leave it empty. Nothing was changed.');
+      const reason = suppliedReason ?? "";
       // .210: the reason is shown twice (reply and staff card); a longer one pushed both past Discord's 2,000 characters.
       if (reason.length > BAN_REASON_MAX) return reply(`Keep the reason to ${BAN_REASON_MAX} characters or fewer. Nothing was changed.`);
       const targetCapture=membershipSettlementEnabled(env)?await readPrivacySubject(env,target):undefined;
-      await env.DB.prepare(
-        "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
-      )
-        .bind(target, reason)
-        .run();
-      // .48: a ban binds this Discord account and the characters bound to it; the BattleTag is purged 29 days after
-      // its last login like everyone's and nothing derived from it is kept (bnet-retention.ts).
-      await env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE discord_id = ?1 AND status IN ('queued','written')").bind(target).run();
-      // Their open codes die with the ban, so one whispered afterwards links nothing (postVerify checks the ban too).
-      await env.DB.prepare("UPDATE pending SET consumed_at = ?2, consumed_source = 'banned' WHERE discord_id = ?1 AND consumed_at IS NULL").bind(target, now()).run();
-      await audit(env, actor, "admin.ban", target, { reason });
-
-      // Take the Discord access away now — a ban that leaves the guild channels open is not a ban.
-      // With ROLE_GUILD_MEMBER unset there is no member role to take away, and saying "could not remove" on every
-      // ban would be noise about a role that no longer exists.
-      let roleNote = "";
-      if (env.ROLE_GUILD_MEMBER) {
-        try {
-          if(betaRoleDispatchHeld(env,roleDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)
-            &&(betaSourceEpochState(roleDispatch.env,removalDispatch).mode!=='active'||!membershipSettlementEnabled(env))){
-            // v1 or any other present/changed mode: no DELETE is sent; the hold is recorded and told to staff as a hold.
-            roleNote="\nGuild Member removal is held by the beta dispatch mode; nothing was sent to Discord.";
-            await audit(env, "system", "role.remove_held", target, { reason: "beta_dispatch_mode_held", source: "interaction:ban" });
-          }else if(membershipSettlementEnabled(env)){
-            const removed=await revokeForBan(env,target,env.ROLE_GUILD_MEMBER,"interaction:ban",undefined,{subjectGeneration:targetCapture?.subjectGeneration??null},removalDispatch,roleDispatch);
-            roleNote=removed?"\nGuild Member absence confirmed.":"\nGuild Member removal is held or unconfirmed; no blind retry.";
-          }else{await removeRole(env, target, env.ROLE_GUILD_MEMBER, `olympus-verify: banned by ${actor}`);roleNote = "\nGuild Member removed.";}
-        } catch (e) {
-          roleNote = `\n\u26a0\ufe0f Could not remove Guild Member: ${explainDiscordError(e)}`;
-          await audit(env, "system", "role.remove_failed", target, { error: String(e) });
-        }
-      }
-      // Revision 4 (A3): configured mode with the fresh or staff lane open. The fresh roles and the staff roles in the bot's ban
-      // custody are removed by one deferral after this reply, on what the legacy removal above leaves of ROLE_CALL_BUDGET; a
-      // refused registration is audited and the cause rotation covers the account at the next pass. The note is the same.
-      if (lane?.configured && defer) {
-        const clock = laneClock(lane, now());
-        if (clock.fresh || clock.staff) {
-          const parent = { ...callBudget(env), limit: Math.max(0, lane.callLimit - LEGACY_BAN_ALLOWANCE) };
-          try {
-            defer("fresh_roles_ban", () => import("./full-release-pass").then((m) => m.settleLaneBan(env, target, lane, parent)));
-          } catch {
-            await audit(env, "system", FRESH_AUDIT.failed, "ban", { error: "registration_refused" }).catch(() => {});
-          }
-          roleNote += "\nNew guild roles: removal runs right after this reply (or at the next role pass).";
-        }
-      }
-
-      const who = await describeUser(env, target);
-      const inGame = who.inGuild.length
-        ? `\n**Still in the guild in game:** ${who.inGuild.join(", ")} \u2014 remove them there (/gkick); the next roster export then reconciles.`
-        : "";
-
-      // The Discord ban itself is irreversible and wider than this command's audience, so it is a separate,
-      // deliberate click by a narrower set of people, recorded where staff will see it.
-      const channel = staffChannel(env);
-      let cardNote = "";
-      if (channel) {
-        try {
-          // .55: the Discord-ban button needs the bot to hold Ban Members, a separate approval (tracker D03); until
-          // BAN_BUTTON_ENABLED is on, the card lists the account and says what a Guild Leader can do by hand.
-          const button = env.BAN_BUTTON_ENABLED === "true";
-          await postMessage(env, channel, {
-            content: `\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`,
-            components: button
-              ? [
-                  {
-                    type: 1,
-                    components: [
-                      { type: 2, style: 4, label: "Ban from Discord", custom_id: `ban:discord:${target}` },
-                      { type: 2, style: 2, label: "Leave it", custom_id: "ban:dismiss" },
-                    ],
-                  },
-                ]
-              : [],
-            allowed_mentions: { parse: [] },
-          });
-          cardNote = button
-            ? `\nA card with the **Ban from Discord** button is in <#${channel}> \u2014 only <@&${env.ROLE_GUILD_LEADER}> can press it.`
-            : `\nA card is in <#${channel}>; a Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made by hand (the bot does not hold Ban Members).`;
-        } catch (e) {
-          cardNote = `\n\u26a0\ufe0f Could not post the ban card: ${String(e).slice(0, 140)}`;
-        }
-      }
-      await logLine(env, `\u{1F528} ban: <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}`);
-      return reply(
-        `<@${target}> marked banned for verification: this Discord account cannot verify or link again, and the characters bound to it stay bound.${roleNote}\n${who.text}${inGame}${cardNote}`,
-      );
+      return deferredAdminReply(env, i, defer, "interaction_admin_ban", () => runAdminBan(env, actor, target, reason, lane, defer, roleDispatch, removalDispatch, targetCapture));
     }
     case "unban": {
       const target = option<string>(i, "user") ?? "";
@@ -622,53 +743,7 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       return reply(text.length > 1990 ? text.slice(0, 1985) + "\u2026" : text);
     }
     case "sync": {
-      const out = await syncFromLatest(env,roleDispatch);
-      if (!out) return reply("No roster export has been received yet, so there is nothing to sync from.");
-      if ("refused" in out) {
-        // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 1): refused before any link, character or role
-        // change (roster.ts SyncRefused), never vouched for, and audited with the counts only.
-        await audit(env, actor, "admin.sync_refused", String(out.snapshot), { reason: out.refused, memberCount: out.memberCount, stored: out.stored });
-        return reply(
-          out.refused === "writing"
-            ? `Nothing applied: roster snapshot #${out.snapshot} is still being written${out.firstReceivedAt ? ` (it arrived <t:${out.firstReceivedAt}:R>)` : ""}, ` +
-                "so it cannot say yet who is in the guild. No role or link was changed. Run sync again in a few minutes."
-            : // Review of 3 Oct 2026: the snapshot number, not "a newer export": an identical export first only marks a row
-              // from before .115 unfinished (it keeps its number and moves its export time), and the export after that is
-              // written in full as a new snapshot, so the time alone would send the officer back to the same refusal.
-              `Nothing applied: roster snapshot #${out.snapshot} stores ${out.stored} of the ${out.memberCount} members its export listed, so it cannot say who left. ` +
-                `No role or link was changed. The addon's next exports write the roster again in full as a new snapshot (an identical export may first only mark #${out.snapshot} unfinished); ` +
-                `run sync once \`/olympus-admin roster\` shows a snapshot newer than #${out.snapshot}.`,
-        );
-      }
-      // .115 (item B): an officer applying the export also vouches for it as the seat count (roster.ts keeps a large
-      // shrink distrusted until a person says so; this is the house's own remedy). A pre-.115 row counts only when
-      // its member rows are all there; a row still being written (complete 0) is left alone until SNAPSHOT_WRITE_GRACE_S
-      // has passed, and then (review of 3 Oct 2026) counts like a pre-.115 row, once every member row is there. Codex's
-      // review of f975 (3 Oct 2026, 13:15 UTC, finding 2): a complete but distrusted row is vouched for only on the same
-      // count, so a member count larger than the rows stored can never become a trusted seat count; first_received_at is
-      // read as seatsFrom reads it (NULL as 0).
-      const vouched = await env.DB.prepare(
-        `UPDATE roster_snapshots SET trusted = 1, complete = 1
-          WHERE id = ?1 AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = ?1) = member_count
-            AND ((complete = 1 AND trusted = 0) OR complete IS NULL
-                 OR (complete = 0 AND COALESCE(first_received_at, 0) <= ?2 - ${SNAPSHOT_WRITE_GRACE_S}))`,
-      )
-        .bind(out.snapshot, now())
-        .run();
-      const trustedSet = (vouched.meta?.changes ?? 0) > 0;
-      await audit(env, actor, "admin.sync", String(out.snapshot), { promoted: out.promoted.length, stripped: out.stripped.length, released: out.released.length, renamed: out.renamed.length, deferred: out.deferred, trustedSet });
-      const body =
-        `Re-applied roster snapshot #${out.snapshot}.\n` +
-        (trustedSet ? "This export now counts for the seat count.\n" : "") +
-        `Granted (${out.promoted.length}): ${out.promoted.join(", ") || "\u2014"}\n` +
-        `Removed (${out.stripped.length}): ${out.stripped.join(", ") || "\u2014"}` +
-        (out.renamed.length ? `\nRenamed, link kept (${out.renamed.length}): ${out.renamed.join(", ")}` : "") +
-        (out.released.length ? `\nLinks released \u2014 not the character that was linked (${out.released.length}): ${out.released.join(", ")}` : "") +
-        (out.held ? `\nLeft for an officer (${out.held}): characters that appear to have swapped names \u2014 see the server log.` : "") +
-        // .115, third review round (Codex, 3 Oct 2026 16:48 UTC, finding A): one sync applies only what fits in its
-        // invocation's statement budget (roster.ts syncFromLatest); a repeat applies only what is still due
-        (out.deferred ? `\nNot applied yet (${out.deferred}): more than one sync can change in one go. Run sync again to apply the rest.` : "");
-      return reply(body.length > 1900 ? body.slice(0, 1890) + "\u2026" : body);
+      return deferredAdminReply(env, i, defer, "interaction_admin_sync", () => runAdminSync(env, actor, roleDispatch));
     }
     case "refresh-guide": {
       // Editing beats reposting: the pin, the position and the message link all survive, and no stale copy is left.

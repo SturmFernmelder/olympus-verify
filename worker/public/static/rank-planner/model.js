@@ -50,7 +50,6 @@
       bankLimitScope: 'Whole gold per day and a default item-stack limit per bank tab per day; confirm each real bank tab separately.',
       ranks: ids.map(id => {
         const rank = makeRank(templates.get(id));
-        if (id === 'gm' && ids.length === RECOMMENDED.length && ids.every((value, index) => value === RECOMMENDED[index])) rank.name = 'Leader';
         // The current Olympus preset supplements the historical catalogue. Custom
         // and imported drafts retain their own choices; no live permission is applied.
         if (ids.length === RECOMMENDED.length && ids.every((value, index) => value === RECOMMENDED[index]) && id === 'veteran') {
@@ -157,6 +156,14 @@
       next.ranks[index] = { ...next.ranks[index], ...update };
     });
   }
+  function useGuildMasterNativeName(draft, catalogue) {
+    return change(draft, catalogue, next => {
+      if (next.ranks[0].name !== 'Leader') fail('This correction applies only to a draft with Leader in rank 0.');
+      // Explicit local draft correction. No permission, order, bank choice or
+      // historical policy stamp is replaced, and no game operation is sent.
+      next.ranks[0].name = 'Guild Master';
+    });
+  }
   function parseWholeNumber(text) {
     if (typeof text !== 'string' || !/^(0|[1-9]\d*)$/.test(text) || !Number.isSafeInteger(Number(text))) fail('Enter a nonnegative whole number without punctuation.');
     return Number(text);
@@ -182,16 +189,16 @@
   function notices(draft) {
     const out = [];
     if (draft.schema !== SCHEMA) out.push({ level: 'info', text: 'Your earlier draft is preserved. Use Olympus recommendation to replace it with the .199 exact ten-rank hierarchy.' });
-    out.push({ level: 'info', text: 'The current ten-rank recommendation is Leader, High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. High Council is zero-based slot 1; Officer is slot 2. Co-Guild Master and Treasurer are appointments, not native ranks. Council membership, real native rank, signing profiles and actual bank permissions remain separate; this draft applies none of them.' });
+    out.push({ level: 'info', text: 'The current ten-rank recommendation is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Guild Master is the exact native name for slot 0; Leader is its display title. High Council is zero-based slot 1; Officer is slot 2. Co-Guild Master and Treasurer are appointments, not native ranks. Council membership, real native rank, signing profiles and actual bank permissions remain separate; this draft applies none of them.' });
     const result = compatibility(draft);
     if (!result.captainCompatible) out.push({ level: 'warning', text: `The community addon treats the second rank as Captain. ${result.captainName} is there now; review that authority before adopting this ladder.` });
     // .210: the qualified full-release role sync recognises the ten-rank roster only with "Guild Master" in slot 0.
-    if (draft.ranks[0] && draft.ranks[0].name !== 'Guild Master') out.push({ level: 'warning', text: `Rank 0 is named “${draft.ranks[0].name}”. The website's role sync currently recognises the ten-rank roster only when in-game rank 0 is named exactly “Guild Master”; with any other name it holds every native rank role. Keep “Guild Master” in game until the owner approves another name.` });
+    if (draft.ranks[0] && draft.ranks[0].name !== 'Guild Master') out.push({ level: 'warning', text: `Rank 0 is named “${draft.ranks[0].name}”. The website's role sync currently recognises the ten-rank roster only when in-game rank 0 is named exactly “Guild Master”; with any other name it holds every native rank role. This saved draft is preserved. Review rank 0 to explicitly correct a Leader draft's native name. A draft change does not rename the rank in game.` });
     draft.ranks.slice(1).forEach(rank => {
       if ((rank.permissions.bundle || rank.permissions.gold || rank.permissions.tabs) && !rank.permissions.auth) out.push({ level: 'warning', text: `${rank.name} has sensitive permissions without an authenticator requirement.` });
     });
     out.push({ level: 'info', text: `Protected-rank reference: ${result.protectedRankName} (index 5). This is a review note only.` });
     return out;
   }
-  return { SCHEMA, HISTORICAL_198_SCHEMA, HISTORICAL_198_POLICY, INTERIM_SCHEMA, INTERIM_POLICY, LEGACY_SCHEMA, PREVIOUS_SCHEMA, PREVIOUS_POLICY, POLICY, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
+  return { SCHEMA, HISTORICAL_198_SCHEMA, HISTORICAL_198_POLICY, INTERIM_SCHEMA, INTERIM_POLICY, LEGACY_SCHEMA, PREVIOUS_SCHEMA, PREVIOUS_POLICY, POLICY, PERMISSIONS, RECOMMENDED, REFERENCE, SOURCE_SHA256, createDraft, makeRank, validate, assertValid, addRank, removeRank, moveRank, updateRank, useGuildMasterNativeName, parseWholeNumber, importDraft, exportDraft, compatibility, notices };
 });

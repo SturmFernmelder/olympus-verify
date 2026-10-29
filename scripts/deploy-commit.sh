@@ -4,7 +4,7 @@
 # included. This exports <commit> with `git archive` into a temp directory and runs the project's own wrangler
 # against that copy's worker/wrangler.toml, so src/ and public/ come only from the commit.
 #
-#   bash scripts/deploy-commit.sh <commit>                          # e.g. the SHA both agents signed in the task log
+#   bash scripts/deploy-commit.sh <commit> --keep-vars              # main rollout; retain dashboard-only plain vars
 #   bash scripts/deploy-commit.sh <commit> --dry-run [--outdir <dir>]   # bundle only, nothing uploaded
 #   bash scripts/deploy-commit.sh <commit> --target privacy-floor    # a fixed private service from the same archive
 #   bash scripts/deploy-commit.sh <commit> --tag <tree> --message <bundle-sha256> --bind-source-tree
@@ -16,7 +16,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 commit="${1:-}"
 case "$commit" in
-  ""|-*) echo "usage: scripts/deploy-commit.sh <commit> [--target <fixed-target>] [--dry-run] [--outdir <dir>] [--tag <tree> --message <bundle-sha256>] [--bind-source-tree]" >&2; exit 1 ;;
+  ""|-*) echo "usage: scripts/deploy-commit.sh <commit> [--target <fixed-target>] [--dry-run] [--outdir <dir>] [--tag <tree> --message <bundle-sha256>] [--bind-source-tree] [--keep-vars (main only)]" >&2; exit 1 ;;
 esac
 shift
 [ -z "${CLOUDFLARE_ENV:-}" ] || { echo "refusing: CLOUDFLARE_ENV is set; this project has no environments" >&2; exit 1; }
@@ -28,9 +28,13 @@ target_seen=""
 tag=""
 message=""
 bind_source_tree=""
+keep_vars=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run) dry_run=1; shift ;;
+    --keep-vars)
+      [ -z "$keep_vars" ] || { echo "refusing: --keep-vars cannot repeat" >&2; exit 1; }
+      keep_vars=1; shift ;;
     --target)
       [ -z "$target_seen" ] && [ -n "${2:-}" ] || { echo "refusing: --target needs one fixed target and cannot repeat" >&2; exit 1; }
       target="$2"; target_seen=1; shift 2 ;;
@@ -61,6 +65,9 @@ case "$target" in
   privacy-successor) config="wrangler.privacy-successor.private.toml"; source_binding="PRIVACY_SUCCESSOR_CONTROL_SOURCE_TREE" ;;
   *) echo "refusing: unknown fixed deployment target" >&2; exit 1 ;;
 esac
+if [ -n "$keep_vars" ] && [ "$target" != main ]; then
+  echo "refusing: --keep-vars is supported only for the main target" >&2; exit 1
+fi
 if [ -n "$tag" ] || [ -n "$message" ]; then
   [ -n "$tag" ] && [ -n "$message" ] || { echo "refusing: --tag and --message must be supplied together" >&2; exit 1; }
 fi
@@ -85,6 +92,7 @@ trap 'rm -rf -- "$tmp"' EXIT
 git archive "$sha" | tar -x -C "$tmp"
 [ -f "$tmp/worker/$config" ] || { echo "refusing: the export has no worker/$config" >&2; exit 1; }
 args=(deploy --config "$tmp/worker/$config")
+[ -z "$keep_vars" ] || args+=(--keep-vars)
 [ -z "$dry_run" ] || args+=(--dry-run)
 [ -z "$outdir" ] || args+=(--outdir "$outdir")
 [ -z "$tag" ] || args+=(--tag "$tag" --message "$message")

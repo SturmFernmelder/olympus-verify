@@ -726,6 +726,34 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   const reg = fs.readFileSync(path.join(root, "scripts", "register.mjs"), "utf8");
   check("the command descriptions no longer promise a BattleTag (source; re-registration is the owner's step)", !reg.includes("keeps its BattleTag on record") && !reg.includes("Show your Battle.net link") && !reg.includes("which BattleTag"));
 
+  // RT06-HELD-02: a separate account retains one member character after the
+  // actual administrator marks its other character's rename for reapplication.
+  // All original cases above retain their own data and assertions.
+  {
+    const dual = '300000000000000210';
+    await siteUser(dual, { global_name: 'Coverage Dual' });
+    await character(dual, 'Coverage After', 'Player-4613-02100001');
+    await character(dual, 'Coverage Alt', 'Player-4613-02100002');
+    await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'system', 'roster.renamed', 'Coverage After', ?)", T - 3600, JSON.stringify({ from: 'Coverage Before', discordId: dual, guid: 'Player-4613-02100001' }));
+    const rename = one("SELECT id FROM audit WHERE action='roster.renamed' AND subject='Coverage After'").id;
+    await fixtureRun("INSERT INTO site_applications (discord_id, position, fallback, answers, status, created_at, updated_at) VALUES (?, 'raider', 1, '{}', 'accepted', ?, ?)", dual, T - DAY, T - DAY);
+    const decision = await http('POST', '/api/admin/renames/forced', { who: ADMIN, body: { auditId: rename, confirm: 'REAPPLY' } });
+    const decisionBody = await J(decision), heldRow = one('SELECT * FROM rename_holds WHERE audit_id=?', rename);
+    check('.210 exact status coverage uses the actual Admin decision with a second member character still supporting the account', decision.status === 200 && decisionBody.ok === true && decisionBody.unbound === 1 && heldRow?.state === 'reapply' && one("SELECT status FROM characters WHERE discord_id=? AND name='Coverage Alt'", dual).status === 'member');
+    check('.210 the unheld member alt retains the original rename-support exception', await roles.reapplyHeld(env(), dual) === false);
+    const beforeRows = JSON.stringify([heldRow, db.prepare('SELECT * FROM characters WHERE discord_id=? ORDER BY name_key').all(dual)]);
+    const effects = { removes: REMOVES.length, notices: NOTICES.length, logs: LOGS.length, fetches: FETCHES.length };
+    const previousAdd = stubs['./discord'].addRole; let adds = 0, content;
+    // The alt legitimately supports the rename. A separate real beta-source
+    // epoch restriction supplies the held outcome, never a fabricated writer result.
+    const beta = load('./beta-reset-policy'), heldProfile = { ROLE_GUILD_MEMBER: beta.BETA_RESET_ROLE_IDS[0], [beta.BETA_RESET_SOURCE_EPOCH_KEY]: 'olympus-full-release-fixture210' };
+    MEMBER_ROLES = [];
+    stubs['./discord'].addRole = async (...args) => { adds++; return previousAdd(...args); };
+    try { content = await status(dual, heldProfile); } finally { stubs['./discord'].addRole = previousAdd; }
+    check('.210 actual verify-status response retains the generic held note and detailed renamed-character reapply instructions together', content.includes('Automatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.') && content.includes('Blizzard required your character **Coverage Before** to be renamed (now **Coverage After**)') && content.includes('apply again') && content.includes('**Get my code**') && !content.includes('It is back now') && !content.includes('Staff have been told'), { content });
+    check('.210 actual held status adds no role effect or notification and leaves its original hold and both character rows unchanged', adds === 0 && REMOVES.length === effects.removes && NOTICES.length === effects.notices && LOGS.length === effects.logs && FETCHES.length === effects.fetches && JSON.stringify([one('SELECT * FROM rename_holds WHERE audit_id=?', rename), db.prepare('SELECT * FROM characters WHERE discord_id=? ORDER BY name_key').all(dual)]) === beforeRows);
+  }
+
   globalThis.Date = RealDate;
   console.log(`\n${ok}/${n} passed`);
   process.exit(ok === n ? 0 : 1);

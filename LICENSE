@@ -19,6 +19,9 @@ Exceptions and notices:
    and fall under this notice.
 5. Development dependencies (the Worker's npm packages, Lupa for the addon suites in CI, Pillow, fontTools and brotli
    for the asset extractor) are not part of this repository and keep their own licences.
+6. The vendored jsQR 1.4.0 decoder under worker/public/static/qr-vendor/ and tools/guild-qr-pilot/vendor/ is the
+   jsQR authors' work under the Apache License 2.0, not this proprietary notice. Each copy keeps its accompanying
+   jsqr-1.4.0.LICENSE.txt; THIRD_PARTY_NOTICES.md and the source records identify the exact upstream bytes.
 
 World of Warcraft, Battle.net and Blizzard Entertainment are trademarks or registered trademarks of Blizzard
 Entertainment, Inc. Discord is a trademark of Discord Inc. Cloudflare is a trademark of Cloudflare, Inc. This project is

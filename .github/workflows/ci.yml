@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: review-${{ github.ref }}
-  # .210: only a newer push to the same pull request cancels its older run; every main commit keeps its own result.
+  # PR updates share one group; other runs have unique groups so GitHub's pending-slot replacement cannot cancel them.
+  group: review-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

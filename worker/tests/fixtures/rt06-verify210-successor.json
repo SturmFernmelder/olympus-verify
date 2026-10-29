@@ -1,0 +1,281 @@
+{
+  "schema": "source-closed-rt06-verify-successor-v1",
+  "restoreSHA256": "e08e42cf051ddd37c893e60d5bc12c508a6f02fb1d9fca27242597a6d15bb9a3",
+  "cases": {
+    "absent": {
+      "rawTraceSHA256": "53e437016d632e6288e8865ccd2bb1f16384b965a8f0810173ce8754b94ee218",
+      "currentResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "currentCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        3,
+        3,
+        4,
+        7,
+        3,
+        6
+      ],
+      "historicalDigest": {
+        "trace": "d9aed775071c748435f6d8d24bfb413d0e0bc9ee457ca658c5984f60ba741f93",
+        "response": "285d9e94f37d14329d4068b9189031cfcea3dc18607579cab19364a7f3ec94c3",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      },
+      "currentDigest": {
+        "trace": "12b7409dc3dc3a709eed975a7eaeba71335d66ae82c8de6040b6631105696c7b",
+        "response": "4fadd7d51cf0dff08a61824323f95bf04cd31d55d454d498fa603731f2c18bd0",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      }
+    },
+    "empty": {
+      "rawTraceSHA256": "53e437016d632e6288e8865ccd2bb1f16384b965a8f0810173ce8754b94ee218",
+      "currentResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "currentCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        3,
+        3,
+        4,
+        7,
+        3,
+        6
+      ],
+      "historicalDigest": {
+        "trace": "d9aed775071c748435f6d8d24bfb413d0e0bc9ee457ca658c5984f60ba741f93",
+        "response": "285d9e94f37d14329d4068b9189031cfcea3dc18607579cab19364a7f3ec94c3",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      },
+      "currentDigest": {
+        "trace": "12b7409dc3dc3a709eed975a7eaeba71335d66ae82c8de6040b6631105696c7b",
+        "response": "4fadd7d51cf0dff08a61824323f95bf04cd31d55d454d498fa603731f2c18bd0",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      }
+    },
+    "staffFalse": {
+      "rawTraceSHA256": "53e437016d632e6288e8865ccd2bb1f16384b965a8f0810173ce8754b94ee218",
+      "currentResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "currentCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        3,
+        3,
+        4,
+        7,
+        3,
+        6
+      ],
+      "historicalDigest": {
+        "trace": "d9aed775071c748435f6d8d24bfb413d0e0bc9ee457ca658c5984f60ba741f93",
+        "response": "285d9e94f37d14329d4068b9189031cfcea3dc18607579cab19364a7f3ec94c3",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      },
+      "currentDigest": {
+        "trace": "12b7409dc3dc3a709eed975a7eaeba71335d66ae82c8de6040b6631105696c7b",
+        "response": "4fadd7d51cf0dff08a61824323f95bf04cd31d55d454d498fa603731f2c18bd0",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      }
+    },
+    "configured": {
+      "rawTraceSHA256": "53e437016d632e6288e8865ccd2bb1f16384b965a8f0810173ce8754b94ee218",
+      "currentResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "currentCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        3,
+        3,
+        4,
+        7,
+        3,
+        6
+      ],
+      "historicalDigest": {
+        "trace": "d9aed775071c748435f6d8d24bfb413d0e0bc9ee457ca658c5984f60ba741f93",
+        "response": "285d9e94f37d14329d4068b9189031cfcea3dc18607579cab19364a7f3ec94c3",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      },
+      "currentDigest": {
+        "trace": "12b7409dc3dc3a709eed975a7eaeba71335d66ae82c8de6040b6631105696c7b",
+        "response": "4fadd7d51cf0dff08a61824323f95bf04cd31d55d454d498fa603731f2c18bd0",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      }
+    },
+    "held": {
+      "rawTraceSHA256": "53e437016d632e6288e8865ccd2bb1f16384b965a8f0810173ce8754b94ee218",
+      "currentResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldResponse": {
+        "status": 200,
+        "body": "{\"type\":4,\"data\":{\"content\":\"**Alpha** is already verified and in the guild.\",\"flags\":64,\"allowed_mentions\":{\"parse\":[]}}}"
+      },
+      "oldCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "currentCacheEvent": {
+        "k": "sql",
+        "tag": "legacy",
+        "sql": "UPDATE seen_interactions SET response = ?2 WHERE id = ?1",
+        "params": [
+          "810000000000000904",
+          "{\"status\":200,\"body\":\"{\\\"type\\\":4,\\\"data\\\":{\\\"content\\\":\\\"**Alpha** is already verified and in the guild.\\\\nAutomatic restoration of your **Guild Member** role is currently on hold. Ask an officer to check your access.\\\",\\\"flags\\\":64,\\\"allowed_mentions\\\":{\\\"parse\\\":[]}}}\"}"
+        ]
+      },
+      "legacyBatchSizes": [
+        2,
+        6,
+        3,
+        3,
+        3,
+        3,
+        4,
+        7,
+        3,
+        6
+      ],
+      "historicalDigest": {
+        "trace": "d9aed775071c748435f6d8d24bfb413d0e0bc9ee457ca658c5984f60ba741f93",
+        "response": "285d9e94f37d14329d4068b9189031cfcea3dc18607579cab19364a7f3ec94c3",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      },
+      "currentDigest": {
+        "trace": "12b7409dc3dc3a709eed975a7eaeba71335d66ae82c8de6040b6631105696c7b",
+        "response": "4fadd7d51cf0dff08a61824323f95bf04cd31d55d454d498fa603731f2c18bd0",
+        "twelve": "13b76f597e3f21d47d24d45547f97ba192151c6de4b1bd8cf62c92b986af1666",
+        "statements": 41,
+        "requests": 0
+      }
+    }
+  }
+}

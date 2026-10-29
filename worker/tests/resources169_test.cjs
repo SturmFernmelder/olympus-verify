@@ -168,6 +168,81 @@ function renderer(fetcher) {
       unchangedKept && after !== before && reopened.open === true && !!focusedNode && focusedNode !== headline && focusedNode.href === headline.href);
     keepMount.destroy(); delete Element.prototype.focus;
   }
+  {
+    // F2_A11Y005: operate the actual native controls with uncooperative late fetch/body answers.
+    const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
+    const findButton = (holder, name) => walk(holder).find(node => node.tagName === 'BUTTON' && node.textContent === name);
+    const changed = structuredClone(good); changed.sources[0].items[0].title = 'Later publisher headline';
+    const resumeRead = deferred(); let reads = 0;
+    const pauseUi = renderer(async () => ++reads === 2 ? resumeRead.promise : Response.json(good)), pauseHolder = new Element('div');
+    const pauseMount = pauseUi.api.mount(pauseHolder, { view: 'updates' }); await settle();
+    const automatic = findButton(pauseHolder, 'Pause automatic updates'), manual = findButton(pauseHolder, 'Refresh sources');
+    check('.210 updates exposes a named native Pause automatic updates button and a polite status', !!automatic && automatic.type === 'button' && walk(pauseHolder).some(node => node.role === 'status'));
+    const article = walk(pauseHolder).find(node => node.tagName === 'ARTICLE'), oldTick = [...pauseUi.intervals.values()][0].fn;
+    pauseUi.document.activeElement = automatic; automatic.fire('click'); await settle();
+    check('.210 Pause keeps the existing snapshot and focused control, stops polling, disables manual refresh and offers Resume', pauseUi.calls.length === 1 && pauseUi.intervals.size === 0 && manual.disabled === true && automatic.textContent === 'Resume automatic updates' && pauseUi.document.activeElement === automatic && walk(pauseHolder).includes(article) && textOf(pauseHolder).includes('Automatic updates are paused'));
+    oldTick(); manual.fire('click'); pauseUi.hide(); pauseUi.show(); await settle();
+    check('.210 paused manual/captured timer/visibility actions cannot start another read', pauseUi.calls.length === 1 && pauseUi.intervals.size === 0);
+    const filter = walk(pauseHolder).find(node => node.type === 'checkbox'); filter.checked = false; filter.fire('change');
+    check('.210 paused source filters only change the retained local snapshot', pauseUi.calls.length === 1 && walk(pauseHolder).filter(node => node.tagName === 'ARTICLE').length === 2 && textOf(pauseHolder).includes('Automatic updates are paused'));
+    const retainedArticles = walk(pauseHolder).filter(node => node.tagName === 'ARTICLE'), retainedText = retainedArticles.map(textOf), retainedFocus = pauseUi.document.activeElement;
+    automatic.fire('click'); await settle();
+    const pendingArticles = walk(pauseHolder).filter(node => node.tagName === 'ARTICLE');
+    check('.210 pending Resume retains the exact filtered article nodes, text and focus before its response', retainedArticles.length === 2 && pendingArticles.length === retainedArticles.length && pendingArticles.every((node, index) => node === retainedArticles[index] && textOf(node) === retainedText[index]) && retainedFocus === automatic && pauseUi.document.activeElement === retainedFocus);
+    check('.210 deliberate Resume starts exactly one fresh read and one 60-second timer while keeping focus', pauseUi.calls.length === 2 && pauseUi.intervals.size === 1 && [...pauseUi.intervals.values()][0].ms === 60000 && manual.disabled === true && automatic.textContent === 'Pause automatic updates' && pauseUi.document.activeElement === automatic);
+    manual.fire('click'); [...pauseUi.intervals.values()][0].fn(); await settle();
+    check('.210 resumed pending work rejects duplicate manual and timer reads', pauseUi.calls.length === 2);
+    resumeRead.resolve(Response.json(changed)); await settle();
+    check('.210 resumed answer is applied once and retains the chosen source filter', manual.disabled === false && walk(pauseHolder).filter(node => node.tagName === 'ARTICLE').length === 2 && !textOf(pauseHolder).includes('Automatic updates are paused'));
+    pauseMount.destroy();
+
+    const lateFetch = deferred(); let lateReads = 0, lateSignal;
+    const lateUi = renderer(async (_url, init) => { if (++lateReads === 2) { lateSignal = init.signal; return lateFetch.promise; } return Response.json(good); }), lateHolder = new Element('div');
+    const lateMount = lateUi.api.mount(lateHolder, { view: 'updates' }); await settle();
+    findButton(lateHolder, 'Refresh sources').fire('click'); await settle();
+    findButton(lateHolder, 'Pause automatic updates').fire('click'); await settle();
+    lateFetch.resolve(Response.json(changed)); await settle();
+    check('.210 Pause aborts a pending fetch and ignores an answer that disregards abort', lateSignal.aborted && lateUi.intervals.size === 0 && !textOf(lateHolder).includes('Later publisher headline') && textOf(lateHolder).includes('Automatic updates are paused') && findButton(lateHolder, 'Refresh sources').disabled === true);
+    lateMount.destroy();
+
+    let finishBody, bodyReads = 0, bodySignal;
+    const bodyUi = renderer(async (_url, init) => {
+      if (++bodyReads !== 2) return Response.json(good);
+      bodySignal = init.signal;
+      return new Response(new ReadableStream({ start(controller) { finishBody = () => { controller.enqueue(new TextEncoder().encode(JSON.stringify(changed))); controller.close(); }; } }), { headers: { 'Content-Type': 'application/json' } });
+    }), bodyHolder = new Element('div');
+    const bodyMount = bodyUi.api.mount(bodyHolder, { view: 'updates' }); await settle();
+    findButton(bodyHolder, 'Refresh sources').fire('click'); await settle();
+    findButton(bodyHolder, 'Pause automatic updates').fire('click'); finishBody(); await settle();
+    check('.210 Pause also ignores a late JSON body after response headers were received', bodySignal.aborted && !textOf(bodyHolder).includes('Later publisher headline') && textOf(bodyHolder).includes('Automatic updates are paused') && findButton(bodyHolder, 'Refresh sources').disabled === true);
+    bodyMount.destroy();
+
+    const obsolete = deferred(); let orderReads = 0;
+    const orderUi = renderer(async () => ++orderReads === 2 ? obsolete.promise : Response.json(orderReads === 3 ? changed : good)), orderHolder = new Element('div');
+    const orderMount = orderUi.api.mount(orderHolder, { view: 'updates' }); await settle();
+    findButton(orderHolder, 'Refresh sources').fire('click'); await settle();
+    findButton(orderHolder, 'Pause automatic updates').fire('click'); findButton(orderHolder, 'Resume automatic updates').fire('click'); await settle();
+    obsolete.reject(new Error('old fetch failed after new success')); await settle();
+    check('.210 an obsolete pre-pause rejection cannot mark a newer resumed answer stale or overwrite its status', orderUi.calls.length === 3 && textOf(orderHolder).includes('Later publisher headline') && !textOf(orderHolder).includes('Updates could not be read') && !textOf(orderHolder).includes('Automatic feed: stale') && findButton(orderHolder, 'Refresh sources').disabled === false);
+    orderMount.destroy();
+
+    const disposed = deferred(); let disposedSignal;
+    const disposedUi = renderer(async (_url, init) => { disposedSignal = init.signal; return disposed.promise; }), disposedHolder = new Element('div');
+    const disposedMount = disposedUi.api.mount(disposedHolder, { view: 'updates' }); await settle();
+    const disposedToggle = findButton(disposedHolder, 'Pause automatic updates'), disposedManual = findButton(disposedHolder, 'Refresh sources'), disposedTick = [...disposedUi.intervals.values()][0].fn;
+    disposedMount.destroy(); disposedToggle.fire('click'); disposedManual.fire('click'); disposedTick(); disposedUi.hide(); disposedUi.show(); disposed.resolve(Response.json(changed)); await settle();
+    check('.210 route disposal aborts work and captured controls/timers/visibility cannot restart it', disposedSignal.aborted && disposedUi.calls.length === 1 && disposedUi.intervals.size === 0 && disposedHolder.children.length === 0);
+
+    let deniedReads = 0, resumedRefusal = 0;
+    const stopUi = renderer(async () => ++deniedReads === 1 ? Response.json(good) : new Response(null, { status: 403 })), stopHolder = new Element('div');
+    const stopMount = stopUi.api.mount(stopHolder, { view: 'updates', onRefused(status) { resumedRefusal = status; } }); await settle();
+    const stopToggle = findButton(stopHolder, 'Pause automatic updates'), stopManual = findButton(stopHolder, 'Refresh sources');
+    stopToggle.fire('click'); stopToggle.fire('click'); await settle();
+    check('.210 Resume preserves the original server-refusal clearing and stops both controls and automatic reads', resumedRefusal === 403 && stopUi.calls.length === 2 && stopUi.intervals.size === 0 && walk(stopHolder).filter(node => node.tagName === 'ARTICLE').length === 0 && stopToggle.disabled === true && stopManual.disabled === true && textOf(stopHolder).includes('Updates could not be read'));
+    stopToggle.fire('click'); stopManual.fire('click'); stopUi.hide(); stopUi.show(); await settle();
+    check('.210 refusal cannot be bypassed by a captured Pause/Resume or manual control', stopUi.calls.length === 2 && stopUi.intervals.size === 0);
+    stopMount.destroy();
+  }
   const groupedData = structuredClone(good);
   groupedData.sources[0].items = [6, 7].map((post, i) => ({ title: 'Development notes updated October 15', url: `https://us.forums.blizzard.com/en/wow/t/notes/2360696/${post}`, publishedAt: AT - (i + 1) * DAY }));
   groupedData.sources[1] = { ...groupedData.sources[1], items: [], status: 'unavailable', failure: 'upstream', upstreamStatus: 503 };
@@ -181,6 +256,22 @@ function renderer(fetcher) {
   check('.174 refresh cadence/cache limits remain readable without internal admission wording', textOf(groupedHolder).includes('every 60 seconds') && textOf(groupedHolder).includes('ten minutes') && !textOf(groupedHolder).includes('admitted view'));
   check('.184 retrieval details distinguish the upstream HTTP status from the successful site API', textOf(groupedCards[1]).includes('Publisher response: HTTP 503.') && !textOf(groupedCards[0]).includes('Publisher response:'));
   groupedMount.destroy();
+  {
+    // The first nested post intentionally shares its URL with the headline: these are different focus targets.
+    let focus = null, serve = groupedData;
+    Element.prototype.focus = function () { focus = this; };
+    const focusUi = renderer(async () => Response.json(serve)), focusHolder = new Element('div');
+    const focusMount = focusUi.api.mount(focusHolder, { view: 'updates' }); await settle();
+    for (const name of ['Thread post 6', 'Thread post 7', 'Retrieval details']) {
+      const before = walk(focusHolder).find(node => node.textContent === name && (node.tagName === 'A' || node.tagName === 'SUMMARY'));
+      const details = walk(focusHolder).find(node => node.tagName === 'ARTICLE').children.find(node => node.tagName === 'DETAILS'); details.open = true; details.fire('toggle');
+      focusUi.document.activeElement = before; focus = null;
+      serve = { ...serve, sources: serve.sources.map(source => ({ ...source, checkedAt: source.checkedAt + 60 })) };
+      [...focusUi.intervals.values()][0].fn(); await settle();
+      check('.210 changed refresh restores the exact grouped-post/disclosure focus target: ' + name, !!focus && focus !== before && walk(focusHolder).includes(focus) && focus.tagName === before.tagName && focus.textContent === name && (before.tagName !== 'A' || focus.href === before.href) && walk(focusHolder).find(node => node.tagName === 'ARTICLE').children.find(node => node.tagName === 'DETAILS').open === true);
+    }
+    focusMount.destroy(); delete Element.prototype.focus;
+  }
   const regionalTitle187 = 'Campfire source fixture', regionalDate187 = 'Sun, 18 Oct 2026 18:00:00 +0000';
   const regionalUrls187 = ['https://www.wowhead.com/forever/blue-tracker/news/us/24301516', 'https://www.wowhead.com/forever/blue-tracker/news/eu/24301516'];
   const regionalData187 = await loadResourceUpdates({ enabled: true, now: AT, cache: cacheOf({}), fetcher: async url => idFor(url) === 'wowhead-blues'

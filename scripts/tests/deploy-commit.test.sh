@@ -45,6 +45,16 @@ check "  and names the exact SHA" $(grep -q "Deploying commit $sha" "$fake/out" 
 
 rc="$(run HEAD --dry-run --outdir "$fake/bundle")"
 check "--outdir <dir> after --dry-run is passed on" $([ "$rc" -eq 0 ] && grep -Eq -- "--dry-run --outdir $fake/bundle\$" "$FAKE_LOG" && echo 0 || echo 1)
+rc="$(run HEAD --dry-run --keep-vars)"
+check "main --keep-vars is accepted once and preserves the exact archive selector" $([ "$rc" -eq 0 ] && [ "$(calls)" -eq 1 ] && [ "$(grep -c '^--keep-vars$' "$FAKE_ARGV")" -eq 1 ] && grep -Fq '/worker/wrangler.toml' "$FAKE_ARGV" && echo 0 || echo 1)
+rc="$(run HEAD --keep-vars --target main --dry-run --tag "$tree" --message "$bundle" --bind-source-tree)"
+check "main keep-vars composes with its exact tree annotations and derived serving binding" $([ "$rc" -eq 0 ] && [ "$(calls)" -eq 1 ] && [ "$(grep -c '^--keep-vars$' "$FAKE_ARGV")" -eq 1 ] && grep -Fxq "PRIVACY_SERVING_SOURCE_TREE:$tree" "$FAKE_ARGV" && echo 0 || echo 1)
+for bad in '--keep-vars --keep-vars' '--keep-vars=true' '--target privacy-floor --keep-vars' '--keep-vars --target privacy-operator' '--target privacy-successor --keep-vars'; do
+  # Deliberate token lists, never evaluated as shell code.
+  # shellcheck disable=SC2086
+  rc="$(run HEAD --dry-run $bad)"
+  check "'$bad' is refused before wrangler runs" $([ "$rc" -ne 0 ] && [ "$(calls)" -eq 0 ] && grep -q refusing "$fake/err" && echo 0 || echo 1)
+done
 rc="$(run HEAD --outdir="$fake/bundle" --dry-run)"
 check "--outdir=<dir> works too, in either order" $([ "$rc" -eq 0 ] && grep -Eq -- "--dry-run --outdir $fake/bundle\$" "$FAKE_LOG" && echo 0 || echo 1)
 
