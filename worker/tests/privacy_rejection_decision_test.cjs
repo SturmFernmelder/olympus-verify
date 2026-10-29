@@ -163,9 +163,21 @@ async function markerConsumer(layout){
   }finally{f.close();}
  }
  for(const kind of['knownG','nullFirstManual','nullFirstInactive','nullOtherBirth','priorEarlier','priorMalformed','priorExpiredEarlier','expiredWindow']){
-  const absence=kind.startsWith('null'),f=await rejected(layout,{absence});try{
+  const absence=kind.startsWith('null'),f=kind==='priorExpiredEarlier'?await opened(layout,{absence}):await rejected(layout,{absence});try{
+   if(kind==='priorExpiredEarlier'){
+    // The expired slot exists BEFORE the genuine later Worker rejection.
+    const key=await f.authority.privacySubjectKey(f.admittedEnv,TARGET);
+    await f.admitted.prepare("INSERT INTO privacy_denial_markers(subject_key,denied_at,retain_until,reason)VALUES(?,?,?,'rejected_guild_application_or_membership')").bind(key,T-YEAR,T).run();
+    eq(layout+' expired prior slot exists before later Worker rejection',f.db.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?').get(key),{denied_at:T-YEAR,retain_until:T,reason:'rejected_guild_application_or_membership'});
+    eq(layout+' no original rejection event before later Worker decision',f.events(),[]);
+    const response=await f.post('status',{status:'declined'},'membership_rejection_v1');eq(layout+' genuine status route first rejection',response.status,200);
+   }
    const source=f.L('privacy-serving-authority'),event=f.events()[0],original=canon(event),op=kind.padEnd(32,'0').split('').map(c=>c.charCodeAt(0).toString(16).slice(-1)).join('').slice(0,32);const originalCookie=kind==='nullFirstManual'||kind==='nullFirstInactive'||kind==='nullOtherBirth'||kind==='expiredWindow'?null:await f.issueCookie(TARGET);
-   if(kind==='priorEarlier'||kind==='priorExpiredEarlier')await f.admitted.prepare("INSERT INTO privacy_denial_markers(subject_key,denied_at,retain_until,reason)VALUES(?,?,?,'rejected_guild_application_or_membership')").bind(event.subject_key,kind==='priorEarlier'?T-5:T-YEAR,kind==='priorEarlier'?T-5+YEAR:T).run();
+   if(kind==='priorEarlier')await f.admitted.prepare("INSERT INTO privacy_denial_markers(subject_key,denied_at,retain_until,reason)VALUES(?,?,?,'rejected_guild_application_or_membership')").bind(event.subject_key,T-5,T-5+YEAR).run();
+   if(kind==='priorExpiredEarlier'){
+    eq(layout+' later Worker rejection has its own fixed original Native clock',[event.rejected_at,event.retain_until],[T,T+YEAR]);
+    eq(layout+' later Worker decision leaves expired prior slot until consumer',f.db.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?').get(event.subject_key),{denied_at:T-YEAR,retain_until:T,reason:'rejected_guild_application_or_membership'});
+   }
    if(kind==='priorMalformed')await f.admitted.prepare("INSERT INTO privacy_denial_markers(subject_key,denied_at,retain_until,reason)VALUES(?,?,?,'rejected_guild_application_or_membership')").bind(event.subject_key,T+10,T+10+YEAR).run();
    if(kind==='expiredWindow'){clock=T+YEAR;await f.source.sweepRejectionExpiry(f.admittedEnv,f.source.captureRejectionExpiryInvocation(f.admittedEnv));}
    if(kind==='nullOtherBirth')await f.admitted.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?,?,'active',2,?,?)").bind(TARGET,NEXT,T-1,T).run();
@@ -176,7 +188,23 @@ async function markerConsumer(layout){
    }
    const statements=await f.source.rejectionErasureMarkerStatements(f.admittedEnv,proof,event.subject_key);
    if(kind==='nullOtherBirth'||kind==='priorMalformed'){await held(layout+' original marker rejects '+kind,()=>f.admitted.batch(statements));eq(layout+' marker rejection retains real event',f.events(),[original]);}
-   else{await f.admitted.batch(statements);const marker=f.db.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?').get(event.subject_key);if(kind==='expiredWindow'||kind==='nullFirstInactive'||kind==='priorExpiredEarlier')eq(layout+' earliest original expiry cannot renew '+kind,marker,kind==='priorExpiredEarlier'?{denied_at:T-YEAR,retain_until:T,reason:'rejected_guild_application_or_membership'}:undefined);else eq(layout+' marker keeps original whole tuple '+kind,marker,{denied_at:kind==='priorEarlier'?T-5:T,retain_until:(kind==='priorEarlier'?T-5:T)+YEAR,reason:'rejected_guild_application_or_membership'});
+   else{await f.admitted.batch(statements);const marker=f.db.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?').get(event.subject_key);if(kind==='expiredWindow'||kind==='nullFirstInactive')eq(layout+' earliest original expiry cannot renew '+kind,marker,undefined);else if(kind==='priorExpiredEarlier')eq(layout+' expired marker slot uses genuinely later original decision '+kind,marker,{denied_at:T,retain_until:T+YEAR,reason:'rejected_guild_application_or_membership'});else eq(layout+' marker keeps original whole tuple '+kind,marker,{denied_at:kind==='priorEarlier'?T-5:T,retain_until:(kind==='priorEarlier'?T-5:T)+YEAR,reason:'rejected_guild_application_or_membership'});
+     if(kind==='priorExpiredEarlier'){
+      // Continue the SAME genuinely admitted proof/job. Never refresh a cookie
+      // through a live marker, rewrite a proof or mint a later rejection event.
+      const originalProof=canon(proof),jobRead=()=>f.db.prepare('SELECT operation_id,subject_id,subject_generation,request_digest,original_session_version,original_session_expires,original_account_incarnation,state,created_at,retain_until FROM privacy_serving_jobs WHERE operation_id=?').get(proof.operationId),originalJob=canon(jobRead()),originalMarker=canon(marker);
+      for(const[phase,at]of[['before',T+YEAR-1],['exact',T+YEAR],['after',T+YEAR+1]]){
+       clock=at;const label=layout+' same original rejection '+phase+'365',nativeAt=f.db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").get().at,currentJob=jobRead();
+       eq(label+' original Native fixture clock',nativeAt,at);
+       ok(label+' original366-day admitted purpose still live',f.authority.PRIVACY_REPLAY===31622400&&currentJob.created_at===T&&currentJob.retain_until===T+f.authority.PRIVACY_REPLAY&&currentJob.retain_until>nativeAt);
+       const repeated=await f.source.rejectionErasureMarkerStatements(f.admittedEnv,proof,event.subject_key),result=await f.admitted.batch(repeated);
+       eq(label+' genuine Native marker consumer ACK',[result.length,result[0].results,result[1].success],[2,[{admitted:1}],true]);
+       eq(label+' marker tuple never renewed',f.db.prepare('SELECT denied_at,retain_until,reason FROM privacy_denial_markers WHERE subject_key=?').get(event.subject_key),originalMarker);
+       eq(label+' original rejection event unchanged',f.events(),[original]);
+       eq(label+' original admitted proof and selected job facts unchanged',[canon(proof),jobRead()],[originalProof,originalJob]);
+       if(phase!=='before')eq(label+' expired same-event marker performs zero write',result[1].meta.changes,0);
+      }
+     }
     // This bounded marker-consumer disposition uses admitted fixture cleanup; full source completion is tested separately below.
     await f.admitted.batch([f.admitted.prepare('DELETE FROM site_applications WHERE discord_id=?').bind(TARGET),f.admitted.prepare('DELETE FROM site_users WHERE discord_id=?').bind(TARGET),f.admitted.prepare('DELETE FROM privacy_rejection_decisions WHERE subject_key=?').bind(event.subject_key)]);eq(layout+' own provenance removal after references '+kind,[f.events().length,f.db.prepare('SELECT COUNT(*) n FROM site_users WHERE discord_id=?').get(TARGET).n],[0,0]);eq(layout+' other account preserved '+kind,f.db.prepare('SELECT COUNT(*) n FROM site_users WHERE discord_id=?').get(FOREIGN).n,1);
    }
