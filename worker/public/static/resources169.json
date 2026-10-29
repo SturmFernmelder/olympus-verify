@@ -201,19 +201,19 @@
       "category": "Guild tools",
       "rationale": "A shared in-game view of Olympus guilds, leaders and census reports.",
       "status": "Author lists Forever file",
-      "version": "1.3.2",
-      "releasedAt": "2026-10-21",
+      "version": "1.3.3",
+      "releasedAt": "2026-10-26",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/olympus-guild",
-      "sourceKind": "Author project and addon API documentation (reviewed 2026-10-21)",
+      "sourceKind": "Publisher release dated 2026-10-26; earlier addon API reviewed 2026-10-21",
       "limitations": [
         "Optional for website readers; no desktop companion is needed.",
-        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Actual upstream adoption of the optional website exporter remains pending.",
+        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Olympus Guild 1.3.3 is published. Website snapshot reporting has separate setup and availability.",
         "In-game census coverage depends on reports received by the addon; it is not proof that every guild has a current website report."
       ],
-      "fileUrl": "https://www.curseforge.com/wow/addons/olympus-guild/files/9273643",
+      "fileUrl": "https://www.curseforge.com/wow/addons/olympus-guild/files/9338970",
       "apiUrl": "https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md",
-      "integrationNote": "The reviewed1.3.2 API includes permission-gated in-game features and a read-only GetCensusCheckpoint contract; it is not this website’s OLCS2 export. A locally prepared compatibility patch is not publisher adoption."
+      "integrationNote": "The earlier 1.3.2 API review includes permission-gated in-game features and a read-only GetCensusCheckpoint contract; that contract is not this website’s OLCS2 export. The local compatibility patch was prepared against 1.3.2; the later published 1.3.3 package has separate installed-client and website-export qualification. Publishing the addon does not enable website reporting."
     },
     {
       "id": "forever-quest-tint",

@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 83729,
-      "sha256": "3fad0c4d2e060dcac12ed11299c1aebad954054d879a089d648bf94c1c33e4f9"
+      "bytes": 84223,
+      "sha256": "71fb2ca1367af1fcbaafd840b862a08d11aca6dff5ff9d179ee2bbb7c3b1de78"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 692317,
-      "sha256": "dab188b026eb84d4869731cc15d7ef5ac118f83a7b78256ac3e431853222ca0e"
+      "bytes": 692364,
+      "sha256": "2b0d30e982ccd80313d0779e156e95840a07f266ca2122d74583c2b59b5092f2"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3828,8 +3828,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 692317,
-      "sha256": "dab188b026eb84d4869731cc15d7ef5ac118f83a7b78256ac3e431853222ca0e"
+      "bytes": 692364,
+      "sha256": "2b0d30e982ccd80313d0779e156e95840a07f266ca2122d74583c2b59b5092f2"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3930,8 +3930,8 @@
     {
       "path": "worker/public/static/army-live/report.js",
       "mode": "100644",
-      "bytes": 19222,
-      "sha256": "42bc7876b33ea38ebd919f2a95d093cc53843b7e415f6ee7d4335fe561557f77"
+      "bytes": 19260,
+      "sha256": "21dcf9b831a06db44b3b17e45d5974339ee6d4e71cd2d27d6ac46bda11a2eb79"
     },
     {
       "path": "worker/public/static/army-live/sanitized-export.js",
@@ -4062,8 +4062,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 34677,
-      "sha256": "7e3643012d0905273d1f2957b95bac5816e314ebdfa4424a067aea2d9d2f0c0d"
+      "bytes": 34965,
+      "sha256": "f3ab745e546c79fffd92d0bff20c14aaea573fdc0df58f9690e4ba2909889c4f"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -4116,8 +4116,8 @@
     {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
-      "bytes": 52292,
-      "sha256": "dde4b68d6896372fdee12b97042751e0f31167908a2cc808e0a153443a24eecc"
+      "bytes": 52488,
+      "sha256": "b3adabec4507461df092fcac5a375eb89713557eaef6c5379c77716ecda5297c"
     },
     {
       "path": "worker/public/static/role-rank199.js",

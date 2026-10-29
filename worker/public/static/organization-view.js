@@ -289,12 +289,16 @@ export function renderOrganization(main, data, ui) {
   for (const node of [...main.children]) {
     if (node.classList?.contains("org-rank-guide") || node.classList?.contains("org-council-overview") || node.classList?.contains("org-guide") || node === chartLocation || node === chartDialog) relationshipMap205.append(node);
   }
-  const requestedAssignment199 = (data.appointments || []).find(row => row.key === parts[0]);
-  const requestedOffice199 = data.terms.find(term => term.officeKey === (requestedAssignment199?.aliasOf || parts[0]));
+  // Match the encoded assignment links emitted by the shared Rosetta table.
+  // Decode once, as other SPA readers do; malformed input is simply no match.
+  let requested = "";
+  try { requested = decodeURIComponent(parts[0] || ""); } catch { /* Keep the default selection. */ }
+  const requestedAssignment199 = (data.appointments || []).find(row => row.key === requested);
+  const requestedOffice199 = data.terms.find(term => term.officeKey === (requestedAssignment199?.aliasOf || requested));
   // These fallbacks are display destinations only; they never merge election or appointment identities.
-  const displayNode199 = requestedAssignment199?.group === "native" ? "native" : parts[0] === "leveling" ? "events" : parts[0] === "liaison" ? "emissaries" : "council";
-  select(byId.has(parts[0]) ? parts[0] : requestedOffice199?.nodeId || displayNode199, false, !!requestedOffice199 || byId.has(parts[0]), requestedOffice199);
-  if (parts[0] === "alliance-overview" && allianceOverview205) requestAnimationFrame(() => { if (!disposed && main.isConnected) ui.scrollToSection?.(allianceOverview205); });
+  const displayNode199 = requestedAssignment199?.group === "native" ? "native" : requested === "leveling" ? "events" : requested === "liaison" ? "emissaries" : "council";
+  select(byId.has(requested) ? requested : requestedOffice199?.nodeId || displayNode199, false, !!requestedOffice199 || byId.has(requested), requestedOffice199);
+  if (requested === "alliance-overview" && allianceOverview205) requestAnimationFrame(() => { if (!disposed && main.isConnected) ui.scrollToSection?.(allianceOverview205); });
   status.textContent = `${data.nodes.length} organizational groups · ${data.terms.length} titles and terms · ten native rank slots.`;
   view(typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches);
   function present() {

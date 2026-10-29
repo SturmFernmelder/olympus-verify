@@ -228,6 +228,19 @@ a.card:hover { filter: brightness(1.2); }
 .btn[aria-current="page"] { border-image-source: url("/static/wow/button-down.png"); color: var(--white); box-shadow: 0 0 0 1px rgba(255, 209, 0, 0.55), 0 0 12px rgba(255, 209, 0, 0.3); }
 .btn .ico { width: 20px; height: 20px; border-radius: 3px; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* .210 Master QA: panel links keep their complete labels inside narrow content.
+   Div action rows are distinct from the compact nav rails and header controls. */
+.frame > a.btn,
+.card > a.btn,
+.frame > p > a.btn,
+.card > p > a.btn,
+.frame > div.btn-row > a.btn,
+.card > div.btn-row > a.btn,
+.notice-box > div > a.btn,
+.notice-box > div > p > a.btn,
+.notice-box > div > div.btn-row > a.btn {
+  max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: center;
+}
 .link { background: none; border: 0; padding: 0; font: inherit; color: var(--gold-soft); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link:hover { color: var(--white); }
 .discord-mark { width: 20px; height: 20px; flex: none; }

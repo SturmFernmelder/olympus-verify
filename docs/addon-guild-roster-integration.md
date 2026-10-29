@@ -1,5 +1,14 @@
 # Guild roster verification and Olympus Guild coexistence
 
+**Publication status checked 28 October 2026:** [upstream PR #72](https://github.com/dnl-gentile/olympus-addon/pull/72)
+merged on 26 October as `71bc357c251b49a167821cc0b7f922eb69fa35b6`. Both the public
+[GitHub v1.3.3 release](https://github.com/dnl-gentile/olympus-addon/releases/tag/v1.3.3) and the
+[official CurseForge listing](https://www.curseforge.com/wow/addons/olympus-guild) now show Olympus 1.3.3. The older
+1.3.2 inspection and native-layout evidence below retain their original scopes. This confirms source adoption and
+listed distribution, not downloaded/installed bytes, current supported-client behavior or website admission. The
+local compatibility sidecar is an older reference; upstream's TOC `1.3.3-site.1` deliberately retains wire producer
+`1.3.2-site.1`. These labels do not authenticate game origin or activate site features.
+
 Olympus Verify's **Discord verification** column sits beside the native Guild & Communities
 **Roster** view. Current AddOn source is **0.6.12**; the bounded native-layout acceptance below
 belongs to **0.6.9**. The column uses the actual visible member rows, not their screen

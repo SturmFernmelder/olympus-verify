@@ -175,12 +175,12 @@
         if (!live()) return;
         if (!data || Object.keys(data).sort().join('|') !== 'canPublish|format|now|sanitizedExporterAvailable' || data.format !== 'olympus-army-reporter-v1' || data.canPublish !== true || typeof data.sanitizedExporterAvailable !== 'boolean' || !Number.isSafeInteger(data.now) || data.now < 0) throw Error('This account is not currently eligible to publish Army observations.');
         admitted = data.sanitizedExporterAvailable;
-        say(unknown ? 'The original publication outcome is unresolved. Check only that original outcome; no replacement is available.' : admitted ? 'Current reporter access and dedicated exporter availability confirmed. Select a dedicated sanitized export. No observation has been sent.' : 'Reporter access is confirmed, but the dedicated unified exporter is unavailable until publisher adoption is verified. Import and publication remain disabled.');
+        say(unknown ? 'The original publication outcome is unresolved. Check only that original outcome; no replacement is available.' : admitted ? 'Current reporter access and dedicated exporter availability confirmed. Select a dedicated sanitized export. No observation has been sent.' : 'Reporter access is confirmed, but dedicated exporter availability has not been verified for this website. Import and publication remain disabled.');
       } catch (error) { admitted = false; say(error.message || 'Reporter access could not be confirmed. Capture is unavailable.'); }
       finally {
         if (request === owned) request = null; pending = ''; controls();
         const local = root.querySelector('#aggregate-status');
-        if (live() && local) local.textContent = admitted ? 'Current reporter access and exporter availability confirmed. Select only the dedicated sanitized export. No file has been read or sent.' : 'The dedicated export is unavailable until reporter access and publisher adoption are both confirmed. No file can be read or sent.';
+        if (live() && local) local.textContent = admitted ? 'Current reporter access and exporter availability confirmed. Select only the dedicated sanitized export. No file has been read or sent.' : 'Dedicated exporter availability has not been verified for this website. Current reporter access and exporter availability must both be confirmed before a file can be read or sent.';
       }
     })();
     function destroy() {

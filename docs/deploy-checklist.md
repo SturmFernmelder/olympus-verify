@@ -7387,3 +7387,22 @@ stay unchanged; nonfinite JSON is refused even on a no-op. A failed or ambiguous
 and does not claim rollback or retry safety. The normal watcher, custody primitives and protocols are unchanged.
 The expanded custody suite passed 39/39 on Python 3.12 and 3.14; adjacent attended custody 19/19 and restart 7/7
 passed. These are disposable local-state checks, not installed-host recovery or erasure acceptance.
+
+The headed browser pass also reproduced a separate mobile Admin Overview overflow: the Treasury programme link
+extended the document to 423px at 390/375/320px viewports. Content anchors directly inside frames, cards, their
+paragraph/action rows and notice bodies now keep complete wrapping labels within their panel. The compact header,
+navigation and fixed 44px Stream Shield control retain their existing rules. The focused DOM regression checks
+actual rendered links and selector exclusions; fresh final-source browser geometry remains a separate gate.
+
+The public publisher state was refreshed on 29 October UTC: upstream PR72 is merged and CurseForge lists
+Olympus-1.3.3.zip for Forever, Classic and TBC. Home/Army copy must therefore describe published snapshot export
+without claiming the local compatibility sidecar is identical to that release. Publication does not establish
+download integrity, installed-client behaviour or Army site admission. Those acceptance states remain separate,
+and Army aggregation remains OFF.
+
+The route inventory and headed browser then reproduced encoded Rosetta Class Lead links opening the High Council
+card instead of the requested mandate. Organization selection now decodes one URI component before exact
+registered-key lookup. Malformed, double-encoded and path-shaped values retain the safe fallback; no normalization
+or permission change is introduced. The affected frontend suite checks all nine emitted class aliases, an encoded
+ordinary office and negative selectors (121/121); existing organization checks passed 84/84 plus 46/46 overview
+checks. Repeat the actual emitted-link journey on the frozen final source before browser acceptance.
