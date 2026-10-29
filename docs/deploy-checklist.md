@@ -10,10 +10,12 @@
 > commit from its `git archive` with `bash scripts/deploy-commit.sh <sha>`; the never-run list in `CLAUDE.md` applies
 > to agents throughout. Each dated section below records what was true and done on its date.
 >
-> **Current qualification (renewed request, 14–15 Oct 2026):** this integration requires genuine Claude Code and Codex
+> **Qualification record (renewed request, 14–15 Oct 2026):** that integration required genuine Claude Code and Codex
 > signatures on the same exact final commit/tree and evidence tuple, with the substantive source, tests, shipping-commit
 > CI, actual-version/live and owner gates in `docs/launch-runbook.md` section 0. The owner's 3 October single-Codex
 > takeover remains the historical procedure for that earlier work; it does not override this renewed request.
+> The later .210 Master QA owner override in `CLAUDE.md` governs the current task: external Claude signature waived,
+> internal independent review, exact-head automated review, all13 CI jobs and the single final qualification retained.
 
 Two things stay with you by design: secrets (bot token, client secret, the shared secrets) and the Cloudflare login.
 Everything else in the Discord Developer Portal and on the server is done or scripted.
@@ -7467,3 +7469,9 @@ watcher deep-Win32-path limitation; a shorter TEMP pass is not a deep-path or in
 These follow-ups introduce no DDL, private-service authority, closed scheduled catalogue/cap change, provider
 activation or game write. Require final clean source, independent review, actual exact-head CI/automated review,
 final desktop/mobile/persona journeys and the single current204 qualification before the separately gated rollout.
+
+The H7 CI run exposed stale historical-source seals and the current SDK's rejection of the bundle fixture's
+`workers[0].config.type`. The successor removes only that obsolete root key. Finite test-context reversals preserve
+the historical scheduled/Link hashes as static authorities while executing current source; they never execute the
+historical inline ban or raw-error implementation. The audit writer check now requires the actual category-only
+ban-removal row. These repairs still require focused execution, composed exact-head CI/review and final qualification.

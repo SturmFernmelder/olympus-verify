@@ -3,8 +3,8 @@
 // loaded from the vendored upstream schema standing in for LINK_DB. Only Discord's HTTP side is faked.
 //   - the generator: vendored bytes match their pins, src/link-core.ts is exactly pristine + counted P1-P6 patches, drift is refused,
 //     and --check also runs through a junction or symlink;
-//   - flag OFF is .185: the routes give today's 404 bytes with the same statements, and /verify replies and every
-//     main-database statement are byte-identical to the .185 interactions.ts (rebuilt from this one, digest-pinned);
+//   - flag OFF matches the reviewed current Link-free world: the routes give the same404 bytes/statements, and /verify replies and every
+//     main-database statement match current source minus Link; a separate static proof preserves the historical185 seal;
 //   - the gate (off, on, held; LINK_ORIGIN exactly the page's origin), linkEnv (no DB key), patches P1-P4 in behaviour;
 //   - flag ON: /verify appends the code last (prefix unchanged, no added main-database statement), isolation, the
 //     1.2 s deadline, the length guard; POST /proof (CORS for https://dnl-gentile.github.io only, OPTIONS 204, a foreign
@@ -475,16 +475,20 @@ async function councillorLink(core, token, requester, issued, c) {
   responder = null;
 
   // ======================================================================================================================
-  console.log("\n== /verify: flag OFF is byte-identical to .185, flag ON appends the code last ==");
+  console.log("\n== /verify: flag OFF equals the current Link-free world, flag ON appends the code last ==");
   T = 1790600000;
-  // The .185 interactions.ts is this file without the .186 import and the two appendLinkBlock wrappers; its digest is
-  // pinned, so this can only ever reconstruct the exact .185 bytes (and proves those are the only edits).
+  // The reviewed .210/Claude changes reconstruct the original .185 authority
+  // through finite context reversals. That historical text is NEVER executed.
+  // Dynamic comparisons below use current source with only Link removed.
   const current = src("interactions.ts");
   const IMPORT = 'import { appendLinkBlock } from "./link"; // .186: the Olympus Link code, last in the two code replies; off, the very same string\n';
   const OPEN = "return reply(await appendLinkBlock(env, user,\n", CLOSE = '].join("\\n")),\n  );';
   const baselineSource = current.split(IMPORT).join("").split(OPEN).join("return reply(\n").split(CLOSE).join('].join("\\n"),\n  );');
-  check("interactions.ts differs from .185 only by the import and the two wrappers (the rebuilt .185 file matches its pinned SHA-256)",
-    current.split(IMPORT).length === 2 && current.split(OPEN).length === 3 && current.split(CLOSE).length === 3 && sha(baselineSource) === "7aaa95ef988728269747c704a2ea9552c205a3ca9ebdbb6655489e1d03419ff5", sha(baselineSource));
+  const compatibility210=require('./reviewed_source_compat210.cjs'),historical210=compatibility210.originalLinkInteractions(current);
+  const historical185=historical210===null?null:historical210.split(IMPORT).join("").split(OPEN).join("return reply(\n").split(CLOSE).join('].join("\\n"),\n  );');
+  check("reviewed current interactions reconstruct exact historical185 through finite contexts; Link still has one import and two wrappers",
+    current.split(IMPORT).length === 2 && current.split(OPEN).length === 3 && current.split(CLOSE).length === 3 && historical210?.split(IMPORT).length===2&&historical210.split(OPEN).length===3&&historical210.split(CLOSE).length===3&&historical185!==null&&sha(historical185) === "7aaa95ef988728269747c704a2ea9552c205a3ca9ebdbb6655489e1d03419ff5", {currentLinkFreeSHA256:sha(baselineSource),historicalSHA256:historical185===null?null:sha(historical185)});
+  for(const drift of compatibility210.driftControls(current,'link'))check('reviewed Link source refuses '+drift.name,drift.refused);
   const verifyStubs = { "./review": { onVerified: async () => {}, approvePending: async () => ({}), denyPending: async () => ({}) }, "./dm": { notify: async () => {}, noticeBatch: () => ({ items: [] }), flushNotices: async () => {} } };
   const A = "111111111111111111", B = "222222222222222222", C = "333333333333333333", D = "444444444444444444";
   const NAMES = { [A]: "anna.member", [B]: "bert_member", [C]: "cara.member", [D]: "dora.member" };
@@ -518,7 +522,7 @@ async function councillorLink(core, token, requester, issued, c) {
     return { out, env, load };
   }
   const base = await verifyWorld({ baseline: true });
-  check("the .185 world answers every step (codes, the modal, the banned account)", base.out.length === 6 && base.out.every((s) => s.status === 200) && /Your code: `[A-Z2-9]{7}`/.test(JSON.parse(base.out[0].body).data.content) && /cannot verify/.test(JSON.parse(base.out[5].body).data.content));
+  check("the current Link-free world answers every step (codes, the modal, the banned account)", base.out.length === 6 && base.out.every((s) => s.status === 200) && /Your code: `[A-Z2-9]{7}`/.test(JSON.parse(base.out[0].body).data.content) && /cannot verify/.test(JSON.parse(base.out[5].body).data.content));
   const same = (world) => world.out.every((s, i) => s.body === base.out[i].body && s.status === base.out[i].status && JSON.stringify(s.trace) === JSON.stringify(base.out[i].trace));
   const firstDiff = (world) => { const i = world.out.findIndex((s, k) => s.body !== base.out[k].body || JSON.stringify(s.trace) !== JSON.stringify(base.out[k].trace)); return i < 0 ? null : { step: base.out[i].name, body: world.out[i].body.slice(0, 300), base: base.out[i].body.slice(0, 300) }; };
   for (const [label, extra] of [["no LINK_* at all", {}], ["LINK_ENABLED \"false\" with the whole configuration", null], ["LINK_ENABLED \"\" with the whole configuration", ""], ["LINK_ENABLED absent with the whole configuration", undefined]]) {
@@ -531,7 +535,7 @@ async function councillorLink(core, token, requester, issued, c) {
   for (const value of ["TRUE", "1"]) {
     const trap = trapD1();
     const w = await verifyWorld({ extra: linkVars(keys, trap.db, { LINK_ENABLED: value }) });
-    check(`HELD (LINK_ENABLED "${value}"): the replies and statements are .185's, LINK_DB untouched`, same(w) && trap.t.n === 0, firstDiff(w));
+    check(`HELD (LINK_ENABLED "${value}"): the replies and statements equal the current Link-free world, LINK_DB untouched`, same(w) && trap.t.n === 0, firstDiff(w));
   }
   check("  each held world logged one fixed line naming the flag, nothing else", LOGS.length === 2 && LOGS.every((l) => l === "olympus-link held verify LINK_ENABLED error"), LOGS);
   const trapHeld = trapD1();
@@ -560,7 +564,7 @@ async function councillorLink(core, token, requester, issued, c) {
   check("  the code is upstream's OLC2 token for this member's username, signed with LINK_BACKEND_SEED (verifies with the public key)", !!tA && parts[0] === "OLC2" && tA.includes(".anna.member.") && await core.ed25519Verify(keys.publicHex, core.b64urlDecode(tA.slice(tA.lastIndexOf(".") + 1)), new TextEncoder().encode(tA.slice(0, tA.lastIndexOf(".")))));
   check("  pressing again (and /verify) shows the same code: one LINK_DB code for A", tokenOf(on.out[1]) === tA && tokenOf(on.out[2]) === tA && ldb.sqlite.prepare("SELECT COUNT(*) AS n FROM codes WHERE discord_id = ?").get(A).n === 1);
   check("  B (/verify Thrall) and C (the old modal) get codes of their own", !!tokenOf(on.out[3]) && tokenOf(on.out[3]).includes(".bert_member.") && !!tokenOf(on.out[4]) && tokenOf(on.out[4]) !== tA);
-  check("  a verification-banned account gets no Link code: the .185 refusal, nothing in LINK_DB", on.out[5].body === base.out[5].body && ldb.sqlite.prepare("SELECT COUNT(*) AS n FROM codes WHERE discord_id = ?").get(D).n === 0);
+  check("  a verification-banned account gets no Link code: the unchanged current Link-free refusal, nothing in LINK_DB", on.out[5].body === base.out[5].body && ldb.sqlite.prepare("SELECT COUNT(*) AS n FROM codes WHERE discord_id = ?").get(D).n === 0);
   check("  the stored code carries source 'discord'", ldb.sqlite.prepare("SELECT source FROM codes WHERE discord_id = ?").get(A).source === "discord");
   // isolation
   const iso = async (label, db, extraVars = {}) => {
