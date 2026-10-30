@@ -2246,3 +2246,8 @@ The renewed .211 audit reproduced rejected verification values and parser source
 Observed chat-log latency establishes when bytes became visible to the watcher; it cannot prove that an addon forced the client to flush them. Guild chat remains informational rather than authority to grant or strip roles. Current-version and upstream-adoption wording likewise separates source/distribution facts from native acceptance and website activation.
 
 Treasury reference reads need useful configuration guidance in their own context. That read-only recovery wording must not change uncertain confirmation or receipt semantics, imply a failed write had no effect, or encourage resending an original operation. This PR changes no authority, feature gate, schema or provider state. Production .211 and installed addon 0.6.13 remain unchanged; native QA and the owner-stopped experiments retain their prior status.
+
+
+### Build .213 — bounded request json (30 October 2026)
+
+Bounded input handling must limit accumulation, while preserving the existing character contract rather than silently imposing a byte cap. Enforce the existing64000 UTF16-unit JSON limit during streaming reads, including splitUTF8/BOM/error/cancel behavior. Authentication, authorization and accepted payload semantics are unchanged. This candidate adds no feature activation, provider authority or native acceptance.

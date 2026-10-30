@@ -7505,3 +7505,12 @@ Candidate PR only, fixing the six findings from the renewed .211 audit. Accepted
 Configuration and data: no DDL, dependency, secret, role, provider setting, feature flag, installed-addon or native action. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. Publication-reference and local-overlay pins follow the changed public bytes without running publication helpers.
 
 Validation scope: focused watcher privacy/encoding/cursor/parser tests, frontend Treasury lifecycle and resource rendering regressions, TypeScript, the three health-build suites and projection consistency. Actual results and exact-head CI/review receipts belong to the PR/task evidence; this entry does not claim them in advance. Do not run the waived local aggregate or experiments. No rollout is authorized by this PR; any later deployment requires a new owner instruction and verified backup. A later rollback would redeploy accepted .211, without database restore or role commands.
+
+
+## Worker .213 — bounded request json (30 October 2026)
+
+Candidate maintenance PR only. Enforce the existing64000 UTF16-unit JSON limit during streaming reads, including splitUTF8/BOM/error/cancel behavior. Authentication, authorization and accepted payload semantics are unchanged.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.

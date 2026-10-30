@@ -3840,8 +3840,8 @@
     {
       "path": "worker/src/site-core.ts",
       "mode": "100644",
-      "bytes": 19235,
-      "sha256": "9befe42a3916db0ffac404570821083ea786ff974b88ca66588d1a2f18b923f3"
+      "bytes": 20749,
+      "sha256": "c813c39582421314a88609ac75c0610412ded1a09cfc217a14f8666e039520ac"
     },
     {
       "path": "tools/build-talent-art.py",
