@@ -2251,3 +2251,8 @@ Treasury reference reads need useful configuration guidance in their own context
 ### Build .213 — bounded request json (30 October 2026)
 
 Bounded input handling must limit accumulation, while preserving the existing character contract rather than silently imposing a byte cap. Enforce the existing64000 UTF16-unit JSON limit during streaming reads, including splitUTF8/BOM/error/cancel behavior. Authentication, authorization and accepted payload semantics are unchanged. This candidate adds no feature activation, provider authority or native acceptance.
+
+
+### Build .214 — parallel organization modules (30 October 2026)
+
+The overview renderer has its own context dependency. Loading its independent sibling first adds a request round trip before that dependency chain can start. Measurements are controlled synthetic cold-route observations, not production speed claims. Start the two independent Organization renderer imports together and retain the original current-view check after both complete. No route authority, model, renderer or module destination changes. This candidate adds no feature activation, provider authority or native acceptance.

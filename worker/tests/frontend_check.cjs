@@ -2657,8 +2657,35 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
     const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
     const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
-    check(".154 source wires the actual SVG organization module after the genuine model", APP_JS.includes('const { renderOrganization } = await import("/static/organization-view.js")') && APP_JS.includes('renderOrganization(main, currentData201, { h, add, clear, posIcon, parts, scrollToSection,') && APP_JS.includes('const currentData201 = {...data, terms:data.terms.map(term => {') && APP_JS.includes('applicationEligible:row.applicationEligible,reservedSeat201:row.reservedSeat201,acquisition:row.acquisition') && APP_JS.includes('officeAvailability: Object.fromEntries') && organizationSource.includes("export function renderOrganization(main, data, ui)") && organizationSource.includes("document.createElementNS(NS, tag)") && organizationSource.includes('const NS = "http://www.w3.org/2000/svg"'));
-    check(".205 the same guarded organization route supplies the wide overview and full detailed guides", APP_JS.includes('const { renderAllianceOverview205 } = await import("/static/organization-overview205.js")') && APP_JS.includes('allianceOverview205:renderAllianceOverview205') && APP_JS.includes('roleGuides201:M().roleGuides201') && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines'));
+    check(".154 source wires the actual SVG organization module after the genuine model", (() => {
+      const start = '  ROUTES.organization = async (main, parts) => {', end = '\n  // ---------------------------------------------------------------- home';
+      if (APP_JS.split(start).length !== 2) return false;
+      const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
+      if (last <= first) return false;
+      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
+      return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
+        && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
+        && route.includes('const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;')
+        && route.split('if (!current()) return;').length === 3 && route.includes(modules + '\n    if (!current()) return;\n    const currentData201 = {...data, terms:data.terms.map(term => {')
+        && route.includes('renderOrganization(main, currentData201, { h, add, clear, posIcon, parts, scrollToSection,')
+        && route.includes('applicationEligible:row.applicationEligible,reservedSeat201:row.reservedSeat201,acquisition:row.acquisition') && route.includes('officeAvailability: Object.fromEntries')
+        && organizationSource.includes("export function renderOrganization(main, data, ui)") && organizationSource.includes("document.createElementNS(NS, tag)") && organizationSource.includes('const NS = "http://www.w3.org/2000/svg"');
+    })());
+    check(".205 the same guarded organization route supplies the wide overview and full detailed guides", (() => {
+      const start = '  ROUTES.organization = async (main, parts) => {', end = '\n  // ---------------------------------------------------------------- home';
+      if (APP_JS.split(start).length !== 2) return false;
+      const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
+      if (last <= first) return false;
+      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
+      return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
+        && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
+        && route.includes('const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;')
+        && route.split('if (!current()) return;').length === 3 && route.includes(modules + '\n    if (!current()) return;\n    const currentData201 =')
+        && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
+        && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines');
+    })());
     check(".208 actual private R7-bound model preserves original38/95 arrays and adds exactly one reserved trading remit", (() => {
       const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
       return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false
