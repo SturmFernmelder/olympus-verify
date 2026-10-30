@@ -152,6 +152,28 @@ const body196=String.raw`
   pausedTreasury200.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))pausedTreasuryCommands200.push({path:p,method:init.method});return false;});
   await pausedTreasury200.go('#/admin/treasury');
   check('.200 default Treasury preserves receipt/status tools with paused operational copy and no price offer or command',pausedTreasury200.boot.settings.royalWritsOn===false&&pausedTreasury200.app.textContent.includes('The Royal Writs schedule and new Patron applications are paused.')&&pausedTreasury200.app.textContent.includes('Existing receipt and operation records remain available for staff review.')&&!pausedTreasury200.app.textContent.includes('Tithe Payer 25g+')&&!!pausedTreasury200.app.querySelector('#treasury-reference')&&!!pausedTreasury200.app.querySelector('#treasury-operation')&&!pausedTreasury200.app.querySelector('.royal-writs199')&&pausedTreasuryCommands200.length===0);
+  // This page has the same guild and a synthetic bot credential, but no Treasury role config or dispatch gate.
+  // Observe the actual target refusal before the UI; only member-search presentation is substituted.
+  const unconfiguredEnv212={SITE_GUILD_ID:env().GUILD_ID,DISCORD_BOT_TOKEN:'synthetic-reference-read-only'};
+  try {
+    const response212=await indexMod.default.fetch(new Request('https://guild.example/api/admin/treasury/target',{method:'POST',headers:{Cookie:await cookieFor(STAFF),Origin:'https://guild.example','X-Olympus':siteCore.PAGE_VERSION,'Content-Type':'application/json'},body:JSON.stringify({discordId:OTHER})}),env(unconfiguredEnv212),ctx), refusal212=await response212.json();
+    console.log('TREASURY_REFERENCE_REFUSAL212 '+JSON.stringify({status:response212.status,body:refusal212}));
+    check('.212 the original target reader refuses missing Treasury configuration with its exact503 code and dispatchOFF',response212.status===503&&JSON.stringify(refusal212)===JSON.stringify({error:'treasury_unconfigured'})&&env(unconfiguredEnv212).TREASURY_COSMETIC_ROLES===undefined&&env(unconfiguredEnv212).TREASURY_COSMETIC_ENABLED!=='true');
+    const unconfiguredPage212=await openPage(STAFF,unconfiguredEnv212), unconfiguredRequests212=[];
+    unconfiguredPage212.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))unconfiguredRequests212.push({path:p,method:init.method});return false;});
+    unconfiguredPage212.answer(p=>p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Unconfigured target',shown:'Unconfigured target',onSite:true,appointmentStatus:'eligible'}]}:null);
+    await unconfiguredPage212.go('#/admin/treasury');
+    const unconfiguredSearch212=unconfiguredPage212.app.querySelector('.picker input[role="combobox"]');unconfiguredSearch212.value='Unconfigured';unconfiguredSearch212.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
+    if(!await waitFor(()=>!!unconfiguredPage212.app.querySelector('[role="option"]'),'unconfigured Treasury member lookup'))throw Error('Missing unconfigured Treasury target');
+    unconfiguredPage212.app.querySelector('[role="option"]').dispatchEvent(new Event('mousedown',{bubbles:true}));
+    const unconfiguredRead212=byText(unconfiguredPage212.app,'button',"Read member's TITHE reference"), originalReference212='preserve-original-receipt';
+    unconfiguredPage212.app.querySelector('#treasury-reference').value=originalReference212;unconfiguredPage212.app.querySelector('#treasury-gold').value='25';
+    unconfiguredRead212.click();
+    if(!await waitFor(()=>unconfiguredRequests212.length===1&&!unconfiguredRead212.disabled,'actual unconfigured Treasury target refusal'))throw Error('Unconfigured Treasury reference did not settle');
+    check('.212 an actual unconfigured Treasury reference refusal gives contextual setup guidance',unconfiguredPage212.app.textContent.includes("Treasury is not configured. This member's TITHE reference could not be read. Ask a site administrator to check the Treasury setup.")&&!unconfiguredPage212.app.textContent.includes('Request failed (503).'));
+    check('.212 unconfigured reference guidance preserves the target and draft without retrying, recording gold or dispatching roles',unconfiguredRequests212.length===1&&unconfiguredRequests212[0].path==='/api/admin/treasury/target'&&unconfiguredRequests212[0].method==='POST'&&unconfiguredPage212.app.textContent.includes('Unconfigured target · '+OTHER)&&unconfiguredPage212.app.querySelector('#treasury-reference').value===originalReference212&&unconfiguredPage212.app.querySelector('#treasury-gold').value==='25'&&unconfiguredPage212.app.querySelector('#treasury-mail').value===''&&unconfiguredPage212.sessionStorage.getItem('olympus.treasuryAttempt')===null);
+    await unconfiguredPage212.go('#/roles');
+  } finally { delete unconfiguredEnv212.SITE_GUILD_ID; delete unconfiguredEnv212.DISCORD_BOT_TOKEN; }
   // The historical seasonal-tier fixture is explicitly ON for its own boot.
   // Restore the exact prior local setting before any other fixture opens.
   const priorRoyalSetting200=one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='royalWritsOn'");
@@ -201,7 +223,7 @@ const body196=String.raw`
   check('a previously rendered Treasury choice cannot replace the target while preview is busy',racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&raceConsent196.checked);
   const raceBusyInput196=racingTreasury196.app.querySelector('.picker input[role="combobox"]');raceBusyInput196.value='Target';raceBusyInput196.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
   check('Treasury refuses a new member lookup while its original preview is busy',racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&racingTreasury196.app.querySelector('.picker input').getAttribute('aria-expanded')==='false');
-  await new Promise(resolve=>setTimeout(resolve,400));
+  await waitFor(()=>!!byText(racingTreasury196.app,'button','Grant Stale target tier'),'original held Treasury preview control');
   check('an original preview can finish for its unchanged target while busy selection is refused',!!byText(racingTreasury196.app,'button','Grant Stale target tier')&&racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&racingCommands196.filter(x=>x.path.endsWith('/confirm')).length===0);
   await pickRace196(1); await pickRace196(0);
   check('fresh idle target changes discard the old Treasury preview without sending a confirmation',!byText(racingTreasury196.app,'button','Grant Stale target tier')&&!racingTreasury196.app.textContent.includes('Preview only. No role command was sent.')&&racingCommands196.filter(x=>x.path.endsWith('/confirm')).length===0);

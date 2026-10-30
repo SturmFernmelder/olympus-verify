@@ -7491,3 +7491,17 @@ Candidate PR only. The owner requested these post-.210 repairs with focused test
 Configuration and data: no DDL, role/config/provider changes, added dependencies or feature flags. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. The app-source reference/helper and local-overlay declarations follow the reviewed frontend bytes; this updates pins without running publication helpers.
 
 Validation: focused Treasury core/expiry/audit, frontend lifecycle, addon Lua and affected provider-guard regressions, TypeScript, current health-build pins and projection checks. Exact observed results and automated-review state belong to the PR and task evidence; this entry does not predeclare them passing. Full local qualification is not restarted. A future rollout requires its own owner instruction and verified backup; rollback would use the previously accepted .210 commit, not a database restore or a new role command.
+
+## Worker .212 — audit privacy and guidance corrections (30 October 2026)
+
+Candidate PR only, fixing the six findings from the renewed .211 audit. Accepted production .211 remains unchanged. The owner requested focused regression tests and a clean exact-head automated review, with native QA deferred and the waived full-suite, custom Workerd-loader and companion npm/permission experiments stopped.
+
+- Remove rejected verification values, prefixes and malformed SavedVariables exception payloads from watcher diagnostics. Retain rejection, retry and cursor/state behavior; diagnostics use fixed categories rather than user content or hashes.
+- Describe observed chat-log delivery latency without claiming a forced disk flush or immediate role authority from chat lines.
+- Name current Olympus Verify source 0.6.13 in the roster integration guide while preserving bounded historical 0.6.9 evidence and the current native-QA deferral.
+- Give the administrator contextual recovery guidance when a Treasury member-reference read reports missing service configuration, without changing confirmation, custody or uncertain-write recovery.
+- Correct the Guides installation paragraph to distinguish Olympus Guild 1.3.3 exporter adoption from separately gated website reporting. Retired standalone packages remain retired.
+
+Configuration and data: no DDL, dependency, secret, role, provider setting, feature flag, installed-addon or native action. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. Publication-reference and local-overlay pins follow the changed public bytes without running publication helpers.
+
+Validation scope: focused watcher privacy/encoding/cursor/parser tests, frontend Treasury lifecycle and resource rendering regressions, TypeScript, the three health-build suites and projection consistency. Actual results and exact-head CI/review receipts belong to the PR/task evidence; this entry does not claim them in advance. Do not run the waived local aggregate or experiments. No rollout is authorized by this PR; any later deployment requires a new owner instruction and verified backup. A later rollback would redeploy accepted .211, without database restore or role commands.
