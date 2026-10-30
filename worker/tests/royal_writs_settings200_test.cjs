@@ -2,7 +2,7 @@
 // Only Discord HTTP is synthetic; no provider, production setting or deployment is used.
 const fs200 = require('node:fs'), path200 = require('node:path'), { Module } = require('node:module');
 const fixture200 = path200.join(__dirname, 'site_test.cjs'), text200 = fs200.readFileSync(fixture200, 'utf8');
-const boundary200 = /^\(async \(\) => \{\r?\n  console\.log\("== schema: ordinary serving cannot migrate historical databases =="\);/gm;
+const boundary200 = /^\(async \(\) => \{\r?\n  console\.log\("== \.213: the original site JSON limit applies during consumption =="\);/gm;
 const cuts200 = [...text200.matchAll(boundary200)];
 if (cuts200.length !== 1) throw Error('one original site fixture boundary required');
 const prefix200 = text200.slice(0, cuts200[0].index);
