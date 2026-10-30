@@ -40,7 +40,10 @@ function driftControls(raw,kind){
   const edit=manifest.scheduled.edits[0],context=source.includes(edit.from)?edit.from:edit.to;
   probes.push(['changed no-work guard',replace('COUNT.statements===0','COUNT.statements===1')],['changed700 target',replace('budget.SCHEDULED_STATEMENT_TARGET===700','budget.SCHEDULED_STATEMENT_TARGET===701')],['duplicated reviewed context',replace(context,context+context)]);
  }else{
-  probes.push(['raw ban error restored',replace('error: errorRef(e)','error: String(e)')],['ban reason cap changed',replace('const BAN_REASON_MAX = 400','const BAN_REASON_MAX = 401')],['Link import removed',replace('import { appendLinkBlock } from "./link";','')],['duplicated reviewed context',replace(manifest.interactions[0].edits[0].from,manifest.interactions[0].edits[0].from+manifest.interactions[0].edits[0].from)]);
+   // Duplicate a reviewed block that remains current, rather than the historical import header.
+   const context=manifest.interactions[0].edits[2].from;
+   if(!context||source.split(context).length!==2)throw Error('drift control reviewed context is not unique');
+   probes.push(['raw ban error restored',replace('error: errorRef(e)','error: String(e)')],['ban reason cap changed',replace('const BAN_REASON_MAX = 400','const BAN_REASON_MAX = 401')],['Link import removed',replace('import { appendLinkBlock } from "./link";','')],['duplicated reviewed context',replace(context,context+context)]);
  }
  return probes.map(([name,mutated])=>{if(mutated===source)throw Error('drift mutation is not real');const refused=qualify(mutated)===null;if(!refused)throw Error('unreviewed source mutation accepted: '+name);return{name,refused};});
 }

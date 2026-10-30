@@ -520,7 +520,11 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const t = Math.floor(Date.now() / 1000);
     for (const name of ["Uxone", "Uxtwo"]) await fixtureRun("INSERT INTO site_reserved (owner_id, name, name_key, status, created_at, approved_by, approved_at) VALUES (?, ?, ?, 'approved', ?, ?, ?)", MEMBER, name, name.toLowerCase(), t - 60, STAFF, t - 30);
     const queued = () => one("SELECT COUNT(*) AS n FROM invite_queue").n, queuedBefore = queued();
+    const queueBefore = JSON.stringify(db.prepare("SELECT * FROM invite_queue ORDER BY id").all());
+    if (one("SELECT 1 FROM invite_queue WHERE name_key IN ('uxone', 'uxtwo')")) throw new Error("reserved-name fixture requires unused queue names");
     const names = await openPage(STAFF), posts = [];
+    let queueResponses = 0;
+    names.hold(pathname => { if (pathname === "/api/admin/reserved/queue") queueResponses++; return 0; });
     names.before((pathname, init) => { if (pathname.startsWith("/api/admin/reserved/")) posts.push([pathname, init.body]); return false; });
     await names.go("#/admin/names");
     await waitFor(() => !!byText(names.app, "button", "Queue selected now") && !!names.app.querySelector('input[aria-label="Select Uxone"]'), "reserved names with two approved rows");
@@ -530,16 +534,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const box = names.app.querySelector('input[aria-label="Select Uxone"]'); box.checked = true; fire(box, "change");
     byText(names.app, "button", "Queue selected now").click(); await settle();
     const anyway = names.document.querySelector("dialog") && byText(names.document.querySelector("dialog"), "button", "Queue anyway"); if (anyway) { anyway.click(); await settle(); }
-    await waitFor(() => posts.length === 1, "the ticked queue request");
+    await waitFor(() => posts.length === 1 && queueResponses === 1, "the completed ticked queue request");
     check("reserved names: a ticked name is still queued by itself", posts.length === 1 && posts[0][0] === "/api/admin/reserved/queue" && JSON.stringify(JSON.parse(posts[0][1]).ids) === JSON.stringify([one("SELECT id FROM site_reserved WHERE name_key = 'uxone'").id]), JSON.stringify(posts));
     await waitFor(() => !!byText(names.app, "button", "Queue every approved name now") && !names.document.querySelector("dialog"), "the redrawn reserved names");
     byText(names.app, "button", "Queue every approved name now").click(); await settle();
     const askAll = names.document.querySelector("dialog"), okAll = askAll && (byText(askAll, "button", "Queue them") || byText(askAll, "button", "Queue anyway"));
     if (okAll) { okAll.click(); await settle(); }
-    await waitFor(() => posts.length === 2 || !okAll, "the deliberate queue-all request");
+    await waitFor(() => (posts.length === 2 && queueResponses === 2) || !okAll, "the completed deliberate queue-all request");
     check("reserved names: 'Queue every approved name now' still asks first and sends the deliberate empty list", !!okAll && posts.length === 2 && JSON.stringify(JSON.parse(posts[1][1]).ids) === "[]", JSON.stringify(posts));
-    names.answer(null); names.before(null);
+    if (queueResponses !== 2) throw new Error("reserved-name fixture queue requests did not complete");
+    await settle(); await settle();
+    names.answer(null); names.before(null); names.hold(null);
+    // answer() replaces the receipt after the real Worker: its queue writes must not leak into the later seat cases.
+    await fixtureRun("DELETE FROM invite_queue WHERE discord_id = ? AND approved_by = 'site' AND name_key IN ('uxone', 'uxtwo') AND id IN (SELECT queue_id FROM site_reserved WHERE owner_id = ? AND name_key IN ('uxone', 'uxtwo'))", MEMBER, MEMBER);
     await fixtureRun("DELETE FROM site_reserved WHERE name_key IN ('uxone', 'uxtwo')");
+    if (JSON.stringify(db.prepare("SELECT * FROM invite_queue ORDER BY id").all()) !== queueBefore) throw new Error("reserved-name fixture did not restore the prior invite queue");
   }
   {
     const pointer = `<@${OTHER}>`;
