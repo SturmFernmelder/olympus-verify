@@ -4953,7 +4953,10 @@
     contested.addEventListener("change", apply);
     accepted.addEventListener("change", apply);
     search.addEventListener("keydown", (e) => { if (e.key === "Enter") apply(); });
-    const act = async (action, ids, confirmText) => {
+    // The server reads an empty id list as every approved name (site-admin.ts), so a "selected" action is never sent
+    // empty: each redraw clears the ticks. Only "Queue every approved name now" sends [] on purpose, after its own question.
+    const act = async (action, ids, confirmText, chosen = false) => {
+      if (chosen && !ids.length) { toast("Tick at least one name in the list first. Nothing was changed.", "bad"); return; }
       if (confirmText && !(await confirmBox(confirmText[0], confirmText[1], confirmText[2]))) return;
       try {
         const out = await api("POST", `/api/admin/reserved/${action}`, { ids });
@@ -4966,10 +4969,10 @@
     const beforeLaunch = nowSec() < (s.launchAt || 0);
     const queueWarn = beforeLaunch ? ["Queue before launch?", "The names do not exist in game until launch, so invites sent now fail and use up attempts. Approved names are queued by themselves at launch when that setting is on.", "Queue anyway"] : null;
     const bulk = h("div", { class: "btn-row" },
-      h("button", { class: "btn small", type: "button", text: "Approve selected", onclick: () => act("approve", [...selected]) }),
-      h("button", { class: "btn small", type: "button", text: "Unapprove selected", onclick: () => act("unapprove", [...selected]) }),
-      h("button", { class: "btn small danger", type: "button", text: "Release selected", onclick: () => act("release", [...selected], ["Release these names?", "They come off the list; queued ones the site added leave the invite queue.", "Release"]) }),
-      h("button", { class: "btn small", type: "button", text: "Queue selected now", onclick: () => act("queue", [...selected], queueWarn) }),
+      h("button", { class: "btn small", type: "button", text: "Approve selected", onclick: () => act("approve", [...selected], null, true) }),
+      h("button", { class: "btn small", type: "button", text: "Unapprove selected", onclick: () => act("unapprove", [...selected], null, true) }),
+      h("button", { class: "btn small danger", type: "button", text: "Release selected", onclick: () => act("release", [...selected], ["Release these names?", "They come off the list; queued ones the site added leave the invite queue.", "Release"], true) }),
+      h("button", { class: "btn small", type: "button", text: "Queue selected now", onclick: () => act("queue", [...selected], queueWarn, true) }),
       h("button", { class: "btn small", type: "button", text: "Queue every approved name now", onclick: () => act("queue", [], queueWarn || ["Queue every approved name?", "They go to the top of the invite queue.", "Queue them"]) }));
     const all = h("input", { type: "checkbox", "aria-label": "Select all on this page" });
     const boxes = [];

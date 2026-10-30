@@ -100,7 +100,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.9"
+WATCHER_VERSION = "0.6.10"
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -156,6 +156,17 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
         return None
+
+
+def _seconds(cfg: dict[str, Any], key: str, default: float) -> float:
+    """A configured interval: a positive, finite number of seconds, or a config error naming the setting."""
+    try:
+        value = float(cfg.get(key, default))
+    except (TypeError, ValueError):
+        raise ValueError(f"{key} must be a number of seconds") from None
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{key} must be a positive number of seconds")
+    return value
 
 
 class Worker:
@@ -400,14 +411,15 @@ class Watcher:
         self.officer_id = str(cfg.get("officer_id") or codes.normalize_character(self.officer) or "").strip()[:64]
         self.state = State(Path(cfg.get("state_file", "watcher-state.json")))
         self.worker.pause_state = self.state  # 0.6.5: the transport pause is kept with the rest of the state
-        # 0.6.9: floors, so a 0 cannot turn the loop into a request storm against the Worker (650 requests in 8 s).
-        self.poll = max(1.0, float(cfg.get("poll_seconds", 2)))
-        self.queue_poll = max(5.0, float(cfg.get("queue_poll_seconds", 30)))
+        # 0.6.9: floors, so a tiny interval cannot turn the loop into a request storm against the Worker (650 requests
+        # in 8 s). 0.6.10: zero, negative and non-numbers are refused at startup instead of being floored without a word.
+        self.poll = max(1.0, _seconds(cfg, "poll_seconds", 2))
+        self.queue_poll = max(5.0, _seconds(cfg, "queue_poll_seconds", 30))
         self._last_queue_pull = 0.0
         # Who is in the guild but not verified. Slow on purpose: the addon reads the queue file only at login or
         # /reload, so fetching this more often than a person reloads buys nothing and costs D1 reads (the free tier
         # ran out of writes once already, on 18 Sep). A roster upload forces the next fetch, since that is when it moves.
-        self.unverified_poll = float(cfg.get("unverified_poll_seconds", 1800))
+        self.unverified_poll = _seconds(cfg, "unverified_poll_seconds", 1800)
         self._last_unverified_pull = 0.0
         self._unverified: dict[str, Any] | None = None
         self.max_outbox = int(cfg.get("max_outbox", 500))

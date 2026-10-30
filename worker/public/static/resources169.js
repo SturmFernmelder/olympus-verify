@@ -73,6 +73,12 @@
     let destroyed = false, request = null, poll = null, generation = 0, admitted = true, paused = false, updatesEpoch = 0;
     let catalog = null, updateData = null, visibleSources = null;
     const wrap = el("section", undefined, "resources169"), message = el("p", "Loading sources…", "resources169-note");
+    // Catalogue filters announce their new counts without changing automatic Updates feedback.
+    if (view === "addons" || view === "guides") {
+      message.setAttribute("role", "status");
+      message.setAttribute("aria-live", "polite");
+      message.setAttribute("aria-atomic", "true");
+    }
     const controls = el("div", undefined, "resources169-controls"), results = el("div", undefined, "resources169-grid");
     const heading = el("header", undefined, "resources169-heading");
     const titles = { addons: "Addons for Forever", guides: "The adventurer's library", updates: "Game updates" };

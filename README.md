@@ -173,8 +173,13 @@ and `python tests/test_discord_relay.py` (the relay script exits at import, so `
 - `/verify` (no character) — a request code (7 symbols, 27 Sep 2026) and the whole line to paste in game; the character
   that whispers it is the one linked. Same as the guide's **Get my code** button. Until an officer's watcher has reported
   addon 0.6.0 (or with `REQUEST_CODES = "off"`) it asks for the character name instead. See `docs/design.md`.
-- `/verify <character>` — issues today's code for that name (one open request per name; 24 h). The name
-  autocompletes from the latest roster export, and accented letters are accepted.
+- `/verify <character>` — opens the name's request and shows the code of the day it opened; running it again shows the
+  same code (one open request per name; 24 h). A character code counts only for a request opened on the code's UTC day
+  or the day before, so a request opened later needs its own code. A name takes one character-code request a UTC day:
+  once that request has ended, `/verify` for the name stays closed until 00:00 UTC to every account except one holding
+  a live link to the character verified since, and an account whose open request an officer closed cannot open the name
+  again before 00:00 UTC either, unless the officer was unbinding that account's own link. Request codes (while they
+  are on) still work. The name autocompletes from the latest roster export, and accented letters are accepted.
 - `/verify-status` — Battle.net link and character states.
 - `/olympus-admin unbind|ban|unban|queue|roster|lookup|sync` — officers (Officer / Moderator / Guild Leader /
   Guild Master roles). `lookup user:@member` (or right-click a member → Apps → **Olympus linked characters**) lists
@@ -183,6 +188,9 @@ and `python tests/test_discord_relay.py` (the relay script exits at import, so `
   #server-log and puts a card in #mod-alerts with a **Ban from Discord** button that only Guild Leader or Guild Master
   can press (that button needs the bot to hold Ban Members, which has not been granted yet). `sync` re-applies the
   latest roster snapshot deliberately, which is what to reach for when a member reports a missing role.
+  `unbind character:<name>` releases a linked name; on a name with no live binding (never linked, or already
+  unbound) that has an open verification request, it closes that request instead and names its holder, who cannot open
+  the name again before 00:00 UTC.
 - `/verify-bnet` — retired in .50 (1 Oct 2026). The Phase 3 profile-API path was never enabled, and it would have left
   API-derived copies the 29-day purge does not cover; the in-game whisper is the proof of control.
 
@@ -316,9 +324,10 @@ and leaves the decision to a person. The ranking is longest-away-first with a lo
 excludes anyone currently online, anyone at or above `protectRankIndex` (Leader through Officer Alt by default), anyone
 whose public or officer note contains the `holdNote` word, and anyone seen more recently than `minDaysOffline`. Those
 guards matter more than the sort: `GetGuildRosterLastOnline` returns a *duration* and reads zero for anyone online, so
-an unguarded "longest offline" list puts the people playing right now at the top of it. The in-game ladder decision
-changed on 3 Oct 2026 (owner answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation), and its
-planner preset and in-game steps come in a later release.
+an unguarded "longest offline" list puts the people playing right now at the top of it. The current ten-rank
+recommendation (owner-confirmed in .199) is the rank planner preset, `RECOMMENDED` in
+`worker/public/static/rank-planner/model.js`; Treasurer and Co-Guild Master are appointments, not ranks. The planner only
+drafts: the Guild Master applies native ranks and permissions in game.
 
 The shortlist appears in the officer panel with the evidence beside each name, and each removal takes two clicks — the
 first arms it, the second performs it — so one hardware event performs one `Uninvite`. The same shortlist is posted to

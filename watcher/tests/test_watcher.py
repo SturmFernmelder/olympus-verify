@@ -1236,8 +1236,34 @@ class OpsHardening069Tests(unittest.TestCase):
     def test_poll_settings_have_floors(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
             with watcher.StateLease(Path(tmp) / "state.json"):
-                w = self._watcher(tmp, poll_seconds=0, queue_poll_seconds=0)
+                w = self._watcher(tmp, poll_seconds=0.2, queue_poll_seconds=1)
         self.assertEqual((w.poll, w.queue_poll), (1.0, 5.0))
+
+    def test_a_poll_setting_that_is_not_a_positive_number_is_refused(self) -> None:
+        # 0.6.10 (QA .211 ops praxis W-POLL-NEG): 0.6.9 floored -1 to one second without a word.
+        for key in ("poll_seconds", "queue_poll_seconds", "unverified_poll_seconds"):
+            for bad in (0, -1, "soon", float("nan"), float("inf"), None):
+                with self.subTest(key=key, value=bad), tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+                    with watcher.StateLease(Path(tmp) / "state.json"):
+                        with self.assertRaises(ValueError) as caught:
+                            self._watcher(tmp, **{key: bad})
+                    self.assertIn(key, str(caught.exception))
+
+    def test_main_reports_a_bad_poll_setting_as_a_config_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wow = Path(tmp) / "wow"
+            (wow / "Logs").mkdir(parents=True)
+            (wow / "WTF" / "Account" / "QA#1" / "SavedVariables").mkdir(parents=True)
+            cfg = Path(tmp) / "config.json"
+            cfg.write_text(json.dumps({"worker_url": "https://worker.qa.invalid", "watcher_token": "t", "verify_secret": "s", "wow_dir": str(wow),
+                                       "account": "QA#1", "state_file": str(Path(tmp) / "state.json"), "poll_seconds": -1}), encoding="utf-8")
+            out, started = io.StringIO(), []
+            # A watcher that accepted the setting would start its endless loop; record that instead of running it.
+            with contextlib.redirect_stdout(out), patch.object(sys, "argv", ["watcher.py", "--config", str(cfg)]), \
+                    patch.object(watcher.Watcher, "run", lambda self: started.append(self.poll)):
+                code = watcher.main()
+        self.assertEqual((code, started), (2, []))
+        self.assertIn("config: poll_seconds must be a positive number of seconds", out.getvalue())
 
     def test_a_missing_or_malformed_config_is_a_message_not_a_traceback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

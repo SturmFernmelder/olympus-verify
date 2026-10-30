@@ -2,7 +2,7 @@ import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
 import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
-import { dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
+import { codeFor, dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
 import { onVerified } from "./review";
 import { flushNotices, notify, noticeBatch, type NoticeBatch } from "./dm";
@@ -154,6 +154,17 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     await audit(env, "watcher", "verify.ticket_mismatch", name, { source: body.source, pendingId: pending.id },reference);
     pending = null;
   }
+  // SEN-01 (30 Oct 2026): a character code depends only on the name and the day, so a code shown for an earlier request
+  // would also claim the name's next request, opened by another account once the first lapsed. A request accepts only
+  // the codes of the day it opened and of the next day (it lives 24 hours); /verify shows the opening day's code.
+  if (pending && !ticket) {
+    const opened = pending.created_at * 1000;
+    const own = [await codeFor(env.VERIFY_SECRET, name, dayBucket(new Date(opened))), await codeFor(env.VERIFY_SECRET, name, dayBucket(new Date(opened + 86_400_000)))];
+    if (!own.includes(code)) {
+      await audit(env, "watcher", "verify.code_predates_request", name, { source: body.source, pendingId: pending.id },reference);
+      pending = null;
+    }
+  }
   if (!pending) {
     // A valid code with no open request is usually an expired request or a replay. There is one case where it is
     // deliberate: we refused this character's invite because they were in another guild, told them to leave and
@@ -205,7 +216,8 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     const references=[reference!,{subject:holder.discord_id,capture:privacyCaptureFromColumns(holder.discord_id,holder)}];
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: holder.discord_id, as: holder.name, ticket },references);
     if (ticket) await closeRequest(env, pending, "refused");
-    await logLine(env, `⚠️ verify: **${name}** whispered a valid code, but this character is linked to <@${holder.discord_id}> as **${holder.name}** (renamed since). Not re-linked — an officer decides.`,references);
+    // SEN-01: a character-code request stays open with the same code, and the watcher that relayed it drops a repeat.
+    await logLine(env, `⚠️ verify: **${name}** whispered a valid code, but this character is linked to <@${holder.discord_id}> as **${holder.name}** (renamed since). Not re-linked — an officer decides. Once it is settled, the member retries with **Get my code** (a request code, while those are on), by mail, or by whispering another officer: the same code whispered to the same officer is not relayed again.`,references);
     return json({ result: "bound_elsewhere" });
   }
   const t = now();

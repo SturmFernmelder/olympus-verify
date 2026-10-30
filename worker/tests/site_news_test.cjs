@@ -1423,14 +1423,14 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
 {
   "file": "worker/src/index.ts",
-  "startMarker": "const BUILD = \"2026-10-30.214 Parallel organization modules\";",
+  "startMarker": "const BUILD = \"2026-10-30.216 Maintenance integration\";",
   "singleLine": true,
-  "paragraphSha256": "353de6e467dd6e0fc414acf0fc839628c9484de917ae91db7dbd18939165e904",
-  "paragraphBytes": 61,
+  "paragraphSha256": "aba9f6548957197d62f4a92550d15c1bd1ba084296c1676754b3a51bac1d9d68",
+  "paragraphBytes": 55,
   "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
   "count": 0,
-  "ownerRelease": 214,
-  "purpose": "Owner maintenance214: exact current release label, zero guarded vocabulary credit; original file allowances and vocabulary unchanged."
+  "ownerRelease": 216,
+  "purpose": "Owner unified release216: exact current label, zero guarded vocabulary credit; prior vocabulary allowances unchanged."
 },
 {
   "file": "worker/public/static/app.js",
@@ -1617,29 +1617,35 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     check('.208 trading bytes in a different guarded file receive no credit '+spec.paragraphSha256.slice(0,12),!!paragraph && Object.keys(currentContextQualification('README.md',paragraph).credits).length===0 && vocabularyOverages('README.md',paragraph).some(value=>value.includes(currentDigest.slice(0,12))));
   }
 
-  // .214's exact release label contains no guarded rank term, so it grants zero credit.
+  // .216's exact release label contains no guarded rank term, so it grants zero credit.
   // Keep the byte, duplicate, planted-term and wrong-file refusals without raising ALLOWED or changing GUARD.
-  const buildSpecs214 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===214 && spec.file==='worker/src/index.ts'), buildFile214='worker/src/index.ts';
-  const buildText214=guarded.find(([file])=>file===buildFile214)[1], buildQualification214=currentContextQualification(buildFile214,buildText214);
-  const buildLine214=buildSpecs214.length===1 ? buildQualification214.paragraphs.find(value=>value.startsWith(buildSpecs214[0].startMarker))||'' : '';
-  check('.214 pins exactly one current release label with zero guarded vocabulary credit',buildSpecs214.length===1 && buildSpecs214[0].file===buildFile214 && buildSpecs214[0].singleLine===true && buildSpecs214[0].digest===currentDigest && buildSpecs214[0].count===0 && buildQualification214.errors.length===0 && buildQualification214.credits[currentDigest]===0 && Object.keys(guardedCounts(buildLine214)).length===0 && Buffer.byteLength(buildLine214,'utf8')===buildSpecs214[0].paragraphBytes && sha(buildLine214)===buildSpecs214[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile214]).length===1 && ALLOWED[buildFile214][currentDigest]===undefined);
-  check('.214 changing or duplicating the release label loses its exact context qualification',!!buildLine214 && currentContextQualification(buildFile214,buildText214.replace(buildLine214,buildLine214+'!')).errors.length>0 && vocabularyOverages(buildFile214,buildText214.replace(buildLine214,buildLine214+'!')).length>0 && currentContextQualification(buildFile214,buildText214+'\n'+buildLine214).errors.length>0 && vocabularyOverages(buildFile214,buildText214+'\n'+buildLine214).length>0);
-  check('.214 a guarded occurrence planted outside the label or in another file stays restricted',!!buildLine214 && !!approvedGram && vocabularyOverages(buildFile214,buildText214+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine214).credits).length===0 && Object.keys(currentContextQualification('README.md',buildLine214+'\n'+approvedGram).credits).length===0 && vocabularyOverages('README.md',buildLine214+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
+  const buildSpecs216 = CURRENT_CONTEXTS.filter(spec=>spec.ownerRelease===216 && spec.file==='worker/src/index.ts'), buildFile216='worker/src/index.ts';
+  const buildText216=guarded.find(([file])=>file===buildFile216)[1], buildQualification216=currentContextQualification(buildFile216,buildText216);
+  const buildLine216=buildSpecs216.length===1 ? buildQualification216.paragraphs.find(value=>value.startsWith(buildSpecs216[0].startMarker))||'' : '';
+  check('.216 pins exactly one current release label with zero guarded vocabulary credit',buildSpecs216.length===1 && buildSpecs216[0].file===buildFile216 && buildSpecs216[0].singleLine===true && buildSpecs216[0].digest===currentDigest && buildSpecs216[0].count===0 && buildQualification216.errors.length===0 && buildQualification216.credits[currentDigest]===0 && Object.keys(guardedCounts(buildLine216)).length===0 && Buffer.byteLength(buildLine216,'utf8')===buildSpecs216[0].paragraphBytes && sha(buildLine216)===buildSpecs216[0].paragraphSha256 && GUARD.size===28 && Object.keys(ALLOWED[buildFile216]).length===1 && ALLOWED[buildFile216][currentDigest]===undefined);
+  check('.216 changing or duplicating the release label loses its exact context qualification',!!buildLine216 && currentContextQualification(buildFile216,buildText216.replace(buildLine216,buildLine216+'!')).errors.length>0 && vocabularyOverages(buildFile216,buildText216.replace(buildLine216,buildLine216+'!')).length>0 && currentContextQualification(buildFile216,buildText216+'\n'+buildLine216).errors.length>0 && vocabularyOverages(buildFile216,buildText216+'\n'+buildLine216).length>0);
+  check('.216 a guarded occurrence planted outside the label or in another file stays restricted',!!buildLine216 && !!approvedGram && vocabularyOverages(buildFile216,buildText216+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',buildLine216).credits).length===0 && Object.keys(currentContextQualification('README.md',buildLine216+'\n'+approvedGram).credits).length===0 && vocabularyOverages('README.md',buildLine216+'\n'+approvedGram).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
   const retiredBuildLine208='const BUILD = "2026-10-28.208 High Council trading portfolio";';
-  check('.214 the retired .208 label cannot reclaim its former rank credit in the current or another file',sha(retiredBuildLine208)==='8366e547e8c986eabaffc689deb146d02dcd08be8243fef6028db17153431c3d' && !CURRENT_CONTEXTS.some(spec=>spec.startMarker===retiredBuildLine208) && vocabularyOverages(buildFile214,buildText214+'\n'+retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',retiredBuildLine208).credits).length===0 && vocabularyOverages('README.md',retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
-  check('.214 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification214.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile214,{[digest]:((ALLOWED[buildFile214]||{})[digest]||0)+1},buildQualification214).some(value=>value.includes(digest.slice(0,12)))));
+  check('.216 the retired .208 label cannot reclaim its former rank credit in the current or another file',sha(retiredBuildLine208)==='8366e547e8c986eabaffc689deb146d02dcd08be8243fef6028db17153431c3d' && !CURRENT_CONTEXTS.some(spec=>spec.startMarker===retiredBuildLine208) && vocabularyOverages(buildFile216,buildText216+'\n'+retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')) && Object.keys(currentContextQualification('README.md',retiredBuildLine208).credits).length===0 && vocabularyOverages('README.md',retiredBuildLine208).some(value=>value.includes(currentDigest.slice(0,12)+' x1')));
+  check('.216 every other digest retains its original file allowance',[...GUARD].filter(digest=>digest!==currentDigest).every(digest=>buildQualification216.credits[digest]===undefined && overOriginalVocabularyAllowance(buildFile216,{[digest]:((ALLOWED[buildFile216]||{})[digest]||0)+1},buildQualification216).some(value=>value.includes(digest.slice(0,12)))));
 
   const retiredBuildLine210='const BUILD = "2026-10-28.210 QA admission and operator safety";';
-  check('.214 the retired .210 label cannot satisfy the new unique current-label context',!!buildLine214&&currentContextQualification(buildFile214,buildText214.replace(buildLine214,retiredBuildLine210)).errors.length>0&&vocabularyOverages(buildFile214,buildText214.replace(buildLine214,retiredBuildLine210)).length>0);
+  check('.216 the retired .210 label cannot satisfy the new unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine210)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine210)).length>0);
 
   const retiredBuildLine211='const BUILD = "2026-10-29.211 Deferred addon and Treasury safeguards";';
-  check('.214 the retired .211 label cannot satisfy the unique current-label context',!!buildLine214&&currentContextQualification(buildFile214,buildText214.replace(buildLine214,retiredBuildLine211)).errors.length>0&&vocabularyOverages(buildFile214,buildText214.replace(buildLine214,retiredBuildLine211)).length>0);
+  check('.216 the retired .211 label cannot satisfy the unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine211)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine211)).length>0);
 
   const retiredBuildLine212='const BUILD = "2026-10-30.212 Audit privacy and guidance corrections";';
-  check('.214 the retired .212 label cannot satisfy the unique current-label context',!!buildLine214&&currentContextQualification(buildFile214,buildText214.replace(buildLine214,retiredBuildLine212)).errors.length>0&&vocabularyOverages(buildFile214,buildText214.replace(buildLine214,retiredBuildLine212)).length>0);
+  check('.216 the retired .212 label cannot satisfy the unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine212)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine212)).length>0);
 
   const retiredBuildLine213='const BUILD = "2026-10-30.213 Bounded request JSON";';
-  check('.214 the retired .213 label cannot satisfy the unique current-label context',!!buildLine214&&currentContextQualification(buildFile214,buildText214.replace(buildLine214,retiredBuildLine213)).errors.length>0&&vocabularyOverages(buildFile214,buildText214.replace(buildLine214,retiredBuildLine213)).length>0);
+  check('.216 the retired .213 label cannot satisfy the unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine213)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine213)).length>0);
+
+  const retiredBuildLine214='const BUILD = "2026-10-30.214 Parallel organization modules";';
+  check('.216 the retired .214 label cannot satisfy the unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine214)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine214)).length>0);
+
+  const retiredBuildLine215='const BUILD = "2026-10-30.215 Accessible catalogue results";';
+  check('.216 the retired .215 label cannot satisfy the unique current-label context',!!buildLine216&&currentContextQualification(buildFile216,buildText216.replace(buildLine216,retiredBuildLine215)).errors.length>0&&vocabularyOverages(buildFile216,buildText216.replace(buildLine216,retiredBuildLine215)).length>0);
 
   console.log("\n== the schema in all three places ==");
   const sqlFile = fs.readFileSync(path.join(root, "schema.sql"), "utf8");
