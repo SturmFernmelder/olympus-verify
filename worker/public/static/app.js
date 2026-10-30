@@ -1952,8 +1952,11 @@
     add(main, h("p", { role: "status", text: "Opening the organization…" }));
     const data = await governanceModel();
     if (!current()) return;
-    const { renderOrganization } = await import("/static/organization-view.js");
-    const { renderAllianceOverview205 } = await import("/static/organization-overview205.js");
+    // .214: independent renderers load together; the overview's context import no longer waits for the main renderer.
+    const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([
+      import("/static/organization-view.js"),
+      import("/static/organization-overview205.js")
+    ]);
     if (!current()) return;
     const currentData201 = {...data, terms:data.terms.map(term => {
       const row = office199(term.officeKey);

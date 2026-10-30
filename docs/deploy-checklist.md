@@ -7514,3 +7514,12 @@ Candidate maintenance PR only. Enforce the existing64000 UTF16-unit JSON limit d
 No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
 
 Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .214 — parallel organization modules (30 October 2026)
+
+Candidate maintenance PR only. Start the two independent Organization renderer imports together and retain the original current-view check after both complete. No route authority, model, renderer or module destination changes.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
