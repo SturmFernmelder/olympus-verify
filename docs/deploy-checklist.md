@@ -7532,3 +7532,14 @@ Candidate maintenance PR only. Expose Addons/Guides filter result counts as poli
 No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
 
 Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .216 — maintenance integration (30 October 2026)
+
+Owner-authorized unified rollout after dependency-order squash merges of PR107–PR110 and integration of the cumulative reviewed Claude branch into a final neutral-summary PR. This combines request lifecycle and admin release handling, watcher boundary handling, website feedback, bounded JSON consumption, concurrent Organization modules and accessible catalogue counters. No dependency, DDL, feature activation or installed-client change.
+
+Qualify the final source with affected focused tests (including verification, watcher, TypeScript and projection checks), independent review, all13 hosted PR jobs and a completed exact-head automated code review with both finding flags false. Wait for final main CI before one fresh verified D1 backup and one deployment of that exact merge with --keep-vars. Predeclared steps are not evidence of completion.
+
+Postchecks retain all90 public cases, authenticated actual-version/asset readbacks and the attended RT16 application-note check on an owner-controlled QA application. Preserve strict results and the original healthy first scheduled callback. For this unified release only the owner explicitly carried bot-host comment-only robots GET/HEAD200 and a maximum60000ms whole-audit-bin allowance; no clock correction, manual callback replay, cap increase or future allowance is implied.
+
+Native QA remains deferred and the waived aggregate/custom Workerd/npm-permission/lockfile experiments remain stopped. Treasury live dispatch, Army aggregate and Olympus Link remain OFF. Preserve the prior .212 release, backup and failed local evidence; rollback is a separate exact-commit deployment without production-data restore.

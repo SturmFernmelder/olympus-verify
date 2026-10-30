@@ -251,15 +251,20 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (typeof body.royalWritsOn !== "boolean") return apiJson({ error: "invalid", field: "royalWritsOn", message: "Choose whether the Royal Writs schedule is shown using the checkbox." }, 400);
     next.royalWritsOn = body.royalWritsOn ? "1" : "0";
   }
-  const time = (k: "namesOpenAt" | "launchAt") => {
-    if (body[k] === undefined) return true;
+  // .211 QA (RT-17): a readable time outside the window is not "unreadable"; say which window the site accepts.
+  const time = (k: "namesOpenAt" | "launchAt"): "ok" | "unreadable" | "outside" => {
+    if (body[k] === undefined) return "ok";
     const t = typeof body[k] === "number" ? Math.floor(body[k] as number) : parseTime(String(body[k]), -1);
-    if (!(t > 1_700_000_000 && t < 2_200_000_000)) return false;
+    if (!Number.isFinite(t) || t === -1) return "unreadable";
+    if (!(t > 1_700_000_000 && t < 2_200_000_000)) return "outside";
     next[k] = String(t);
-    return true;
+    return "ok";
   };
-  if (!time("namesOpenAt")) return apiJson({ error: "invalid", field: "namesOpenAt", message: "That reservation time could not be read." }, 400);
-  if (!time("launchAt")) return apiJson({ error: "invalid", field: "launchAt", message: "That launch time could not be read." }, 400);
+  const WINDOW = "between November 2023 and September 2039";
+  const names = time("namesOpenAt");
+  if (names !== "ok") return apiJson({ error: "invalid", field: "namesOpenAt", message: names === "outside" ? `Choose a reservation time ${WINDOW}.` : "That reservation time could not be read." }, 400);
+  const launch = time("launchAt");
+  if (launch !== "ok") return apiJson({ error: "invalid", field: "launchAt", message: launch === "outside" ? `Choose a launch time ${WINDOW}.` : "That launch time could not be read." }, 400);
   // .115: newsOn switches the members' News page (site-news.ts); saved and audited like the other switches
   for (const k of ["namesTimeConfirmed", "namesOpen", "autoQueue", "applicationsOpen", "votingOpen", "newsOn"] as const) {
     if (body[k] !== undefined) next[k] = body[k] === true ? "1" : "0";
@@ -1244,7 +1249,7 @@ auditRules("role.add_failed role.deferred role.refused_banned roles.read_failed"
 auditRules("role.backfill_page role.sweep_failed", "none");
 auditRules("role.budget_exhausted", "none", { attempts: "count", calls: "count", retries: "count", limit: "count" });
 auditRules("role.sweep", "none", { checked: "count", restored: "count", failed: "count", unfinished: "count", absent: "count", blocked: "count", revoked: "count", calls: "count", attempts: "count", retries: "count", stopped: "boolean" });
-auditRules("verify.invalid_code verify.ticket_mismatch verify.no_pending verify.banned verify.bound_elsewhere verify.already_used verify.already_linked verify.confirmed verify.already_member verify.roster_not_current verify.ticket_reused verify.guid_pinned verify.refused_bound verify.requested verify.ticket_issued", "none");
+auditRules("verify.invalid_code verify.ticket_mismatch verify.code_predates_request verify.no_pending verify.banned verify.bound_elsewhere verify.already_used verify.already_linked verify.confirmed verify.already_member verify.roster_not_current verify.ticket_reused verify.guid_pinned verify.refused_bound verify.requested verify.ticket_issued", "none");
 auditRules("invite.queued invite.failed invite.fired invite.joined_stale_link invite.joined_unconfirmed", "character");
 auditRules("invite.declined invite.expired", "character", { attempts: "count" });
 auditRules("invite.joined", "character", { promoted: "boolean" });
@@ -1260,7 +1265,7 @@ auditRules("roster.ingest_failed roster.first_seen_failed roster.distrusted", "n
 auditRules("roster.ingested roster.sync", "none", { members: "count", promoted: "count", stripped: "count", released: "count", renamed: "count", deferred: "count" });
 auditRules("roster.effects_failed", "none", { seq: "count", applied: "count" });
 auditRules("admin.ban admin.unban admin.discord_ban admin.discord_ban_failed", "id");
-auditRules("admin.unbind", "character");
+auditRules("admin.unbind admin.release", "character");
 auditRules("admin.sync", "none", { promoted: "count", stripped: "count", released: "count", renamed: "count", deferred: "count", trustedSet: "boolean" });
 auditRules("admin.sync_refused", "none", { memberCount: "count", stored: "count" });
 auditRules("admin.refresh_guide admin.post_guide intros.refresh", "none");

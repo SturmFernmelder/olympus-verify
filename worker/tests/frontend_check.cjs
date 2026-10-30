@@ -515,6 +515,33 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".177 real relative-date formatter uses singular day and preserves adjacent time bands", relative(2000000000 - 86400) === "1 day ago" && relative(2000000000 - 2 * 86400) === "2 days ago" && relative(2000000000 - 60) === "1 min ago" && relative(2000000000 - 3600) === "1 h ago");
   }
   {
+    // An empty id list means every approved name to the server, so the four "selected" reserved-name actions must refuse
+    // an empty selection in the page; only "Queue every approved name now" sends [] on purpose, after its own question.
+    const t = Math.floor(Date.now() / 1000);
+    for (const name of ["Uxone", "Uxtwo"]) await fixtureRun("INSERT INTO site_reserved (owner_id, name, name_key, status, created_at, approved_by, approved_at) VALUES (?, ?, ?, 'approved', ?, ?, ?)", MEMBER, name, name.toLowerCase(), t - 60, STAFF, t - 30);
+    const queued = () => one("SELECT COUNT(*) AS n FROM invite_queue").n, queuedBefore = queued();
+    const names = await openPage(STAFF), posts = [];
+    names.before((pathname, init) => { if (pathname.startsWith("/api/admin/reserved/")) posts.push([pathname, init.body]); return false; });
+    await names.go("#/admin/names");
+    await waitFor(() => !!byText(names.app, "button", "Queue selected now") && !!names.app.querySelector('input[aria-label="Select Uxone"]'), "reserved names with two approved rows");
+    for (const label of ["Approve selected", "Unapprove selected", "Release selected", "Queue selected now"]) { byText(names.app, "button", label).click(); await settle(); await settle(); }
+    check("reserved names: the four selected-name actions with nothing ticked send nothing, ask nothing and say to tick a name first", posts.length === 0 && !names.document.querySelector("dialog") && queued() === queuedBefore && names.document.body.textContent.includes("Tick at least one name in the list first. Nothing was changed."), JSON.stringify(posts));
+    names.answer(pathname => pathname === "/api/admin/reserved/queue" ? new Response(JSON.stringify({ queued: 1, bumped: 0, inGuild: 0 }), { status: 200, headers: { "Content-Type": "application/json" } }) : null);
+    const box = names.app.querySelector('input[aria-label="Select Uxone"]'); box.checked = true; fire(box, "change");
+    byText(names.app, "button", "Queue selected now").click(); await settle();
+    const anyway = names.document.querySelector("dialog") && byText(names.document.querySelector("dialog"), "button", "Queue anyway"); if (anyway) { anyway.click(); await settle(); }
+    await waitFor(() => posts.length === 1, "the ticked queue request");
+    check("reserved names: a ticked name is still queued by itself", posts.length === 1 && posts[0][0] === "/api/admin/reserved/queue" && JSON.stringify(JSON.parse(posts[0][1]).ids) === JSON.stringify([one("SELECT id FROM site_reserved WHERE name_key = 'uxone'").id]), JSON.stringify(posts));
+    await waitFor(() => !!byText(names.app, "button", "Queue every approved name now") && !names.document.querySelector("dialog"), "the redrawn reserved names");
+    byText(names.app, "button", "Queue every approved name now").click(); await settle();
+    const askAll = names.document.querySelector("dialog"), okAll = askAll && (byText(askAll, "button", "Queue them") || byText(askAll, "button", "Queue anyway"));
+    if (okAll) { okAll.click(); await settle(); }
+    await waitFor(() => posts.length === 2 || !okAll, "the deliberate queue-all request");
+    check("reserved names: 'Queue every approved name now' still asks first and sends the deliberate empty list", !!okAll && posts.length === 2 && JSON.stringify(JSON.parse(posts[1][1]).ids) === "[]", JSON.stringify(posts));
+    names.answer(null); names.before(null);
+    await fixtureRun("DELETE FROM site_reserved WHERE name_key IN ('uxone', 'uxtwo')");
+  }
+  {
     const pointer = `<@${OTHER}>`;
     const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };

@@ -1208,6 +1208,12 @@ async function legacySchemaHeld(old) {
   await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('late comer', 'Late Comer', '400000000000000002', 'queued', ?1, 'auto')", T - 300);
   let auto = await siteQueue.autoQueueReserved(env());
   check("before launch the cron queues nothing", auto === null && !db.prepare("SELECT 1 FROM invite_queue WHERE priority > 0").get());
+  // .211 QA (RT-17): a readable time outside the accepted window is refused in words that name it; an unreadable one is unreadable.
+  const outside211 = await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { launchAt: "1970-01-01T00:00:00Z" } }), ow211 = await J(outside211);
+  const garbled211 = await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { namesOpenAt: "not a time" } }), gw211 = await J(garbled211);
+  check(".211 a launch time outside the accepted window names the window; an unreadable reservation time says it could not be read",
+    outside211.status === 400 && ow211?.field === "launchAt" && ow211?.message === "Choose a launch time between November 2023 and September 2039."
+      && garbled211.status === 400 && gw211?.field === "namesOpenAt" && gw211?.message === "That reservation time could not be read.", ow211, gw211);
   await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { launchAt: T - 30 } });
   auto = await siteQueue.autoQueueReserved(env());
   check("after launch it does: Bob Stone added, Carol Light moved to the front, contested Fern Melder skipped",
@@ -1536,7 +1542,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-30.215 Accessible catalogue results" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-30.216 Maintenance integration" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

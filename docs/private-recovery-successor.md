@@ -164,12 +164,14 @@ configuration change.
   procedural.
 - **Frozen main version.** After success the Floor binds V_main2 (`client:59`). Any later main version or
   setting change holds the site unless it goes through OFF mode or a further reviewed DO release. Item 15 and
-  the fresh-roles work therefore move to a later release.
+  the fresh-roles work therefore move to a later release. (Resolved in .163, `902b6db`/#58: Item 15 and the
+  fresh-role lanes shipped; see the .163 entry in `docs/deploy-checklist.md`.)
 - **Successor custody.** A holder of `PRIVACY_RECOVERY_SUCCESSOR_SECRET` could post fabricated fence or open
   ACKs to the DO within an attempt window. The DO cannot see Native; no-reconstruction is enforced in source
   (in-isolate brands, single use, in-order transitions bound to the owner-verified request digest).
 - **Repository drift.** Main's repository `wrangler.toml` still names `olympus-privacy-operator`, while live
-  points at the successor after PATCH-1. This must be reconciled in a later release.
+  points at the successor after PATCH-1. This must be reconciled in a later release. (Resolved in .163,
+  `902b6db`: `worker/wrangler.toml` binds `PRIVACY_PRODUCTION_CONTROL` to `olympus-privacy-successor`.)
 - **Bundle bytes.** The successor bundle includes the inert predecessor operator module through the migration
   module's imports; it is never mounted. The migration module's additive export (`SUCCESSOR_NATIVE_SEAMS`,
   `successorCurrentProfileProof`) reuses the existing transport, prepare, row, graph and digest seams and

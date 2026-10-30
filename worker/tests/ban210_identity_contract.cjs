@@ -12,8 +12,14 @@ const OLD_ID='2eacf5e1013c1d036dff53cb34ff8dbb',NEW_ID='65c08247e47467e7e9213cf5
 const OLD_NONCE='c5ac54da579d734954a3adfebd15a33b',NEW_NONCE='4a3ab7b226aa7ab3ee61e84039bd6a57';
 const business=events=>events.filter(e=>e.k==='sql'&&!['WITH business','SELECT CASE','UPDATE privacy_write_admission'].some(x=>e.sql.startsWith(x)));
 const parse=value=>{try{return JSON.parse(value);}catch{return null;}};
+// SEN-01 (30 Oct 2026): interactions.ts is the accepted .212 source plus the reviewed SEN-01 hunks
+// (and its follow-up). The pinned helper reverses exactly those; the seal below stays the .212 source.
+if(sha(fs.readFileSync(path.join(__dirname,'source212-sen01-projection.cjs')))!=='6c75cc99cc658691a7c2b864e6166c4da8ac16212c97689b83cd67cfe4dd15e4')throw Error('reviewed212 SEN-01 helper differs');
+const sen01=require('./source212-sen01-projection.cjs');
 function sourceChecks(src,pins){
- return {source:sha(fs.readFileSync(path.join(src,'interactions.ts')))===expected.interactionsSHA256,
+ const raw=fs.readFileSync(path.join(src,'interactions.ts'),'utf8'),original=sen01.original212Interactions(raw);
+ return {source:original!==null&&sha(original)===expected.interactionsSHA256,
+  sen01Drift:original!==null&&sen01.driftControls(raw).every(row=>row.refused),
   fixture:sha(fs.readFileSync(path.join(__dirname,'fixtures/ban210-identity-successor.json')))==='79924df1ce3ad1b6d61c0d376d8654f2415c1bc7d758d8f89ed7bccce708cfaa',
   historicalPins:sha(pins)===expected.historicalPINSSHA256};
 }
