@@ -7523,3 +7523,12 @@ Candidate maintenance PR only. Start the two independent Organization renderer i
 No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
 
 Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .215 — accessible catalogue results (30 October 2026)
+
+Candidate maintenance PR only. Expose Addons/Guides filter result counts as polite atomic status updates. Preserve focus, existing classes, existing Updates feedback and polling behavior.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.

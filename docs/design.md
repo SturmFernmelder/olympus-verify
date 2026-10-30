@@ -2256,3 +2256,8 @@ Bounded input handling must limit accumulation, while preserving the existing ch
 ### Build .214 — parallel organization modules (30 October 2026)
 
 The overview renderer has its own context dependency. Loading its independent sibling first adds a request round trip before that dependency chain can start. Measurements are controlled synthetic cold-route observations, not production speed claims. Start the two independent Organization renderer imports together and retain the original current-view check after both complete. No route authority, model, renderer or module destination changes. This candidate adds no feature activation, provider authority or native acceptance.
+
+
+### Build .215 — accessible catalogue results (30 October 2026)
+
+A changing visible catalogue count needs an accessible status boundary. The shared message node also serves Updates, so live-region changes must stay confined to the two catalogue views. Expose Addons/Guides filter result counts as polite atomic status updates. Preserve focus, existing classes, existing Updates feedback and polling behavior. This candidate adds no feature activation, provider authority or native acceptance.
