@@ -6,6 +6,10 @@ Guidance for the AI coding agents working in this repository (Claude Code reads 
 `AGENTS.md`, which points here). It describes how the code is built and the rules that are easy to break. For what is
 deployed and what is open, read the tail of the task log (below) and `docs/deploy-checklist.md` (newest build last).
 
+**Current maintenance instructions (30 Oct 2026):** Read the [.212 maintenance checkpoint](#current-maintenance-checkpoint-30-oct-2026)
+and `docs/maintenance-audit-2026-10-30.md` before interpreting the historical release overrides below. Build .212 is
+accepted and live; the owner authorized separate maintenance PRs, not another deployment or a restart of waived experiments.
+
 **Current owner instruction (3 Oct 2026):** Claude Code reached its weekly usage limit; the owner instructed Codex to
 "Take over from here and finish the task yourself without a dual sign off." The interrupted .115 work is preserved
 at local non-release checkpoint `568c76d958eeee2f2786798bd959b0b2ae8ec299`; it is not a release qualification.
@@ -292,3 +296,93 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 
 **Build .199 owner override (25 Oct 2026):** Start from accepted main `075ee3c8b20495c2f557b78b6fe3f2e4794b0024`. Claude remains offline. Codex Root owns runtime, Git and deployment; internal independent review, all 13 PR CI jobs and completed exact-head automated PR review with zero findings remain required. Development/review fixes use affected suites, TypeScript and the fast projection check only. Run the full 198-command local expansion at most once on the final candidate after CI/review pass; occurrence 48 has 900 seconds, others 600 seconds, overall 5,400 seconds. No 15 UTC wall-clock wait: unchanged scheduled dependency closure may carry accepted .198 proof, otherwise use an explicitly labelled synthetic 15 UTC local check. This .199 rollout permits 84 strict public probes plus bot-host robots GET/HEAD 200 comment-body exceptions, and up to 60,000 ms full-audit-bin offset against the first healthy ordinary callback trace interval. Preserve raw timestamps, exceptions and unknown clock/cause; do not claim clock correction. No historical acceptance criterion is rewritten. Preserve exact live443/application442 D1 objects with zero DDL, Native E2 privacy and identify-copy budgets; Treasury cosmetic dispatch, Army aggregate and Olympus Link remain OFF. The owner clarified High Council zero-based slot1 and Officer slot2; Co-GM/Treasurer are appointments, not extra ranks. Earlier external Claude waits are superseded for this release only.
+
+## Current maintenance checkpoint (30 Oct 2026)
+
+This section records the current owner instructions; dated release instructions above remain historical. The accepted
+release is **.212**, squash merge `5b953229856896df828bcf883037485296a82d8d`, tree
+`d31837e5b799f147667905f6ae2e75333afd86b7`, from PR106 head `a57e178b5a5042be68c9181d5488f5b597bc43a5`.
+The deployed version is `ade91640-761b-4967-bc3c-034a4dcbe507`. The retained rollout packet outside this repository is
+`Olympus/release212-2026-10-30/`; it binds exact-head automated review, 13 PR jobs, 12 main jobs, the verified fresh
+backup, unchanged 442 application/443 live D1 objects, 90 public cases and the authenticated live client hash.
+Those are separate evidence scopes, not a claim that every master request, native action or local suite passed.
+
+The owner explicitly carried the bot-host comment-only robots GET/HEAD200 baseline and a 60,000 ms full audit-bin
+allowance to this .212 rollout. The original first-cron strict-zero result remains false; the observed minimum
+extension is 55 ms, with the original callback and fresh audit readback retained. This proves no clock correction
+and grants no future release an allowance. Preserve the current owner receipt and raw failures rather than editing them.
+
+### Work permitted now
+
+- Implement the owner's maintenance work in separate, narrowly reviewed PRs. Use a separate worktree for non-main
+  work; never switch this shared main checkout or overwrite another agent's work. Root owns integration, Git and
+  provider operations for the current task. File ownership and independent review must be explicit.
+- **Native game QA remains owner-deferred.** The installed public addon bytes and the native AddOns-list observation
+  do not qualify in-world verification, invites, ranks, permissions or roster export. The installed watcher host is
+  also a separate obligation: deploying the Worker does not update an officer's Python files.
+- **The full local aggregate and the custom npm/permission/resolver and Workerd experiments remain stopped.** Their
+  old consumed intents, refusals and failures stay evidence. A package-script change, new namespace, green hosted
+  CI or historical component pass does not authorize restarting them. Use only the explicitly authorized focused
+  checks for a change; no package installation into shared or junctioned dependencies.
+- A docs-only maintenance change needs no `BUILD` bump. Product changes still follow the build/pin/checklist rules
+  above and need their own exact-head review/CI. A maintenance PR does not authorize deployment, feature activation,
+  Discord effects, database DDL, private configuration migration or worktree deletion.
+
+### Current source and focused commands
+
+The .212 source baseline has 1,354 tracked paths. Metadata expansion of the actual `worker/package.json` aliases
+contains **206 command occurrences / 205 distinct commands**, including `test:qa211`; this is not a runtime or
+coverage total. `worker/scripts/ci-shards.cjs` is the command-expansion authority, and the eight-shard/collector rules
+above remain intact. The old 198/204/205 counts describe their own checkpoints. Do not rerun the aggregate to refresh a number.
+
+Use Node 24 with `node:sqlite`, and the approved installed dependency profile. The .212 focused Node checks used
+`C:/Program Files/nodejs/node.exe` v24.12.0; operational deployment and the pinned SDK profile used cached Node
+v24.22.1. These are separate qualification profiles. TypeScript remains 5.9.3 from the existing dependencies;
+do not silently substitute a different Node, compiler, loader or dependency tree for the intended check.
+Commands below describe existing focused seams; they are not blanket execution permission:
+
+```bash
+# repository root, with the approved Node binary
+node scripts/check-projections.cjs --index  # staged source/projection contract, not a build or deployment
+# worker/; use the existing approved tsc path/profile, without installing packages
+node <approved-profile>/typescript/bin/tsc --noEmit
+node tests/treasury_dispatch_restriction211_test.cjs
+node tests/full_release_roles_identity_test.cjs
+node tests/frontend_owner197_test.cjs
+node tests/site_news_test.cjs
+# watcher/; stdlib synthetic tests, never Watcher.main against live files/endpoints
+python tests/test_watcher.py
+python tests/test_discord_relay.py
+python tests/test_custody196.py
+python tests/test_attended_custody196.py
+python tests/test_restart197.py
+# repository root, using the existing approved lupa/LuaJIT interpreter, no install
+<approved-lua-python> addon/tests/run_lua_suites.py
+```
+
+`worker/tsconfig.json` intentionally includes `src/**/*.ts`; its successful check is not typechecking the `.cjs`
+tests. The separate Forever companion has its own configuration and unresolved typing/dependency evidence; do not
+transfer the keeper's compiler or CI result to it. Counts printed by tests measure assertions, not line/branch coverage.
+In particular, retain the .212 local frontend ledger assertion failure and beta fixture readiness timeout alongside
+the successful hosted checks; do not write that the local 602-check run passed.
+
+### Boundaries to preserve in maintenance
+
+- Default production admission remains the installed pre-seal profile. Do not opt into a private-next schema to make
+  a test positive. Preserve 442 application objects plus the sole platform object in the 443-object live inventory;
+  private445 fixture objects do not qualify that invariant. No DDL or cap increase is authorized by this document.
+- Preserve Native E2 custody, original request/actor/target capture, content-bound application decisions and physical
+  request budgets. Unknown/lost effects remain held; an inspected stored receipt, not a retry or present-day role
+  absence, determines the next attended action. Cosmetic appointments confer no native guild rank or extra authority.
+- Treasury live dispatch, Army aggregate and Olympus Link remain OFF unless the owner separately authorizes their
+  existing activation procedure. Read `docs/launch-runbook.md` for the .211 stored-status no-send rules; a UI preview,
+  release, publication or maintenance PR is not activation or season-start evidence.
+- Logs use fixed safe categories, never rejected codes, prefix text, parser exception payloads, token hashes, cookies
+  or private paths. Cursor, retry, resend and Unicode behavior must remain unchanged when redacting diagnostics.
+- Keep static historical test authorities immutable. Where current source deliberately differs, a closed, reviewed
+  reconstruction must prove the exact finite inverse; execute current source only. Never broadly re-record old
+  dynamic traces, suppress failed assertions or load old code merely to regain a seal.
+
+The dated maintenance audit records the actual bounded dependency/advisory review, remaining test gaps, open PRs,
+worktree retention reasons and master-request disposition. It does not certify all first-party files as manually
+reviewed, approve deletion of retained evidence or replace current exact-head release receipts.
