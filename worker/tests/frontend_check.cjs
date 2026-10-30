@@ -1173,14 +1173,18 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await cal.go("#/community/calendar");
   await waitFor(() => !!byText(cal.app, "a", "Molten Core"), "the calendar");
   const rangeNow = cal.app.querySelector(".plaque .btn-row span").textContent;
-  let slowed = false;
+  const calendarMore102 = byText(byText(cal.app, "h2", "Calendar").closest("section"), "button", "Show more");
+  let slowed = false, completedCalendar102 = 0;
   cal.delay((p) => { if (!slowed && p.startsWith("/api/community/events?from=")) { slowed = true; return 150; } return 0; });
-  byText(cal.app, "button", "Earlier").click(); // a slow reply for the earlier window…
-  await settle();
-  byText(cal.app, "button", "Later").click(); // …then back to the current window before it arrives
-  await new Promise((r) => setTimeout(r, 400));
-  check("F96-1: a reply for a window the viewer has left is discarded: the current window's rows once each, its range shown, no stale status", cal.app.querySelectorAll("a").filter((a) => a.textContent === "Molten Core").length === 1 && cal.app.querySelector(".plaque .btn-row span").textContent === rangeNow && !cal.app.textContent.includes("Nothing is scheduled in this window"), JSON.stringify(texts(cal.app, ".card h3 a")));
-  cal.delay(null);
+  cal.hold((p) => { if (p.startsWith("/api/community/events?from=")) completedCalendar102++; return 0; });
+  try {
+    byText(cal.app, "button", "Earlier").click(); // a slow reply for the earlier window…
+    await settle();
+    byText(cal.app, "button", "Later").click(); // …then back to the current window before it arrives
+    const settledCalendar102 = await waitFor(() => completedCalendar102 === 2 && !calendarMore102.disabled, "both original calendar replies and current window settlement");
+    await settle(); await settle();
+    check("F96-1: a reply for a window the viewer has left is discarded: the current window's rows once each, its range shown, no stale status", settledCalendar102 && completedCalendar102 === 2 && cal.app.querySelectorAll("a").filter((a) => a.textContent === "Molten Core").length === 1 && cal.app.querySelector(".plaque .btn-row span").textContent === rangeNow && !cal.app.textContent.includes("Nothing is scheduled in this window"), JSON.stringify(texts(cal.app, ".card h3 a")));
+  } finally { cal.delay(null); cal.hold(null); }
   const MONDAY2 = MONDAY - 7 * DAY;
   r = await apiAs(STAFF, "POST", "/api/admin/community/contributions", { action: "obligation", discordId: MEMBER, periodStart: isoAt(MONDAY2) });
   const WEEK2_ID = r.body.result && r.body.result.id;
@@ -1254,16 +1258,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(cr.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => !!byText(cr.app, "h2", "Crafting offers"), "the crafting panel");
   const craft3 = byText(cr.app, "h2", "Crafting offers").closest("section");
-  let slow3 = false;
+  const craftingMore104 = byText(craft3, "button", "Show more");
+  let slow3 = false, completedCrafting104 = 0;
   cr.delay((p) => { if (!slow3 && p.includes("/api/community/crafting?q=flask")) { slow3 = true; return 150; } return 0; });
-  craft3.querySelector('input[type="search"]').value = "flask";
-  byText(craft3, "button", "Search").click();
-  await settle();
-  craft3.querySelector('input[type="search"]').value = "zzzz";
-  byText(craft3, "button", "Search").click();
-  await new Promise((r) => setTimeout(r, 400));
-  check("F100-3: a reply to a superseded crafting search is discarded: no card from the old query under the new one, the new status shown", craft3.querySelectorAll(".card.craft").length === 0 && craft3.textContent.includes("No offer matches"), JSON.stringify(texts(craft3, ".card.craft h3")));
-  cr.delay(null);
+  cr.hold((p) => { if (p === "/api/community/crafting?q=flask" || p === "/api/community/crafting?q=zzzz") completedCrafting104++; return 0; });
+  try {
+    craft3.querySelector('input[type="search"]').value = "flask";
+    byText(craft3, "button", "Search").click();
+    await settle();
+    craft3.querySelector('input[type="search"]').value = "zzzz";
+    byText(craft3, "button", "Search").click();
+    const settledCrafting104 = await waitFor(() => completedCrafting104 === 2 && !craftingMore104.disabled, "both original crafting replies and current search settlement");
+    await settle(); await settle();
+    check("F100-3: a reply to a superseded crafting search is discarded: no card from the old query under the new one, the new status shown", settledCrafting104 && completedCrafting104 === 2 && craft3.querySelectorAll(".card.craft").length === 0 && craft3.textContent.includes("No offer matches"), JSON.stringify(texts(craft3, ".card.craft h3")));
+  } finally { cr.delay(null); cr.hold(null); }
 
   console.log("\n== .105: two inherited wordings (Codex, 10:48) ==");
   check(".196 application consent separates the optional Discord portrait from original board consent and class art", APP_JS.includes("They see your Discord display name and class icon") && APP_JS.includes("Your Discord picture is shown only if you choose the separate optional box below.") && APP_JS.includes("Also show my Discord profile picture on the voting board (optional).") && APP_JS.includes("Earlier board consent did not include a Discord picture.") && !APP_JS.includes("Discord display name and profile picture alongside your class icon") && !APP_JS.includes("never your Discord picture") && !APP_JS.includes("They see your Discord name and picture"));

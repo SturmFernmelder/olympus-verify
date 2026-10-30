@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 702023,
-      "sha256": "45b252bdf6e139d61ed1cbdc2d9e4cba9c7270073677bdf5ac1b2baeea3834a9"
+      "bytes": 702219,
+      "sha256": "b477175f3cfb6d04061aa02181d50fceccc8b64486763eafb081c4947bb09185"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -3828,8 +3828,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 702023,
-      "sha256": "45b252bdf6e139d61ed1cbdc2d9e4cba9c7270073677bdf5ac1b2baeea3834a9"
+      "bytes": 702219,
+      "sha256": "b477175f3cfb6d04061aa02181d50fceccc8b64486763eafb081c4947bb09185"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4116,8 +4116,8 @@
     {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
-      "bytes": 52488,
-      "sha256": "b3adabec4507461df092fcac5a375eb89713557eaef6c5379c77716ecda5297c"
+      "bytes": 52601,
+      "sha256": "68859735357d732d44ed76af8a5816e686ca850f8cf0b72a4a37f111aea6a308"
     },
     {
       "path": "worker/public/static/role-rank199.js",

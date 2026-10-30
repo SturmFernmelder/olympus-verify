@@ -197,8 +197,86 @@ class WatcherTests(unittest.TestCase):
         events = [c[2]["events"][0] for c in self.calls if c[1] == "/ingest/events"]
         self.assertEqual([(e["type"], e["name"]) for e in events], [("joined", "Aelin Stormwarden"), ("left", "Dorn Late"), ("left", "Bad Actor")])
         self.assertEqual(events[2]["detail"], "kicked by Fern Melder")
+        self.assertTrue(all(e["origin"] == "chatlog" for e in events), "plain chat lines retain unverified origin")
         self.w.tail_chat_log()
         self.assertEqual(len(self.calls), 3)
+
+    def test_rejected_chat_tokens_are_withheld_without_stalling_or_forwarding(self):
+        chat = self.wow / "Logs" / "WoWChatLog.txt"
+        chat.write_bytes(b"")
+        rejected, malformed = "ZZZ999", "PRIVATEPROOFSENTINEL"
+        ticket = codes.ticket_for("olympus-test-secret", "QA7", codes.day_bucket(datetime.now(timezone.utc)))
+        captured = io.StringIO()
+        real_kind = codes.code_kind
+        def classify(secret, sender, code):
+            return None if code == rejected else real_kind(secret, sender, code)
+        with contextlib.redirect_stdout(captured), patch.object(codes, "code_kind", side_effect=classify) as checked:
+            self.w.tail_chat_log()
+            chat.write_text(f"{_stamp()} Rejected Sentinel whispers: !verify {rejected}\n"
+                            f"{_stamp()} Malformed Sentinel whispers: !verify {malformed}\n"
+                            f"{_stamp()} Accepted Sentinel whispers: !verify {ticket}\n", encoding="utf-8")
+            self.w.tail_chat_log()
+            self.assertEqual([call.args[2] for call in checked.call_args_list], [rejected, ticket],
+                             "malformed input never reaches validation; valid input still uses the real validator")
+            self.assertEqual(self.w.state.d["chat_offset"], chat.stat().st_size)
+            self.assertEqual([(method, path, body["character"], body["code"]) for method, path, body in self.calls],
+                             [("POST", "/ingest/verify", "Accepted Sentinel", ticket)])
+            self.w.tail_chat_log()
+            self.assertEqual(len(self.calls), 1, "consumed rejected and accepted lines are not replayed")
+        output = captured.getvalue()
+        self.assertIn("Rejected Sentinel: invalid/expired code (not forwarded)", output)
+        self.assertIn("Malformed Sentinel: malformed code (not forwarded)", output)
+        for private_value in (rejected, malformed, malformed[:12], ticket):
+            self.assertNotIn(private_value, output)
+
+    def test_savedvars_parse_failures_withhold_contents_and_keep_the_original_cursor_policy(self):
+        sv = self.wow / "WTF" / "Account" / "ACC" / "SavedVariables" / "OlympusVerify.lua"
+        sentinel = "PRIVATE_PARSE_SENTINEL"
+        for index, payload in enumerate((f'OlympusVerifyDB = {{ @{sentinel} }}',
+                                         f'OlympusVerifyDB = {{ ["events"] = {sentinel} }}'), start=1):
+            with self.subTest(payloadClass=index):
+                # Exercise the real parser first so an empty or unrelated failure cannot satisfy the absence check.
+                with self.assertRaises(ValueError) as parser_failure:
+                    savedvars.parse(payload)
+                self.assertIn(sentinel[:12], str(parser_failure.exception))
+                sv.write_text(payload, encoding="utf-8")
+                os.utime(sv, (1700000000 + index, 1700000000 + index))
+                before = {key: value for key, value in self.w.state.d.items() if key != "sv_mtime"}
+                captured = io.StringIO()
+                with contextlib.redirect_stdout(captured):
+                    self.w.check_savedvars()
+                self.assertIn("SavedVariables parse failed: unreadable or invalid data (contents withheld)", captured.getvalue())
+                for private_value in (sentinel, sentinel[:12], str(parser_failure.exception)):
+                    self.assertNotIn(private_value, captured.getvalue())
+                self.assertEqual(self.calls, [], "a failed parse forwards no data")
+                self.assertEqual(self.w.state.d["sv_mtime"], sv.stat().st_mtime)
+                self.assertEqual(json.loads(self.w.state.path.read_text(encoding="utf-8"))["sv_mtime"], sv.stat().st_mtime)
+                self.assertEqual({key: value for key, value in self.w.state.d.items() if key != "sv_mtime"}, before)
+                with contextlib.redirect_stdout(io.StringIO()) as unchanged:
+                    self.w.check_savedvars()
+                self.assertEqual(unchanged.getvalue(), "", "unchanged failed file is not retried")
+
+    def test_savedvars_read_error_text_is_withheld_without_changing_failure_state(self):
+        sv = self.wow / "WTF" / "Account" / "ACC" / "SavedVariables" / "OlympusVerify.lua"
+        sv.write_text("synthetic unreadable source", encoding="utf-8")
+        captured = io.StringIO()
+        with patch.object(savedvars, "parse_file", side_effect=OSError("PRIVATE_READ_ERROR")), contextlib.redirect_stdout(captured):
+            self.w.check_savedvars()
+        self.assertIn("contents withheld", captured.getvalue())
+        self.assertNotIn("PRIVATE_READ_ERROR", captured.getvalue())
+        self.assertEqual(self.w.state.d["sv_mtime"], sv.stat().st_mtime)
+        self.assertEqual(self.calls, [])
+
+    def test_lag_summary_reports_measurements_without_assigning_a_flush_or_batch_cause(self):
+        for lags, expected in [([1, 3], "2 line(s): median 2s, slowest 3s, 2 within 10s"),
+                               ([30, 300], "2 line(s): median 165s, slowest 300s, 0 within 10s")]:
+            with self.subTest(lags=lags):
+                self.w.state.d["lag"] = [["whisper", lag, 1700000000] for lag in lags]
+                summary = self.w.lag_summary()
+                self.assertIn(expected, summary)
+                self.assertIn("file observation only", summary)
+                self.assertNotIn("flush", summary)
+                self.assertNotIn("batch", summary)
 
     def test_savedvars_roster_and_events(self):
         sv = self.wow / "WTF" / "Account" / "ACC" / "SavedVariables" / "OlympusVerify.lua"
@@ -513,7 +591,7 @@ class SignedEventTests(unittest.TestCase):
         kinds = [(k, lag) for k, lag, _ in self.w.state.d["lag"]]
         self.assertEqual([k for k, _ in kinds], ["whisper", "system"])
         self.assertLess(kinds[0][1], 5, "a line read at once shows a lag of seconds")
-        self.assertGreater(kinds[1][1], 250, "a line that waited for the batch shows minutes")
+        self.assertGreater(kinds[1][1], 250, "a line read five minutes after its timestamp shows minutes")
         self.assertIn("median", self.w.lag_summary())
 
     def test_diag_markers_are_timed_wherever_they_land(self):
@@ -1096,9 +1174,9 @@ class LogEncodingTests(unittest.TestCase):
         raw = io.BytesIO()
         stream = io.TextIOWrapper(raw, encoding="cp1252")
         with contextlib.redirect_stdout(stream):
-            watcher.log("whisper from Łucja: invalid/expired code ZZZ999 (not forwarded)")
+            watcher.log("whisper from Łucja: invalid/expired code (not forwarded)")
         stream.flush()
-        self.assertIn(b"whisper from \\u0141ucja: invalid/expired code ZZZ999", raw.getvalue())
+        self.assertIn(b"whisper from \\u0141ucja: invalid/expired code (not forwarded)", raw.getvalue())
 
     def test_chat_lane_moves_past_such_a_whisper(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1119,7 +1197,9 @@ class LogEncodingTests(unittest.TestCase):
                 w.tail_chat_log()
                 self.assertEqual(w.state.d["chat_offset"], chat.stat().st_size)
             stream.flush()
-            self.assertIn(b"whisper from Qaother: invalid/expired code YYY888", raw.getvalue())
+            self.assertIn(b"whisper from Qaother: invalid/expired code (not forwarded)", raw.getvalue())
+            self.assertNotIn(b"ZZZ999", raw.getvalue())
+            self.assertNotIn(b"YYY888", raw.getvalue())
 
 
 class OpsHardening069Tests(unittest.TestCase):

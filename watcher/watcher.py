@@ -2,9 +2,9 @@
 """olympus-verify watcher — runs on the officer's PC next to the WoW client. Standard library only.
 
 What it does, forever, politely:
-  1. tails Logs/WoWChatLog.txt and forwards valid `!verify CODE` whispers to the Worker (the fast path — the client
-     writes that file in 48 KiB batches; the addon forces a write after each whisper and each guild join or departure,
-     and the lag this watcher measures on every line says whether that works — see --check)
+  1. tails Logs/WoWChatLog.txt and forwards valid `!verify CODE` whispers to the Worker (the client writes in
+     48 KiB batches and at /reload or logout; the measured lag describes when lines reached this watcher,
+     not an addon flush or its cause — see --check)
   2. re-reads the addon's SavedVariables after every /reload or logout: mail codes, invite/joined/note events, the roster export
   3. pulls the invite queue from the Worker and writes Interface/AddOns/OlympusVerify/OlympusQueue.lua
      (the addon reads it at the next login or /reload and fires the invites on the officer's key press)
@@ -663,8 +663,8 @@ class Watcher:
         # 0.6.9: split on "\n" only. str.splitlines() also breaks at U+2028, U+0085, \x0b and similar, so one relayed
         # chat line could carry a second, forged "... whispers: !verify" line inside it.
         lines = [raw.strip("\r\n\ufeff") for raw in chunk.decode("utf-8", errors="replace").split("\n") if raw.strip("\r\n\ufeff")]
-        # The addon writes its identity note right after the whisper it confirms, and both reach the file in one flush:
-        # read the notes first, so the verification relayed from the whisper line can carry the character's GUID.
+        # When an identity note and its confirmed whisper share this read, process the note first so the relayed
+        # verification can carry the character's GUID. This does not assume when the client writes either line.
         for line in lines:
             if "ref OLVg-" in line:
                 self.read_identity(line)
@@ -692,14 +692,14 @@ class Watcher:
             return
         code = codes.strict_code(v.group("code"))
         if not code:
-            log(f"whisper from {sender}: '{v.group('code')[:12]}' is not a code (not forwarded)")
+            log(f"whisper from {sender}: malformed code (not forwarded)")
             return
         self.note_lag("whisper", line)
         # Checked before it is marked seen: a code this PC's clock cannot accept yet (just after midnight UTC on a slow
         # clock) must still go through when it is whispered again, not be remembered as done.
         kind = codes.code_kind(self.secret, sender, code)
         if not kind:
-            log(f"whisper from {sender}: invalid/expired code {code} (not forwarded)")
+            log(f"whisper from {sender}: invalid/expired code (not forwarded)")
             return
         key = self.code_key("w", sender, code)
         if self.state.was_seen(key):
@@ -743,8 +743,8 @@ class Watcher:
 
     # ---------- timing: does the chat log reach disk in seconds? ----------
     def note_lag(self, kind: str, line: str) -> None:
-        """How long after the client wrote this line (its own timestamp) this watcher read it. Seconds mean the addon's
-        flush works; minutes mean lines wait for the client's 48 KiB batch. Backlog after a restart is not counted."""
+        """Elapsed time from the line's client timestamp to this read, without attributing its cause to a flush,
+        batch or reload. Backlog after a restart is not counted."""
         t = line_epoch(line)
         if t is None:
             return
@@ -762,7 +762,7 @@ class Watcher:
         lags = [float(s[1]) for s in samples]
         fast = sum(1 for x in lags if x <= 10)
         return (f"{len(lags)} line(s): median {statistics.median(lags):.0f}s, slowest {max(lags):.0f}s, "
-                f"{fast} within 10s ({'the flush works' if fast >= max(1, len(lags) * 0.8) else 'lines are waiting for the 48 KiB batch'})")
+                f"{fast} within 10s (file observation only)")
 
     def note_diag_line(self, line: str) -> None:
         for m in DIAG_RE.finditer(line):
@@ -1063,8 +1063,8 @@ class Watcher:
         return name or self.officer
 
     def handle_guild_line(self, line: str) -> None:
-        """Guild joins and departures from the chat log: the Worker grants/strips the role at once instead of waiting
-        for the next roster export (which still reconciles everything on the officer's next /reload)."""
+        """Relay unverified chat-log joins and departures. This forgeable source can only arm a removal, never grant
+        or strip a role; trusted events and roster exports retain their separate authority."""
         s = SYSTEM_RE.match(line)
         if not s:
             return
@@ -1102,8 +1102,8 @@ class Watcher:
         time.sleep(1.0)  # WoW writes the file in one go, but give it a moment
         try:
             data = savedvars.parse_file(str(self.sv_file))
-        except Exception as e:
-            log(f"SavedVariables parse failed: {e}")
+        except Exception:
+            log("SavedVariables parse failed: unreadable or invalid data (contents withheld)")
             self.state.d["sv_mtime"] = mtime
             self.state.save()
             return

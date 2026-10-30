@@ -4143,7 +4143,7 @@
     targetReference.addEventListener("click", async () => {
       if (!live() || targetReference.disabled) return; const originalTarget = target, generation = targetGeneration; busy = true; sync();
       try { const d = await api("POST", path + "target", { discordId: originalTarget }, { live }); if (live() && generation === targetGeneration && target === originalTarget) { if (d?.discordId !== originalTarget || typeof d.mailReference !== "string" || !/^TITHE-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(d.mailReference)) throw Error("Unreadable target reference"); mail.value = d.mailReference; notice.textContent = "Reference read from the member's ledger. This is not proof of payment."; } }
-      catch (e) { if (live() && generation === targetGeneration) notice.textContent = explain(e, "The current member's reference could not be read."); }
+      catch (e) { if (live() && generation === targetGeneration) notice.textContent = e?.status === 503 && codeOf(e) === "treasury_unconfigured" ? "Treasury is not configured. This member's TITHE reference could not be read. Ask a site administrator to check the Treasury setup." : explain(e, "The current member's reference could not be read."); }
       finally { busy = false; if (live()) sync(); }
     });
     const drawPreview = (d, originalTarget, originalLabel, generation) => {

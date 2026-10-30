@@ -49,7 +49,7 @@ python tests/unverified_sql_test.py        # SQL suites (from worker/)
 python tests/backfill_sql_test.py
 npx wrangler deploy --dry-run --outdir <scratch>   # bundle without deploying
 # from watcher/:
-python tests/test_watcher.py               # 61 tests (2 skipped without a lua binary)
+python tests/test_watcher.py               # 71 tests (2 skipped without a lua binary)
 python tests/test_discord_relay.py         # 16 relay cases
 # from the repository root:
 python tools/tests/test_backfill_roles.py
