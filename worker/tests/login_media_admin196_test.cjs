@@ -2,7 +2,7 @@
 // Discord is synthetic via the unchanged site_test fixture; no real provider or deployment.
 const fs196=require('node:fs'),path196=require('node:path'),{Module}=require('node:module');
 const fixture196=path196.join(__dirname,'site_test.cjs'),text196=fs196.readFileSync(fixture196,'utf8');
-const boundary196=/^\(async \(\) => \{\r?\n  console\.log\("== schema: ordinary serving cannot migrate historical databases =="\);/gm;
+const boundary196=/^\(async \(\) => \{\r?\n  console\.log\("== \.213: the original site JSON limit applies during consumption =="\);/gm;
 const cuts196=[...text196.matchAll(boundary196)];
 if(cuts196.length!==1)throw Error('one original site fixture boundary required');
 const prefix196=text196.slice(0,cuts196[0].index);

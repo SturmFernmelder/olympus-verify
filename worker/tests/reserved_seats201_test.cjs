@@ -92,7 +92,7 @@ async function native201(){
 }
 
 module.exports=(async()=>{
- const ordinary=prefix201('site_test.cjs',/^\(async \(\) => \{\r?\n  console\.log\("== schema: ordinary serving cannot migrate historical databases =="\);/gm,'b36638dea6d0ea089fd0603959aa4d92a61b1bd096ad87509af027740d9606fc');
+ const ordinary=prefix201('site_test.cjs',/^\(async \(\) => \{\r?\n  console\.log\("== \.213: the original site JSON limit applies during consumption =="\);/gm,'b36638dea6d0ea089fd0603959aa4d92a61b1bd096ad87509af027740d9606fc');
  const worker=new Module(__filename,module);worker.filename=__filename;worker.paths=Module._nodeModulePaths(__dirname);worker._compile(ordinary+'\nmodule.exports=('+worker201.toString()+')();',__filename);const workerResult=await worker.exports;
  const nativePrefix=prefix201('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'83b4fe71835e987ede23c482568ab067ce84700b51cca4b4efac6119f262896a');
  const native=new Module(__filename,module);native.filename=__filename;native.paths=Module._nodeModulePaths(__dirname);native._compile(nativePrefix+'\nmodule.exports=('+native201.toString()+')();',__filename);return{worker:workerResult,native:await native.exports};

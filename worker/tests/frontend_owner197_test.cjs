@@ -660,10 +660,11 @@ async function frontendOwner197() {
     const revisionSource199=revisionSources199[0][0];
     const overviewSource199=cut199('  async function adminOverview(body) {','  async function drawHeat(box) {');
     const orgOriginal199=cut199('  ROUTES.organization = async (main, parts) => {','  // ---------------------------------------------------------------- home');
-    const moduleExpression199='await import("/static/organization-view.js")';
-    const overviewModuleExpression205='await import("/static/organization-overview205.js")';
-    if(orgOriginal199.split(moduleExpression199).length!==2||orgOriginal199.split(overviewModuleExpression205).length!==2)throw Error('owner199_organization_module_boundary');
-    const orgSource199=orgOriginal199.replace(moduleExpression199,'await loadOrganization199()').replace(overviewModuleExpression205,'await loadAllianceOverview205()');
+    const moduleExpression199='import("/static/organization-view.js")';
+    const overviewModuleExpression205='import("/static/organization-overview205.js")';
+    const parallelModules214='const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      '+moduleExpression199+',\n      '+overviewModuleExpression205+'\n    ]);';
+    if(orgOriginal199.split(parallelModules214).length!==2||orgOriginal199.split(moduleExpression199).length!==2||orgOriginal199.split(overviewModuleExpression205).length!==2)throw Error('owner199_organization_module_boundary');
+    const orgSource199=orgOriginal199.replace(moduleExpression199,'loadOrganization199()').replace(overviewModuleExpression205,'loadAllianceOverview205()');
     const deferred199=()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return{promise,resolve};};
     const realOverview199=await request('GET','/api/admin/overview',undefined,STAFF);
     if(realOverview199.response.status!==200||!realOverview199.body.settings)throw Error('owner199_original_overview_fixture_refused');
