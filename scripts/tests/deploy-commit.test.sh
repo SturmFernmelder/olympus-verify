@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The argument contract of scripts/deploy-commit.sh (Codex review of 6de12d2): a fake `npx` on PATH records what would
+# The argument contract of scripts/deploy-commit.sh (Codex review of 6de12d2): a fake `node` on PATH records the fixed CLI after the real profile check, before it would
 # have reached wrangler, so the accepted forms can be checked and every refused form shown to stop before wrangler.
 # Run from the repository root:  bash scripts/tests/deploy-commit.test.sh
 set -u
@@ -14,9 +14,11 @@ case "$fake" in
   *) echo "refusing: temp dir $fake is not inside $base" >&2; exit 1 ;;
 esac
 trap 'rm -rf -- "$fake"' EXIT
-cat > "$fake/npx" <<'EOF'
+export REAL_NODE="$(command -v node)"
+cat > "$fake/node" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FAKE_LOG"
+case "${1:-}" in *wrangler-dist*cli.js) shift ;; *) exec "$REAL_NODE" "$@" ;; esac
+printf '%s\n' "--no-install wrangler $*" >> "$FAKE_LOG"
 printf '%s\n' "$@" > "$FAKE_ARGV"
 for (( i=1; i<=$#; i++ )); do
   if [ "${!i}" = --config ]; then
@@ -25,7 +27,7 @@ for (( i=1; i<=$#; i++ )); do
 done
 exit 0
 EOF
-chmod +x "$fake/npx"
+chmod +x "$fake/node"
 export FAKE_LOG="$fake/calls.log"
 export FAKE_ARGV="$fake/argv.log"
 export FAKE_CONFIG="$fake/exported-config.toml"
@@ -42,6 +44,12 @@ rc="$(run HEAD --dry-run)"
 check "HEAD --dry-run is accepted and reaches wrangler once" $([ "$rc" -eq 0 ] && [ "$(calls)" -eq 1 ] && echo 0 || echo 1)
 check "  with deploy --config <export>/worker/wrangler.toml --dry-run and nothing else" $(grep -Eq '^--no-install wrangler deploy --config .*/worker/wrangler\.toml --dry-run$' "$FAKE_LOG" && echo 0 || echo 1)
 check "  and names the exact SHA" $(grep -q "Deploying commit $sha" "$fake/out" && echo 0 || echo 1)
+
+# An actual accepted older Git snapshot, not a synthetic copy of the current scripts.
+rollback="fb0c0ccf629d65d932365685eb13346e45b57eee"
+rc="$(run "$rollback" --dry-run --keep-vars)"
+git show "$rollback:worker/wrangler.toml" > "$fake/rollback.toml"
+check "accepted .216 rollback predating the profile reaches the fixed CLI once with its exact archived config" $([ "$rc" -eq 0 ] && [ "$(calls)" -eq 1 ] && cmp -s "$fake/rollback.toml" "$FAKE_CONFIG" && grep -q "Deploying commit $rollback" "$fake/out" && echo 0 || echo 1)
 
 rc="$(run HEAD --dry-run --outdir "$fake/bundle")"
 check "--outdir <dir> after --dry-run is passed on" $([ "$rc" -eq 0 ] && grep -Eq -- "--dry-run --outdir $fake/bundle\$" "$FAKE_LOG" && echo 0 || echo 1)

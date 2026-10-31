@@ -60,3 +60,30 @@
 
 .talents-level-presets button[aria-pressed="true"]{border-color:#ddc37c;background:#49402c;color:#fff1ba}
 @media(forced-colors:active){.talents-level-presets button[aria-pressed="true"]{border-color:Highlight;outline:1px solid Highlight}}
+/* .218: Compare to Classic layout. Nodes glide between Forever and Classic 1.12 cells with the Web Animations API; no inline styles. */
+.talents-node[data-row="8"]{grid-row:8}.talents-node[data-row="9"]{grid-row:9}.talents-node[data-row="10"]{grid-row:10}
+.talents-tree.talents-classic-layout .talents-grid{grid-template-rows:repeat(9,var(--talent-row));height:auto;min-height:478px}
+.talents-tree.talents-classic-layout .talents-grid::before{content:"";grid-row:8;grid-column:1/-1;align-self:start;height:0;margin-top:-7px;border-top:1px dashed #7d7259}
+.talents-links{transition:opacity .28s ease}.talents-tree.talents-classic-layout .talents-links{opacity:0}
+.talents-node[data-classic-extra] .talents-pick{border-style:dashed}
+.talents-node-tag{position:absolute;left:50%;bottom:-10px;z-index:3;transform:translateX(-50%);padding:0 3px;border:1px solid #6f6650;border-radius:2px;background:#1b1912;color:#efe1b2;font-size:9px;font-weight:700;letter-spacing:.03em;line-height:12px;white-space:nowrap;pointer-events:none}
+.talents-node-tag[hidden]{display:none}
+.talents-node-tag[data-tag="new"],.talents-node-tag[data-tag="buffed"],.talents-tag.new,.talents-tag.buffed{border-color:#5fbf78;color:#aef1c1}
+.talents-node-tag[data-tag="nerfed"],.talents-tag.nerfed{border-color:#c46a5c;color:#f5b6aa}
+.talents-node-tag[data-tag="reworked"],.talents-tag.reworked{border-color:#b18bd6;color:#dfc9f4}
+.talents-node-tag[data-tag="moved"],.talents-tag.moved{border-color:#5f9fcf;color:#bddff8}
+.talents-node-tag[data-tag="tuned"],.talents-tag.tuned,.talents-tag.ranks{border-color:#c9a45a;color:#f2da9f}
+.talents-layout-note{margin:0!important;padding:6px 12px;background:#151511;color:#c4bda8;font-size:11px}.talents-layout-note[hidden]{display:none}
+.talents-change-detail{margin-top:8px;padding-top:8px;border-top:1px solid #3d3a30}
+.talents-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 6px!important}.talents-tag{padding:1px 6px;border:1px solid #6f6650;border-radius:9px;font-size:10px;font-weight:700;letter-spacing:.03em}
+.talents-deltas{font-size:11px;color:#d6cfba}.talents-delta{display:inline-block;margin:2px 4px 2px 0;padding:0 5px;border-radius:3px;background:#2a271d;font-variant-numeric:tabular-nums}.talents-delta.better{color:#aef1c1}.talents-delta.worse{color:#f5b6aa}
+.talents-diff-table{width:100%;margin:6px 0;border-collapse:collapse;table-layout:fixed;font-size:11px}.talents-diff-table caption{padding:2px 0;color:#d9cbab;text-align:left}
+.talents-diff-table th,.talents-diff-table td{padding:4px 5px;border-top:1px solid #3d3a30;text-align:left;vertical-align:top;overflow-wrap:anywhere}.talents-diff-table thead th{color:#e4cf96;font-size:10px}.talents-diff-table tbody th{width:4.6em;color:#bfb79f;font-weight:600}
+.talents-diff-note{font-size:10px;color:#a9a69c}
+.talents-insights{display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid #51452e}
+@media(min-width:1100px){.talents-insights{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.talents-insights>.talents-stats60-host{border-top:0;border-left:1px solid #51452e}}
+.talents-changes{min-width:0;padding:14px;background:#171715}.talents-changes h3{margin:0 0 8px;color:#e4cf96;font-size:16px}
+.talents-change-tree{margin:6px 0;border:1px solid #3f3a2c;border-radius:3px;background:#1d1c18}.talents-change-tree>summary{cursor:pointer;min-height:32px;padding:7px 9px;color:#e7d49e;font-size:12px}
+.talents-change-tree>summary:focus-visible{outline:2px solid #e4cf96;outline-offset:-2px}.talents-change-group{padding:0 10px 8px}.talents-change-group h4{margin:8px 0 3px;color:#d9cbab;font-size:12px}
+.talents-change-group ul{margin:0;padding-left:18px;color:#cac6b9;font-size:12px}.talents-change-group li{margin:2px 0;overflow-wrap:anywhere}.talents-change-source{margin:10px 0 0!important;color:#aaa69c;font-size:11px;overflow-wrap:anywhere}
+@media(forced-colors:active){.talents-node-tag,.talents-tag,.talents-delta{border-color:CanvasText;color:CanvasText;background:Canvas}.talents-tree.talents-classic-layout .talents-grid::before{border-color:CanvasText}}

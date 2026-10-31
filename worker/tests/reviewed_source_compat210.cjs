@@ -9,7 +9,7 @@ if(sha(bytes)!=='cb7414c9187bc856f81ee67daccd2922a86d639bd35c3155d625bf5131bf1d6
 const manifest=JSON.parse(bytes.toString('utf8'));
 // SEN-01 (30 Oct 2026): current interactions.ts first reverses its reviewed SEN-01 hunks (and its
 // follow-up's) to the accepted .212 source through this pinned helper; every .210 stage below then applies unchanged.
-if(sha(fs.readFileSync(path.join(__dirname,'source212-sen01-projection.cjs')))!=='6c75cc99cc658691a7c2b864e6166c4da8ac16212c97689b83cd67cfe4dd15e4')throw Error('reviewed212 SEN-01 helper differs');
+if(sha(fs.readFileSync(path.join(__dirname,'source212-sen01-projection.cjs')))!=='d039965be729245314c4de4f105c9accc23796f1706b7b13bfb4bd5de6a734f0')throw Error('reviewed212 SEN-01 helper differs');
 const sen01=require('./source212-sen01-projection.cjs');
 function reverse(raw,stage){
  if(typeof raw!=='string'&&!Buffer.isBuffer(raw))return null;

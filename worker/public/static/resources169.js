@@ -40,6 +40,37 @@
     for (const row of value.corrections) if (!fields(row, ["claim", "treatment", "links"]) || !text(row.claim, 4000) || !text(row.treatment, 4000) || !links(row.links)) throw Error("owner directory correction");
     return value;
   }
+  // .218: requested addons without a qualifying Forever release. Plain text and project links only;
+  // one malformed row refuses the whole catalogue before anything renders.
+  function checkedWatchlist(value) {
+    const text = v => typeof v === "string" && v.length > 0 && v.length < 400;
+    if (!Array.isArray(value) || value.length > 20) throw Error("addon watchlist");
+    const ids = new Set();
+    for (const row of value) {
+      const url = row && typeof row === "object" && !Array.isArray(row) && text(row.url) ? safeUrl(row.url) : null;
+      if (!url || !["www.curseforge.com", "github.com"].includes(new URL(url).hostname) || Object.keys(row).sort().join() !== "id,name,note,url" || !text(row.id) || !/^[a-z][a-z0-9-]*$/.test(row.id) || ids.has(row.id) || !text(row.name) || !text(row.note)) throw Error("addon watchlist");
+      ids.add(row.id);
+    }
+    return value;
+  }
+  // After the curated cards: the reviewed directory link, then the closed watchlist. Neither joins search, filters or the count.
+  function addonExtras(newsSources, watchlist) {
+    const box = el("div", undefined, "resources169-more");
+    const directory = Array.isArray(newsSources) ? newsSources.find(row => row && row.id === "curseforge-forever") : undefined;
+    const browse = directory && typeof directory.name === "string" && directory.name.length > 0 && directory.name.length <= 200 ? safeUrl(directory.url) : null;
+    if (browse) {
+      const row = el("p", undefined, "resources169-browse"); row.append(link(directory.name, browse)); box.append(row);
+      if (typeof directory.scope === "string" && directory.scope.length <= 400) box.append(el("p", directory.scope, "resources169-note"));
+    }
+    if (watchlist && watchlist.length) {
+      const details = el("details", undefined, "resources169-provenance resources169-watchlist"); details.open = false;
+      details.append(el("summary", "Requested addons not listed for Forever"), el("p", "No qualifying Forever release was found for these requested addons. Each link opens the original project page; notes name alternatives where one exists.", "resources169-note"));
+      const list = el("ul", undefined, "resources169-limits");
+      for (const item of watchlist) { const row = el("li"); row.append(link(item.name, item.url), el("p", item.note, "resources169-meta")); list.append(row); }
+      details.append(list); box.append(details);
+    }
+    return box.children.length ? box : null;
+  }
   function ownerDirectory(value) {
     const section = el("section", undefined, "resources169-owner-directory"); section.setAttribute("aria-label", value.title);
     section.append(el("h2", value.title), el("p", `Reviewed: ${value.sourceCheckedAt}. Source checks: ${value.reconciledAt.slice(0, 10)}.`, "resources169-meta"), el("p", value.scopeNote, "resources169-note"));
@@ -83,10 +114,10 @@
     const heading = el("header", undefined, "resources169-heading");
     const titles = { addons: "Addons for Forever", guides: "The adventurer's library", updates: "Game updates" };
     const introductions = { addons: "Choose tools for the way you play. Check the Forever file, its date and any overlap before installing.", guides: "Class, profession and leveling references from named publishers. Scope and beta limits stay beside each source.", updates: "Follow original publisher headlines and official changes. These sources are separate from Olympus decisions." };
-    heading.append(el("h2", titles[view]), el("p", introductions[view], "resources169-intro"));
+    heading.append(el("h1", titles[view]), el("p", introductions[view], "resources169-intro"));
     if (view === "updates") {
       const direct = el("nav", undefined, "resources169-provenance"); direct.setAttribute("aria-label", "Forever blue trackers");
-      direct.append(el("h3", "Forever blue trackers"), el("p", "Open the publishers' Forever pages for their latest blue posts. These links stay available when automatic headline retrieval fails; no feed or current headline is implied.", "resources169-note"));
+      direct.append(el("h2", "Forever blue trackers"), el("p", "Open the publishers' Forever pages for their latest blue posts. These links stay available when automatic headline retrieval fails; no feed or current headline is implied.", "resources169-note"));
       const list = el("ul");
       for (const source of foreverTrackers) { const row = el("li"); row.append(link(source.name, source.url)); list.append(row); }
       direct.append(list); heading.append(direct);
@@ -118,7 +149,7 @@
       const featured = view === "addons" && item.id === "olympus-guild" && item.url === "https://www.curseforge.com/wow/addons/olympus-guild";
       const card = el("article", undefined, "resources169-card" + (featured ? " resources169-featured" : ""));
       if (featured) card.append(el("p", "For Olympus players", "resources169-featured-label"));
-      const title = el("h3"); title.append(link(item.name, item.url)); card.append(title);
+      const title = el(view === "addons" ? "h2" : "h3"); title.append(link(item.name, item.url)); card.append(title);
       const labels = el("div", undefined, "resources169-labels");
       for (const text of [item.category, item.status]) if (typeof text === "string") labels.append(badge(text));
       card.append(labels, el("p", item.rationale));
@@ -154,6 +185,7 @@
         const data = await read(CATALOG); if (!data) return;
         if (data.version !== 1 || !Array.isArray(data[view]) || data[view].length > 100 || !data[view].every(x => x && typeof x.name === "string" && typeof x.rationale === "string" && typeof x.category === "string" && safeUrl(x.url))) throw new Error("catalog");
         const fullDirectory = view === "guides" && data.ownerDirectory !== undefined ? checkedOwnerDirectory(data.ownerDirectory) : null;
+        const watchlist = view === "addons" && data.addonWatchlist !== undefined ? checkedWatchlist(data.addonWatchlist) : null;
         catalog = data;
         const curated = view === "guides" ? el("section", undefined, "resources169-curated") : null;
         if (curated) {
@@ -172,6 +204,8 @@
         search.addEventListener("input", () => renderCatalog(search.value, select.value));
         select.addEventListener("change", () => renderCatalog(search.value, select.value));
         controls.append(searchLabel, categoryLabel);
+        const extras = view === "addons" ? addonExtras(data.newsSources, watchlist) : null;
+        if (extras) wrap.append(extras);
         renderCatalog("", "all");
       } catch (error) { if (alive() && error.name !== "AbortError") message.textContent = "The source catalog could not be loaded. Try reopening this view."; }
     }
@@ -185,7 +219,7 @@
       results.replaceChildren();
       for (const source of updateData.sources) {
         if (!visibleSources.has(source.sourceId)) continue;
-        const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(keep(source.sourceId + "|source", link(source.publisher, source.sourceUrl)));
+        const card = el("article", undefined, "resources169-card"), heading = el("h2"); heading.append(keep(source.sourceId + "|source", link(source.publisher, source.sourceUrl)));
         card.append(heading, badge("Automatic feed: " + source.status), el("p", source.scope, "resources169-note"));
         const retrieval = el("details", undefined, "resources169-provenance");
         retrieval.open = openRetrieval.has(source.sourceId);

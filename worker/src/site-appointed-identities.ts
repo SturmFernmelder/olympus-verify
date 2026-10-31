@@ -339,6 +339,11 @@ export function ownAppointmentPublicationsStatement(env: Env, id: string): D1Pre
   return ownPublicationStatement(env, id);
 }
 function ownPublicationStatement(env: Env, id: string, authorityKeys?: readonly string[]): D1PreparedStatement {
+  return env.DB.prepare(ownPublicationReadSql(authorityKeys)).bind(id);
+}
+/** Source-owned SQL shared with the exact /api/me read profile; no database or authority is created here. */
+export function ownPublicationReadSql(authorityKeys?: readonly string[]): string {
+  if (authorityKeys && (!authorityKeys.length || authorityKeys.some(key => !APPOINTMENT_IDENTITY_ROLES.includes(key)))) throw new FormError('invalid_office',400);
   const authorityColumns = authorityKeys ? ',s.value AS appointed_value,(SELECT generation FROM privacy_subjects WHERE subject_id=?1) AS generation' : '';
   const selected = authorityKeys ? `AND a.key IN(${authorityKeys.map(key => `'${key}'`).join(',')})` : '';
   // Branch display records share the original one physical copy slot only. They
@@ -349,10 +354,10 @@ function ownPublicationStatement(env: Env, id: string, authorityKeys?: readonly 
    FROM site_settings s,json_each(CASE WHEN ${leadershipEnvelopeSql('s.value')} THEN s.value ELSE '{}' END,'$.publications') p
    JOIN site_users u ON u.discord_id=?1 LEFT JOIN members m ON m.discord_id=u.discord_id
    WHERE s.key='leadership' AND json_extract(p.value,'$.pointer')='<@'||?1||'>'`;
-  return env.DB.prepare(`SELECT a.key AS role,a.value AS appointment,u.account_incarnation AS birth,${proofEntries} AS proofs,s.updated_at AS recorded_at,
+  return `SELECT a.key AS role,a.value AS appointment,u.account_incarnation AS birth,${proofEntries} AS proofs,s.updated_at AS recorded_at,
    CASE WHEN ${activeAccount} THEN 1 ELSE 0 END AS available ${authorityColumns} FROM ${entries}
    JOIN site_users u ON u.discord_id=?1 LEFT JOIN members m ON m.discord_id=u.discord_id
-   WHERE s.key='appointed' AND ${supported} ${selected} AND a.value='<@'||?1||'>'${branch} ORDER BY role LIMIT ${authorityKeys?.length ?? MAX_OFFICES + LEADERSHIP_POSITION_KEYS.length}`).bind(id);
+   WHERE s.key='appointed' AND ${supported} ${selected} AND a.value='<@'||?1||'>'${branch} ORDER BY role LIMIT ${authorityKeys?.length ?? MAX_OFFICES + LEADERSHIP_POSITION_KEYS.length}`;
 }
 
 export async function projectOwnAppointmentPublications(env: Env, rows: unknown[]) {

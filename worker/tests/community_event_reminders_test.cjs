@@ -339,5 +339,24 @@ async function fresh() { await seed(); await event(); }
   await fresh(); await answer(MEMBER, { status: "yes", remindMention: true }); await fixtureRun("UPDATE privacy_subjects SET state='retired',erased_at=?,retain_until=?+31622400,updated_at=? WHERE subject_id=?", NOW(), NOW(), NOW(), MEMBER); await arm(); await tick();
   check("a retired privacy-subject row is never mentioned", row().state === "posted" && row().mention_ids === "[]" && effects()[0].body.content === row().frozen_content && one("SELECT state FROM privacy_subjects WHERE subject_id=?", MEMBER).state === "retired", JSON.stringify(row()));
 
+  // .217: a legacy consent is never send authority and must not occupy the sole due-candidate slot.
+  await fresh(); await arm();
+  await fixtureRun('UPDATE community_event_reminders SET consent_account_incarnation=NULL WHERE event_id=?',EVENT);
+  const legacy217=JSON.stringify(row()),second217='S'.repeat(22);
+  r=await call('POST','/api/community/events',{opId:second217,title:'Eligible second reminder',details:'',startsAt:new Date((at()+1800)*1000).toISOString(),durationMin:120,capacity:2});
+  if(r.status!==200)throw Error('second reminder event refused');
+  r=await call('POST','/api/community/events/reminder',{eventId:second217,revision:1,enabled:true});
+  if(r.status!==200)throw Error('second reminder consent refused');
+  SQL=[];const effectsBefore217=effects().length;
+  await tick();
+  const eligible217=one('SELECT * FROM community_event_reminders WHERE event_id=?',second217);
+  check('.217 NULL-consent first row does not starve the eligible second reminder',eligible217.state==='posted'&&effects().length===effectsBefore217+1,JSON.stringify(eligible217));
+  check('.217 skipped legacy consent remains byte-for-byte unchanged and never sends',JSON.stringify(row())===legacy217&&row().last_attempt_at===0);
+  check('.217 the due scan still selects at most one original candidate',SQL.filter(({sql})=>sql.startsWith('SELECT r.*,')).length===1&&effects().length===effectsBefore217+1);
+  await fresh();await arm();await fixtureRun('UPDATE community_event_reminders SET consent_account_incarnation=NULL WHERE event_id=?',EVENT);
+  const allNull217=JSON.stringify(row());SQL=[];const callsBeforeNull217=requests.length;
+  await tick();
+  check('.217 an all-NULL queue costs only the original candidate read and zero HTTP',payloadSQL().length===1&&requests.length===callsBeforeNull217&&JSON.stringify(row())===allNull217);
+
   console.log(`\n${passed}/${total} passed`);process.exitCode=passed===total?0:1;
 })().catch(e=>{console.error(e);process.exitCode=1});

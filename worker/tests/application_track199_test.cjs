@@ -6,7 +6,7 @@
 // Export a promise so the existing talent leaf can await this without adding a command.
 'use strict';
 const fs199=require('node:fs'),path199=require('node:path'),crypto199=require('node:crypto'),{Module}=require('node:module');
-function prefix199(file,pattern,pin){const source=fs199.readFileSync(path199.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];if(cuts.length!==1)throw Error('application199_original_fixture_boundary');const prefix=source.slice(0,cuts[0].index);if(crypto199.createHash('sha256').update(prefix).digest('hex')!==pin)throw Error('application199_original_fixture_drift');return prefix;}
+function prefix199(file,pattern,pin){const source=fs199.readFileSync(path199.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];if(cuts.length!==1)throw Error('application199_original_fixture_boundary');const prefix=source.slice(0,cuts[0].index);if(crypto199.createHash('sha256').update(file==='frontend_check.cjs'?require('./frontend_fixture_prefix217.cjs').historicalFrontendPrefix217(prefix):prefix).digest('hex')!==pin)throw Error('application199_original_fixture_drift');return prefix;}
 const frontPrefix199=prefix199('frontend_check.cjs',/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g,'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5');
 async function applicationTrackWorker199(){
  const assert199=require('node:assert/strict'),sd199=load('./site-data'),api199=load('./site-api'),intent199=load('./application-track199'),catalogue199=load('./governance-offices');
@@ -49,7 +49,7 @@ async function applicationTrackWorker199(){
   const copied=await request199('GET','/api/me/export',undefined,id);
   check(target+' exact non-leadership intent remains in signed-in own copy',copied.response.status===200&&copied.body.site.application.answers.applicationTrack===track&&copied.body.site.application.answers.targetOffice===target);
   const before=JSON.stringify(stored199(id));
-  for(const [label,patch,field]of [['mismatched track',{applicationTrack:track==='artisan'?'raider':'artisan'},'targetOffice'],['mismatched position',{position:position==='member'?'raider':'member'},'position'],['unknown target',{targetOffice:'office_99'},'targetOffice']]){
+  for(const [label,patch,field]of [['mismatched track',{applicationTrack:track==='artisan'?'raider':'artisan'},'targetOffice'],['mismatched position',{position:position==='member'?'raider':'member'},'position'],['unknown target',{targetOffice:'office_999'},'targetOffice']]){
    const refused=await request199('PUT','/api/application',{...payload,...patch},id);check(target+' '+label+' is refused without changing stored intent',refused.response.status===400&&refused.body?.field===field&&JSON.stringify(stored199(id))===before,refused.response.status,refused.body?.field);
   }
   await fixtureRun("UPDATE site_settings SET value=? WHERE key='appointed'",JSON.stringify({[target]:'Recorded exact target holder'}));
@@ -58,7 +58,7 @@ async function applicationTrackWorker199(){
   await fixtureRun("UPDATE site_settings SET value='{}' WHERE key='appointed'");
  }
  const noTaken=()=>false;
- const invalidIntents199=[['unknown track','unknown',null,'applicationTrack'],['null track',null,null,'applicationTrack'],['boolean track',true,null,'applicationTrack'],['oversize track','x'.repeat(81),null,'applicationTrack'],['unknown office','officer','office_99','targetOffice'],['track mismatch','high_council','office_62','targetOffice'],['reserved Treasury','high_council','office_86','targetOffice'],['reserved sovereign','high_council','office_43','targetOffice'],['missing leadership target','officer',undefined,'targetOffice'],['null leadership target','officer',null,'targetOffice'],['boolean target','officer',false,'targetOffice'],['object target','officer',{},'targetOffice'],['oversize target','officer','x'.repeat(81),'targetOffice'],['member cannot target an officer','member','office_62','targetOffice']];
+ const invalidIntents199=[['unknown track','unknown',null,'applicationTrack'],['null track',null,null,'applicationTrack'],['boolean track',true,null,'applicationTrack'],['oversize track','x'.repeat(81),null,'applicationTrack'],['unknown office','officer','office_999','targetOffice'],['track mismatch','high_council','office_62','targetOffice'],['reserved Treasury','high_council','office_86','targetOffice'],['reserved sovereign','high_council','office_43','targetOffice'],['missing leadership target','officer',undefined,'targetOffice'],['null leadership target','officer',null,'targetOffice'],['boolean target','officer',false,'targetOffice'],['object target','officer',{},'targetOffice'],['oversize target','officer','x'.repeat(81),'targetOffice'],['member cannot target an officer','member','office_62','targetOffice']];
  for(const [label,track,target,field]of invalidIntents199){const value=intent199.validateApplicationIntent199(track,target,noTaken);check(label+' is refused by the real finite intent validator',!!value&&value.error==='invalid'&&value.field===field);}
  check('legacy omission remains absent while member null target is explicit and valid',intent199.validateApplicationIntent199(undefined,undefined,noTaken)===null&&intent199.validateApplicationIntent199('member',null,noTaken)?.targetOffice===null);
  const takenIntent199=intent199.validateApplicationIntent199('officer','office_62',key=>key==='office_62');check('an explicitly taken exact office is refused',takenIntent199?.error==='invalid'&&takenIntent199.field==='targetOffice');
@@ -172,7 +172,8 @@ async function applicationNative199(){
   const historical=await require('./historical_application201_fixture.cjs').historicalApplicationFixture201({validate:load('site-api').validateApplication,run:f.write,previous:id=>f.raw('SELECT * FROM site_applications WHERE discord_id=?',id),id:ID,payload,time:clock});
   check('explicit historical High Council parser fixture retains its original target for Native copy and erasure',!('error' in historical.validation)&&JSON.parse(f.raw('SELECT answers FROM site_applications WHERE discord_id=?',ID).answers).targetOffice==='office_03');
   const ordinary=await f.call('GET','/api/me/export',{cookie}),own=await ordinary.json();check('Native signed-in own copy retains canonical High Council intent',ordinary.status===200&&own.site.application.answers.applicationTrack==='high_council'&&own.site.application.answers.targetOffice==='office_03');
-  const start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
+  const entryPage=await f.call('GET','/privacy/signin'),entryHtml=await entryPage.text(),entryToken=/name="csrf" value="([^"]+)"/.exec(entryHtml)[1],entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');
+  const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken}}),u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
   const callback=await f.call('GET','/privacy/callback?code=code-'+ID+'&state='+encodeURIComponent(u.searchParams.get('state'))+'&iss=https%3A%2F%2Fdiscord.com',{cookie:flowCookie});
   const privacyCookie=Object.entries(cookies(callback)).filter(([k])=>!k.includes('state')).map(([k,v])=>k+'='+v).join('; ');
   const page=await f.call('GET','/privacy/access',{cookie:privacyCookie}),html=await page.text(),form=/<form method="post" action="\/privacy\/access\/export">([\s\S]*?)<\/form>/.exec(html);assert.ok(form,'actual identify export form');
@@ -188,7 +189,7 @@ async function applicationNative199(){
 }
 module.exports=(async()=>{
  const worker=new Module(__filename,module);worker.filename=__filename;worker.paths=Module._nodeModulePaths(__dirname);worker._compile(frontPrefix199+'\nmodule.exports=('+applicationTrackWorker199.toString()+')();',__filename);const workerResult=await worker.exports;
- const nativePrefix=prefix199('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'83b4fe71835e987ede23c482568ab067ce84700b51cca4b4efac6119f262896a');
+ const nativePrefix=prefix199('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'572066b31422497e89314f47c972536517104de10521a45434b4f041f6ad02a3');
  const native=new Module(__filename,module);native.filename=__filename;native.paths=Module._nodeModulePaths(__dirname);native._compile(nativePrefix+'\nmodule.exports=('+applicationNative199.toString()+')();',__filename);const nativeResult=await native.exports;
  return{worker:workerResult,native:nativeResult};
 })();

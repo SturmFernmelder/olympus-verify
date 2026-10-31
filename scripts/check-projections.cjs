@@ -7,8 +7,91 @@ const json = bytes => JSON.parse(bytes.toString('utf8'));
 const need = (ok, message) => { if (!ok) throw Error(message); };
 const BOOT = ['LICENSE', 'README.md', 'CLAUDE.md', 'THIRD_PARTY_NOTICES.md', 'docs/source-provenance.md', 'docs/design.md', 'docs/deploy-checklist.md',
   'docs/treasury-plan207.md', 'index.html', 'privacy.html', 'terms.html', 'worker/src/index.ts', 'worker/src/policy-content.ts',
-  'worker/src/site-data.ts', 'worker/src/site-ranks.ts', 'worker/src/site-core.ts',
+  'worker/src/site-data.ts', 'worker/src/site-ranks.ts', 'worker/src/site-core.ts', 'worker/src/site-news.ts',
   'worker/tests/site_test.cjs', 'worker/tests/hosts_test.cjs', 'worker/tests/bnet_retention_test.cjs'];
+BOOT.push('worker/tests/site_news_test.cjs', 'worker/tests/resources_admission169_test.cjs', 'worker/src/talent-build-contract.ts');
+// Inspect only inert candidate text. This preflight does not run the historical inverse leaf.
+function verifyReleaseTestPins(text, build, check) {
+  const tuple = /^(\d{4}-\d{2}-\d{2})\.(\d+) [^"\r\n]+$/.exec(build);
+  check(!!tuple, 'release guard BUILD shape');
+  const [, date, number] = tuple, line = 'const BUILD = "' + build + '";';
+  const contextsSource = text('worker/tests/site_news_test.cjs').replace(/\r\n/g, '\n');
+  const contextAnchor = '  const CURRENT_CONTEXTS = Object.freeze([';
+  const start = contextsSource.indexOf(contextAnchor), end = contextsSource.indexOf('\n]);', start + contextAnchor.length);
+  check(start >= 0 && contextsSource.split(contextAnchor).length === 2 && end > start, 'unique inert current News context array');
+  let contexts;
+  try { contexts = JSON.parse(contextsSource.slice(start + contextAnchor.length - 1, end + 2)); }
+  catch { check(false, 'current News context array is literal JSON'); }
+  check(Array.isArray(contexts), 'current News contexts are an array');
+  const active = contexts.filter(spec => spec.currentBuild === true);
+  check(active.length === 1, 'one current BUILD News context');
+  const spec = active[0];
+  check(spec.file === 'worker/src/index.ts' && spec.singleLine === true && spec.startMarker === line
+    && spec.ownerRelease === Number(number) && spec.count === 0
+    && spec.paragraphBytes === Buffer.byteLength(line, 'utf8') && spec.paragraphSha256 === sha(Buffer.from(line))
+    && /^[a-f0-9]{64}$/.test(spec.predecessorSHA256) && Number.isInteger(spec.predecessorRelease)
+    && spec.predecessorRelease < Number(number), 'exact current BUILD guarded-vocabulary context pin');
+  const inverse = text('worker/tests/resources_admission169_test.cjs').replace(/\r\n/g, '\n');
+  const variable = 'release' + number, declaration = '  const ' + variable + ' = [\n';
+  const inverseStart = inverse.indexOf(declaration), inverseEnd = inverse.indexOf("\n  ].join('\\n');", inverseStart + declaration.length);
+  check(inverseStart >= 0 && inverse.split(declaration).length === 2 && inverseEnd > inverseStart, 'unique current finite News prepend inverse');
+  let prefix;
+  try {
+    const values = inverse.slice(inverseStart + declaration.length, inverseEnd).split('\n').map(row => JSON.parse(row.trim().replace(/,$/, '')));
+    check(values.length > 4 && values.every(row => typeof row === 'string'), 'finite News inverse has literal string rows');
+    prefix = values.join('\n');
+  } catch { check(false, 'finite News inverse is an inert literal string array'); }
+  const header = 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\n';
+  check(prefix.startsWith(header + '  {\n    build: ".' + number + '", date: "' + date + '", lines: [\n')
+    && prefix.endsWith('    ],\n  },\n') && (prefix.match(/^  \{$/gm) || []).length === 1, 'current finite News inverse version/date and single-row shape');
+  const news = text('worker/src/site-news.ts').replace(/\r\n/g, '\n'), newsStart = news.indexOf(header);
+  check(newsStart >= 0 && news.indexOf(prefix) === newsStart && news.split(prefix).length === 2, 'current finite inverse matches the unique actual newest News prepend');
+  const counted = "  check('Guild News exact authorized ." + number + " prepend occurs once', originalNews.split(" + variable + ").length === 2);";
+  const removal = '  originalNews = originalNews.replace(' + variable + ", 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\\n');";
+  check(inverse.split(counted).length === 2 && inverse.split(removal).length === 2
+    && inverse.indexOf(counted) > inverseEnd && inverse.indexOf(removal) > inverse.indexOf(counted), 'current News inverse is counted before its exact removal');
+  const older = [...inverse.matchAll(/^  const release(\d+) = \[/gm)].filter(match => match[1] !== number);
+  check(older.every(match => Number(match[1]) < Number(number) && match.index > inverse.indexOf(removal)), 'current prepend reverses before older release inverses');
+  check(inverse.includes('6d9bd0840df3840675bac021a7835c5e7865fe4200c52986a46bbedc16a167a1'), 'original whole-News historical digest remains in inverse leaf');
+}
+// Inert attachment input pins: catch reviewed UI source changes before the later generator leaf.
+function verifyTalentContractPins(text, get, check) {
+  const generator = text('scripts/build-talent-build-contract.cjs'), contract = text('worker/src/talent-build-contract.ts');
+  // Closed reviewed generator preamble and immediate active pin declarations; no candidate JavaScript evaluation.
+  const generatorHeader = "// Exact source projection for application attachments. Local files only; no provider, SQL or runtime lane.\n'use strict';\nconst fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), vm = require('node:vm');\nconst root = path.join(__dirname, '..');\n";
+  const generatorNames = ['INPUT_SHA256','UPSTREAM_SHA256','CALCULATOR_SHA256','REVISION'];
+  const generatorLines = generator.slice(generatorHeader.length).split('\n');
+  check(generator.startsWith(generatorHeader) && generatorLines[4] === "const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');"
+    && generatorNames.every((name, index) => new RegExp("^const " + name + " = '[a-f0-9]{" + (index === 3 ? 12 : 64) + "}';$").test(generatorLines[index] || '')), 'talent exact generator metadata prefix');
+  const pin = (name, length = 64) => {
+    const matches = [...generator.matchAll(new RegExp("^const " + name + " = '([a-f0-9]{" + length + "})';$", 'gm'))];
+    const tokens = [...generator.matchAll(new RegExp('\\bconst\\s+' + name + '\\b', 'g'))];
+    return matches.length === 1 && tokens.length === 1 ? matches[0][1] : undefined;
+  };
+  const calculator = pin('CALCULATOR_SHA256'), input = pin('INPUT_SHA256'), upstream = pin('UPSTREAM_SHA256');
+  const revision = pin('REVISION', 12);
+  // The generated header and immediate top-level declarations form a closed inert prefix, not a JS parser.
+  const metadataHeader = '/** Generated by scripts/build-talent-build-contract.cjs from the pinned actual calculator snapshot.\n * Tuple order: maximum rank, one-based talent row, zero-based tree, flattened prerequisite index (-1 when absent).\n * Public talent constraints only. No user, URL, remote response or character stat is stored here. */\n';
+  const metadataNames = ['TALENT_SNAPSHOT_REVISION','TALENT_SNAPSHOT_DATA_SHA256','TALENT_SNAPSHOT_UPSTREAM_SHA256','TALENT_SERIALIZER_SOURCE_SHA256'];
+  const metadataLines = contract.slice(metadataHeader.length).split('\n');
+  check(contract.startsWith(metadataHeader) && metadataLines[4]?.startsWith('export const TALENT_ATTACHMENT_CLASSES:')
+    && metadataNames.every((name, index) => new RegExp('^export const ' + name + ' = "[a-f0-9]{' + (index === 0 ? 12 : 64) + '}";$').test(metadataLines[index] || '')), 'talent exact generated metadata prefix');
+  const projected = (name, value) => {
+    const matches = [...contract.matchAll(new RegExp('^export const ' + name + ' = "([a-f0-9]+)";$', 'gm'))];
+    const tokens = [...contract.matchAll(new RegExp('\\bexport\\s+const\\s+' + name + '\\b', 'g'))];
+    return matches.length === 1 && tokens.length === 1 && matches[0][1] === value;
+  };
+  const dataBytes = get('worker/public/static/talents/data.json'), data = json(dataBytes);
+  const provenance = json(get('worker/public/static/talents/provenance.json'));
+  check(!!calculator && sha(get('worker/public/static/talents/calculator.js')) === calculator
+    && projected('TALENT_SERIALIZER_SOURCE_SHA256', calculator), 'talent calculator source and generated serializer pin');
+  check(!!input && sha(dataBytes) === input && provenance.normalizedSHA256 === input && provenance.normalizedBytes === dataBytes.length
+    && projected('TALENT_SNAPSHOT_DATA_SHA256', input), 'talent normalized input and generated data pin');
+  check(!!upstream && data.source?.rawSHA256 === upstream && provenance.source?.rawSHA256 === upstream
+    && projected('TALENT_SNAPSHOT_UPSTREAM_SHA256', upstream)
+    && !!revision && data.revision === revision && projected('TALENT_SNAPSHOT_REVISION', revision), 'talent upstream and revision pins');
+  // Class tuples, serializer behavior and attachment acceptance remain the actual generator/parity leaves' responsibility.
+}
 function git(cwd, args, input) {
   const r = cp.spawnSync('git', args, { cwd, input, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
   need(!r.error && r.status === 0, 'git read failed: ' + args[0]);
@@ -83,11 +166,11 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 55 && new Set(ref.required_public_resources.map(row => row.path)).size === 55
-    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 567
+    && ref.required_public_resources.length === 59 && new Set(ref.required_public_resources.map(row => row.path)).size === 59
+    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 571
     && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset567-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset571-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
   check(talentComparisonResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art talent comparison resources');
@@ -108,8 +191,15 @@ function verify(snapshot) {
   const treasury207 = ['treasury-plan207.js','treasury-plan-content207.js','treasury-plan-model207.js','treasury-plan207.css'].map(name=>'worker/public/static/'+name);
   check(treasury207.every(file=>ref.required_public_resources.filter(row=>row.path===file&&row.mode==='100644').length===1&&ref.runtime_paths.filter(path=>path===file).length===1&&!ref.assets.some(row=>row.path===file)&&!ref.official_paths.includes(file)&&!ref.native_paths.includes(file)), 'four exact ordinary treasury207 planning resources');
   check(text('worker/public/static/app.js').includes('import("/static/treasury-plan207.js")') && text('worker/public/static/treasury-plan207.js').includes('/static/treasury-plan-content207.js') && text('worker/public/static/treasury-plan207.js').includes('/static/treasury-plan-model207.js'), 'treasury207 app and pure module dependencies');
+  const guides218 = ['guides218.js','guides218.css','guides218.json'].map(name=>'worker/public/static/'+name);
+  check(guides218.every(file=>ref.required_public_resources.filter(row=>row.path===file&&row.mode==='100644').length===1&&ref.runtime_paths.filter(path=>path===file).length===(file.endsWith('.json')?0:1)&&!ref.assets.some(row=>row.path===file)&&!ref.official_paths.includes(file)&&!ref.native_paths.includes(file)), 'three exact ordinary guides218 resources');
+  check(text('worker/public/static/app.js').includes('memberTool(main, "OlympusGuides", "/static/guides218.js", "/static/guides218.css"') && text('worker/public/static/guides218.js').includes('const DATA_URL = "/static/guides218.json"'), 'guides218 app and catalogue dependencies');
   const council206Record = 'worker/public/static/governance/council-composition-2026-10-28.md';
   check(ref.required_public_resources.filter(row => row.path === council206Record && row.mode === '100644').length === 1 && !ref.runtime_paths.includes(council206Record) && !ref.assets.some(row => row.path === council206Record) && !ref.official_paths.includes(council206Record) && !ref.native_paths.includes(council206Record), 'one exact non-art current Council206 record');
+  const council218Record = 'worker/public/static/governance/council-composition-master218.md';
+  check(ref.required_public_resources.filter(row => row.path === council218Record && row.mode === '100644').length === 1
+    && !ref.runtime_paths.includes(council218Record) && !ref.assets.some(row => row.path === council218Record)
+    && !ref.official_paths.includes(council218Record) && !ref.native_paths.includes(council218Record), 'one exact non-art Master218 Council reference');
   const staticReferences = file => [...new Set(text(file).match(/\/static\/[A-Za-z0-9_./-]*/g) || [])].sort();
   check(JSON.stringify(staticReferences(organization205Resources[0])) === JSON.stringify(['/static/organization-context205.js'])
     && staticReferences(organization205Resources[1]).length === 0, 'exact organization205 context dependency; context introduces no static asset dependency');
@@ -169,8 +259,12 @@ function verify(snapshot) {
   }
   check(generated.includes('export const POLICY_SOURCE_DIGEST = "' + sha(Buffer.from(sourceHashes.join('\n'))) + '";'), 'policy source digest drift');
   const build = match('worker/src/index.ts', /^const BUILD = "([^"]+)";/m, 'runtime BUILD declaration');
+  const releaseNote = /export const RELEASE_NOTES: readonly ReleaseNote\[\] = \[\s*\{\s*build: "(\.[0-9]+)", date: "([0-9]{4}-[0-9]{2}-[0-9]{2})"/.exec(text('worker/src/site-news.ts'));
+  check(!!releaseNote && build.startsWith(releaseNote[2] + releaseNote[1] + ' '), 'current release note exactly matches runtime BUILD number and date');
   for (const file of ['site_test.cjs', 'hosts_test.cjs', 'bnet_retention_test.cjs'])
     check(text('worker/tests/' + file).includes('"' + build + '"'), 'runtime health BUILD pin: ' + file);
+  verifyReleaseTestPins(text, build, check);
+  verifyTalentContractPins(text, get, check);
   const number = /^\d{4}-\d{2}-\d{2}\.(\d+) /.exec(build)?.[1];
   check(!!number && new RegExp('^## Worker \\.' + number + '(?: | —|$)', 'm').test(text('docs/deploy-checklist.md')), 'runtime BUILD deploy section');
   // .181: inspect these declarations as inert bytes; never load or run a candidate overlay in the hook.
@@ -198,7 +292,7 @@ function main(args, input = '') {
   const results = candidates.map(rev => verify(loadSnapshot(process.cwd(), rev)));
   return { results, elapsedMs: Math.round(performance.now() - start), deletedRefsOnly: candidates.length === 0 };
 }
-module.exports = { loadSnapshot, verify, pushCandidates, main };
+module.exports = { loadSnapshot, verify, verifyReleaseTestPins, verifyTalentContractPins, pushCandidates, main };
 if (require.main === module) {
   try { console.log(JSON.stringify(main(process.argv.slice(2), process.argv[2] === '--pre-push' ? fs.readFileSync(0, 'utf8') : ''))); }
   catch (e) { console.error('FAIL projection check: ' + e.message); process.exitCode = 1; }

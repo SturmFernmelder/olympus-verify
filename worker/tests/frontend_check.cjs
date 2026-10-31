@@ -49,10 +49,10 @@ class Text extends Node {
 const walk = (n, f) => { for (const c of n.childNodes) { f(c); walk(c, f); } };
 function parseCompound(s) {
   const out = { tag: null, id: null, classes: [], attrs: [] };
-  const re = /^([a-zA-Z][\w-]*)|#([\w-]+)|\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g;
+  const re = /^([a-zA-Z][\w-]*)|#([\w-]+)|\.([\w-]+)|\[([\w-]+)(?:=(?:"([^"]*)"|([^\]\s"\']+)))?\]/g;
   let m, i = 0;
   while (i < s.length && (m = re.exec(s.slice(i)))) {
-    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined ? null : m[5].replace(/\\(.)/g, "$1")]);
+    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined && m[6] === undefined ? null : (m[5] ?? m[6]).replace(/\\(.)/g, "$1")]);
     i += m[0].length; re.lastIndex = 0;
   }
   return out;
@@ -2223,10 +2223,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  with a day of history: joined and left for the last day; the week says it has not enough history yet", kvOf(frameOf(fig2, "The guild in figures"), "Last day") === "2 joined, 1 left" && kvOf(frameOf(fig2, "The guild in figures"), "Last 7 days") === "not enough history yet");
     const launchRow = one("SELECT value FROM site_settings WHERE key = 'launchAt'");
     (await fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('launchAt', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",String(now - 60), now));
-    const live5 = await openPage(MEMBER);
+    const live5 = await openPage(MEMBER, {}, { clockNow: 1793836800000 });
     await live5.go("#/community/news");
     await waitFor(() => !!byText(live5.app, "h2", "The road to launch"), "the road to launch");
-    check("  after the launch the countdown shows its done text", frameOf(live5, "The road to launch").textContent.includes("Live now"));
+    const announcedRoad218=frameOf(live5, "The road to launch");
+    check("  one hour after the announced global launch News states the announcement passed and directs readers to service notices without claiming observed service", announcedRoad218.textContent.includes("The announced launch time has passed. Check Blizzard’s service notices for actual service availability.")&&!announcedRoad218.querySelector('[role="timer"]')&&!announcedRoad218.textContent.includes("Live now"));
+    // .218: the official launch announcement must not silently inherit the editable guild admission date.
+    for (const [label, clock, arrived] of [["one hour before", 1793829600000, false], ["one hour after", 1793836800000, true]]) {
+      const launch218 = await openPage(MEMBER, {}, { clockNow: clock, bootTransform(boot) { boot.settings.launchAt = 1793919600; } });
+      await launch218.go("#/apply");
+      const announcement218 = launch218.app.querySelector('.launch-notice218');
+      check(".218 " + label + " official launch uses4Nov even if guild schedule is5Nov", !!announcement218 && announcement218.textContent.includes("4 November 2026 · 23:00 UTC")
+        && (arrived ? announcement218.textContent.includes("announced launch time has passed") && !announcement218.querySelector('[role="timer"]')
+          : Array.from(announcement218.querySelector('[role="timer"]')?.querySelectorAll('.num') || [], node => node.textContent).join(':') === '0:01:00:00'));
+    }
     if (launchRow) (await fixtureRun("UPDATE site_settings SET value = ? WHERE key = 'launchAt'",launchRow.value)); else (await fixtureRun("DELETE FROM site_settings WHERE key = 'launchAt'"));
     const lapse = await openPage(READER);
     (await fixtureRun("UPDATE characters SET status = 'unbound' WHERE discord_id = ?",READER)); // the roster no longer confirms the character after the page loaded
@@ -2247,11 +2257,24 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await roles5.go("#/roles");
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const guideKeys201=["co_gm","officer","treasurer","raider","class_lead:mage","loot_council","professions","pvp_leader","raid_assist_na","raid_assist_eu"];
+    const commonBoundary218='This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process.';
+  // Fixed literal oracle, not expectations rebuilt from the rendered family cards.
+  const fullBoundarySeal218=require('./role_boundaries218_seal.cjs');
+  const fullBoundarySeal218Rows=Object.entries(roles5.boot.meta.roleGuides201).filter(([key])=>roles5.boot.meta.roleDirectory203.keyToFamily[key]).map(([key,guide])=>[key,typeof guide?.boundaries==='string'?guide.boundaries.replaceAll(commonBoundary218,'').trim():'']).filter(([,text])=>text).sort(([a],[b])=>a<b?-1:a>b?1:0);
+  check('.218 exactly40 source-specific boundary keys remain sealed', fullBoundarySeal218.specificKeys.length===40 && fullBoundarySeal218Rows.length===40 && JSON.stringify(fullBoundarySeal218Rows.map(([key])=>key))===JSON.stringify(fullBoundarySeal218.specificKeys));
+  check('.218 every one of40 exact role-specific boundary texts remains sealed', require('node:crypto').createHash('sha256').update(JSON.stringify(fullBoundarySeal218Rows)).digest('hex')===fullBoundarySeal218.specificTextSHA256);
+  for(const [key,familyKey,nodeKey] of fullBoundarySeal218.placements){
+    const specific=roles5.boot.meta.roleGuides201[key]?.boundaries.replaceAll(commonBoundary218,'').trim();
+    const card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),own=card?.querySelector('[data-role-key201="'+nodeKey+'"]');
+    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && own.textContent.includes(specific));
+  }
+
     const allFacts201=guideKeys201.every(key=>{
-      const card=roles5.app.querySelector('[data-role-key201="'+key+'"]'),guide=roles5.boot.meta.roleGuides201[key];
-      return !!card&&!!guide&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&card.textContent.includes(guide.boundaries)&&guide.boundaries.includes('A title or application changes no game rank');
+      const familyKey=roles5.boot.meta.roleDirectory203.keyToFamily[key], card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),guide=roles5.boot.meta.roleGuides201[key];
+      const specificBoundary=guide?.boundaries.replaceAll(commonBoundary218,'').trim();
+      return !!card&&!!guide&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&(!['co_gm','officer','treasurer'].includes(key)||!!specificBoundary)&&(!specificBoundary||card.textContent.includes(specificBoundary))&&guide.boundaries.includes('A title or application changes no game rank');
     });
-    check(".201 Roles retains the exact ten-rank bridge and no native grant across its detailed individual guides",allFacts201&&roles5.boot.meta.appointments.find(row=>row.key==='officer').nativeSlot===2&&roles5.app.querySelector('[data-role-key201="officer"]').textContent.includes('Rank 3 Officer')&&roles5.boot.meta.appointments.find(row=>row.key==='treasurer').nativeSlot===1&&roles5.app.textContent.includes("Co-Guild Master and Treasurer are appointments, not extra native ranks")&&roles5.app.textContent.includes("Technical & Historical Profile Notes")&&roles5.app.querySelectorAll('[data-native-slot]').length===10);
+    check(".201 Roles retains the exact ten-rank bridge and no native grant across its detailed individual guides",allFacts201&&roles5.app.querySelectorAll('.role-scope218').length===1&&roles5.app.querySelector('.role-scope218').textContent===commonBoundary218&&roles5.boot.meta.appointments.find(row=>row.key==='officer').nativeSlot===2&&roles5.app.querySelector('[data-role-family203="officer"]').textContent.includes('Rank 3 Officer')&&roles5.boot.meta.appointments.find(row=>row.key==='treasurer').nativeSlot===1&&roles5.app.textContent.includes("Co-Guild Master and Treasurer are appointments, not extra native ranks")&&roles5.app.textContent.includes("Technical & Historical Profile Notes")&&roles5.app.querySelectorAll('[data-native-slot]').length===10);
 
     (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
     (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));
@@ -2639,13 +2662,15 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const tradingPortfolio209 = p.app.querySelector("#trading-portfolio208"), tradingLinks209 = tradingPortfolio209?.querySelectorAll("a.btn") || [];
     check(".209 the actual trading card retains both complete guide links inside the mobile-wrap scope", tradingLinks209.length === 2 && [
       ["#/roles/head_trading", "Read the complete trading responsibilities & expectations"],
-      ["/static/governance/council-composition-2026-10-28.md", "Current Council clarification"]
+      ["/static/governance/council-composition-master218.md", "Current Council portfolios & reporting lines"]
     ].every(([href, text], i) => tradingLinks209[i].getAttribute("href") === href && tradingLinks209[i].textContent === text));
     const tradingRules209 = [...APP_CSS.matchAll(/#trading-portfolio208\s+\.btn\s*\{([^}]+)\}/g)];
     const tradingDeclarations209 = new Map((tradingRules209[0]?.[1] || "").split(";").map(declaration => declaration.trim()).filter(Boolean).map(declaration => declaration.split(/:\s*/, 2)));
     check(".209 both trading links can shrink and wrap their full labels without clipping or hidden overflow", tradingRules209.length === 1 && tradingDeclarations209.size === 4 && tradingDeclarations209.get("max-width") === "100%" && tradingDeclarations209.get("min-width") === "0" && tradingDeclarations209.get("white-space") === "normal" && tradingDeclarations209.get("overflow-wrap") === "anywhere");
     const treasuryQuicklink209 = p.app.querySelector('.governance-quicklinks a[href="#/treasury-plan"]');
-    check(".209 the actual governance quick links retain the complete Treasury plan label and target", treasuryQuicklink209?.textContent === "Treasury programme & 90-day plan" && treasuryQuicklink209.classList.contains("btn"));
+    // .218 (owner, 31 Oct 2026): officers and above only. This page is an ordinary MEMBER, so the quick link is absent;
+    // This checks ordinary-member omission. The server gate is covered separately; this check does not claim a rendered admitted-officer label.
+    check(".218 an ordinary member's governance quick links omit the officer-only Treasury plan", treasuryQuicklink209 === null && APP_JS.includes('treasuryPlanAllowed218() ? h("a", { class: "btn", href: "#/treasury-plan", text: "Treasury programme & 90-day plan" }) : null,'));
     const quicklinkRules209 = [...APP_CSS.matchAll(/\.governance-quicklinks\s+\.btn\s*\{([^}]+)\}/g)];
     const quicklinkDeclarations209 = new Map((quicklinkRules209[0]?.[1] || "").split(";").map(declaration => declaration.trim()).filter(Boolean).map(declaration => declaration.split(/:\s*/, 2)));
     check(".209 governance quick-link buttons shrink and wrap complete labels within the reading column", quicklinkRules209.length === 1 && quicklinkDeclarations209.size === 4 && quicklinkDeclarations209.get("max-width") === "100%" && quicklinkDeclarations209.get("min-width") === "0" && quicklinkDeclarations209.get("white-space") === "normal" && quicklinkDeclarations209.get("overflow-wrap") === "anywhere");
@@ -2688,8 +2713,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // Retired: the R6 recursive details graph and its old data-organization-branch selectors no longer exist.
     // Do not import a substitute module in this miniDOM. Actual SVG layout, the current39-group model/96-term search (with original38/95 preserved),
     // pan/zoom, list view, keyboard and pointer interaction require Root's separate real-browser check.
-    check(".207 admitted members can discover the shared treasury plan without the Royal Writs switch", !!p.app.querySelector('a[href="#/treasury-plan"]') && !p.app.querySelector('[data-royal-writ-page="governance"]'));
-    check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n    const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
+    check(".218 an ordinary member no longer discovers the officer-only treasury plan, and the Royal Writs switch stays off", !p.app.querySelector('a[href="#/treasury-plan"]') && !p.app.querySelector('[data-royal-writ-page="governance"]'));
+    check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n      const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
     const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
     const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
     const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
@@ -2722,15 +2747,33 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
         && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
         && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines');
     })());
-    check(".208 actual private R7-bound model preserves original38/95 arrays and adds exactly one reserved trading remit", (() => {
+    check(".208 actual private R7-bound model preserves original38/95 arrays and retains Trading and adds five separate Council portfolio records", (() => {
+      const assert=require('node:assert/strict'), historicalScope218='Historical application and ballot compatibility only; current institutional display and reserved-seat admission are separate.';
+function originalTerms218(terms) {
+ const specs={office_26:{ordinal:26,label:'Council of Justice',applicationLabel:'Council of Justice',acquisition:'Case-designated judicial institution; chaired by the Lord High Chancellor, with accepted unconflicted members.'},office_94:{ordinal:94,label:'War Head',applicationLabel:'War Directorate (historical shared template)',acquisition:'Historical shared War Head reference; current PvE and PvP portfolios have their own separate appointments.'}};
+ const keys=['label','applicationLabel','applicationAliases','applicationEligible','applicationRoleKeys','acquisition'];
+ return terms.map(current=>{
+  const term=JSON.parse(JSON.stringify(current)),spec=specs[term.officeKey];
+  if(!spec){assert.ok(!Object.hasOwn(term,'historicalApplicationProfile')&&!Object.hasOwn(term,'applicationMetadataScope'),'unscoped historical field');return term;}
+  const prior=term.historicalApplicationProfile;
+  assert.ok(prior&&typeof prior==='object'&&!Array.isArray(prior),'historical profile object');
+  assert.deepEqual(Object.keys(prior).sort(),[...keys].sort(),'exact six historical fields');
+  assert.equal(term.ordinal,spec.ordinal);assert.equal(term.label,spec.label);assert.equal(term.applicationLabel,spec.applicationLabel);assert.equal(term.acquisition,spec.acquisition);
+  assert.equal(term.applicationMetadataScope,historicalScope218);
+  for(const key of keys)assert.ok(Object.hasOwn(term,key),'current historical field present');
+  for(const key of ['applicationEligible','applicationAliases','applicationRoleKeys'])assert.deepEqual(term[key],prior[key],'original compatibility field');
+  for(const key of keys)term[key]=prior[key];
+  delete term.historicalApplicationProfile;delete term.applicationMetadataScope;return term;
+ });
+}
       const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
       return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false
-        && model.nodes.length === 39 && nodes.size === 39 && model.terms.length === 96 && new Set(model.terms.map(term => term.label)).size === 96 && model.nativeRanks.length === 10 && model.officeMandates.length === 39
-        && digest(model.nodes.filter(node => node.id !== "trading")) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
-        && digest(model.officeMandates.filter(office => office.nodeId !== "trading")) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
-        && digest(model.terms.slice(0, 95)) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
-        && model.book.bytes === 262067 && model.book.sha256 === "e0800f5eacba0151d31df57412ea47a0e28920a4e1995cb7273a8236ca9dc924"
-        && model.appointments.length === 132 && new Set(model.appointments.map(row => row.key)).size === 132 && model.councilComposition.currentSeats.length === 11
+        && model.nodes.length === 41 && nodes.size === 41 && model.terms.length === 101 && new Set(model.terms.map(term => term.label)).size === 101 && model.nativeRanks.length === 10 && model.officeMandates.length === 41
+        && digest(model.nodes.filter(node => !["trading","security","concordat"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
+        && digest(model.officeMandates.filter(office => !["trading","security","concordat"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
+        && digest(originalTerms218(model.terms.slice(0, 95))) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
+        && model.book.bytes === 271522 && model.book.sha256 === "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b"
+        && model.appointments.length === 137 && new Set(model.appointments.map(row => row.key)).size === 137 && model.councilComposition.currentSeats.length === 13
         && trading.officeKey === "office_96" && trading.ordinal === 96 && trading.label === "Head of Trading & Markets" && trading.tier === "high_council" && trading.nativeSlot === 1 && trading.applicationEligible === false && trading.mappingApplies === false;
     })());
     check(".154 actual model keeps hierarchy, independent review and the five liaison remits", nodes.get("council").parent === "founder" && nodes.get("council").relation === "accountability" && nodes.get("war").parent === "council" && nodes.get("officers").parent === "guilds" && nodes.get("justice").relation === "independence" && nodes.get("auditor").relation === "independence" && model.nodes.filter((node) => node.parent === "emissaries").length === 5 && nodes.get("emissary-heraldry").coordinates.includes("heraldry"));
@@ -2749,7 +2792,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     malformed.answer((pathname) => pathname === "/static/governance/organization.json" ? { schema: "bad" } : null);
     await malformed.go("#/organization"); await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
     check(".154 invalid model refuses before the dynamic SVG import or any organization rendering", !malformed.app.querySelector(".org-workspace") && malformed.app.textContent.includes("unexpected shape"));
-    check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: n.title })') && organizationSource.includes('h("strong", { text: node.title })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
+    check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: nodeTitle218(n) })') && organizationSource.includes('h("strong", { text: nodeTitle218(node) })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
     const alteredBytes = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md")); alteredBytes[0] = 33;
     const altered = await openPage(MEMBER, { ASSETS: { fetch: async () => new Response(alteredBytes) } });
     await altered.go("#/governance"); await waitFor(() => altered.app.textContent.includes("does not match the reviewed text"), ".128 source hash refusal");
@@ -3180,6 +3223,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm210.app, "button", "Delete their site data")?.click();
     await waitFor(() => !!dialog210() && !!dialog210().querySelector("input[type=text]"), ".210 the delete confirmation");
     const typed210 = dialog210()?.querySelector("input[type=text]");
+    byText(dialog210(), "button", "Delete their data")?.click();
+    check('.217 disabled typed confirmation cannot dispatch a delete even on a synthetic click', !!one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210) && !sent210.some(([m,p]) => m === 'POST' && p.endsWith('/delete')));
     if (typed210) { typed210.value = "DELETE"; typed210.dispatchEvent(new Event("input", { bubbles: true })); byText(dialog210(), "button", "Delete their data")?.click(); }
     await waitFor(() => !one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210), ".210 the deleted site data");
     check(".210 Delete their site data on the admin page is admitted as a partial delete and removes the application",
@@ -3360,6 +3405,67 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       await p.go("#/admin"); await new Promise(resolve => setTimeout(resolve, 200));
       check("RT16 a dispatched write may land but its late answer cannot toast, redraw, navigate or prepare a replacement view", status210(id).admin_note === "Already dispatched before leaving" && posts210(rows).length === 1 && preparations210(rows).length === 4 && rows.filter(r => r.path === `/api/admin/applications/${id}`).length === 1 && p.location.hash === "#/admin" && !p.document.body.textContent.includes("Marked submitted."));
     }
+  }
+
+  console.log("\n== .217 owned admin reads and accessible confirmations ==");
+  {
+    const p = await openPage(STAFF);
+    await p.go('#/admin/votes');
+    await waitFor(() => p.app.querySelector('input[type="checkbox"]'), 'admin vote filters');
+    const originalFilter = p.app.querySelector('input[type="checkbox"]');
+    let release, boardRead = 0;
+    const older = new Promise(resolve => { release = resolve; });
+    p.intercept(async pathname => {
+      if (pathname.startsWith('/api/admin/board?')) {
+        const n = ++boardRead; if (n === 1) await older;
+        return new Response(JSON.stringify({roles:[{key:'member',label:n === 1 ? 'Older held tally' : 'Newer settled tally',top:[],applicants:0,voters:0}]}));
+      }
+      if (pathname.startsWith('/api/admin/votes?')) return new Response(JSON.stringify({ballots:[]}));
+    });
+    originalFilter.checked = true; fire(originalFilter, 'change');
+    originalFilter.checked = false; fire(originalFilter, 'change');
+    await waitFor(() => p.app.textContent.includes('Newer settled tally'), 'newer admin tally');
+    release(); await new Promise(resolve => setTimeout(resolve, 40));
+    check('.217 late older vote-list read cannot overwrite the latest filter result', boardRead === 2 && p.app.textContent.includes('Newer settled tally') && !p.app.textContent.includes('Older held tally'));
+    p.intercept(pathname => pathname.startsWith('/api/admin/') ? new Response('{}',{status:503}) : undefined);
+    fire(p.app.querySelector('input[type="checkbox"]'), 'change');
+    await waitFor(() => p.app.textContent.includes('Refresh this view'), 'owned admin read error');
+    check('.217 current admin read failures expose an attended refresh without an unhandled rejection', p.app.querySelector('[role="alert"]')?.textContent.includes('could not be loaded'));
+    p.intercept(null); byText(p.app, 'button', 'Refresh this view').click();
+    await waitFor(() => p.app.querySelector('input[type="checkbox"]'), 'manual tally refresh');
+    check('.217 manual refresh performs a fresh current read', !p.app.textContent.includes('Refresh this view'));
+    for (const hash of ['#/admin/votes/raid_leader_na', '#/admin/names']) {
+      p.intercept(pathname => pathname.startsWith('/api/admin/') ? new Response('{}',{status:503}) : undefined);
+      await p.go(hash); await waitFor(() => p.app.textContent.includes('Refresh this view'), 'role/name failure');
+      check('.217 ' + hash + ' has a visible read failure and manual refresh', !!p.app.querySelector('[role="alert"]'));
+      p.intercept(null); byText(p.app, 'button', 'Refresh this view').click();
+      await waitFor(() => !p.app.textContent.includes('Refresh this view') && !p.app.textContent.includes('Loading…'), 'role/name refresh');
+    }
+    await p.go('#/admin/names');
+    byText(p.app, 'button', 'Queue every approved name now')?.click();
+    await waitFor(() => !!p.document.body.querySelector('dialog'), 'safe confirmation');
+    const dialog = p.document.body.querySelector('dialog'), description = p.document.getElementById(dialog.getAttribute('aria-describedby'));
+    check('.217 confirmation consequence is associated and Cancel has initial focus', !!description?.textContent && p.document.activeElement === byText(dialog,'button','Cancel'));
+    byText(dialog,'button','Cancel').click();
+  }
+  {
+    const plain = new Element('input'); plain.setAttribute('type','checkbox');
+    check('.217 fixture uses the real unquoted CSS type selector semantics', !plain.matches('input[type=text]') && plain.matches('input[type=checkbox]'));
+    const p = await openPage(STAFF); await p.go('#/admin/news');
+    await waitFor(() => !!p.app.querySelector('[data-field="news-title"]'), 'news field help');
+    const field = p.app.querySelector('[data-field="news-title"]'), input = field.querySelector('input');
+    check('.217 ordinary form help and error text are both associated with their control', input.getAttribute('aria-describedby').split(' ').length === 2 && input.getAttribute('aria-describedby').split(' ').every(id => !!p.document.getElementById(id)) && input.getAttribute('aria-invalid') === 'false');
+    const fresh = '300000000000000217'; await siteUser(fresh);
+    const member = await openPage(fresh); await member.go('#/apply');
+    const ackBox = member.app.querySelector('[data-field="ack"]'), ack = ackBox?.querySelector('input');
+    fire(member.app.querySelector('form'), 'submit');
+    await waitFor(() => ack?.getAttribute('aria-invalid') === 'true', 'application error state');
+    check('.217 actual application validation marks its associated control invalid', ack?.getAttribute('aria-invalid') === 'true');
+    ack.checked = true;
+    member.intercept((pathname,init) => pathname === '/api/application' && init.method === 'PUT' ? new Response(JSON.stringify({error:'invalid',field:'class',message:'Choose a class.'}),{status:400}) : undefined);
+    fire(member.app.querySelector('form'), 'submit');
+    await waitFor(() => member.app.querySelector('[data-field="class"]')?.classList.contains('invalid'), 'next application field error');
+    check('.217 replacing an error clears the previous aria-invalid state', ack.getAttribute('aria-invalid') === 'false' && member.app.querySelector('[data-field="class"] select')?.getAttribute('aria-invalid') === 'true');
   }
 
   console.log(`\n${ok}/${n} passed`);

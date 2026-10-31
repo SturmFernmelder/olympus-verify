@@ -76,7 +76,7 @@ function inspectZip(bytes) {
   if (pos !== eocd || entries.length !== PAYLOADS.length) throw Error("ZIP final census");
   return entries;
 }
-function renderedQuicklinks(app) {
+function renderedQuicklinks(app, { treasury = true } = {}) {
   const hs = app.indexOf("  function h(tag, props, ...kids) {"), he = app.indexOf("  const clear = ", hs);
   const start = app.indexOf('      h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },');
   const endLine = '      h("div", { class: "governance-controls" },';
@@ -88,7 +88,8 @@ function renderedQuicklinks(app) {
   // Execute only current h/add and the real navigation plus sibling Archive expressions.
   // Event handlers are retained but never invoked; no application requests or permissions are involved.
   const code = app.slice(hs, he) + '\nconst GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";\n[' + app.slice(start, end).trim().replace(/,$/, "") + ']';
-  const nodes = vm.runInNewContext(code, { document, Node }, { timeout: 1000 });
+  // .218: the Treasury programme link is officer-only; the caller states which answer the page has.
+  const nodes = vm.runInNewContext(code, { document, Node, treasuryPlanAllowed218: () => treasury }, { timeout: 1000 });
   const [nav, archive] = nodes;
   if (nodes.length !== 2 || !(nav instanceof Element) || nav.tagName !== "NAV" || !(archive instanceof Element) || archive.tagName !== "DETAILS") throw Error("Navigation and Archive elements");
   const descendants = (node, tag) => node.childNodes.flatMap(child => [...(child.tagName === tag ? [child] : []), ...descendants(child, tag)]);
@@ -107,7 +108,12 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   check("ZIP PDF payload is byte-identical to standalone public PDF", entries.find((entry) => entry.name.endsWith(".pdf")).data.equals(pdf));
   const book = entries.find((entry) => entry.name.endsWith("Source.txt")).data;
   check("ZIP source remains exact 116006-byte reviewed R6, not a rewritten book", book.length === 116006 && sha(book) === "dc250be085cd89c9ddb0e4dd6029d7392898e73a7df893657670e44c65d367ca");
-  const { links, buttons, currentLinks, archiveLinks, archive } = renderedQuicklinks(app);
+  const { links, buttons, currentLinks, archiveLinks, archive } = renderedQuicklinks(app, { treasury: true });
+  const member = renderedQuicklinks(app, { treasury: false }), plan = (link) => link.getAttribute("href") === "#/treasury-plan";
+  check(".218 an officer's quick links carry the Treasury programme once; a member's carry every other link and not it",
+    links.filter(plan).length === 1 && member.links.filter(plan).length === 0 && member.links.length === links.length - 1
+    && member.currentLinks.length === currentLinks.length - 1 && member.archiveLinks.length === archiveLinks.length
+    && member.links.every((link, i) => link.textContent === links.filter((l) => !plan(l))[i].textContent));
   const download = (label, href, filename) => links.filter((link) => link.textContent === label && link.getAttribute("href") === href && link.getAttribute("download") === filename).length === 1;
   check("actual h/add labels the unchanged R6 PDF as historical with its exact download filename", download("Historical R6 PDF", "/static/governance/olympus-governance-r6.pdf", "Olympus Guild Governance - Successor Draft.pdf"));
   check("actual h/add labels the unchanged R6 package as historical with its exact filename", download("Historical R6 package", "/static/governance/olympus-governance-r6.zip", "Olympus Governance - Successor Draft.zip"));
@@ -122,7 +128,7 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "downloads-manifest.json"), "utf8"));
   check("historical PDF manifest retains its original R6 source and unratified/unissued status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
   const currentBook = fs.readFileSync(path.join(dir, "reconciled-book.md"));
-  check("current R7 plus199five-Title and rank-bridge source is exact and distinct from preserved R6", currentBook.length === 262067 && sha(currentBook) === "e0800f5eacba0151d31df57412ea47a0e28920a4e1995cb7273a8236ca9dc924" && !currentBook.equals(book));
+  check("current R7 plus199five-Title and rank-bridge source is exact and distinct from preserved R6", currentBook.length === 271522 && sha(currentBook) === "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b" && !currentBook.equals(book));
   check("current R7 adoption notice separates appointments, signatures, permissions and historical status", app.includes("R7 • Guild rules adopted 13 October 2026") && app.includes("Adoption issues no individual appointment or named signature") && app.includes("changes no native rank, bank limit or platform permission") && app.includes("Dated archives retain their historical status"));
   check("current governance loader sends same-origin credentials for private book/model delivery", app.includes('fetch(path, { credentials: "same-origin", redirect: "error" })'));
   const bad = Buffer.from(zip); bad.writeUInt32LE((bad.readUInt32LE(entries[0].centralOffset + 16) ^ 1) >>> 0, entries[0].centralOffset + 16);

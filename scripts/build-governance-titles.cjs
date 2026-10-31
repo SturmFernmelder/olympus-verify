@@ -13,6 +13,25 @@ const sha256 = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
 const factsBytes = fs.readFileSync(path.join(root, "docs/governance-facts204.json"));
 if (sha256(factsBytes) !== "b510426c726d014b471b993b73a5f71a5eee6b6d2c96672a7c592ff9b055e2b5") throw Error("Governance204 finite facts manifest digest");
 const facts = JSON.parse(factsBytes);
+const presentationBytes218 = fs.readFileSync(path.join(root, "docs/governance-presentation218.json"));
+if (sha256(presentationBytes218) !== "12f8f36ac9a4d42174f465cca5a947b42d26c2e4ed43d47bcd822dad783c6715") throw Error("Governance218 finite presentation manifest digest");
+const presentation218 = JSON.parse(presentationBytes218);
+function presentationBridge218(text, inverse = false) {
+  const keys = ['rc9-officer-principles', 'master218-intake-current-reporting', 'master218-ord02-current-reporting', 'master218-charter-intake-reporting', 'master218-heraldry-intake-separation', 'master218-current-office-census'];
+  if (presentation218.schema !== "olympus-governance-presentation218-v1" || JSON.stringify(presentation218.changes.map(change => change.key)) !== JSON.stringify(keys)) throw Error("Governance218 presentation census");
+  const intermediateKeys = ['master218-intake-current-reporting', 'master218-ord02-current-reporting'];
+  if (JSON.stringify(presentation218.changes.filter(change => Object.hasOwn(change, 'previousAfter')).map(change => change.key)) !== JSON.stringify(intermediateKeys)) throw Error("Governance218 intermediate edition census");
+  for (const change of inverse ? presentation218.changes.slice().reverse() : presentation218.changes) {
+    const before = "\n\n" + change.before + "\n\n", after = "\n\n" + change.after + "\n\n";
+    // Only two pinned P2 reporting paragraphs have a retained intermediate edition.
+    // Exactly one complete original, intermediate or current paragraph must exist.
+    const variants = [before, after, ...(change.previousAfter === undefined ? [] : ["\n\n" + change.previousAfter + "\n\n"])];
+    const matches = variants.map(value => ({ value, count: text.split(value).length - 1 })).filter(row => row.count !== 0);
+    if (matches.length !== 1 || matches[0].count !== 1) throw Error("Ambiguous governance218 presentation paragraph: " + change.key);
+    text = text.replace(matches[0].value, inverse ? before : after);
+  }
+  return text;
+}
 function factsBridge(text, inverse = false, keys = null) {
   if (facts.schema !== "governance-fact204-finite-source-delta-v1" || facts.base !== "c9ccc3358ff4e0b538348b58371f22c4eeedb08e"
     || facts.changes.length !== 8 || new Set(facts.changes.map(change => change.key)).size !== 8) throw Error("Governance204 finite facts census");
@@ -42,15 +61,15 @@ function rankBridge(text, inverse = false, keys = null) {
 }
 function projection(book, source) {
   if (source.includes("\r") || book.includes("\r") || !source.startsWith(firstTitle)) throw Error("Expected LF authored governance sources");
-  if ((source.match(/^# Title /gm) || []).length !== 5 || (source.match(/^## Article [IVX]+\.\d+ — /gm) || []).length !== 34 || (source.match(/^### Section [IVX]+\.\d+\.\d+ — /gm) || []).length !== 68 || (source.match(/^\([a-d]\) /gm) || []).length !== 138) throw Error("Unexpected five-Title structural census");
-  const uncorrected = factsBridge(book, true);
+  if ((source.match(/^# Title /gm) || []).length !== 5 || (source.match(/^## Article [IVX]+\.\d+ — /gm) || []).length !== 36 || (source.match(/^### Section [IVX]+\.\d+\.\d+ — /gm) || []).length !== 72 || (source.match(/^\([a-d]\) /gm) || []).length !== 147) throw Error("Unexpected five-Title structural census");
+  const uncorrected = factsBridge(presentationBridge218(book, true), true);
   const end = uncorrected.indexOf(nextChapter), start = uncorrected.indexOf(firstTitle);
   if (end < 0 || uncorrected.indexOf(nextChapter, end + 1) >= 0 || (start >= 0 && (start > end || uncorrected.indexOf(firstTitle, start + 1) >= 0))) throw Error("Ambiguous governance insertion boundary");
-  const result = factsBridge(rankBridge(uncorrected.slice(0, start < 0 ? end : start) + source.trimEnd() + "\n\n" + uncorrected.slice(end)));
+  const result = presentationBridge218(factsBridge(rankBridge(uncorrected.slice(0, start < 0 ? end : start) + source.trimEnd() + "\n\n" + uncorrected.slice(end))));
   const bytes = Buffer.from(result, "utf8");
-  if (bytes.length > 262144 || (result.match(/^# /gm) || []).length !== 20) throw Error("Governance reader size or chapter bound");
+  if (bytes.length > 524288 || (result.match(/^# /gm) || []).length !== 20) throw Error("Governance reader size or chapter bound");
   const currentStart = result.indexOf(firstTitle), currentEnd = result.indexOf(nextChapter, currentStart);
-  const originalOutside = Buffer.from(rankBridge(factsBridge(result.slice(0, currentStart) + result.slice(currentEnd), true), true), "utf8");
+  const originalOutside = Buffer.from(rankBridge(factsBridge(presentationBridge218(result.slice(0, currentStart) + result.slice(currentEnd), true), true), true), "utf8");
   if (originalOutside.length !== bridge.outsideTitlesBaselineBytes || sha256(originalOutside) !== bridge.outsideTitlesBaselineSHA256) throw Error("Governance outside-Titles baseline differs beyond finite owner rank bridge");
   return { text: result, bytes: bytes.length, sha256: sha256(bytes) };
 }
@@ -59,7 +78,7 @@ function run(mode) {
   const expected = projection(book, source), model = JSON.parse(fs.readFileSync(modelPath, "utf8"));
   const charter = fs.readFileSync(charterPath, "utf8"), charterFacts = ["facts204-04", "facts204-05"];
   const expectedCharter = factsBridge(rankBridge(factsBridge(charter, true, charterFacts), false, ["operational-council-current", "operational-council-not-rank"]), false, charterFacts);
-  const supplement = { source: "docs/master199-governance-titles.md", supersedes: "docs/master198-governance-titles.md", recordedAt: "2026-10-25", authority: "explicit owner Build .199 direction", titles: 5, articles: 34, sections: 68, subclauses: 138, constitutionalVoteRecorded: false, namedSignaturesClaimed: false, permissionsApplied: false };
+  const supplement = { source: "docs/master199-governance-titles.md", supersedes: "docs/master198-governance-titles.md", recordedAt: "2026-10-30", authority: "explicit owner Master218 direction; prior .199 statutory text retained", titles: 5, articles: 36, sections: 72, subclauses: 147, constitutionalVoteRecorded: false, namedSignaturesClaimed: false, permissionsApplied: false, previous: {"source":"docs/master199-governance-titles.md","supersedes":"docs/master198-governance-titles.md","recordedAt":"2026-10-25","authority":"explicit owner Build .199 direction","titles":5,"articles":34,"sections":68,"subclauses":138,"constitutionalVoteRecorded":false,"namedSignaturesClaimed":false,"permissionsApplied":false} };
   if (mode === "--write" || mode === "--write-book") {
     fs.writeFileSync(bookPath, expected.text, "utf8");
     fs.writeFileSync(charterPath, expectedCharter, "utf8");
@@ -69,10 +88,10 @@ function run(mode) {
       fs.writeFileSync(modelPath, JSON.stringify(model, null, 2) + "\n", "utf8");
     }
   } else if (expected.text !== book || charter !== expectedCharter || model.book.bytes !== expected.bytes || model.book.sha256 !== expected.sha256 || JSON.stringify(model.statutoryExpansion) !== JSON.stringify(supplement)) throw Error("Governance Titles projection or model pins differ; run --write");
-  console.log(JSON.stringify({ mode, chapters: 20, titles: 5, articles: 34, sections: 68, subclauses: 138, bytes: expected.bytes, sha256: expected.sha256, supplement }));
+  console.log(JSON.stringify({ mode, chapters: 20, titles: 5, articles: 36, sections: 72, subclauses: 147, bytes: expected.bytes, sha256: expected.sha256, supplement }));
 }
 if (require.main === module) {
   if (process.argv.length !== 3 || !["--check", "--write", "--write-book"].includes(process.argv[2])) throw Error("Use --check, --write or --write-book");
   run(process.argv[2]);
 }
-module.exports = { projection, rankBridge, factsBridge };
+module.exports = { projection, rankBridge, factsBridge, presentationBridge218 };

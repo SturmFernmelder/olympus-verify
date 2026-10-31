@@ -3,7 +3,7 @@
 // original Native E2 SQLite/OAuth fixtures; only Discord HTTP is synthetic.
 'use strict';
 const fs201=require('node:fs'),path201=require('node:path'),crypto201=require('node:crypto'),{Module}=require('node:module');
-function prefix201(file,pattern,pin){const source=fs201.readFileSync(path201.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];if(cuts.length!==1)throw Error('reserved201_original_fixture_boundary');const prefix=source.slice(0,cuts[0].index);if(crypto201.createHash('sha256').update(prefix).digest('hex')!==pin)throw Error('reserved201_original_fixture_drift');return prefix;}
+function prefix201(file,pattern,pin){const source=fs201.readFileSync(path201.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];if(cuts.length!==1)throw Error('reserved201_original_fixture_boundary');const prefix=source.slice(0,cuts[0].index);if(crypto201.createHash('sha256').update(file==='privacy_native_erasure_mode_test.cjs'?require('./frontend_fixture_prefix217.cjs').historicalBoardNativePrefix217(prefix):prefix).digest('hex')!==pin)throw Error('reserved201_original_fixture_drift');return prefix;}
 
 async function worker201(){
  const intent=load('./application-track199'),catalogue=load('./governance-offices'),ID='300000000000000001';
@@ -76,7 +76,11 @@ async function native201(){
   check('actual Native-ON save refuses reserved seats without modifying historical application',denied.status===403&&deniedBody.error==='reserved_seat'&&JSON.stringify(f.raw('SELECT * FROM site_applications WHERE discord_id=?',ID))===before);
   const ordinary=await f.call('GET','/api/me/export',{cookie}),own=await ordinary.json();
   check('Native own-copy retains original historical High Council intent',ordinary.status===200&&own.site.application.answers.applicationTrack==='high_council'&&own.site.application.answers.targetOffice==='office_03');
-  const start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
+  const entryPage=await f.call('GET','/privacy/access'),entryHtml=await entryPage.text(),entryMatch=/name="csrf" value="([^"]+)"/.exec(entryHtml);
+  assert.equal(entryPage.status,200,'actual privacy connection form');assert.ok(entryMatch,'actual privacy connection CSRF');
+  const entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');
+  const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryMatch[1]}});assert.equal(start.status,303,'actual privacy authorization redirect');
+  const u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
   const callback=await f.call('GET','/privacy/callback?code=code-'+ID+'&state='+encodeURIComponent(u.searchParams.get('state'))+'&iss=https%3A%2F%2Fdiscord.com',{cookie:flowCookie});
   const privacyCookie=Object.entries(cookies(callback)).filter(([k])=>!k.includes('state')).map(([k,v])=>k+'='+v).join('; ');
   const page=await f.call('GET','/privacy/access',{cookie:privacyCookie}),html=await page.text(),form=/<form method="post" action="\/privacy\/access\/export">([\s\S]*?)<\/form>/.exec(html);assert.ok(form,'actual identify export form');

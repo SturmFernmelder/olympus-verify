@@ -3,7 +3,7 @@ const fs196=require('node:fs'),path196=require('node:path'),crypto196=require('n
 const helper196=fs196.readFileSync(path196.join(__dirname,'frontend_check.cjs'),'utf8'),starts196=[...helper196.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if(starts196.length!==1)throw Error('talent196_original_frontend_setup_boundary');
 const prefix196=helper196.slice(0,starts196[0].index);
-if(crypto196.createHash('sha256').update(prefix196).digest('hex')!=='bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5')throw Error('talent196_original_frontend_setup_drift');
+if(crypto196.createHash('sha256').update(require('./frontend_fixture_prefix217.cjs').historicalFrontendPrefix217(prefix196)).digest('hex')!=='bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5')throw Error('talent196_original_frontend_setup_drift');
 async function applicationTalent196(){
  await siteUser(MEMBER,{global_name:'Mia'});await character(MEMBER,'Mia One','Player-1-0001');
  await siteUser(OTHER,{global_name:'Oz'});await character(OTHER,'Oz Two','Player-1-0002');

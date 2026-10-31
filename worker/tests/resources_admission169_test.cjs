@@ -120,6 +120,24 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
   // reader/annotation deltas; writes, lifetimes, private fields and clocks still
   // have to match the original source bytes. This is not an arbitrary new pin.
   let originalNews = fs.readFileSync(path.join(root, 'src/site-news.ts'), 'utf8').replace(/\r\n/g, '\n');
+  // .218 prepends this exact dated member-facing note. Reverse only this
+  // finite, counted literal before the unchanged historical inverses and hash.
+  const release218 = [
+    "export const RELEASE_NOTES: readonly ReleaseNote[] = [",
+    "  {",
+    "    build: \".218\", date: \"2026-10-30\", lines: [",
+    "      \"Ten native ranks, twelve separate Council portfolios and the guild ministries share one role directory. Institutions and historical mandates are labelled separately.\",",
+    "      \"Role guides retain distinct duties, regional remits and collaborators. Leadership seats remain reserved appointments, with no public application shortcut.\",",
+    "      \"Class and profession guides, curated addons and new tools accompany an animated talent comparison. Dated sources and provisional advice stay labelled.\",",
+    "      \"The practical Officer Operational Guide has one home. The Treasury strategy is restricted to officers and above; public reference material stays separate.\",",
+    "      \"Home and Apply separate the announced global launch from website entry and guild invite scheduling. Optional writ proposals remain inactive, with no assumed revenue.\",",
+    "      \"Privacy and provider safeguards remain in place. Uncertain host outcomes, real game validation and optional activation are reported separately.\",",
+    "    ],",
+    "  },",
+    "",
+  ].join('\n');
+  check('Guild News exact authorized .218 prepend occurs once', originalNews.split(release218).length === 2);
+  originalNews = originalNews.replace(release218, 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\n');
   // .204 corrects only the announced beta DTO and this exact dated release note.
   // Invert these THREE finite literals first; all .197/.196/.176 inverses and
   // the original whole-file SHA safeguard below remain unchanged.

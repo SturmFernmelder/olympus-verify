@@ -674,9 +674,10 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
         env.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(key),
       ]);
       await audit(env, actor, "admin.unbind", row.name, { was: row.discord_id });
+      const verificationRecovery217 = "For verification, **Get my code** uses a request code while those are available. A same-day character-code request can keep by-name `/verify` closed until 00:00 UTC.";
       // Revision 4 (A6): with the fresh lane open, the departure pass removes the fresh roles once no live character is left.
-      if (freshRemovalText(lane)) return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again. The guild roles are removed automatically if no other character of this account is still in the guild.`);
-      return reply(`**${row.name}** unbound from <@${row.discord_id}>. They can run \`/verify\` again. The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.`); // .114: roster exports manage bound characters only, so nothing takes the role away later
+      if (freshRemovalText(lane)) return reply(`**${row.name}** unbound from <@${row.discord_id}>. ${verificationRecovery217} The guild roles are removed automatically if no other character of this account is still in the guild.`);
+      return reply(`**${row.name}** unbound from <@${row.discord_id}>. ${verificationRecovery217} The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.`); // .114: roster exports manage bound characters only, so nothing takes the role away later
     }
     case "ban": {
       // Item 15: the beta dispatch mode is captured here, before this case's first await, and decides the role removal

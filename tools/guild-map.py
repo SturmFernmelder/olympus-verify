@@ -70,8 +70,22 @@ def fetch(base: str, token: str, guild: str = "") -> dict[str, Any]:
                 sys.exit("Worker returned an invalid JSON response.")
             return result
     except urllib.error.HTTPError as e:
-        # The body and reason may echo credentials or other private data. Keep only the status.
+        # Only two fixed categories from the matching authorized Worker route are meaningful.
+        # Bound the read; never display untrusted body/reason fields (including malformed 502s).
+        category = None
+        if e.code == 502:
+            try:
+                raw = e.read(1025)
+                value = json.loads(raw.decode("utf-8")) if len(raw) <= 1024 else None
+                if isinstance(value, dict) and set(value) == {"error"}:
+                    category = value["error"]
+            except (ValueError, OSError, http.client.HTTPException):
+                pass
         e.close()
+        if category == "discord_authentication":
+            sys.exit("502: Discord rejected the deployed bot token. The owner must check DISCORD_BOT_TOKEN; changing server permissions will not repair authentication.")
+        if category == "discord_permissions":
+            sys.exit("502: Discord refused bot permissions. Check its membership and access in the selected server.")
         if 300 <= e.code < 400:
             sys.exit("Worker redirect refused; check worker_url against the Worker's own HTTPS origin.")
         if e.code == 401:
@@ -921,6 +935,7 @@ def main() -> None:
         if counts.get("CRITICAL") or counts.get("PROBLEM"):
             print("  CRITICAL = something private is exposed, or a dangerous permission is held where it should not be.")
             print("  PROBLEM  = something meant to work does not: closed, unjoinable, unpostable, or a retired thing still here.")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,17 @@
 # Maintenance audit after accepted .212
 
+## Current .216 baseline and .217 residual completion
+
+Build .216 is live: main `fb0c0ccf629d65d932365685eb13346e45b57eee`, tree `4d94db2451243813abfbda2e69e107e37a530160`, deployment `b7d9c359-1533-4ee6-bdf8-42c90b2e10df`. The owner now authorizes the actionable residual scopes, companion PR24 coherent lockfile/test-root completion, green exact-head PR and main gates, one verified fresh backup and one unified .217 rollout. The .212 sections below remain dated historical evidence.
+
+Ordinary standard Node/Python/npm qualification is authorized, including Native SQLite, all offline Lua suites, stock Workerd and lockfile resolution. The artificial Job3 process cap and custom Node permission-loader/resolver experiments are permanently retired. Live Forever client/server interactions alone remain deferred until4 November. Default-OFF feature gates and443 live D1 objects remain unchanged; identify-copy statement budget stays below100. The current release explicitly carries bot-host robots200 and60000ms first-cron audit-bin allowances, preserving strict results and raw timing.
+
+Private recovery/evidence tools, including `worker/scripts/private-recovery-artifact-once.cjs`, are **HELD** against their historical exact CLI authority. Neither the accepted4.155.0 SDK nor the intentional retired checkout refusal stub satisfies that older profile. Do not change recovery hashes/hooks or execute an observer/once/loader to bypass the hold; once/EOF/unknown-effect rules remain intact. Ordinary release QA is a separate authorized scope.
+
+The generic deploy helper now checks the selected archive's approved tool profile: exact Node version, archived/caller lock digest, installed nonoptional package versions and stock Wrangler CLI SHA256. It invokes that fixed CLI with the original fixed-target/source-tree/main-only keep-vars restrictions. A missing, retired or mismatched profile refuses before Wrangler starts. Future tool upgrades need a reviewed profile and focused qualification.
+
+
+
 Prepared 30 Oct 2026 by Codex `/root/release_reconcile`. This is a bounded source/metadata audit and a follow-up work
 map. It is not a new release acceptance or an instruction to rerun stopped experiments. The owner authorized
 implementation in separate maintenance PRs after rollout; this first PR changes guidance only.

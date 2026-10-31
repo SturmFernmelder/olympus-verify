@@ -98,5 +98,12 @@ args=(deploy --config "$tmp/worker/$config")
 [ -z "$tag" ] || args+=(--tag "$tag" --message "$message")
 [ -z "$bind_source_tree" ] || args+=(--var "$source_binding:$source_tree")
 echo "Deploying commit $sha${dry_run:+ (dry run)} from a clean export ($tmp): wrangler ${args[*]}"
-# The project's wrangler lives in worker/node_modules; --config makes it read main, assets and vars from the export.
-( cd worker && npx --no-install wrangler "${args[@]}" )
+# The archived profile qualifies the caller's ordinary physical install before any Wrangler process or upload.
+# A retired refusal stub, another lock graph or implicit npx resolution cannot supply release authority.
+checker="$tmp/scripts/check-deploy-toolchain.cjs"
+if [ ! -f "$checker" ]; then
+  [ ! -e "$tmp/scripts/deploy-toolchain-profile.json" ] || { echo "refusing: incomplete archived deployment tools" >&2; exit 1; }
+  checker="$(pwd -P)/scripts/check-deploy-toolchain.cjs"
+fi
+cli="$(node "$checker" "$tmp" "$(pwd -P)" "$sha" "$source_tree")"
+( cd worker && node "$cli" "${args[@]}" )

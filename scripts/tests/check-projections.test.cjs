@@ -24,10 +24,21 @@ function fixture(changes = new Map(), repin = false) {
   return { ...base, get };
 }
 check('real staged projection graph passes', verify(base).result === 'PASS');
+for (const replacement of ['build: ".219", date: "2026-10-30"', 'build: ".218", date: "2026-10-29"']) {
+  rejects('current release note cannot drift from runtime build/date: ' + replacement, () => verify(fixture(changed('worker/src/site-news.ts', s => s.replace('build: ".218", date: "2026-10-30"', replacement)))), /current release note exactly matches runtime BUILD/);
+}
+const council218 = 'worker/public/static/governance/council-composition-master218.md';
+rejects('Master218 Cabinet document byte drift is refused', () => verify(fixture(changed(council218, s => s + '\n'))), /byte pin drift/);
+rejects('Master218 Cabinet document cannot become runtime code', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.runtime_paths.push(council218); return JSON.stringify(r); }), true)), /one exact non-art Master218 Council reference/);
 for (const name of ['treasury-plan207.js','treasury-plan-content207.js','treasury-plan-model207.js','treasury-plan207.css']) {
   const file = 'worker/public/static/' + name;
   rejects('treasury207 resource byte drift is refused: ' + name, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
   rejects('treasury207 resource is mandatory runtime code: ' + name, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r=JSON.parse(s);r.runtime_paths=r.runtime_paths.filter(path=>path!==file);return JSON.stringify(r); }), true)), /four exact ordinary treasury207 planning resources/);
+}
+for (const name of ['guides218.js','guides218.css','guides218.json']) {
+  const file = 'worker/public/static/' + name;
+  rejects('guides218 resource byte drift is refused: ' + name, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
+  if (!name.endsWith('.json')) rejects('guides218 resource is mandatory runtime code: ' + name, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r=JSON.parse(s);r.runtime_paths=r.runtime_paths.filter(path=>path!==file);return JSON.stringify(r); }), true)), /three exact ordinary guides218 resources/);
 }
 for (const file of ['worker/public/static/legal-view196.js', 'worker/public/static/approved-guild-helper196.js']) {
   rejects('master196 view byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
@@ -52,17 +63,17 @@ rejects('current login variants cannot be relabeled official', () => verify(fixt
 rejects('current login variants require both exact paths', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[0].path = 'worker/public/static/wow/login/alias.png'; return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variant reference digest cannot be repinned', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets[1].sha256 = '0'.repeat(64); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
 rejects('current login variants do not allow a third variant', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.login_art_variants.assets.push({ ...r.login_art_variants.assets[0] }); return JSON.stringify(r); }), true)), /nonofficial owner login art variants/);
-rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
+rejects('current login variants require two separate asset rows', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.assets = r.assets.filter(row => row.path !== loginVariants[0]); return JSON.stringify(r); }), true)), /two-variant512-asset571-public-path binding/);
 for (const file of ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js']) {
   rejects('talent comparison code byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
-  rejects('talent comparison code cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
+  rejects('talent comparison code cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset571-public-path binding/);
 }
 // .186 optional level-60 sheet: exact bytes, never artwork, never a native exception; only the script is runtime code.
 for (const file of ['worker/public/static/talents/stats60.js', 'worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json']) {
   rejects('level-60 sheet byte drift is refused: ' + file, () => verify(fixture(changed(file, s => s + '\n'))), /byte pin drift/);
-  rejects('level-60 sheet resource cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
+  rejects('level-60 sheet resource cannot be relabeled official artwork: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.official_paths.push(file); return JSON.stringify(r); }), true)), /two-variant512-asset571-public-path binding/);
   rejects('level-60 sheet resource cannot become a native exception: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.native_paths.push(file); return JSON.stringify(r); }), true)), /three exact non-art level-60 sheet resources/);
-  rejects('level-60 sheet resource row is mandatory: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.required_public_resources = r.required_public_resources.filter(row => row.path !== file); return JSON.stringify(r); }), true)), /two-variant512-asset567-public-path binding/);
+  rejects('level-60 sheet resource row is mandatory: ' + file, () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.required_public_resources = r.required_public_resources.filter(row => row.path !== file); return JSON.stringify(r); }), true)), /two-variant512-asset571-public-path binding/);
 }
 rejects('the level-60 sheet script remains reviewed runtime code', () => verify(fixture(changed('scripts/official_asset_reference.json', s => { const r = JSON.parse(s); r.runtime_paths = r.runtime_paths.filter(p => p !== 'worker/public/static/talents/stats60.js'); return JSON.stringify(r); }), true)), /three exact non-art level-60 sheet resources/);
 for (const file of ['worker/public/static/talents/naked60-186.json', 'worker/public/static/talents/stat-effects186.json'])
@@ -118,5 +129,102 @@ try {
   check('revision reader uses outgoing commit even when index differs', loadSnapshot(temp, first).get('scripts/selected.txt').toString() === 'committed\n');
   check('reading snapshots does not update the index or working file', indexBefore.equals(fs.readFileSync(path.join(temp, '.git', 'index'))) && fs.readFileSync(path.join(temp, 'scripts', 'selected.txt'), 'utf8') === 'unstaged\n');
 } finally { fs.rmSync(temp, { recursive: true, force: true }); }
+// .218 reviewed calculator heading lineage and independently stale attachment pins.
+// Fixed reviewed P285, heading-only and recovery successors; none is read from a generator.
+const talentCalculator218 = 'worker/public/static/talents/calculator.js';
+const talentGenerator218 = 'scripts/build-talent-build-contract.cjs', talentProjection218 = 'worker/src/talent-build-contract.ts';
+const talentPriorSource218 = 'fbed6f34d022cea57a6760d96bd7b04f0419effa25b0f47eaa85d72e92636b14';
+const talentCurrentSource218 = '0830ff6fc69ef3a3430bf1cdf31a272f3a5a84da4bcedfba2ae398748cd131c8';
+const talentNewHeading218 = 'h("h1", { class: "talents-eyebrow", text: "Olympus · Forever talents" })';
+const talentOldHeading218 = 'h("p", { class: "talents-eyebrow", text: "Olympus · Forever talents" })';
+const actualCalculator218 = base.get(talentCalculator218).toString('utf8');
+const talentHeadingSource218 = "2d36ebb635a97d706f18a9509174d3c8ecfab3e7e80d792ecc49cf97ff90fcb6";
+const talentRecoveryEdits218 = [
+  {
+    "old": "      build = emptyBuild(data, options.className || \"warrior\");",
+    "new": "      const linkedClass = classOf(data, options.className || \"warrior\");\n      build = emptyBuild(data, linkedClass ? linkedClass.id : \"warrior\");\n      if (!linkedClass) message = \"That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.\";"
+  },
+  {
+    "old": "        if (incoming.ok) build = incoming.build; else message = incoming.error;",
+    "new": "        if (incoming.ok) {\n          build = incoming.build;\n          if (!linkedClass) message = \"That linked class is unavailable. Showing the checked \" + classOf(data, build.className).name + \" shared plan.\";\n        } else message = incoming.error + (!linkedClass ? \" That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.\" : \"\");"
+  }
+];
+let headingOnlyCalculator218 = actualCalculator218;
+for (const edit of talentRecoveryEdits218.slice().reverse()) {
+  if (headingOnlyCalculator218.split(edit.new).length !== 2) throw Error("one exact reviewed calculator recovery edit required");
+  headingOnlyCalculator218 = headingOnlyCalculator218.replace(edit.new, edit.old);
+}
+check("the exact two reviewed unknown-class recovery edits preserve the entire heading-only calculator", hash(base.get(talentCalculator218)) === talentCurrentSource218
+  && hash(Buffer.from(headingOnlyCalculator218)) === talentHeadingSource218);
+check('the exact reviewed talent heading successor preserves every old calculator byte outside p-to-h1', hash(Buffer.from(headingOnlyCalculator218)) === talentHeadingSource218
+  && headingOnlyCalculator218.split(talentNewHeading218).length === 2 && !headingOnlyCalculator218.includes(talentOldHeading218)
+  && hash(Buffer.from(headingOnlyCalculator218.replace(talentNewHeading218, talentOldHeading218))) === talentPriorSource218);
+function talentPinChange218(file, current, stale) {
+  const original = base.get(file).toString('utf8');
+  if (original.split(current).length !== 2 || current === stale) throw Error('one exact non-noop talent pin mutation required');
+  return changed(file, source => source.replace(current, stale));
+}
+const oldTalentGenerator218 = talentPinChange218(talentGenerator218, talentCurrentSource218, talentPriorSource218);
+const oldTalentProjection218 = talentPinChange218(talentProjection218, talentCurrentSource218, talentPriorSource218);
+rejects('an independently stale calculator generator pin is refused before late CI', () => verify(fixture(oldTalentGenerator218)), /talent calculator source and generated serializer pin/);
+rejects('an independently stale generated serializer pin is refused before late CI', () => verify(fixture(oldTalentProjection218)), /talent calculator source and generated serializer pin/);
+rejects('a mutually consistent old generator and TS pin cannot credit the new calculator bytes', () => verify(fixture(new Map([...oldTalentGenerator218, ...oldTalentProjection218]))), /talent calculator source and generated serializer pin/);
+const headingTalentGenerator218 = talentPinChange218(talentGenerator218, talentCurrentSource218, talentHeadingSource218);
+const headingTalentProjection218 = talentPinChange218(talentProjection218, talentCurrentSource218, talentHeadingSource218);
+rejects('a stale heading-only generator cannot qualify the recovery calculator', () => verify(fixture(headingTalentGenerator218)), /talent calculator source and generated serializer pin/);
+rejects('mutually consistent heading-only generator and TS pins cannot qualify the recovery calculator', () => verify(fixture(new Map([...headingTalentGenerator218, ...headingTalentProjection218]))), /talent calculator source and generated serializer pin/);
+rejects('calculator body drift still refuses when ordinary upstream asset byte pins are internally consistent', () => verify(fixture(changed(talentCalculator218, source => source + '\n// isolated unreviewed calculator body\n'), true)), /talent calculator source and generated serializer pin/);
+rejects('an independently stale generated normalized data pin is refused', () => verify(fixture(talentPinChange218(talentProjection218, '8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c', '0'.repeat(64)))), /talent normalized input and generated data pin/);
+rejects('an independently stale generated upstream pin is refused', () => verify(fixture(talentPinChange218(talentProjection218, '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588', '0'.repeat(64)))), /talent upstream and revision pins/);
+rejects('an independently stale generated revision cannot borrow the unchanged upstream pin', () => verify(fixture(talentPinChange218(talentProjection218, 'TALENT_SNAPSHOT_REVISION = "260cf99b52db"', 'TALENT_SNAPSHOT_REVISION = "000000000000"'))), /talent upstream and revision pins/);
+
+const talentMetadata218 = [
+  ['TALENT_SNAPSHOT_REVISION', '260cf99b52db', /talent upstream and revision pins/],
+  ['TALENT_SNAPSHOT_DATA_SHA256', '8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c', /talent normalized input and generated data pin/],
+  ['TALENT_SNAPSHOT_UPSTREAM_SHA256', '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588', /talent upstream and revision pins/],
+  ['TALENT_SERIALIZER_SOURCE_SHA256', '0830ff6fc69ef3a3430bf1cdf31a272f3a5a84da4bcedfba2ae398748cd131c8', /talent calculator source and generated serializer pin/],
+];
+for (const [name, value, error] of talentMetadata218) {
+  const declaration = 'export const ' + name + ' = "' + value + '";', stale = '0'.repeat(value.length);
+  const original = base.get(talentProjection218).toString('utf8');
+  if (original.split(declaration).length !== 2) throw Error('one exact reviewed metadata declaration required: ' + name);
+  const mutateDeclaration = replacement => changed(talentProjection218, text => text.replace(declaration, replacement));
+  rejects('commented correct metadata cannot mask a stale active export: ' + name,
+    () => verify(fixture(mutateDeclaration('// ' + declaration + '\nexport const ' + name + ' = "' + stale + '";'))), /talent exact generated metadata prefix/);
+  rejects('a duplicate metadata declaration is refused: ' + name,
+    () => verify(fixture(mutateDeclaration(declaration + '\n' + declaration))), /talent exact generated metadata prefix/);
+  rejects('a false-guarded correct declaration cannot mask a stale active export: ' + name,
+    () => verify(fixture(mutateDeclaration('if (false) {\n' + declaration + '\n}\nexport const ' + name + '="' + stale + '";'))), /talent exact generated metadata prefix/);
+  rejects('a block-commented correct declaration cannot mask a compact stale export: ' + name,
+    () => verify(fixture(mutateDeclaration('/*\n' + declaration + '\n*/\nexport const ' + name + '="' + stale + '";'))), /talent exact generated metadata prefix/);
+  rejects('an appended compact duplicate cannot escape exact metadata uniqueness: ' + name,
+    () => verify(fixture(changed(talentProjection218, text => text + '\nexport const ' + name + '="' + value + '";\n'))), error);
+}
+
+const talentGeneratorFields218 = [
+  ['INPUT_SHA256', '8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c', /talent normalized input and generated data pin/],
+  ['UPSTREAM_SHA256', '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588', /talent upstream and revision pins/],
+  ['CALCULATOR_SHA256', '0830ff6fc69ef3a3430bf1cdf31a272f3a5a84da4bcedfba2ae398748cd131c8', /talent calculator source and generated serializer pin/],
+  ['REVISION', '260cf99b52db', /talent upstream and revision pins/],
+];
+for (const [name, value, error] of talentGeneratorFields218) {
+  const declaration = "const " + name + " = '" + value + "';", stale = '0'.repeat(value.length);
+  const original = base.get(talentGenerator218).toString('utf8');
+  if (original.split(declaration).length !== 2) throw Error('one exact reviewed generator declaration required: ' + name);
+  const mutateGenerator = replacement => changed(talentGenerator218, text => text.replace(declaration, replacement));
+  rejects('a stale active generator field is independently refused: ' + name,
+    () => verify(fixture(mutateGenerator("const " + name + " = '" + stale + "';"))), error);
+  rejects('a commented correct generator field cannot mask a stale active declaration: ' + name,
+    () => verify(fixture(mutateGenerator('// ' + declaration + "\nconst " + name + " = '" + stale + "';"))), /talent exact generator metadata prefix/);
+  rejects('a duplicate generator declaration is refused: ' + name,
+    () => verify(fixture(mutateGenerator(declaration + '\n' + declaration))), /talent exact generator metadata prefix/);
+  rejects('a false-guarded generator declaration cannot mask a stale active declaration: ' + name,
+    () => verify(fixture(mutateGenerator('if (false) {\n' + declaration + "\n}\nconst " + name + "='" + stale + "';"))), /talent exact generator metadata prefix/);
+  rejects('a block-commented correct generator field cannot mask a compact stale declaration: ' + name,
+    () => verify(fixture(mutateGenerator('/*\n' + declaration + "\n*/\nconst " + name + "='" + stale + "';"))), /talent exact generator metadata prefix/);
+  rejects('an appended compact generator duplicate cannot escape declaration uniqueness: ' + name,
+    () => verify(fixture(changed(talentGenerator218, text => text + "\nconst " + name + "='" + value + "';\n"))), error);
+}
+
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');
 if (failed) process.exitCode = 1;

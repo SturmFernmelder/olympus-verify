@@ -57,7 +57,9 @@ function oauthProvider(id=A,scope='identify'){provider=(url,init)=>{
  if(url==='https://discord.com/api/oauth2/token'){assert.equal(init.redirect,'manual');assert.equal(init.method,'POST');eq('provider callback is allowlisted',init.body.get('redirect_uri'),BASE+'/privacy/callback');return new Response(JSON.stringify({access_token:'test-access-token',token_type:'Bearer',scope}));}
  if(url==='https://discord.com/api/v10/users/@me'){assert.equal(init.redirect,'manual');assert.equal(new Headers(init.headers).get('Authorization'),'Bearer test-access-token');return new Response(JSON.stringify({id,username:'ignored-new-name'}));}
  throw Error('unexpected provider endpoint '+url);};}
-async function start(f){const r=await access.beginPrivacyAccess(new Request(BASE+'/privacy/signin',{headers:{'CF-Connecting-IP':access.privacyAccessRandomId()}}),f.env);const u=new URL(r.headers.get('Location'));
+async function start(f){const page=await access.privacyAccessPage(new Request(BASE+'/privacy/access'),f.env),html=await page.text(),section=/<form method="post" action="\/privacy\/signin">([\s\S]*?)<\/form>/.exec(html);assert.ok(section,'actual privacy initiation form');
+ const csrf=/name="csrf" value="([^"]+)"/.exec(section[1])[1],cookie=page.headers.get('Set-Cookie').split(';')[0];
+ const r=await access.beginPrivacyAccess(new Request(BASE+'/privacy/signin',{method:'POST',headers:{Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':access.privacyAccessRandomId()},body:new URLSearchParams({csrf})}),f.env);const u=new URL(r.headers.get('Location'));
  eq('OAuth scope is identify only',u.searchParams.get('scope'),'identify');eq('OAuth uses registered privacy callback',u.searchParams.get('redirect_uri'),BASE+'/privacy/callback');
  eq('OAuth still requests active consent',u.searchParams.get('prompt'),'consent');
  return {state:u.searchParams.get('state'),flowCookie:r.headers.get('Set-Cookie').split(';')[0]};}
@@ -439,6 +441,80 @@ async function main(){
  f=fixture();const cEnd=await connect(f),formEnd=await form(f,cEnd,'own_erasure');f.hooks.step=(_i,sql)=>{if(sql.includes('privacy_identify_erasure_unconfirmed'))f.advance(720);};eq('erasure final original deadline not confirmed',(await erase.erasePrivacyAccess(formEnd.request(),f.env)).status,503);eq('erasure final deadline rolls back subject/job',[count(f,'privacy_subjects'),count(f,'privacy_serving_jobs')],[0,0]);eq('erasure final deadline rolls back grant consumption',f.db.prepare("SELECT consumed_at FROM privacy_access_grants WHERE purpose='own_erasure'").get().consumed_at,null);f.db.close();
  f=fixture();const c6=await connect(f),frm6=await form(f,c6,'own_erasure');let lost=false;f.hooks.afterBatch=stmts=>{if(!lost&&stmts.some(x=>x.sql.startsWith('INSERT INTO privacy_serving_jobs'))){lost=true;throw Error('lost commit response');}};eq('lost commit reply resolves exact durable job',(await erase.erasePrivacyAccess(frm6.request(),f.env)).status,202);eq('lost reply persists one job',count(f,'privacy_serving_jobs'),1);f.db.close();
  f=fixture();eq('purge exactly two statements',access.privacyAccessPurgeStatements(f.env).length,2);for(let i=0;i<125;i++)await fixtureWrite(f,"INSERT INTO privacy_access_oauth VALUES(?,?,'privacy_identify',?,?,NULL)",i.toString(16).padStart(64,'0'),'a'.repeat(64),f.time()-301,f.time()-1);await f.env.DB.batch(access.privacyAccessPurgeStatements(f.env));eq('purge bounded100 per table',count(f,'privacy_access_oauth'),25);f.db.close();
+ // .217: genuine callback fixtures exercise the provider byte/encoding/JSON boundary at both HTTP stages.
+ {
+  const boundary=load('privacy-provider-body'),encoder=new TextEncoder(),settle=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const value=stage=>stage==='token'?{access_token:'test-access-token',token_type:'Bearer',scope:'identify',extra:'Caf\u00e9 \ud83d\ude00'}:{id:A,username:'Caf\u00e9 \ud83d\ude00'};
+  const selected=(stage,url)=>url===(stage==='token'?'https://discord.com/api/oauth2/token':'https://discord.com/api/v10/users/@me');
+  const chunksResponse=(chunks,headers={})=>{let index=0;return new Response(new ReadableStream({pull(controller){if(index===chunks.length)controller.close();else controller.enqueue(chunks[index++]);}}),{headers});};
+  for(const stage of ['token','identity']){
+   for(const shape of ['exact byte cap','split UTF-8']){
+    const f=fixture(),schemaBefore=count(f,'sqlite_master');oauthProvider();const flow=await start(f),normal=provider,raw=encoder.encode(JSON.stringify(value(stage)));
+    let response;if(shape==='exact byte cap'){const bytes=new Uint8Array(boundary.PRIVACY_PROVIDER_BYTES).fill(32);bytes.set(raw);response=chunksResponse([bytes],{'Content-Length':String(bytes.length)});}
+    else{const split=raw.findIndex(byte=>byte>=128)+1;ok('.217 '+stage+' split lies inside a UTF-8 sequence',split>0);response=chunksResponse([raw.slice(0,split),raw.slice(split)]);}
+    provider=(url,init)=>selected(stage,url)?response:normal(url,init);
+    eq('.217 '+stage+' '+shape+' remains a genuine admitted callback',(await finish(f,flow)).status,303);
+    eq('.217 '+stage+' '+shape+' grants only two original privacy purposes',count(f,'privacy_access_grants'),2);
+    eq('.217 '+stage+' '+shape+' creates no ordinary account or role',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);
+    eq('.217 '+stage+' '+shape+' changes no schema',count(f,'sqlite_master'),schemaBefore);f.db.close();
+   }
+   const negatives=['noncanonical length','declared byte overflow','stream byte overflow','UTF-8 BOM','invalid UTF-8','duplicate key','escaped duplicate key','trailing JSON material','empty body'];
+   for(const name of negatives){
+    const f=fixture();oauthProvider();const flow=await start(f),normal=provider,text=JSON.stringify(value(stage)),observed={cancelled:0};
+    let response;
+    if(name==='noncanonical length')response=new Response(text,{headers:{'Content-Length':'01'}});
+    else if(name==='declared byte overflow')response=new Response(text,{headers:{'Content-Length':String(boundary.PRIVACY_PROVIDER_BYTES+1)}});
+    else if(name==='stream byte overflow'){let pulls=0;response=new Response(new ReadableStream({pull(controller){if(pulls++===0)controller.enqueue(encoder.encode(text));else if(pulls<40)controller.enqueue(new Uint8Array(1024).fill(32));else controller.close();},cancel(){observed.cancelled++;}}));}
+    else if(name==='UTF-8 BOM')response=new Response(encoder.encode('\ufeff'+text));
+    else if(name==='invalid UTF-8'){const parts=JSON.stringify({...value(stage),extra:'BROKEN217'}).split('BROKEN217');response=new Response(new Uint8Array([...encoder.encode(parts[0]),195,40,...encoder.encode(parts[1])]));}
+    else if(name==='duplicate key'||name==='escaped duplicate key'){const key=stage==='token'?'access_token':'id',escaped=stage==='token'?'\\u0061ccess_token':'\\u0069d',replacement=stage==='token'?'test-access-token':A;response=new Response(text.slice(0,-1)+',"'+(name==='duplicate key'?key:escaped)+'":"'+replacement+'"}');}
+    else if(name==='trailing JSON material')response=new Response(text+'#');
+    else response=new Response(null);
+    provider=(url,init)=>selected(stage,url)?response:normal(url,init);const before=calls.length;let failure;
+    try{await finish(f,flow);}catch(error){failure=error;}
+    ok('.217 '+stage+' '+name+' refuses the genuine callback',!!failure);
+    eq('.217 '+stage+' '+name+' does not progress past the selected endpoint',calls.length-before,stage==='token'?1:2);
+    eq('.217 '+stage+' '+name+' creates no grant/account/role',[count(f,'privacy_access_grants'),count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0,0]);
+    ok('.217 '+stage+' '+name+' leaves original callback state spent',f.db.prepare('SELECT consumed_at FROM privacy_access_oauth').get().consumed_at!==null);
+    await settle();if(name==='stream byte overflow')eq('.217 '+stage+' overflow cancels the original unread stream once',observed.cancelled,1);
+    const spentCalls=calls.length;await refused('.217 '+stage+' '+name+' spent callback cannot retry',()=>finish(f,flow));eq('.217 '+stage+' '+name+' replay has zero HTTP',calls.length,spentCalls);f.db.close();
+   }
+  }
+  // A local deadline does not erase ownership of a header response that has not arrived yet.
+  const work=new boundary.PendingPrivacyIdentityWork(),controller=new AbortController();let complete,cancelled=0;
+  const original=new Promise(resolve=>{complete=resolve;});let deadline;
+  try{await boundary.fetchPrivacyProvider(original,Date.now()-1,controller,work);}catch(error){deadline=error;}
+  ok('.217 expired provider deadline aborts without fabricating drain',!!deadline&&controller.signal.aborted&&work.count===1);
+  complete(new Response(new ReadableStream({cancel(){cancelled++;}})));await settle();
+  eq('.217 late original header response is cancelled once',cancelled,1);eq('.217 actual header/cancellation settlement drains owned work',work.count,0);
+ }
+ // .217: opening the privacy connection page is read-only; only its original same-origin form can allocate OAuth state.
+ {
+  const f=fixture();f.env.PRIVACY_ACCESS_ENABLED='true';const policy=load('policy-forms'),forms=load('policy-form-core');
+  const schemaBefore=count(f,'sqlite_master');calls=[];
+  const route=request=>policy.handlePolicyForms(request,f.env,'/privacy/signin',true);
+  const get=await route(new Request(BASE+'/privacy/signin'));
+  eq('.217 privacy sign-in GET renders a non-allocating form',get.status,200);
+  eq('.217 privacy sign-in GET allocates no OAuth state',count(f,'privacy_access_oauth'),0);
+  const markup=/<form method="post" action="\/privacy\/signin">([\s\S]*?)<\/form>/.exec(await get.text());ok('.217 entry offers the actual POST initiation form',!!markup);
+  const csrf=/name="csrf" value="([^"]+)"/.exec(markup[1])[1],cookie=get.headers.get('Set-Cookie').split(';')[0];
+  ok('.217 entry cookie is the original privacy form nonce only',cookie.startsWith(forms.FORM_COOKIE+'='));
+  const head=await route(new Request(BASE+'/privacy/signin',{method:'HEAD'}));eq('.217 privacy sign-in HEAD is non-allocating',head.status,200);eq('.217 HEAD has no body',await head.text(),'');
+  const post=(fields={csrf},over={},url=BASE+'/privacy/signin')=>{const headers=new Headers({Cookie:cookie,Origin:BASE,'Content-Type':'application/x-www-form-urlencoded','CF-Connecting-IP':access.privacyAccessRandomId()});for(const [key,value]of Object.entries(over)){if(value===null)headers.delete(key);else headers.set(key,value);}return new Request(url,{method:'POST',headers,body:new URLSearchParams(fields)});};
+  const wrongPurpose=await forms.formToken(f.env,cookie.slice(cookie.indexOf('=')+1),'copy-export');
+  for(const [name,request]of [['missing origin',post({csrf},{Origin:null})],['foreign origin',post({csrf},{Origin:'https://other.invalid'})],['missing nonce',post({csrf},{Cookie:''})],['duplicate nonce',post({csrf},{Cookie:cookie+'; '+cookie})],['wrong purpose',post({csrf:wrongPurpose})],['missing token',post({})],['unknown field',post({csrf,extra:'not-an-initiation-field'})],['query',post({csrf},{},BASE+'/privacy/signin?extra=1')],['wrong media',post({csrf},{'Content-Type':'application/json'})]]){
+   const response=await route(request);ok('.217 '+name+' initiation refuses',response.status>=400);eq('.217 '+name+' leaves flow state empty',count(f,'privacy_access_oauth'),0);
+  }
+  const duplicate=post();const duplicateBody=await duplicate.text(),duplicateRequest=new Request(duplicate.url,{method:'POST',headers:duplicate.headers,body:duplicateBody+'&csrf='+encodeURIComponent(csrf)});
+  ok('.217 duplicate token field refuses',(await route(duplicateRequest)).status>=400);eq('.217 duplicate field leaves flow state empty',count(f,'privacy_access_oauth'),0);
+  const OriginalDate=vm.runInContext('Date',context);context.Date=class extends OriginalDate{static now(){return OriginalDate.now()+3601000;}};
+  try{ok('.217 correctly signed expired initiation token refuses',(await route(post())).status>=400);}finally{context.Date=OriginalDate;}
+  eq('.217 rejected initiations make no provider calls',calls.length,0);eq('.217 rejected initiations create no flows',count(f,'privacy_access_oauth'),0);
+  const begun=await route(post()),authorize=new URL(begun.headers.get('Location'));
+  eq('.217 valid initiation returns the original OAuth redirect',begun.status,303);eq('.217 valid initiation creates one flow',count(f,'privacy_access_oauth'),1);
+  eq('.217 valid initiation keeps identify-only scope',authorize.searchParams.get('scope'),'identify');eq('.217 valid initiation retains300-second flow lifetime',f.db.prepare('SELECT expires_at-created_at AS ttl FROM privacy_access_oauth').get().ttl,300);
+  eq('.217 initiation creates no account or role authority',[count(f,'site_users'),count(f,'members'),count(f,'role_settlements')],[0,0,0]);eq('.217 initiation performs no DDL',count(f,'sqlite_master'),schemaBefore);f.db.close();
+ }
  provider=null;console.log(`privacy_access_test: ${checks} checks PASS`);
 }
 main().catch(e=>{console.error('FAIL privacy_access_test',e);process.exitCode=1;});

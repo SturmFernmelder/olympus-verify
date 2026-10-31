@@ -382,5 +382,25 @@
   {
     "key": "office_96",
     "label": "Head of Trading & Markets"
+  },
+  {
+    "key": "office_97",
+    "label": "Grand Marshal of PvE"
+  },
+  {
+    "key": "office_98",
+    "label": "Grand Marshal of PvP"
+  },
+  {
+    "key": "office_99",
+    "label": "High Inquisitor / Minister of Internal Security"
+  },
+  {
+    "key": "office_100",
+    "label": "Grand Concordat Director"
+  },
+  {
+    "key": "office_101",
+    "label": "Lord High Chancellor / Head of Justice"
   }
 ]

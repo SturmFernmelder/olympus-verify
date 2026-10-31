@@ -104,6 +104,19 @@ function deferred() { let resolve, reject; const promise = new Promise((a, b) =>
     assert.ok(!/<(?:html|head|body|main|nav|script|style|link|iframe)\b/i.test(html));
     assert.ok(!html.includes('property="og:')); assert.ok(!html.includes('brand-mark'));
   });
+  await check('both planner layouts expose all twelve current portfolios separately from the historical library', async () => {
+    const standalone = await (await server.exports.rankPlannerPage(request(), {}, true)).text();
+    const current = JSON.parse(read(path.join(worker, 'public/static/governance/organization.json'))).councilComposition.currentSeats.filter(seat => seat.id !== 'gm-chair');
+    assert.equal(current.length, 12);
+    for (const markup of [html, standalone]) {
+      const panel = markup.match(/<section class="reference-note current-council218"[\s\S]*?<\/section>/)?.[0];
+      assert.ok(panel, 'current reference exists');
+      assert.equal((panel.match(/<li>/g) || []).length, 12);
+      for (const seat of current) assert.ok(panel.includes('href="/#/roles/' + seat.familyKey + '"') && panel.includes(seat.label.replace(/&/g, '&amp;')), seat.id);
+      assert.ok(panel.includes('/static/governance/council-composition-master218.md'));
+      assert.ok(markup.indexOf(panel) < markup.indexOf('Historical &amp; Draft-Only Rank Ideas'));
+    }
+  });
   const b = browser(), Model = b.sandbox.OlympusStaffRankPlanner, catalogue = b.sandbox.OlympusStaffRankCatalogue.ranks, api = b.sandbox.OlympusRankPlanner;
   await check('current ten-rank guide stays primary and all old rank ideas are inside a closed historical-only disclosure in both layouts', async () => {
     const standalone = await (await server.exports.rankPlannerPage(request(), {}, true)).text();

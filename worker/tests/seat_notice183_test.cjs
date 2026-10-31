@@ -24,15 +24,15 @@ const fresh183 = (id, overrides = {}) => ({ signedIn: true, denied: false, user:
   await fixtureRun("INSERT INTO roster_snapshots (exported_at,received_at,source,member_count,content_hash,trusted,complete,first_received_at) VALUES (?,?,'addon',1000,'seats183',1,1,?)", now - 3600, now - 3600, now - 3600);
   await fixtureRun("INSERT INTO invite_queue (name_key,name,discord_id,status,created_at) VALUES ('local queue','Local Queue',?,'queued',?)", MEMBER, now - 7200);
   let firstRead183 = true;
-  const initial = await openPage(MEMBER, {}, { seatInitialDelay183: path => { if (path === "/api/me" && firstRead183) { firstRead183 = false; return 150; } return 0; } });
+  const initial = await openPage(MEMBER, {}, { seatInitialDelay183: path => { if (path === "/api/me?view=seats" && firstRead183) { firstRead183 = false; return 150; } return 0; } });
   check("boot full state is not presented while a fresh officer-report read is pending", initial.boot.seats.state === "full" && !!seat183(initial) && seat183(initial).textContent.includes("Checking the latest Olympus I officer report") && !report183(initial));
   await waitFor(() => !!report183(initial), "fresh original seat report");
   check("fresh original officer report includes its hour, count and only the reader's queue place", report183(initial)?.textContent.includes("Latest officer report: the Olympus I roster export of about") && report183(initial).textContent.includes("counts 1000 of 1000 members") && report183(initial).textContent.includes("Local Queue is #1 in line for a seat.") && !report183(initial).textContent.includes("right now"));
 
   const reads = [];
-  initial.before((path, init) => { if (path === "/api/me") reads.push(init); return false; });
-  initial.hold(path => path === "/api/me" ? 150 : 0);
-  initial.answer(path => path === "/api/me" ? fresh183(MEMBER, { application: { position: "officer", status: "accepted" }, settings: { applicationsOpen: false } }) : null);
+  initial.before((path, init) => { if (path === "/api/me?view=seats") reads.push(init); return false; });
+  initial.hold(path => path === "/api/me?view=seats" ? 150 : 0);
+  initial.answer(path => path === "/api/me?view=seats" ? fresh183(MEMBER, { application: { position: "officer", status: "accepted" }, settings: { applicationsOpen: false } }) : null);
   await initial.go("#/apply");
   const main = initial.app.querySelector("main"), form = main.querySelector("form"), typed = form && (form.querySelector("textarea") || form.querySelector('input[type="text"]'));
   check("Apply opens its own read without displaying cached Home evidence", !!form && !!typed && !!seat183(initial) && !report183(initial) && reads.length === 1, JSON.stringify({form:!!form,typed:!!typed,notice:!!seat183(initial),report:!!report183(initial),reads:reads.length}));
@@ -56,23 +56,23 @@ const fresh183 = (id, overrides = {}) => ({ signedIn: true, denied: false, user:
 
   const refused = await openPage(OTHER);
   await waitFor(() => !!report183(refused), "initial refusal fixture report");
-  refused.answer(path => path === "/api/me" ? new Response('{"error":"forbidden"}', { status: 403 }) : null);
+  refused.answer(path => path === "/api/me?view=seats" ? new Response('{"error":"forbidden"}', { status: 403 }) : null);
   await refused.go("#/apply"); await waitFor(() => seat183(refused)?.textContent.includes("could not be checked"), "fresh refusal");
   check("fresh refusal clears prior seat and queue evidence without claiming a current full guild", !report183(refused) && !refused.app.textContent.includes("Local Queue") && !refused.app.textContent.includes("right now") && seat183(refused).textContent.includes("could not be checked"));
-  refused.answer(path => path === "/api/me" ? fresh183(OTHER, { user: { id: MEMBER } }) : null);
+  refused.answer(path => path === "/api/me?view=seats" ? fresh183(OTHER, { user: { id: MEMBER } }) : null);
   await refused.go("#/"); await waitFor(() => seat183(refused)?.textContent.includes("could not be checked"), "wrong reader refusal");
   check("a readable response for another account cannot populate the current reader's seat or queue notice", !report183(refused) && seat183(refused).textContent.includes("could not be checked"));
-  refused.answer(path => path === "/api/me" ? fresh183(OTHER, { seats: { state: "full", source: "refused_invite", asOf: Math.floor((now - 6 * 3600) / 3600) * 3600 }, myQueue: [{ name: "Expired Queue", position: 1 }] }) : null);
+  refused.answer(path => path === "/api/me?view=seats" ? fresh183(OTHER, { seats: { state: "full", source: "refused_invite", asOf: Math.floor((now - 6 * 3600) / 3600) * 3600 }, myQueue: [{ name: "Expired Queue", position: 1 }] }) : null);
   await refused.go("#/apply"); await waitFor(() => seat183(refused)?.hidden, "expired refusal source");
   check("a six-hour invite refusal is not revived from boot or by a fresh response", !report183(refused) && seat183(refused).hidden && !refused.app.textContent.includes("Expired Queue"));
-  refused.answer(path => path === "/api/me" ? new Response('{"error":"signed_out"}', { status: 401 }) : null);
+  refused.answer(path => path === "/api/me?view=seats" ? new Response('{"error":"signed_out"}', { status: 401 }) : null);
   await refused.go("#/"); await waitFor(() => !byText(refused.app, "button", "Sign out"), "current sign-out refusal");
   check("a current original 401 retains the existing sign-out behavior and removes seat information", !byText(refused.app, "button", "Sign out") && !seat183(refused));
 
   const late = await openPage(MEMBER);
   await waitFor(() => !!report183(late), "late original report");
-  late.hold(path => path === "/api/me" ? 150 : 0);
-  late.answer(path => path === "/api/me" ? new Response('{"error":"signed_out"}', { status: 401 }) : null);
+  late.hold(path => path === "/api/me?view=seats" ? 150 : 0);
+  late.answer(path => path === "/api/me?view=seats" ? new Response('{"error":"signed_out"}', { status: 401 }) : null);
   await late.go("#/apply"); await late.go("#/roles");
   const rolesMain = late.app.querySelector("main"); await pause183(250);
   check("an old view's late 401 cannot sign out, redraw or populate the newer route", late.app.querySelector("main") === rolesMain && rolesMain.dataset.routeHead === "roles" && !!byText(late.app, "button", "Sign out") && !seat183(late) && !late.document.body.textContent.includes("You were signed out"));
@@ -81,9 +81,9 @@ const fresh183 = (id, overrides = {}) => ({ signedIn: true, denied: false, user:
   const visibleMain = visible.app.querySelector("main"), visibleForm = visibleMain.querySelector("form"), visibleField = visibleForm.querySelector("textarea") || visibleForm.querySelector('input[type="text"]');
   visibleField.value = "Keep typing across visibility"; visibleField.dispatchEvent(new Event("input", { bubbles: true }));
   const oldRequests = new WeakSet(); let resumedReads = 0;
-  visible.before((path, init) => { if (path === "/api/me") { resumedReads++; if (resumedReads === 1) oldRequests.add(init); } return false; });
-  visible.hold((path, init) => path === "/api/me" && oldRequests.has(init) ? 200 : 0);
-  visible.answer((path, init) => path === "/api/me" ? oldRequests.has(init) ? new Response('{"error":"signed_out"}', { status: 401 }) : fresh183(OTHER, { myQueue: [{ name: "Fresh Visible Queue", position: 2 }] }) : null);
+  visible.before((path, init) => { if (path === "/api/me?view=seats") { resumedReads++; if (resumedReads === 1) oldRequests.add(init); } return false; });
+  visible.hold((path, init) => path === "/api/me?view=seats" && oldRequests.has(init) ? 200 : 0);
+  visible.answer((path, init) => path === "/api/me?view=seats" ? oldRequests.has(init) ? new Response('{"error":"signed_out"}', { status: 401 }) : fresh183(OTHER, { myQueue: [{ name: "Fresh Visible Queue", position: 2 }] }) : null);
   const visibility183 = hidden => { visible.document.hidden = hidden; visible.document.dispatchEvent(new Event("visibilitychange")); };
   visibility183(true);
   check("visibility loss immediately clears seat and own-queue text without changing the form", !report183(visible) && seat183(visible).hidden && visibleField.value === "Keep typing across visibility" && visibleMain.querySelector("form") === visibleForm && resumedReads === 0);
@@ -92,7 +92,7 @@ const fresh183 = (id, overrides = {}) => ({ signedIn: true, denied: false, user:
   visibility183(true); visibility183(false);
   await waitFor(() => report183(visible)?.textContent.includes("Fresh Visible Queue"), "current visible generation"); await pause183(250);
   check("the newest visible read preserves typing and a pre-hide 401 cannot sign out or overwrite it", resumedReads === 2 && !!byText(visible.app, "button", "Sign out") && report183(visible)?.textContent.includes("Fresh Visible Queue is #2 in line for a seat.") && visible.app.querySelector("main") === visibleMain && visibleMain.querySelector("form") === visibleForm && visibleField.value === "Keep typing across visibility" && visibleForm.querySelector(".dirty")?.hidden === false && !visible.document.body.textContent.includes("You were signed out"));
-  visible.answer(path => path === "/api/me" ? new Response('{"error":"forbidden"}', { status: 403 }) : null);
+  visible.answer(path => path === "/api/me?view=seats" ? new Response('{"error":"forbidden"}', { status: 403 }) : null);
   visibility183(true); visibility183(false); await waitFor(() => seat183(visible)?.textContent.includes("could not be checked"), "current visible refusal");
   const refusedReads = resumedReads; visibility183(true); visibility183(false); await settle(); await settle();
   check("a current refusal ends visibility refresh without an automatic retry or stale queue disclosure", resumedReads === refusedReads && !report183(visible) && !visible.app.textContent.includes("Fresh Visible Queue") && visibleField.value === "Keep typing across visibility");

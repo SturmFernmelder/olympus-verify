@@ -78,6 +78,16 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".218", date: "2026-10-30", lines: [
+      "Ten native ranks, twelve separate Council portfolios and the guild ministries share one role directory. Institutions and historical mandates are labelled separately.",
+      "Role guides retain distinct duties, regional remits and collaborators. Leadership seats remain reserved appointments, with no public application shortcut.",
+      "Class and profession guides, curated addons and new tools accompany an animated talent comparison. Dated sources and provisional advice stay labelled.",
+      "The practical Officer Operational Guide has one home. The Treasury strategy is restricted to officers and above; public reference material stays separate.",
+      "Home and Apply separate the announced global launch from website entry and guild invite scheduling. Optional writ proposals remain inactive, with no assumed revenue.",
+      "Privacy and provider safeguards remain in place. Uncertain host outcomes, real game validation and optional activation are reported separately.",
+    ],
+  },
+  {
     build: ".204", date: "2026-10-26", lines: [
       "Name-reservation defaults now use North America's announced 27 October, 20:00 UTC opening. Saved administrator settings still take precedence.",
       "Beta dates identify Blizzard's later planned shutdown, with its source and announcement date, rather than claiming the server closure was observed.",

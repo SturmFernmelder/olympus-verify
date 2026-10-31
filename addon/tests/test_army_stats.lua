@@ -123,7 +123,19 @@ for _,bad in ipairs({false,-1,2147483648,math.huge,0/0,'Synthetic private text'}
 fixture(90);GetTime=nil;check(not B.Start(nonce),'missing monotonic API cannot arm a v2 session')
 collect();GetTime=function()error('Synthetic private clock error')end;local ok=pcall(B.Poll);check(ok and not B.Status().enabled and B.CopyFrames()==nil,'throwing monotonic API clears output without exposing private error')
 collect();combatState=true;B.Poll();check(not B.Status().enabled and B.CopyFrames()==nil,'combat immediately clears v2 session output')
+collect();local beforeOtherGuild=B.CopyFrames();B.OnEvent('PLAYER_GUILD_UPDATE','party1')
+check(B.Status().enabled and B.CopyFrames()==beforeOtherGuild,'other unit guild change preserves original Army scope and exact output')
+B.OnEvent('PLAYER_GUILD_UPDATE','player');check(not B.Status().enabled and B.CopyFrames()==nil,'player guild change clears Army scope and output')
 for _,event in ipairs({'PLAYER_GUILD_UPDATE','PLAYER_ENTERING_WORLD','PLAYER_LEAVING_WORLD','PLAYER_LOGOUT','PLAYER_REGEN_DISABLED'}) do collect();B.OnEvent(event);check(not B.Status().enabled and B.CopyFrames()==nil,event..' clears all v2 scope and output') end
 collect();check(B.Stop() and not B.Status().enabled and B.CopyFrames()==nil,'final explicit Stop clears v2 memory-only session')
 check(A.Serialize(sample())==before and A.Frames(before,nonce)[1]:sub(1,6)=='OLCS1|','v1 canonical serializer and framing remain unchanged after full v2 runtime trials')
+dofile('wow_mock.lua')
+local scripts217,create217={},CreateFrame
+CreateFrame=function(...)local frame=create217(...);local set=frame.SetScript;frame.SetScript=function(self,name,fn)if name=='OnEvent' then scripts217.OnEvent=fn end;return set(self,name,fn)end;return frame end
+dofile('../OlympusStatsPilot/Army.lua')
+local current217=OlympusStatsPilot.Army;local originalEvent217=current217.OnEvent;local forwarded217
+current217.OnEvent=function(event,unit)forwarded217={event,unit}end
+scripts217.OnEvent({},'PLAYER_GUILD_UPDATE','party1')
+check(forwarded217[1]=='PLAYER_GUILD_UPDATE' and forwarded217[2]=='party1','actual Army frame forwards the original unit to scope filtering')
+current217.OnEvent=originalEvent217
 print(string.format('%d passed, 0 failed (additive Army v2, local synthetic addon only)',passed))

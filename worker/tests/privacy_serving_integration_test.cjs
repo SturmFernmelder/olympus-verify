@@ -443,5 +443,27 @@ async function admission(originalSignedCookie=null){const cookie=originalSignedC
   check('census source bytes unchanged after the original57 and all four request cases',Array.from(pins).every(([file,bytes])=>fs.readFileSync(file).equals(bytes)));
   console.log('CENSUS_SERVING_ADDITIVE_TOTAL '+JSON.stringify({originalChecks:57,guardChecks:1,additionalChecks:checks-censusCheckStart,passes,checks}));
 
+  // Same original source-owned /api/me capture, genuine cookie and independent Floor; no raw-DB alternate route.
+  reset(); await ready();
+  {
+    const cookie = await originalCookie(), e = {...env(), DB:native}, me = load('privacy-serving-site-me');
+    const request = new Request('https://guild.example/api/me?view=seats', {headers:{Cookie:cookie}});
+    check('.217 thin seat read uses configured original Me custody', me.siteMeServingMode(e) === 'configured');
+    const captured = me.captureServingSiteMeOrigin(request,e), before = attempts, providerBefore = calls.length;
+    const response = await me.dispatchServingSiteMe(captured), value = await response.json();
+    check('.217 configured original Me dispatch returns only fresh own seat data', response.status === 200 && value.signedIn === true && value.denied === false && value.user.id === ID && Object.keys(value).sort().join(',') === 'denied,myQueue,now,seats,signedIn,user' && value.myQueue.length === 0 && calls.length === providerBefore);
+    const fullRequest = new Request('https://guild.example/api/me', {headers:{Cookie:cookie}});
+    const fullCapture = me.captureServingSiteMeOrigin(fullRequest,e), fullResponse = await me.dispatchServingSiteMe(fullCapture), full = await fullResponse.json();
+    check('.217 original full Me contract retains the same current account fence and seat values', fullResponse.status === 200 && !!full.meta && JSON.stringify(full.seats) === JSON.stringify(value.seats) && JSON.stringify(full.myQueue) === JSON.stringify(value.myQueue));
+    const after = attempts; let spent = false;
+    try { await me.dispatchServingSiteMe(captured); } catch(error) { spent = error.message === 'privacy_site_request_held'; }
+    check('.217 thin original read is single-use with no replay work', spent && attempts === after && after > before);
+    const late = me.captureServingSiteMeOrigin(request,e), beforeLate = attempts;
+    clock += 301; let expired = false;
+    try { await me.dispatchServingSiteMe(late); } catch(error) { expired = error.message === 'privacy_site_request_held'; }
+    check('.217 thin original read retains its captured deadline without extra D1/provider work', expired && attempts === beforeLate && calls.length === providerBefore);
+    check('.217 current source remains fixed through thin original read qualification', Array.from(pins).every(([file,bytes])=>fs.readFileSync(file).equals(bytes)));
+  }
+
 console.log(`${passes}/${checks} actual privacy/role/message integration checks passed; no real accounts/provider effects`);db.close();if(passes!==checks)process.exitCode=1;
 })().catch(e=>{console.error('privacy integration stopped:',e.stack);process.exitCode=1;});

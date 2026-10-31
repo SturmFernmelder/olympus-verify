@@ -123,3 +123,15 @@ condition = "AND"
 paths = ['''^worker/tests/frontend_owner197_test\.cjs$''']
 regexTarget = "match"
 regexes = ['''^key === appointedKey199 $''']
+
+# .217: this exact fixed local-only verification fixture value is not a provider credential.
+# Require the rule, file and complete match together; changed values and other paths remain scanned.
+[[allowlists]]
+
+description = "Exact synthetic offline officer-queue verification fixture secret"
+
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/officer_queue217_test\.cjs$''']
+regexTarget = "match"
+regexes = ['''^VERIFY_SECRET:'synthetic217-secret'$''']

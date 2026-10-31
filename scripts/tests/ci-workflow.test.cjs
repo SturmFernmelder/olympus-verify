@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '../..');
 const runner = require('../../worker/scripts/ci-shards.cjs');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'worker/package.json'), 'utf8'));
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'worker/scripts/ci-worker-baseline.json'), 'utf8'));
+const entryCensus = require('../test-entry-census.cjs');
 const workflow = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8').replace(/\r\n/g, '\n');
 let passed = 0, total = 0;
 function check(label, value) { total++; if (value) passed++; console.log((value ? 'PASS ' : 'FAIL ') + label); }
@@ -18,6 +19,16 @@ function job(name) {
 }
 
 async function main() {
+  const censusResult = entryCensus.audit(root);
+  check('every current Worker entry/helper/manual/native/stopped file and declared Lua suite has a source disposition', censusResult.worker.length > 200 && censusResult.lua.length >= 18);
+  check('census inventories source without claiming runtime coverage', censusResult.scope.includes('no execution') && censusResult.qualification.includes('No source-only'));
+  check('an unclassified new file cannot be hidden by green aliases', rejects(() => entryCensus.classify(['worker/tests/new_test.cjs'], [], [], [])));
+  const exception = {path:'worker/tests/manual_test.cjs',kind:'manual',owner:'synthetic owner',reason:'separate gate',evidence:'source only',sha256:'a'.repeat(64)};
+  check('an explicitly owned manual gate remains manual', entryCensus.classify([exception.path], [], [], [exception])[0].kind === 'manual');
+  check('duplicate or stale exemptions are refused', rejects(() => entryCensus.classify([exception.path], [], [], [exception,exception])) && rejects(() => entryCensus.classify([exception.path], [exception.path], [], [exception])));
+  check('missing owner and unsafe traversal cannot become an exception', rejects(() => entryCensus.classify([exception.path], [], [], [{...exception,owner:''}])) && rejects(() => entryCensus.classify(['../private'], [], [], [])));
+  check('source-reachable helper is distinguished from direct entry', entryCensus.classify(['worker/tests/a.cjs','worker/tests/b.cjs'], ['worker/tests/a.cjs'], ['worker/tests/b.cjs'], []).map(r=>r.kind).join(',') === 'entry,source-reachable');
+  check('Node profile is pinned to the reviewed24.22.1 release', fs.readFileSync(path.join(root,'.nvmrc'),'utf8').trim() === '24.22.1' && job('worker_shard').includes('node-version-file: .nvmrc'));
   const commands = runner.expandScripts(pkg.scripts);
   let originalIndex = 0;
   for (const command of commands) if (command === baseline.commands[originalIndex]) originalIndex++;

@@ -550,6 +550,18 @@ async function legacySchemaHeld(old) {
   console.log("\n== sessions and CSRF ==");
   res = await call("GET", "/api/me");
   check("no cookie: 401", res.status === 401);
+  check('.217 no cookie cannot use the seat projection', (await call('GET', '/api/me?view=seats')).status === 401);
+  {
+    const who = '300000000000000001', port = currentPort();
+    const beforeFull = port.nativeTrace.length, fullResponse = await call('GET', '/api/me', {who});
+    const fullText = await fullResponse.text(), full = JSON.parse(fullText), fullTrace = port.nativeTrace.slice(beforeFull);
+    const beforeThin = port.nativeTrace.length, thinResponse = await call('GET', '/api/me?view=seats', {who});
+    const thinText = await thinResponse.text(), thin = JSON.parse(thinText), thinTrace = port.nativeTrace.slice(beforeThin);
+    check('.217 same original authenticated entry returns only the caller seat projection', thinResponse.status === 200 && thin.signedIn === true && thin.denied === false && thin.user.id === who && Object.keys(thin).sort().join(',') === 'denied,myQueue,now,seats,signedIn,user' && Object.keys(thin.user).join(',') === 'id' && JSON.stringify(thin.seats) === JSON.stringify(full.seats) && JSON.stringify(thin.myQueue) === JSON.stringify(full.myQueue));
+    check('.217 fresh seat projection removes unrelated private/settings/meta reads and most response bytes', thinText.length < fullText.length / 10 && thinTrace.length < fullTrace.length && thinTrace.length <= 10 && !thinTrace.some(row => /SELECT (?:key, value FROM site_settings|\* FROM site_applications|ballot, slot|friend_kind|old_name, new_name)/i.test(row.sql)));
+    check('.217 unrecognized projection query retains the original full contract', 'meta' in await J(await call('GET', '/api/me?view=other', {who})));
+    console.log('.217 seat projection measurement', JSON.stringify({fullBytes:Buffer.byteLength(fullText), thinBytes:Buffer.byteLength(thinText), fullNative:fullTrace.length, thinNative:thinTrace.length}));
+  }
   // Flip a character in the middle of the signature: the last one can sit in base64's padding bits, where a change
   // decodes to the same bytes (that made this check pass or fail by chance).
   const cookieNow = jar.get("300000000000000001");
@@ -1542,7 +1554,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-30.216 Maintenance integration" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-30.218 Guild charter, guides and tools" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

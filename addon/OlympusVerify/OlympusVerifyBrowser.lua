@@ -137,6 +137,7 @@ local function collect()
 end
 local frame=CreateFrame('Frame');frame:RegisterEvent('CHAT_MSG_WHISPER');frame:RegisterEvent('GUILD_ROSTER_UPDATE');frame:RegisterEvent('PLAYER_LOGOUT');frame:RegisterEvent('PLAYER_GUILD_UPDATE')
 frame:SetScript('OnEvent',function(_,event,message,sender)
+ if event=='PLAYER_GUILD_UPDATE' and message~=nil and message~='player' then return end
  if betaEnabled and not challenge and not betaProfile() then clear(true);return end
  if challenge and (not profile() or mode=='B1' and clock()<challengeCreated) then clear(mode=='B1');return end
  if event=='GUILD_ROSTER_UPDATE' then if challenge then rosterFreshAt=clock();collect() end;return end

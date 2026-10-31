@@ -169,8 +169,12 @@ local drift={
 for _,case in ipairs(drift) do display=displayBeta();case[2]();frames[1].scripts.OnUpdate();check(not display.visible and display.copy.text=='' and observe()==nil,'B09 active native '..case[1]..' drift clears display and local queues') end
 display=displayBeta();betaNow=1791800300;frames[1].scripts.OnUpdate()
 check(not display.visible and display.copy.text=='' and observe()==nil,'B09 original beta expiry hides display and clears queues')
-display=displayBeta();frames[1].scripts.OnEvent(frames[1],'PLAYER_GUILD_UPDATE')
+display=displayBeta();frames[1].scripts.OnEvent(frames[1],'PLAYER_GUILD_UPDATE','party1')
+check(display.visible and observe()~=nil,'B09 another unit guild event leaves the original beta observation active')
+frames[1].scripts.OnEvent(frames[1],'PLAYER_GUILD_UPDATE','player')
 check(not display.visible and display.copy.text=='' and observe()==nil,'B09 guild event closes beta queues')
+display=displayBeta();frames[1].scripts.OnEvent(frames[1],'PLAYER_GUILD_UPDATE')
+check(not display.visible and observe()==nil,'B09 nil guild-event unit retains legacy player-event handling')
 display=displayBeta();frames[1].scripts.OnEvent(frames[1],'PLAYER_LOGOUT')
 check(not display.visible and display.copy.text=='' and not OlympusVerifyBrowser.SetBetaChallenge(envelope(nextNonce(),betaNow,betaNow+300,betaNow-60,betaNow+600)),'B09 logout disables beta until new explicit enable')
 display=displayBeta();check(OlympusVerifyBrowser.Command('browser beta off') and not display.visible and display.copy.text=='','B09 explicit reachable beta off clears complete display custody')

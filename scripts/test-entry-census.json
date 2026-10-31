@@ -1,0 +1,102 @@
+{
+  "schema": "test-entry-census-v1",
+  "scope": "Top-level worker/tests/*.cjs and declared addon Lua suites only; source reachability is not execution.",
+  "externalEntries": [
+    {
+      "path": "worker/tests/treasury_expiry196_workerd_test.cjs",
+      "consumer": "worker/scripts/ci-treasury-workerd.cjs",
+      "workflowCommand": "run: node scripts/ci-treasury-workerd.cjs",
+      "sourceNeedle": "tests/treasury_expiry196_workerd_test.cjs"
+    }
+  ],
+  "exceptions": [
+    {
+      "path": "worker/tests/beta_item15_absent_differential_receipt.cjs",
+      "kind": "manual",
+      "owner": "Codex Root / owner",
+      "reason": "Explicit separately configured receipt/interpreter command; not a default CI invocation.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "207a4bedb13f9bbf153aa1bd319dacd74e23669a9af544e66baabe2313a3f699"
+    },
+    {
+      "path": "worker/tests/privacy_accepted_recovery_source_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "dfa51f33133fa12a6058a3d790dfbc392ba3b86dcdbf73da4fec1bab403e2516"
+    },
+    {
+      "path": "worker/tests/privacy_closed_recovery_companion_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "f5952a0ca110d9c512492b16901fec626173cfbbb06a83a4da8b2596f5d19924"
+    },
+    {
+      "path": "worker/tests/privacy_history_native_cases.cjs",
+      "kind": "helper",
+      "owner": "Codex Root / owner",
+      "reason": "Current case definitions compiled by privacy_history_whole_coverage/family_authority/size_guard review leaves; not an independent CLI suite.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "723e1007626f27baa75a54e902fb81cf3576ca4b2ab6d2bbd5f0cdc1be54d323"
+    },
+    {
+      "path": "worker/tests/privacy_immutable_release_evidence_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "6a246849853feea58b901c6437046932038e49eeb9eb79f102b1f310edf6114c"
+    },
+    {
+      "path": "worker/tests/privacy_native_open_ordering_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "991a4f3dc81fb655ab08327505a6b2b15dd4bf5cc2a24470bf11112438378733"
+    },
+    {
+      "path": "worker/tests/privacy_native_writer_fence_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "8d1430c6052a3727e732fcfae753b9ed52354aff3e8993396d1c1150b3c06c10"
+    },
+    {
+      "path": "worker/tests/privacy_normal_scheduled_whole_workerd_test.cjs",
+      "kind": "stopped",
+      "owner": "Codex Root / owner",
+      "reason": "Legacy separately bound Job3/ESM-wrapper experiment; current217 authority permits standard Workerd, not the old Job3 controller or an implicit new attempt.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "9274b1ab31f61d4554e9736793f079da1ee96c849e13393f017120cd062394b3"
+    },
+    {
+      "path": "worker/tests/privacy_production_control_cut_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "4dadf33c530fc56fe7fd7bdc6cef3ec7772c29752cff6e9826bef2d45252976d"
+    },
+    {
+      "path": "worker/tests/privacy_production_initialization_native_test.cjs",
+      "kind": "native",
+      "owner": "Codex Root / owner",
+      "reason": "Private-control/recovery Native scenario retained as a separately admitted gate; not silently added to the normal CI alias.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "4efdbcd6a4b6f96ea355897d26776281d09f9b044ed1404bcfa8b5dac119fe07"
+    },
+    {
+      "path": "worker/tests/qr_matrix_decode_test.cjs",
+      "kind": "manual",
+      "owner": "Codex Root / owner",
+      "reason": "Explicit separately configured receipt/interpreter command; not a default CI invocation.",
+      "evidence": "Reviewed source disposition217; historical run records remain separately retained. This inventory supplies no runtime acceptance.",
+      "sha256": "074521707facd1e6a922dadce349f253ccfa7fa62b8fd80e036a20f4df8532a9"
+    }
+  ]
+}

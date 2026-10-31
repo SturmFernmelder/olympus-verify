@@ -5,7 +5,8 @@
 const fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),crypto=require('node:crypto');
 const original=path.join(__dirname,'privacy_native_erasure_mode_test.cjs'),bytes=fs.readFileSync(original),setup=bytes.toString('utf8'),marker='(async()=>{\n // .174:';
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
-if(sha(bytes)!=='0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e'||setup.split(marker).length!==2)throw Error('treasury_audit_original_native_setup_changed');
+const {historicalTreasuryNativeFixture217}=require('./frontend_fixture_prefix217.cjs');
+if(sha(historicalTreasuryNativeFixture217(setup))!=='0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e'||setup.split(marker).length!==2)throw Error('treasury_audit_original_native_setup_changed');
 const inputs=new Map(),read=fs.readFileSync;
 fs.readFileSync=function(file,...rest){const value=Reflect.apply(read,this,[file,...rest]);if(typeof file==='string'&&file.endsWith('.ts')&&file.includes(path.sep+'src'+path.sep))inputs.set(file,Buffer.from(value));return value;};
 globalThis.__treasuryAudit196={inputs,read,sha,fixtureSHA256:sha(bytes),setupSHA256:sha(setup.slice(0,setup.indexOf(marker))),result:process.env.TREASURY_AUDIT196_RESULT_FILE};
@@ -61,7 +62,10 @@ async function treasuryAuditPrivacy196(){
   expect(label+' remains explicitly partial and never claims every copy erased',body.coverage?.kind==='curated_partial'&&body.coverage?.completeErasure===false,body.coverage);
  }
  async function identifyCopy(f,who){
-  const start=await f.call('GET','/privacy/signin'),location=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([key,value])=>key+'='+value).join('; ');
+  const entry=await f.call('GET','/privacy/access'),entryHtml=await entry.text(),entryToken=/name="csrf" value="([^"]+)"/.exec(entryHtml);
+  expect('identify '+who+' receives the genuine privacy connection form',entry.status===200&&!!entryToken);
+  const entryCookie=Object.entries(cookies(entry)).map(([key,value])=>key+'='+value).join('; ');
+  const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken[1]}}),location=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([key,value])=>key+'='+value).join('; ');
   expect('identify '+who+' requests only identify scope',start.status===303&&location.searchParams.get('scope')==='identify');
   const callback=await f.call('GET','/privacy/callback?code=code-'+who+'&state='+encodeURIComponent(location.searchParams.get('state'))+'&iss=https%3A%2F%2Fdiscord.com',{cookie:flowCookie});
   const accessCookie=Object.entries(cookies(callback)).filter(([key])=>key===load('privacy-access').PRIVACY_ACCESS_COOKIE).map(([key,value])=>key+'='+value).join('; ');

@@ -28,6 +28,7 @@ const { DatabaseSync } = require('node:sqlite'), { AsyncLocalStorage } = require
 const entry = require('./helpers/privacy129_fixture.cjs');
 const ban210 = require('./ban210_identity_contract.cjs');
 const held210 = require('./restore_held210_identity_contract.cjs');
+const recovery217 = require('./verify_recovery217_identity_contract.cjs');
 const root = path.join(__dirname, '..');
 const SRC = process.env.IDENTITY_SRC ? path.resolve(process.env.IDENTITY_SRC) : path.join(root, 'src');
 const RECORD = process.env.IDENTITY_RECORD === '1', DUMP = process.env.IDENTITY_DUMP || '';
@@ -401,6 +402,8 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
   check('ban210 successor binds exact reviewed interactions source, finite paired fixture and unchanged historical PINS',Object.values(banSources).every(Boolean),banSources);
   const heldSources=held210.sourceChecks(SRC);
   check('RT06 held-verify successor binds exact full restore source and finite H4/H6/current fixture',Object.values(heldSources).every(Boolean),heldSources);
+  const recoverySources=recovery217.sourceChecks(SRC);
+  check('.217 recovery successor binds the exact current interactions source',Object.values(recoverySources).every(Boolean),recoverySources);
   const sources211 = source211.sourceChecks(SRC, PINS);
   check('.211 identity reconstruction binds both exact current sources, accepted H16 bytes and all restriction support', Object.values(sources211).every(Boolean), sources211);
   for (const row of source211.driftControls(SRC)) check('.211 identity reconstruction refuses ' + row.source + ' ' + row.name, row.refused);
@@ -471,13 +474,16 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
       const banResult=scenario==='ban'?ban210.inspect(r,banContext):null;
       const heldScope=phase==='pre'&&profile==='settlement'&&scenario==='verify';
       const heldContext={variant,pin,digestOf},heldResult=heldScope?held210.inspect(r,heldContext):null;
+      const recoveryContext={pin,digestOf,masked:variant==='configured'&&phase==='live'},recoveryResult=scenario==='unbind'?recovery217.inspect(r,recoveryContext):null;
       if(scenario==='ban'&&phase==='pre'&&variant==='absent'){
         for(const mutation of ban210.negativeMutations(r,banContext))check(`ban210 ${profile} successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);
       }
       if(heldScope&&variant==='absent')for(const mutation of held210.negativeMutations(r,heldContext))check(`RT06 held-verify successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);
+      if(scenario==='unbind'&&phase==='pre'&&variant==='absent')for(const mutation of recovery217.negativeMutations(r,recoveryContext))check(`.217 recovery successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);
       if (UNCONFIGURED.includes(variant)) {
         if(scenario==='ban')check(`${where}: exact finite ban210 physical successor; historical reply/row oracles remain active; no lane function ran`,banResult.all&&lane.length===0&&r.laneCalls.length===0,banResult);
         else if(heldScope)check(`${where}: exact RT06 whole held-warning response and sole replay-cache bind successor; historical SQL/order/rows remain active`,heldResult.all&&lane.length===0&&r.laneCalls.length===0,heldResult);
+        else if(scenario==='unbind')check(`${where}: exact recovery reply/cache pair with unchanged historical trace/order/row oracles and no lane dispatch`,recoveryResult.all&&lane.length===0&&r.laneCalls.length===0,recoveryResult);
         else check(`${where}: identical to .160${scenario === 'guide' ? ' after only the bounded known public-guide first-line projection' : ''} (statements, binds, batch shapes, Discord requests, response, twelve rows); no lane function ran`,
           same(digestOf(r), pin) && lane.length === 0 && r.laneCalls.length === 0, { got: digestOf(r), pin, laneCalls: r.laneCalls });
         continue;
@@ -485,6 +491,7 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
       const open = variant === 'configured' && phase === 'live';
       if(scenario==='ban')check(`${where}: exact finite ban210 physical successor, original response content and all historical row fields except two exact correlated identities`,banResult.all,banResult);
       else if(heldScope)check(`${where}: exact RT06 whole held-warning response and sole cache-bind successor; every other historical trace/row field retained`,heldResult.all,heldResult);
+      else if(scenario==='unbind')check(`${where}: exact recovery reply/cache pair with every other historical trace/order/row field retained`,recoveryResult.all,recoveryResult);
       else check(`${where}: the legacy subsequence equals .160${open ? ' after masking only the documented A6 texts' : ' (unmasked)'}${scenario === 'guide' ? ' plus the bounded known public-guide first-line projection' : ''}; the twelve rows end as under .160`, same(digestOf(r, open), pin), { got: digestOf(r, open), pin });
       const touched = lane.filter((e) => TWELVE.some((t) => JSON.stringify(e).includes(t)));
       check(`${where}: no lane statement or request names a twelve role ID`, touched.length === 0, touched.slice(0, 3));

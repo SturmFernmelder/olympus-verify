@@ -617,6 +617,38 @@ async function detailRenderRegression() {
     && levelSelect196.value === '30' && preset196(30).getAttribute('aria-pressed') === 'true' && preset196(60).getAttribute('aria-pressed') === 'false'
     && left196(21) && meters196(21) && stable196() && initialJSON === JSON.stringify(data));
   levelMount196.destroy();
+  const unknownHostN03=document.createElement('main'),unknownChangesN03=[],unknownControllerN03=await browserModule.exports.mount(unknownHostN03,{className:'no_such_class',onBuildChange:value=>unknownChangesN03.push(value)});
+  const classButtonsN03=()=>byClass(unknownHostN03,'talents-class-button'),classKeysN03=['warrior','paladin','hunter','rogue','priest','shaman','mage','warlock','druid'];
+  check('.218 an unavailable linked class exposes one real heading and all nine choices with an explicit blank default and no automatic change callback',
+    unknownHostN03.all(node=>node.tagName==='H1').length===1&&unknownHostN03.all(node=>node.tagName==='H1')[0].textContent==='Olympus · Forever talents'
+    &&classButtonsN03().length===9&&classButtonsN03().map(node=>node.getAttribute('data-class')).join('|')===classKeysN03.join('|')
+    &&classButtonsN03().filter(node=>node.getAttribute('aria-pressed')==='true').length===1&&classButtonsN03()[0].getAttribute('aria-pressed')==='true'
+    &&byClass(unknownHostN03,'talents-tree').length===3&&byClass(unknownHostN03,'talents-feedback')[0].textContent==='That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.'
+    &&unknownChangesN03.length===0&&initialJSON===JSON.stringify(data));
+  classButtonsN03().find(node=>node.getAttribute('data-class')==='paladin').click();
+  check('.218 the unavailable-class recovery uses the ordinary class action and produces one empty valid Paladin choice',
+    unknownChangesN03.length===1&&unknownChangesN03[0].className==='paladin'&&unknownChangesN03[0].points===0
+    &&byClass(unknownHostN03,'talents-tree')[0].getAttribute('aria-label')==='Holy'&&classButtonsN03().find(node=>node.getAttribute('data-class')==='paladin').getAttribute('aria-pressed')==='true');
+  const mageCodeN03=api.serializeBuild(data,api.emptyBuild(data,'mage',60)),sharedHostN03=document.createElement('main'),sharedChangesN03=[];
+  const sharedControllerN03=await browserModule.exports.mount(sharedHostN03,{className:'no_such_class',build:mageCodeN03,onBuildChange:value=>sharedChangesN03.push(value)});
+  check('.218 a valid shared plan remains authoritative over the unavailable route and is disclosed without silent class substitution',
+    byClass(sharedHostN03,'talents-tool')[0].getAttribute('data-class')==='mage'&&sharedHostN03.all(node=>node.tagName==='H1').length===1
+    &&byClass(sharedHostN03,'talents-feedback')[0].textContent==='That linked class is unavailable. Showing the checked Mage shared plan.'
+    &&byClass(sharedHostN03,'talents-class-button').find(node=>node.getAttribute('data-class')==='mage').getAttribute('aria-pressed')==='true'
+    &&sharedChangesN03.length===0&&initialJSON===JSON.stringify(data));
+  const invalidHostN03=document.createElement('main'),invalidChangesN03=[],invalidParseN03=api.parseBuild(data,'not-a-build');
+  const invalidControllerN03=await browserModule.exports.mount(invalidHostN03,{className:'no_such_class',build:'not-a-build',onBuildChange:value=>invalidChangesN03.push(value)});
+  check('.218 an unavailable class plus invalid shared code retains both the parse refusal and explicit blank Warrior recovery without emitting a change',
+    invalidParseN03.ok===false&&typeof invalidParseN03.error==='string'&&invalidParseN03.error.length>0
+    &&byClass(invalidHostN03,'talents-feedback')[0].textContent===invalidParseN03.error+' That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.'
+    &&byClass(invalidHostN03,'talents-tool')[0].getAttribute('data-class')==='warrior'&&invalidHostN03.all(node=>node.tagName==='H1').length===1
+    &&byClass(invalidHostN03,'talents-class-button').length===9&&byClass(invalidHostN03,'talents-class-button').map(node=>node.getAttribute('data-class')).join('|')===classKeysN03.join('|')
+    &&byClass(invalidHostN03,'talents-class-button').filter(node=>node.getAttribute('aria-pressed')==='true').length===1
+    &&byClass(invalidHostN03,'talents-class-button')[0].getAttribute('aria-pressed')==='true'&&invalidChangesN03.length===0&&initialJSON===JSON.stringify(data));
+  invalidControllerN03.destroy();
+  const staleClassN03=classButtonsN03().find(node=>node.getAttribute('data-class')==='mage'),beforeDisposedN03=unknownChangesN03.length;
+  unknownControllerN03.destroy();staleClassN03.click();sharedControllerN03.destroy();
+  check('.218 a disposed unavailable-class recovery cannot revive its callback or alter snapshot data',unknownChangesN03.length===beforeDisposedN03&&initialJSON===JSON.stringify(data));
   console.log('\n' + ok + '/' + n + ' passed');
   if (ok !== n) process.exitCode = 1;
 }

@@ -201,6 +201,15 @@ for helper, function, extra in [("backfill", backfill.call, ("", False)), ("guil
             except SystemExit as failure: message = str(failure)
         check(f"{helper} hides arbitrary transport reason", TOKEN not in message and "Could not reach" in message)
 
+for category, expected in [("discord_authentication", "deployed bot token"), ("discord_permissions", "bot permissions")]:
+    MODE.update(kind="response", status=502, body=json.dumps({"error": category}).encode())
+    outcome = invoke(guild_map.fetch, ORIGIN, TOKEN)
+    check("guild-map understands matching Worker category " + category, outcome.returncode != 0 and expected in outcome.stderr and TOKEN not in outcome.stdout + outcome.stderr)
+for body in [json.dumps({"error":"discord_authentication","echo":TOKEN}).encode(), b"{" + TOKEN.encode(), b"x" * 1025]:
+    MODE.update(kind="response", status=502, body=body)
+    outcome = invoke(guild_map.fetch, ORIGIN, TOKEN)
+    check("guild-map rejects untrusted or oversized502 category body", outcome.returncode != 0 and "HTTP 502" in outcome.stderr and TOKEN not in outcome.stdout + outcome.stderr)
+
 MODE.update(kind="response", status=200, body=b'{}')
 SEEN.clear()
 encoded = invoke(backfill.call, ORIGIN, TOKEN, "cursor &?/", True)

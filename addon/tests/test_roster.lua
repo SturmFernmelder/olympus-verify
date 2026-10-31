@@ -74,6 +74,22 @@ check("new roster member absent from both lists is unknown", API.Roster.Verifica
 check("offline unverified member cannot open a reminder", API.Roster.OpenWhisper("Plain Paul-Forever", "Player-1-E"), false)
 check("optional Olympus bridge defaults off", OlympusVerifyGuild.OlympusSnapshot(), nil)
 
+-- Actual event callback: another unit cannot trigger discovery or invalidate player scope.
+for _, frame in ipairs(FRAMES) do
+  if frame ~= OlympusVerifyFrame and frame._events and frame._events.PLAYER_GUILD_UPDATE then
+    local previous, probes = InCombatLockdown, 0
+    InCombatLockdown = function() probes = probes + 1; return false end
+    frame:GetScript("OnEvent")(frame, "PLAYER_GUILD_UPDATE", "party1")
+    check("other-unit guild event performs no discovery", probes, 0)
+    frame:GetScript("OnEvent")(frame, "PLAYER_GUILD_UPDATE", "player")
+    check("player guild event retains discovery", probes > 0, true)
+    local beforeNil = probes
+    frame:GetScript("OnEvent")(frame, "PLAYER_GUILD_UPDATE")
+    check("legacy nil guild-event unit retains discovery", probes > beforeNil, true)
+    InCombatLockdown = previous
+  end
+end
+
 print("\n== explicit officer panel aliases ==")
 OlympusVerifyUI.Hide()
 SlashCmdList.OLYMPUSVERIFY("ui")

@@ -192,11 +192,11 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
   if (!["GET", "HEAD", "POST"].includes(m)) { const r = htmlResponse(request, "Method not allowed", "<p>Use this page's form.</p>", 405); r.headers.set("Allow", "GET, HEAD, POST"); return r; }
   if (!schemaReady) return htmlResponse(request, "Temporarily unavailable", "<p>The database is updating. No request was submitted.</p>", 503);
   if (env.PRIVACY_ACCESS_ENABLED === 'true' && ['/privacy/signin','/privacy/callback','/privacy/access','/privacy/access/export','/privacy/access/erasure'].includes(path)) {
-    if (m === 'HEAD' && path === '/privacy/access') return htmlResponse(request,'Privacy account connection','');
-    const expected = path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
-    if (m !== expected) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
+    if (m === 'HEAD' && (path === '/privacy/access' || path === '/privacy/signin')) return htmlResponse(request,'Privacy account connection','');
+    const expected = path === '/privacy/signin' || path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
+    if (m !== expected && !(path === '/privacy/signin' && m === 'GET')) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
     try {
-      if (path === '/privacy/signin') return await beginPrivacyAccess(request,env);
+      if (path === '/privacy/signin') return await (m === 'GET' ? privacyAccessPage(request,env) : beginPrivacyAccess(request,env));
       if (path === '/privacy/callback') return await finishPrivacyAccess(request,env);
       if (path === '/privacy/access/export') return await exportPrivacyAccess(request,env);
       if (path === '/privacy/access/erasure') return await erasePrivacyAccess(request,env);
@@ -264,7 +264,15 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
         : eventCollection
           ? mode === "history" ? await exportMyEventChanges(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, cursor || undefined)
           : mode === "history" ? await exportMyHistory(request, env, user, cursor || undefined) : await exportMyData(request, env, user, cursor || undefined);
-      assertOriginalSiteSessionRead(original);if (mode === "history") return decisionCollection
+      assertOriginalSiteSessionRead(original);
+      if (mode === "download" && result.status === 429) {
+        const label = decisionCollection ? "Saved contribution-decision continuation" : eventCollection ? "Saved event-change continuation" : "Saved action continuation";
+        const resume = cursor ? `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label><p>Keep this continuation privately. After the rate window, reopen the account controls and paste it into ${e(label)} using the same original site session before it expires. Never put it in an address or share it.</p>` : "";
+        const response = htmlResponse(request, "Copy temporarily unavailable", `<p>Five copy views or downloads an hour. Try again later. No new copy was made and no history completion is claimed.</p>${resume}${controls}`, 429, formCookie(nonce));
+        response.headers.set("Referrer-Policy", "no-referrer");
+        return response;
+      }
+      if (mode === "history") return decisionCollection
         ? showContributionDecisions(request, env, nonce, result, user, cursor || undefined)
         : eventCollection
           ? showEventChanges(request, env, nonce, result, user, cursor || undefined)

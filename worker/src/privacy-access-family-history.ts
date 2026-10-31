@@ -125,7 +125,7 @@ function project(c:PrivacyFamilyHistoryCollection,r:Rec):Rec {
 export const PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS=['verification.battleNetCharacters','verification.rosterEffects','site.settingUpdates'] as const;
 export type PrivacyCollectionOnlyHistoryCollection=typeof PRIVACY_COLLECTION_ONLY_HISTORY_COLLECTIONS[number];
 /** These human writes update actor and time together. Background state such as officer_digest does not. */
-export const PRIVACY_OWN_SETTING_KEYS=['namesOpenAt','namesTimeConfirmed','namesOpen','launchAt','autoQueue','applicationsOpen','votingOpen','notice','appointed','noVote','newsOn','leadership','betaClosedAt','betaResetAt','betaResetFor','bnetLogin','bnetEnableIntent','rulesetMode','rulesetActiveRevision','rulesetActiveDigest','rulesetActivatedAt','rulesetActivatedBy','betaResetPolicyV1','betaRetentionAnchorV1'] as const; // five identity-switch keys and two reset settings; values remain withheld
+export const PRIVACY_OWN_SETTING_KEYS=['namesOpenAt','namesTimeConfirmed','namesOpen','launchAt','autoQueue','applicationsOpen','votingOpen','notice','appointed','noVote','newsOn','leadership','betaClosedAt','betaResetAt','betaResetFor','bnetLogin','bnetEnableIntent','rulesetMode','rulesetActiveRevision','rulesetActiveDigest','rulesetActivatedAt','rulesetActivatedBy','betaResetPolicyV1','betaRetentionAnchorV1','loginAnimation','royalWritsOn'] as const; // finite human-written keys, including the .196/.200 switches; values remain withheld
 const originalWhole=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<=999999999999;
 const originalTime=(v:unknown,nullable=false):string|null=>nullable&&v===null?null:originalWhole(v)?secondsToIso(v):fail();
 // No active Phase3 producer or schema text/level maximum exists. SQL's fixed projected byte bound is the text cap.
@@ -133,7 +133,7 @@ const originalLabel=(v:unknown,nullable=false):string|null=>nullable&&v===null?n
 export function privacyCollectionOnlyHistoryNote(c:string):string|null {
  if(c==='verification.battleNetCharacters')return 'Historical own character labels read from retained data, with original fetch time and existing freshness filters. The dormant Battle.net connector remains off. IDs and tags are withheld. Missing, filtered or expired rows do not prove no data is retained.';
  if(c==='verification.rosterEffects')return 'Retained own roster processing intents attributable to the original account link captured when you connected Discord. Missing original linkage refuses this download; legacy unlinked rows need attended review. An absent parent run and unrecorded processing time remain null. Recorded processing time is recorded before provider work and does not confirm a successful role change.';
- if(c==='site.settingUpdates')return 'Key and original update time only for 24 known settings while you remain the current last updater. A current valid beta scan cursor matching your account adds its key and update time only. Setting values and other people are withheld. This is current metadata, not edit history, consent evidence, appointment or access authority.';
+ if(c==='site.settingUpdates')return 'Key and original update time only for 26 known settings while you remain the current last updater. A current valid beta scan cursor matching your account adds its key and update time only. Setting values and other people are withheld. This is current metadata, not edit history, consent evidence, appointment or access authority.';
  return null;
 }
 

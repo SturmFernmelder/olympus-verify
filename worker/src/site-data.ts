@@ -431,7 +431,7 @@ const HISTORICAL_POSITION_COPY: Position[] = [
 ];
 /** Current guide uses one .199 ladder; these mappings do not certify or change the game client. */
 const OFFICE_APPLICATION_POSITIONS_199: Position[] = OFFICE_APPOINTMENTS
-  .filter(row => /^office_[0-9]{2}$/.test(row.key) && row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack))
+  .filter(row => /^office_[0-9]{2,3}$/.test(row.key) && row.applicationEligible && ['officer', 'high_council'].includes(row.applicationTrack))
   .filter(row => row.applicationRoleKeys.includes(row.key))
   .filter(row => !HISTORICAL_POSITION_COPY.some(position => position.key === row.key))
   .map(row => {
@@ -685,7 +685,7 @@ export const applicationSeatKeys199 = (key: string): readonly string[] => {
   const row = OFFICE_APPOINTMENTS.find(row => row.key === key);
   return applicationLeadershipSeat199(row) ? row!.applicationRoleKeys : [];
 };
-const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2}$/.test(row.key) && applicationLeadershipSeat199(row) && row.applicationRoleKeys.includes(key));
+const applicationParent199 = (key: string) => OFFICE_APPOINTMENTS.find(row => /^office_\d{2,3}$/.test(row.key) && applicationLeadershipSeat199(row) && row.applicationRoleKeys.includes(key));
 export const isAppointed = (s: { appointed: Record<string, string> }, key: string): boolean => {
   const owns = (k: string) => Object.prototype.hasOwnProperty.call(s.appointed, k);
   if (owns(key)) return true;
