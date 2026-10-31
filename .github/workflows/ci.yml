@@ -131,6 +131,8 @@ jobs:
         run: |
           python3 tools/tests/test_backfill_roles.py
           python3 tools/tests/test_review.py
+      - name: Attended Stockades role reset (standard library, fake Discord only)
+        run: python3 tools/tests/test_stockades_role_reset.py
 
   # The addon's ten offline Lua suites, through Lupa's bundled LuaJIT 2.1: the same Lupa version as the local venv
   # that runs them on this PC (2.8, observed 30 Sep 2026), so results are comparable.
