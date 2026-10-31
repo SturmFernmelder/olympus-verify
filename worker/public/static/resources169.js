@@ -114,10 +114,10 @@
     const heading = el("header", undefined, "resources169-heading");
     const titles = { addons: "Addons for Forever", guides: "The adventurer's library", updates: "Game updates" };
     const introductions = { addons: "Choose tools for the way you play. Check the Forever file, its date and any overlap before installing.", guides: "Class, profession and leveling references from named publishers. Scope and beta limits stay beside each source.", updates: "Follow original publisher headlines and official changes. These sources are separate from Olympus decisions." };
-    heading.append(el("h2", titles[view]), el("p", introductions[view], "resources169-intro"));
+    heading.append(el("h1", titles[view]), el("p", introductions[view], "resources169-intro"));
     if (view === "updates") {
       const direct = el("nav", undefined, "resources169-provenance"); direct.setAttribute("aria-label", "Forever blue trackers");
-      direct.append(el("h3", "Forever blue trackers"), el("p", "Open the publishers' Forever pages for their latest blue posts. These links stay available when automatic headline retrieval fails; no feed or current headline is implied.", "resources169-note"));
+      direct.append(el("h2", "Forever blue trackers"), el("p", "Open the publishers' Forever pages for their latest blue posts. These links stay available when automatic headline retrieval fails; no feed or current headline is implied.", "resources169-note"));
       const list = el("ul");
       for (const source of foreverTrackers) { const row = el("li"); row.append(link(source.name, source.url)); list.append(row); }
       direct.append(list); heading.append(direct);
@@ -149,7 +149,7 @@
       const featured = view === "addons" && item.id === "olympus-guild" && item.url === "https://www.curseforge.com/wow/addons/olympus-guild";
       const card = el("article", undefined, "resources169-card" + (featured ? " resources169-featured" : ""));
       if (featured) card.append(el("p", "For Olympus players", "resources169-featured-label"));
-      const title = el("h3"); title.append(link(item.name, item.url)); card.append(title);
+      const title = el(view === "addons" ? "h2" : "h3"); title.append(link(item.name, item.url)); card.append(title);
       const labels = el("div", undefined, "resources169-labels");
       for (const text of [item.category, item.status]) if (typeof text === "string") labels.append(badge(text));
       card.append(labels, el("p", item.rationale));
@@ -219,7 +219,7 @@
       results.replaceChildren();
       for (const source of updateData.sources) {
         if (!visibleSources.has(source.sourceId)) continue;
-        const card = el("article", undefined, "resources169-card"), heading = el("h3"); heading.append(keep(source.sourceId + "|source", link(source.publisher, source.sourceUrl)));
+        const card = el("article", undefined, "resources169-card"), heading = el("h2"); heading.append(keep(source.sourceId + "|source", link(source.publisher, source.sourceUrl)));
         card.append(heading, badge("Automatic feed: " + source.status), el("p", source.scope, "resources169-note"));
         const retrieval = el("details", undefined, "resources169-provenance");
         retrieval.open = openRetrieval.has(source.sourceId);

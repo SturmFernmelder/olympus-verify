@@ -86,7 +86,7 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   check('mount receives actual route guard and explicit synthetic-only contract', calls.length === 1 && calls[0].options.syntheticOnly === true && calls[0].options.live() && typeof calls[0].options.onRefused === 'function');
   check('actual shell title nav and active tab stay stable on local route', member.document.title === 'Community · Shared census · local preview — Olympus' && member.app.querySelector('header') === header && !!member.app.querySelector('nav[aria-label="Community sections"] a[href="' + localPath + '"][aria-current="page"]'));
   await member.go('#/guide/member');
-  check('route departure destroys exact instance once and invalidates original liveness', calls[0].destroyed === 1 && !calls[0].options.live() && !member.app.querySelector('[data-local-mount="true"]') && !!byText(member.app, 'h2', 'Member guide'));
+  check('route departure destroys exact instance once and invalidates original liveness', calls[0].destroyed === 1 && !calls[0].options.live() && !member.app.querySelector('[data-local-mount="true"]') && !!byText(member.app, 'h1', 'Member guide'));
   await member.go(localPath); await waitFor(() => calls.length === 2, 'local route reopen');
   check('reopen reuses exact asset once and mounts a new owned instance', calls.length === 2 && member.document.head.querySelectorAll('script[src="' + localScript + '"]').length === 1 && member.document.head.querySelectorAll('link[href="' + localCss + '"]').length === 1);
   await member.go('#/guide/member');
@@ -99,10 +99,10 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   const departed = await openPage(MEMBER, featuresLocal), departedCalls = requestsLocal(departed);
   await departed.go(localPath); const departedLoader = findScriptLocal(departed);
   await departed.go('#/guide/member'); const departedMounts = installLocal(departed).calls; departedLoader.dispatchEvent(new Event('load')); await pauseLocal(20);
-  check('dependency completing after departure cannot mount or read census', departedMounts.length === 0 && departedCalls.every(call => !/census/.test(call.pathname)) && !!byText(departed.app, 'h2', 'Member guide'));
+  check('dependency completing after departure cannot mount or read census', departedMounts.length === 0 && departedCalls.every(call => !/census/.test(call.pathname)) && !!byText(departed.app, 'h1', 'Member guide'));
   const slow = await openPage(MEMBER, featuresLocal), slowController = installLocal(slow, [], { slow: true });
   await slow.go(localPath); await waitFor(() => slowController.calls.length === 1, 'pending async mount'); await slow.go('#/guide/member'); slowController.release(); await pauseLocal(20);
-  check('async mount resolving after departure is destroyed and never becomes global disposer', slowController.calls[0].destroyed === 1 && !slowController.calls[0].options.live() && !!byText(slow.app, 'h2', 'Member guide'));
+  check('async mount resolving after departure is destroyed and never becomes global disposer', slowController.calls[0].destroyed === 1 && !slowController.calls[0].options.live() && !!byText(slow.app, 'h1', 'Member guide'));
   const broken = await openPage(MEMBER, featuresLocal), brokenCalls = requestsLocal(broken); await broken.go(localPath); findScriptLocal(broken).dispatchEvent(new Event('error')); await settle();
   check('module load failure claims no figures and reads no census', broken.app.textContent.includes('No current figures are claimed') && brokenCalls.every(call => !/census/.test(call.pathname)));
 
@@ -116,7 +116,7 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   reopenHidden.click(); await waitFor(() => hiddenCalls.length === 2, 'explicit visible census reopen');
   check('explicit visible resume mounts a new owned controller without reviving old data', hiddenCalls.length === 2 && hiddenCalls[0].destroyed === 1 && !hiddenCalls[0].options.live() && hiddenCalls[1].options.live() && !!hidden.app.querySelector('[data-local-mount="true"]'));
   await hidden.go('#/guide/member'); const afterHiddenHeader = hidden.app.querySelector('header'); reopenHidden.click(); await settle();
-  check('a stale resume button cannot remount after route departure', hiddenCalls.length === 2 && hiddenCalls[1].destroyed === 1 && hidden.app.querySelector('header') === afterHiddenHeader && !!byText(hidden.app, 'h2', 'Member guide'));
+  check('a stale resume button cannot remount after route departure', hiddenCalls.length === 2 && hiddenCalls[1].destroyed === 1 && hidden.app.querySelector('header') === afterHiddenHeader && !!byText(hidden.app, 'h1', 'Member guide'));
   const unload = await openPage(MEMBER, featuresLocal), unloadCalls = installLocal(unload).calls; await unload.go(localPath); await waitFor(() => unloadCalls.length === 1, 'pagehide mount'); unload.window.dispatchEvent(new Event('pagehide'));
   check('pagehide destroys local controller exactly once and leaves a generic manual resume', unloadCalls[0].destroyed === 1 && !unloadCalls[0].options.live() && !!byText(unload.app, 'button', 'Reopen local census')); await unload.go('#/guide/member');
   const pausedSignout = await openPage(STAFF, featuresLocal), pausedSignoutCalls = installLocal(pausedSignout).calls; await pausedSignout.go(localPath); await waitFor(() => pausedSignoutCalls.length === 1, 'paused signout mount'); pausedSignout.document.hidden = true; pausedSignout.document.dispatchEvent(new Event('visibilitychange')); const staleResume = byText(pausedSignout.app, 'button', 'Reopen local census'); pausedSignout.document.hidden = false; byText(pausedSignout.app, 'button', 'Sign out').click(); staleResume.click(); await settle();
@@ -127,7 +127,7 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   refused.answer(pathname => pathname === '/api/community/context' ? noRead : null); refusedCalls[0].options.onRefused(403); await waitFor(() => refused.app.textContent.includes('Membership check needed'), 'current context refusal');
   check('current403 clears module and rechecks real context to remove local navigation', refusedCalls[0].destroyed === 1 && !refusedCalls[0].options.live() && linksLocal(refused).length === 0 && refusedRequests.filter(call => call.pathname === '/api/community/context').length === 1 && !refused.app.querySelector('[data-local-mount="true"]'));
   const stale = await openPage(MEMBER, featuresLocal), staleCalls = installLocal(stale).calls, staleRequests = requestsLocal(stale); await stale.go(localPath); await waitFor(() => staleCalls.length === 1, 'stale callback mount'); await stale.go('#/guide/member'); const staleHeader = stale.app.querySelector('header'); staleCalls[0].options.onRefused(401); staleCalls[0].options.onRefused(403); await settle();
-  check('stale refusal cannot sign out recheck context or disturb later route', !!byText(stale.app, 'button', 'Sign out') && stale.app.querySelector('header') === staleHeader && !!byText(stale.app, 'h2', 'Member guide') && staleRequests.every(call => call.pathname !== '/api/community/context'));
+  check('stale refusal cannot sign out recheck context or disturb later route', !!byText(stale.app, 'button', 'Sign out') && stale.app.querySelector('header') === staleHeader && !!byText(stale.app, 'h1', 'Member guide') && staleRequests.every(call => call.pathname !== '/api/community/context'));
   const service = await openPage(MEMBER, featuresLocal), serviceCalls = installLocal(service).calls, serviceRequests = requestsLocal(service); await service.go(localPath); await waitFor(() => serviceCalls.length === 1, 'unknown service failure'); serviceCalls[0].options.onRefused(503); await settle();
   check('service503 remains unknown and does not become a shell permission result', serviceCalls[0].options.live() && serviceCalls[0].destroyed === 0 && !!byText(service.app, 'button', 'Sign out') && serviceRequests.every(call => call.pathname !== '/api/community/context')); await service.go('#/guide/member');
   const qrPending = await openPage(MEMBER, featuresLocal), qrPendingCalls = installLocal(qrPending, [], { protocolReady: false }).calls;
@@ -135,7 +135,7 @@ function installLocal(page, calls = [], { slow = false, protocolReady = true } =
   const qrPendingScript = qrPending.document.head.querySelector('script[src="/__census-local/qr-protocol.js"]');
   check('local view cannot mount before the exact QR protocol dependency completes', !!qrPendingScript && qrPendingCalls.length === 0 && !qrPending.app.querySelector('[data-local-mount="true"]'));
   await qrPending.go('#/guide/member'); qrPending.window.OlympusGuildQRProtocol = {}; qrPendingScript.dispatchEvent(new Event('load')); await pauseLocal(20);
-  check('a late QR protocol dependency cannot revive the census after route departure', qrPendingCalls.length === 0 && !!byText(qrPending.app, 'h2', 'Member guide'));
+  check('a late QR protocol dependency cannot revive the census after route departure', qrPendingCalls.length === 0 && !!byText(qrPending.app, 'h1', 'Member guide'));
   const signingOut = await openPage(MEMBER, featuresLocal), signoutCalls = installLocal(signingOut).calls; await signingOut.go(localPath); await waitFor(() => signoutCalls.length === 1, 'signout mount'); byText(signingOut.app, 'button', 'Sign out').click();
   check('normal signout clears local controller synchronously before its network await', signoutCalls[0].destroyed === 1 && !signoutCalls[0].options.live() && !signingOut.app.querySelector('[data-local-mount="true"]'));
   await pauseLocal(20);

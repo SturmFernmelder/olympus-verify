@@ -32,7 +32,7 @@ async function buildInBatches(f,map){let partial={};for(let i=0;i<Object.keys(ma
         people.push(...r.body.identities);pageSizes.push(r.body.identities.length);cursor=r.body.nextCursor;revision=r.body.revision;done=r.body.complete;
         if(done)break;
       }
-      check('five actual pages expose every137 separately consented office without loss or duplicate',done&&cursor===null&&JSON.stringify(pageSizes)==='[32,32,32,32,9]'&&people.length===137&&new Set(people.map(p=>p.role)).size===137&&people.every(p=>p.appointment===map[p.role]&&p.characters.length===0));
+      check('five actual pages expose every137 separately consented appointment key without loss or duplicate',done&&cursor===null&&JSON.stringify(pageSizes)==='[32,32,32,32,9]'&&people.length===137&&new Set(people.map(p=>p.role)).size===137&&people.every(p=>p.appointment===map[p.role]&&p.characters.length===0));
       const removed=roles[0],less={...map};delete less[removed];await f.publish(less);const restoreStart=H.reads();await f.publish(map);
       check('a deleted role proof cannot be silently reused on restoration',H.reads()-restoreStart===1&&saved(f)[removed]===map[removed]);
       const replacement='339000000000000001';H.discordMembers.set(replacement,member(replacement));const changed={...map,[roles[1]]:'<@'+replacement+'>'},changeStart=H.reads();await f.publish(changed);

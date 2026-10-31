@@ -1066,7 +1066,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
   }
 ]);
-  // Master218 successors preserve six original descriptors as non-crediting history.
+  // Master218 successors preserve seven original descriptors as non-crediting history.
   const RETIRED_CONTEXTS218 = Object.freeze([
   {
     "file": "worker/src/site-data.ts",
@@ -1139,6 +1139,18 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     "ownerRelease": 208,
     "purpose": "Owner208 dedicated Council trading portfolio: exact unique source line only; no general vocabulary allowance.",
     "historicalParagraph": "        h(\"p\", { class: \"small muted\", text: \"The current catalogue has 96 offices and 132 assignment keys. The adopted R7 book retains its historical 95-office register and ten native ranks. The new portfolio is associated with High Council, native slot 1; it does not add a rank or open an application route.\" }),"
+  },
+  {
+    "file": "worker/public/static/app.js",
+    "startMarker": "          h(\"p\", null, rank.nativeSlot < 5 ? \"Reserved appointment — no applications for Leader, High Council or Officer Corps seats.\" : \"Membership, raiding and artisan work use the role directory; other standing and titles require their own review. \", rank.nativeSlot >= 5 ? h(\"a\", {href:\"#/vote\",text:\"Explore the role directory\"}) : null, \" In-game verification via /oly discord remains subject to separate Link activation.\")];",
+    "singleLine": true,
+    "paragraphSha256": "c58fa50d176a4d413750ec8f47eef7c115a101a270d38ee501c82523a08a95ea",
+    "paragraphBytes": 433,
+    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
+    "count": 1,
+    "ownerRelease": 201,
+    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance.",
+    "historicalParagraph": "          h(\"p\", null, rank.nativeSlot < 5 ? \"Reserved appointment — no applications for Leader, High Council or Officer Corps seats.\" : \"Membership, raiding and artisan work use the role directory; other standing and titles require their own review. \", rank.nativeSlot >= 5 ? h(\"a\", {href:\"#/vote\",text:\"Explore the role directory\"}) : null, \" In-game verification via /oly discord remains subject to separate Link activation.\")];"
   }
 ]);
   const CURRENT_CONTEXTS = Object.freeze([
@@ -1312,17 +1324,6 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
     "count": 1,
     "ownerRelease": 201,
     "purpose": "Owner201 reserved-seat policy and rich role directory; exact public-rank source context only."
-  },
-  {
-    "file": "worker/public/static/app.js",
-    "startMarker": "          h(\"p\", null, rank.nativeSlot < 5 ? \"Reserved appointment — no applications for Leader, High Council or Officer Corps seats.\" : \"Membership, raiding and artisan work use the role directory; other standing and titles require their own review. \", rank.nativeSlot >= 5 ? h(\"a\", {href:\"#/vote\",text:\"Explore the role directory\"}) : null, \" In-game verification via /oly discord remains subject to separate Link activation.\")];",
-    "singleLine": true,
-    "paragraphSha256": "c58fa50d176a4d413750ec8f47eef7c115a101a270d38ee501c82523a08a95ea",
-    "paragraphBytes": 433,
-    "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
-    "count": 1,
-    "ownerRelease": 201,
-    "purpose": "Owner201 current reserved-seat disclosure or directory classification; exact unique source line, no general vocabulary allowance."
   },
   {
     "file": "worker/public/static/app.js",
@@ -1566,10 +1567,10 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
   {
     "file": "worker/public/static/app.js",
-    "startMarker": "    if (!office?.councilSeat || [\"leader\",\"high_council\"].includes(family?.tier) && family?.kind === \"role\") return \"\";",
+    "startMarker": "    if (!office?.councilSeat || [\"leader\",\"high_council\"].includes(family?.tier) && family?.kind === \"role\" && family.label === office.councilSeat) return \"\";",
     "singleLine": true,
-    "paragraphSha256": "e59159b242edcb17f1f7a462dc1a2590ab60b1efe5cebba72b5a7ca94ee905f2",
-    "paragraphBytes": 119,
+    "paragraphSha256": "cdaa93753749e0dbeb919b1d6f6d8453697d70cce3cf750924cebaa5213bf3e7",
+    "paragraphBytes": 158,
     "digest": "ca540ba0d5b2ecba5a3fd0f48e5e9534a63e8dd3c811ad484907adfee816298b",
     "count": 1,
     "ownerRelease": 218,
@@ -1652,15 +1653,15 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   const iconText = guarded.find(([file]) => file === iconFile)[1];
   const qualifiedIcon = currentContextQualification(iconFile, iconText);
   const originalIconContext = qualifiedIcon.paragraphs[0] || "";
-  check("current app contexts qualify exactly30 pinned lineage and Master218 reporting contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 30 && qualifiedIcon.credits[currentDigest] === 32 && Object.keys(qualifiedIcon.credits).length === 1);
+  check("current app contexts qualify exactly29 pinned lineage and Master218 reporting contexts", qualifiedIcon.errors.length === 0 && qualifiedIcon.paragraphs.length === 29 && qualifiedIcon.credits[currentDigest] === 31 && Object.keys(qualifiedIcon.credits).length === 1);
   const extraIconText = `${iconText}\n\n${approvedGram}`;
   const extraIconQualification = currentContextQualification(iconFile, extraIconText);
-  check("an extra occurrence outside the30 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 32 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
+  check("an extra occurrence outside the29 exact approved app contexts remains restricted", !!approvedGram && extraIconQualification.errors.length === 0 && extraIconQualification.credits[currentDigest] === 31 && vocabularyOverages(iconFile, extraIconText).some((s) => s.includes(`${currentDigest.slice(0, 12)} x1`)));
   const changedIconContext = originalIconContext ? `${originalIconContext.slice(0, -1)}!` : "";
   check("an icon-context byte edit cannot borrow the fixed qualification", !!originalIconContext && currentContextQualification(iconFile, iconText.replace(originalIconContext, changedIconContext)).errors.length > 0 && vocabularyOverages(iconFile, iconText.replace(originalIconContext, changedIconContext)).length > 0);
   check("a duplicate icon context cannot create another qualification", !!originalIconContext && currentContextQualification(iconFile, `${iconText}\n\n${originalIconContext}`).errors.length > 0 && vocabularyOverages(iconFile, `${iconText}\n\n${originalIconContext}`).length > 0);
   check("approved icon bytes in another guarded file receive no qualification", !!originalIconContext && vocabularyOverages("README.md", originalIconContext).some((s) => s.includes(currentDigest.slice(0, 12))) && Object.keys(currentContextQualification("README.md", originalIconContext).credits).length === 0);
-  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 32, [otherDigest]: 1 }, qualifiedIcon);
+  const otherIconDigestOver = overOriginalVocabularyAllowance(iconFile, { [currentDigest]: 31, [otherDigest]: 1 }, qualifiedIcon);
   check("every other icon-file digest retains its original allowance", !!otherDigest && [...GUARD].filter((d) => d !== currentDigest).every((d) => qualifiedIcon.credits[d] === undefined) && otherIconDigestOver.length === 1 && otherIconDigestOver.some((s) => s.includes(otherDigest.slice(0, 12))) && !otherIconDigestOver.some(s => s.includes("credit exceeds")));
   const titleIISpec = CURRENT_CONTEXTS.find(spec => spec.singleLine), titleIIContext = qualifiedIcon.paragraphs.find(text => text.startsWith(titleIISpec.startMarker)) || "";
   check(".198 Title II qualification is one exact 146-byte line with only its single approved digest", titleIISpec.singleLine === true && Buffer.byteLength(titleIIContext, "utf8") === 146 && sha(titleIIContext) === titleIISpec.paragraphSha256 && titleIIContext.split("\n").length === 1 && JSON.stringify(guardedCounts(titleIIContext)) === JSON.stringify({ [currentDigest]: 1 }));
@@ -1690,7 +1691,12 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   // credited against today's bytes. All new contexts retain byte/duplicate and
   // cross-file negative controls, with the original GUARD and ALLOWED unchanged.
   const ownerContexts201 = CURRENT_CONTEXTS.filter(spec => spec.ownerRelease === 201 || spec.predecessorRelease === 201);
-  check('.201 retains its14-context lineage including one Master218 successor without raising any original allowance',ownerContexts201.length === 14 && GUARD.size === 28 && ownerContexts201.every(spec=>spec.digest===currentDigest));
+  const retiredNativeAlias201=RETIRED_CONTEXTS218.filter(spec=>spec.paragraphSha256==='c58fa50d176a4d413750ec8f47eef7c115a101a270d38ee501c82523a08a95ea');
+  check('.201 retains all14 context lineages as13 current plus one removed native-alias paragraph without raising any original allowance',ownerContexts201.length === 13 && retiredNativeAlias201.length===1 && retiredNativeAlias201[0].ownerRelease===201 && retiredNativeAlias201[0].digest===currentDigest && retiredNativeAlias201[0].count===1 && GUARD.size === 28 && ownerContexts201.every(spec=>spec.digest===currentDigest));
+  const retiredNativeText201=retiredNativeAlias201[0]?.historicalParagraph||'';
+  check('.218 retired native-alias bytes and their punctuation edit receive no current credit',!!retiredNativeText201&&[retiredNativeText201,retiredNativeText201.slice(0,-1)+'!'].every(line=>{const value=iconText+'\n'+line,q=currentContextQualification(iconFile,value);return q.errors.length===0&&q.credits[currentDigest]===31&&!q.paragraphs.includes(line)&&vocabularyOverages(iconFile,value).some(value=>value===iconFile+': digest '+currentDigest.slice(0,12)+' x1');}));
+  check('.218 duplicated retired native-alias bytes cannot multiply a current credit',!!retiredNativeText201&&currentContextQualification(iconFile,iconText+'\n'+retiredNativeText201+'\n'+retiredNativeText201).credits[currentDigest]===31&&vocabularyOverages(iconFile,iconText+'\n'+retiredNativeText201+'\n'+retiredNativeText201).some(value=>value===iconFile+': digest '+currentDigest.slice(0,12)+' x2'));
+  check('.218 retired native-alias bytes in another file remain unqualified',!!retiredNativeText201&&Object.keys(currentContextQualification('README.md',retiredNativeText201).credits).length===0&&vocabularyOverages('README.md',retiredNativeText201).some(value=>value==='README.md: digest '+currentDigest.slice(0,12)+' x1'));
   for(const spec of ownerContexts201){
     const text=guarded.find(([file])=>file===spec.file)[1],qualified=currentContextQualification(spec.file,text),paragraph=qualified.paragraphs.find(value=>value.startsWith(spec.startMarker))||'',changed=paragraph?paragraph.slice(0,-1)+'!':'';
     check('.201 context qualifies only its exact current bytes: '+spec.paragraphSha256.slice(0,12),qualified.errors.length===0&&Buffer.byteLength(paragraph,'utf8')===spec.paragraphBytes&&sha(paragraph)===spec.paragraphSha256&&(guardedCounts(paragraph)[currentDigest]||0)===spec.count);
@@ -1770,7 +1776,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
       return overOriginalVocabularyAllowance(spec.file,{...hits218,[d]:outsideCount},qualified).some(value=>value===spec.file+': digest '+d.slice(0,12)+' x'+(outsideCount-credit));
     }));
   }
-  check('.218 preserves exactly six superseded descriptors as history, never current credit',RETIRED_CONTEXTS218.length===6&&RETIRED_CONTEXTS218.every(spec=>spec.singleLine&&sha(spec.historicalParagraph)===spec.paragraphSha256&&Buffer.byteLength(spec.historicalParagraph,'utf8')===spec.paragraphBytes&&!CURRENT_CONTEXTS.some(now=>now.paragraphSha256===spec.paragraphSha256||now.startMarker===spec.startMarker)));
+  check('.218 preserves exactly seven superseded descriptors as history, never current credit',RETIRED_CONTEXTS218.length===7&&RETIRED_CONTEXTS218.every(spec=>spec.singleLine&&sha(spec.historicalParagraph)===spec.paragraphSha256&&Buffer.byteLength(spec.historicalParagraph,'utf8')===spec.paragraphBytes&&!CURRENT_CONTEXTS.some(now=>now.paragraphSha256===spec.paragraphSha256||now.startMarker===spec.startMarker)));
   for(const spec of RETIRED_CONTEXTS218){
     const text=guarded.find(([file])=>file===spec.file)[1];
     const historicalPresent218=text.split(/\r?\n/).some(line=>{const start=line.indexOf(spec.startMarker);return start>=0&&line.slice(start)===spec.historicalParagraph;}),baseline218=currentContextQualification(spec.file,text),appended218=text+'\n'+spec.historicalParagraph,appendedQualification218=currentContextQualification(spec.file,appended218),appendedHits218=guardedCounts(appended218),appendedUncredited218=(appendedHits218[spec.digest]||0)-(appendedQualification218.credits[spec.digest]||0);

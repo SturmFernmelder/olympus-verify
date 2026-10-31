@@ -116,4 +116,24 @@ check('every office and retained assignment has an explicit current ministry and
  assert.deepEqual(organization.cabinet218.reportingChanges,[{nodeId:'intake',field:'parent',before:'heraldry',after:'council',reason:'Chancery is now a distinct reserved Council portfolio; Heraldry remains a coordinating communications partner.'}]);
  assert.equal(organization.nodes.find(n=>n.id==='intake').parent,'council');
 });
+check('current Cabinet associations follow the retained remit rather than generic executive fallback',()=>{
+ const expected={
+  office_01:['heraldry','heraldry','Department of Heraldry'],
+  office_05:['heraldry','heraldry','Department of Heraldry'],
+  office_11:['main-raid-lead','war','Department of War'],
+  office_94:['co-gm','war','Department of War']
+ };
+ for(const [key,values] of Object.entries(expected)){
+  const overlay=organization.cabinet218.offices[key],office=server.OFFICE_APPOINTMENTS.find(row=>row.key===key);
+  assert.deepEqual([overlay.seatId,overlay.ministryId,overlay.ministry],values);
+  assert.equal(office.cabinetSeatId,values[0]);assert.equal(office.ministry,values[2]);
+ }
+ assert.equal(server.OFFICE_APPOINTMENTS.find(row=>row.key==='leveling').cabinetSeatId,'heraldry');
+ const war=Object.values(organization.cabinet218.offices).filter(row=>['main-raid-lead','main-pvp-lead'].includes(row.seatId));
+ assert.equal(war.length,17);assert.ok(war.every(row=>row.ministryId==='war'&&row.ministry==='Department of War'));
+ assert.deepEqual(organization.councilComposition.currentSeats.filter(row=>row.id==='main-raid-lead').map(row=>row.officeKeys),[['office_97']]);
+ assert.deepEqual(organization.councilComposition.currentSeats.filter(row=>row.id==='main-pvp-lead').map(row=>row.officeKeys),[['office_98']]);
+ assert.equal(organization.councilComposition.currentSeats.filter(row=>row.officeKeys.includes('office_94')).length,0);
+});
+
 console.log(n+'/'+n+' role/rank catalogue checks passed');

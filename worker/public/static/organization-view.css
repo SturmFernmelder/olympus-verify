@@ -200,8 +200,8 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
 .org-alliance-family-guide > details { margin-top: .65rem; border: 1px solid #78613980; border-radius: 3px; }
 .org-alliance-family-guide > details > summary { min-height: 44px; padding: .6rem; color: var(--lane-accent); cursor: pointer; font-size: .95rem; }
 .org-alliance-family-guide > details > div { padding: 0 .6rem .6rem; }
-.org-alliance-branches, .org-alliance-officers, .org-alliance-members { min-width: 0; margin-top: 1.4rem; padding: 1rem; border: 1px solid #786139; border-radius: 4px; background: #060a0fbd; }
-.org-alliance :is(.org-alliance-branches, .org-alliance-officers, .org-alliance-members) > :is(h2, h3) { margin-top: 0; color: var(--alliance-gold); font-size: 1.3rem; }
+.org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-institutions { min-width: 0; margin-top: 1.4rem; padding: 1rem; border: 1px solid #786139; border-radius: 4px; background: #060a0fbd; }
+.org-alliance :is(.org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-institutions) > :is(h2, h3) { margin-top: 0; color: var(--alliance-gold); font-size: 1.3rem; }
 .org-alliance-branches > ul { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; margin: .8rem 0 0; padding: 0; list-style: none; }
 .org-alliance-branches > ul > li { min-width: 0; padding: .7rem; border: 1px solid #6d5b3a; background: #181a18a6; font-size: .9rem; }
 .org-alliance-branches > ul > li > small { display: block; margin-top: .3rem; color: var(--muted, #c6bc9e); }
@@ -265,7 +265,7 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
   .org-alliance-lane { padding: .75rem; }
   .org-alliance-lane-heading { font-size: 1.2rem; }
   .org-alliance-ranks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-history { padding: .8rem; }
+  .org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-institutions, .org-alliance-history { padding: .8rem; }
   .org-alliance-branches > ul { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 380px) {
@@ -282,7 +282,7 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
 @media print {
   .org-alliance { color: #111; background: #fff; box-shadow: none; border-color: #555; }
   .org-alliance-toolbar { display: none; }
-  .org-alliance :is(.org-alliance-card, .org-alliance-lane, .org-alliance-family, .org-alliance-ranks > li, .org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-history) { background: #fff; color: #111; border-color: #777; box-shadow: none; break-inside: avoid; }
+  .org-alliance :is(.org-alliance-card, .org-alliance-lane, .org-alliance-family, .org-alliance-ranks > li, .org-alliance-branches, .org-alliance-officers, .org-alliance-members, .org-alliance-institutions, .org-alliance-history) { background: #fff; color: #111; border-color: #777; box-shadow: none; break-inside: avoid; }
   .org-alliance :is(h1, h2, h3, h4, strong, a, summary, .org-alliance-card-heading, .org-alliance-lane-heading, .org-alliance-tier) { color: #111; text-shadow: none; }
   .org-alliance-departments { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 0; }
   .org-alliance-departments::before, .org-alliance-lane::before, .org-alliance-sovereign::after { display: none; }
@@ -299,3 +299,5 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
 .org-alliance-current-council[hidden], .org-alliance-council-references[hidden], .org-alliance-council-seats > li[hidden] { display: none; }
 @media (max-width: 900px) { .org-alliance-council-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .org-alliance-council-seats { grid-template-columns: minmax(0, 1fr); } .org-alliance-current-council { padding: .75rem; } }
+
+.org-alliance-institutions > .org-alliance-families{grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))}

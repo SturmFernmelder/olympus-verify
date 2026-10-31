@@ -192,10 +192,10 @@
       h("p", { text: "Leader and High Council govern; the Officer Corps administers; members and specialists build the guild. Co-Guild Master and Treasurer are appointments, not extra native ranks. Actual game permissions are set separately by the Guild Master." }),
       directory ? h("ol", { class: "role-ranks203" }, directory.ranks.map(rank => {
         const source = offices199().find(row => row.group === "native" && row.nativeSlot === rank.nativeSlot);
-        return h("li", null, h("a", { href: "#/roles/" + encodeURIComponent(source?.key || rank.familyKey), "data-rank-family203": rank.familyKey, "data-native-slot": String(rank.nativeSlot) },
+        return h("li", null, h("a", { href: "#/roles/" + encodeURIComponent(rank.familyKey), "data-rank-family203": rank.familyKey, "data-native-slot": String(rank.nativeSlot) },
           posIcon(source?.key || familyPrimary203(directory,rank.familyKey),"s"), h("span", { class: "role-rank-number203", text: String(rank.nativeRankOrdinal) }), h("span", { text: rank.label })));
       })) : h("p", { class: "muted", text: "The linked rank directory is unavailable. No rank or appointment has been changed." }),
-      directory ? h("details", {class:"technical-profile199"},h("summary",{text:"Game rank details"}),
+      directory ? h("details", {class:"technical-profile199"},h("summary",{text:"Rank Slot & Technical Metadata"}),
         h("p",{text:"The exact 10-rank Olympus In-Game Hierarchy uses the following zero-based game slots."}),
         h("ul",null,directory.ranks.map(rank=>h("li",{text:`Rank ${rank.nativeRankOrdinal} ${rank.label} · slot ${rank.nativeSlot}`})))) : null);
   }
@@ -208,12 +208,12 @@
         const rows = offices199().filter(row => row.nativeSlot === rank.nativeSlot), tiers = [...new Set(rows.map(row => row.tierLabel))], titles = [...new Set(rows.flatMap(row => row.codexTitles || []))];
         const cells = [h("strong", { text: `Rank ${rank.nativeRankOrdinal} ${rank.name}` }), h("div", null, tiers.join(" / "), h("br"), h("a", { href: "#/governance", text: `Title ${titles.join(" / ") || "I–V"}` })),
           h("details", null, h("summary", { text: `${rows.length} mapped office / assignment keys` }), h("ul", null, rows.map(row => {
-            const family = directory?.families.find(item => item.primaryKey === row.key);
+            const family = directory?.families.find(item => item.key === directory.keyToFamily[row.key]);
             return h("li", null, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: family?.kind === "institution" ? family.label : row.applicationLabel || row.label }), " · ", row.ministry || row.department,
-              roleReporting218(row,family) ? " · " + roleReporting218(row,family) : "");
+              roleReporting218(row,family,{includeMinistry:false}) ? " · " + roleReporting218(row,family,{includeMinistry:false}) : "");
           }))),
           h("p", { text: [...new Set(rows.map(row => row.discordPortal))].join(" ") || "Olympus Guild Member; cosmetic tithe tiers and Broadcaster / Stream Shield are separate consented labels and capabilities." }),
-          h("p", null, rank.nativeSlot < 5 ? "Reserved appointment — no applications for Leader, High Council or Officer Corps seats." : "Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ", rank.nativeSlot >= 5 ? h("a", {href:"#/vote",text:"Explore the role directory"}) : null, " In-game verification via /oly discord remains subject to separate Link activation.")];
+          h("p", null, rank.nativeSlot < 5 ? "Royal appointment; no public application." : "Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ", rank.nativeSlot >= 5 ? h("a", {href:"#/vote",text:"Explore the role directory"}) : null)];
         return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal) }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
       }))));
   }
@@ -273,6 +273,8 @@
     return directory;
   }
   const standingNotice218 = "This label records current guild standing, rather than an open position. Ask the responsible officer to review a change in status.";
+  const standingIntro218 = "These labels record a member’s current guild standing; they are not open positions. Ask the responsible officer to review a change in status.";
+  const roleDepartment218 = office => office?.department === "Ten native rank slots" ? "In-game rank reference" : office?.department;
   function guideBody201(guide, fallback, { notesOnly = false, includeEligibility = true } = {}) {
     if (!guide) return fallback ? roleInfo(fallback) : h("p", {class:"muted",text:"The detailed guide is unavailable. Ask leadership for the current remit before taking on this duty."});
     const list = rows => h("ul", null, (rows || []).map(text => h("li", {text})));
@@ -305,10 +307,10 @@
       boundaries:primary.boundaries,
       eligibilityNote:primary.eligibilityNote});
   }
-  function roleReporting218(office, family) {
-    if (!office?.councilSeat || ["leader","high_council"].includes(family?.tier) && family?.kind === "role") return "";
+  function roleReporting218(office, family, {includeMinistry = true} = {}) {
+    if (!office?.councilSeat || ["leader","high_council"].includes(family?.tier) && family?.kind === "role" && family.label === office.councilSeat) return "";
     if (family?.kind === "institution") return "Related Council portfolio: " + office.councilSeat;
-    return (office.ministry && office.ministry !== office.department ? office.ministry + " · " : "") + "Council portfolio: " + office.councilSeat;
+    return (includeMinistry && office.ministry && office.ministry !== office.department ? office.ministry + " · " : "") + "Council portfolio: " + office.councilSeat;
   }
   function roleStanding218(family, guides, key) {
     const note = guides[key]?.eligibilityNote;
@@ -357,7 +359,8 @@
       const grid = h("div", {class:"role-directory-grid201 role-family-grid203"});
       const section = h("details", {class:"role-section201","data-role-section201":id,open:id === "members" || families.some(family => family.key === currentFamily)},
         h("summary", null, h("span", {text:label}), h("span", {class:"badge muted",text:String(families.length)})),
-        id === "institutions" ? h("p", {class:"small muted",text:"These are collective institutions and historical mandates, not additional Council seats. A panel or earlier shared record does not appoint the current individual portfolio holder."}) : null, grid);
+        id === "institutions" ? h("p", {class:"small muted",text:"These are collective institutions and historical mandates, not additional Council seats. A panel or earlier shared record does not appoint the current individual portfolio holder."}) : null,
+        id === "standing" ? h("p", {class:"role-standing-scope218 small muted",text:standingIntro218}) : null, grid);
       section.open = id === "members" || families.some(family => family.key === currentFamily);
       for (const family of families) {
         const row = office199(family.primaryKey), reserved = ["leader","high_council","officer_corps"].includes(family.tier) || family.sourceKeys.some(reservedKey201);
@@ -376,7 +379,8 @@
           const disclosure = h("details", {class:"role-variant203",id:"role-"+variant.key,"data-role-key201":variant.key,"data-role-variant-kind203":variant.kind,open:variant.key === currentKey},
             h("summary", {text:variant.label}),
             h("div", {class:"role-variant-body203","data-role-scope218":presentation},
-              differentBadge ? officeBadge199(source) : null,
+              (metadata && native || differentBadge) ? officeBadge199(source) : null,
+              metadata ? h("p", {class:"small muted role-association218",text:"Covered by the " + family.label + " guide above; this reference retains its own rank and holder record."}) : null,
               !metadata && source?.department && source.department !== row?.department ? h("p", {class:"small muted",text:source.department}) : null,
               !metadata && reporting && reporting !== primaryReporting ? h("p", {class:"role-reporting218",text:reporting}) : null,
               metadata && roleStanding218(family,guides,variant.key) ? h("p", {class:"small role-standing218",text:roleStanding218(family,guides,variant.key)}) : null,
@@ -393,11 +397,10 @@
         ].map(([groupKey,title,kinds]) => {
           const own = variants.filter(item => kinds.includes(item.presentation));
           if (!own.length) return null;
-          const group = h("details", {class:"role-variants203","data-role-variant-group218":groupKey,open:own.some(item => item.variant.key === currentKey)},
+          const group = h("details", {class:"role-variants203","data-role-variant-group218":groupKey,open:groupKey === "offices" || own.some(item => item.variant.key === currentKey)},
             h("summary", {text:title}),
-            groupKey === "associations" ? h("p", {class:"small muted",text:"These labels refer to the same role or its native-rank and historical associations. Their display and holder records remain separate; they are not extra jobs or application choices."}) : null,
             ...own.map(item => item.disclosure));
-          group.open = own.some(item => item.variant.key === currentKey);
+          group.open = groupKey === "offices" || own.some(item => item.variant.key === currentKey);
           return group;
         });
         const variantHint = h("p", {class:"small role-search-match203",hidden:true});
@@ -409,7 +412,7 @@
             family.alternateTitles.length ? h("p", {class:"small role-aliases203"},h("strong",{text:"Also known as: "}),family.alternateTitles.join(" · ")) : null,
             variantHint,
             h("section", {class:"role-primary203",id:"role-"+family.primaryKey,"data-role-key201":family.primaryKey},
-              family.kind !== "institution" ? officeBadge199(row) : null, row?.department ? h("p", {class:"small muted",text:row.department}) : null,
+              family.kind !== "institution" ? officeBadge199(row) : null, row?.department ? h("p", {class:"small muted",text:roleDepartment218(row)}) : null,
               roleReporting218(row,family) ? h("p", {class:"role-reporting218",text:roleReporting218(row,family)}) : null,
               mergedFamilyGuide218(family,guides), ownHolder(family.primaryKey)),
             eligible && onChoose ? h("button", {type:"button",class:"btn small","data-apply-role201":intent.targetOffice || family.primaryKey,"data-family-apply203":family.key,disabled:!!appointedTo(intent.targetOffice || family.primaryKey) || S.settings?.applicationsOpen === false,
@@ -465,7 +468,7 @@
       h("p", {text:"Find your place in Olympus. Each role brings its duties, expectations and working relationships into one guide. Regional and class assignments keep their own detailed commitments."}),
       h("p", {class:"role-scope218 small muted",text:"This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process."}),
       noticeBox("info","pos-officer",h("p",{text:reservedNotice201}),h("p",{text:"Membership, Raider and Artisan applications remain available. A rank, title or unfilled listing never grants access, promotion or an appointment."})),
-      h("label", {class:"field"},h("span", {class:"lab",text:"Find a role"}),search),count,h("p",{class:"role-standing-scope218 small muted",text:standingNotice218}),h("div",{class:"role-sections203"},...sections));
+      h("label", {class:"field"},h("span", {class:"lab",text:"Find a role"}),search),count,h("div",{class:"role-sections203"},...sections));
     chooser.id = "application-directory201"; chooser.classList.add("application-directory201");
     chooser.setAttribute("data-role-directory-version", "203");
     if (currentKey) chooser.setAttribute("data-initial-role203", currentKey);
@@ -961,15 +964,21 @@
       d.addEventListener("close", () => { if (!done) resolve(null); });
     });
   }
+  function pageHeading218(main) {
+    if (!main || !app.contains(main)) return;
+    const headings = [...main.querySelectorAll("h1")];
+    const authored = headings.find(node => !node.classList.contains("page-heading218"));
+    const promoted = headings.filter(node => node.classList.contains("page-heading218"));
+    if (authored) { for (const node of promoted) node.replaceWith(h("h2", {text:node.textContent})); return; }
+    if (promoted.length) return;
+    const first = main.querySelector(".frame .plaque h2");
+    if (first) first.replaceWith(h("h1", {class:"page-heading218",text:first.textContent}));
+  }
   /** A frame with its title on the header plaque. */
   const frame = (title, aside, ...body) => {
     const section = h("section", { class: "frame" }, h("div", { class: "plaque" }, typeof title === "string" ? h("h2", { text: title }) : title, aside || null), ...body);
-    // Run after attachment so nested frames use DOM order, and delayed views get
-    // the same heading treatment. Pages with their own heading keep it intact.
-    Promise.resolve().then(() => {
-      const main = section.closest("main"), first = main?.querySelector(".frame .plaque h2");
-      if (main && !main.querySelector("h1") && first) first.replaceWith(h("h1", {class:"page-heading218", text:first.textContent}));
-    });
+    // Delayed frames and embedded workspaces share one heading after attachment.
+    Promise.resolve().then(() => pageHeading218(section.closest("main")));
     return section;
   };
   const noticeBox = (kind, iconName, ...body) => h("div", { class: "notice-box " + kind }, iconName ? icon(iconName, "l") : null, h("div", null, ...body));
@@ -1563,7 +1572,7 @@
     main.dataset.viewRequest = viewRequest;
     try {
       const out = view(main, route.split("/").slice(1));
-      const names = () => { if (main.parentNode === app && main.dataset.viewRequest === viewRequest) hydrateAppointmentNames(main, () => main.parentNode === app && main.dataset.viewRequest === viewRequest); };
+      const names = () => { if (main.parentNode === app && main.dataset.viewRequest === viewRequest) { pageHeading218(main); hydrateAppointmentNames(main, () => main.parentNode === app && main.dataset.viewRequest === viewRequest); } };
       if (out && typeof out.then === "function") out.then(names).catch(error => { if (main.dataset.viewRequest === viewRequest) showError(main)(error); });
       else names();
     } catch (e) {
@@ -1720,7 +1729,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "e486ea4e95b1687b9215707304bce0e6cc0cf8fd5f0f394733ab4c6abd6f96c1";
+  const GOVERNANCE_SHA256 = "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1732,7 +1741,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 524288);
-      if (bytes.length !== 269414) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 270762) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1744,7 +1753,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 524288);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 269414 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 270762 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 101 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -1775,11 +1784,15 @@
     if (!chapters.length || chapters[0].title !== "Reading and Adopting This Book") throw new Error("The R7 book has no reading guide.");
     return { chapters, text };
   }
-  // A small text-only Markdown reader. It creates DOM nodes; arbitrary HTML and Markdown URLs never execute.
+  // A small Markdown reader: text nodes plus emphasis/code and HTTPS or internal fragment links; never arbitrary HTML.
   function governanceInline(text) {
-    return String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part) =>
-      part.startsWith("**") && part.endsWith("**") ? h("strong", { text: part.slice(2, -2) }) :
-      part.startsWith("`") && part.endsWith("`") ? h("code", { text: part.slice(1, -1) }) : document.createTextNode(part));
+    return String(text).split(/(\[[^\]\n]+\]\((?:#\/[^\s()<>"']+|https:\/\/[^\s()<>"']+)\)|\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part) => {
+      const link = /^\[([^\]\n]+)\]\((#\/[^\s()<>"']+|https:\/\/[^\s()<>"']+)\)$/.exec(part);
+      if (link) return h("a", {href:link[2],text:link[1],...(link[2].startsWith("https:") ? {target:"_blank",rel:"noopener noreferrer"} : {})});
+      if (part.startsWith("**") && part.endsWith("**")) return h("strong", {text:part.slice(2,-2)});
+      if (part.startsWith("`") && part.endsWith("`")) return h("code", {text:part.slice(1,-1)});
+      return document.createTextNode(part);
+    });
   }
   function governanceBlocks(lines) {
     const out = []; let i = 0;
@@ -2094,11 +2107,17 @@
   // .218 officer access. The page only decides what to show; the Worker decides every plan file and access answer.
   // One check per page load (kept in page memory for 15 minutes, never in storage) keeps a member's visit to one Discord read.
   const TREASURY_ACCESS_TTL218 = 15 * 60 * 1000;
-  let treasuryCheck218 = null, treasuryChecked218 = false, treasuryAnswer218 = null;
+  let treasuryCheck218 = null, treasuryChecked218 = null, treasuryAnswer218 = null;
   function treasuryPlanAllowed218() { return !!(S.signedIn && !S.denied && S.user && (S.user.isAdmin === true || S.user.canReadTreasuryPlan === true)); }
   function treasuryNavLinks218() {
     if (treasuryPlanAllowed218()) return [["#/treasury-plan", "Treasury plan"]];
-    if (S.signedIn && !S.denied && S.user && !treasuryChecked218) { treasuryChecked218 = true; setTimeout(() => { refreshTreasuryAccess218({}).catch(() => {}); }, 0); }
+    const user = S.user, revision = decisionActorRevision;
+    if (S.signedIn && !S.denied && user && (!treasuryChecked218 || treasuryChecked218.user !== user || treasuryChecked218.revision !== revision)) {
+      treasuryChecked218 = { user, revision };
+      setTimeout(() => {
+        if (S.signedIn && !S.denied && S.user === user && decisionActorRevision === revision) refreshTreasuryAccess218({}).catch(() => {});
+      }, 0);
+    }
     return [];
   }
   function treasuryRefusal218() {
@@ -2109,18 +2128,30 @@
   }
   async function refreshTreasuryAccess218({ fresh = false } = {}) {
     if (!S.signedIn || S.denied || !S.user) return false;
-    const id = S.user.id;
+    const user = S.user, id = user.id, revision = decisionActorRevision;
+    const current = () => S.signedIn && !S.denied && S.user === user && S.user.id === id && decisionActorRevision === revision;
+    treasuryChecked218 = { user, revision };
     const cached = treasuryAnswer218;
+    const fromCache = !fresh && cached && cached.user === user && cached.id === id && cached.revision === revision && Date.now() - cached.at < TREASURY_ACCESS_TTL218;
     let allowed;
-    if (!fresh && cached && cached.id === id && Date.now() - cached.at < TREASURY_ACCESS_TTL218) allowed = cached.canRead;
+    if (fromCache) allowed = cached.canRead;
     else {
-      if (!treasuryCheck218) treasuryCheck218 = api("GET", "/api/treasury-plan/access").then(data => !!(data && data.format === "olympus-treasury-access-v1" && data.canRead === true)).catch(() => false).finally(() => { treasuryCheck218 = null; });
-      allowed = await treasuryCheck218;
-      treasuryAnswer218 = { id, canRead: allowed, at: Date.now() };
+      let check = treasuryCheck218;
+      if (!check || check.user !== user || check.id !== id || check.revision !== revision) {
+        check = { user, id, revision, promise: null };
+        check.promise = api("GET", "/api/treasury-plan/access", undefined, { live: current })
+          .then(data => !!(data && data.format === "olympus-treasury-access-v1" && data.canRead === true))
+          .catch(() => false)
+          .finally(() => { if (treasuryCheck218 === check) treasuryCheck218 = null; });
+        treasuryCheck218 = check;
+      }
+      allowed = await check.promise;
     }
-    if (!S.signedIn || S.denied || !S.user || S.user.id !== id) return false;
-    if (allowed && S.user.canReadTreasuryPlan !== true) {
-      S.user = { ...S.user, canReadTreasuryPlan: true };
+    if (!current()) return false;
+    if (!fromCache) treasuryAnswer218 = { user, id, revision, canRead: allowed, at: Date.now() };
+    if ((user.canReadTreasuryPlan === true) !== allowed) {
+      // This presentation flag must not replace the identity object captured by active readers.
+      user.canReadTreasuryPlan = allowed;
       const bar = app.querySelector("header.topbar");
       if (bar) bar.replaceWith(topbar(currentRoute()));
     }
@@ -2149,13 +2180,15 @@
         const reporting = roleReporting218(office,family), primaryReporting = roleReporting218(primary,family);
         const distinctBoundary = !options.association || guides[key]?.boundaries !== guides[options.sharedWith]?.boundaries;
         return h("div", {"data-role-guide-key218":key},
-          !options.association && office?.department && office.department !== primary?.department ? h("p", {class:"small muted",text:office.department}) : null,
+          !options.association && office?.department && office.department !== primary?.department ? h("p", {class:"small muted",text:roleDepartment218(office)}) : null,
           !options.association && reporting && reporting !== primaryReporting ? h("p", {class:"role-reporting218",text:reporting}) : null,
+          options.association ? h("p", {class:"small muted role-association218",text:"Covered by the " + (family?.label || "related role") + " guide above; this reference retains its own rank and holder record."}) : null,
+          options.association && office?.group === "native" ? officeBadge199(office) : null,
           options.association && roleStanding218(family,guides,key) ? h("p", {class:"small role-standing218",text:roleStanding218(family,guides,key)}) : null,
           options.canonical && family ? mergedFamilyGuide218(family,guides)
             : distinctBoundary ? guideBody201(guides[key],positionOf(key), {notesOnly:!!options.association,includeEligibility:!options.association}) : null);
       },
-      roleGuides201:M().roleGuides201,
+      roleGuides201:M().roleGuides201, reservedNotice201, standingIntro218,
       allianceOverview205:renderAllianceOverview205,
       roleDirectory203:M().roleDirectory203,
       roleFamilyDirectory203:() => applicationRoleDirectory201(next => { location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`; }, {}, {showCharacters:true}),
@@ -2184,13 +2217,13 @@
           h("div", null,
             h("h3", { text: namesOpen ? "Website name entry is open" : "Website name entry is closed" }),
             h("p", null, namesOpen ? "Record names you have already chosen in game " : "Once guild administration opens website entry, record names you have already chosen in game ", S.signedIn ? h("a", { href: "#/names", text: "on your reserved-name list" }) : "after signing in", "."),
-            h("p", { class: "muted small", text: `Website entry threshold: ${fmtDateTime(s.namesOpenAt)} (${fmtPacific(s.namesOpenAt)}). The separate website switch must also be on; this does not open Blizzard's reservation service.` }))),
+            h("p", { class: "muted small", text: `Name entry on this site is planned from ${fmtDateTime(s.namesOpenAt)} (${fmtPacific(s.namesOpenAt)}) once the guild opens it. It records names already chosen in game; it does not reserve them.` }))),
         h("div", { class: "date-card" },
           icon("icon-launch", "l"),
           h("div", null,
-            h("h3", { text: inviteTimeReached ? "Guild invite scheduling time has arrived" : "Guild invite scheduling threshold" }),
+            h("h3", { text: inviteTimeReached ? "The guild’s planned invite date has arrived" : "Guild invites are planned from" }),
             inviteTimeReached ? null : countdown(s.launchAt, { onDone: refreshWhenClean }),
-            h("p", { class: "muted small", text: `${fmtDateTime(s.launchAt)} (${fmtPacific(s.launchAt)}). This is the guild's configured scheduling threshold, separate from Blizzard's global launch. It does not establish realm availability, an invite or a free seat.` }))))));
+            h("p", { class: "muted small", text: `${fmtDateTime(s.launchAt)} (${fmtPacific(s.launchAt)}). This is Olympus’s own invite schedule, separate from Blizzard’s global launch. It guarantees neither service availability, an invite nor a free seat.` }))))));
   }
   const warningBox = () => noticeBox("warn", "icon-warning", h("p", null, h("strong", { text: "Joke, troll or abusive applications are permanently denied." }), " That covers the account's votes, nominations and reserved names too, and it is not reconsidered."));
   // .115 (Viktor's item B, 2 Oct 2026): whether Olympus I has room, as the Worker judges it (guild-seats.ts memberSeats: the latest
@@ -2385,15 +2418,15 @@
     const intro = h("div", { class: "parchment" },
       h("h3", { text: "What happens to them" }),
       h("p", null, "Blizzard's early name reservation lets the WoW account that purchased a Skyborne Heroic Pack, Skyborne Epic Pack or Warcraft Forever Collection reserve up to three characters total across all rulesets from 27 October to 3 November. Names are first come, first served and are not guaranteed. Once you have reserved yours in game, enter them here."),
-      h("p", {class:"muted small",text:"This guild form uses its own two-part, 2–12-letter input limits. These local limits are not a claim to reproduce every current Blizzard naming rule. The countdown and form opening use North America's start; the notice identifies Europe's earlier opening."}),
-      h("p", null, "The guild's leadership keeps this list privately and picks who has been promised a seat. At launch those names go to the top of the invite queue. An officer still sends each invite by hand, so be online on that character."),
+      h("p", {class:"muted small",text:"This guild form uses its own two-part, 2–12-letter input limits. These local limits are not a claim to reproduce every current Blizzard naming rule. Website name entry has its own opening date; it does not open Blizzard’s reservation service."}),
+      h("p", null, "The guild's leadership keeps this list privately and picks who has been promised a seat. From the guild’s invite date, approved names go to the top of its invite queue. An officer still sends each invite by hand, so be online on that character."),
       h("p", null, "To link your Discord account to the character, you still whisper your verification code to an officer in game, like everyone else. Entering a name here does not link or reserve anything by itself."));
     const section = h("section", { class: "frame", id: "names" }, h("div", { class: "plaque" }, h("h2", { text: "Your reserved names" })));
     if (!open) {
       add(section, [
         intro,
         h("div", { class: "rule" }),
-        h("p", { class: "muted", text: s.namesOpen ? "Entering names opens with Blizzard's name reservation (the countdown above)." : "Entering names is closed right now." }),
+        h("p", { class: "muted", text: s.namesOpen ? "Name entry on this site is planned from " + fmtDateTime(s.namesOpenAt) + "; the guild’s entry controls must also permit it." : "Entering names is closed right now." }),
         saved.length ? h("div", { class: "stack" }, saved.map((r) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: r.name })), badgeOf(r)))) : null,
       ]);
       return section;
@@ -2582,14 +2615,18 @@
     return panel;
   }
 
-  function launchNotice218() {
+  function launchApplicationCopy218(applicationEditable) {
+    return h("p", {class:"launch-application-copy218"}, applicationEditable ? "Claim names in game while eligible, then record your Main and declared Alts in this application. " : "Claim eligible names in game. Record your Main and declared Alts on your guild application when applications are open. ",
+      !applicationEditable ? h("a", {href:"#/apply",text:"View your guild application"}) : null, " · ", h("a", {href:"#/names",text:"Keep your reserved-name list current"}), ". The website neither reserves names nor verifies character ownership.");
+  }
+  function launchNotice218({applicationEditable = false} = {}) {
     const announcedLaunch = 1793833200; // Blizzard: 4 November 2026, 23:00 UTC; independent of the editable guild admission schedule.
     const live = nowSec() >= announcedLaunch;
     return h("aside", {class:"launch-notice218", "aria-label":"Forever global launch"},
-      h("h3", {text:live ? "World of Warcraft: Forever launch time has arrived" : "November 4 · Forever global launch"}),
-      live ? h("p", {text:"The announced launch time has passed. Check Blizzard’s service notices for actual realm availability."}) : countdown(announcedLaunch, {onDone:refreshWhenClean}),
+      h("p", {class:"launch-notice-title218"}, h("strong", {text:live ? "World of Warcraft: Forever launch time has arrived" : "November 4 · Forever global launch"})),
+      live ? h("p", {text:"The announced launch time has passed. Check Blizzard’s service notices for actual service availability."}) : countdown(announcedLaunch, {onDone:refreshWhenClean}),
       h("p", {text:"4 November 2026 · 23:00 UTC · 3:00 PM PST. Early in-game name reservation: 27 October–3 November for eligible purchases, up to three characters total across rulesets."}),
-      h("p", null, "Claim names in game while eligible, then record your Main and declared Alts in this application. ", h("a", {href:"#/names",text:"Keep your reserved-name list current"}), ". The website neither reserves names nor verifies character ownership."));
+      launchApplicationCopy218(applicationEditable));
   }
   ROUTES.apply = function apply(main) {
     const meta = M();
@@ -2598,7 +2635,8 @@
     const locked = a && (a.status === "accepted" || a.status === "declined");
     const status = a ? h("span", { class: "aside" }, "Status: ", h("span", { class: "status " + a.status, text: statusText(a.status) }), ` · updated ${ago(a.updatedAt)}`) : null;
     add(main, seatsNotice(main)); // Above every branch, including a closed or decided application; refreshes only dated seat information.
-    add(main, launchNotice218());
+    const applicationNotice218 = launchNotice218();
+    add(main, applicationNotice218);
     if (locked) {
       add(main, frame("Your application", status,
         h("p", { text: a.status === "accepted" ? "Your application was accepted. The guild's leadership will be in touch in Discord." : "Your application was not accepted this time. It can no longer be changed." }),
@@ -2636,6 +2674,8 @@
       return;
     }
     const form = h("form", { novalidate: true });
+    // Only this branch creates an editable form; every earlier refusal keeps neutral copy.
+    applicationNotice218.querySelector(".launch-application-copy218").replaceWith(launchApplicationCopy218(true));
     const unsaved = h("span", { class: "dirty", hidden: true, text: "Unsaved changes" });
     const touch = () => setDirty("apply", true, unsaved);
     form.addEventListener("input", touch);
@@ -3846,7 +3886,7 @@
     const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const [confirmed, confirmedRow] = box(s.namesTimeConfirmed, "Reservation hour marked confirmed (legacy)", "Retained with the earlier reservation record. The current Blizzard announcement is shown separately; website entry and guild invite scheduling use their own settings below.");
     const [namesOpen, namesOpenRow] = box(s.namesOpen, "People may enter reserved names (from the time above)");
-    const [autoQueue, autoQueueRow] = box(s.autoQueue, "From launch, put approved reserved names at the top of the invite queue by themselves", "Checked every half hour. Off: use Queue on the Reserved names tab when you are ready.");
+    const [autoQueue, autoQueueRow] = box(s.autoQueue, "From the guild invite date, automatically queue approved reserved names", "Checked every half hour. Off: use Queue on the Reserved names tab when you are ready.");
     const [appsOpen, appsOpenRow] = box(s.applicationsOpen, "Applications are open");
     const [votingOpen, votingOpenRow] = box(s.votingOpen, "Voting is open (the board and write-in nominations)");
     // .115 (Viktor's item A, 2 Oct 2026): the members' News page is off until an administrator switches it on here (site-news.ts)
@@ -5186,7 +5226,7 @@
       } catch (err) { toast(err.message, "bad"); }
     };
     const beforeLaunch = nowSec() < (s.launchAt || 0);
-    const queueWarn = beforeLaunch ? ["Queue before the guild invite threshold?", "This is earlier than the guild's configured invite scheduling threshold. Check actual realm availability, approved character names and current capacity: unavailable characters or clients can consume failed invite attempts. Automatic queueing follows the configured threshold only when its separate switch is on.", "Queue anyway"] : null;
+    const queueWarn = beforeLaunch ? ["Queue before the guild invite threshold?", "This is earlier than the guild's configured invite scheduling threshold. Check actual service availability, approved character names and current capacity: unavailable characters or clients can consume failed invite attempts. Automatic queueing follows the configured threshold only when its separate switch is on.", "Queue anyway"] : null;
     const bulk = h("div", { class: "btn-row" },
       h("button", { class: "btn small", type: "button", text: "Approve selected", onclick: () => act("approve", [...selected], null, true) }),
       h("button", { class: "btn small", type: "button", text: "Unapprove selected", onclick: () => act("unapprove", [...selected], null, true) }),
@@ -5212,7 +5252,7 @@
     });
     clear(body);
     add(body, frame("Reserved names", null,
-      h("p", { class: "muted small" }, `Approved names go to the top of the invite queue ${s.autoQueue ? "by themselves at launch" : "when you press Queue (automatic queueing is off in Settings)"}: ${s.launchAt ? fmtDateTime(s.launchAt) : "—"}. An officer still sends each invite, and the player still whispers their code to link Discord. A name entered by more than one account is not queued while more than one of those claims is approved. A queued name whose invite ended without them joining can be approved again and queued again.`),
+      h("p", { class: "muted small" }, `Approved names go to the top of the invite queue ${s.autoQueue ? "automatically from the guild invite date" : "when you press Queue (automatic queueing is off in Settings)"}: ${s.launchAt ? fmtDateTime(s.launchAt) : "—"}. An officer still sends each invite, and the player still whispers their code to link Discord. A name entered by more than one account is not queued while more than one of those claims is approved. A queued name whose invite ended without them joining can be approved again and queued again.`),
       h("div", { class: "filters" },
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Status" }), status),
         h("label", { class: "field" }, h("span", { class: "lab small", text: "Search (Enter)" }), search)),
@@ -5861,7 +5901,7 @@
           kv(pair({ day: f.applications.day.decided, week: f.applications.week.decided }).map(([k, v]) => [k, fewer(v)])),
           h("p", { class: "muted small", text: `As of ${fmtDateTime(f.asOf)}. Joined and left compare complete, checked roster exports, so a rename counts as one of each. Applications count the accounts whose application was first saved in that time, and the decisions (accepted or declined) last saved in it.` }),
         ];
-    const launchAt = d.beta && d.beta.launchAt;
+    const launchAt = d.beta && d.beta.launchAt; // Olympus invite scheduling only; never Blizzard’s global launch.
     add(body, [
       frame("Notices", null,
         sourceStrip("Olympus administrators", "Dates below belong to each notice; a page refresh does not renew them"),
@@ -5891,12 +5931,8 @@
           ? h("p", null, `Blizzard's 20 October update scheduled the final beta shutdown for ${fmtDateTime(d.beta.announcedClosureAt)} (${fmtPacific(d.beta.announcedClosureAt)}). `,
               h("a", {href:"https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",target:"_blank",rel:"noopener noreferrer",text:"Announced plan"}), "; actual server closure was not observed by this site.")
           : h("p", {class:"muted",text:"The latest announced beta shutdown schedule is unavailable here; check Blizzard's original update. No actual closure time is inferred."}),
-        launchAt
-          ? h("div", { class: "date-card" }, icon("icon-launch", "l"), h("div", null,
-              h("h3", { text: nowSec() >= launchAt ? "World of Warcraft: Forever" : "World of Warcraft: Forever launches in" }),
-              countdown(launchAt, { doneText: "Live now" }),
-              h("p", { class: "muted small", text: `${fmtDateTime(launchAt)} (${fmtPacific(launchAt)}).` })))
-          : null),
+        launchNotice218(),
+        launchAt ? h("p", {class:"small muted guild-invite-plan218",text:`Olympus invites are planned from ${fmtDateTime(launchAt)} (${fmtPacific(launchAt)}). This is the guild’s schedule, separate from Blizzard’s global launch; it guarantees no invite or free seat.`}) : null),
       Array.isArray(d.releases) && d.releases.length
         ? frame("Site updates", null, d.releases.map((r) => h("div", null,
             h("h3", { text: `${isoDay(r.date)} (build ${r.build})` }),

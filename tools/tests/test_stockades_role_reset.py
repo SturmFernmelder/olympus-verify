@@ -960,5 +960,226 @@ class CliAndPrivacyTests(unittest.TestCase):
             target.unlink()
 
 
+class SuccessorEvidenceTests(unittest.TestCase):
+    setUp = RoleResetTests.setUp
+    preview = RoleResetTests.preview
+    run_plan = RoleResetTests.run_plan
+
+    def test_verified_job_cannot_be_reverified_or_reopened(self):
+        plan = self.preview()
+        self.run_plan(plan)
+        reset.verify(self.job, self.api, at=AT + 2)
+        proof = copy.deepcopy(self.job.get("verification"))
+        before_calls = list(self.api.calls)
+        self.api.members[MEMBER]["roles"].remove(LINKED_ROLE)
+        with self.assertRaisesRegex(reset.ResetError, "terminal"):
+            reset.verify(self.job, self.api, at=AT + 3)
+        self.assertEqual(self.api.calls, before_calls)
+        self.assertEqual(self.job.get("state"), "verified")
+        self.assertEqual(self.job.get("verification"), proof)
+        with self.assertRaises(reset.ResetError):
+            self.run_plan(plan)
+        self.assertEqual(self.api.calls, before_calls)
+
+    def test_same_second_operation_changes_make_prior_scan_historical(self):
+        plan = self.preview()
+        proof = reset.verify(self.job, self.api, at=AT + 1)["verification"]
+        self.assertEqual(proof["remaining_assignments"], 4)
+        self.assertTrue(self.job.get("verification_current"))
+        self.run_plan(plan)  # Uses the SAME second as the scan: timestamps alone cannot distinguish this.
+        self.assertFalse(reset.status(self.job, AT + 1)["verification_current"])
+        receipt = reset.redact(self.job, at=AT + 2)
+        self.assertEqual(receipt["counts"]["confirmed_absent"], 4)
+        self.assertEqual(receipt["last_verification"], proof)
+        self.assertFalse(receipt["last_verification_is_current"])
+        self.assertFalse(receipt["verification_succeeded"])
+        for key in ("role_counts", "verified_at", "role_definitions_preserved", "other_memberships_unchanged_at_scan"):
+            self.assertIsNone(receipt[key], key)
+
+    def test_new_scan_after_operation_changes_restores_current_proof(self):
+        plan = self.preview()
+        reset.verify(self.job, self.api, at=AT + 1)
+        self.run_plan(plan)
+        self.assertFalse(self.job.get("verification_current"))
+        result = reset.verify(self.job, self.api, at=AT + 2)
+        self.assertEqual(result["state"], "verified")
+        self.assertTrue(result["verification_current"])
+        receipt = reset.redact(self.job, at=AT + 3)
+        self.assertTrue(receipt["verification_succeeded"])
+        self.assertTrue(receipt["last_verification_is_current"])
+        self.assertEqual(sum(receipt["role_counts"].values()), 0)
+
+    def test_legacy_scan_without_freshness_marker_is_retained_without_current_claim(self):
+        plan = self.preview()
+        self.run_plan(plan)
+        reset.verify(self.job, self.api, at=AT + 2)
+        proof = copy.deepcopy(self.job.get("verification"))
+        self.job.db.execute("DELETE FROM meta WHERE key='verification_current'")
+        receipt = reset.redact(self.job, at=AT + 3)
+        self.assertEqual(receipt["last_verification"], proof)
+        self.assertFalse(receipt["last_verification_is_current"])
+        self.assertFalse(receipt["verification_succeeded"])
+        self.assertIsNone(receipt["role_counts"])
+
+    def test_blocked_jobs_remain_blocked_without_provider_reads_from_reconcile_or_verify(self):
+        self.api.roles[1]["position"] = 999
+        result = self.preview()
+        plan_sha = result["plan_sha"]
+        calls = list(self.api.calls)
+        for command in (reset.reconcile, reset.verify):
+            with self.subTest(command=command.__name__):
+                with self.assertRaisesRegex(reset.ResetError, "Blocked preview"):
+                    command(self.job, self.api, at=AT + 1)
+                status = reset.status(self.job, AT + 1)
+                self.assertEqual(status["state"], "blocked")
+                self.assertEqual(status["plan_sha"], plan_sha)
+                self.assertEqual(sum(status["role_counts"].values()), 4)
+                self.assertEqual(status["counts"]["planned"], 0)
+                self.assertEqual(self.api.calls, calls)
+        receipt = reset.redact(self.job, at=AT + 2)
+        self.assertTrue(receipt["blocked_preview"])
+        self.assertFalse(receipt["verification_succeeded"])
+
+    def test_blocked_preview_writes_no_selected_subject_ids_before_any_redaction(self):
+        self.api.roles[1]["position"] = 999
+        result = self.preview()
+        self.assertEqual(result["state"], "blocked")
+        self.assertIsNone(self.job.get("receipt"))
+        raw_files = []
+        for file in self.path.rglob("*"):
+            if not file.is_file():
+                continue
+            if file == self.path / "operator.lock":
+                # Windows refuses a second handle over this active byte-range lock.
+                # Read every lock byte through its already-owned handle; never unlock.
+                position = self.job.lock.tell()
+                try:
+                    self.job.lock.seek(0)
+                    raw_files.append(self.job.lock.read())
+                finally:
+                    self.job.lock.seek(position)
+            else:
+                raw_files.append(file.read_bytes())
+        raw = b"".join(raw_files)
+        for subject in (MEMBER, MEMBER_TWO, MEMBER_THREE):
+            self.assertNotIn(subject.encode(), raw)
+        detail = self.job.db.execute("SELECT detail FROM events WHERE kind='preview'").fetchone()[0]
+        self.assertEqual(detail, "assignments=4 retained_pairs=0")
+        self.assertEqual(self.api.deletes, [])
+
+    def test_251_role_inventory_refuses_before_inventory_or_plan_storage(self):
+        while len(self.api.roles) < 251:
+            self.api.roles.append(role(str(1900000000000000000 + len(self.api.roles)), "unselected", 0))
+        self.assertEqual(len(self.api.roles), 251)
+        with self.assertRaisesRegex(reset.ResetError, "Discord role inventory is invalid"):
+            self.preview()
+        self.assertIsNone(self.job.get("plan"))
+        self.assertEqual(self.job.db.execute("SELECT COUNT(*) FROM operations").fetchone()[0], 0)
+        self.assertEqual(self.api.deletes, [])
+        self.assertFalse(any("members?" in url for _, url in self.api.calls))
+
+
+class SuccessorRealHeaderTests(unittest.TestCase):
+    setUp = RoleResetTests.setUp
+    preview = RoleResetTests.preview
+    make_transport = RealTransportJobTests.make_transport
+
+    def test_real_120_second_success_header_refuses_before_claim_through_run(self):
+        plan = self.preview()
+        transport = self.make_transport()
+        original_open = transport.opener.open.side_effect
+        bot_reads = []
+
+        def opened(req, timeout):
+            response = original_open(req, timeout)
+            if req.get_method() == "GET" and req.full_url.endswith("/members/" + BOT):
+                bot_reads.append(req.full_url)
+                if len(bot_reads) == 2:  # Last real preflight GET before the first DELETE claim.
+                    response.headers = {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset-After": "120"}
+            return response
+
+        transport.opener.open.side_effect = opened
+        # Only time progression and network edge are synthetic; request/_await_slot/await_write_slot are REAL.
+        with mock.patch.object(reset.time, "monotonic", return_value=100), mock.patch.object(reset.time, "sleep") as sleep:
+            with self.assertRaises(reset.NotDispatched) as caught:
+                reset.run(self.job, transport, plan["plan_sha"], GUILD, reset.SCOPE, at=AT + 1)
+        self.assertEqual(caught.exception.reason, "not_sent_cooldown")
+        self.assertEqual(len(bot_reads), 2)
+        self.assertEqual(transport.not_before, 220)
+        sleep.assert_not_called()
+        self.assertEqual(self.api.deletes, [])
+        self.assertTrue(all(call.args[0].get_method() == "GET" for call in transport.opener.open.call_args_list))
+        self.assertTrue(all(tuple(r) == ("pending", 0) for r in self.job.db.execute("SELECT state,attempts FROM operations")))
+        self.assertEqual(self.job.db.execute("SELECT COUNT(*) FROM events WHERE kind='dispatching'").fetchone()[0], 0)
+        details = [r[0] for r in self.job.db.execute("SELECT detail FROM events WHERE kind='not_dispatched'")]
+        self.assertEqual(details, ["not_sent_cooldown"])
+        self.assertEqual(self.job.get("state"), "paused")
+
+
+class SuccessorBoundedTransportTests(unittest.TestCase):
+    setUp = TransportTests.setUp
+
+    def test_deep_success_json_uses_static_unknown_response_error(self):
+        response = TransportTests.Response()
+        response.value = b"[" * 200000
+        self.api.opener.open.return_value = response
+        with self.assertRaisesRegex(reset.ResetError, "Discord transport or response outcome is unknown"):
+            self.api.request("GET", "/users/@me")
+        self.api.opener.open.assert_called_once()
+
+    def test_deep_http_error_json_keeps_static_http_outcome_and_single_delete(self):
+        self.api.opener.open.side_effect = urllib.error.HTTPError("https://discord.com/api/v10/test", 500, "private", {}, io.BytesIO(b"[" * 16384))
+        with self.assertRaises(reset.APIError) as caught:
+            self.api.request("DELETE", f"/guilds/{GUILD}/members/{MEMBER}/roles/{EXPECTED_ROLES[0]}")
+        self.assertEqual(caught.exception.status, 500)
+        self.assertIsNone(caught.exception.code)
+        self.assertNotIn("private", str(caught.exception))
+        self.api.opener.open.assert_called_once()
+
+
+class SuccessorCliTests(unittest.TestCase):
+    setUp = CliAndPrivacyTests.setUp
+    cli = CliAndPrivacyTests.cli
+
+    def test_discord_401_leaves_empty_private_job_and_reuse_is_refused(self):
+        opener = mock.Mock()
+        opener.open.side_effect = urllib.error.HTTPError("https://discord.com/api/v10/users/@me", 401, "private", {}, io.BytesIO(b"{}"))
+        code, _, err = self.cli("preview", opener=opener)
+        self.assertEqual(code, 2)
+        self.assertIn("Discord HTTP 401", err)
+        self.assertTrue((self.path / "job.sqlite3").is_file())
+        with reset.Job(self.path) as job:
+            self.assertIsNone(job.get("plan"))
+            self.assertEqual(job.db.execute("SELECT COUNT(*) FROM operations").fetchone()[0], 0)
+        raw = b"".join(p.read_bytes() for p in self.path.rglob("*") if p.is_file())
+        for subject in (MEMBER, MEMBER_TWO, MEMBER_THREE):
+            self.assertNotIn(subject.encode(), raw)
+        self.assertNotIn(self.token.encode(), raw)
+        self.assertIn("Job path already exists", self.cli("preview", opener=opener)[2])
+        opener.open.assert_called_once()
+
+    def test_deep_json_cli_output_is_static_and_has_no_traceback(self):
+        opener = mock.Mock()
+        response = TransportTests.Response()
+        response.value = b"[" * 200000
+        opener.open.return_value = response
+        code, out, err = self.cli("preview", opener=opener)
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertIn("Discord transport or response outcome is unknown", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn(self.token, err)
+        opener.open.assert_called_once()
+
+    def test_cli_recursion_backstop_is_static_for_local_decode_failure(self):
+        with mock.patch.object(reset, "Job", side_effect=RecursionError(self.token)):
+            code, out, err = self.cli("preview", opener=mock.Mock())
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertIn("Reset stopped safely", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn(self.token, err)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

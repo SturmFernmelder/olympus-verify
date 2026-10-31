@@ -56,7 +56,7 @@ check("current privacy distinguishes attributable guild-role cleanup, separate s
 check("current marker summary uses original-decision expiry and bounded generation barriers without anonymous or blanket audit claims", currentPrivacy[1].includes("365 days from the original decision") && currentPrivacy[1].includes("366 days from erasure") && currentPrivacy[1].includes("not promised to be anonymous") && !currentPrivacy[1].includes("audit log is an expressly selected erasure exception") && !currentPrivacy[1].includes("hash of the Discord ID and character") && section("## ORD 15", "## ORD 16").includes("separate rejection marker, active safety cases and original unresolved-effect custody") && !section("## ORD 15", "## ORD 16").includes("banned-or-denied safety marker"));
 check("standalone operational charter is embedded exactly and distinguishes reset preservation from personal erasure", text.includes(charter.trim()) && charter.includes("Reset preservation is distinct from an account owner's authenticated erasure request:") && charter.includes("Completion covers live serving-account cleanup, not every copy."));
 check("superseded source decisions remain explicit history followed by the current owner clarification", text.includes("D11 Historical owner erasure decision — 7 October 2026; superseded for current operation by D13.") && text.includes("D12 Historical owner transition decision — 7 October 2026; superseded by D14.") && text.includes("D13 Current Native erasure clarification — 18 October 2026.") && text.includes("D14 Current beta-reset clarification — 18 October 2026."));
-check("R7 plus owner199five-Title and finite rank reconciliation has exact source bytes and SHA256", bytes.length === 269414 && crypto.createHash("sha256").update(bytes).digest("hex") === "e486ea4e95b1687b9215707304bce0e6cc0cf8fd5f0f394733ab4c6abd6f96c1");
+check("R7 plus owner199five-Title and finite rank reconciliation has exact source bytes and SHA256", bytes.length === 270762 && crypto.createHash("sha256").update(bytes).digest("hex") === "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81");
 check("canonical Titles and finite218/204 plus original17 inverses restore every prior outside-R7 byte", titleStart > 0 && titleEnd > titleStart && titleEdition === titles.trimEnd() + "\n\n" && titleBuilder.presentationBridge218(titleBuilder.factsBridge(titleBuilder.rankBridge(precedingEdition))) === currentOutside && Buffer.byteLength(precedingEdition) === 173953 && crypto.createHash("sha256").update(precedingEdition).digest("hex") === "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5");
 check("finite204 substitutions are idempotent and refuse missing or duplicated corrected paragraphs", (() => {
   const facts = JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-facts204.json"),"utf8"));
@@ -87,7 +87,18 @@ check("one canonical Officer Operational Guide is linked from reversible constit
   try { titleBuilder.presentationBridge218(text + "\n\n" + paragraph); } catch { duplicated = true; }
   return inverse.includes("## RC9 Officer Operational Guide") && titleBuilder.presentationBridge218(inverse) === text && text.includes("[Officer Operational Guide](#/guide/officer)") && app.includes("The canonical Officer Operational Guide:") && !text.includes("## RC9 Officer Operational Guide") && missing && duplicated;
 })());
-check("deterministic five-Title projection rejects malformed,oversize and unapproved outside-paragraph edits", (() => { const projection = titleBuilder.projection; let malformed = false, oversize = false, outside = false; try { projection(text, titles.replace("## Article I.1 —", "## Lost Article —")); } catch { malformed = true; } try { projection(text, titles + "x".repeat(262144)); } catch { oversize = true; } try { projection(text.replace("The book joins", "The book secretly revises"), titles); } catch (error) { outside = error.message === "Governance outside-Titles baseline differs beyond finite owner rank bridge"; } const same = projection(text, titles); return same.text === text && same.bytes === bytes.length && same.sha256 === data.book.sha256 && malformed && oversize && outside; })());
+check("deterministic five-Title projection rejects malformed,oversize and unapproved outside-paragraph edits", (() => {
+  const projection=titleBuilder.projection,same=projection(text,titles),capBytes218=524288;
+  const originalOversized218=titles+"x".repeat(262144);
+  const exactOverCapTitles218=titles.trimEnd()+"\n"+"x".repeat(capBytes218-same.bytes);
+  const predictedProjectionBytes218=same.bytes+Buffer.byteLength(exactOverCapTitles218.trimEnd(),"utf8")-Buffer.byteLength(titles.trimEnd(),"utf8");
+  let malformed=false,oversize=false,exactOverCap=false,outside=false;
+  try { projection(text,titles.replace("## Article I.1 —","## Lost Article —")); } catch { malformed=true; }
+  try { projection(text,originalOversized218); } catch(error) { oversize=error.message==="Governance reader size or chapter bound"; }
+  try { projection(text,exactOverCapTitles218); } catch(error) { exactOverCap=error.message==="Governance reader size or chapter bound"; }
+  try { projection(text.replace("The book joins","The book secretly revises"),titles); } catch(error) { outside=error.message==="Governance outside-Titles baseline differs beyond finite owner rank bridge"; }
+  return same.text===text&&same.bytes===bytes.length&&same.sha256===data.book.sha256&&(same.text.match(/^# /gm)||[]).length===20&&capBytes218===524288&&predictedProjectionBytes218===524289&&malformed&&oversize&&exactOverCap&&outside;
+})());
 check("model and reader bind the exact current R7 source", data.revision === "R7" && data.book.bytes === bytes.length && data.book.sha256 === crypto.createHash("sha256").update(bytes).digest("hex") && data.book.path === "/static/governance/reconciled-book.md" && app.includes('const GOVERNANCE_SHA256 = "' + data.book.sha256 + '";') && app.includes('bytes.length !== ' + bytes.length) && app.includes('data.book.bytes !== ' + bytes.length));
 check("operative Council,Treasury,OfficerAlt and ArticleS3 agree with the exact ten-rank owner199ladder", text.includes("High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3") && text.includes("| 3 | Officer | Zero-based Slot 2;") && text.includes("| 4 | Officer Alt | Zero-based Slot 3;") && text.includes("Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks") && !text.includes("current Treasurer native rank at Slot 3") && !text.includes("Officer Alt is a historical extended label") && !text.includes("Officer Alt remains a historical extended label") && !text.includes("places Treasurer in Slot 3") && !text.includes("Treasurer occupies Slot 3") && text.includes("D16 Historical owner master directive") && text.includes("D17 Current owner Build .199 directive") && titles.includes("#/roles/rosetta-stone"));
 check("owner199GoldCovenant,Stockades and all service schedules are integrated into substantive TitlesII–V", ["## Article II.7 —", "## Article III.6 —", "## Article III.7 —", "## Article III.8 —", "## Article IV.6 —", "## Article V.7 —", "## Article V.8 —", "100% World of Warcraft: Forever in-game gold only", "zero real-world money: no USD, Twitch subscriptions or crypto", "All addons remain free, with zero paid addon gating", "100g", "250g–500g", "500g–1,000g", "100g per 30 days", "250g–1,000g per season", "50g Apply", "50g Commute", "100g Royal Reversal", "50g–150g per season", "150g", "50g", "25g–100g", "25g filing fee + 10% Treasury rake"].every(term => titles.includes(term)));
@@ -218,6 +229,44 @@ check("hierarchy has unique ids, valid references and no cycles", data.nodes.eve
   while (cursor) { if (visited.has(cursor.id)) return false; visited.add(cursor.id); if (cursor.parent !== null && !ids.has(cursor.parent)) return false; cursor = ids.get(cursor.parent); }
   return node.coordinates.every((id) => ids.has(id));
 }) && ids.size === data.nodes.length);
+check("current supplement preserves the exact original199statutory record separately",
+ JSON.stringify(data.statutoryExpansion.previous) === JSON.stringify({
+  source:"docs/master199-governance-titles.md",supersedes:"docs/master198-governance-titles.md",
+  recordedAt:"2026-10-25",authority:"explicit owner Build .199 direction",
+  titles:5,articles:34,sections:68,subclauses:138,
+  constitutionalVoteRecorded:false,namedSignaturesClaimed:false,permissionsApplied:false
+ }));
+check("current and historical judicial panels have no blanket authority",
+ composition.currentSeats.find(row=>row.id==="head-justice").description.includes("Panel service gives no blanket Council vote, case access or enforcement power")
+ && previousComposition.currentSeats.find(row=>row.id==="head-justice").description.includes("no blanket Council vote, case access or enforcement power")
+ && cabinetDirection.includes("each participant still needs case designation, relevant access and conflict review")
+ && titles.includes("Panel service gives no blanket Council vote, case access or enforcement power"));
+check("current portfolio count explicitly adds no native ranks",
+ composition.summary.includes("does not add native ranks") && data.nativeRanks.length===10
+ && data.cabinet218.nativeRankCount===10 && composition.cabinetSeatCount===12);
+check("each exact current presentation remains reversible and rejects missing or duplicate paragraphs",(()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-presentation218.json"),"utf8"));
+ if(JSON.stringify(manifest.changes.map(row=>row.key))!=='["rc9-officer-principles","master218-intake-current-reporting","master218-ord02-current-reporting"]')return false;
+ const inverse=titleBuilder.presentationBridge218(text,true);
+ if(titleBuilder.presentationBridge218(inverse)!==text)return false;
+ return manifest.changes.every(change=>{
+  if(text.split(change.after).length!==2 || inverse.split(change.before).length!==2)return false;
+  let missing=false,duplicate=false;
+  try{titleBuilder.presentationBridge218(text.replace(change.after,"unapproved missing presentation"));}catch{missing=true;}
+  try{titleBuilder.presentationBridge218(text+"\n\n"+change.after+"\n\n");}catch{duplicate=true;}
+  return missing&&duplicate;
+ });
+})());
+check("current reporting and policy copy state the exact limits",
+ titles.includes("twelve current portfolios enumerated in Article II.8")
+ && titles.includes("The twelve portfolios of the High Council")
+ && !titles.includes("The twelve portfolios of the Imperial Council")
+ && titles.includes("Chancery reports directly to the High Council")
+ && titles.includes("ORD 02's earlier reporting line under Heraldry is superseded")
+ && titles.includes("Both service proposals remain subject to Blizzard policy")
+ && titles.includes("no price buys loot priority, a governing office or a favourable judgment")
+ && titles.split("While suspended, the whole historical reference, including its 25g civil filing, is shown as not active.").length===3);
+
 // Download contract preserves historical R6 bytes and checks the current reader's exact h/add quicklink slice.
 for (const result of require("./governance_download_contract.cjs").runChecks(root)) check(result.name, result.passed);
 for (const result of require("./royal_writs199_contract.cjs").runChecks(root)) check(result.name, result.passed);

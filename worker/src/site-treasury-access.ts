@@ -62,7 +62,7 @@ const refusal = (error: string, status: number, message?: string) => privateSite
 // full-release-roles.ts LANE_ROSTER_CURRENT): the newest export only, complete, trusted, row-count exact, not from the
 // future, at most ROSTER_CURRENT_FOR old and at or after the launch cut; the character is GUID-pinned, its GUID is unique
 // on the export and among bound characters, and the account is neither banned nor under a rename re-apply hold.
-// Binds: ?1 subject, ?2 launch cut, ?3 freshness seconds.
+// Binds: ?1 subject, ?2 launch cut, ?3 freshness seconds; the closed current ladder supplies officer name/index pairs below.
 const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index FROM roster_snapshots s
   JOIN roster_members r ON r.snapshot_id = s.id
   JOIN characters c ON c.guid IS NOT NULL AND c.guid = r.guid AND c.discord_id = ?1 AND c.status = 'member'
@@ -72,8 +72,20 @@ const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index FROM roste
    AND (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = s.id AND guid = r.guid) = 1
    AND (SELECT COUNT(*) FROM characters WHERE guid = r.guid AND status IN ('member', 'left_pending')) = 1
    AND NOT EXISTS (SELECT 1 FROM members WHERE discord_id = ?1 AND banned = 1)
-   AND NOT EXISTS (SELECT 1 FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply')
-  LIMIT 2`;
+   AND NOT EXISTS (SELECT 1 FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply')`;
+
+/** Any independently valid officer character admits its account. Filter before limiting: lower-rank alts and a second
+ * valid officer do not disqualify the first, while every candidate still has its own unique exported and bound GUID. */
+function rosterOfficerStatement(env: Env, discordId: string, ladder: { names: readonly string[]; cutoff: number }): D1PreparedStatement {
+  const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names) ? [{ rank, index }] : []);
+  const pairs = officers.map((_, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2})`).join(" OR ") || "0";
+  return env.DB.prepare(`${ROSTER_SQL} AND (${pairs}) LIMIT 1`)
+    .bind(discordId, ladder.cutoff, ROSTER_CURRENT_FOR, ...officers.flatMap(({ rank, index }) => [rank, index]));
+}
+function rosterOfficerResult(out: D1Result | undefined, names: readonly string[]): boolean {
+  const rows = out?.results ?? [];
+  return rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, names);
+}
 
 async function discordOfficerRole(env: Env, discordId: string, check: () => void): Promise<boolean> {
   const guild = env.SITE_GUILD_ID;
@@ -111,40 +123,53 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     if (ctx.subject !== subject || request.url !== url || request.method !== method || request.headers !== headers || HEADER_NAMES.some((h, i) => headers.get(h) !== values[i]) || env.SITE_ADMINS !== admins) throw Error("treasury_original_request_held");
   };
   check();
-  // Re-admission of the ORIGINAL subject and session against live D1 standing, used after the last await before any answer:
-  // a denial, logout, revocation, erasure/recreation or ban committed while Discord or asset storage was awaited refuses.
-  const readmit = async (): Promise<Response | null> => {
-    check();
+  // Re-admission of the ORIGINAL subject and session after the last await. D1-based admissions also repeat their
+  // captured appointment or current roster proof in the SAME admitted batch; admin and Discord are independent paths.
+  const readmit = async (proof?: { statement: () => D1PreparedStatement; allows: (out: D1Result | undefined) => boolean; check?: () => void }): Promise<Response | null> => {
+    check(); proof?.check?.();
     let out: D1Result[] | typeof FENCE_REFUSED;
     try {
-      out = await admittedRead(env, ctx, "applicantWrite", [env.DB.prepare("SELECT EXISTS(SELECT 1 FROM members WHERE discord_id=?1 AND banned=1) AS banned").bind(subject.discordId)]);
+      out = await admittedRead(env, ctx, "applicantWrite", [
+        env.DB.prepare("SELECT EXISTS(SELECT 1 FROM members WHERE discord_id=?1 AND banned=1) AS banned").bind(subject.discordId),
+        ...(proof ? [proof.statement()] : [])
+      ]);
     } catch (error) {
       if (!(error instanceof PrivacySiteRequestHeld)) throw error;
       check(); return refusal("account_changed", 403);
     }
-    check();
+    check(); proof?.check?.();
     if (out === FENCE_REFUSED) return refusal("account_changed", 403);
-    return (out[0]?.results?.[0] as { banned?: number } | undefined)?.banned === 0 ? null : refusal("forbidden", 403);
+    if ((out[0]?.results?.[0] as { banned?: number } | undefined)?.banned !== 0) return refusal("forbidden", 403);
+    return !proof || proof.allows(out[1]) ? null : refusal("officer_only", 403, OFFICER_ONLY);
   };
   if (isSiteAdmin(env, subject.discordId)) return { canRead: true, source: "admin", check, readmit };
   const authority = await capturePublishedOfficeAuthority(env, subject.discordId, ["co_gm", "treasurer"]);
   check();
   if (authority) {
     const condition = publishedOfficeAuthorityCondition(authority, 1);
-    const out = await admittedRead(env, ctx, "applicantWrite", [env.DB.prepare(`SELECT (${condition.sql}) AS office_ok`).bind(...condition.values)]);
+    const proof = { statement: () => env.DB.prepare(`SELECT (${condition.sql}) AS office_ok`).bind(...condition.values),
+      allows: (out: D1Result | undefined) => (out?.results?.[0] as { office_ok?: number } | undefined)?.office_ok === 1 };
+    const out = await admittedRead(env, ctx, "applicantWrite", [proof.statement()]);
     check();
-    if (out !== FENCE_REFUSED && (out[0]?.results?.[0] as { office_ok?: number } | undefined)?.office_ok === 1) return { canRead: true, source: "appointment", check, readmit };
+    if (out !== FENCE_REFUSED && proof.allows(out[0])) return { canRead: true, source: "appointment", check, readmit: () => readmit(proof) };
   }
   const rosterConfig = configSnapshot(env, ROSTER_KEYS), ladder = currentLadder(env);
   if (ladder) {
-    const roster = await admittedRead(env, ctx, "applicantWrite", [env.DB.prepare(ROSTER_SQL).bind(subject.discordId, ladder.cutoff, ROSTER_CURRENT_FOR)]);
-    check(); assertSameConfig(env, ROSTER_KEYS, rosterConfig);
+    const proof = { statement: () => rosterOfficerStatement(env, subject.discordId, ladder),
+      allows: (out: D1Result | undefined) => rosterOfficerResult(out, ladder.names),
+      check: () => assertSameConfig(env, ROSTER_KEYS, rosterConfig) };
+    const roster = await admittedRead(env, ctx, "applicantWrite", [proof.statement()]);
+    check(); proof.check();
     if (roster === FENCE_REFUSED) return refusal("account_changed", 403);
-    const rows = roster[0]?.results ?? [];
-    if (rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, ladder.names)) return { canRead: true, source: "roster", check, readmit };
+    if (proof.allows(roster[0])) return { canRead: true, source: "roster", check, readmit: () => readmit(proof) };
   }
   // Only the Discord path costs a provider call, so only it is limited (per isolate, per account).
   if (rateLimited(`tpd:${subject.discordId}`, TREASURY_DISCORD_READS_PER_MINUTE, 60)) return refusal("slow_down", 429, "Too many checks. Wait a minute and try again.");
+  // Discord authority is one fresh provider-response snapshot per request, before asset storage.
+  // A caller whose role changes during that asset await can still receive that one response. Later requests
+  // check a new provider response; no cross-request result cache or strong upstream consistency
+  // is claimed. The final Native admission rechecks original identity/session/standing/ban,
+  // not an atomic upstream Discord-role revocation. Refused members never read plan storage.
   if (await discordOfficerRole(env, subject.discordId, check)) return { canRead: true, source: "discord", check, readmit };
   return { canRead: false, source: null, check, readmit };
 }

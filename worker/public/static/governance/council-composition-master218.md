@@ -16,7 +16,7 @@ Native association: High Council, rank 2, zero-based slot 1. Title III. Register
 
 ## Lord High Chancellor / Head of Justice
 
-The Lord High Chancellor is the High Council’s individual judicial portfolio holder. The Council of Justice and Privy Court remain institutions with separately designated hearing panels; holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision.
+The Lord High Chancellor is the High Council’s individual judicial portfolio holder. The Council of Justice and Privy Court remain institutions with separately designated hearing panels; holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision. Panel service gives no blanket Council vote, case access or enforcement power; each participant still needs case designation, relevant access and conflict review.
 
 Native association: High Council, rank 2, zero-based slot 1. Title II. Register key: office_101. The ten native ranks remain unchanged.
 
@@ -62,6 +62,8 @@ Alliance architecture, compatibility, privacy and recovery planning across the a
 
 Native association: High Council, rank 2, zero-based slot 1. Title V. Register key: office_03. The ten native ranks remain unchanged.
 
+The earlier combined Systems-and-Herald brief is split into independent Systems and Heraldry portfolios under the owner’s Master218 clarification; the retained Heraldry and dedicated Trading offices each keep their own seat. Portfolio count supplies no additional native rank.
+
 ## Lord High Herald / Minister of Heraldry
 
 Alliance identity, approved communications and publication standards, coordinated through responsible local editors and emissaries.
@@ -79,3 +81,11 @@ Native association: High Council, rank 2, zero-based slot 1. Title III. Register
 Treasury retains budget and custody; Trading has its own market portfolio within written capital and loss limits. Independent Audit may challenge either and stays outside the custodian’s line. Internal Security handles prevention and enforcement; the Chancellor assigns unconflicted hearings. Regional Raid Leaders and PvP Captains retain their actual event command. Branch Guild Masters retain local command and separately authorized invitation permissions.
 
 No gold writ purchases a Council seat, vote, moderation power or bank withdrawal. A prior shared War Head or Council of Justice record is not silently copied to a new individual portfolio.
+
+## Current reporting and historical structural labels
+
+The Chancery now reports directly to the High Council; Heraldry remains its coordinating communications partner. The current supplement supersedes ORD 02's older Heraldry reporting placement without changing the adopted R7 source. Academy and Leveling remain under Heraldry for onboarding coordination, with technical support from War and Artisanry. Raid Bench status reports through the PvE portfolio; social activity through Heraldry. Current PvE and PvP cards use Department of War as the ministry and keep their separate Marshal portfolios. Retained War Head structural node labels and the shared office_94 institution are historical references, not extra current Marshal appointments.
+
+## Appointment readback and deliberate re-recording
+
+At the authenticated rollout readback, review the actual published appointed setting for legacy office_94 and office_26 holders. Record the observed legacy publication and the current office_97, office_98 and office_101 state separately. Do not copy a legacy holder into one or more new offices, infer acceptance, remove a publication or create permissions automatically. A competent admin reviews each distinct remit and the holder's acceptance, then uses the normal exact-preview appointment workflow to re-record a justified appointment, or records that the vacancy is deliberate. Any live content change and its readback are separate attended operations; this document executes none.

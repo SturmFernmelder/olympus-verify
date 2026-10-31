@@ -21,7 +21,7 @@ const guides = content.OFFICE_ROLE_GUIDES_201, complete = content.roleGuides201(
 const stable = catalogue.OFFICE_APPOINTMENTS.filter(row => /^office_\d{2,3}$/.test(row.key));
 const words = guide => [guide.definition, ...guide.responsibilities, ...guide.expectations, guide.commitment, guide.worksWith].join(' ').trim().split(/\s+/).length;
 check('all original96 offices and five new individual Council portfolios remain represented', stable.length === 101 && stable.every(row => guides[row.key]));
-check('all132 assignable display keys have exactly one guide', Object.keys(guides).length === 137 && catalogue.OFFICE_APPOINTMENTS.every(row => guides[row.key]?.key === row.key));
+check('all137 assignable display keys have exactly one guide', Object.keys(guides).length === 137 && catalogue.OFFICE_APPOINTMENTS.every(row => guides[row.key]?.key === row.key));
 check('101 office definitions are individually written', new Set(stable.map(row => guides[row.key].definition)).size === 101);
 check('101 office responsibility lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].responsibilities))).size === 101);
 check('101 office expectation lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].expectations))).size === 101);

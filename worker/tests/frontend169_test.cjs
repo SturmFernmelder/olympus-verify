@@ -190,6 +190,11 @@ const recordTool169 = (page, namespace, calls) => {
   check(".196 Army remains in the guarded Community dropdown with legacy features OFF without private Census routes", noCommunity.boot.community.capabilities.armyRead === true && !!link169(noCommunity, "#/community/army") && !!link169(noCommunity, "#/community") && !link169(noCommunity, "#/community/news") && !link169(noCommunity, "#/community/census") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const staff = await openPage(STAFF);
   check(".169 only the actual staff boot receives the Staff group and Admin link", !!group169(staff, "Staff") && !!link169(staff, "#/admin") && staff.boot.user.isAdmin === true);
+  const canonicalStaff169=group169(staff,"Staff"),canonicalResources169=group169(staff,"Resources");
+  check(".218 the canonical Officer Operational Guide appears once in Resources and never in Staff", !!canonicalStaff169 && !!canonicalResources169
+    && !canonicalStaff169.querySelector('a[href="#/guide/officer"]')
+    && canonicalResources169.querySelectorAll('a[href="#/guide/officer"]').length === 1
+    && staff.app.querySelectorAll('header nav a[href="#/guide/officer"]').length === 1);
   console.log("\n== .170: exclusive fine-pointer, tap and keyboard navigation ==");
   const navigationHeader = member.app.querySelector("header"), navigationFooter = member.app.querySelector("footer");
   const guildMenu = group169(member, "Guild"), resourceMenu = group169(member, "Resources");

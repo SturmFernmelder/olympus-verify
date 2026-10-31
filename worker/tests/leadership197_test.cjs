@@ -28,7 +28,7 @@ const setRow=(f,value)=>f.write("INSERT INTO site_settings(key,value,updated_at,
 const publicKeys=['branch','label','officerIndex','position','slot','username'];
 async function negative(action){try{return await action();}catch(e){if(!(e instanceof H.load('./privacy-serving-authority').PrivacySiteRequestHeld))throw e;return {status:409,body:{error:'original_native_request_held'}};}}
 (async()=>{
- check('branch slots are130 closed display positions; the137-office catalogue stays separate from branch positions',D.LEADERSHIP_POSITIONS.length===130&&new Set(D.LEADERSHIP_POSITION_KEYS).size===130&&H.identities.APPOINTMENT_IDENTITY_ROLES.length===137&&!D.LEADERSHIP_POSITION_KEYS.some(k=>H.identities.APPOINTMENT_IDENTITY_ROLES.includes(k)));
+ check('branch slots are130 closed display positions; the137-key appointment catalogue stays separate from branch positions',D.LEADERSHIP_POSITIONS.length===130&&new Set(D.LEADERSHIP_POSITION_KEYS).size===130&&H.identities.APPOINTMENT_IDENTITY_ROLES.length===137&&!D.LEADERSHIP_POSITION_KEYS.some(k=>H.identities.APPOINTMENT_IDENTITY_ROLES.includes(k)));
  {
   const f=await H.fixture(),{ADMIN,HOLDER,VIEWER,STRANGER}=H.ids();
   try{

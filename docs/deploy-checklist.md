@@ -7559,3 +7559,52 @@ The rollout requires a verified fresh D1 export, one unified deployment with das
 Working candidate under the renewed Master dual-agent directive. Includes the qualified .217 maintenance changes, twelve separately reserved Council portfolios, explicit ministry/seat mapping, consolidated role specifications, the current launch notice, a canonical Officer Operational Guide and a gated officer Treasury playbook. New service schedules remain inactive proposals; GDKP is excluded, and wagering needs separate authorization. No schema migration or provider dispatch is enabled.
 
 Release requires genuine independent Claude/Codex source and six-width browser acceptance plus mutual signatures on the identical final commit/tree, current13-job CI and completed automated review with no findings. Take and verify one fresh private D1 backup before the single rollout. Verify90 public probes, authenticated exact-source readbacks, unchanged private/native/launch gates and the first ordinary callback if observed under the release plan. Preserve strict outcomes, actual timestamps, all old failures and any explicitly applicable owner criterion. This entry is a plan, not deployment or acceptance evidence.
+
+
+### .218 appointment continuity readback
+
+At authenticated post-rollout readback, inspect the actual published appointed map for legacy office_94 (shared War Head) and office_26 (Council of Justice institution), alongside the distinct office_97 PvE, office_98 PvP and office_101 Chancellor records. Preserve the exact observed current/vacant status. Do not migrate, duplicate or remove any holder automatically. A competent admin must separately review the remit and acceptance before a normal previewed re-recording, or explicitly record a deliberate vacancy. Any actual appointment save/readback is a separate attended operation, not a Worker migration or evidence supplied by this checklist.
+
+### .218 Treasury Discord admission snapshot
+
+The Discord-role path uses one fresh, uncached provider GET per actual request before protected plan asset storage;
+the existing limit of 20 checks per minute per account is unchanged. It is a point-in-time provider-response snapshot. If the role
+changes while that request's asset is being read, that one response can still be delivered. Later requests obtain
+their own provider response and are judged afresh; no cross-request Discord-role result is cached. This does not
+claim atomic upstream revocation or strong upstream consistency. An ordinary member refused by the current check
+does not fetch protected plan storage. No second provider GET or prefetch is introduced.
+
+After the asset await, the final same-batch Native admission re-proves the original session, account/privacy
+identity, current standing and ban. A selected D1 appointment or roster source is also re-proved there, without
+silently adopting a new source when its original proof has changed. Administrator and actually proved Discord
+admissions remain independent of lower-priority D1 sources. The source comment and synthetic request-order/two-request
+regression record this reviewed limitation; they are not live provider, deployment or release-acceptance evidence.
+
+### .218 finite role-test and release-guard reconciliation
+
+The owner Master request section 1.2 requires one unified role view while preserving every underlying duty,
+expectation, collaborator and native-rank metadata item. It also names the closed "Rank Slot & Technical Metadata"
+drawer. The authority trail is the owner request preserved at
+`C:/Users/vikto/.codex/attachments/101c17ff-e16d-414c-839a-768c5ce55ed5/Pasted text.txt`, section 1.2,
+and the subsequent direction to retain the current Co-GM, Treasurer, raid, PvP and justice Council portfolios.
+
+The `roleReporting218` source-line change has one newly added exact guarded-vocabulary context credit. This is
+an additional finite credit for its reviewed single-line presentation context, not a general vocabulary allowance
+or a repin of the old guard. The original `GUARD` and `ALLOWED` remain unchanged. The role-specific source-key
+and boundary-text seal fixes all forty keys and their text digest independently of the renderer, then checks
+each boundary inside its own declared role scope. Separate checks require exact institution/role badges,
+one closed ten-row metadata drawer, the distinct Co-GM reporting line and the natural standing-section note.
+
+The writ test calls the actual `settingsFrom` graph with sixteen fixed absent/valid/malformed inputs. Safety
+assertions retain no named targets or wager market, no harassment or personal dossiers, and no claim that the
+proposal certifies ToS compliance. The Treasury reference requires its two fixed HTTPS citations and a nonempty
+general source list. The governance size negative uses the independently fixed 524,288-byte reader ceiling, preserves the original
+oversize probe and adds an exact 524,289-byte projected negative with the precise size/chapter refusal. These are test and documentation changes, not feature activation,
+provider qualification, collected revenue, live browser acceptance or a deployment receipt.
+
+For future deployable BUILD changes, update all three health pins plus the exact current BUILD context, add the
+matching newest member-facing News number/date and a finite counted prepend inverse in the resources leaf.
+The fast projection preflight checks those inert declarations. The actual resources leaf must still prove the
+complete historical inverse chain and original whole-News digest. Never replace that proof with a new digest,
+broader guard or uncounted reversal. Preserve the original failed runs and distinct historical review receipts;
+final integrated local, hosted-review, CI and production results must be recorded against their actual bytes.

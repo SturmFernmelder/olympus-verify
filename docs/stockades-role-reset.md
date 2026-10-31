@@ -84,7 +84,11 @@ or replace an uncertain job just to obtain a fresh expiry. A new preview is a ne
 review and digest confirmation. The tool does not silently renew approval or operate unattended.
 `run` requires an interactive terminal even when the token comes from the environment. The exact plan/guild/scope
 arguments still apply; a terminal is an attendance guard, not independent proof of who approved the plan.
-Invalid tokens and noninteractive prompt/run attempts are refused before a new job directory is created.
+Missing or whitespace-containing tokens and noninteractive prompt/run attempts are refused before a new job
+directory is created. A nonblank token is not validated locally: if Discord rejects it, or the first provider read
+fails, preview leaves an empty private job directory containing its database and lock file but no plan or selected
+member IDs. Keep that diagnostic distinct from a successful preview and use a new job path; the tool cannot redact
+a job that never acquired a valid plan. Reusing the same path is refused rather than overwriting it.
 
 ## Status and uncertain results
 
@@ -117,6 +121,10 @@ DELETE retry. GET 429 may retry once only when all supplied backoff values are u
 ```text
 python tools/stockades-role-reset.py verify --job tools/out/stockades-role-reset/job1 --prompt-token
 ```
+
+A verified job is terminal: a second `verify` is refused before provider reads and cannot overwrite its original
+successful proof or reopen the job. Blocked previews remain blocked; `reconcile` and `verify` refuse them before
+provider reads, even if a legacy job previously acquired a misleading ready-to-verify label.
 
 Verification performs a fresh whole-server member scan, checks selected assignments, compares the exact role
 definitions and checks protected roles on the plan's selected subjects. Unrelated members gaining a boost,
@@ -157,9 +165,33 @@ dispatchable pending plan cannot be redacted. Any `dispatching`, `acknowledged`,
 redaction even after expiry: GET-only reconciliation must resolve custody first. There is no timed deletion of
 uncertain intents and no automatic replay.
 
+If a held or unknown assignment is still present, reconciliation deliberately keeps it held. It cannot prove that
+the earlier DELETE never reached Discord and will not resend it. If removal is still wanted, review the retained
+uncertainty and obtain a separately reviewed fresh preview/plan in a new job directory; its exact plan/guild/scope
+confirmation authorizes only that new operation. Alternatively, an authorized operator may remove the assignment
+outside this tool. After current readback shows the assignment absent, GET-only `reconcile` on the **original** job
+records `observed_absent`; this is current absence, not proof of what caused it. The original job can then be redacted
+once all other intents meet the same settled boundary.
+
+If the assignment is deliberately kept, this tool has no safe forced-close or automatic retention expiry for the
+unresolved original job. Its planned subject IDs remain private until absence/member departure settles custody or
+an explicitly reviewed future custody design supplies another truthful closeout. Do not delete the directory by
+hand or label it redacted/successful to bypass that limitation. This unresolved-custody retention exception remains
+an operational limitation; a new preview does not erase it.
+
+Before an attended `redact`, review `status`, the exact job ID, unsettled counts, any abandoned pending rows and the
+last scan. This bounded successor keeps the existing local-only CLI; it does not add an implicit dispatch approval
+or a new confirmation bypass.
+
 Privacy closeout **does not assert successful removal**. The receipt retains actual operation counts, abandoned
-unprocessed counts and the last verification's residual assignments and preservation/uncertainty flags. With no
-verification, scan fields are `null` and `verification_succeeded` is false; failed checks remain false. New
+unprocessed counts and the last verification's residual assignments and preservation/uncertainty flags. A scan is
+current **relative to this job's operation journal**, not a guarantee of Discord's later state. Every later operation
+transition marks that scan noncurrent even within the same second; the original proof stays in `last_verification`.
+`status.verification_current` and receipt `last_verification_is_current` disclose this boundary. A legacy proof without
+the freshness marker is retained as history, with no current-proof claim. For a stale/unproven or missing scan,
+top-level scan fields (`role_counts`, `verified_at`, preservation fields) are `null` and `verification_succeeded` is
+false. A new successful scan after operation changes restores a current proof; a terminal success cannot be replaced.
+Failed current checks remain false. New
 assignments seen by a failed scan remain reported rather than replaced with zero. This allows settled member IDs
 to be erased independently of an unrelated role rename, reordering or protected-membership churn.
 The command removes raw account IDs from the job and retains this truthful aggregate receipt.
@@ -170,7 +202,9 @@ and external backups are separate artifacts; redacting this job does not erase t
 Keep these limits explicit: Discord's member paging contract is the inventory authority; a short successful page
 cannot independently prove server-side completeness. Approximate guild counts are not substituted for an exact
 scan. Windows creation uses absolute System32 identity/ACL tools, strips the bot-token environment variable from
-those children and requires an account SID. Reopening takes the OS lock but does not independently audit a changed
+those children and accepts only the currently supported `S-1-5-21-…` account-SID form. Microsoft Entra/cloud-account
+`S-1-12-1-…` identities are not supported and fail closed; this successor does not broaden identity or ACL authority.
+Reopening takes the OS lock but does not independently audit a changed
 Windows DACL: keep the directory private and review its ACL if another operator or administrator touched it.
 The Windows path is covered by local Windows tests; the existing hosted job runs on Linux. These facts are not
 live bot qualification or a new Windows CI matrix claim.

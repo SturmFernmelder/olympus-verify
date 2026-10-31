@@ -9,6 +9,51 @@ const BOOT = ['LICENSE', 'README.md', 'CLAUDE.md', 'THIRD_PARTY_NOTICES.md', 'do
   'docs/treasury-plan207.md', 'index.html', 'privacy.html', 'terms.html', 'worker/src/index.ts', 'worker/src/policy-content.ts',
   'worker/src/site-data.ts', 'worker/src/site-ranks.ts', 'worker/src/site-core.ts', 'worker/src/site-news.ts',
   'worker/tests/site_test.cjs', 'worker/tests/hosts_test.cjs', 'worker/tests/bnet_retention_test.cjs'];
+BOOT.push('worker/tests/site_news_test.cjs', 'worker/tests/resources_admission169_test.cjs');
+// Inspect only inert candidate text. This preflight does not run the historical inverse leaf.
+function verifyReleaseTestPins(text, build, check) {
+  const tuple = /^(\d{4}-\d{2}-\d{2})\.(\d+) [^"\r\n]+$/.exec(build);
+  check(!!tuple, 'release guard BUILD shape');
+  const [, date, number] = tuple, line = 'const BUILD = "' + build + '";';
+  const contextsSource = text('worker/tests/site_news_test.cjs').replace(/\r\n/g, '\n');
+  const contextAnchor = '  const CURRENT_CONTEXTS = Object.freeze([';
+  const start = contextsSource.indexOf(contextAnchor), end = contextsSource.indexOf('\n]);', start + contextAnchor.length);
+  check(start >= 0 && contextsSource.split(contextAnchor).length === 2 && end > start, 'unique inert current News context array');
+  let contexts;
+  try { contexts = JSON.parse(contextsSource.slice(start + contextAnchor.length - 1, end + 2)); }
+  catch { check(false, 'current News context array is literal JSON'); }
+  check(Array.isArray(contexts), 'current News contexts are an array');
+  const active = contexts.filter(spec => spec.currentBuild === true);
+  check(active.length === 1, 'one current BUILD News context');
+  const spec = active[0];
+  check(spec.file === 'worker/src/index.ts' && spec.singleLine === true && spec.startMarker === line
+    && spec.ownerRelease === Number(number) && spec.count === 0
+    && spec.paragraphBytes === Buffer.byteLength(line, 'utf8') && spec.paragraphSha256 === sha(Buffer.from(line))
+    && /^[a-f0-9]{64}$/.test(spec.predecessorSHA256) && Number.isInteger(spec.predecessorRelease)
+    && spec.predecessorRelease < Number(number), 'exact current BUILD guarded-vocabulary context pin');
+  const inverse = text('worker/tests/resources_admission169_test.cjs').replace(/\r\n/g, '\n');
+  const variable = 'release' + number, declaration = '  const ' + variable + ' = [\n';
+  const inverseStart = inverse.indexOf(declaration), inverseEnd = inverse.indexOf("\n  ].join('\\n');", inverseStart + declaration.length);
+  check(inverseStart >= 0 && inverse.split(declaration).length === 2 && inverseEnd > inverseStart, 'unique current finite News prepend inverse');
+  let prefix;
+  try {
+    const values = inverse.slice(inverseStart + declaration.length, inverseEnd).split('\n').map(row => JSON.parse(row.trim().replace(/,$/, '')));
+    check(values.length > 4 && values.every(row => typeof row === 'string'), 'finite News inverse has literal string rows');
+    prefix = values.join('\n');
+  } catch { check(false, 'finite News inverse is an inert literal string array'); }
+  const header = 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\n';
+  check(prefix.startsWith(header + '  {\n    build: ".' + number + '", date: "' + date + '", lines: [\n')
+    && prefix.endsWith('    ],\n  },\n') && (prefix.match(/^  \{$/gm) || []).length === 1, 'current finite News inverse version/date and single-row shape');
+  const news = text('worker/src/site-news.ts').replace(/\r\n/g, '\n'), newsStart = news.indexOf(header);
+  check(newsStart >= 0 && news.indexOf(prefix) === newsStart && news.split(prefix).length === 2, 'current finite inverse matches the unique actual newest News prepend');
+  const counted = "  check('Guild News exact authorized ." + number + " prepend occurs once', originalNews.split(" + variable + ").length === 2);";
+  const removal = '  originalNews = originalNews.replace(' + variable + ", 'export const RELEASE_NOTES: readonly ReleaseNote[] = [\\n');";
+  check(inverse.split(counted).length === 2 && inverse.split(removal).length === 2
+    && inverse.indexOf(counted) > inverseEnd && inverse.indexOf(removal) > inverse.indexOf(counted), 'current News inverse is counted before its exact removal');
+  const older = [...inverse.matchAll(/^  const release(\d+) = \[/gm)].filter(match => match[1] !== number);
+  check(older.every(match => Number(match[1]) < Number(number) && match.index > inverse.indexOf(removal)), 'current prepend reverses before older release inverses');
+  check(inverse.includes('6d9bd0840df3840675bac021a7835c5e7865fe4200c52986a46bbedc16a167a1'), 'original whole-News historical digest remains in inverse leaf');
+}
 function git(cwd, args, input) {
   const r = cp.spawnSync('git', args, { cwd, input, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
   need(!r.error && r.status === 0, 'git read failed: ' + args[0]);
@@ -180,6 +225,7 @@ function verify(snapshot) {
   check(!!releaseNote && build.startsWith(releaseNote[2] + releaseNote[1] + ' '), 'current release note exactly matches runtime BUILD number and date');
   for (const file of ['site_test.cjs', 'hosts_test.cjs', 'bnet_retention_test.cjs'])
     check(text('worker/tests/' + file).includes('"' + build + '"'), 'runtime health BUILD pin: ' + file);
+  verifyReleaseTestPins(text, build, check);
   const number = /^\d{4}-\d{2}-\d{2}\.(\d+) /.exec(build)?.[1];
   check(!!number && new RegExp('^## Worker \\.' + number + '(?: | —|$)', 'm').test(text('docs/deploy-checklist.md')), 'runtime BUILD deploy section');
   // .181: inspect these declarations as inert bytes; never load or run a candidate overlay in the hook.
@@ -207,7 +253,7 @@ function main(args, input = '') {
   const results = candidates.map(rev => verify(loadSnapshot(process.cwd(), rev)));
   return { results, elapsedMs: Math.round(performance.now() - start), deletedRefsOnly: candidates.length === 0 };
 }
-module.exports = { loadSnapshot, verify, pushCandidates, main };
+module.exports = { loadSnapshot, verify, verifyReleaseTestPins, pushCandidates, main };
 if (require.main === module) {
   try { console.log(JSON.stringify(main(process.argv.slice(2), process.argv[2] === '--pre-push' ? fs.readFileSync(0, 'utf8') : ''))); }
   catch (e) { console.error('FAIL projection check: ' + e.message); process.exitCode = 1; }

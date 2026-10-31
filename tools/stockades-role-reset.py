@@ -188,6 +188,10 @@ class Job:
             raise
 
     def event(self, kind, op=None, role=None, detail="", at=None):
+        # A retained scan remains history, but any later operation transition
+        # invalidates its currentness even when both occur in the same second.
+        if kind in STATES:
+            self.set("verification_current", False)
         self.db.execute("INSERT INTO events(at,kind,op_id,role,detail) VALUES(?,?,?,?,?)",
                         (clock(at), kind, op, role, detail))
 
@@ -265,7 +269,7 @@ class DiscordApi:
                 try:
                     body = json.loads(exc.read(16384))
                     body = body if isinstance(body, dict) else {}
-                except (ValueError, OSError, http.client.HTTPException):
+                except (ValueError, OSError, http.client.HTTPException, RecursionError):
                     body = {}
                 code = body.get("code")
                 code = code if isinstance(code, int) and not isinstance(code, bool) else None
@@ -276,7 +280,7 @@ class DiscordApi:
                     if method == "GET" and attempt == 0 and delay <= 60:
                         continue
                 raise APIError(exc.code, delay, code) from None
-            except (OSError, http.client.HTTPException, json.JSONDecodeError):
+            except (OSError, http.client.HTTPException, json.JSONDecodeError, RecursionError):
                 raise ResetError("Discord transport or response outcome is unknown") from None
 
 
@@ -423,13 +427,14 @@ def status(job, at=None):
         counts[row["state"]] = row["n"]
     counts["planned"] = sum(counts.values())
     plan = job.get("plan", {})
+    proof = job.get("verification")
     return {"state": job.get("state"), "job_id": job.get("job_id"), "guild_id": GUILD_ID, "scope": SCOPE,
             "plan_sha": job.get("plan_sha"), "expires_at": plan.get("expires_at"), "counts": counts,
             "expired": bool(plan and clock(at) >= plan["expires_at"]),
             "bot_id": plan.get("bot_id"), "member_count": plan.get("member_count"), "role_definition_count": plan.get("role_count"),
             "role_counts": plan.get("role_counts", {}), "blockers": plan.get("blockers", []),
             "selected_roles": plan.get("selected_roles", []), "protected_role_counts": plan.get("protected_role_counts", {}),
-            "verification": job.get("verification")}
+            "verification": proof, "verification_current": bool(proof and job.get("verification_current") is True)}
 
 
 def preview(job, api, at=None):
@@ -453,7 +458,7 @@ def preview(job, api, at=None):
         job.set("state", "blocked" if before["blockers"] else "preview")
         job.db.executemany("INSERT INTO operations(subject,role,op_id,state) VALUES(?,?,?,'pending')",
                            [(s, r, uuid.uuid4().hex) for s, r in scan["pairs"]])
-        job.event("preview", detail=f"assignments={len(scan['pairs'])}", at=at)
+        job.event("preview", detail=f"assignments={sum(plan['role_counts'].values())} retained_pairs={len(scan['pairs'])}", at=at)
     return status(job, at)
 
 
@@ -557,10 +562,21 @@ def run(job, api, plan_sha, guild_id, scope, max_removals=25, at=None):
     return status(job)
 
 
+def refuse_blocked_plan(job, plan, at=None):
+    if plan["blockers"]:
+        # A blocked aggregate-only preview cannot acquire readback/dispatch authority.
+        # Also correct an older misleading ready_to_verify label without deleting history.
+        with job.transaction():
+            job.set("state", "blocked")
+            job.event("blocked", detail="preview_blockers_no_provider_read", at=at)
+        raise ResetError("Blocked preview cannot be reconciled or verified; retain its aggregates or redact it")
+
+
 def reconcile(job, api, at=None):
-    load_plan(job)
+    plan = load_plan(job)
     if job.get("state") in ("verified", "redacted"):
         raise ResetError("This job is terminal")
+    refuse_blocked_plan(job, plan, at)
     for op in job.db.execute("SELECT * FROM operations WHERE state IN ('pending','dispatching','acknowledged','unknown','held') ORDER BY subject,role").fetchall():
         roles = current_member(api, op["subject"])
         absent = roles is None or op["role"] not in roles
@@ -575,7 +591,10 @@ def reconcile(job, api, at=None):
 
 
 def verify(job, api, at=None):
+    if job.get("state") in ("verified", "redacted"):
+        raise ResetError("This job is terminal")
     plan = load_plan(job)
+    refuse_blocked_plan(job, plan, at)
     before = preflight(api)
     # V1 plans retain their original whole-server comparison; never repin history.
     subjects = {s for s, _ in plan["pairs"]} if plan["version"] == 2 else AllSubjects()
@@ -594,6 +613,7 @@ def verify(job, api, at=None):
     proof["successful"] = clean
     with job.transaction():
         job.set("verification", proof)
+        job.set("verification_current", True)
         job.set("state", "verified" if clean else "verification_failed")
         job.event("verified" if clean else "verification_failed", detail=f"residual={len(scan['pairs'])}", at=at)
     return status(job)
@@ -611,7 +631,9 @@ def redact(job, at=None):
     pending = job.db.execute("SELECT COUNT(*) FROM operations WHERE state='pending'").fetchone()[0]
     if pending and not plan["blockers"] and clock(at) < plan["expires_at"]:
         raise ResetError("An unexpired, dispatchable plan must settle or expire before redaction")
-    proof = job.get("verification")
+    last_proof = job.get("verification")
+    proof_current = bool(last_proof and job.get("verification_current") is True)
+    proof = last_proof if proof_current else None
     # A local privacy closeout is not a new scan or a claim of successful removal.
     successful = bool(proof and proof["remaining_assignments"] == 0 and proof["same_role_definitions"]
                       and proof["same_bot"] and proof["same_other_memberships"]
@@ -620,7 +642,8 @@ def redact(job, at=None):
                "counts": status(job, at)["counts"], "role_counts": proof["role_counts"] if proof else None,
                "baseline_assignments": sum(plan["role_counts"].values()), "redacted_at": clock(at),
                "verification_succeeded": successful, "verified_at": proof["at"] if successful else None,
-               "last_verification": proof, "unprocessed_intents_abandoned": pending,
+               "last_verification": last_proof, "last_verification_is_current": proof_current,
+               "unprocessed_intents_abandoned": pending,
                "blocked_preview": bool(plan["blockers"]), "operation_outcomes_settled": pending == 0,
                "role_definitions_preserved": proof["same_role_definitions"] if proof else None,
                "other_memberships_unchanged_at_scan": proof["same_other_memberships"] if proof else None,
@@ -681,7 +704,7 @@ def main(argv=None):
     except FileExistsError:
         print("Job path already exists; choose a new job path (existing evidence is never overwritten).", file=sys.stderr)
         return 2
-    except (OSError, sqlite3.Error, ValueError, IndexError, subprocess.SubprocessError, http.client.HTTPException):
+    except (OSError, sqlite3.Error, ValueError, IndexError, subprocess.SubprocessError, http.client.HTTPException, RecursionError):
         # Provider bodies and exception reprs may contain account IDs or credentials.
         # The status command and journal supply bounded operational diagnostics.
         print("Reset stopped safely. Check local job status and the runbook; no automatic mutation retry was made.", file=sys.stderr)

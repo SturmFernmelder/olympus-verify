@@ -14,15 +14,19 @@ const factsBytes = fs.readFileSync(path.join(root, "docs/governance-facts204.jso
 if (sha256(factsBytes) !== "b510426c726d014b471b993b73a5f71a5eee6b6d2c96672a7c592ff9b055e2b5") throw Error("Governance204 finite facts manifest digest");
 const facts = JSON.parse(factsBytes);
 const presentationBytes218 = fs.readFileSync(path.join(root, "docs/governance-presentation218.json"));
-if (sha256(presentationBytes218) !== "ece2d3d5f8ca5281949fea77d0cf281a5cdda5b8cf5ae54898ecd26d6d276e4c") throw Error("Governance218 finite presentation manifest digest");
+if (sha256(presentationBytes218) !== "6f5f6f0aa3d9f26c452aa1ceb7f22c2479d1ddfcdcdd3ed6d47585cb9fdf4fce") throw Error("Governance218 finite presentation manifest digest");
 const presentation218 = JSON.parse(presentationBytes218);
 function presentationBridge218(text, inverse = false) {
-  if (presentation218.schema !== "olympus-governance-presentation218-v1" || presentation218.changes.length !== 1 || presentation218.changes[0].key !== "rc9-officer-principles") throw Error("Governance218 presentation census");
-  const change = presentation218.changes[0], before = "\n\n" + change.before + "\n\n", after = "\n\n" + change.after + "\n\n";
-  const oldCount = text.split(before).length - 1, newCount = text.split(after).length - 1;
-  if (oldCount === 1 && newCount === 0) return inverse ? text : text.replace(before, after);
-  if (oldCount === 0 && newCount === 1) return inverse ? text.replace(after, before) : text;
-  throw Error("Ambiguous governance218 presentation paragraph");
+  const keys = ['rc9-officer-principles', 'master218-intake-current-reporting', 'master218-ord02-current-reporting'];
+  if (presentation218.schema !== "olympus-governance-presentation218-v1" || JSON.stringify(presentation218.changes.map(change => change.key)) !== JSON.stringify(keys)) throw Error("Governance218 presentation census");
+  for (const change of inverse ? presentation218.changes.slice().reverse() : presentation218.changes) {
+    const before = "\n\n" + change.before + "\n\n", after = "\n\n" + change.after + "\n\n";
+    const oldCount = text.split(before).length - 1, newCount = text.split(after).length - 1;
+    if (oldCount === 1 && newCount === 0) { if (!inverse) text = text.replace(before, after); }
+    else if (oldCount === 0 && newCount === 1) { if (inverse) text = text.replace(after, before); }
+    else throw Error("Ambiguous governance218 presentation paragraph: " + change.key);
+  }
+  return text;
 }
 function factsBridge(text, inverse = false, keys = null) {
   if (facts.schema !== "governance-fact204-finite-source-delta-v1" || facts.base !== "c9ccc3358ff4e0b538348b58371f22c4eeedb08e"
@@ -70,7 +74,7 @@ function run(mode) {
   const expected = projection(book, source), model = JSON.parse(fs.readFileSync(modelPath, "utf8"));
   const charter = fs.readFileSync(charterPath, "utf8"), charterFacts = ["facts204-04", "facts204-05"];
   const expectedCharter = factsBridge(rankBridge(factsBridge(charter, true, charterFacts), false, ["operational-council-current", "operational-council-not-rank"]), false, charterFacts);
-  const supplement = { source: "docs/master199-governance-titles.md", supersedes: "docs/master198-governance-titles.md", recordedAt: "2026-10-30", authority: "explicit owner Master218 direction; prior .199 statutory text retained", titles: 5, articles: 36, sections: 72, subclauses: 147, constitutionalVoteRecorded: false, namedSignaturesClaimed: false, permissionsApplied: false };
+  const supplement = { source: "docs/master199-governance-titles.md", supersedes: "docs/master198-governance-titles.md", recordedAt: "2026-10-30", authority: "explicit owner Master218 direction; prior .199 statutory text retained", titles: 5, articles: 36, sections: 72, subclauses: 147, constitutionalVoteRecorded: false, namedSignaturesClaimed: false, permissionsApplied: false, previous: {"source":"docs/master199-governance-titles.md","supersedes":"docs/master198-governance-titles.md","recordedAt":"2026-10-25","authority":"explicit owner Build .199 direction","titles":5,"articles":34,"sections":68,"subclauses":138,"constitutionalVoteRecorded":false,"namedSignaturesClaimed":false,"permissionsApplied":false} };
   if (mode === "--write" || mode === "--write-book") {
     fs.writeFileSync(bookPath, expected.text, "utf8");
     fs.writeFileSync(charterPath, expectedCharter, "utf8");

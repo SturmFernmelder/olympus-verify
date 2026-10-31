@@ -25,8 +25,8 @@ const familyOf = key => byFamily.get(directory.keyToFamily[key]);
 const assigned = families.flatMap(row => row.sourceKeys);
 const same = (...keys) => keys.every(key => familyOf(key)?.key === familyOf(keys[0])?.key);
 const distinct = (...keys) => new Set(keys.map(key => familyOf(key)?.key)).size === keys.length && keys.every(key => familyOf(key));
-check('registered source identity is exactly132 registered keys plus three ordinary paths', expectedKeys.length === 140 && new Set(expectedKeys).size === 140);
-check('all135 source keys appear exactly once under one family', directory.version === 1 && directory.sourceKeyCount === 140 && assigned.length === 140 && new Set(assigned).size === 140 && JSON.stringify(assigned.slice().sort()) === JSON.stringify(expectedKeys));
+check('registered source identity is exactly137 registered keys plus three ordinary paths', expectedKeys.length === 140 && new Set(expectedKeys).size === 140);
+check('all140 source keys appear exactly once under one family', directory.version === 1 && directory.sourceKeyCount === 140 && assigned.length === 140 && new Set(assigned).size === 140 && JSON.stringify(assigned.slice().sort()) === JSON.stringify(expectedKeys));
 check('key lookup is complete and has no extra presentation identity', Object.keys(directory.keyToFamily).length === 140 && JSON.stringify(Object.keys(directory.keyToFamily).sort()) === JSON.stringify(expectedKeys) && assigned.every(key => familyOf(key)?.sourceKeys.includes(key)));
 check('families replace duplicate cards without pretending every key is an independent job', families.length < assigned.length && new Set(families.map(row => row.key)).size === families.length && families.every(row => row.sourceKeys.includes(row.primaryKey)));
 for (const family of families) {

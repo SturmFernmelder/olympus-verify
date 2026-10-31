@@ -148,7 +148,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     });
     if (!seats.length) return null;
     const start = seatReferences.length;
-    const box = h("div", { class: "org-alliance-council-references" }, h("strong", { text: "Represented on the High Council" }), h("ul", null, seats.map(seat => seatReference(seat, false))), h("p", { class: "small muted", text: "Council portfolios are listed together above; these links show the department they serve." }));
+    const box = h("div", { class: "org-alliance-council-references" }, h("strong", { text: "Represented on the High Council" }), h("ul", null, seats.map(seat => seatReference(seat, false))));
     referenceGroups.push({ element: box, rows: seatReferences.slice(start) });
     return box;
   }

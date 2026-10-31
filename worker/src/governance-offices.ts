@@ -27,9 +27,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "statusOverlay": false,
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
-    "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
-    "councilSeat": "Grand Marshal of PvE",
+    "cabinetSeatId": "heraldry",
+    "ministry": "Department of Heraldry",
+    "councilSeat": "Lord High Herald / Minister of Heraldry",
     "recommendedNativeSlots": [
       2
     ],
@@ -162,9 +162,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "statusOverlay": false,
     "acquisition": "In-game verification and attended standing review; a title or status does not change native rank.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
-    "cabinetSeatId": "co-gm",
-    "ministry": "Co-Guild Master and Vice Guild Master",
-    "councilSeat": "Co-Guild Master / Hand of the Sovereign",
+    "cabinetSeatId": "heraldry",
+    "ministry": "Department of Heraldry",
+    "councilSeat": "Lord High Herald / Minister of Heraldry",
     "recommendedNativeSlots": [
       7
     ],
@@ -360,9 +360,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "statusOverlay": false,
     "acquisition": "In-game verification and attended standing review; a title or status does not change native rank.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
-    "cabinetSeatId": "co-gm",
-    "ministry": "Co-Guild Master and Vice Guild Master",
-    "councilSeat": "Co-Guild Master / Hand of the Sovereign",
+    "cabinetSeatId": "main-raid-lead",
+    "ministry": "Department of War",
+    "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       6
     ],
@@ -529,7 +529,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -563,7 +563,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -605,7 +605,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -834,7 +834,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       6
@@ -1278,7 +1278,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -1638,7 +1638,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -1706,7 +1706,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -1740,7 +1740,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -2340,7 +2340,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-pvp-lead",
-    "ministry": "War Head for PvP",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvP",
     "recommendedNativeSlots": [
       4
@@ -2374,7 +2374,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-pvp-lead",
-    "ministry": "War Head for PvP",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvP",
     "recommendedNativeSlots": [
       4
@@ -2442,7 +2442,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -2477,7 +2477,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -2508,7 +2508,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "In-game verification and attended standing review; a title or status does not change native rank.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       6
@@ -2970,7 +2970,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "In-game verification and attended standing review; a title or status does not change native rank.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       6
@@ -3134,7 +3134,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Historical shared War Head reference; current PvE and PvP portfolios have their own separate appointments.",
     "discordPortal": "High Council access requires a separately verified current appointment; no automatic signing, bank or portal access.",
     "cabinetSeatId": "co-gm",
-    "ministry": "Co-Guild Master and Vice Guild Master",
+    "ministry": "Department of War",
     "councilSeat": "Co-Guild Master / Hand of the Sovereign",
     "applicationMetadataScope": "Historical application and ballot compatibility only; current institutional display and reserved-seat admission are separate.",
     "recommendedNativeSlots": [
@@ -3233,7 +3233,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Reserved appointment by the authorized guild leadership; public applications are not accepted.",
     "discordPortal": "High Council access requires a separately verified current appointment; no automatic signing, bank or portal access.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       1
@@ -3265,7 +3265,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Reserved appointment by the authorized guild leadership; public applications are not accepted.",
     "discordPortal": "High Council access requires a separately verified current appointment; no automatic signing, bank or portal access.",
     "cabinetSeatId": "main-pvp-lead",
-    "ministry": "War Head for PvP",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvP",
     "recommendedNativeSlots": [
       1
@@ -3492,7 +3492,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -3526,7 +3526,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -3560,7 +3560,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -3594,7 +3594,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -3692,9 +3692,9 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "statusOverlay": false,
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
-    "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
-    "councilSeat": "Grand Marshal of PvE",
+    "cabinetSeatId": "heraldry",
+    "ministry": "Department of Heraldry",
+    "councilSeat": "Lord High Herald / Minister of Heraldry",
     "recommendedNativeSlots": [
       2
     ],
@@ -3727,7 +3727,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-pvp-lead",
-    "ministry": "War Head for PvP",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvP",
     "recommendedNativeSlots": [
       4
@@ -3794,7 +3794,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -3927,7 +3927,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -3961,7 +3961,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -3995,7 +3995,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4029,7 +4029,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4063,7 +4063,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4097,7 +4097,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4131,7 +4131,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4165,7 +4165,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4199,7 +4199,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       2
@@ -4359,7 +4359,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "Apply on /#/vote; acceptance, appointment and access require separate officer review.",
     "discordPortal": "Officer or Raid Leader access requires a separately recorded current remit and permission review.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       4
@@ -4421,7 +4421,7 @@ export const OFFICE_APPOINTMENTS:readonly Readonly<OfficeAppointment>[] = Object
     "acquisition": "In-game verification and attended standing review; a title or status does not change native rank.",
     "discordPortal": "Olympus Guild Member admission remains separate. Cosmetic Tithe Tiers and Broadcaster / Stream Shield do not grant officer authority.",
     "cabinetSeatId": "main-raid-lead",
-    "ministry": "War Head for Raiding",
+    "ministry": "Department of War",
     "councilSeat": "Grand Marshal of PvE",
     "recommendedNativeSlots": [
       6

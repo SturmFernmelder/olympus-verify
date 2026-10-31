@@ -1,5 +1,5 @@
 .resources169 { color: var(--text, #e8dfc9); }
-.resources169-heading h2 { margin:.2rem 0 .6rem; font-family:Morpheus,Georgia,serif; font-size:clamp(1.8rem,4vw,2.5rem); color:var(--gold,#dfbd76); }
+.resources169-heading :is(h1,h2) { margin:.2rem 0 .6rem; font-family:Morpheus,Georgia,serif; font-size:clamp(1.8rem,4vw,2.5rem); color:var(--gold,#dfbd76); }
 .resources169-intro { max-width:52rem; line-height:1.6; }
 .resources169-controls { display:flex; flex-wrap:wrap; align-items:end; gap:.7rem 1rem; margin:1rem 0; }
 .resources169-controls label { display:flex; flex-direction:column; gap:.3rem; font-size:.9rem; }
@@ -10,7 +10,7 @@
 .resources169-refresh:disabled { opacity:.55; cursor:default; }
 .resources169-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr)); gap:.85rem; }
 .resources169-card { min-width:0; padding:1rem; border:1px solid var(--line, #665735); border-radius:.5rem; background:var(--panel, #181813); overflow-wrap:anywhere; }
-.resources169-card h3 { margin:0 0 .6rem; font-size:1.08rem; }
+.resources169-card :is(h2,h3) { margin:0 0 .6rem; font-size:1.08rem; }
 .resources169-card a { color:var(--gold, #dfbd76); text-underline-offset:.18em; }
 .resources169-labels { display:flex; flex-wrap:wrap; gap:.35rem; }
 .resources169-badge { display:inline-block; padding:.15rem .4rem; margin:0 .2rem .3rem 0; border:1px solid var(--line, #665735); border-radius:1rem; color:var(--gold, #dfbd76); font-size:.75rem; }
@@ -27,7 +27,7 @@
 .resources169-thread-posts li { margin:.5rem 0; }
 .resources169 :is(a,button,input,select,summary):focus-visible { outline:2px solid var(--gold, #dfbd76); outline-offset:3px; }
 .resources169-featured { grid-column:1 / -1; border-color:var(--gold,#dfbd76); padding:clamp(1rem,3vw,1.5rem); }
-.resources169-featured h3 { font-family:Morpheus,Georgia,serif; font-size:clamp(1.6rem,4vw,2rem); }
+.resources169-featured :is(h2,h3) { font-family:Morpheus,Georgia,serif; font-size:clamp(1.6rem,4vw,2rem); }
 .resources169-featured-label { margin:0 0 .4rem; color:var(--gold,#dfbd76); font-size:.8rem; letter-spacing:.04em; }
 .resources169-primary { display:inline-flex; align-items:center; min-height:2.75rem; padding:.55rem .8rem; margin:.3rem 0 .6rem; border:1px solid var(--gold,#dfbd76); border-radius:.35rem; font-weight:600; }
 .resources169-owner-directory { min-width:0; padding:clamp(.9rem,3vw,1.5rem); border:1px solid var(--line,#675634); background:rgba(12,10,8,.55); border-radius:.4rem; overflow-wrap:anywhere; }

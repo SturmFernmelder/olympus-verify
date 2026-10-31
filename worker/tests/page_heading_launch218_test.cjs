@@ -1,5 +1,5 @@
 // Current app + authenticated Worker/SQLite fixture; no provider or native-browser claim.
-// The only fixture extension defers delivery of an already completed local response.
+// Fixture seams defer completed local responses and expose current pure heading/Markdown helpers; no shipping hook or browser claim.
 const fs218 = require('node:fs'), path218 = require('node:path'), crypto218 = require('node:crypto'), { Module } = require('node:module');
 const fixture218 = fs218.readFileSync(path218.join(__dirname, 'frontend_check.cjs'), 'utf8');
 const starts218 = [...fixture218.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
@@ -9,6 +9,14 @@ if (crypto218.createHash('sha256').update(require('./frontend_fixture_prefix217.
 const hold218 = '{ const ms2 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (ms2) await new Promise((res) => setTimeout(res, ms2)); }';
 if (prefix218.split(hold218).length !== 2) throw Error('heading218_original_post_worker_hold_boundary');
 const delayed218 = prefix218.replace(hold218, '{ const pending218 = sandbox.__hold ? sandbox.__hold(pathname, init) : 0; if (pending218 && typeof pending218.then === "function") await pending218; else if (pending218) await new Promise(res => setTimeout(res, pending218)); }');
+const appRead218 = 'const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");';
+function helperSeam218(source) {
+  const anchor='  const noticeBox = (kind, iconName, ...body) =>';
+  if(source.split(anchor).length!==2)throw Error('one heading helper seam boundary');
+  return source.replace(anchor,'  window.__headingFixture218=Object.freeze({reconcile:typeof pageHeading218 === "function" ? pageHeading218 : () => {},inline:governanceInline});\n'+anchor);
+}
+if(delayed218.split(appRead218).length!==2)throw Error('one heading fixture app-read boundary');
+const prepared218=delayed218.replace(appRead218,'const APP_JS = ('+helperSeam218.toString()+')(fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8"));');
 
 async function headingAndLaunch218() {
   const must = async (predicate, description) => { if (!await waitFor(predicate, description)) throw Error(description); };
@@ -26,7 +34,7 @@ async function headingAndLaunch218() {
   // website entry threshold already passed but its independent switch OFF.
   const guildNamesAt = Math.floor(Date.parse('2026-10-26T12:00:00Z') / 1000);
   const guildLaunchAt = Math.floor(Date.parse('2026-11-09T02:00:00Z') / 1000);
-  const settings = {namesOpenAt:String(guildNamesAt), namesOpen:'0', namesTimeConfirmed:'1', launchAt:String(guildLaunchAt), applicationsOpen:'1'};
+  const settings = {namesOpenAt:String(guildNamesAt), namesOpen:'0', namesTimeConfirmed:'1', launchAt:String(guildLaunchAt), applicationsOpen:'1', newsOn:'1'};
   const saved = Object.keys(settings).map(key => [key, one('SELECT value,updated_at,updated_by FROM site_settings WHERE key=?', key)]);
   const reads = [];
   const observe = page => page.before((pathname, init) => { reads.push({pathname,method:init.method || 'GET'}); return false; });
@@ -53,10 +61,10 @@ async function headingAndLaunch218() {
     official(main, 'Home');
     const admission = main.querySelector('.launch-and-admission218');
     check('.218 elapsed website threshold does not imply open entry while the switch is OFF', !!admission && admission.textContent.includes('Website name entry is closed') && !admission.textContent.includes('Website name entry is open')
-      && main.textContent.includes('Website name entry is not open yet.') && admission.textContent.includes("this does not open Blizzard's reservation service."));
-    check('.218 guild invite countdown keeps its independently configured target', !!admission && admission.textContent.includes('Guild invite scheduling threshold')
+      && main.textContent.includes('Website name entry is not open yet.') && admission.textContent.includes("It records names already chosen in game; it does not reserve them."));
+    check('.218 guild invite countdown keeps its independently configured target', !!admission && admission.textContent.includes('Guild invites are planned from')
       && exactCountdown(admission.querySelector('.frame'), guildLaunchAt * 1000, earlyClock)
-      && admission.textContent.includes('It does not establish realm availability, an invite or a free seat.'));
+      && admission.textContent.includes('It guarantees neither service availability, an invite nor a free seat.'));
 
     for (const [route,title] of [['#/roles','Olympus ranks'],['#/vote','Explore Olympus roles, ranks and titles'],['#/apply','Your application'],['#/community/workshop','Community']]) {
       await page.go(route); await must(() => headings(mainOf(page)).length === 1, route+' primary heading'); main=mainOf(page);
@@ -66,6 +74,46 @@ async function headingAndLaunch218() {
       check('.218 '+route+' keeps all later frame titles at H2', titles.slice(1).every(node => node.tagName === 'H2') && main.querySelectorAll('.page-heading218').length === 1);
       if (route === '#/apply') official(main, 'Apply');
     }
+
+    await page.go('#/apply');
+    check('.218 an available Apply form alone uses editable-form instructions',!!mainOf(page).querySelector('form')
+      && mainOf(page).querySelector('.launch-notice218').textContent.includes('in this application'));
+    // Retained private boot fixtures exercise two historical read-only client branches.
+    for(const [track218,office218,title218] of [['officer','office_62','Reserved seats — applications are closed'],['patron',null,'Patron applications are paused']]) {
+      const answers218={applicationTrack:track218,targetOffice:office218,boardApplicationIntentOptIn:false};
+      const historical218={id:MEMBER,status:'submitted',position:track218==='officer'?'officer':'member',backups:[],character:'Heading Reader',class:'warrior',role:'dps',region:'na',answers:answers218,createdAt:now,updatedAt:now};
+      const retained218=await openPage(MEMBER,{}, {clockNow:earlyClock,bootTransform:b=>{b.application=structuredClone(historical218);b.settings.royalWritsOn=false;}});
+      await retained218.go('#/apply');const prior218=JSON.stringify(retained218.boot.application);
+      check('.218 retained '+track218+' no-form branch keeps neutral instructions and original private choices',
+        mainOf(retained218).textContent.includes(title218) && !mainOf(retained218).querySelector('form')
+        && !mainOf(retained218).querySelector('.launch-notice218').textContent.includes('in this application')
+        && JSON.stringify(retained218.boot.application)===prior218 && prior218===JSON.stringify(historical218));
+    }
+    await page.go('#/community/news');
+    await must(() => mainOf(page).textContent.includes('The road to launch'), 'actual News road-to-launch response');
+    official(mainOf(page),'News with deliberately different guild date');
+    check('.218 News keeps the guild date in an explicitly separate invite reference',
+      !!mainOf(page).querySelector('.guild-invite-plan218') && mainOf(page).querySelector('.guild-invite-plan218').textContent.includes('This is the guild’s schedule, separate from Blizzard’s global launch')
+      && !mainOf(page).textContent.includes('World of Warcraft: Forever launches in')
+      && mainOf(page).querySelectorAll('.launch-notice218 [role="timer"]').length===1);
+    await page.go('#/roles');
+    const lateMain218=mainOf(page), promoted218=headings(lateMain218)[0], embedded218=new Element('h1');
+    embedded218.textContent='Embedded rank planner';lateMain218.appendChild(embedded218);
+    page.window.__headingFixture218.reconcile(lateMain218);
+    check('.218 a late authored workspace heading replaces the provisional frame heading',headings(lateMain218).length===1
+      && headings(lateMain218)[0]===embedded218 && !lateMain218.contains(promoted218)
+      && frameTitles(lateMain218)[0].tagName==='H2' && frameTitles(lateMain218)[0].textContent==='Olympus ranks');
+    const inline218=new Element('p');
+    for(const node of page.window.__headingFixture218.inline('[Officer guide](#/guide/officer) · [Original source](https://example.com/source) · **Authority** · `scope`'))inline218.appendChild(node);
+    check('.218 governance Markdown renders internal and HTTPS references as safe text-labelled anchors',
+      !!inline218.querySelector('a[href="#/guide/officer"]') && inline218.querySelector('a[href="#/guide/officer"]').textContent==='Officer guide'
+      && inline218.querySelector('a[href="https://example.com/source"]').getAttribute('target')==='_blank'
+      && inline218.querySelector('a[href="https://example.com/source"]').getAttribute('rel')==='noopener noreferrer'
+      && inline218.querySelector('strong').textContent==='Authority' && inline218.querySelector('code').textContent==='scope');
+    const unsafe218=new Element('p');
+    for(const node of page.window.__headingFixture218.inline('[unsafe](javascript:alert) [unsafe](data:text/html) <img src=x onerror=alert>'))unsafe218.appendChild(node);
+    check('.218 unsafe Markdown destinations and HTML remain text without executable elements',
+      unsafe218.querySelectorAll('a,img,script').length===0 && unsafe218.textContent.includes('javascript:alert') && unsafe218.textContent.includes('<img'));
 
     let release, held = 0;
     const pending = new Promise(resolve => { release=resolve; });
@@ -107,8 +155,17 @@ async function headingAndLaunch218() {
 
     const passed = await openPage(MEMBER, {}, {clockNow:officialAt+1000}); observe(passed);
     const passedBanner = mainOf(passed).querySelector('.launch-notice218');
-    check('.218 elapsed official time is an announcement rather than an availability claim', passedBanner?.textContent.includes('The announced launch time has passed. Check Blizzard’s service notices for actual realm availability.')
+    check('.218 elapsed official time is an announcement rather than an availability claim', passedBanner?.textContent.includes('The announced launch time has passed. Check Blizzard’s service notices for actual service availability.')
       && !passedBanner.querySelector('[role="timer"]') && !passedBanner.textContent.includes('Open now'));
+    check('.218 Home links to an application without implying an editable form is on Home',
+      !passedBanner.textContent.includes('in this application') && !!passedBanner.querySelector('a[href="#/apply"]'));
+    await fixtureRun("UPDATE site_settings SET value='0' WHERE key='applicationsOpen'");
+    const closed218=await openPage(MEMBER,{}, {clockNow:earlyClock});await closed218.go('#/apply');
+    const closedBanner218=mainOf(closed218).querySelector('.launch-notice218');
+    check('.218 closed applications keep the announcement without telling readers to edit a missing form',
+      mainOf(closed218).textContent.includes('Applications are closed right now.') && !!closedBanner218
+      && !closedBanner218.textContent.includes('in this application') && !!closedBanner218.querySelector('a[href="#/apply"]')
+      && !closedBanner218.querySelector('h1,h2,h3'));
     const anonymous = await openPage(null);
     check('.218 real signed-out root remains the script-free gate, without fabricated SPA coverage', anonymous.response.status === 200 && anonymous.boot === null && anonymous.app === null
       && anonymous.html.includes('href="/auth/login"') && /script-src 'none'/.test(anonymous.response.headers.get('Content-Security-Policy') || '')
@@ -124,4 +181,4 @@ async function headingAndLaunch218() {
 }
 const execution218 = new Module(__filename, module);
 execution218.filename=__filename; execution218.paths=Module._nodeModulePaths(__dirname);
-execution218._compile(delayed218+'\n('+headingAndLaunch218.toString()+')().catch(error=>{console.error(error.stack);process.exit(1);});',__filename);
+execution218._compile(prepared218+'\n('+headingAndLaunch218.toString()+')().catch(error=>{console.error(error.stack);process.exit(1);});',__filename);

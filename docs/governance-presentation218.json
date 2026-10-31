@@ -6,6 +6,16 @@
       "key": "rc9-officer-principles",
       "before": "## RC9 Officer Operational Guide",
       "after": "## RC9 Officer mandate and safeguards\n\nThe [Officer Operational Guide](#/guide/officer) is the canonical practical walkthrough. This section records its constitutional principles; it is not a second operational guide."
+    },
+    {
+      "key": "master218-intake-current-reporting",
+      "before": "**Chief of Intake and Recruitment Officer.** Also called Gatekeeper or Recruitment Lead. A single coordinated function initially under Heraldry owns the application pipeline, guild-capacity contacts, verification readiness and review dates. It coordinates with Guild Masters and local Recruiters. Refusals require relevant evidence and published standards. The office may flag a case for authorized review but cannot independently create a blacklist, declare guilt or bypass game verification.",
+      "after": "**Chief of Intake and Recruitment Officer.** Also called Gatekeeper or Recruitment Lead. Under the current Master218 supplement the Chancery reports directly to the High Council, with Heraldry as a coordinating communications partner. The intake function owns the application pipeline, guild-capacity contacts, verification readiness and review dates. It coordinates with Guild Masters and local Recruiters. Refusals require relevant evidence and published standards. The office may flag a case for authorized review but cannot independently create a blacklist, declare guilt or bypass game verification."
+    },
+    {
+      "key": "master218-ord02-current-reporting",
+      "before": "The Chief of Intake coordinates recruitment under Heraldry. Each Guild Master names a Guild Recruiter and supplies a current capacity statement; no chart assumption establishes a guild's existence or remaining space. A recruiter gives the applicant the current requirements, answers reasonable questions, records consent and routes the application to an appropriate guild. Staff review suitability using published criteria and relevant evidence rather than rumours, follower counts or spending. Applicants awaiting a place retain a truthful pending status. Recruiters do not promise automatic admission, secretly sell priority or invite a different player who happens to hold an old character name. Capacity and contact information are reviewed weekly and before any large recruitment announcement.",
+      "after": "Under the current Master218 supplement, the Chief of Intake coordinates recruitment through the Chancery, reporting directly to the High Council with Heraldry as a communications partner. Each Guild Master names a Guild Recruiter and supplies a current capacity statement; no chart assumption establishes a guild's existence or remaining space. A recruiter gives the applicant the current requirements, answers reasonable questions, records consent and routes the application to an appropriate guild. Staff review suitability using published criteria and relevant evidence rather than rumours, follower counts or spending. Applicants awaiting a place retain a truthful pending status. Recruiters do not promise automatic admission, secretly sell priority or invite a different player who happens to hold an old character name. Capacity and contact information are reviewed weekly and before any large recruitment announcement."
     }
   ]
 }

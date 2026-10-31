@@ -2223,10 +2223,11 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  with a day of history: joined and left for the last day; the week says it has not enough history yet", kvOf(frameOf(fig2, "The guild in figures"), "Last day") === "2 joined, 1 left" && kvOf(frameOf(fig2, "The guild in figures"), "Last 7 days") === "not enough history yet");
     const launchRow = one("SELECT value FROM site_settings WHERE key = 'launchAt'");
     (await fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('launchAt', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",String(now - 60), now));
-    const live5 = await openPage(MEMBER);
+    const live5 = await openPage(MEMBER, {}, { clockNow: 1793836800000 });
     await live5.go("#/community/news");
     await waitFor(() => !!byText(live5.app, "h2", "The road to launch"), "the road to launch");
-    check("  after the launch the countdown shows its done text", frameOf(live5, "The road to launch").textContent.includes("Live now"));
+    const announcedRoad218=frameOf(live5, "The road to launch");
+    check("  one hour after the announced global launch News states the announcement passed and directs readers to service notices without claiming observed service", announcedRoad218.textContent.includes("The announced launch time has passed. Check Blizzard’s service notices for actual service availability.")&&!announcedRoad218.querySelector('[role="timer"]')&&!announcedRoad218.textContent.includes("Live now"));
     // .218: the official launch announcement must not silently inherit the editable guild admission date.
     for (const [label, clock, arrived] of [["one hour before", 1793829600000, false], ["one hour after", 1793836800000, true]]) {
       const launch218 = await openPage(MEMBER, {}, { clockNow: clock, bootTransform(boot) { boot.settings.launchAt = 1793919600; } });
@@ -2257,10 +2258,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await waitFor(() => !!roles5.app.querySelector("#role-treasurer"), "the Roles page");
     const guideKeys201=["co_gm","officer","treasurer","raider","class_lead:mage","loot_council","professions","pvp_leader","raid_assist_na","raid_assist_eu"];
     const commonBoundary218='This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process.';
+  // Fixed literal oracle, not expectations rebuilt from the rendered family cards.
+  const fullBoundarySeal218=require('./role_boundaries218_seal.cjs');
+  const fullBoundarySeal218Rows=Object.entries(roles5.boot.meta.roleGuides201).filter(([key])=>roles5.boot.meta.roleDirectory203.keyToFamily[key]).map(([key,guide])=>[key,typeof guide?.boundaries==='string'?guide.boundaries.replaceAll(commonBoundary218,'').trim():'']).filter(([,text])=>text).sort(([a],[b])=>a<b?-1:a>b?1:0);
+  check('.218 exactly40 source-specific boundary keys remain sealed', fullBoundarySeal218.specificKeys.length===40 && fullBoundarySeal218Rows.length===40 && JSON.stringify(fullBoundarySeal218Rows.map(([key])=>key))===JSON.stringify(fullBoundarySeal218.specificKeys));
+  check('.218 every one of40 exact role-specific boundary texts remains sealed', require('node:crypto').createHash('sha256').update(JSON.stringify(fullBoundarySeal218Rows)).digest('hex')===fullBoundarySeal218.specificTextSHA256);
+  for(const [key,familyKey,nodeKey] of fullBoundarySeal218.placements){
+    const specific=roles5.boot.meta.roleGuides201[key]?.boundaries.replaceAll(commonBoundary218,'').trim();
+    const card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),own=card?.querySelector('[data-role-key201="'+nodeKey+'"]');
+    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && own.textContent.includes(specific));
+  }
+
     const allFacts201=guideKeys201.every(key=>{
       const familyKey=roles5.boot.meta.roleDirectory203.keyToFamily[key], card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),guide=roles5.boot.meta.roleGuides201[key];
       const specificBoundary=guide?.boundaries.replaceAll(commonBoundary218,'').trim();
-      return !!card&&!!guide&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&(!specificBoundary||card.textContent.includes(specificBoundary))&&guide.boundaries.includes('A title or application changes no game rank');
+      return !!card&&!!guide&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&(!['co_gm','officer','treasurer'].includes(key)||!!specificBoundary)&&(!specificBoundary||card.textContent.includes(specificBoundary))&&guide.boundaries.includes('A title or application changes no game rank');
     });
     check(".201 Roles retains the exact ten-rank bridge and no native grant across its detailed individual guides",allFacts201&&roles5.app.querySelectorAll('.role-scope218').length===1&&roles5.app.querySelector('.role-scope218').textContent===commonBoundary218&&roles5.boot.meta.appointments.find(row=>row.key==='officer').nativeSlot===2&&roles5.app.querySelector('[data-role-family203="officer"]').textContent.includes('Rank 3 Officer')&&roles5.boot.meta.appointments.find(row=>row.key==='treasurer').nativeSlot===1&&roles5.app.textContent.includes("Co-Guild Master and Treasurer are appointments, not extra native ranks")&&roles5.app.textContent.includes("Technical & Historical Profile Notes")&&roles5.app.querySelectorAll('[data-native-slot]').length===10);
 
@@ -2657,7 +2669,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".209 both trading links can shrink and wrap their full labels without clipping or hidden overflow", tradingRules209.length === 1 && tradingDeclarations209.size === 4 && tradingDeclarations209.get("max-width") === "100%" && tradingDeclarations209.get("min-width") === "0" && tradingDeclarations209.get("white-space") === "normal" && tradingDeclarations209.get("overflow-wrap") === "anywhere");
     const treasuryQuicklink209 = p.app.querySelector('.governance-quicklinks a[href="#/treasury-plan"]');
     // .218 (owner, 31 Oct 2026): officers and above only. This page is an ordinary MEMBER, so the quick link is absent;
-    // treasury_read_gate218_test.cjs and the officer personas cover the admitted side and its exact label.
+    // This checks ordinary-member omission. The server gate is covered separately; this check does not claim a rendered admitted-officer label.
     check(".218 an ordinary member's governance quick links omit the officer-only Treasury plan", treasuryQuicklink209 === null && APP_JS.includes('treasuryPlanAllowed218() ? h("a", { class: "btn", href: "#/treasury-plan", text: "Treasury programme & 90-day plan" }) : null,'));
     const quicklinkRules209 = [...APP_CSS.matchAll(/\.governance-quicklinks\s+\.btn\s*\{([^}]+)\}/g)];
     const quicklinkDeclarations209 = new Map((quicklinkRules209[0]?.[1] || "").split(";").map(declaration => declaration.trim()).filter(Boolean).map(declaration => declaration.split(/:\s*/, 2)));
@@ -2760,7 +2772,7 @@ function originalTerms218(terms) {
         && digest(model.nodes.filter(node => !["trading","security","concordat"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
         && digest(model.officeMandates.filter(office => !["trading","security","concordat"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
         && digest(originalTerms218(model.terms.slice(0, 95))) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
-        && model.book.bytes === 269414 && model.book.sha256 === "e486ea4e95b1687b9215707304bce0e6cc0cf8fd5f0f394733ab4c6abd6f96c1"
+        && model.book.bytes === 270762 && model.book.sha256 === "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81"
         && model.appointments.length === 137 && new Set(model.appointments.map(row => row.key)).size === 137 && model.councilComposition.currentSeats.length === 13
         && trading.officeKey === "office_96" && trading.ordinal === 96 && trading.label === "Head of Trading & Markets" && trading.tier === "high_council" && trading.nativeSlot === 1 && trading.applicationEligible === false && trading.mappingApplies === false;
     })());

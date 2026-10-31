@@ -31,20 +31,20 @@ function sourceGraph(provider) {
 const ROLE_IDS = n => Array.from({ length: n }, (_, i) => String(400000000000000000n + BigInt(i)));
 const PROFILES = { 'beta-five': 5, 'ten-rank': 10, 'ten-rank-treasurer-v1': 10, 'ten-rank-council-treasurer-v1': 10 };
 async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff = 'past', map = null, onStatement = null, onDiscord = null, onAsset = null } = {}) {
-  const calls = { discord: 0, assets: 0 };
+  const calls = { discord: 0, assets: 0, statements: 0 };
   let live = null; // set once the database exists; the hooks below run INSIDE the awaited provider and asset reads
   const provider = async url => {
     if (url.startsWith('https://discord.com/api/') && url.includes('/guilds/' + GUILD + '/members/' + SUBJECT)) {
       calls.discord++;
       if (onDiscord && live) await onDiscord(live);
       if (roles === null) return new Response(JSON.stringify({ message: 'Unknown Member', code: 10007 }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-      return new Response(JSON.stringify({ user: { id: SUBJECT }, roles, pending: false }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ user: { id: SUBJECT, username: 'fictional-member' }, roles, pending: false }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     throw Error('unexpected provider request ' + url);
   };
   const db = new DatabaseSync(':memory:'); db.exec('PRAGMA foreign_keys=ON'); entry.installCurrentEntryEpoch(db);
   let envRef = null;
-  const now = db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) t").get().t, native = entry.originalNativePort(db, { statement: sql => { if (onStatement && envRef) onStatement(sql, envRef); } }), load = sourceGraph(provider);
+  const now = db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) t").get().t, native = entry.originalNativePort(db, { statement: sql => { calls.statements++; if (onStatement && envRef) onStatement(sql, envRef); } }), load = sourceGraph(provider);
   const rawEnv = entry.currentEntryEnvironment({ DB: native, COOKIE_SECRET: 'treasury-gate-fictional-cookie-secret-only', VERIFY_SECRET: 'treasury-gate-fictional-verify-only',
     SITE_HOST: 'guild.example', PUBLIC_BASE_URL: 'https://verify.example', DISCORD_APP_ID: '1550176895671341076', SITE_GUILD_ID: GUILD, GUILD_ID: GUILD, DISCORD_BOT_TOKEN: 'fictional-bot-token', ROLE_OFFICER: OFFICER_ROLE, ROLE_GUILD_LEADER: '', ROLE_GUILD_MASTER: '', ROLE_RAID_LEADER: '',
     SITE_ADMINS: admin ? SUBJECT : '300000000000000999',
@@ -64,7 +64,7 @@ async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff
   const request = (pathname, options = {}) => new Request('https://guild.example' + pathname, { method: options.method || 'GET', headers: { Cookie: issued.cookie } });
   const open = async (pathname, options = {}) => { const response = await gate.treasuryAfterMemberGate(request(pathname, options), env, pathname.split('?')[0]); return { status: response.status, text: await response.text(), response }; };
   const schema = () => JSON.stringify(db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY name').all());
-  return { db, now, write, env, gate, open, calls, schema, close: () => db.close() };
+  return { db, now, write, env, gate, open, calls, schema, load, close: () => db.close() };
 }
 async function roster(f, { rank, index, trusted = 1, complete = 1, status = 'member', guid = 'Player-4209-0000AA01', rowGuid = guid, age = 60, memberCount = 1, duplicateRow = false }) {
   const exported = f.now - age;
@@ -79,6 +79,121 @@ const f218 = {};
 const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.js', '/static/treasury-plan-content207.js', '/static/treasury-plan207.css'];
 
 (async () => {
+  {
+    // Real Native request path; provider-role changes happen INSIDE the awaited asset read.
+    const roles218 = [OFFICER_ROLE], order218 = [];
+    let owner218 = null, atAsset218 = null;
+    await scenario('Discord snapshot is request-local and followed by final Native admission', {
+      roles: roles218,
+      onDiscord: async () => { order218.push('discord:' + owner218.calls.discord); },
+      onAsset: async () => {
+        order218.push('asset');
+        check('one fresh Discord observation precedes protected asset storage', owner218.calls.discord === 1 && JSON.stringify(order218) === '["discord:1","asset"]');
+        atAsset218 = owner218.calls.statements;
+        roles218.splice(0); // Upstream change after the already-read response; no local/provider strong-consistency claim.
+      },
+    }, async f => {
+      owner218 = f;
+      const firstStart218 = f.calls.statements;
+      const first218 = await f.open(ASSETS[0]);
+      const firstEnd218 = f.calls.statements;
+      check('the retained first response honestly uses its one provider snapshot', first218.status === 200 && first218.text === '/* treasury plan */'
+        && roles218.length === 0 && f.calls.discord === 1 && f.calls.assets === 1);
+      check('actual Native statements follow the asset await within the full request budget', atAsset218 > firstStart218 && firstEnd218 > atAsset218
+        && firstEnd218 - firstStart218 < 100);
+      const secondStart218 = f.calls.statements;
+      const second218 = await f.open(ASSETS[0]);
+      const secondCost218 = f.calls.statements - secondStart218;
+      check('a separate request reads the changed provider response and refuses without another asset fetch', second218.status === 403
+        && JSON.parse(second218.text).error === 'officer_only' && !second218.text.includes('/* treasury plan */')
+        && f.calls.discord === 2 && f.calls.assets === 1 && JSON.stringify(order218) === '["discord:1","asset","discord:2"]'
+        && secondCost218 > 0 && secondCost218 < 100);
+      console.log('OBSERVED SNAPSHOT ' + JSON.stringify({ firstStatus:first218.status, secondStatus:second218.status, providerReads:2, assetFetches:f.calls.assets,
+        firstStatements:firstEnd218-firstStart218, firstStatementsAtAsset:atAsset218-firstStart218, firstStatementsAfterAsset:firstEnd218-atAsset218,
+        secondStatements:secondCost218, order:order218 }));
+    });
+  }
+
+  // Any current, independently GUID-bound officer character qualifies, before any result limit.
+  const addCharacter = async (f, name, guid, rank, index) => {
+    await f.write('INSERT INTO characters(name_key,name,discord_id,status,bound_at,guid) VALUES(?,?,?,\'member\',?,?)', name.toLowerCase(), name, SUBJECT, f.now, guid);
+    await f.write('INSERT INTO roster_members(snapshot_id,name_key,name,rank,rank_index,guid) VALUES(1,?,?,?,?,?)', name.toLowerCase(), name, rank, index, guid);
+    await f.write('UPDATE roster_snapshots SET member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=1) WHERE id=1');
+  };
+  const openMeasured = async (f, path = ASSETS[0], options = {}) => {
+    const before = f.calls.statements, out = await f.open(path, options), statements = f.calls.statements - before;
+    console.log('OBSERVED ' + JSON.stringify({ path, status: out.status, body: out.text, statements, discord: f.calls.discord, assets: f.calls.assets }));
+    check('complete Treasury request consumes fewer than 100 physical Native statements', statements > 0 && statements < 100);
+    return out;
+  };
+  const publishOffice = async f => {
+    // Real publication producer signs the fictional subject's current account; no invented proof or source rewrite.
+    const publication = await f.load('site-appointed-identities').prepareAppointmentPublication(f.env, { treasurer: '<@' + SUBJECT + '>' });
+    assert.equal(publication.ok, true);
+    await f.write("INSERT INTO site_settings(key,value,updated_at) VALUES('appointed',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at", JSON.stringify(publication.stored), f.now);
+    f.calls.discord = 0;
+  };
+  await scenario('independently GUID-bound Officer plus Alt', {}, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    await addCharacter(f, 'Qaalt', 'Player-4209-0000AA02', 'Alt', 8);
+    const out = await openMeasured(f);
+    check('a separately GUID-pinned Alt does not revoke its account officer', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
+  await scenario('two independently GUID-bound Officers', {}, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    await addCharacter(f, 'Qaofficertwo', 'Player-4209-0000AA02', 'Officer', 2);
+    const out = await openMeasured(f);
+    check('two valid officer characters qualify without an account-level exact-one constraint', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
+  await scenario('officer after several independently bound low-rank alts', {}, async f => {
+    await roster(f, { rank: 'Alt', index: 8 });
+    await addCharacter(f, 'Qaaltbefore', 'Player-4209-0000AA02', 'Alt', 8);
+    await addCharacter(f, 'Qamemberbefore', 'Player-4209-0000AA03', 'Member', 7);
+    await addCharacter(f, 'Qalaterofficer', 'Player-4209-0000AA04', 'Officer', 2);
+    const out = await openMeasured(f);
+    check('rank filtering precedes the limit so earlier alts cannot hide a valid later officer', out.status === 200 && f.calls.discord === 0);
+  });
+  await scenario('roster demotion while asset storage is awaited', { onAsset: async f => { await f.write("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1"); } }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    const out = await openMeasured(f);
+    check('a demoted officer receives no protected asset bytes after storage returns', out.status === 403 && !out.text.includes('/* treasury plan */') && JSON.parse(out.text).error === 'officer_only' && f.calls.assets === 1 && f.calls.discord === 0);
+  });
+  await scenario('new latest incomplete roster while asset storage is awaited', { onAsset: async f => { await f.write("INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) SELECT 2,exported_at,received_at,source,0,1,0,first_received_at FROM roster_snapshots WHERE id=1"); } }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    const out = await openMeasured(f);
+    check('delivery rechecks the latest complete trusted export instead of retaining the former officer snapshot', out.status === 403 && !out.text.includes('/* treasury plan */') && f.calls.assets === 1 && f.calls.discord === 0);
+  });
+  await scenario('withdrawn published Treasurer while asset storage is awaited', { roles: [], onAsset: async f => { await f.write("UPDATE site_settings SET value='{}' WHERE key='appointed'"); } }, async f => {
+    await publishOffice(f);
+    const out = await openMeasured(f);
+    check('withdrawn D1 appointment releases no protected bytes and does not silently adopt another source', out.status === 403 && !out.text.includes('/* treasury plan */') && JSON.parse(out.text).error === 'officer_only' && f.calls.assets === 1 && f.calls.discord === 0);
+  });
+  await scenario('unchanged valid published Treasurer', { roles: [] }, async f => {
+    await publishOffice(f);
+    const out = await openMeasured(f);
+    check('a still-published real appointment remains sufficient without an officer roster or a new Discord read', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
+  await scenario('independent admin remains valid with demoted roster and withdrawn unrelated appointment', { admin: true, onAsset: async f => { await f.write("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1"); await f.write("UPDATE site_settings SET value='{}' WHERE key='appointed'"); } }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    const out = await openMeasured(f);
+    check('admin admission is not coupled to a lower-priority roster or appointment', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
+  await scenario('independent current Discord officer with non-officer roster', { roles: [OFFICER_ROLE], onAsset: async f => { await f.write("UPDATE roster_members SET rank='Initiate',rank_index=9 WHERE snapshot_id=1"); } }, async f => {
+    await roster(f, { rank: 'Member', index: 7 });
+    const out = await openMeasured(f);
+    check('actually proved Discord officer admission remains independent of native rank', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 1);
+  });
+  await scenario('officer session revoked during asset storage', { onAsset: async f => { await f.write('UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?', SUBJECT); } }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    const out = await openMeasured(f);
+    check('roster proof never bypasses the original session refusal', out.status === 403 && !out.text.includes('/* treasury plan */') && JSON.parse(out.text).error === 'account_changed' && f.calls.discord === 0);
+  });
+  await scenario('duplicated GUID still refuses an officer', {}, async f => {
+    await roster(f, { rank: 'Officer', index: 2, duplicateRow: true, memberCount: 2 });
+    const out = await openMeasured(f);
+    check('allow-any-character does not relax per-character export GUID uniqueness', out.status === 403 && f.calls.assets === 0);
+  });
+
   await scenario('ordinary member', {}, async f => {
     const before = f.schema(), settings = f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n;
     const access = await f.open('/api/treasury-plan/access');

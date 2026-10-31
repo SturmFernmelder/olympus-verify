@@ -219,7 +219,7 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   current time behaves like a fresh form on this staff-only route. Members never get a notice's id (it would say when an
   administrator opened Admin -> News). A stale delete of an expired notice gets its id and revision, never its text.
   Audit rows carry counts, never a title or a text. The members' "Site updates" are `RELEASE_NOTES` in the same file
-  (site_news_test: the newest is never newer than `BUILD`).
+  (site_news_test: the newest build number and date exactly match `BUILD`; preserve the historical inverse chain).
 - **Typed names** (.115, item C): a name an administrator types (an appointed role in Settings, the I-X directory) is
   added or changed only with `namesConfirmed: true` (the page's consent box, the person agreed); `NAME_WITHHELD`
   ("Name withheld") replaces a name removed on request and keeps an appointed role closed. The `site.settings` audit
@@ -257,10 +257,17 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 ## Conventions
 
-- **Every deployable change bumps `BUILD`** in `src/index.ts` (`YYYY-MM-DD.NN word`), moves the three build pins
-  (`tests/site_test.cjs`, `tests/hosts_test.cjs`, `tests/bnet_retention_test.cjs`), and adds a "Worker .NN" section to
-  `docs/deploy-checklist.md` (what changed, config, rollout, rollback, tests) and, where the reason matters, a dated
-  section to `docs/design.md`.
+- **Every deployable change bumps `BUILD`** in `src/index.ts` (`YYYY-MM-DD.NN word`). Move the three health build
+  pins (`tests/site_test.cjs`, `tests/hosts_test.cjs`, `tests/bnet_retention_test.cjs`) and the one exact current-BUILD
+  context in `tests/site_news_test.cjs` together. The latter must retain its source-line byte count and SHA-256,
+  unique current marker, predecessor custody and finite credit; do not broaden `GUARD` or `ALLOWED`.
+  The newest member-facing `RELEASE_NOTES` row must have that same build number and date. Add its exact, uniquely
+  counted prepend inverse before older inverses in `tests/resources_admission169_test.cjs`; preserve every historical
+  inverse and the original whole-News digest. Run that actual focused leaf: the fast projection check reads inert
+  declarations and checks current consistency, but does not execute or prove the historical inverse chain.
+  Add a "Worker .NN" section to `docs/deploy-checklist.md` (what changed, config, rollout, rollback, tests) and, where
+  the reason matters, a dated section to `docs/design.md`. These are prospective release requirements; missing
+  historical notes remain history and are not fabricated to retrofit this rule.
 - **Public-asset pins follow the served bytes.** A change to `worker/public/static/app.js` moves five pins: its `bytes`
   and `sha256` in both `scripts/official_asset_reference.json` entries, that file's hash in `scripts/official_assets.py`
   (`REFERENCE_SHA256`), the `official_assets.py` and `official_asset_reference.json` hashes in

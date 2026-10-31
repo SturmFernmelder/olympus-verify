@@ -611,7 +611,7 @@
           h("p", { class: "talents-guide-limit", text: "Only allocations that pass this snapshot's point, tier and prerequisite rules are offered. Legacy bonus points and the publisher's leveling order are not applied here. Nothing is learned on a game character." }))) : null;
       const shell = h("section", { class: "talents-tool", "data-class": cls.id }, classRow,
         h("div", { class: "talents-toolbar" }, h("label", { class: "talents-class-select", "aria-hidden": "true" }, "Class", classSelect), h("label", null, "Level", level), levelPresets, reset, copy, h("label", { class: "talents-compare-switch" }, compareInput, "Compare to Classic")),
-        h("header", { class: "talents-class-banner" }, image((art.classPortraits || art.classIcons)[cls.id], { class: "talents-portrait" }), h("div", { class: "talents-class-title" }, h("p", { class: "talents-eyebrow", text: "Olympus · Forever talents" }), h("h2", { text: cls.name })),
+        h("header", { class: "talents-class-banner" }, image((art.classPortraits || art.classIcons)[cls.id], { class: "talents-portrait" }), h("div", { class: "talents-class-title" }, h("h1", { class: "talents-eyebrow", text: "Olympus · Forever talents" }), h("h2", { text: cls.name })),
           h("div", { class: "talents-spec-bars" }, cls.trees.map((tree, index) => {
             const meter = h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), label = h("b", { text: String(state.treePoints[index]) });
             specPointRefs.push({ meter, label }); return h("div", null, h("span", { text: tree.name }), meter, label);
