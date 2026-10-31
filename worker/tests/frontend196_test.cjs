@@ -1,4 +1,5 @@
 // Current app + real Worker/SQLite admission. DTO substitution qualifies presentation only.
+require('./frontend_fixture_prefix217_test.cjs');
 const fs196=require('node:fs'), path196=require('node:path'), {Module}=require('node:module');
 const fixture196=fs196.readFileSync(path196.join(__dirname,'frontend_check.cjs'),'utf8');
 const starts196=[...fixture196.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
@@ -493,7 +494,7 @@ const body196=String.raw`
   const capacityFirst196=page=>capacityPanel196(page)?.querySelector('[data-army-capacity-guild="I"]');
   const capacityPage196=await openPage(MEMBER,{}, {clockNow:now*1000,bootTransform(boot){boot.seats={state:'full',source:'roster',members:1000,cap:1000,free:0,asOf:capacityHour196-100*86400};}});
   capacityStubs196(capacityPage196);let capacityReads196=0;
-  capacityPage196.before((p,init)=>{if(p==='/api/me')capacityReads196++;return false;});
+  capacityPage196.before((p,init)=>{if(p==='/api/me?view=seats')capacityReads196++;return false;});
   await capacityPage196.go('#/army');
   const betaArchive198=capacityPage196.app.querySelector('[data-beta-epoch-archive="october-2026"]');
   check('.198 Army has a closed historical Beta card separate from live capacity',!!betaArchive198&&!betaArchive198.open&&betaArchive198.querySelector('summary').textContent.includes('Beta Veterans / Founding Epoch')&&betaArchive198.textContent.includes('1000/1000 characters')&&betaArchive198.textContent.includes('247 queued')&&betaArchive198.textContent.includes('unavailable live feed remains unavailable'));
@@ -528,20 +529,20 @@ const body196=String.raw`
     ['inconsistent free count',{...capacityOpen196,free:99},MEMBER],['unverified observation source',{...capacityOpen196,state:'full',source:'community-observation'},MEMBER],
     ['unknown with forged counts',{...capacityOpen196,state:'unknown'},MEMBER],['another original account',capacityOpen196,OTHER]
   ]){
-    const page=await openPage(MEMBER);capacityStubs196(page);page.answer(p=>p==='/api/me'?capacityDTO196(seats,owner):null);await page.go('#/army');
+    const page=await openPage(MEMBER);capacityStubs196(page);page.answer(p=>p==='/api/me?view=seats'?capacityDTO196(seats,owner):null);await page.go('#/army');
     if(!await waitFor(()=>capacityFirst196(page)&&!capacityFirst196(page).textContent.includes('Checking current'),'capacity refusal '+label))throw Error('Capacity refusal did not settle');
     check('synthetic '+label+' cannot claim an I count, meter, timestamp or current admission',!capacityFirst196(page).querySelector('meter')&&!capacityFirst196(page).querySelector('time')&&!capacityFirst196(page).textContent.includes('963')&&capacityFirst196(page).textContent.includes('No count or free-place estimate'));
     await page.go('#/roles');
   }
   const refusalPage196=await openPage(MEMBER);capacityStubs196(refusalPage196);
-  refusalPage196.answer(p=>p==='/api/me'?capacityDTO196({state:'full',source:'refused_invite',members:555,cap:1000,free:445,asOf:capacityHour196}):null);await refusalPage196.go('#/army');
+  refusalPage196.answer(p=>p==='/api/me?view=seats'?capacityDTO196({state:'full',source:'refused_invite',members:555,cap:1000,free:445,asOf:capacityHour196}):null);await refusalPage196.go('#/army');
   if(!await waitFor(()=>capacityFirst196(refusalPage196)?.textContent.includes('refused for lack of space'),'current refused invitation evidence'))throw Error('Current refusal evidence absent');
   check('a recent refused-invite DTO shows only its dated full report even when older roster counts accompany it',!!capacityFirst196(refusalPage196).querySelector('time')&&!capacityFirst196(refusalPage196).querySelector('meter')&&!capacityFirst196(refusalPage196).textContent.includes('555')&&!capacityFirst196(refusalPage196).textContent.includes('445'));
   await refusalPage196.go('#/roles');
   const raceCapacity196=await openPage(MEMBER);capacityStubs196(raceCapacity196);const capacityRequestIds196=new WeakMap();let capacityRequestN196=0;
-  raceCapacity196.before((p,init)=>{if(p==='/api/me')capacityRequestIds196.set(init,++capacityRequestN196);return false;});
-  raceCapacity196.hold((p,init)=>p==='/api/me'&&capacityRequestIds196.get(init)===1?180:0);
-  raceCapacity196.answer((p,init)=>p==='/api/me'?capacityDTO196({...capacityOpen196,members:capacityRequestIds196.get(init)===1?777:888,free:capacityRequestIds196.get(init)===1?223:112}):null);
+  raceCapacity196.before((p,init)=>{if(p==='/api/me?view=seats')capacityRequestIds196.set(init,++capacityRequestN196);return false;});
+  raceCapacity196.hold((p,init)=>p==='/api/me?view=seats'&&capacityRequestIds196.get(init)===1?180:0);
+  raceCapacity196.answer((p,init)=>p==='/api/me?view=seats'?capacityDTO196({...capacityOpen196,members:capacityRequestIds196.get(init)===1?777:888,free:capacityRequestIds196.get(init)===1?223:112}):null);
   await raceCapacity196.go('#/army');
   if(!await waitFor(()=>capacityRequestN196===1,'first current capacity held'))throw Error('No held first capacity read');
   byText(capacityPanel196(raceCapacity196),'button','Refresh capacity evidence').click();
@@ -551,8 +552,8 @@ const body196=String.raw`
   await raceCapacity196.go('#/roles');
   for(const status of [401,409]){
     const page=await openPage(MEMBER);capacityStubs196(page);let count=0;const ids=new WeakMap();
-    page.before((p,init)=>{if(p==='/api/me')ids.set(init,++count);return false;});page.hold((p,init)=>p==='/api/me'&&ids.get(init)===1?160:0);
-    page.answer((p,init)=>p!=='/api/me'?null:ids.get(init)===1?new Response(JSON.stringify({error:status===401?'signed_out':'reload',message:'Obsolete capacity response.'}),{status,headers:{'Content-Type':'application/json'}}):capacityDTO196(capacityOpen196));
+    page.before((p,init)=>{if(p==='/api/me?view=seats')ids.set(init,++count);return false;});page.hold((p,init)=>p==='/api/me?view=seats'&&ids.get(init)===1?160:0);
+    page.answer((p,init)=>p!=='/api/me?view=seats'?null:ids.get(init)===1?new Response(JSON.stringify({error:status===401?'signed_out':'reload',message:'Obsolete capacity response.'}),{status,headers:{'Content-Type':'application/json'}}):capacityDTO196(capacityOpen196));
     await page.go('#/army');if(!await waitFor(()=>count===1,'late capacity response held'))throw Error('Capacity response not held');
     await page.go('#/roles');await page.go('#/army');
     if(!await waitFor(()=>capacityFirst196(page)?.querySelector('meter'),'replacement same-route capacity view'))throw Error('Replacement capacity view missing');
@@ -566,8 +567,8 @@ const body196=String.raw`
   await reporterCapacity196.go('#/roles');
   const logoutCapacity196=await openPage(OTHER);capacityStubs196(logoutCapacity196);let logoutCapacityReads196=0,logoutCapacityPosts196=0;
   const logoutOriginalVersion196=one('SELECT session_version FROM site_users WHERE discord_id=?',OTHER).session_version;
-  logoutCapacity196.before((p,init)=>{if(p==='/api/me')logoutCapacityReads196++;if(p==='/auth/logout'&&init.method==='POST')logoutCapacityPosts196++;return false;});logoutCapacity196.hold(p=>p==='/api/me'?160:0);
-  logoutCapacity196.answer(p=>p==='/api/me'?capacityDTO196(capacityOpen196,OTHER):null);await logoutCapacity196.go('#/army');
+  logoutCapacity196.before((p,init)=>{if(p==='/api/me?view=seats')logoutCapacityReads196++;if(p==='/auth/logout'&&init.method==='POST')logoutCapacityPosts196++;return false;});logoutCapacity196.hold(p=>p==='/api/me?view=seats'?160:0);
+  logoutCapacity196.answer(p=>p==='/api/me?view=seats'?capacityDTO196(capacityOpen196,OTHER):null);await logoutCapacity196.go('#/army');
   if(!await waitFor(()=>logoutCapacityReads196===1,'logout capacity read held'))throw Error('No held capacity read before logout');
   const logoutPanel196=capacityPanel196(logoutCapacity196);byText(logoutCapacity196.app,'button','Sign out').click();
   check('the actual Sign out action clears only capacity synchronously before its transport settles',logoutPanel196.hidden&&logoutPanel196.childNodes.length===0&&logoutCapacityPosts196===1);

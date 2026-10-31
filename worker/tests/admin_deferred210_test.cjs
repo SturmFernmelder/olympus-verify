@@ -6,7 +6,7 @@ function prefix210(file,pattern,sha){
  const source=fs210.readFileSync(path210.join(__dirname,file),'utf8'),cuts=[...source.matchAll(pattern)];
  if(cuts.length!==1)throw Error('admin210_original_fixture_boundary');
  const prefix=source.slice(0,cuts[0].index);
- if(crypto210.createHash('sha256').update(prefix).digest('hex')!==sha)throw Error('admin210_original_fixture_drift');
+ if(crypto210.createHash('sha256').update(file==='privacy_native_erasure_mode_test.cjs'?require('./frontend_fixture_prefix217.cjs').historicalBoardNativePrefix217(prefix):prefix).digest('hex')!==sha)throw Error('admin210_original_fixture_drift');
  return prefix;
 }
 async function ordinaryAdmin210(){

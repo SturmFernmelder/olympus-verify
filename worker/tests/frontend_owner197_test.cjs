@@ -5,7 +5,7 @@ const fixture197 = fs197.readFileSync(path197.join(__dirname, 'frontend_check.cj
 const boundaries197 = [...fixture197.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if (boundaries197.length !== 1) throw Error('owner197_original_frontend_boundary');
 const prefix197 = fixture197.slice(0, boundaries197[0].index);
-if (crypto197.createHash('sha256').update(prefix197).digest('hex') !== 'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5') throw Error('owner197_original_frontend_prefix_drift');
+if (crypto197.createHash('sha256').update(require('./frontend_fixture_prefix217.cjs').historicalFrontendPrefix217(prefix197)).digest('hex') !== 'bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5') throw Error('owner197_original_frontend_prefix_drift');
 async function frontendOwner197() {
   await siteUser(MEMBER, { global_name: 'Mia' }); await character(MEMBER, 'Mia One', 'Player-1-0001');
   await siteUser(OTHER, { global_name: 'Oz' }); await character(OTHER, 'Oz Two', 'Player-1-0002');
