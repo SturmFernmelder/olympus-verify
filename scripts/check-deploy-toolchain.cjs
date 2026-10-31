@@ -2,8 +2,19 @@
 // No package resolution, installation, provider request or private recovery tool is performed here.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-function check(exportRoot, callerRoot) {
-  const profile = JSON.parse(fs.readFileSync(path.join(exportRoot, 'scripts/deploy-toolchain-profile.json'), 'utf8'));
+function check(exportRoot, callerRoot, selected) {
+  const profilePath = path.join(exportRoot, 'scripts/deploy-toolchain-profile.json');
+  let profile;
+  if (fs.existsSync(profilePath)) {
+    profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+  } else {
+    // Only an explicitly registered accepted rollback snapshot can predate these tools.
+    // Never turn a missing archive profile into general caller-tool authority.
+    if (fs.existsSync(path.join(exportRoot, 'scripts/check-deploy-toolchain.cjs'))) throw Error('Incomplete archived deployment tools');
+    profile = JSON.parse(fs.readFileSync(path.join(callerRoot, 'scripts/deploy-toolchain-profile.json'), 'utf8'));
+    if (!selected || !profile.legacyTargets?.some(target => target.commit === selected.commit && target.tree === selected.tree))
+      throw Error('Unregistered legacy rollback snapshot');
+  }
   const archivedLock = path.join(exportRoot, 'worker/package-lock.json');
   const callerLock = path.join(callerRoot, 'worker/package-lock.json');
   if (process.versions.node !== profile.node || digest(archivedLock) !== profile.lockSha256 || digest(callerLock) !== profile.lockSha256)
@@ -20,7 +31,7 @@ function check(exportRoot, callerRoot) {
   return cli;
 }
 if (require.main === module) {
-  try { process.stdout.write(check(path.resolve(process.argv[2]), path.resolve(process.argv[3])) + '\n'); }
+  try { process.stdout.write(check(path.resolve(process.argv[2]), path.resolve(process.argv[3]), {commit:process.argv[4],tree:process.argv[5]}) + '\n'); }
   catch { console.error('refusing: installed deployment tools do not match the archived approved profile; qualify an ordinary physical install first'); process.exitCode = 1; }
 }
 module.exports = { check };

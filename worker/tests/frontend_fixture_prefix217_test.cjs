@@ -1,7 +1,7 @@
 'use strict';
 // Standalone focused controls, also reached by the unchanged frontend196 entry.
 const assert217=require('node:assert/strict'),fs217=require('node:fs'),path217=require('node:path'),crypto217=require('node:crypto'),vm217=require('node:vm');
-const {historicalFrontendPrefix217,historicalBoardNativePrefix217}=require('./frontend_fixture_prefix217.cjs');
+const {historicalFrontendPrefix217,historicalBoardNativePrefix217,historicalTreasuryNativeFixture217}=require('./frontend_fixture_prefix217.cjs');
 const source217=fs217.readFileSync(path217.join(__dirname,'frontend_check.cjs'),'utf8');
 const cuts217=[...source217.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 assert217.equal(cuts217.length,1,'the original unique fixture boundary is retained');
@@ -41,4 +41,16 @@ check217('board Native duplicate reviewed form line is refused',()=>assert217.th
 check217('board Native missing reviewed form line is refused',()=>assert217.throws(()=>historicalBoardNativePrefix217(nativeCurrent217.replace(nativeLine217,'')),/native_context_not_unique/));
 check217('board Native unrelated prefix drift is refused',()=>assert217.throws(()=>historicalBoardNativePrefix217(nativeCurrent217+'\n// unreviewed\n'),/native_current_prefix_drift/));
 check217('board Native full body and wrong input type are refused',()=>{assert217.throws(()=>historicalBoardNativePrefix217(nativeSource217),/native_current_prefix_drift/);assert217.throws(()=>historicalBoardNativePrefix217(Buffer.from(nativeCurrent217)),/native_prefix_type/);});
+const treasuryHistorical217=historicalTreasuryNativeFixture217(nativeSource217);
+const treasuryEntryStart217=nativeSource217.indexOf(' {const f=fixture(),entryPage='),treasuryEntryEnd217=nativeSource217.indexOf("  check('real privacy OAuth requests identify only'",treasuryEntryStart217);
+assert217.ok(treasuryEntryStart217>nativeCuts217[0].index&&treasuryEntryEnd217>treasuryEntryStart217);
+const treasuryContexts217=[nativeLine217,nativeSource217.slice(treasuryEntryStart217,treasuryEntryEnd217)];
+check217('Treasury whole current fixture maps to exact original authority only as data',()=>{assert217.equal(hash217(nativeSource217),'e0242a0b2640c3c2770d2a0605b5ce267728624b7bdddf1b54e38bc646f6747c');assert217.equal(hash217(treasuryHistorical217),'0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e');assert217.equal(Buffer.byteLength(treasuryHistorical217),38099);});
+check217('Treasury each duplicate whole-fixture context is refused',()=>{for(const context of treasuryContexts217)assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217+context),/native_context_not_unique/);});
+check217('Treasury each missing whole-fixture context is refused',()=>{for(const context of treasuryContexts217)assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217.replace(context,'')),/native_context_not_unique/);});
+check217('Treasury unrelated compiled setup drift is refused',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217.replace('function fixture(){','function fixture() {')),/native_current_fixture_drift/));
+check217('Treasury drift after the compiled setup boundary is refused',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217+'\n// unreviewed tail\n'),/native_current_fixture_drift/));
+check217('Treasury historical executable input is refused',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(treasuryHistorical217),/native_context_not_unique/));
+check217('Treasury prefix alone is not whole-fixture authority',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(nativeCurrent217),/native_context_not_unique/));
+check217('Treasury wrong input type is refused',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(Buffer.from(nativeSource217)),/native_fixture_type/));
 console.log(`${checks217}/${checks217} current frontend prefix controls passed`);

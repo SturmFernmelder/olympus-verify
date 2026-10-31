@@ -2,5 +2,11 @@
   "schema": 1,
   "node": "24.22.1",
   "lockSha256": "57966b1c17c23753d29577f27efe5ad729888c958a9f59b04ddc73a0f3cddd74",
-  "wranglerCliSha256": "5c0d5e62f06a95d1cde6edc88de9995cb70eacdca3cedc5ab48bc2fceb33e25c"
+  "wranglerCliSha256": "5c0d5e62f06a95d1cde6edc88de9995cb70eacdca3cedc5ab48bc2fceb33e25c",
+  "legacyTargets": [
+    {
+      "commit": "fb0c0ccf629d65d932365685eb13346e45b57eee",
+      "tree": "4d94db2451243813abfbda2e69e107e37a530160"
+    }
+  ]
 }

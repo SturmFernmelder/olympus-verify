@@ -5,7 +5,7 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 let passed = 0;
 try {
   const archive = path.join(temporary, 'archive'), caller = path.join(temporary, 'caller');
-  for (const dir of [path.join(archive, 'scripts'), path.join(archive, 'worker'), path.join(caller, 'worker/node_modules/wrangler/wrangler-dist')]) fs.mkdirSync(dir, { recursive:true });
+  for (const dir of [path.join(archive, 'scripts'), path.join(archive, 'worker'), path.join(caller, 'scripts'), path.join(caller, 'worker/node_modules/wrangler/wrangler-dist')]) fs.mkdirSync(dir, { recursive:true });
   const lock = JSON.stringify({packages:{'node_modules/wrangler':{version:'4.155.0'}}});
   const cli = path.join(caller, 'worker/node_modules/wrangler/wrangler-dist/cli.js');
   const profile = {node:process.versions.node,lockSha256:hash(lock),wranglerCliSha256:hash('qualified executable')};
@@ -23,5 +23,17 @@ try {
     ['Node version', () => { profile.node='0.0.0'; putProfile(); }, () => { profile.node=process.versions.node; putProfile(); }],
   ]) { mutate(); assert.throws(() => check(archive,caller),undefined,label); passed++; restore(); assert.equal(check(archive,caller),cli); }
   fs.unlinkSync(path.join(archive,'scripts/deploy-toolchain-profile.json')); assert.throws(() => check(archive,caller)); passed++;
+  const selected = {commit:'a'.repeat(40),tree:'b'.repeat(40)};
+  profile.legacyTargets=[selected];
+  fs.writeFileSync(path.join(caller,'scripts/deploy-toolchain-profile.json'),JSON.stringify(profile));
+  assert.equal(check(archive,caller,selected),cli); passed++;
+  for (const invalid of [undefined,{...selected,commit:'c'.repeat(40)},{...selected,tree:'c'.repeat(40)}]) {
+    assert.throws(() => check(archive,caller,invalid)); passed++;
+  }
+  fs.appendFileSync(path.join(archive,'worker/package-lock.json'),' ');
+  assert.throws(() => check(archive,caller,selected)); passed++;
+  fs.writeFileSync(path.join(archive,'worker/package-lock.json'),lock);
+  fs.writeFileSync(path.join(archive,'scripts/check-deploy-toolchain.cjs'),'partial archived tools');
+  assert.throws(() => check(archive,caller,selected)); passed++;
   console.log(`${passed}/${passed} deployment toolchain checks passed; no provider process invoked`);
 } finally { fs.rmSync(temporary, {recursive:true,force:true}); }

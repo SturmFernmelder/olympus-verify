@@ -45,6 +45,12 @@ check "HEAD --dry-run is accepted and reaches wrangler once" $([ "$rc" -eq 0 ] &
 check "  with deploy --config <export>/worker/wrangler.toml --dry-run and nothing else" $(grep -Eq '^--no-install wrangler deploy --config .*/worker/wrangler\.toml --dry-run$' "$FAKE_LOG" && echo 0 || echo 1)
 check "  and names the exact SHA" $(grep -q "Deploying commit $sha" "$fake/out" && echo 0 || echo 1)
 
+# An actual accepted older Git snapshot, not a synthetic copy of the current scripts.
+rollback="fb0c0ccf629d65d932365685eb13346e45b57eee"
+rc="$(run "$rollback" --dry-run --keep-vars)"
+git show "$rollback:worker/wrangler.toml" > "$fake/rollback.toml"
+check "accepted .216 rollback predating the profile reaches the fixed CLI once with its exact archived config" $([ "$rc" -eq 0 ] && [ "$(calls)" -eq 1 ] && cmp -s "$fake/rollback.toml" "$FAKE_CONFIG" && grep -q "Deploying commit $rollback" "$fake/out" && echo 0 || echo 1)
+
 rc="$(run HEAD --dry-run --outdir "$fake/bundle")"
 check "--outdir <dir> after --dry-run is passed on" $([ "$rc" -eq 0 ] && grep -Eq -- "--dry-run --outdir $fake/bundle\$" "$FAKE_LOG" && echo 0 || echo 1)
 rc="$(run HEAD --dry-run --keep-vars)"

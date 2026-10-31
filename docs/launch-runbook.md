@@ -237,6 +237,12 @@ deadline. Each deploy's checklist section therefore names its rollback target, a
 `bash scripts/deploy-commit.sh <rollback target>` performs it, from the checkout that holds the target: the public clone
 for a shipping commit, the keeper for .46 (`0a29611`), which was never published.
 
+The .217 deploy helper also supports the accepted .216 rollback snapshot `fb0c0ccf629d65d932365685eb13346e45b57eee`
+(tree `4d94db2451243813abfbda2e69e107e37a530160`), which predates the archived toolchain profile. For that exact
+snapshot only, the current helper's registered profile qualifies the same archived lock, caller lock, Node version,
+installed dependencies and fixed Wrangler executable before bundling or upload. Other unregistered snapshots without
+the archived tools refuse; no implicit package resolution is used. This does not authorize private recovery tools.
+
 ## 2. The donor's private phase (Codex's contract; gates step 3)
 
 Per Codex's 08:36 and 09:27 entries: the donor is deployed by the owner with `--env privatetest` (TEST_MODE, the owner

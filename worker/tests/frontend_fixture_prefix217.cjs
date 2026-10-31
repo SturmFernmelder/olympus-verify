@@ -39,4 +39,21 @@ function historicalBoardNativePrefix217(current){
  if(Buffer.byteLength(historical,'utf8')!==13061||hash217(historical)!=='83b4fe71835e987ede23c482568ab067ce84700b51cca4b4efac6119f262896a')throw Error('board217_native_historical_prefix_drift');
  return historical;
 }
-module.exports=Object.freeze({historicalFrontendPrefix217,historicalBoardNativePrefix217});
+// Whole-fixture authority includes the Native main's reviewed form initiation.
+// Both inverse contexts remain data; consumers compile only the current setup.
+const TREASURY_NATIVE_ENTRY217=Object.freeze({
+ "current": " {const f=fixture(),entryPage=await f.call('GET','/privacy/signin'),entryHtml=await entryPage.text(),entryToken=/name=\"csrf\" value=\"([^\"]+)\"/.exec(entryHtml)[1],entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');\n const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken}}),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n",
+ "historical": " {const f=fixture(),start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n"
+});
+function historicalTreasuryNativeFixture217(current){
+ if(typeof current!=='string')throw Error('treasury217_native_fixture_type');
+ let historical=current;
+ for(const edit of [BOARD_NATIVE217,TREASURY_NATIVE_ENTRY217]){
+  if(historical.split(edit.current).length!==2)throw Error('treasury217_native_context_not_unique');
+  historical=historical.replace(edit.current,edit.historical);
+ }
+ if(Buffer.byteLength(current,'utf8')!==38590||hash217(current)!=='e0242a0b2640c3c2770d2a0605b5ce267728624b7bdddf1b54e38bc646f6747c')throw Error('treasury217_native_current_fixture_drift');
+ if(Buffer.byteLength(historical,'utf8')!==38099||hash217(historical)!=='0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e')throw Error('treasury217_native_historical_fixture_drift');
+ return historical;
+}
+module.exports=Object.freeze({historicalFrontendPrefix217,historicalBoardNativePrefix217,historicalTreasuryNativeFixture217});
