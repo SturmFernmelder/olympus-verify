@@ -14,8 +14,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 701989,
-      "sha256": "729941046c5f5d7d13291b3b139d4f564510f089ff23d6f2725e5177a148a679"
+      "bytes": 702777,
+      "sha256": "d5767565be0944cd190d6fc457e39de3d7964e2bbe1b70c76fc20f68fc411c5f"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -662,8 +662,8 @@
     {
       "path": "worker/public/static/resources169.js",
       "mode": "100644",
-      "bytes": 23757,
-      "sha256": "2600309918b1b9d2b85063f878ea9539cbfc81d0688999e1f50f2790f8c58d87"
+      "bytes": 24057,
+      "sha256": "75ea57200ef4afc4966c7a48e08f9ff6293dbb4e290a93d1c7bbe6167efe9817"
     },
     {
       "path": "worker/public/static/resources169.css",
@@ -3828,8 +3828,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 701989,
-      "sha256": "729941046c5f5d7d13291b3b139d4f564510f089ff23d6f2725e5177a148a679"
+      "bytes": 702777,
+      "sha256": "d5767565be0944cd190d6fc457e39de3d7964e2bbe1b70c76fc20f68fc411c5f"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -3840,8 +3840,8 @@
     {
       "path": "worker/src/site-core.ts",
       "mode": "100644",
-      "bytes": 19235,
-      "sha256": "9befe42a3916db0ffac404570821083ea786ff974b88ca66588d1a2f18b923f3"
+      "bytes": 20749,
+      "sha256": "c813c39582421314a88609ac75c0610412ded1a09cfc217a14f8666e039520ac"
     },
     {
       "path": "tools/build-talent-art.py",
@@ -4116,8 +4116,8 @@
     {
       "path": "worker/public/static/resources169.json",
       "mode": "100644",
-      "bytes": 52488,
-      "sha256": "b3adabec4507461df092fcac5a375eb89713557eaef6c5379c77716ecda5297c"
+      "bytes": 52601,
+      "sha256": "68859735357d732d44ed76af8a5816e686ca850f8cf0b72a4a37f111aea6a308"
     },
     {
       "path": "worker/public/static/role-rank199.js",

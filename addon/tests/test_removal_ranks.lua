@@ -138,5 +138,46 @@ assert(loadfile("../OlympusVerify/OlympusVerify.lua"))("OlympusVerify", {})
 OlympusVerifyFrame:GetScript("OnEvent")(OlympusVerifyFrame, "ADDON_LOADED", "OlympusVerify")
 local stricter = OlympusVerifyAPI.Candidates(100)
 check("a stricter configured floor holds Raid Leader and still offers Member", #stricter == 1 and stricter[1].name == "Member Person")
+
+-- Guidance must use the same selected command as the actual attended macro.
+-- All refusals below are delivered inside the synthetic protected API call.
+local strictAPI = OlympusVerifyAPI
+local strictEvent = OlympusVerifyFrame:GetScript("OnEvent")
+local function printedSince(start, text)
+  for i = start + 1, #PRINTS do if PRINTS[i]:find(text, 1, true) then return true end end
+  return false
+end
+OlympusVerifyConfig.kickCommand = "/gremove"
+local removalAttempts = 0
+C_GuildInfo.Uninvite = function()
+  removalAttempts = removalAttempts + 1
+  strictEvent(OlympusVerifyFrame, "ADDON_ACTION_FORBIDDEN", "OlympusVerify")
+end
+check("selected-command refusal still needs an attended first click", strictAPI.RemoveMember("Member Person") == false and removalAttempts == 0)
+local printed = #PRINTS
+check("synthetic forbidden removal is not reported as successful", strictAPI.RemoveMember("Member Person") == false and removalAttempts == 1)
+check("removal refusal names the configured command", printedSince(printed, "use /gremove by hand"))
+printed = #PRINTS
+check("blocked removal does not repeat the protected call", strictAPI.RemoveMember("Member Person") == false and removalAttempts == 1)
+check("blocked-row guidance includes the selected command and exact name", printedSince(printed, "/gremove Member Person"))
+printed = #PRINTS
+SlashCmdList.OLYMPUSVERIFY("full")
+check("full-list header uses the selected command", printedSince(printed, "for /gremove by hand:"))
+check("full-list row uses the selected command and exact name", printedSince(printed, "/gremove Member Person"))
+check("configured command is also used by the real macro path", strictAPI.PointKickMacro("Member Person", "space") == true and MACROS[1].body == "/gremove Member Person")
+local oldEditMacro = EditMacro
+EditMacro = function(...)
+  strictEvent(OlympusVerifyFrame, "ADDON_ACTION_FORBIDDEN", "OlympusVerify")
+  return oldEditMacro(...)
+end
+printed = #PRINTS
+SlashCmdList.OLYMPUSVERIFY("macrotest")
+check("macro refusal also names the selected manual command", printedSince(printed, "type /gremove <name> by hand"))
+EditMacro = oldEditMacro
+OlympusVerifyConfig.kickCommand = nil
+printed = #PRINTS
+strictAPI.RemoveMember("Member Person")
+check("fallback guidance retains the existing measured command", printedSince(printed, "/guildremove Member Person"))
+check("copy checks perform only the one synthetic attempted removal", removalAttempts == 1)
 print(string.format("\n%d/%d passed", total - fails, total))
 os.exit(fails == 0 and 0 or 1)

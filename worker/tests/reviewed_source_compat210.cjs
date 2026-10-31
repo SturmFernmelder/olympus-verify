@@ -7,6 +7,10 @@ const file=path.join(__dirname,'fixtures/reviewed210-source-contexts.json'),byte
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 if(sha(bytes)!=='cb7414c9187bc856f81ee67daccd2922a86d639bd35c3155d625bf5131bf1d6d')throw Error('reviewed source context manifest differs');
 const manifest=JSON.parse(bytes.toString('utf8'));
+// SEN-01 (30 Oct 2026): current interactions.ts first reverses its reviewed SEN-01 hunks (and its
+// follow-up's) to the accepted .212 source through this pinned helper; every .210 stage below then applies unchanged.
+if(sha(fs.readFileSync(path.join(__dirname,'source212-sen01-projection.cjs')))!=='6c75cc99cc658691a7c2b864e6166c4da8ac16212c97689b83cd67cfe4dd15e4')throw Error('reviewed212 SEN-01 helper differs');
+const sen01=require('./source212-sen01-projection.cjs');
 function reverse(raw,stage){
  if(typeof raw!=='string'&&!Buffer.isBuffer(raw))return null;
  if(sha(raw)!==stage.currentSHA256)return null;
@@ -23,7 +27,7 @@ function originalScheduledFixture(raw){
  return reverse(raw,manifest.scheduled);
 }
 function originalLinkInteractions(raw){
- let source=reverse(raw,manifest.interactions[0]);
+ let source=reverse(sen01.original212Interactions(raw),manifest.interactions[0]);
  if(source===null)return null;
  return reverse(source,manifest.interactions[1]);
 }
@@ -36,7 +40,10 @@ function driftControls(raw,kind){
   const edit=manifest.scheduled.edits[0],context=source.includes(edit.from)?edit.from:edit.to;
   probes.push(['changed no-work guard',replace('COUNT.statements===0','COUNT.statements===1')],['changed700 target',replace('budget.SCHEDULED_STATEMENT_TARGET===700','budget.SCHEDULED_STATEMENT_TARGET===701')],['duplicated reviewed context',replace(context,context+context)]);
  }else{
-  probes.push(['raw ban error restored',replace('error: errorRef(e)','error: String(e)')],['ban reason cap changed',replace('const BAN_REASON_MAX = 400','const BAN_REASON_MAX = 401')],['Link import removed',replace('import { appendLinkBlock } from "./link";','')],['duplicated reviewed context',replace(manifest.interactions[0].edits[0].from,manifest.interactions[0].edits[0].from+manifest.interactions[0].edits[0].from)]);
+   // Duplicate a reviewed block that remains current, rather than the historical import header.
+   const context=manifest.interactions[0].edits[2].from;
+   if(!context||source.split(context).length!==2)throw Error('drift control reviewed context is not unique');
+   probes.push(['raw ban error restored',replace('error: errorRef(e)','error: String(e)')],['ban reason cap changed',replace('const BAN_REASON_MAX = 400','const BAN_REASON_MAX = 401')],['Link import removed',replace('import { appendLinkBlock } from "./link";','')],['duplicated reviewed context',replace(context,context+context)]);
  }
  return probes.map(([name,mutated])=>{if(mutated===source)throw Error('drift mutation is not real');const refused=qualify(mutated)===null;if(!refused)throw Error('unreviewed source mutation accepted: '+name);return{name,refused};});
 }

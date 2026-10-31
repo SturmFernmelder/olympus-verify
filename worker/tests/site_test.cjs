@@ -265,6 +265,102 @@ async function legacySchemaHeld(old) {
 }
 
 (async () => {
+  console.log("== .213: the original site JSON limit applies during consumption ==");
+  const jsonRequest213 = (body, headers = {}) => new Request("https://guild.example/body-fixture", { method: "POST", body, headers, duplex: "half" });
+  const chunkedJson213 = (bytes, size, headers) => {
+    let offset = 0;
+    return jsonRequest213(new ReadableStream({ pull(controller) {
+      if (offset === bytes.length) { controller.close(); return; }
+      controller.enqueue(bytes.subarray(offset, offset += Math.min(size, bytes.length - offset)));
+    } }, { highWaterMark: 0 }), headers);
+  };
+  const encoder213 = new TextEncoder(), boundary213 = { value: "x".repeat(63_988) };
+  const boundaryText213 = JSON.stringify(boundary213);
+  check(".213 the exact64000-unit object remains accepted", boundaryText213.length === 64_000 && JSON.stringify(await core.readJson(jsonRequest213(boundaryText213))) === boundaryText213);
+  check(".213 an object one unit over the original limit is refused", await core.readJson(jsonRequest213(JSON.stringify({ value: boundary213.value + "x" }))) === null);
+  const unicodeText213 = JSON.stringify({ value: "€".repeat(63_988) }), unicodeBytes213 = encoder213.encode(unicodeText213);
+  check(".213 multibyte data uses the original UTF16 limit rather than a narrower byte limit", unicodeText213.length === 64_000 && unicodeBytes213.length > 64_000 && JSON.stringify(await core.readJson(chunkedJson213(unicodeBytes213, 4097))) === unicodeText213);
+  const astralText213 = JSON.stringify({ value: "😀".repeat(31_994) });
+  check(".213 astral characters retain their original two-unit accounting across UTF8 splits", astralText213.length === 64_000 && JSON.stringify(await core.readJson(chunkedJson213(encoder213.encode(astralText213), 8193))) === astralText213);
+  const bomBytes213 = new Uint8Array([239, 187, 191, ...encoder213.encode('{"value":"€😀"}')]);
+  check(".213 a split leading UTF8 BOM and split multibyte characters decode as before", JSON.stringify(await core.readJson(chunkedJson213(bomBytes213, 1))) === '{"value":"€😀"}');
+  const malformedBytes213 = new Uint8Array([123, 34, 118, 34, 58, 34, 226, 40, 161, 34, 125]);
+  check(".213 nonfatal UTF8 replacement remains compatible", JSON.stringify(await core.readJson(chunkedJson213(malformedBytes213, 1))) === '{"v":"�(�"}');
+  for (const [label, body, expected] of [["missing", null, {}], ["empty", "", {}], ["whitespace", " \n\t", {}], ["invalid", "{", null], ["array", "[]", null], ["scalar", "1", null], ["null", "null", null]]) {
+    check(".213 original JSON shape/empty semantics: " + label, JSON.stringify(await core.readJson(jsonRequest213(body))) === JSON.stringify(expected));
+  }
+  const eof213 = chunkedJson213(new Uint8Array([123, 34, 118, 34, 58, 49, 125, 226]), 2);
+  check(".213 EOF flushes incomplete UTF8 after an otherwise valid object", await core.readJson(eof213) === null);
+  const tailLimit213 = new Uint8Array([...encoder213.encode(boundaryText213), 226]);
+  check(".213 the decoder's final replacement also counts against the original limit", await core.readJson(chunkedJson213(tailLimit213, 8192)) === null);
+  const used213 = jsonRequest213("{}"); await used213.text();
+  let usedError213; try { await core.readJson(used213); } catch (error) { usedError213 = error; }
+  check(".213 an already consumed body still rejects with TypeError", usedError213 instanceof TypeError);
+  const locked213 = jsonRequest213("{}"), lockedReader213 = locked213.body.getReader();
+  let lockedError213; try { await core.readJson(locked213); } catch (error) { lockedError213 = error; } finally { lockedReader213.releaseLock(); }
+  check(".213 an already locked body still rejects with TypeError", lockedError213 instanceof TypeError);
+  const readError213 = new Error("synthetic original read failure");
+  const errored213 = jsonRequest213(new ReadableStream({ pull(controller) { controller.error(readError213); } }, { highWaterMark: 0 }));
+  let actualReadError213; try { await core.readJson(errored213); } catch (error) { actualReadError213 = error; }
+  check(".213 the original body-read error propagates and the reader lock is released", actualReadError213 === readError213 && !errored213.body.locked);
+  const nonBytes213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(new Uint16Array([123, 125])); controller.close(); } }));
+  let nonBytesError213; try { await core.readJson(nonBytes213); } catch (error) { nonBytesError213 = error; }
+  check(".213 a non-byte request chunk still rejects with TypeError", nonBytesError213 instanceof TypeError && !nonBytes213.body.locked);
+  let tagReads213 = 0;
+  const taggedBytes213 = encoder213.encode('{"value":"tagged"}');
+  Object.defineProperty(taggedBytes213, Symbol.toStringTag, { get() { tagReads213++; return "Different"; } });
+  const tagged213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(taggedBytes213); controller.close(); } }));
+  check(".213 genuine byte chunks ignore an altered own tag without invoking it", JSON.stringify(await core.readJson(tagged213)) === '{"value":"tagged"}' && tagReads213 === 0);
+  const spoofedBytes213 = new Uint16Array([123, 125]); Object.defineProperty(spoofedBytes213, Symbol.toStringTag, { value: "Uint8Array" });
+  const spoofed213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(spoofedBytes213); controller.close(); } }));
+  let spoofedError213; try { await core.readJson(spoofed213); } catch (error) { spoofedError213 = error; }
+  check(".213 a spoofed non-byte tag cannot replace the original internal byte brand", spoofedError213 instanceof TypeError && !spoofed213.body.locked);
+  const foreignBytes213 = require("node:vm").runInNewContext("new Uint8Array([123,125])");
+  const foreign213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(foreignBytes213); controller.close(); } }));
+  check(".213 genuine cross-realm byte chunks remain accepted", JSON.stringify(await core.readJson(foreign213)) === "{}");
+  const lengthBytes213 = encoder213.encode('{"value":"length"}');
+  Object.defineProperty(lengthBytes213, "byteLength", { value: 0 });
+  const length213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(lengthBytes213); controller.close(); } }));
+  check(".213 genuine byte chunks use the internal length despite an own shadow", JSON.stringify(await core.readJson(length213)) === '{"value":"length"}');
+  let viewReads213 = 0;
+  const viewBytes213 = encoder213.encode('{"value":"view"}');
+  for (const key of ["byteOffset", "buffer", "subarray"]) Object.defineProperty(viewBytes213, key, { get() { viewReads213++; throw new Error("own view accessor"); } });
+  const view213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(viewBytes213); controller.close(); } }));
+  check(".213 genuine byte chunks ignore own view accessors and methods", JSON.stringify(await core.readJson(view213)) === '{"value":"view"}' && viewReads213 === 0);
+  let speciesReads213 = 0, methodCalls213 = 0;
+  class ByteSubclass213 extends Uint8Array {
+    static get [Symbol.species]() { speciesReads213++; throw new Error("species"); }
+    subarray() { methodCalls213++; throw new Error("subarray"); }
+  }
+  const paddedBytes213 = encoder213.encode('!{"value":"subclass"}!');
+  const subclassBytes213 = new ByteSubclass213(paddedBytes213.buffer, 1, paddedBytes213.length - 2);
+  const subclass213 = jsonRequest213(new ReadableStream({ start(controller) { controller.enqueue(subclassBytes213); controller.close(); } }));
+  check(".213 byte subclasses keep their actual offset without dispatching methods or species", JSON.stringify(await core.readJson(subclass213)) === '{"value":"subclass"}' && speciesReads213 === 0 && methodCalls213 === 0);
+  const setup213 = jsonRequest213("{}"), setupError213 = new Error("synthetic decoder setup failure"), Decoder213 = globalThis.TextDecoder;
+  let actualSetupError213;
+  try {
+    globalThis.TextDecoder = class { constructor() { throw setupError213; } };
+    try { await core.readJson(setup213); } catch (error) { actualSetupError213 = error; }
+  } finally { globalThis.TextDecoder = Decoder213; }
+  check(".213 decoder setup failure preserves its error and releases the reader lock", actualSetupError213 === setupError213 && !setup213.body.locked);
+  for (const [label, headers] of [["absent length", {}], ["understated length", { "Content-Length": "1" }]]) {
+    let pulls = 0, cancelled = 0;
+    const over213 = jsonRequest213(new ReadableStream({
+      pull(controller) {
+        pulls++;
+        if (pulls === 1) controller.enqueue(encoder213.encode('{"value":"' + "x".repeat(32_000)));
+        else if (pulls === 2) controller.enqueue(encoder213.encode("x".repeat(32_000)));
+        else controller.error(new Error("read continued past the original bound"));
+      },
+      cancel() { cancelled++; return new Promise(() => {}); }, // Returning the refusal must not wait for this acknowledgment.
+    }, { highWaterMark: 0 }), headers);
+    let result, error; try { result = await core.readJson(over213); } catch (caught) { error = caught; }
+    check(".213 excess input cancels before another read without awaiting cancellation: " + label, result === null && error === undefined && pulls === 2 && cancelled === 1 && !over213.body.locked);
+  }
+  let largePulls213 = 0, largeCancelled213 = 0;
+  const large213 = jsonRequest213(new ReadableStream({ pull(controller) { largePulls213++; controller.enqueue(encoder213.encode('{"value":"' + "x".repeat(200_000))); }, cancel() { largeCancelled213++; } }, { highWaterMark: 0 }));
+  check(".213 one large chunk is rejected and cancelled before a second read", await core.readJson(large213) === null && largePulls213 === 1 && largeCancelled213 === 1 && !large213.body.locked);
+
   console.log("== schema: ordinary serving cannot migrate historical databases ==");
   {
     const old = freshDb(path.join(root, "tests", "fixtures", "schema-2026-09-25.sql"));
@@ -1112,6 +1208,12 @@ async function legacySchemaHeld(old) {
   await qdb("INSERT INTO invite_queue (name_key, name, discord_id, status, created_at, approved_by) VALUES ('late comer', 'Late Comer', '400000000000000002', 'queued', ?1, 'auto')", T - 300);
   let auto = await siteQueue.autoQueueReserved(env());
   check("before launch the cron queues nothing", auto === null && !db.prepare("SELECT 1 FROM invite_queue WHERE priority > 0").get());
+  // .211 QA (RT-17): a readable time outside the accepted window is refused in words that name it; an unreadable one is unreadable.
+  const outside211 = await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { launchAt: "1970-01-01T00:00:00Z" } }), ow211 = await J(outside211);
+  const garbled211 = await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { namesOpenAt: "not a time" } }), gw211 = await J(garbled211);
+  check(".211 a launch time outside the accepted window names the window; an unreadable reservation time says it could not be read",
+    outside211.status === 400 && ow211?.field === "launchAt" && ow211?.message === "Choose a launch time between November 2023 and September 2039."
+      && garbled211.status === 400 && gw211?.field === "namesOpenAt" && gw211?.message === "That reservation time could not be read.", ow211, gw211);
   await call("PUT", "/api/admin/settings", { who: VIKTOR, body: { launchAt: T - 30 } });
   auto = await siteQueue.autoQueueReserved(env());
   check("after launch it does: Bob Stone added, Carol Light moved to the front, contested Fern Melder skipped",
@@ -1440,7 +1542,7 @@ async function legacySchemaHeld(old) {
   check("/queue/unverified carries the verified list for the watcher", Array.isArray(out.verified) && out.verified[0].username === "grace_new" && out.members.some((m) => m.name === "Nobody Here"));
   res = await index.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), ctx);
   out = await res.json();
-  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-28.210 QA admission and operator safety" && out.site.host === "guild.example" && out.site.admins === 1);
+  check("/health names the build and the site (to the watcher's bearer, since .49)", out.build === "2026-10-30.216 Maintenance integration" && out.site.host === "guild.example" && out.site.admins === 1);
 
   console.log("\n== the addon-facing queue still works for an old-style caller ==");
   res = await ingest.getQueue(env(), "");

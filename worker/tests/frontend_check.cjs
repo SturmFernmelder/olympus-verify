@@ -515,6 +515,42 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check(".177 real relative-date formatter uses singular day and preserves adjacent time bands", relative(2000000000 - 86400) === "1 day ago" && relative(2000000000 - 2 * 86400) === "2 days ago" && relative(2000000000 - 60) === "1 min ago" && relative(2000000000 - 3600) === "1 h ago");
   }
   {
+    // An empty id list means every approved name to the server, so the four "selected" reserved-name actions must refuse
+    // an empty selection in the page; only "Queue every approved name now" sends [] on purpose, after its own question.
+    const t = Math.floor(Date.now() / 1000);
+    for (const name of ["Uxone", "Uxtwo"]) await fixtureRun("INSERT INTO site_reserved (owner_id, name, name_key, status, created_at, approved_by, approved_at) VALUES (?, ?, ?, 'approved', ?, ?, ?)", MEMBER, name, name.toLowerCase(), t - 60, STAFF, t - 30);
+    const queued = () => one("SELECT COUNT(*) AS n FROM invite_queue").n, queuedBefore = queued();
+    const queueBefore = JSON.stringify(db.prepare("SELECT * FROM invite_queue ORDER BY id").all());
+    if (one("SELECT 1 FROM invite_queue WHERE name_key IN ('uxone', 'uxtwo')")) throw new Error("reserved-name fixture requires unused queue names");
+    const names = await openPage(STAFF), posts = [];
+    let queueResponses = 0;
+    names.hold(pathname => { if (pathname === "/api/admin/reserved/queue") queueResponses++; return 0; });
+    names.before((pathname, init) => { if (pathname.startsWith("/api/admin/reserved/")) posts.push([pathname, init.body]); return false; });
+    await names.go("#/admin/names");
+    await waitFor(() => !!byText(names.app, "button", "Queue selected now") && !!names.app.querySelector('input[aria-label="Select Uxone"]'), "reserved names with two approved rows");
+    for (const label of ["Approve selected", "Unapprove selected", "Release selected", "Queue selected now"]) { byText(names.app, "button", label).click(); await settle(); await settle(); }
+    check("reserved names: the four selected-name actions with nothing ticked send nothing, ask nothing and say to tick a name first", posts.length === 0 && !names.document.querySelector("dialog") && queued() === queuedBefore && names.document.body.textContent.includes("Tick at least one name in the list first. Nothing was changed."), JSON.stringify(posts));
+    names.answer(pathname => pathname === "/api/admin/reserved/queue" ? new Response(JSON.stringify({ queued: 1, bumped: 0, inGuild: 0 }), { status: 200, headers: { "Content-Type": "application/json" } }) : null);
+    const box = names.app.querySelector('input[aria-label="Select Uxone"]'); box.checked = true; fire(box, "change");
+    byText(names.app, "button", "Queue selected now").click(); await settle();
+    const anyway = names.document.querySelector("dialog") && byText(names.document.querySelector("dialog"), "button", "Queue anyway"); if (anyway) { anyway.click(); await settle(); }
+    await waitFor(() => posts.length === 1 && queueResponses === 1, "the completed ticked queue request");
+    check("reserved names: a ticked name is still queued by itself", posts.length === 1 && posts[0][0] === "/api/admin/reserved/queue" && JSON.stringify(JSON.parse(posts[0][1]).ids) === JSON.stringify([one("SELECT id FROM site_reserved WHERE name_key = 'uxone'").id]), JSON.stringify(posts));
+    await waitFor(() => !!byText(names.app, "button", "Queue every approved name now") && !names.document.querySelector("dialog"), "the redrawn reserved names");
+    byText(names.app, "button", "Queue every approved name now").click(); await settle();
+    const askAll = names.document.querySelector("dialog"), okAll = askAll && (byText(askAll, "button", "Queue them") || byText(askAll, "button", "Queue anyway"));
+    if (okAll) { okAll.click(); await settle(); }
+    await waitFor(() => (posts.length === 2 && queueResponses === 2) || !okAll, "the completed deliberate queue-all request");
+    check("reserved names: 'Queue every approved name now' still asks first and sends the deliberate empty list", !!okAll && posts.length === 2 && JSON.stringify(JSON.parse(posts[1][1]).ids) === "[]", JSON.stringify(posts));
+    if (queueResponses !== 2) throw new Error("reserved-name fixture queue requests did not complete");
+    await settle(); await settle();
+    names.answer(null); names.before(null); names.hold(null);
+    // answer() replaces the receipt after the real Worker: its queue writes must not leak into the later seat cases.
+    await fixtureRun("DELETE FROM invite_queue WHERE discord_id = ? AND approved_by = 'site' AND name_key IN ('uxone', 'uxtwo') AND id IN (SELECT queue_id FROM site_reserved WHERE owner_id = ? AND name_key IN ('uxone', 'uxtwo'))", MEMBER, MEMBER);
+    await fixtureRun("DELETE FROM site_reserved WHERE name_key IN ('uxone', 'uxtwo')");
+    if (JSON.stringify(db.prepare("SELECT * FROM invite_queue ORDER BY id").all()) !== queueBefore) throw new Error("reserved-name fixture did not restore the prior invite queue");
+  }
+  {
     const pointer = `<@${OTHER}>`;
     const associated = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.appointed = { treasurer: "Appointed member" }; } });
     const identity = { role: "treasurer", appointment: pointer, displayName: "Associated display", username: "associated.user", characters: [{ name: "Private Verified Fixture", status: "member", verifiedAt: new Date(now * 1000).toISOString() }], charactersTruncated: false };
@@ -1173,14 +1209,18 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await cal.go("#/community/calendar");
   await waitFor(() => !!byText(cal.app, "a", "Molten Core"), "the calendar");
   const rangeNow = cal.app.querySelector(".plaque .btn-row span").textContent;
-  let slowed = false;
+  const calendarMore102 = byText(byText(cal.app, "h2", "Calendar").closest("section"), "button", "Show more");
+  let slowed = false, completedCalendar102 = 0;
   cal.delay((p) => { if (!slowed && p.startsWith("/api/community/events?from=")) { slowed = true; return 150; } return 0; });
-  byText(cal.app, "button", "Earlier").click(); // a slow reply for the earlier window…
-  await settle();
-  byText(cal.app, "button", "Later").click(); // …then back to the current window before it arrives
-  await new Promise((r) => setTimeout(r, 400));
-  check("F96-1: a reply for a window the viewer has left is discarded: the current window's rows once each, its range shown, no stale status", cal.app.querySelectorAll("a").filter((a) => a.textContent === "Molten Core").length === 1 && cal.app.querySelector(".plaque .btn-row span").textContent === rangeNow && !cal.app.textContent.includes("Nothing is scheduled in this window"), JSON.stringify(texts(cal.app, ".card h3 a")));
-  cal.delay(null);
+  cal.hold((p) => { if (p.startsWith("/api/community/events?from=")) completedCalendar102++; return 0; });
+  try {
+    byText(cal.app, "button", "Earlier").click(); // a slow reply for the earlier window…
+    await settle();
+    byText(cal.app, "button", "Later").click(); // …then back to the current window before it arrives
+    const settledCalendar102 = await waitFor(() => completedCalendar102 === 2 && !calendarMore102.disabled, "both original calendar replies and current window settlement");
+    await settle(); await settle();
+    check("F96-1: a reply for a window the viewer has left is discarded: the current window's rows once each, its range shown, no stale status", settledCalendar102 && completedCalendar102 === 2 && cal.app.querySelectorAll("a").filter((a) => a.textContent === "Molten Core").length === 1 && cal.app.querySelector(".plaque .btn-row span").textContent === rangeNow && !cal.app.textContent.includes("Nothing is scheduled in this window"), JSON.stringify(texts(cal.app, ".card h3 a")));
+  } finally { cal.delay(null); cal.hold(null); }
   const MONDAY2 = MONDAY - 7 * DAY;
   r = await apiAs(STAFF, "POST", "/api/admin/community/contributions", { action: "obligation", discordId: MEMBER, periodStart: isoAt(MONDAY2) });
   const WEEK2_ID = r.body.result && r.body.result.id;
@@ -1254,16 +1294,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(cr.app, "button", "Show opt-in guild profiles and crafting offers").click();
   await waitFor(() => !!byText(cr.app, "h2", "Crafting offers"), "the crafting panel");
   const craft3 = byText(cr.app, "h2", "Crafting offers").closest("section");
-  let slow3 = false;
+  const craftingMore104 = byText(craft3, "button", "Show more");
+  let slow3 = false, completedCrafting104 = 0;
   cr.delay((p) => { if (!slow3 && p.includes("/api/community/crafting?q=flask")) { slow3 = true; return 150; } return 0; });
-  craft3.querySelector('input[type="search"]').value = "flask";
-  byText(craft3, "button", "Search").click();
-  await settle();
-  craft3.querySelector('input[type="search"]').value = "zzzz";
-  byText(craft3, "button", "Search").click();
-  await new Promise((r) => setTimeout(r, 400));
-  check("F100-3: a reply to a superseded crafting search is discarded: no card from the old query under the new one, the new status shown", craft3.querySelectorAll(".card.craft").length === 0 && craft3.textContent.includes("No offer matches"), JSON.stringify(texts(craft3, ".card.craft h3")));
-  cr.delay(null);
+  cr.hold((p) => { if (p === "/api/community/crafting?q=flask" || p === "/api/community/crafting?q=zzzz") completedCrafting104++; return 0; });
+  try {
+    craft3.querySelector('input[type="search"]').value = "flask";
+    byText(craft3, "button", "Search").click();
+    await settle();
+    craft3.querySelector('input[type="search"]').value = "zzzz";
+    byText(craft3, "button", "Search").click();
+    const settledCrafting104 = await waitFor(() => completedCrafting104 === 2 && !craftingMore104.disabled, "both original crafting replies and current search settlement");
+    await settle(); await settle();
+    check("F100-3: a reply to a superseded crafting search is discarded: no card from the old query under the new one, the new status shown", settledCrafting104 && completedCrafting104 === 2 && craft3.querySelectorAll(".card.craft").length === 0 && craft3.textContent.includes("No offer matches"), JSON.stringify(texts(craft3, ".card.craft h3")));
+  } finally { cr.delay(null); cr.hold(null); }
 
   console.log("\n== .105: two inherited wordings (Codex, 10:48) ==");
   check(".196 application consent separates the optional Discord portrait from original board consent and class art", APP_JS.includes("They see your Discord display name and class icon") && APP_JS.includes("Your Discord picture is shown only if you choose the separate optional box below.") && APP_JS.includes("Also show my Discord profile picture on the voting board (optional).") && APP_JS.includes("Earlier board consent did not include a Discord picture.") && !APP_JS.includes("Discord display name and profile picture alongside your class icon") && !APP_JS.includes("never your Discord picture") && !APP_JS.includes("They see your Discord name and picture"));
@@ -2649,8 +2693,35 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
     const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
     const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
-    check(".154 source wires the actual SVG organization module after the genuine model", APP_JS.includes('const { renderOrganization } = await import("/static/organization-view.js")') && APP_JS.includes('renderOrganization(main, currentData201, { h, add, clear, posIcon, parts, scrollToSection,') && APP_JS.includes('const currentData201 = {...data, terms:data.terms.map(term => {') && APP_JS.includes('applicationEligible:row.applicationEligible,reservedSeat201:row.reservedSeat201,acquisition:row.acquisition') && APP_JS.includes('officeAvailability: Object.fromEntries') && organizationSource.includes("export function renderOrganization(main, data, ui)") && organizationSource.includes("document.createElementNS(NS, tag)") && organizationSource.includes('const NS = "http://www.w3.org/2000/svg"'));
-    check(".205 the same guarded organization route supplies the wide overview and full detailed guides", APP_JS.includes('const { renderAllianceOverview205 } = await import("/static/organization-overview205.js")') && APP_JS.includes('allianceOverview205:renderAllianceOverview205') && APP_JS.includes('roleGuides201:M().roleGuides201') && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines'));
+    check(".154 source wires the actual SVG organization module after the genuine model", (() => {
+      const start = '  ROUTES.organization = async (main, parts) => {', end = '\n  // ---------------------------------------------------------------- home';
+      if (APP_JS.split(start).length !== 2) return false;
+      const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
+      if (last <= first) return false;
+      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
+      return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
+        && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
+        && route.includes('const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;')
+        && route.split('if (!current()) return;').length === 3 && route.includes(modules + '\n    if (!current()) return;\n    const currentData201 = {...data, terms:data.terms.map(term => {')
+        && route.includes('renderOrganization(main, currentData201, { h, add, clear, posIcon, parts, scrollToSection,')
+        && route.includes('applicationEligible:row.applicationEligible,reservedSeat201:row.reservedSeat201,acquisition:row.acquisition') && route.includes('officeAvailability: Object.fromEntries')
+        && organizationSource.includes("export function renderOrganization(main, data, ui)") && organizationSource.includes("document.createElementNS(NS, tag)") && organizationSource.includes('const NS = "http://www.w3.org/2000/svg"');
+    })());
+    check(".205 the same guarded organization route supplies the wide overview and full detailed guides", (() => {
+      const start = '  ROUTES.organization = async (main, parts) => {', end = '\n  // ---------------------------------------------------------------- home';
+      if (APP_JS.split(start).length !== 2) return false;
+      const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
+      if (last <= first) return false;
+      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
+      return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
+        && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
+        && route.includes('const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;')
+        && route.split('if (!current()) return;').length === 3 && route.includes(modules + '\n    if (!current()) return;\n    const currentData201 =')
+        && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
+        && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines');
+    })());
     check(".208 actual private R7-bound model preserves original38/95 arrays and adds exactly one reserved trading remit", (() => {
       const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
       return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false

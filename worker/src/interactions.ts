@@ -5,7 +5,7 @@ import { globalServingMode } from './privacy-global-serving-origin';
 import { callBudget, revokeForBan } from './roles';
 import {captureBetaRoleDispatch,betaRoleDispatchHeld,betaSourceEpochState,type BetaRoleDispatch} from './beta-reset-policy';
 import type { Env } from "./env";
-import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound } from './privacy-serving-authority';
+import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound,pendingPrivacyCapture } from './privacy-serving-authority';
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
@@ -130,19 +130,44 @@ async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCap
   }
 
   // One open request per character name at a time (first come, first served, 24 h).
-  const open = await openPendingFor(env, nameKey);
-  if (open && open.discord_id !== user.id) {
-    return reply(`A verification for **${raw}** is already in progress from another account. It expires <t:${open.expires_at}:R>; if the character is yours, whisper the code from it or ask an officer.`);
-  }
-  let expiresAt = open?.expires_at;
+  let open = await openPendingFor(env, nameKey);
+  if (open && open.discord_id !== user.id) return reply(await heldElsewhere(env, raw));
+  // SEN-01: one timestamp opens the request and dates its code, so the reply cannot show the next day's code.
+  let opened = open?.created_at ?? now();
+  let expiresAt = open?.expires_at ?? opened + PENDING_TTL;
   if (!open) {
-    expiresAt = now() + PENDING_TTL;
-    await env.DB.prepare("INSERT INTO pending (discord_id, name_key, name, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)")
-      .bind(user.id, nameKey, raw, now(), expiresAt)
+    // SEN-01 follow-up (30 Oct 2026): the check and the insert are one statement (D1 runs statements one at a time), so two
+    // accounts cannot both open the name. A name takes one character-code request a UTC day: once one from this day has
+    // ended, nobody opens another before 00:00 UTC, its own account included (it was shown this same code, so a whisper of
+    // it would claim the new one), except an account whose live link to the character was verified since (it proved it is
+    // the one whispering; an unbound or denied link proves nothing). Nor does an account take a name back the day an
+    // officer closed its live request: a release always, an unbind unless it was that account's link.
+    const ins = await env.DB.prepare(
+      `INSERT INTO pending (discord_id, name_key, name, created_at, expires_at)
+       SELECT ?1, ?2, ?3, ?4, ?5
+        WHERE NOT EXISTS (SELECT 1 FROM pending WHERE name_key = ?2 AND consumed_at IS NULL AND expires_at > ?4)
+          AND NOT EXISTS (SELECT 1 FROM pending p WHERE p.name_key = ?2 AND p.nonce IS NULL
+                           AND ((p.created_at >= ?6
+                                 AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.name_key = ?2 AND c.discord_id = ?1
+                                                   AND c.status IN ('verified', 'queued', 'member') AND c.verified_at >= p.created_at))
+                             OR (p.discord_id = ?1 AND p.consumed_at >= ?6 AND p.expires_at > p.consumed_at
+                                 AND (p.consumed_source = 'release'
+                                   OR (p.consumed_source = 'unbind' AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.name_key = ?2 AND c.discord_id = ?1))))))`,
+    )
+      .bind(user.id, nameKey, raw, opened, expiresAt, opened - (opened % 86_400))
       .run();
-    await audit(env, user.id, "verify.requested", raw);
+    if (ins.meta.changes) await audit(env, user.id, "verify.requested", raw);
+    else {
+      // Another press got there first, or the name is closed for today: whoever holds it now decides the answer.
+      open = await openPendingFor(env, nameKey);
+      if (!open) return reply(await takenToday(env, raw, opened));
+      if (open.discord_id !== user.id) return reply(await heldElsewhere(env, raw));
+      opened = open.created_at;
+      expiresAt = open.expires_at;
+    }
   }
-  const code = await codeFor(env.VERIFY_SECRET, raw, dayBucket(new Date()));
+  // SEN-01: the code of the day this request opened (ingest.ts accepts only that day's and the next), not today's.
+  const code = await codeFor(env.VERIFY_SECRET, raw, dayBucket(new Date(opened * 1000)));
   return reply(await appendLinkBlock(env, user,
     [
       `Your code for **${raw}**: \`${code}\`  (valid until <t:${expiresAt}:f>)`,
@@ -156,6 +181,27 @@ async function issueCode(env: Env, i: Interaction, input: string, lane?: LaneCap
       `This is for the **main Olympus guild** only \u2014 Olympus 2 and the later Olympus guilds are not verified here (their members use ${visitorChat(env)}).`,
     ].join("\n")),
   );
+}
+
+/**
+ * SEN-01 (30 Oct 2026): the answer while another account's open request holds the name. No expiry time and no "whisper the
+ * code": a character code names only the character and the day, so whispering it would link the character to that other
+ * account. A request code names the account, but Get my code hands one out only while ticketsReady; otherwise it asks for
+ * this name again.
+ */
+async function heldElsewhere(env: Env, raw: string): Promise<string> {
+  const route = (await ticketsReady(env))
+    ? "press **Get my code** in the guide and whisper the request code it gives you from the character, or ask an officer"
+    : "ask an officer, or try again later: a request lasts at most 24 hours";
+  return `A verification for **${raw}** is already in progress from another account. If the character is yours, ${route}.`;
+}
+
+/** SEN-01 follow-up: the answer while a request that ended today keeps the name closed to /verify until 00:00 UTC. */
+async function takenToday(env: Env, raw: string, t: number): Promise<string> {
+  const route = (await ticketsReady(env))
+    ? "press **Get my code** in the guide now and whisper the request code it gives you from the character"
+    : "run `/verify` again then";
+  return `**${raw}** cannot get a new \`/verify\` request until 00:00 UTC (<t:${t - (t % 86_400) + 86_400}:R>), because an earlier request for it ended today. If the character is yours, ${route}.`;
 }
 
 /**
@@ -599,6 +645,28 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       const raw = option<string>(i, "character") ?? "";
       const key = normalizeCharacter(raw);
       const row = await getCharacter(env, key);
+      // SEN-01 follow-up (30 Oct 2026): a name with no live binding (never linked, or unbound) can still be held by an open
+      // request. Closing it is the officers' lever short of a ban; the reply names the holder, who cannot take the name back
+      // before 00:00 UTC (issueCode). A blank name (open request codes carry an empty name_key) closes nothing; an unbound
+      // name with nothing open is unbound again as before.
+      const held = key && (!row || row.status === "unbound") ? await openPendingFor(env, key) : null;
+      if (held) {
+        // Keep the original target generation with the officer through every continuation.
+        const capture = pendingPrivacyCapture(held), releaseEnv = privacyBoundSubjectEnv(env, held.discord_id, capture);
+        const t = now(), until = `00:00 UTC (<t:${t - (t % 86_400) + 86_400}:R>)`;
+        const closed = await releaseEnv.DB.prepare("UPDATE pending SET consumed_at = ?2, consumed_source = 'release' WHERE id = ?1 AND consumed_at IS NULL AND expires_at > ?2").bind(held.id, t).run();
+        if (!closed.meta.changes) return reply(`The open verification request for **${held.name}** ended just now; look the name up again.`);
+        // Unbinding an unbound name again used to cancel an invite its old link had waiting; a release does that too.
+        if (row) await releaseEnv.DB.prepare("UPDATE invite_queue SET status = 'cancelled' WHERE name_key = ?1 AND status IN ('queued','written')").bind(key).run();
+        await audit(releaseEnv, actor, "admin.release", held.name, { holder: held.discord_id, request: held.id }, { subject: held.discord_id, capture });
+        // Other accounts wait for 00:00 UTC as well only if that request was opened today (its code was shown today).
+        const when = held.created_at >= t - (t % 86_400)
+          ? `\`/verify\` for this name stays closed to every account until ${until}`
+          : `other accounts can open a \`/verify\` request for this name now, <@${held.discord_id}> only from ${until}`;
+        const ticket = (await ticketsReady(releaseEnv)) ? "; the owner's request code (**Get my code**) works at once" : "";
+        await releaseEnv.DB.prepare('SELECT 1 AS admin_release_target_current').first();
+        return reply(`No binding for **${held.name}**; the open verification request from <@${held.discord_id}> is closed, and ${when}${ticket}.`);
+      }
       if (!row) return reply(`No binding for **${raw}**.`);
       await env.DB.batch([
         env.DB.prepare("UPDATE characters SET status = 'unbound', left_at = ?2, guid = NULL WHERE name_key = ?1").bind(key, now()),

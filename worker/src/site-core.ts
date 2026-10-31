@@ -356,10 +356,39 @@ export const shownName = (f: { username: string | null; displayName: string | nu
   return (names.length ? `${names.join(" · ")} (@${user})` : `@${user}`).slice(0, 140);
 };
 
-/** A JSON object body, {} when empty, or null when it is not one (or over 64 KB). */
+/** A JSON object body, {} when empty, or null when it exceeds the original 64,000 UTF-16 units.
+ * Enforce that limit while reading; a byte cap would reject previously accepted Unicode. */
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
-  const text = await request.text();
-  if (text.length > 64_000) return null;
+  if (request.bodyUsed) throw new TypeError("Request body already consumed");
+  let text = "";
+  const reader = request.body?.getReader();
+  if (reader) {
+    try {
+      const decoder = new TextDecoder(), prototype = Object.getPrototypeOf(Uint8Array.prototype);
+      const getter = (key: string | symbol) => Object.getOwnPropertyDescriptor(prototype, key)!.get!;
+      const tag = getter(Symbol.toStringTag), length = getter("byteLength"), start = getter("byteOffset"), buffer = getter("buffer");
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          const tail = decoder.decode();
+          if (tail.length > 64_000 - text.length) return null;
+          text += tail;
+          break;
+        }
+        if (Reflect.apply(tag, value, []) !== "Uint8Array") throw new TypeError("Expected request bytes");
+        const size = Reflect.apply(length, value, []), base = Reflect.apply(start, value, []), bytes = Reflect.apply(buffer, value, []);
+        // Bound decoding too when a stream supplies one unusually large chunk.
+        for (let offset = 0; offset < size; offset += 4096) {
+          const part = decoder.decode(new Uint8Array(bytes, base + offset, Math.min(4096, size - offset)), { stream: true });
+          if (part.length > 64_000 - text.length) {
+            void reader.cancel().catch(() => undefined);
+            return null;
+          }
+          text += part;
+        }
+      }
+    } finally { reader.releaseLock(); }
+  }
   if (!text.trim()) return {};
   try {
     const v = JSON.parse(text) as unknown;

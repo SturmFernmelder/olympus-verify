@@ -185,5 +185,75 @@ async function erasure(f){const account=f.db.prepare('SELECT account_incarnation
  }
 
 
- console.log(`\n${pass}/${n} passed; unexpected outbound=${unexpected}`);if(pass!==n||unexpected)process.exitCode=1;
+  // Actual acknowledged grant, then a current application marker collides with
+  // its historical ID. New Treasury configuration remains absent throughout cleanup.
+  const fullRoles210=()=>Array.from({length:10},(_,i)=>(300000000000000700n+BigInt(i)).toString());
+  const markerAliases210=[
+   ...['ROLE_GUILD_MEMBER','MEMBERSHIP_RETIRED_ROLE_ID','ROLE_OFFICER','ROLE_MODERATOR','ROLE_GUILD_LEADER','ROLE_GUILD_MASTER','ROLE_RAID_LEADER','LINK_ROLE_ID'].map(key=>[key,{[key]:ROLE_IDS.tithePayer}]),
+   ['BLOCKING_ROLE_IDS',{BLOCKING_ROLE_IDS:OTHER+','+ROLE_IDS.tithePayer}],
+   ['INTROS_ROLES',{INTROS_ROLES:OTHER+','+ROLE_IDS.tithePayer}],
+   ['QR_NATIVE_ROLE_MAP',{QR_NATIVE_ROLE_MAP:JSON.stringify({profile:'beta-five',roles:[ROLE_IDS.tithePayer,...fullRoles210().slice(0,4)]})}],
+   ['FULL_RELEASE membership',{FULL_RELEASE_ROLES:JSON.stringify({membership:ROLE_IDS.tithePayer,native:fullRoles210()})}],
+   ['FULL_RELEASE native',{FULL_RELEASE_ROLES:JSON.stringify({membership:MEMBER,native:[ROLE_IDS.tithePayer,...fullRoles210().slice(0,9)]})}],
+  ];
+  for(const [name,over]of markerAliases210){
+   const h=await fixture(),oldClock=T;
+   try{
+    await h.record(250000);const beforePreview=calls.length,badPreview=await h.call('preview',{discordId:TARGET,recognitionConsent:true},ADMIN,over);
+    check('.211 preview refuses current '+name+' alias without provider work',badPreview.status===503&&calls.length===beforePreview,badPreview);
+    const q=await h.preview(),body={token:q.body.token,operationId:q.body.changes[0].operationId,confirmed:true},beforeConfirm=calls.length,badConfirm=await h.call('confirm',body,ADMIN,over);
+    check('.211 reassignment after preview prevents confirmation of '+name, badConfirm.status===503&&calls.length===beforeConfirm&&!h.db.prepare('SELECT 1 FROM role_settlements WHERE id=?').get(body.operationId),badConfirm);
+    await h.call('confirm',body);
+    if(!h.held.has(ROLE_IDS.tithePayer))throw Error('No original acknowledged parent for '+name);
+    const parent=JSON.stringify(h.db.prepare('SELECT * FROM role_settlements WHERE id=?').get(body.operationId));
+    T=JSON.parse(CONFIG).seasonStartsAt+treasury.TREASURY_WINDOW_SECONDS+1;
+    const current={...h.env,...over,TREASURY_COSMETIC_ENABLED:'false',TREASURY_COSMETIC_ROLES:undefined},before=calls.length,deletes=calls.filter(x=>x.method==='DELETE').length,sql=h.raw.nativeGroups.flat().length;
+    const limits=()=>({sqlRemaining:settlements.TREASURY_EXPIRY_SQL_MAX,calls:{limit:8,attempts:0,retries:0}}),out=await settlements.expireTreasuryCosmeticRoles(current,limits());
+    const child=h.db.prepare("SELECT state,reason,attempts,checked_at FROM role_settlements WHERE purpose='treasury_cosmetic_expiry' AND request_digest=?").get(body.operationId);
+    check('.211 expiry refuses current '+name+' collision without deleting its marker',out.state==='held'&&out.reason==='treasury_expiry_reserved_role'&&child.state==='pending'&&child.reason==='expiry_reserved_role'&&child.attempts===0&&child.checked_at===T&&h.held.has(ROLE_IDS.tithePayer)&&calls.filter(x=>x.method==='DELETE').length===deletes&&JSON.stringify(h.db.prepare('SELECT * FROM role_settlements WHERE id=?').get(body.operationId))===parent,out);
+    check('.211 '+name+' collision retains original Native64/HTTP8 bound',h.raw.nativeGroups.flat().length-sql<=settlements.TREASURY_EXPIRY_SQL_MAX&&calls.length-before<=settlements.TREASURY_EXPIRY_HTTP_MAX);
+    const readBefore=calls.length;await settlements.expireTreasuryCosmeticRoles(current,limits());
+    check('.211 '+name+' collision keeps the one-hour pending backoff',calls.length===readBefore);
+   }finally{T=oldClock;h.close();}
+  }
+  for(const phase of ['inventory-await','inherited-marker-await','claim-await']){
+   const h=await fixture(),oldClock=T;
+   try{
+    await h.record(250000);const q=await h.preview(),body={token:q.body.token,operationId:q.body.changes[0].operationId,confirmed:true};await h.call('confirm',body);
+    const parent=JSON.stringify(h.db.prepare('SELECT * FROM role_settlements WHERE id=?').get(body.operationId)),markerPrototype={},current=Object.assign(Object.create(markerPrototype),{...h.env,TREASURY_COSMETIC_ENABLED:'false',TREASURY_COSMETIC_ROLES:undefined});
+    T=JSON.parse(CONFIG).seasonStartsAt+treasury.TREASURY_WINDOW_SECONDS+1;let changed=false,error=null;
+    if(phase!=='claim-await')h.onGet(async route=>{if(!changed&&route.endsWith('/roles')){changed=true;if(phase==='inherited-marker-await')Object.defineProperty(markerPrototype,'LINK_ROLE_ID',{value:ROLE_IDS.tithePayer});else current.LINK_ROLE_ID=ROLE_IDS.tithePayer;}});
+    else h.beforeBatch(async plan=>{if(!changed&&plan.some(s=>s.sql.includes("reason='expiry_dispatching'"))){changed=true;current.ROLE_GUILD_MEMBER=ROLE_IDS.tithePayer;}});
+    const deletes=calls.filter(x=>x.method==='DELETE').length;
+    try{await settlements.expireTreasuryCosmeticRoles(current,{sqlRemaining:settlements.TREASURY_EXPIRY_SQL_MAX,calls:{limit:8,attempts:0,retries:0}});}catch(e){error=e;}
+    const child=h.db.prepare("SELECT state,attempts FROM role_settlements WHERE purpose='treasury_cosmetic_expiry' AND request_digest=?").get(body.operationId);
+    check('.211 marker change across '+phase+' refuses DELETE and preserves original parent',changed&&h.held.has(ROLE_IDS.tithePayer)&&calls.filter(x=>x.method==='DELETE').length===deletes&&JSON.stringify(h.db.prepare('SELECT * FROM role_settlements WHERE id=?').get(body.operationId))===parent&&(phase!=='claim-await'?child.attempts===0:!!error&&child.attempts===1&&child.state==='dispatching'),{child,error:error?.message});
+    if(phase==='claim-await'){const spent=JSON.stringify(child);await settlements.expireTreasuryCosmeticRoles(current,{sqlRemaining:settlements.TREASURY_EXPIRY_SQL_MAX,calls:{limit:8,attempts:0,retries:0}});check('.211 a no-send changed-marker claim remains conservatively spent without retry',JSON.stringify(h.db.prepare("SELECT state,attempts FROM role_settlements WHERE purpose='treasury_cosmetic_expiry' AND request_digest=?").get(body.operationId))===spent&&calls.filter(x=>x.method==='DELETE').length===deletes);}
+   }finally{T=oldClock;h.close();}
+  }
+  // Change the actual environment passed to the handler, rather than the
+  // fixture's template which call() spreads before entering real source.
+  for(const phase of ['preview','confirm']){
+   const h=await fixture();
+   try{
+    await h.record(250000);let body={discordId:TARGET,recognitionConsent:true};
+    if(phase==='confirm'){const q=await h.preview();body={token:q.body.token,operationId:q.body.changes[0].operationId,confirmed:true};}
+    const current={...h.env};let changed=false;
+    h.onGet(async route=>{if(!changed&&route.endsWith('/channels')){changed=true;current.LINK_ROLE_ID=ROLE_IDS.tithePayer;}});
+    const before=calls.filter(x=>['PUT','DELETE'].includes(x.method)).length,request=new Request('https://guild.example/api/admin/treasury/'+phase,{method:'POST',headers:{Cookie:h.cookies.get(ADMIN),Origin:'https://guild.example','X-Olympus':core.PAGE_VERSION}});
+    const response=await treasury.handleTreasuryCosmeticAdmin(request,current,[phase],{discord_id:ADMIN},body),out=await response.json();
+    const rows=h.db.prepare('SELECT attempts FROM role_settlements').all();
+    check('.211 current marker reassignment during '+phase+' qualification cannot dispatch or spend an effect',changed&&response.status!==200&&calls.filter(x=>['PUT','DELETE'].includes(x.method)).length===before&&!h.held.has(ROLE_IDS.tithePayer)&&(phase==='preview'?rows.length===0:rows.length===1&&rows[0].attempts===0),out);
+   }finally{h.close();}
+  }
+  const reserved210=load('./treasury-reserved-roles'),beta210=load('./beta-reset-policy').BETA_RESET_ROLE_IDS;
+  check('.211 canonical restriction always includes every fixed beta-reset marker',beta210.every(role=>reserved210.captureTreasuryReservedRoles({}).roles.includes(role)));
+  let getter210=0;const accessor210={};Object.defineProperty(accessor210,'LINK_ROLE_ID',{get(){getter210++;throw Error('must not read marker getter');}});
+  let refused210=false;try{reserved210.captureTreasuryReservedRoles(accessor210);}catch{refused210=true;}check('.211 marker capture refuses accessors without invoking them',refused210&&getter210===0);
+  const footprint210={},captured210=reserved210.captureTreasuryReservedRoles(footprint210);Object.defineProperty(footprint210,'LINK_ROLE_ID',{value:ROLE_IDS.tithePayer});refused210=false;try{captured210.check();}catch{refused210=true;}check('.211 an originally absent marker cannot appear unnoticed',refused210);
+  const privatePrototype211={},inherited211=Object.create(privatePrototype211),savedInherited211=reserved210.captureTreasuryReservedRoles(inherited211);let inheritedGetter211=0;
+  Object.defineProperty(privatePrototype211,'LINK_ROLE_ID',{get(){inheritedGetter211++;return ROLE_IDS.tithePayer;}});
+  refused210=false;try{savedInherited211.check();}catch{refused210=true;}
+  check('.211 a late inherited marker on the same private prototype is refused without invoking its getter',refused210&&inheritedGetter211===0&&Object.getPrototypeOf(inherited211)===privatePrototype211&&!Object.hasOwn(inherited211,'LINK_ROLE_ID'));
+  console.log(`\n${pass}/${n} passed; unexpected outbound=${unexpected}`);if(pass!==n||unexpected)process.exitCode=1;
 })().catch(error=>{console.error(error);process.exitCode=1;});

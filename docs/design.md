@@ -197,8 +197,20 @@ garbage must not be able to empty the queue.
   release names with `/olympus-admin unbind`. High-profile names get no special path: the same rule protects them.
 
 ## Threats considered
-- Squatting a name before its owner verifies: one open request per name for 24 h; the real owner whispers from the
-  character and wins the binding; a squatter's request expires unconsumed.
+- Squatting a name before its owner verifies: one open request per name for 24 h, and a squatter's request expires
+  unconsumed. Meanwhile the real owner wins the binding by whispering a request code (Get my code, while request codes
+  are on) from the character; no character code for that name is handed out until the request ends. Officers can close
+  the request early with `/olympus-admin unbind`, also on a name with no live binding; its holder then cannot take the
+  name back before 00:00 UTC.
+- Stale character codes (SEN-01, 30 Oct 2026): a character code depends only on the name and the day, so a code shown
+  for an earlier request would also have claimed the name's next request, opened by another account once the first
+  lapsed. A character code now counts only for a request opened on the code's day or the day before, even for the same
+  account, so a new request needs its own code. `/verify` shows a request's own code again, and a second account's
+  refusal names no expiry and points to a request code while those are on, otherwise to an officer. One statement checks
+  for an open request and opens the new one, so two accounts cannot both open a name, and a name takes one
+  character-code request a UTC day: once it has ended, `/verify` for the name stays closed until 00:00 UTC, its own
+  account included, because that day's code was already shown; an account whose live link to the character was
+  verified since is exempt (an unbound link is not).
 - Replayed codes: single-use per pending request; a valid code with no open request is logged and ignored.
 - A stolen `Config.lua`: yields codes for any name for a day — rotate `VERIFY_SECRET` in all three places.
 - A tampered `OlympusQueue.lua`: only strings and numbers are loaded, and invites still need the officer's key.
@@ -2229,3 +2241,40 @@ untrusted: malformed or incomplete backfill summaries cannot be presented as a s
 bodies and exception text are replaced with fixed guidance in both helpers and the authenticated backfill response.
 The synthetic tests retain original failure evidence and exercise the real implementations. They establish no live
 Discord, bank, protected-action or distribution acceptance. No DDL, provider setting or launch gate changes here.
+
+
+### Build .211 — protect the current owner of a view or role (29 October 2026)
+
+A Treasury lookup belongs to the administrator panel that requested it, and selection cannot change the target of a busy operation. The picker now supplies the same live-view/idle predicate to lookup responses and cached choices. A departed panel cannot sign out or redraw a replacement panel; current 401/409 responses still receive their normal handling.
+
+A historical cosmetic grant does not establish that its Discord role remains cosmetic. Cleanup reuses the current protected-marker classification before and across asynchronous qualification and at the final guarded provider dispatch. Missing new-grant configuration does not disable legitimate historical cleanup, and no new provider request, retry, SQL reservation or role authority is introduced. The runbook distinguishes an exact stored definitive nonapplication receipt from an unknown result; only the former can release the original UI marker for a new reviewed operation.
+
+The addon filter change exposes the sixth already-eligible rank; it does not widen removal eligibility or bypass current per-keypress checks. Copy describes the actual safe attended controls and local logging/roster behavior. These repairs are prepared separately from the live .210 release and carry no deployment or installed-client acceptance.
+
+### Build .212 — diagnostics are an output boundary (30 October 2026)
+
+The renewed .211 audit reproduced rejected verification values and parser source fragments reaching the real watcher logger. A rejected input is still sensitive: validation failure does not authorize printing a prefix, token, source excerpt or derived hash. Rejection diagnostics therefore use fixed categories while retaining existing validation and retry/state behavior. Parser exceptions remain useful to local callers, but the operator log must not serialize their untrusted payloads.
+
+Observed chat-log latency establishes when bytes became visible to the watcher; it cannot prove that an addon forced the client to flush them. Guild chat remains informational rather than authority to grant or strip roles. Current-version and upstream-adoption wording likewise separates source/distribution facts from native acceptance and website activation.
+
+Treasury reference reads need useful configuration guidance in their own context. That read-only recovery wording must not change uncertain confirmation or receipt semantics, imply a failed write had no effect, or encourage resending an original operation. This PR changes no authority, feature gate, schema or provider state. Production .211 and installed addon 0.6.13 remain unchanged; native QA and the owner-stopped experiments retain their prior status.
+
+
+### Build .213 — bounded request json (30 October 2026)
+
+Bounded input handling must limit accumulation, while preserving the existing character contract rather than silently imposing a byte cap. Enforce the existing64000 UTF16-unit JSON limit during streaming reads, including splitUTF8/BOM/error/cancel behavior. Authentication, authorization and accepted payload semantics are unchanged. This candidate adds no feature activation, provider authority or native acceptance.
+
+
+### Build .214 — parallel organization modules (30 October 2026)
+
+The overview renderer has its own context dependency. Loading its independent sibling first adds a request round trip before that dependency chain can start. Measurements are controlled synthetic cold-route observations, not production speed claims. Start the two independent Organization renderer imports together and retain the original current-view check after both complete. No route authority, model, renderer or module destination changes. This candidate adds no feature activation, provider authority or native acceptance.
+
+
+### Build .215 — accessible catalogue results (30 October 2026)
+
+A changing visible catalogue count needs an accessible status boundary. The shared message node also serves Updates, so live-region changes must stay confined to the two catalogue views. Expose Addons/Guides filter result counts as polite atomic status updates. Preserve focus, existing classes, existing Updates feedback and polling behavior. This candidate adds no feature activation, provider authority or native acceptance.
+
+
+### Build .216 — unified maintenance integration (30 October 2026)
+
+Compose the independently reviewed maintenance changes with the cumulative request lifecycle, admin release, watcher boundary and website feedback improvements. Preserve existing admission/privacy controls and original test authorities; any finite current-source compatibility projection must remain exact and independently reviewed. Public summaries stay neutral. This release changes no feature activation, native acceptance or installed watcher/addon state.

@@ -620,8 +620,8 @@ local function BuildToolbar()
     "Exports the roster and reloads: the reload writes the roster and the event log for the watcher to send, and loads the newest Discord queue file. The screen reloads for a few seconds.")
   exportBtn:SetPoint("LEFT", sendButton, "RIGHT", 8, 0)
   UI.exportButton = exportBtn
-  local flushBtn = Button(panel, "Flush chat log", 126, 24, function() API.FlushChatLog(); UI.Refresh() end,
-    "Push the chat log to disk", "Turns chat logging off and on again so the watcher sees buffered whispers and guild messages now instead of at the next 48 KiB.")
+  local flushBtn = Button(panel, "Restart chat log", 126, 24, function() API.FlushChatLog(); UI.Refresh() end,
+    "Restart chat logging", "Turns chat logging off and on again. This does not guarantee a disk flush; use Sync & reload for the documented exchange. /olv logtest measures delivery on this client.")
   flushBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
   UI.flushButton = flushBtn
   local clearBtn = Button(panel, "Clear queue", 104, 24, function() API.ClearQueue() end,
@@ -761,9 +761,13 @@ local function BuildRemoval()
   UI.candRows = candRows
 
   filterButtons = {}
-  for i = 1, 5 do
-    local b = Button(panel, "", 94, 20, nil, "Rank filter",
-      "Click to show or hide this rank. The Guild Master and officers are never offered, whatever the filter says.")
+  -- Six unprotected ranks (native indices 4-9) fit in the existing row.
+  for i = 1, 6 do
+    local b = Button(panel, "", 94, 20, nil, function(self)
+      if not self.rank then return end
+      return "Rank filter: " .. tostring(self.rank),
+        "Click to show or hide this rank. Protected ranks are never offered, whatever the filter says."
+    end)
     b:SetScript("OnClick", function(self) if self.rank then API.ToggleUnverifiedRank(self.rank); UI.Refresh() end end)
     b:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD + (i - 1) * 100, CAND_TOP - 10 - CAND_HEAD_H)
     b.rankFilter = true
@@ -852,7 +856,7 @@ local function RefreshTiles(s)
   if s.chatLogging then
     SetTile(2, "CHAT LOG", GREEN .. "on|r" .. (s.flushLog and "" or (GREY .. " · manual|r")), C.green, "Chat log on",
       "Whispers and guild messages go to Logs\\WoWChatLog.txt, which the watcher reads. " ..
-      (s.flushLog and "The addon pushes it to disk after every whisper and every guild join or departure; /olv logtest measures how fast." or "The client writes it every 48 KiB of chat and at /reload or logout; Sync & reload pushes everything at once."))
+      (s.flushLog and "The addon requests a logging restart after each whisper and guild join or departure. That does not guarantee a disk flush; /olv logtest measures delivery on this client. Use Sync & reload for the documented exchange." or "On the measured beta, chat is written in 48 KiB batches and at /reload or logout. Use Sync & reload for the documented exchange."))
   else
     SetTile(2, "CHAT LOG", RED .. "OFF|r", C.red, "Chat log OFF", "Whispers do not reach Discord until chat logging is back on (/chatlog, or /reload: the addon turns it on at login).")
   end

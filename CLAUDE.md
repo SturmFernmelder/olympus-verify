@@ -6,11 +6,17 @@ Guidance for the AI coding agents working in this repository (Claude Code reads 
 `AGENTS.md`, which points here). It describes how the code is built and the rules that are easy to break. For what is
 deployed and what is open, read the tail of the task log (below) and `docs/deploy-checklist.md` (newest build last).
 
+**Current maintenance instructions (30 Oct 2026):** Read the [.212 maintenance checkpoint](#current-maintenance-checkpoint-30-oct-2026)
+and `docs/maintenance-audit-2026-10-30.md` before interpreting the historical release overrides below. Build .212 is
+accepted and live; the owner authorized separate maintenance PRs, not another deployment or a restart of waived experiments.
+
 **Current owner instruction (3 Oct 2026):** Claude Code reached its weekly usage limit; the owner instructed Codex to
 "Take over from here and finish the task yourself without a dual sign off." The interrupted .115 work is preserved
 at local non-release checkpoint `568c76d958eeee2f2786798bd959b0b2ae8ec299`; it is not a release qualification.
 Codex now carries implementation and exact-commit release qualification under the collaboration rules below.
 Historical ownership and signatures remain historical evidence; no new Claude signature is required or implied.
+
+**Current unified rollout instruction (30 Oct 2026):** The owner now authorizes dependency-order squash merges of PR107–PR110, integration of the cumulative reviewed Claude branch in a final PR, exact-head qualification, one verified fresh D1 backup and one unified .216 deployment. This supersedes the earlier maintenance-only deployment hold below for this request. See [unified rollout instructions](#unified-rollout-instruction-30-oct-2026). Native QA remains deferred and waived experiments remain stopped.
 
 ## What this is
 
@@ -37,11 +43,11 @@ npm run check:vectors                      # the 12 shared code vectors (Python,
 npm run check:policies                     # src/policy-content.ts is what policies/*.html give (regenerate: npm run build:policies)
 npm run test:all                           # typecheck + vectors + every node suite (real src/*.ts over SQLite) + the bundle in workerd
 node tests/bundle_runtime_test.cjs         # the exact dry-run bundle loaded in local Miniflare/workerd (~15 s)
-node tests/site_test.cjs                   # one suite (383 checks at .210); each suite prints PASS/FAIL and a total
-node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (602 expected checks in the current .210 assertion index; exact-head runtime results are authoritative)
+node tests/site_test.cjs                   # one suite (413 expected at .216); actual runtime totals remain authoritative
+node tests/frontend_check.cjs              # the REAL public/static/app.js in a minimal DOM against the REAL Worker (605 expected checks with the reserved-name additions, 602 at .212; exact-head runtime results are authoritative)
 node tests/role_budget_test.cjs            # the role writer's request budget: the real discord.ts rest() behind a stubbed fetch (.95/.99)
 node tests/guild_seats_test.cjs            # .115: whether Olympus I has room (latest snapshot, trust, the texts, the staff lines, the ingest's statement bound; 171 checks)
-node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 346 at .210)
+node tests/site_news_test.cjs              # .115: News (switch, notices and their ledger, figures, the cron's D1 round trips, the vocabulary guard, a restore's News statements; 348 at .212)
 node tests/scheduled_budget_test.cjs       # .115: the cron's D1 statement budget (scheduled-budget.ts): each job, the role sweep's per-account costs exactly, cold and warm schema, the whole run, continuation (70 at .210)
 node tests/roster_effects_test.cjs         # .115: worklist, notice debt, incomplete/legacy snapshots, retries, binding races and sync (87 focused checks at takeover repair; final exact-head receipt remains authoritative)
 node tests/rank_planner_test.cjs           # .115: every page script parses, every planner file equals its pin, the planner's own buttons (44 at .210)
@@ -49,8 +55,11 @@ python tests/unverified_sql_test.py        # SQL suites (from worker/)
 python tests/backfill_sql_test.py
 npx wrangler deploy --dry-run --outdir <scratch>   # bundle without deploying
 # from watcher/:
-python tests/test_watcher.py               # 61 tests (2 skipped without a lua binary)
+python tests/test_watcher.py               # 73 tests (2 skipped without a lua binary)
 python tests/test_discord_relay.py         # 16 relay cases
+python tests/test_custody196.py            # 39 custody tests; CI also runs the next two
+python tests/test_attended_custody196.py   # 19 attended-custody tests
+python tests/test_restart197.py            # 7 restart tests
 # from the repository root:
 python tools/tests/test_backfill_roles.py
 python tools/tests/test_review.py
@@ -91,7 +100,7 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 | Path | Contents |
 |---|---|
-| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether Olympus I has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (the one Guild Member writer), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `context.ts` is the fence every write goes through, `names.ts` the identity rule), `schema.ts` (self-applied migrations) |
+| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether Olympus I has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (the one Guild Member writer), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `community-context.ts` is the fence every write goes through, `community-names.ts` the identity rule), `schema.ts` (self-applied migrations) |
 | `worker/schema.sql`, `worker/migrations/` | The canonical schema and the same statements as dated files. Additive only. |
 | `worker/public/static/` | The site's script (`app.js`: the whole site, including the community member, organizer and staff pages since .93-.100), stylesheet, the game art (`tools/build-site-assets.py`), the Olympus crest `olympus-icon.png` (the brand and tab icon, the website's one non-game image since .111) and the rank planner. |
 | `worker/tests/` | Node suites (`*_test.cjs`) and Python SQL suites. Each transpiles the real `src/*.ts` and runs the real `schema.sql` in SQLite behind a D1-shaped shim; only Discord's HTTP side is faked. |
@@ -182,14 +191,15 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   script in a minimal DOM shim (`dataset` reads `data-*` attributes) with `fetch` routed to the real Worker; a test can
   lose a handled answer (`page.drop`), slow a request (`page.delay`), make a handled answer unreadable (`page.garble`) or
   readable but wrong (`page.answer`), fail a request before the Worker (`page.before`), and act between one request's
-  batches (`HOOKS.afterBatch`) or between two statements of one batch (`HOOKS.afterStatement`); add a check there with
-  every page change.
+  complete batches (`HOOKS.afterBatch`; since .161 frontend races run only between complete Native transactions, and a
+  statement-level `afterStatement` hook exists only in the `community_event_*` suites); add a check there with every
+  page change.
 - **Community modules** (`community-*.ts`, since .56): one identity (the site session), facts from keeper tables only,
   capabilities that name requirements (`applicantWrite`, `confirmedGuildData`, `communityStaff` = `SITE_ADMINS`); a
   write is one batch whose first statement carries `fenceSql` (id, session version and the cookie's expiry, judged by
   the database clock inside the statement) and stores a nonce the rest requires; every feature
-  registers erasure and export (`registerCommunityData`) before it stores a row; seconds everywhere, `time.ts` at the
-  DTO boundary; tables are `community_*`; character labels are keyed by `names.ts communityKey` (the full name, never
+  registers erasure and export (`registerCommunityData`) before it stores a row; seconds everywhere, `community-time.ts` at
+  the DTO boundary; tables are `community_*`; character labels are keyed by `community-names.ts communityKey` (the full name, never
   cut at a hyphen) and bound to a keeper proof only when `resolveCharacter` says `proven` (a collision is `conflict`,
   default-denied, never last-writer-wins); no module ever calls `addRole`.
 - **News** (`src/site-news.ts`, .115, item A): a `site-*` module on those primitives (fence, nonce, registry) with
@@ -251,6 +261,17 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   (`tests/site_test.cjs`, `tests/hosts_test.cjs`, `tests/bnet_retention_test.cjs`), and adds a "Worker .NN" section to
   `docs/deploy-checklist.md` (what changed, config, rollout, rollback, tests) and, where the reason matters, a dated
   section to `docs/design.md`.
+- **Public-asset pins follow the served bytes.** A change to `worker/public/static/app.js` moves five pins: its `bytes`
+  and `sha256` in both `scripts/official_asset_reference.json` entries, that file's hash in `scripts/official_assets.py`
+  (`REFERENCE_SHA256`), the `official_assets.py` and `official_asset_reference.json` hashes in
+  `scripts/reconcile_public_root.py` (`V4_PINS`), and `EXPECTED_SOURCE_SHA256` in `tools/army-qr-local/website-overlay.cjs`
+  and `tools/shared-census-website/website-overlay.cjs`. Stage the change and run `node scripts/check-projections.cjs --index`.
+- **A watcher behaviour change bumps `WATCHER_VERSION`** (`watcher/watcher.py`): it is sent as `v=` on queue polls, in
+  the User-Agent and in the start-up log line, so an unchanged number hides which build an officer runs.
+- **In the shared repository, run Git with `-c maintenance.auto=false -c gc.auto=0`** for commands that write objects.
+  Git's automatic maintenance after a commit (Git 2.54 on this host) prunes worktree registrations, which can drop
+  another agent's worktree; `gc.auto=0` alone does not stop it. Never run `git gc`, `git maintenance` or
+  `git worktree prune` there yourself.
 - **Tests with every change**, in the house style: a `.cjs` script that transpiles the real source, runs the real
   schema, fakes only Discord, prints `PASS`/`FAIL` per check and exits non-zero on any failure; add it to `test:all`.
 - **Comments say why**, and cite the decision and its date ("the owner's decision (2026-09-25)", "build .47").
@@ -292,3 +313,104 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 
 **Build .199 owner override (25 Oct 2026):** Start from accepted main `075ee3c8b20495c2f557b78b6fe3f2e4794b0024`. Claude remains offline. Codex Root owns runtime, Git and deployment; internal independent review, all 13 PR CI jobs and completed exact-head automated PR review with zero findings remain required. Development/review fixes use affected suites, TypeScript and the fast projection check only. Run the full 198-command local expansion at most once on the final candidate after CI/review pass; occurrence 48 has 900 seconds, others 600 seconds, overall 5,400 seconds. No 15 UTC wall-clock wait: unchanged scheduled dependency closure may carry accepted .198 proof, otherwise use an explicitly labelled synthetic 15 UTC local check. This .199 rollout permits 84 strict public probes plus bot-host robots GET/HEAD 200 comment-body exceptions, and up to 60,000 ms full-audit-bin offset against the first healthy ordinary callback trace interval. Preserve raw timestamps, exceptions and unknown clock/cause; do not claim clock correction. No historical acceptance criterion is rewritten. Preserve exact live443/application442 D1 objects with zero DDL, Native E2 privacy and identify-copy budgets; Treasury cosmetic dispatch, Army aggregate and Olympus Link remain OFF. The owner clarified High Council zero-based slot1 and Officer slot2; Co-GM/Treasurer are appointments, not extra ranks. Earlier external Claude waits are superseded for this release only.
+
+## Current maintenance checkpoint (30 Oct 2026)
+
+This section records the current owner instructions; dated release instructions above remain historical. The accepted
+release is **.212**, squash merge `5b953229856896df828bcf883037485296a82d8d`, tree
+`d31837e5b799f147667905f6ae2e75333afd86b7`, from PR106 head `a57e178b5a5042be68c9181d5488f5b597bc43a5`.
+The deployed version is `ade91640-761b-4967-bc3c-034a4dcbe507`. The retained rollout packet outside this repository is
+`Olympus/release212-2026-10-30/`; it binds exact-head automated review, 13 PR jobs, 12 main jobs, the verified fresh
+backup, unchanged 442 application/443 live D1 objects, 90 public cases and the authenticated live client hash.
+Those are separate evidence scopes, not a claim that every master request, native action or local suite passed.
+
+The owner explicitly carried the bot-host comment-only robots GET/HEAD200 baseline and a 60,000 ms full audit-bin
+allowance to this .212 rollout. The original first-cron strict-zero result remains false; the observed minimum
+extension is 55 ms, with the original callback and fresh audit readback retained. This proves no clock correction
+and grants no future release an allowance. Preserve the current owner receipt and raw failures rather than editing them.
+
+### Work permitted now
+
+- Implement the owner's maintenance work in separate, narrowly reviewed PRs. Use a separate worktree for non-main
+  work; never switch this shared main checkout or overwrite another agent's work. Root owns integration, Git and
+  provider operations for the current task. File ownership and independent review must be explicit.
+- **Native game QA remains owner-deferred.** The installed public addon bytes and the native AddOns-list observation
+  do not qualify in-world verification, invites, ranks, permissions or roster export. The installed watcher host is
+  also a separate obligation: deploying the Worker does not update an officer's Python files.
+- **The full local aggregate and the custom npm/permission/resolver and Workerd experiments remain stopped.** Their
+  old consumed intents, refusals and failures stay evidence. A package-script change, new namespace, green hosted
+  CI or historical component pass does not authorize restarting them. Use only the explicitly authorized focused
+  checks for a change; no package installation into shared or junctioned dependencies.
+- A docs-only maintenance change needs no `BUILD` bump. Product changes still follow the build/pin/checklist rules
+  above and need their own exact-head review/CI. A maintenance PR does not authorize deployment, feature activation,
+  Discord effects, database DDL, private configuration migration or worktree deletion.
+
+### Current source and focused commands
+
+The .212 source baseline has 1,354 tracked paths. Metadata expansion of the actual `worker/package.json` aliases
+contains **206 command occurrences / 205 distinct commands**, including `test:qa211`; this is not a runtime or
+coverage total. `worker/scripts/ci-shards.cjs` is the command-expansion authority, and the eight-shard/collector rules
+above remain intact. The old 198/204/205 counts describe their own checkpoints. Do not rerun the aggregate to refresh a number.
+
+Use Node 24 with `node:sqlite`, and the approved installed dependency profile. The .212 focused Node checks used
+`C:/Program Files/nodejs/node.exe` v24.12.0; operational deployment and the pinned SDK profile used cached Node
+v24.22.1. These are separate qualification profiles. TypeScript remains 5.9.3 from the existing dependencies;
+do not silently substitute a different Node, compiler, loader or dependency tree for the intended check.
+Commands below describe existing focused seams; they are not blanket execution permission:
+
+```bash
+# repository root, with the approved Node binary
+node scripts/check-projections.cjs --index  # staged source/projection contract, not a build or deployment
+# worker/; use the existing approved tsc path/profile, without installing packages
+node <approved-profile>/typescript/bin/tsc --noEmit
+node tests/treasury_dispatch_restriction211_test.cjs
+node tests/full_release_roles_identity_test.cjs
+node tests/frontend_owner197_test.cjs
+node tests/site_news_test.cjs
+# watcher/; stdlib synthetic tests, never Watcher.main against live files/endpoints
+python tests/test_watcher.py
+python tests/test_discord_relay.py
+python tests/test_custody196.py
+python tests/test_attended_custody196.py
+python tests/test_restart197.py
+# repository root, using the existing approved lupa/LuaJIT interpreter, no install
+<approved-lua-python> addon/tests/run_lua_suites.py
+```
+
+`worker/tsconfig.json` intentionally includes `src/**/*.ts`; its successful check is not typechecking the `.cjs`
+tests. The separate Forever companion has its own configuration and unresolved typing/dependency evidence; do not
+transfer the keeper's compiler or CI result to it. Counts printed by tests measure assertions, not line/branch coverage.
+In particular, retain the .212 local frontend ledger assertion failure and beta fixture readiness timeout alongside
+the successful hosted checks; do not write that the local 602-check run passed.
+
+### Boundaries to preserve in maintenance
+
+- Default production admission remains the installed pre-seal profile. Do not opt into a private-next schema to make
+  a test positive. Preserve 442 application objects plus the sole platform object in the 443-object live inventory;
+  private445 fixture objects do not qualify that invariant. No DDL or cap increase is authorized by this document.
+- Preserve Native E2 custody, original request/actor/target capture, content-bound application decisions and physical
+  request budgets. Unknown/lost effects remain held; an inspected stored receipt, not a retry or present-day role
+  absence, determines the next attended action. Cosmetic appointments confer no native guild rank or extra authority.
+- Treasury live dispatch, Army aggregate and Olympus Link remain OFF unless the owner separately authorizes their
+  existing activation procedure. Read `docs/launch-runbook.md` for the .211 stored-status no-send rules; a UI preview,
+  release, publication or maintenance PR is not activation or season-start evidence.
+- Logs use fixed safe categories, never rejected codes, prefix text, parser exception payloads, token hashes, cookies
+  or private paths. Cursor, retry, resend and Unicode behavior must remain unchanged when redacting diagnostics.
+- Keep static historical test authorities immutable. Where current source deliberately differs, a closed, reviewed
+  reconstruction must prove the exact finite inverse; execute current source only. Never broadly re-record old
+  dynamic traces, suppress failed assertions or load old code merely to regain a seal.
+
+The dated maintenance audit records the actual bounded dependency/advisory review, remaining test gaps, open PRs,
+worktree retention reasons and master-request disposition. It does not certify all first-party files as manually
+reviewed, approve deletion of retained evidence or replace current exact-head release receipts.
+
+
+## Unified rollout instruction (30 Oct 2026)
+
+The current owner request authorizes Root to squash PR107, PR108, PR109 and PR110 in dependency order, refresh child branches without force-pushing and obtain fresh exact-head reviews/CI as needed. Integrate the cumulative Claude branch through its reviewed final local head in a new PR, including both lifecycle follow-ups together. Preserve the original local commits and attribution; public commit and PR summaries must remain neutral. Resolve source pin conflicts by hashing the composed bytes, never by broad authority re-recording.
+
+After final exact-head review, all13 applicable PR jobs, all merges and final main CI are green, take and locally restore/verify one fresh D1 backup, then deploy the exact unified .216 merge with --keep-vars. Preserve442 application/443 live objects, bindings, private Workers and idle admission controls; no DDL, feature activation, dependency installation or private configuration migration is authorized.
+
+Run the original90 public cases plus authenticated actual-version/asset readbacks and the attended RT16 application-note check on an owner-controlled QA application. The owner explicitly carried the bot-host comment-only robots200 exception and60000ms first-cron whole-audit-bin allowance to this unified release. Preserve strict results, raw timestamps, the original callback and unknown clock cause; do not replay a callback or imply a general correction/future tolerance.
+
+Native QA remains owner-deferred until actual Forever world entry. Waived aggregate/custom Workerd/npm-permission/lockfile experiments remain stopped. Focused tests are allowed; old partial/failing local results remain separate from hosted success. A Worker deploy does not install officer-host Python or game addon files, and no real membership action is a test fixture. Fast-forward the shared primary main checkout only; append final evidence to the owner-named QA and coordination reports.

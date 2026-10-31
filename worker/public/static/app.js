@@ -1952,8 +1952,11 @@
     add(main, h("p", { role: "status", text: "Opening the organization…" }));
     const data = await governanceModel();
     if (!current()) return;
-    const { renderOrganization } = await import("/static/organization-view.js");
-    const { renderAllianceOverview205 } = await import("/static/organization-overview205.js");
+    // .214: independent renderers load together; the overview's context import no longer waits for the main renderer.
+    const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([
+      import("/static/organization-view.js"),
+      import("/static/organization-overview205.js")
+    ]);
     if (!current()) return;
     const currentData201 = {...data, terms:data.terms.map(term => {
       const row = office199(term.officeKey);
@@ -4129,7 +4132,7 @@
     add(panel, frame("Treasury · cosmetic recognition", null,
       h("p", { text: royalWritsVisible200() ? "Tithe Payer 25g+, Patron of the Treasury 100g+, Benefactor of Olympus 500g+. Additional in-game gold is mailed to the designated Treasurer recipient shown through the qualified appointment listing. Only the highest qualifying tier applies, for the configured 90-day season. These colours grant no channel access, votes, office or immunity." : "The Royal Writs schedule and new Patron applications are paused. Existing receipt and operation records remain available for staff review. Provider dispatch has its own separate OFF gate; this display switch does not enable it." }),
       h("p", { class: "muted small", text: "Ordinary dues do not count. A TITHE- reference identifies a ledger account; it does not prove that gold was received. Verify the in-game mail before recording a receipt. Each role change requires its own reviewed confirmation." }),
-      picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
+      picker({ label: "Treasury member", placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true, isCurrent: () => live() && !busy, onPick: person => { target = person.key; targetLabel = person.label; targetGeneration++; selected.textContent = person.label + " · " + person.key; mail.value = ""; preview = null; clear(changes); notice.textContent = ""; evidence.checked = false; consent.checked = false; decline.checked = false; sync(); } }), selected, targetReference,
       field("Immutable receipt reference", reference), field("Additional gold received", amount), field("Received at (your local time)", observed), field("Member's TITHE- reference", mail),
       h("label", null, evidence, " I verified this additional gold in the in-game mail; it is not ordinary dues."), record,
       h("label", null, consent, " The member agreed to this cosmetic recognition."),
@@ -4143,7 +4146,7 @@
     targetReference.addEventListener("click", async () => {
       if (!live() || targetReference.disabled) return; const originalTarget = target, generation = targetGeneration; busy = true; sync();
       try { const d = await api("POST", path + "target", { discordId: originalTarget }, { live }); if (live() && generation === targetGeneration && target === originalTarget) { if (d?.discordId !== originalTarget || typeof d.mailReference !== "string" || !/^TITHE-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(d.mailReference)) throw Error("Unreadable target reference"); mail.value = d.mailReference; notice.textContent = "Reference read from the member's ledger. This is not proof of payment."; } }
-      catch (e) { if (live() && generation === targetGeneration) notice.textContent = explain(e, "The current member's reference could not be read."); }
+      catch (e) { if (live() && generation === targetGeneration) notice.textContent = e?.status === 503 && codeOf(e) === "treasury_unconfigured" ? "Treasury is not configured. This member's TITHE reference could not be read. Ask a site administrator to check the Treasury setup." : explain(e, "The current member's reference could not be read."); }
       finally { busy = false; if (live()) sync(); }
     });
     const drawPreview = (d, originalTarget, originalLabel, generation) => {
@@ -4950,7 +4953,10 @@
     contested.addEventListener("change", apply);
     accepted.addEventListener("change", apply);
     search.addEventListener("keydown", (e) => { if (e.key === "Enter") apply(); });
-    const act = async (action, ids, confirmText) => {
+    // The server reads an empty id list as every approved name (site-admin.ts), so a "selected" action is never sent
+    // empty: each redraw clears the ticks. Only "Queue every approved name now" sends [] on purpose, after its own question.
+    const act = async (action, ids, confirmText, chosen = false) => {
+      if (chosen && !ids.length) { toast("Tick at least one name in the list first. Nothing was changed.", "bad"); return; }
       if (confirmText && !(await confirmBox(confirmText[0], confirmText[1], confirmText[2]))) return;
       try {
         const out = await api("POST", `/api/admin/reserved/${action}`, { ids });
@@ -4963,10 +4969,10 @@
     const beforeLaunch = nowSec() < (s.launchAt || 0);
     const queueWarn = beforeLaunch ? ["Queue before launch?", "The names do not exist in game until launch, so invites sent now fail and use up attempts. Approved names are queued by themselves at launch when that setting is on.", "Queue anyway"] : null;
     const bulk = h("div", { class: "btn-row" },
-      h("button", { class: "btn small", type: "button", text: "Approve selected", onclick: () => act("approve", [...selected]) }),
-      h("button", { class: "btn small", type: "button", text: "Unapprove selected", onclick: () => act("unapprove", [...selected]) }),
-      h("button", { class: "btn small danger", type: "button", text: "Release selected", onclick: () => act("release", [...selected], ["Release these names?", "They come off the list; queued ones the site added leave the invite queue.", "Release"]) }),
-      h("button", { class: "btn small", type: "button", text: "Queue selected now", onclick: () => act("queue", [...selected], queueWarn) }),
+      h("button", { class: "btn small", type: "button", text: "Approve selected", onclick: () => act("approve", [...selected], null, true) }),
+      h("button", { class: "btn small", type: "button", text: "Unapprove selected", onclick: () => act("unapprove", [...selected], null, true) }),
+      h("button", { class: "btn small danger", type: "button", text: "Release selected", onclick: () => act("release", [...selected], ["Release these names?", "They come off the list; queued ones the site added leave the invite queue.", "Release"], true) }),
+      h("button", { class: "btn small", type: "button", text: "Queue selected now", onclick: () => act("queue", [...selected], queueWarn, true) }),
       h("button", { class: "btn small", type: "button", text: "Queue every approved name now", onclick: () => act("queue", [], queueWarn || ["Queue every approved name?", "They go to the top of the invite queue.", "Queue them"]) }));
     const all = h("input", { type: "checkbox", "aria-label": "Select all on this page" });
     const boxes = [];

@@ -217,5 +217,45 @@ check('.206 missing, duplicate or unrelated current Council remits fail closed',
 check('an altered native slot order is refused', refuses((_data, roles) => { roles.ranks[1].nativeSlot = 2; }));
 check('cyclic reporting context is refused instead of inventing a hierarchy', refuses(data => { data.nodes.find(node => node.id === 'founder').parent = 'council'; }));
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed) process.exitCode = 1;
+// The actual SPA route with only module transport/render completion controlled.
+async function routeLoading214() {
+  const appSource = fs.readFileSync(path.join(staticRoot, 'app.js'), 'utf8');
+  const start = appSource.indexOf('  ROUTES.organization = async (main, parts) => {');
+  const end = appSource.indexOf('\n  // ---------------------------------------------------------------- home', start);
+  if (start < 0 || end < start) throw Error('One actual organization route required');
+  const controller = appSource.slice(start, end).replace(/\bimport\(/g, 'loadModule(');
+  const next = () => new Promise(resolve => setImmediate(resolve));
+  function fixture({ holdModel = false } = {}) {
+    const main = { dataset: { viewRequest: 'original' }, nodes: [] }, user = {}, settings = {}, context = {};
+    const requested = [], pending = new Map(), rendered = [];
+    let attached = true, route = '#/organization', resolveModel;
+    const data = { terms: [] }, modelReady = holdModel ? new Promise(resolve => { resolveModel = () => resolve(data); }) : Promise.resolve(data);
+    const sandbox = { ROUTES: {}, S: { user, settings }, COM: () => context,
+      app: { contains: node => attached && node === main }, currentRoute: () => route,
+      governanceModel: () => modelReady, h: (_tag, props) => props, add: (parent, node) => parent.nodes.push(node), clear: () => {},
+      office199: () => null, offices199: () => [], M: () => ({}), posIcon: () => {}, scrollToSection: () => {},
+      applicationRoleDirectory201: () => {}, writsPanel199: () => ({ writs: true }), disposeOrganization: null,
+      loadModule(name) { requested.push(name); return new Promise((resolve, reject) => pending.set(name, { resolve, reject })); } };
+    vm.runInNewContext(controller, sandbox, { filename: 'actual-organization-route214.js' });
+    return { main, sandbox, requested, pending, rendered, run: () => sandbox.ROUTES.organization(main, []),
+      stale: () => { main.dataset.viewRequest = 'replacement'; route = '#/roles'; attached = false; }, resolveModel,
+      resolve(name) { pending.get(name).resolve(name.endsWith('/organization-view.js') ? { renderOrganization: (...args) => { rendered.push(args); return 'original-disposer'; } } : { renderAllianceOverview205: 'actual-overview-export' }); } };
+  }
+  const first = '/static/organization-view.js', second = '/static/organization-overview205.js';
+  const live = fixture(), completed = live.run(); await next();
+  check('.214 both actual renderer imports start before either result is released', same(live.requested, [first, second]) && live.rendered.length === 0);
+  live.resolve(first); await next();
+  check('.214 a single completed renderer cannot render an incomplete organization', live.rendered.length === 0);
+  live.resolve(second); await completed;
+  check('.214 the current route renders once with both exports and retains its disposer', live.rendered.length === 1 && live.rendered[0][2].allianceOverview205 === 'actual-overview-export' && live.sandbox.disposeOrganization === 'original-disposer');
+  const departed = fixture(), late = departed.run(); await next(); departed.stale(); departed.resolve(first); departed.resolve(second); await late;
+  check('.214 completed imports from a departed view cannot render or replace its disposer', departed.rendered.length === 0 && departed.sandbox.disposeOrganization === null);
+  const early = fixture({ holdModel: true }), earlyDone = early.run(); early.stale(); early.resolveModel(); await earlyDone;
+  check('.214 a view invalidated during model loading starts no renderer requests', early.requested.length === 0 && early.rendered.length === 0);
+  const failed = fixture(), refused = failed.run().then(() => false, () => true); await next(); failed.pending.get(second).reject(Error('synthetic module refusal')); failed.resolve(first);
+  check('.214 one module failure cannot render a partial view or cause a retry', await refused && failed.rendered.length === 0 && same(failed.requested, [first, second]));
+}
+routeLoading214().then(() => {
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed) process.exitCode = 1;
+}).catch(error => { console.error(error); process.exitCode = 1; });

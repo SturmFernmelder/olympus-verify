@@ -56,8 +56,8 @@ OlympusVerifyConfig = {
   -- Presence: the invite queue lists only applicants who are online and in no guild. The addon learns both with
   -- /who, which the game allows only from a key press or click, so each press of the flush key (or the panel's
   -- Check / Send button) either invites the next applicant confirmed that way or runs one /who on the next one in
-  -- line -- never both. Applicants found in another guild are whispered how to leave it (the same text, and the same
-  -- once-a-day / three-times limit, as a refused invite). /olv all lists everyone; /olv queue prints each one's
+  -- line -- never both. Applicants found in another guild are taken off this invite queue without a whisper.
+  -- /olv all lists everyone; /olv queue prints each one's
   -- standing. false turns it all off and restores "every press invites the next queued".
   -- checkBeforeInvite = true,
   -- readyMinutes = 10,           -- how long "online, no guild" is trusted before the next press checks again

@@ -152,6 +152,28 @@ const body196=String.raw`
   pausedTreasury200.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))pausedTreasuryCommands200.push({path:p,method:init.method});return false;});
   await pausedTreasury200.go('#/admin/treasury');
   check('.200 default Treasury preserves receipt/status tools with paused operational copy and no price offer or command',pausedTreasury200.boot.settings.royalWritsOn===false&&pausedTreasury200.app.textContent.includes('The Royal Writs schedule and new Patron applications are paused.')&&pausedTreasury200.app.textContent.includes('Existing receipt and operation records remain available for staff review.')&&!pausedTreasury200.app.textContent.includes('Tithe Payer 25g+')&&!!pausedTreasury200.app.querySelector('#treasury-reference')&&!!pausedTreasury200.app.querySelector('#treasury-operation')&&!pausedTreasury200.app.querySelector('.royal-writs199')&&pausedTreasuryCommands200.length===0);
+  // This page has the same guild and a synthetic bot credential, but no Treasury role config or dispatch gate.
+  // Observe the actual target refusal before the UI; only member-search presentation is substituted.
+  const unconfiguredEnv212={SITE_GUILD_ID:env().GUILD_ID,DISCORD_BOT_TOKEN:'synthetic-reference-read-only'};
+  try {
+    const response212=await indexMod.default.fetch(new Request('https://guild.example/api/admin/treasury/target',{method:'POST',headers:{Cookie:await cookieFor(STAFF),Origin:'https://guild.example','X-Olympus':siteCore.PAGE_VERSION,'Content-Type':'application/json'},body:JSON.stringify({discordId:OTHER})}),env(unconfiguredEnv212),ctx), refusal212=await response212.json();
+    console.log('TREASURY_REFERENCE_REFUSAL212 '+JSON.stringify({status:response212.status,body:refusal212}));
+    check('.212 the original target reader refuses missing Treasury configuration with its exact503 code and dispatchOFF',response212.status===503&&JSON.stringify(refusal212)===JSON.stringify({error:'treasury_unconfigured'})&&env(unconfiguredEnv212).TREASURY_COSMETIC_ROLES===undefined&&env(unconfiguredEnv212).TREASURY_COSMETIC_ENABLED!=='true');
+    const unconfiguredPage212=await openPage(STAFF,unconfiguredEnv212), unconfiguredRequests212=[];
+    unconfiguredPage212.before((p,init)=>{if(p.startsWith('/api/admin/treasury/'))unconfiguredRequests212.push({path:p,method:init.method});return false;});
+    unconfiguredPage212.answer(p=>p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Unconfigured target',shown:'Unconfigured target',onSite:true,appointmentStatus:'eligible'}]}:null);
+    await unconfiguredPage212.go('#/admin/treasury');
+    const unconfiguredSearch212=unconfiguredPage212.app.querySelector('.picker input[role="combobox"]');unconfiguredSearch212.value='Unconfigured';unconfiguredSearch212.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
+    if(!await waitFor(()=>!!unconfiguredPage212.app.querySelector('[role="option"]'),'unconfigured Treasury member lookup'))throw Error('Missing unconfigured Treasury target');
+    unconfiguredPage212.app.querySelector('[role="option"]').dispatchEvent(new Event('mousedown',{bubbles:true}));
+    const unconfiguredRead212=byText(unconfiguredPage212.app,'button',"Read member's TITHE reference"), originalReference212='preserve-original-receipt';
+    unconfiguredPage212.app.querySelector('#treasury-reference').value=originalReference212;unconfiguredPage212.app.querySelector('#treasury-gold').value='25';
+    unconfiguredRead212.click();
+    if(!await waitFor(()=>unconfiguredRequests212.length===1&&!unconfiguredRead212.disabled,'actual unconfigured Treasury target refusal'))throw Error('Unconfigured Treasury reference did not settle');
+    check('.212 an actual unconfigured Treasury reference refusal gives contextual setup guidance',unconfiguredPage212.app.textContent.includes("Treasury is not configured. This member's TITHE reference could not be read. Ask a site administrator to check the Treasury setup.")&&!unconfiguredPage212.app.textContent.includes('Request failed (503).'));
+    check('.212 unconfigured reference guidance preserves the target and draft without retrying, recording gold or dispatching roles',unconfiguredRequests212.length===1&&unconfiguredRequests212[0].path==='/api/admin/treasury/target'&&unconfiguredRequests212[0].method==='POST'&&unconfiguredPage212.app.textContent.includes('Unconfigured target · '+OTHER)&&unconfiguredPage212.app.querySelector('#treasury-reference').value===originalReference212&&unconfiguredPage212.app.querySelector('#treasury-gold').value==='25'&&unconfiguredPage212.app.querySelector('#treasury-mail').value===''&&unconfiguredPage212.sessionStorage.getItem('olympus.treasuryAttempt')===null);
+    await unconfiguredPage212.go('#/roles');
+  } finally { delete unconfiguredEnv212.SITE_GUILD_ID; delete unconfiguredEnv212.DISCORD_BOT_TOKEN; }
   // The historical seasonal-tier fixture is explicitly ON for its own boot.
   // Restore the exact prior local setting before any other fixture opens.
   const priorRoyalSetting200=one("SELECT value,updated_at,updated_by FROM site_settings WHERE key='royalWritsOn'");
@@ -192,13 +214,19 @@ const body196=String.raw`
   await racingTreasury196.go('#/admin/treasury');
   const pickRace196=async index=>{const input=racingTreasury196.app.querySelector('.picker input[role="combobox"]');input.value='Target';input.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));await waitFor(()=>racingTreasury196.app.querySelectorAll('[role="option"]').length===2,'race picker');racingTreasury196.app.querySelectorAll('[role="option"]')[index].dispatchEvent(new Event('mousedown',{bubbles:true}));};
   await pickRace196(0);
+  const raceReadyInput196=racingTreasury196.app.querySelector('.picker input[role="combobox"]');raceReadyInput196.value='Target';raceReadyInput196.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));await waitFor(()=>racingTreasury196.app.querySelectorAll('[role="option"]').length===2,'cached choices before Treasury preview');const raceBusyChoice196=racingTreasury196.app.querySelectorAll('[role="option"]')[1];
   const raceConsent196=racingTreasury196.app.querySelector('#treasury-recognition');raceConsent196.checked=true;raceConsent196.dispatchEvent(new Event('change'));
   racingTreasury196.hold(p=>p==='/api/admin/treasury/preview'?350:0);
   byText(racingTreasury196.app,'button','Preview cosmetic role changes').click();
   await waitFor(()=>racingCommands196.some(x=>x.path.endsWith('/preview')),'original preview started');
+  raceBusyChoice196.dispatchEvent(new Event('mousedown',{bubbles:true}));
+  check('a previously rendered Treasury choice cannot replace the target while preview is busy',racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&raceConsent196.checked);
+  const raceBusyInput196=racingTreasury196.app.querySelector('.picker input[role="combobox"]');raceBusyInput196.value='Target';raceBusyInput196.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
+  check('Treasury refuses a new member lookup while its original preview is busy',racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&racingTreasury196.app.querySelector('.picker input').getAttribute('aria-expanded')==='false');
+  await waitFor(()=>!!byText(racingTreasury196.app,'button','Grant Stale target tier'),'original held Treasury preview control');
+  check('an original preview can finish for its unchanged target while busy selection is refused',!!byText(racingTreasury196.app,'button','Grant Stale target tier')&&racingTreasury196.app.textContent.includes('Target A · '+OTHER)&&racingCommands196.filter(x=>x.path.endsWith('/confirm')).length===0);
   await pickRace196(1); await pickRace196(0);
-  await new Promise(resolve=>setTimeout(resolve,400));
-  check('a delayed Treasury preview is discarded after target A to B to A selection changes',!byText(racingTreasury196.app,'button','Grant Stale target tier') && !racingTreasury196.app.textContent.includes('Preview only. No role command was sent.') && racingCommands196.filter(x=>x.path.endsWith('/confirm')).length===0);
+  check('fresh idle target changes discard the old Treasury preview without sending a confirmation',!byText(racingTreasury196.app,'button','Grant Stale target tier')&&!racingTreasury196.app.textContent.includes('Preview only. No role command was sent.')&&racingCommands196.filter(x=>x.path.endsWith('/confirm')).length===0);
   check('a Treasury selection names the current exact Discord account and resets consent',racingTreasury196.app.textContent.includes('Target A · '+OTHER) && !raceConsent196.checked);
   check('an inert Treasury preview explicitly identifies its captured target',treasury196.app.textContent.includes('Oz · '+OTHER));
 
@@ -294,11 +322,16 @@ const body196=String.raw`
   const cosmeticPreview196={token:'synthetic-disposal-preview-only',recognitionConsent:true,recognitionMode:'recognize',expiresAt:Math.floor(Date.now()/1000)+180,qualifyingGold:25,seasonEndsAt:Math.floor(Date.now()/1000)+86400,dispatchEnabled:true,changes:[{operationId:op196,roleId:'123456789012345678',label:'Disposal fixture tier',desired:1}]};
   const pickTreasury196=async page=>{const input=page.app.querySelector('.picker input[role="combobox"]');input.value='Disposable';input.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));if(!await waitFor(()=>!!page.app.querySelector('[role="option"]'),'disposal target picker'))throw Error('No actual target picker response');page.app.querySelector('[role="option"]').dispatchEvent(new Event('mousedown',{bubbles:true}));};
   const startTreasury196=async(kind,status)=>{
-    const page=await openPage(STAFF), endpoint='/api/admin/treasury/'+kind;
+    const page=await openPage(STAFF), endpoint='/api/admin/treasury/'+kind, matches=p=>kind==='search'?p.startsWith('/api/search?'):p===endpoint;
     let held=0;
-    page.answer(p=>p===endpoint?departedReply196(status):p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Disposable Target',shown:'Disposable Target',onSite:true,appointmentStatus:'eligible'}]}:p==='/api/admin/treasury/preview'?cosmeticPreview196:null);
-    page.hold(p=>p===endpoint?(held++,300):0);
+    page.answer(p=>matches(p)?departedReply196(status):p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Disposable Target',shown:'Disposable Target',onSite:true,appointmentStatus:'eligible'}]}:p==='/api/admin/treasury/preview'?cosmeticPreview196:null);
+    page.hold(p=>matches(p)?(held++,300):0);
     await page.go('#/admin/treasury');
+    if(kind==='search'){
+      const input=page.app.querySelector('.picker input[role="combobox"]');input.value='Disposable';input.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
+      if(!await waitFor(()=>held===1,'held Treasury search '+status))throw Error('Treasury search response was not held');
+      return {page,held:()=>held};
+    }
     await pickTreasury196(page);
     if(kind==='target')byText(page.app,'button',"Read member's TITHE reference").click();
     else if(kind==='record'){
@@ -346,7 +379,7 @@ const body196=String.raw`
     if(!await waitFor(()=>held===1,'held webhook '+kind+' '+status))throw Error('Webhook response was not held');
     return {page,held:()=>held};
   };
-  for(const family of ['treasury','webhook'])for(const kind of family==='treasury'?['target','record','preview','confirm','status']:['preview','publish','revoke','reconcile'])for(const status of [401,409]){
+  for(const family of ['treasury','webhook'])for(const kind of family==='treasury'?['search','target','record','preview','confirm','status']:['preview','publish','revoke','reconcile'])for(const status of [401,409]){
     const started=await(family==='treasury'?startTreasury196(kind,status):startWebhook196(kind,status)), page=started.page;
     await page.go('#/roles');
     // Re-enter the same URL on409: route equality alone cannot revive the old
@@ -363,6 +396,11 @@ const body196=String.raw`
     if(status===401){if(!await waitFor(()=>page.document.body.textContent.includes('You were signed out'),'current Treasury401'))throw Error('Current401 was silently ignored');check('a synthetic current Treasury401 still signs out the owning shell',!byText(page.app,'button','Sign out')&&page.document.body.textContent.includes('You were signed out'));}
     else{if(!await waitFor(()=>!!page.document.body.querySelector('.reload-bar'),'current webhook409'))throw Error('Current409 was silently ignored');check('a synthetic current webhook409 still offers reload on its owning shell',!!byText(page.app,'button','Sign out')&&!!page.document.body.querySelector('.reload-bar'));}
   }
+  for(const status of [401,409]){
+    const started=await startTreasury196('search',status),page=started.page;
+    if(status===401){if(!await waitFor(()=>page.document.body.textContent.includes('You were signed out'),'current Treasury search401'))throw Error('Current search401 was silently ignored');check('a current Treasury search401 still signs out its owning administrator view',!byText(page.app,'button','Sign out')&&page.document.body.textContent.includes('You were signed out'));}
+    else{if(!await waitFor(()=>!!page.document.body.querySelector('.reload-bar'),'current Treasury search409'))throw Error('Current search409 was silently ignored');check('a current Treasury search409 still offers reload on its owning administrator view',!!byText(page.app,'button','Sign out')&&!!page.document.body.querySelector('.reload-bar'));}
+  }
   const effectTarget196=await openPage(STAFF);let effectHeld196=0;
   effectTarget196.answer(p=>p.startsWith('/api/search?')?{results:[{id:OTHER,label:'Original Target A',shown:'Original Target A',onSite:true,appointmentStatus:'eligible'},{id:MEMBER,label:'Later Target B',shown:'Later Target B',onSite:true,appointmentStatus:'eligible'}]}:p==='/api/admin/treasury/preview'?cosmeticPreview196:p==='/api/admin/treasury/confirm'?{state:'settled'}:null);
   effectTarget196.hold(p=>p==='/api/admin/treasury/confirm'?(effectHeld196++,300):0);
@@ -371,11 +409,17 @@ const body196=String.raw`
   await effectPick196(0);const effectConsent196=effectTarget196.app.querySelector('#treasury-recognition');effectConsent196.checked=true;effectConsent196.dispatchEvent(new Event('change'));
   byText(effectTarget196.app,'button','Preview cosmetic role changes').click();
   if(!await waitFor(()=>!!byText(effectTarget196.app,'button','Grant Disposal fixture tier'),'effect original preview'))throw Error('No effect confirmation');
+  const effectReadyInput196=effectTarget196.app.querySelector('.picker input[role="combobox"]');effectReadyInput196.value='Target';effectReadyInput196.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));if(!await waitFor(()=>effectTarget196.app.querySelectorAll('[role="option"]').length===2,'cached choices before confirmation'))throw Error('Missing cached Treasury choice');const effectBusyChoice196=effectTarget196.app.querySelectorAll('[role="option"]')[1];
   const effectGrant196=byText(effectTarget196.app,'button','Grant Disposal fixture tier'),effectExact196=effectGrant196.parentNode.querySelector('input[type="checkbox"]');effectExact196.checked=true;effectExact196.dispatchEvent(new Event('change'));effectGrant196.click();
   if(!await waitFor(()=>effectHeld196===1,'held original target effect'))throw Error('No held original effect');
-  await effectPick196(1);
+  effectBusyChoice196.dispatchEvent(new Event('mousedown',{bubbles:true}));
+  check('a previously rendered Treasury choice cannot replace the target while confirmation is busy',effectTarget196.app.textContent.includes('Original Target A · '+OTHER)&&effectConsent196.checked);
+  const effectBusyInput196=effectTarget196.app.querySelector('.picker input[role="combobox"]');effectBusyInput196.value='Target';effectBusyInput196.dispatchEvent(new Event('keydown',{key:'ArrowDown',bubbles:true}));
+  check('Treasury refuses a new member lookup while the original confirmation is busy',effectTarget196.app.textContent.includes('Original Target A · '+OTHER)&&effectBusyInput196.getAttribute('aria-expanded')==='false');
   if(!await waitFor(()=>effectTarget196.app.textContent.includes('original role operation for Original Target A'),'original effect attribution'))throw Error('Original effect feedback was not attributed');
-  check('a synthetic settled Treasury reply names its original exact target after the picker changes',effectTarget196.app.textContent.includes('Later Target B · '+MEMBER)&&effectTarget196.app.textContent.includes('original role operation for Original Target A · '+OTHER+' settled.')&&!effectTarget196.app.textContent.includes('original role operation for Later Target B'));
+  check('a synthetic settled Treasury reply retains its original exact target after busy selection is refused',effectTarget196.app.textContent.includes('Original Target A · '+OTHER)&&effectTarget196.app.textContent.includes('original role operation for Original Target A · '+OTHER+' settled.')&&!effectTarget196.app.textContent.includes('original role operation for Later Target B'));
+  await effectPick196(1);
+  check('the Treasury member picker becomes available after the original confirmation response',effectTarget196.app.textContent.includes('Later Target B · '+MEMBER)&&!effectConsent196.checked&&!byText(effectTarget196.app,'button','Grant Disposal fixture tier'));
   // Real current-source retained reads and removal requests: fake original
   // metadata/pointers are source-admitted fixture seeds, never real messages.
   const retainedGuild196='236932545793490944', retainedChannel196='223456789012345678', expired196='x'.repeat(22), deleted196='y'.repeat(22);

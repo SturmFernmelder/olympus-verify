@@ -7477,3 +7477,69 @@ The H7 CI run exposed stale historical-source seals and the current SDK's reject
 the historical scheduled/Link hashes as static authorities while executing current source; they never execute the
 historical inline ban or raw-error implementation. The audit writer check now requires the actual category-only
 ban-removal row. These repairs still require focused execution, composed exact-head CI/review and final qualification.
+
+
+## Worker .211 — deferred addon and Treasury safeguards (29 October 2026)
+
+Candidate PR only. The owner requested these post-.210 repairs with focused tests and a clean exact-head automated review. Build .210 stays live; this change authorizes no deployment, feature activation, native client installation or restart of the consumed full-suite, custom Workerd-loader or companion npm/permission experiments.
+
+- Bind the Treasury member picker to its owning live administrator view and refuse lookups/selections while its operation is busy. Preserve legitimate current-view 401/409 handling, original target attribution and spent-operation recovery.
+- Describe the existing exact-original stored no-send recovery conditions; missing/unknown/dispatching or failed receipts remain held and the original is never resent.
+- Refuse historical cosmetic cleanup when the role is a current protected marker, including marker drift across awaited inventory and final provider admission. Preserve config-absent genuine cosmetic cleanup, original custody and existing HTTP/SQL budgets.
+- Correct addon removal/whisper/logging copy and expose all six eligible unverified-rank filters. Keep one attended keypress per action and the current authority rechecks.
+
+Configuration and data: no DDL, role/config/provider changes, added dependencies or feature flags. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. The app-source reference/helper and local-overlay declarations follow the reviewed frontend bytes; this updates pins without running publication helpers.
+
+Validation: focused Treasury core/expiry/audit, frontend lifecycle, addon Lua and affected provider-guard regressions, TypeScript, current health-build pins and projection checks. Exact observed results and automated-review state belong to the PR and task evidence; this entry does not predeclare them passing. Full local qualification is not restarted. A future rollout requires its own owner instruction and verified backup; rollback would use the previously accepted .210 commit, not a database restore or a new role command.
+
+## Worker .212 — audit privacy and guidance corrections (30 October 2026)
+
+Candidate PR only, fixing the six findings from the renewed .211 audit. Accepted production .211 remains unchanged. The owner requested focused regression tests and a clean exact-head automated review, with native QA deferred and the waived full-suite, custom Workerd-loader and companion npm/permission experiments stopped.
+
+- Remove rejected verification values, prefixes and malformed SavedVariables exception payloads from watcher diagnostics. Retain rejection, retry and cursor/state behavior; diagnostics use fixed categories rather than user content or hashes.
+- Describe observed chat-log delivery latency without claiming a forced disk flush or immediate role authority from chat lines.
+- Name current Olympus Verify source 0.6.13 in the roster integration guide while preserving bounded historical 0.6.9 evidence and the current native-QA deferral.
+- Give the administrator contextual recovery guidance when a Treasury member-reference read reports missing service configuration, without changing confirmation, custody or uncertain-write recovery.
+- Correct the Guides installation paragraph to distinguish Olympus Guild 1.3.3 exporter adoption from separately gated website reporting. Retired standalone packages remain retired.
+
+Configuration and data: no DDL, dependency, secret, role, provider setting, feature flag, installed-addon or native action. Treasury cosmetics, Army aggregation and Olympus Link remain OFF. Publication-reference and local-overlay pins follow the changed public bytes without running publication helpers.
+
+Validation scope: focused watcher privacy/encoding/cursor/parser tests, frontend Treasury lifecycle and resource rendering regressions, TypeScript, the three health-build suites and projection consistency. Actual results and exact-head CI/review receipts belong to the PR/task evidence; this entry does not claim them in advance. Do not run the waived local aggregate or experiments. No rollout is authorized by this PR; any later deployment requires a new owner instruction and verified backup. A later rollback would redeploy accepted .211, without database restore or role commands.
+
+
+## Worker .213 — bounded request json (30 October 2026)
+
+Candidate maintenance PR only. Enforce the existing64000 UTF16-unit JSON limit during streaming reads, including splitUTF8/BOM/error/cancel behavior. Authentication, authorization and accepted payload semantics are unchanged.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .214 — parallel organization modules (30 October 2026)
+
+Candidate maintenance PR only. Start the two independent Organization renderer imports together and retain the original current-view check after both complete. No route authority, model, renderer or module destination changes.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .215 — accessible catalogue results (30 October 2026)
+
+Candidate maintenance PR only. Expose Addons/Guides filter result counts as polite atomic status updates. Preserve focus, existing classes, existing Updates feedback and polling behavior.
+
+No configuration, DDL, dependency, provider, role, installed-client or feature-gate change. Production .212 stays unchanged; native QA remains deferred and the waived aggregate/custom Workerd/npm-permission experiments remain stopped.
+
+Validation: affected component tests, TypeScript and exact projection pins, plus independent review and exact-head hosted CI/automated review. Actual results belong to the PR evidence; this entry predeclares no pass. No rollout is authorized. A later rollout requires owner instruction and a fresh verified backup; rollback would use accepted .212 without restoring production data.
+
+
+## Worker .216 — maintenance integration (30 October 2026)
+
+Owner-authorized unified rollout after dependency-order squash merges of PR107–PR110 and integration of the cumulative reviewed Claude branch into a final neutral-summary PR. This combines request lifecycle and admin release handling, watcher boundary handling, website feedback, bounded JSON consumption, concurrent Organization modules and accessible catalogue counters. No dependency, DDL, feature activation or installed-client change.
+
+Qualify the final source with affected focused tests (including verification, watcher, TypeScript and projection checks), independent review, all13 hosted PR jobs and a completed exact-head automated code review with both finding flags false. Wait for final main CI before one fresh verified D1 backup and one deployment of that exact merge with --keep-vars. Predeclared steps are not evidence of completion.
+
+Postchecks retain all90 public cases, authenticated actual-version/asset readbacks and the attended RT16 application-note check on an owner-controlled QA application. Preserve strict results and the original healthy first scheduled callback. For this unified release only the owner explicitly carried bot-host comment-only robots GET/HEAD200 and a maximum60000ms whole-audit-bin allowance; no clock correction, manual callback replay, cap increase or future allowance is implied.
+
+Native QA remains deferred and the waived aggregate/custom Workerd/npm-permission/lockfile experiments remain stopped. Treasury live dispatch, Army aggregate and Olympus Link remain OFF. Preserve the prior .212 release, backup and failed local evidence; rollback is a separate exact-commit deployment without production-data restore.
