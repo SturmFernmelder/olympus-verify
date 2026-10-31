@@ -12,8 +12,15 @@ const delayed218 = prefix218.replace(hold218, '{ const pending218 = sandbox.__ho
 const appRead218 = 'const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");';
 function helperSeam218(source) {
   const anchor='  const noticeBox = (kind, iconName, ...body) =>';
+  const requiredHelper218='  function pageHeading218(main) {';
+  if(source.split(requiredHelper218).length!==2)throw Error('one actual production heading reconciler required');
   if(source.split(anchor).length!==2)throw Error('one heading helper seam boundary');
-  return source.replace(anchor,'  window.__headingFixture218=Object.freeze({reconcile:typeof pageHeading218 === "function" ? pageHeading218 : () => {},inline:governanceInline});\n'+anchor);
+  return source.replace(anchor,'  window.__headingFixture218=Object.freeze({reconcile:pageHeading218,inline:governanceInline});\n'+anchor);
+}
+const headingSourceP2=fs218.readFileSync(path218.join(__dirname,'../public/static/app.js'),'utf8'),headingSignatureP2='  function pageHeading218(main) {';
+for(const mutant of [headingSourceP2.replace(headingSignatureP2,'  function missingHeadingP2(main) {'),headingSourceP2+'\n'+headingSignatureP2]){
+  let refused=false;try{helperSeam218(mutant);}catch(error){refused=error.message==='one actual production heading reconciler required';}
+  if(!refused)throw Error('heading seam must refuse missing or duplicated production helper');
 }
 if(delayed218.split(appRead218).length!==2)throw Error('one heading fixture app-read boundary');
 const prepared218=delayed218.replace(appRead218,'const APP_JS = ('+helperSeam218.toString()+')(fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8"));');

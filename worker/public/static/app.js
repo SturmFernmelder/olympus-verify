@@ -213,7 +213,7 @@
               roleReporting218(row,family,{includeMinistry:false}) ? " · " + roleReporting218(row,family,{includeMinistry:false}) : "");
           }))),
           h("p", { text: [...new Set(rows.map(row => row.discordPortal))].join(" ") || "Olympus Guild Member; cosmetic tithe tiers and Broadcaster / Stream Shield are separate consented labels and capabilities." }),
-          h("p", null, rank.nativeSlot < 5 ? "Royal appointment; no public application." : "Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ", rank.nativeSlot >= 5 ? h("a", {href:"#/vote",text:"Explore the role directory"}) : null)];
+          h("p", null, rank.nativeSlot < 5 ? "Reserved appointment; no public application." : "Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ", rank.nativeSlot >= 5 ? h("a", {href:"#/vote",text:"Explore the role directory"}) : null)];
         return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal) }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
       }))));
   }
@@ -1729,7 +1729,7 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81";
+  const GOVERNANCE_SHA256 = "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b";
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -1741,7 +1741,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 524288);
-      if (bytes.length !== 270762) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== 271522) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -1753,7 +1753,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 524288);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 270762 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 271522 || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 101 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -2090,19 +2090,23 @@
   // Owner request, 28 October 2026: publish a planning programme without any bank, payment or settings writer.
   // .218 (owner, 31 Oct 2026): officers and above only. The Worker also refuses the plan's files to everyone else.
   ROUTES["treasury-plan"] = async (main, parts) => {
-    const user = S.user, settings = S.settings, route = currentRoute(), view = main.dataset.viewRequest;
-    const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && currentRoute() === route && S.signedIn && !S.denied;
+    const user = S.user, settings = S.settings, route = currentRoute(), view = main.dataset.viewRequest, revision = decisionActorRevision;
+    const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && currentRoute() === route && S.signedIn && !S.denied && decisionActorRevision === revision;
     add(main, h("p", { role: "status", text: "Opening the treasury programme…" }));
-    if (!treasuryPlanAllowed218()) {
-      const allowed = await refreshTreasuryAccess218({ fresh: true });
-      if (!app.contains(main) || main.dataset.viewRequest !== view || currentRoute() !== route) return;
-      if (!allowed) { clear(main); add(main, treasuryRefusal218()); return; }
-      if (S.user !== user) { render(); return; } // the access answer redrew the header; draw this page again with it
+    try {
+      if (!treasuryPlanAllowed218()) {
+        const allowed = await refreshTreasuryAccess218({ fresh: true });
+        if (!current()) return;
+        if (!allowed) { clear(main); add(main, treasuryRefusal218()); return; }
+      }
+      const { renderTreasuryPlan207 } = await import("/static/treasury-plan207.js");
+      if (!current()) return;
+      const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });
+      if (typeof dispose === "function") disposeTool = dispose;
+    } catch (error) {
+      if (!current()) return;
+      clear(main); add(main, treasuryUnavailable218(error, current));
     }
-    const { renderTreasuryPlan207 } = await import("/static/treasury-plan207.js");
-    if (!current()) return;
-    const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });
-    if (typeof dispose === "function") disposeTool = dispose;
   };
   // .218 officer access. The page only decides what to show; the Worker decides every plan file and access answer.
   // One check per page load (kept in page memory for 15 minutes, never in storage) keeps a member's visit to one Discord read.
@@ -2113,9 +2117,10 @@
     if (treasuryPlanAllowed218()) return [["#/treasury-plan", "Treasury plan"]];
     const user = S.user, revision = decisionActorRevision;
     if (S.signedIn && !S.denied && user && (!treasuryChecked218 || treasuryChecked218.user !== user || treasuryChecked218.revision !== revision)) {
-      treasuryChecked218 = { user, revision };
+      const queued = { user, revision };
+      treasuryChecked218 = queued;
       setTimeout(() => {
-        if (S.signedIn && !S.denied && S.user === user && decisionActorRevision === revision) refreshTreasuryAccess218({}).catch(() => {});
+        if (treasuryChecked218 === queued && S.signedIn && !S.denied && S.user === user && decisionActorRevision === revision) refreshTreasuryAccess218({}).catch(() => {});
       }, 0);
     }
     return [];
@@ -2125,6 +2130,16 @@
       h("p", { text: "The treasury programme and financial model are for officers and above: the Guild Master, the Council, Officers, Officer Alts, Raid Leaders, the Treasurer and the Co-Guild Master." }),
       h("p", { class: "muted", text: "Access follows your in-game rank on the latest roster, your Discord officer role or a published Co-Guild Master or Treasurer appointment. Royal Writs and Patron tiers stay public on Roles and Governance." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
+  }
+  function treasuryUnavailable218(error, current) {
+    const seconds = error && error.status === 429 ? error.retryAfterSeconds : null;
+    const wait = Number.isFinite(seconds) && seconds > 0 ? Math.min(900, Math.ceil(seconds)) : 60;
+    return frame("Treasury plan temporarily unavailable", null,
+      h("p", { role: "status", text: error && error.status === 429
+        ? "Too many Treasury checks were made. Wait at least " + wait + " seconds, then reload this page."
+        : "The Treasury plan could not be loaded. Check your connection, then reload this page. If you have opened the plan repeatedly, wait a minute before reloading." }),
+      h("p", { class: "muted small", text: "Nothing is being retried automatically. Reloading checks access again; this message does not confirm or deny your officer role." }),
+      h("div", { class: "btn-row" }, h("button", { class: "btn", type: "button", text: "Reload Treasury plan", onclick: () => { if (current()) location.reload(); } }), h("a", { class: "btn", href: "#/roles", text: "Roles" })));
   }
   async function refreshTreasuryAccess218({ fresh = false } = {}) {
     if (!S.signedIn || S.denied || !S.user) return false;
@@ -2140,8 +2155,10 @@
       if (!check || check.user !== user || check.id !== id || check.revision !== revision) {
         check = { user, id, revision, promise: null };
         check.promise = api("GET", "/api/treasury-plan/access", undefined, { live: current })
-          .then(data => !!(data && data.format === "olympus-treasury-access-v1" && data.canRead === true))
-          .catch(() => false)
+          .then(data => {
+            if (!data || data.format !== "olympus-treasury-access-v1" || typeof data.canRead !== "boolean") throw new ApiError(200, { error: "unreadable_answer" });
+            return data.canRead;
+          })
           .finally(() => { if (treasuryCheck218 === check) treasuryCheck218 = null; });
         treasuryCheck218 = check;
       }

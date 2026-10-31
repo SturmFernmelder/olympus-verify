@@ -69,6 +69,18 @@ const body218 = String.raw`
   const vice=page.app.querySelector('[data-role-key201="office_92"]'), co=page.app.querySelector('[data-role-family203="co_gm"] .role-primary203');
   check('.218 Vice-GM succession duties cannot silently become Co-GM duties', vice.querySelector('.role-guide201').textContent.includes(guides.office_92.commitment)
     && !co.textContent.includes(guides.office_92.definition) && co.querySelectorAll('.role-reporting218').filter(node=>node.textContent==='Council portfolio: Co-Guild Master / Hand of the Sovereign').length===1 && co.querySelectorAll('p.small.muted').filter(node=>node.textContent==='Co-Guild Master and Vice Guild Master').length===1);
+  const councilLineCasesP2=[
+    ['co_gm','Council portfolio: Co-Guild Master / Hand of the Sovereign'],
+    ['chief_intake','Council portfolio: High Minister of the Chancery & Imperial Census'],
+    ['minister_artisanry','Council portfolio: Grand Master Artisan'],
+    ['minister_heraldry','Council portfolio: Lord High Herald / Minister of Heraldry'],
+    ['treasurer','Council portfolio: Lord High Treasurer / Imperial Exchequer'],
+    ['architect','Council portfolio: High Architect of Systems'],
+  ];
+  for(const [key,line] of councilLineCasesP2){
+    const primary=page.app.querySelector('[data-role-family203="'+key+'"] .role-primary203');
+    check('.218 fixed Council reporting line remains in its own '+key+' primary scope',!!primary&&primary.querySelectorAll('.role-reporting218').filter(node=>node.textContent===line).length===1);
+  }
   const justice=page.app.querySelector('[data-role-family203="justice"]'), chancellor=page.app.querySelector('[data-role-family203="head_justice"]');
   check('.218 one judicial portfolio and one clearly named institution retain separate holder scopes', justice.querySelector('summary').textContent.includes('Council of Justice — institution')
     && !justice.querySelector('summary').textContent.includes('Head of Justice') && chancellor.querySelector('summary').textContent.includes('Lord High Chancellor / Head of Justice')

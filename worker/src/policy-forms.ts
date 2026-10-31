@@ -264,7 +264,15 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
         : eventCollection
           ? mode === "history" ? await exportMyEventChanges(request, env, user, cursor || undefined) : await exportMyData(request, env, user, undefined, cursor || undefined)
           : mode === "history" ? await exportMyHistory(request, env, user, cursor || undefined) : await exportMyData(request, env, user, cursor || undefined);
-      assertOriginalSiteSessionRead(original);if (mode === "history") return decisionCollection
+      assertOriginalSiteSessionRead(original);
+      if (mode === "download" && result.status === 429) {
+        const label = decisionCollection ? "Saved contribution-decision continuation" : eventCollection ? "Saved event-change continuation" : "Saved action continuation";
+        const resume = cursor ? `<label>${e(label)}<textarea readonly rows="2" spellcheck="false" autocomplete="off">${e(cursor)}</textarea></label><p>Keep this continuation privately. After the rate window, reopen the account controls and paste it into ${e(label)} using the same original site session before it expires. Never put it in an address or share it.</p>` : "";
+        const response = htmlResponse(request, "Copy temporarily unavailable", `<p>Five copy views or downloads an hour. Try again later. No new copy was made and no history completion is claimed.</p>${resume}${controls}`, 429, formCookie(nonce));
+        response.headers.set("Referrer-Policy", "no-referrer");
+        return response;
+      }
+      if (mode === "history") return decisionCollection
         ? showContributionDecisions(request, env, nonce, result, user, cursor || undefined)
         : eventCollection
           ? showEventChanges(request, env, nonce, result, user, cursor || undefined)

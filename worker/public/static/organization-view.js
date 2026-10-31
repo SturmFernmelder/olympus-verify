@@ -7,6 +7,7 @@ function svg(tag, attrs = {}) {
 }
 export function renderOrganization(main, data, ui) {
   const { h, add, clear, posIcon, parts } = ui;
+  const nodeTitle218 = node => node.id === "native" && node.title === "Ten native rank slots" ? "In-game rank reference" : node.title;
   clear(main);
   if (!document.getElementById("organization-view-style")) {
     const link = document.createElement("link"); link.id = "organization-view-style";
@@ -53,7 +54,7 @@ export function renderOrganization(main, data, ui) {
     const a = position.get(fromId), b = position.get(toId); if (!a || !b) return;
     const path = svg("path", { class: "org-edge org-edge-" + kind, "marker-end": `url(#org-arrow-${kind})` });
     if (kind === "coordination") path.setAttribute("marker-start", "url(#org-arrow-coordination)");
-    const title = svg("title"); title.textContent = `${byId.get(fromId).title} → ${byId.get(toId).title}: ${relation}`; path.append(title); wires.append(path); edges.push({ fromId, toId, path });
+    const title = svg("title"); title.textContent = `${nodeTitle218(byId.get(fromId))} → ${nodeTitle218(byId.get(toId))}: ${relation}`; path.append(title); wires.append(path); edges.push({ fromId, toId, path });
   }
   for (const node of visible) {
     if (node.parent) edge(node.id, node.parent, node.relation, data.legend[node.relation]);
@@ -70,7 +71,7 @@ export function renderOrganization(main, data, ui) {
   const search = h("input", { type: "search", id: "organization-search", maxlength: "160", placeholder: "Find an office, rank or duty…", "aria-label": "Search all offices and " + data.terms.length + " labels" });
   let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = false, disposed = false, relationshipMap205 = null;
   const zoomStatus = h("output", { class: "org-zoom", "aria-label": "Chart zoom" });
-  function chartSummary() { return branchMode ? `Branch: ${byId.get(selected).title}. Parent and directly connected offices shown at a readable scale; drag to see the rest. Full map shows all ${visible.length} chart offices; List includes all ${data.nodes.length} groups.` : `Full map overview: all ${visible.length} chart offices. At overview scale, select an office and choose Fit branch to read it, or use List.`; }
+  function chartSummary() { return branchMode ? `Branch: ${nodeTitle218(byId.get(selected))}. Parent and directly connected offices shown at a readable scale; drag to see the rest. Full map shows all ${visible.length} chart offices; List includes all ${data.nodes.length} groups.` : `Full map overview: all ${visible.length} chart offices. At overview scale, select an office and choose Fit branch to read it, or use List.`; }
   function drawLayout(shown, chartWidth, chartHeight) {
     stage.style.width = chartWidth + "px"; stage.style.height = chartHeight + "px";
     wires.setAttribute("width", chartWidth); wires.setAttribute("height", chartHeight); wires.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
@@ -143,13 +144,13 @@ export function renderOrganization(main, data, ui) {
     termFamily218(term)?.kind === "institution" ? null : h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " · " + term.nativeRankName }),
     h("span", { class: "small", text: term.codexTitles.map(title => "Title " + title).join(" · ") }));
   function select(id, move = false, focus = false, term = null) {
-    const n = byId.get(id); if (!n) return; selected = id; detailSummary.textContent = "Office details · " + n.title;
+    const n = byId.get(id); if (!n) return; selected = id; detailSummary.textContent = "Office details · " + nodeTitle218(n);
     if ((move || focus) && relationshipMap205) relationshipMap205.open = true;
     for (const [key, button] of buttons) button.setAttribute("aria-pressed", String(key === id));
     for (const e of edges) e.path.classList.toggle("org-edge-active", e.fromId === id || e.toId === id);
     const offices = (data.officeMandates || []).filter(o => o.nodeId === id);
     const family = term ? termFamily218(term) : null, institution = family?.kind === "institution";
-    clear(detail); add(detail, [h("p", { class: "eyebrow", text: n.kind }), h("h2", { text: n.title }),
+    clear(detail); add(detail, [h("p", { class: "eyebrow", text: n.kind }), h("h2", { text: nodeTitle218(n) }),
       term ? h("p", { text: institution ? family.label + ": a collective institution or retained historical mandate, separate from its current individual Council portfolio." : term.label + ": " + term.note }) : null,
       term && !institution ? h("p", { class: "small", "data-native-placement": String(term.ordinal), text: termPlacement(term) }) : null,
       institution ? h("details", {class:"org-register-context218"}, h("summary", {text:"Earlier register wording & rank associations"}),
@@ -159,9 +160,9 @@ export function renderOrganization(main, data, ui) {
       term ? officeBadges(term) : null,
       term ? seatLink(term) : null,
       h("h3", { text: "Purpose" }), h("p", { text: n.remit }), h("h3", { text: "Authority and boundaries" }), h("p", { text: n.limits }),
-      h("p", { class: "org-relation", text: n.parent ? `${n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through"}: ${byId.get(n.parent).title}.` : "Constitutional root; no reporting parent in this model." }),
+      h("p", { class: "org-relation", text: n.parent ? `${n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through"}: ${nodeTitle218(byId.get(n.parent))}.` : "Constitutional root; no reporting parent in this model." }),
       offices.length ? h("div", null, h("h3", { text: "Offices and working mandates" }), offices.map(o => h("article", { class: "org-mandate" }, h("h4", { text: o.title }), h("p", { text: o.duty }), h("p", { class: "small", text: "Record of work: " + o.output }), h("p", { class: "small muted", text: "Appointment and limits: " + o.boundary })))) : null,
-      n.coordinates.length ? h("div", null, h("h3", { text: "Working relationships" }), n.coordinates.map(key => h("button", { type: "button", class: "btn small", text: byId.get(key).title, onclick: () => select(key, true) }))) : null,
+      n.coordinates.length ? h("div", null, h("h3", { text: "Working relationships" }), n.coordinates.map(key => h("button", { type: "button", class: "btn small", text: nodeTitle218(byId.get(key)), onclick: () => select(key, true) }))) : null,
       h("h3", { text: "Related titles and vocabulary" }), h("ul", null, data.terms.filter(t => t.nodeId === id).map(t => h("li", { text: t.label + " — " + t.note }))),
       h("a", { class: "btn small", href: "#/governance/" + n.chapter, text: "Read the complete charter" }), h("a", { class: "btn small", href: "#/organization/" + id, text: "Link to this office" })]);
     if (branchMode && fullPosition.has(id)) fit();
@@ -171,12 +172,12 @@ export function renderOrganization(main, data, ui) {
     }
   }
   for (const node of visible) {
-    const p = position.get(node.id), button = h("button", { type: "button", class: "org-node org-node-" + node.relation, "data-organization-node": node.id, "aria-pressed": "false", onclick: () => select(node.id, false, true) }, posIcon(node.icon), h("span", null, h("strong", { text: node.title }), h("small", { text: node.kind })));
+    const p = position.get(node.id), button = h("button", { type: "button", class: "org-node org-node-" + node.relation, "data-organization-node": node.id, "aria-pressed": "false", onclick: () => select(node.id, false, true) }, posIcon(node.icon), h("span", null, h("strong", { text: nodeTitle218(node) }), h("small", { text: node.kind })));
     button.style.left = (p.x - 115) + "px"; button.style.top = p.y + "px"; stage.append(button); buttons.set(node.id, button);
   }
   const list = h("section", { class: "org-list", "aria-label": "All offices in reading order" });
   for (const n of data.nodes) {
-    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: n.title }), h("small", { text: n.kind }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${byId.get(n.parent).title}` : "Separate root" }));
+    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: n.kind }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${nodeTitle218(byId.get(n.parent))}` : "Separate root" }));
     rows.set(n.id, row); list.append(row);
   }
   const chartButton = h("button", { type: "button", class: "btn small", "aria-pressed": "true", text: "Chart", onclick: () => view(false) });
@@ -251,7 +252,7 @@ export function renderOrganization(main, data, ui) {
       const historicalAliases = aliasLabels && (family?.kind === "institution" || t.applicationMetadataScope) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
         h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
       const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier }, h("button", { type: "button", class: "organization-term", text: family?.kind === "institution" ? family.label : t.label, onclick: () => select(t.nodeId, true, true, t) }), officeBadges(t), historicalAliases,
-        h("p", { class: "small", text: t.department }), h("p", { class: "small", text: t.note }), family?.kind === "institution" ? null : h("p", { class: "small muted", text: termPlacement(t) }),
+        h("p", { class: "small", text: t.department === "Ten native rank slots" ? "In-game rank reference" : t.department }), h("p", { class: "small", text: t.note }), family?.kind === "institution" ? null : h("p", { class: "small muted", text: termPlacement(t) }),
         reservedTerm201(t) ? null : h("p", { class: "small muted", text: closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Ordinary role application available; admission and any later standing are reviewed separately." : t.acquisition }),
         ui.roleGuide201 ? h("details", {class:"org-role-guide201"},h("summary",{text:"Definition, responsibilities & expectations"}),ui.roleGuide201(t.officeKey)) : null);
       group.append(li); termRows.push({t,li});
@@ -261,7 +262,7 @@ export function renderOrganization(main, data, ui) {
   search.addEventListener("input", () => {
     const q = search.value.trim().toLowerCase(); let count = 0;
     if (q) chartHelp.open = true;
-    for (const n of data.nodes) { const matches = !q || [n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(t => t.applicationLabel || t.label)].join(" ").toLowerCase().includes(q); rows.get(n.id).hidden = !matches; buttons.get(n.id)?.classList.toggle("org-node-match", !!q && matches); if (matches) count++; }
+    for (const n of data.nodes) { const matches = !q || [nodeTitle218(n), n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(t => t.applicationLabel || t.label)].join(" ").toLowerCase().includes(q); rows.get(n.id).hidden = !matches; buttons.get(n.id)?.classList.toggle("org-node-match", !!q && matches); if (matches) count++; }
     for (const { t, li } of termRows) li.hidden = !!q && ![t.label,t.note,t.applicationLabel,...(t.applicationAliases||[]),t.department,t.tierLabel].join(" ").toLowerCase().includes(q);
     status.textContent = q ? `${count} offices or groups match. Use Full map for all chart matches, or List for a filtered reading view.` : chartSummary();
   });
@@ -314,7 +315,7 @@ export function renderOrganization(main, data, ui) {
   const displayNode199 = requestedAssignment199?.group === "native" ? "native" : requested === "leveling" ? "events" : requested === "liaison" ? "emissaries" : "council";
   select(byId.has(requested) ? requested : requestedOffice199?.nodeId || displayNode199, false, !!requestedOffice199 || byId.has(requested), requestedOffice199);
   if (requested === "alliance-overview" && allianceOverview205) requestAnimationFrame(() => { if (!disposed && main.isConnected) ui.scrollToSection?.(allianceOverview205); });
-  status.textContent = `${data.nodes.length} organizational groups · ${data.terms.length} titles and terms · ten native rank slots.`;
+  status.textContent = `${data.nodes.length} organizational groups · ${data.terms.length} titles and terms · In-game rank reference: ten ranks.`;
   view(typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches);
   function present() {
     if (!main.isConnected || isList || disposed) return;

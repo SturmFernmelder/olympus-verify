@@ -7584,16 +7584,18 @@ regression record this reviewed limitation; they are not live provider, deployme
 
 The owner Master request section 1.2 requires one unified role view while preserving every underlying duty,
 expectation, collaborator and native-rank metadata item. It also names the closed "Rank Slot & Technical Metadata"
-drawer. The authority trail is the owner request preserved at
-`C:/Users/vikto/.codex/attachments/101c17ff-e16d-414c-839a-768c5ce55ed5/Pasted text.txt`, section 1.2,
+drawer. The authority trail is the privately retained owner Master request, section 1.2,
 and the subsequent direction to retain the current Co-GM, Treasurer, raid, PvP and justice Council portfolios.
 
 The `roleReporting218` source-line change has one newly added exact guarded-vocabulary context credit. This is
 an additional finite credit for its reviewed single-line presentation context, not a general vocabulary allowance
-or a repin of the old guard. The original `GUARD` and `ALLOWED` remain unchanged. The role-specific source-key
+or a repin of the old guard. Separately, the retired .201 paragraph context (SHA256
+c58fa50d176a4d413750ec8f47eef7c115a101a270d38ee501c82523a08a95ea) remains in
+RETIRED_CONTEXTS218 as non-crediting history; appending its old bytes cannot regain a current allowance.
+The original `GUARD` and `ALLOWED` remain unchanged. The role-specific source-key
 and boundary-text seal fixes all forty keys and their text digest independently of the renderer, then checks
 each boundary inside its own declared role scope. Separate checks require exact institution/role badges,
-one closed ten-row metadata drawer, the distinct Co-GM reporting line and the natural standing-section note.
+one closed ten-row metadata drawer, all six distinct Council reporting lines in their own primary scopes and the natural standing-section note.
 
 The writ test calls the actual `settingsFrom` graph with sixteen fixed absent/valid/malformed inputs. Safety
 assertions retain no named targets or wager market, no harassment or personal dossiers, and no claim that the

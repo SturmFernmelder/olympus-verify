@@ -319,10 +319,15 @@
       const checkedArt = validateArt(data, art);
       if (!checkedArt.ok) { artPromise = null; throw Error(checkedArt.error); }
       if (!active) return controller;
-      build = emptyBuild(data, options.className || "warrior");
+      const linkedClass = classOf(data, options.className || "warrior");
+      build = emptyBuild(data, linkedClass ? linkedClass.id : "warrior");
+      if (!linkedClass) message = "That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.";
       if (options.build) {
         const incoming = parseBuild(data, options.build);
-        if (incoming.ok) build = incoming.build; else message = incoming.error;
+        if (incoming.ok) {
+          build = incoming.build;
+          if (!linkedClass) message = "That linked class is unavailable. Showing the checked " + classOf(data, build.className).name + " shared plan.";
+        } else message = incoming.error + (!linkedClass ? " That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below." : "");
       }
       selected = talentsOf(classOf(data, build.className))[0].id;
       render();

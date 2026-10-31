@@ -8,14 +8,14 @@
     {
       "path": "worker/public/static/app.css",
       "mode": "100644",
-      "bytes": 86752,
-      "sha256": "8486af7363030bb315bf78831b8d6d289b214113bafa0c131267e0eb1b0d7f91"
+      "bytes": 86760,
+      "sha256": "4f58aebfb7614468617cc8a6b0e50b83ee08b460702e39fbb90b208a1bea9c90"
     },
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 726682,
-      "sha256": "8cd2940f90e3342703f696efccb09c09ac32bd7877a01528c8ff1daa107a48e7"
+      "bytes": 727938,
+      "sha256": "7edc0dbe2ff9ea7590025d9c81ccfce0be5b424d305743f697d46ddf154ec083"
     },
     {
       "path": "worker/public/static/olympus-icon.png",
@@ -650,8 +650,8 @@
     {
       "path": "worker/public/static/talents/calculator.js",
       "mode": "100644",
-      "bytes": 65368,
-      "sha256": "2d36ebb635a97d706f18a9509174d3c8ecfab3e7e80d792ecc49cf97ff90fcb6"
+      "bytes": 65881,
+      "sha256": "0830ff6fc69ef3a3430bf1cdf31a272f3a5a84da4bcedfba2ae398748cd131c8"
     },
     {
       "path": "worker/public/static/talents/calculator.css",
@@ -3830,8 +3830,8 @@
     {
       "path": "worker/public/static/app.js",
       "mode": "100644",
-      "bytes": 726682,
-      "sha256": "8cd2940f90e3342703f696efccb09c09ac32bd7877a01528c8ff1daa107a48e7"
+      "bytes": 727938,
+      "sha256": "7edc0dbe2ff9ea7590025d9c81ccfce0be5b424d305743f697d46ddf154ec083"
     },
     {
       "path": "worker/public/static/rank-planner/app.js",
@@ -4034,14 +4034,14 @@
     {
       "path": "worker/public/static/governance/organization.json",
       "mode": "100644",
-      "bytes": 436775,
-      "sha256": "35fa5abdebd6202b97fcbb7e5303219536f842168e77ff369585660d71682afa"
+      "bytes": 437147,
+      "sha256": "5f3464a57254d401f1a9175afd173e0d41c15cb498476786d7608ccab106ac00"
     },
     {
       "path": "worker/public/static/governance/reconciled-book.md",
       "mode": "100644",
-      "bytes": 270762,
-      "sha256": "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81"
+      "bytes": 271522,
+      "sha256": "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b"
     },
     {
       "path": "worker/public/static/guides218.css",
@@ -4082,8 +4082,8 @@
     {
       "path": "worker/public/static/organization-view.js",
       "mode": "100644",
-      "bytes": 36903,
-      "sha256": "1fcd0c12522f090d319d16d850eb66c7a97434eb3e92b071a1fb4476368994d2"
+      "bytes": 37217,
+      "sha256": "dd700342c7a7fd9929af9e639e9662566294072c0e328c49c4afa39c270fdc52"
     },
     {
       "path": "worker/public/static/qr-beta-window-data.html",
@@ -4142,14 +4142,14 @@
     {
       "path": "worker/public/static/role-rank199.js",
       "mode": "100644",
-      "bytes": 150585,
-      "sha256": "4ead540fcb64bf99aaff664dac9d42608eba8a8145ff8d70fa774f5d65e3da70"
+      "bytes": 150957,
+      "sha256": "1ed67e672aa213f72134c61805737a2bd687932ffea255a135398662b1e480cb"
     },
     {
       "path": "worker/public/static/royal-writs199.js",
       "mode": "100644",
-      "bytes": 18812,
-      "sha256": "4eaa423935c1c32461c014f31d8390895bf45d593bec5a1384b02253eaab2e76"
+      "bytes": 18809,
+      "sha256": "cb38e536d3b3a167d19bb0e8ee4a84666806436b3a775d6e47ad8ac158ae9124"
     },
     {
       "path": "worker/public/static/talents/LICENSE-DATA.txt",
@@ -4214,8 +4214,8 @@
     {
       "path": "worker/public/static/treasury-plan-content207.js",
       "mode": "100644",
-      "bytes": 45956,
-      "sha256": "39b12e9a546d3191a7291bab45e4fce8efa5d4f2381e7789b9d3416663f3ad11"
+      "bytes": 45950,
+      "sha256": "d98e9bd3a83107e0f71bd77d2c3a53b67f1d5749e47afc9f4e118e09f7e73ca8"
     },
     {
       "path": "worker/public/static/treasury-plan-model207.js",
@@ -4244,8 +4244,8 @@
     {
       "path": "worker/public/static/governance/council-composition-master218.md",
       "mode": "100644",
-      "bytes": 7518,
-      "sha256": "7f987888aeefc1aa6d01490f8c1c77eb755b765a236a005d3782bf2532845731"
+      "bytes": 6976,
+      "sha256": "baf175b18490bbae74c8b2252f56fe9ae104dee46d84ff81255120d313b4d62f"
     }
   ],
   "login_art_exception": {

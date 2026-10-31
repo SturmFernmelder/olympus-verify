@@ -358,9 +358,12 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     check('an unrelated Discord role grants nothing', JSON.parse((await f.open('/api/treasury-plan/access')).text).canRead === false);
   });
   await scenario('discord rate limit', {}, async f => {
-    const results = [];
-    for (let i = 0; i < 22; i++) results.push((await f.open('/api/treasury-plan/access')).status);
-    check('the Discord path allows three full page loads a minute, then answers 429 instead of reading again', f.gate.TREASURY_DISCORD_READS_PER_MINUTE === 20 && results.slice(0, 20).every(s => s === 200) && results.slice(20).every(s => s === 429) && f.calls.discord === 20);
+    const results = [], replies = [];
+    for (let i = 0; i < 22; i++) { const reply = await f.open('/api/treasury-plan/access'); replies.push(reply); results.push(reply.status); }
+    check('the Discord path allows twenty checks a minute, then answers 429 instead of reading again', f.gate.TREASURY_DISCORD_READS_PER_MINUTE === 20 && results.slice(0, 20).every(s => s === 200) && results.slice(20).every(s => s === 429) && f.calls.discord === 20);
+    check('429 gives a bounded manual wait and stays private without reading plan storage', replies.slice(20).every(r => r.response.headers.get('Retry-After') === '60' && r.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && r.response.headers.get('Vary') === 'Cookie' && JSON.parse(r.text).error === 'slow_down') && f.calls.assets === 0);
+    const head = await f.open('/static/treasury-plan207.js', { method: 'HEAD' });
+    check('HEAD keeps the same private 429 wait, no body, no provider retry and no plan storage', head.status === 429 && head.text === '' && head.response.headers.get('Retry-After') === '60' && head.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && f.calls.discord === 20 && f.calls.assets === 0);
   });
   await scenario('banned member', { admin: false }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });

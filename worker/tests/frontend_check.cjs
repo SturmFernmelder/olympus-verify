@@ -2714,7 +2714,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // Do not import a substitute module in this miniDOM. Actual SVG layout, the current39-group model/96-term search (with original38/95 preserved),
     // pan/zoom, list view, keyboard and pointer interaction require Root's separate real-browser check.
     check(".218 an ordinary member no longer discovers the officer-only treasury plan, and the Royal Writs switch stays off", !p.app.querySelector('a[href="#/treasury-plan"]') && !p.app.querySelector('[data-royal-writ-page="governance"]'));
-    check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n    const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
+    check(".207 treasury planning route retains the current-session/view fence and no bank writer", APP_JS.includes('ROUTES["treasury-plan"] = async (main, parts) => {') && APP_JS.includes('await import("/static/treasury-plan207.js")') && APP_JS.includes('currentRoute() === route && S.signedIn && !S.denied') && APP_JS.includes('if (!current()) return;\n      const dispose = renderTreasuryPlan207(main, { h, add, clear, posIcon, parts, scrollToSection, isCurrent: current });') && !/PUBLIC_ROUTES = new Set\([^\n]*treasury-plan/.test(APP_JS));
     const organizationSource = fs.readFileSync(path.join(root, "public/static/organization-view.js"), "utf8");
     const modelResponse = await indexMod.default.fetch(new Request("https://guild.example/static/governance/organization.json", { headers: { Cookie: p.cookie } }), env({ ASSETS: governanceAssets }), ctx);
     const model = await modelResponse.json(), nodes = new Map(model.nodes.map((node) => [node.id, node]));
@@ -2772,7 +2772,7 @@ function originalTerms218(terms) {
         && digest(model.nodes.filter(node => !["trading","security","concordat"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
         && digest(model.officeMandates.filter(office => !["trading","security","concordat"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
         && digest(originalTerms218(model.terms.slice(0, 95))) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
-        && model.book.bytes === 270762 && model.book.sha256 === "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81"
+        && model.book.bytes === 271522 && model.book.sha256 === "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b"
         && model.appointments.length === 137 && new Set(model.appointments.map(row => row.key)).size === 137 && model.councilComposition.currentSeats.length === 13
         && trading.officeKey === "office_96" && trading.ordinal === 96 && trading.label === "Head of Trading & Markets" && trading.tier === "high_council" && trading.nativeSlot === 1 && trading.applicationEligible === false && trading.mappingApplies === false;
     })());
@@ -2792,7 +2792,7 @@ function originalTerms218(terms) {
     malformed.answer((pathname) => pathname === "/static/governance/organization.json" ? { schema: "bad" } : null);
     await malformed.go("#/organization"); await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
     check(".154 invalid model refuses before the dynamic SVG import or any organization rendering", !malformed.app.querySelector(".org-workspace") && malformed.app.textContent.includes("unexpected shape"));
-    check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: n.title })') && organizationSource.includes('h("strong", { text: node.title })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
+    check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: nodeTitle218(n) })') && organizationSource.includes('h("strong", { text: nodeTitle218(node) })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
     const alteredBytes = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md")); alteredBytes[0] = 33;
     const altered = await openPage(MEMBER, { ASSETS: { fetch: async () => new Response(alteredBytes) } });
     await altered.go("#/governance"); await waitFor(() => altered.app.textContent.includes("does not match the reviewed text"), ".128 source hash refusal");

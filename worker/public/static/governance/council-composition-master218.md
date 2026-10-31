@@ -1,6 +1,6 @@
 # The High Council — current portfolio register
 
-Owner-directed Master218 supplement, 30 October 2026. Twelve reserved portfolios and the Guild Master as chair. This supplements the R7 institutional text; it records neither a newly ratified constitution nor issued appointments.
+Owner-directed Council supplement, 30 October 2026. Twelve reserved portfolios and the Guild Master as chair. This supplements the R7 institutional text; it records neither a newly ratified constitution nor issued appointments.
 
 ## Co-Guild Master / Hand of the Sovereign
 
@@ -60,9 +60,9 @@ Native association: High Council, rank 2, zero-based slot 1. Title V. Register k
 
 Alliance architecture, compatibility, privacy and recovery planning across the addon, website and Discord tools. Engineering support remains Officer Corps; the title grants no production or signing access.
 
-Native association: High Council, rank 2, zero-based slot 1. Title V. Register key: office_03. The ten native ranks remain unchanged.
+Native association: High Council, rank 2, zero-based slot 1. Titles I, II and V. Register key: office_03. The ten native ranks remain unchanged.
 
-The earlier combined Systems-and-Herald brief is split into independent Systems and Heraldry portfolios under the owner’s Master218 clarification; the retained Heraldry and dedicated Trading offices each keep their own seat. Portfolio count supplies no additional native rank.
+The earlier combined Systems-and-Herald brief is split into independent Systems and Heraldry portfolios under the owner’s 30 October 2026 clarification; the retained Heraldry and dedicated Trading offices each keep their own seat. Portfolio count supplies no additional native rank.
 
 ## Lord High Herald / Minister of Heraldry
 
@@ -84,8 +84,4 @@ No gold writ purchases a Council seat, vote, moderation power or bank withdrawal
 
 ## Current reporting and historical structural labels
 
-The Chancery now reports directly to the High Council; Heraldry remains its coordinating communications partner. The current supplement supersedes ORD 02's older Heraldry reporting placement without changing the adopted R7 source. Academy and Leveling remain under Heraldry for onboarding coordination, with technical support from War and Artisanry. Raid Bench status reports through the PvE portfolio; social activity through Heraldry. Current PvE and PvP cards use Department of War as the ministry and keep their separate Marshal portfolios. Retained War Head structural node labels and the shared office_94 institution are historical references, not extra current Marshal appointments.
-
-## Appointment readback and deliberate re-recording
-
-At the authenticated rollout readback, review the actual published appointed setting for legacy office_94 and office_26 holders. Record the observed legacy publication and the current office_97, office_98 and office_101 state separately. Do not copy a legacy holder into one or more new offices, infer acceptance, remove a publication or create permissions automatically. A competent admin reviews each distinct remit and the holder's acceptance, then uses the normal exact-preview appointment workflow to re-record a justified appointment, or records that the vacancy is deliberate. Any live content change and its readback are separate attended operations; this document executes none.
+The Chancery now reports directly to the High Council; Heraldry remains its coordinating communications partner. The current supplement supersedes the earlier Heraldry intake placement in Charter section 1.5, the Minister of Heraldry entry, Operational Charter O8 and ORD 02. The reader identifies the current Chancery reporting line while preserving the 13 October 2026 R7 adoption and recoverable historical text. Academy and Leveling remain under Heraldry for onboarding coordination, with technical support from War and Artisanry. Raid Bench status reports through the PvE portfolio; social activity through Heraldry. Current PvE and PvP cards use Department of War as the ministry and keep their separate Marshal portfolios. Retained War Head structural node labels and the shared office_94 institution are historical references, not extra current Marshal appointments.

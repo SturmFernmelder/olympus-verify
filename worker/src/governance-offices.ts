@@ -4667,7 +4667,7 @@ export const APPLICATION_TRACKS_199 = Object.freeze([
     "id": "high_council",
     "label": "High Council Application",
     "rankPath": "Rank 2 High Council",
-    "description": "Privy Court, War Council, Intake, Artisanry, Systems Architect and Heraldry portfolios; appointment is separately reviewed."
+    "description": "Reserved historical category; not open for applications. Current Council portfolios: Co-Guild Master / Hand of the Sovereign; Lord High Treasurer; Lord High Chancellor / Head of Justice; Grand Marshal of PvE; Grand Marshal of PvP; High Inquisitor / Internal Security; High Minister of the Chancery & Imperial Census; Grand Concordat Director; Grand Master Artisan; High Architect of Systems; Lord High Herald; Head of Trading & Markets. Every appointment and permission requires separate review."
   },
   {
     "id": "patron",

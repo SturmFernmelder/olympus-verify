@@ -47,10 +47,18 @@ check(".218 paid review proposals cannot buy loot, moderation or government",
  byKey("trial_memorial_writ").limits.includes("no loot priority, moderation advantage or governing authority")
  && byKey("raid_bench_writ").limits.includes("no loot priority or exception to the currently published rotation"));
 check(".218 historical civil filing is wholly inactive and bench cites its actual codex",
- byKey("civil_suit_makgora").limits.includes("While suspended, the whole historical reference, including its 25g civil filing, is shown as not active.")
+ byKey("civil_suit_makgora").limits.includes("While suspended, the whole historical programme, including its 25g civil filing, remains inactive.")
  && byKey("civil_suit_makgora").enabled===false && byKey("civil_suit_makgora").forecastGold===0
  && JSON.stringify(byKey("raid_bench_writ").titles)==='["III"]');
 
+  check(".218 expedited review never buys an earlier or extra vote, rank or office", (() => {
+    const row = byKey("expedited_assize");
+    return row.goldMin === 150 && row.goldMax === 150 && row.outcome === "Priority administrative review queue"
+      && row.limits.startsWith("No guaranteed acceptance. No earlier vote, extra vote, rank or office;")
+      && row.limits.includes("fair evidence and the same eligibility standards apply")
+      && row.limits.includes("Currently eligible ordinary applications only")
+      && row.limits.includes("reserved Leader, High Council and Officer Corps seats cannot be purchased or opened");
+  })());
   return checks;
 }
 module.exports = { runChecks };

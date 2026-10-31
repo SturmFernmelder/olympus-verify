@@ -18,6 +18,9 @@ function treasuryClientFixture218(source) {
     if(source.split(before).length!==2)throw Error('one organization module fixture anchor required');
     source=source.replace(before,after);
   }
+  const treasuryImport='import("/static/treasury-plan207.js")';
+  if(source.split(treasuryImport).length!==2)throw Error('one Treasury module fixture anchor required');
+  source=source.replace(treasuryImport,'window.__treasuryModuleFixture218()');
   return source;
 }
 const fixtureRead218='const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");';
@@ -132,6 +135,78 @@ const WARRIOR60 = "ot1.260cf99b52db.warrior.60.053252130305152010505003000000000
   f218.intercept(path=>{if(path==="/api/treasury-plan/access"){fr218++;return reply218(false);}});
   const fo218=f218.window.__treasuryClientFixture218.owner();await f218.window.__treasuryClientFixture218.refresh({fresh:true});await settle();
   check(".218 fresh refusal clears prior Treasury presentation grant in place without retry loop",fr218===1&&f218.window.__treasuryClientFixture218.owner()===fo218&&fo218.canReadTreasuryPlan===false&&!nav218(f218));
+
+  console.log("\n== .218: Treasury temporary failures stay recoverable ==");
+  const slow218=seconds=>new Response('{"error":"slow_down"}',{status:429,headers:{"Content-Type":"application/json","Retry-After":String(seconds)}});
+  for(const kind218 of ["rate", "network", "unreadable"]){
+    const q218=await treasuryPage218();let requests218=0,caught218=null;
+    q218.intercept(path=>{if(path==="/api/treasury-plan/access"){
+      requests218++;if(requests218>1)return reply218(true);
+      if(kind218==="network")throw new TypeError("synthetic held transport failure");
+      if(kind218==="unreadable")return new Response('{"format":"olympus-treasury-access-v1","canRead":"yes"}',{status:200});
+      return slow218(17);
+    }});
+    q218.window.__treasuryClientFixture218.setGrant(false);const original218=q218.window.__treasuryClientFixture218.owner();
+    try{await q218.window.__treasuryClientFixture218.refresh({fresh:true});}catch(error){caught218=error;}
+    await pause218(30);
+    check(".218 "+kind218+" access failure remains a failure, not a cached officer refusal or automatic retry",!!caught218&&caught218.status===(kind218==="rate"?429:kind218==="network"?0:200)&&requests218===1&&q218.window.__treasuryClientFixture218.owner()===original218&&original218.canReadTreasuryPlan===false&&(kind218!=="rate"||caught218.retryAfterSeconds===17));
+    const recovered218=await q218.window.__treasuryClientFixture218.refresh({});
+    check(".218 a later explicit "+kind218+" refresh reads again and can recover without a stale false cache",recovered218===true&&requests218===2&&original218.canReadTreasuryPlan===true);
+  }
+
+  const ratePage218=await treasuryPage218();let accessRequests218=0,rateModules218=0;
+  ratePage218.window.__treasuryModuleFixture218=()=>{rateModules218++;throw Error("a rate-limited access check must not import the plan");};
+  ratePage218.intercept(path=>{if(path==="/api/treasury-plan/access"){accessRequests218++;return slow218(17);}});
+  ratePage218.window.__treasuryClientFixture218.setGrant(false);await ratePage218.go("#/treasury-plan");
+  await waitFor(()=>!!byText(ratePage218.app,"button","Reload Treasury plan"),"Treasury rate recovery panel");await pause218(30);
+  const staleReload218=byText(ratePage218.app,"button","Reload Treasury plan");
+  check(".218 a known429 shows its bounded wait, no raw transport text, no officer denial and no queued nav retry",ratePage218.app.textContent.includes("Wait at least 17 seconds")&&ratePage218.app.textContent.includes("does not confirm or deny your officer role")&&!ratePage218.app.textContent.includes("Failed to fetch")&&!ratePage218.app.textContent.includes("Access follows your in-game rank")&&accessRequests218===1&&rateModules218===0&&!ratePage218.location.reloaded);
+  await ratePage218.go("#/guide/member");staleReload218.click();
+  check(".218 a detached Treasury reload action cannot reload a different route",!ratePage218.location.reloaded&&accessRequests218===1);
+
+  const modulePage218=await treasuryPage218();let moduleRequests218=0,moduleAccess218=0;
+  modulePage218.intercept(path=>{if(path==="/api/treasury-plan/access"){moduleAccess218++;return reply218(true);}});
+  modulePage218.window.__treasuryModuleFixture218=()=>{moduleRequests218++;return Promise.reject(new TypeError("Failed to fetch"));};
+  await modulePage218.go("#/treasury-plan");await waitFor(()=>!!byText(modulePage218.app,"button","Reload Treasury plan"),"Treasury module recovery panel");await pause218(30);
+  check(".218 a module failure gets honest recovery text without claiming a known429 or retrying",modulePage218.app.textContent.includes("The Treasury plan could not be loaded")&&modulePage218.app.textContent.includes("wait a minute before reloading")&&!modulePage218.app.textContent.includes("Failed to fetch")&&!modulePage218.app.textContent.includes("Too many Treasury checks were made")&&moduleRequests218===1&&moduleAccess218===0&&!modulePage218.location.reloaded);
+  byText(modulePage218.app,"button","Reload Treasury plan").click();
+  check(".218 reloading the failed module is an explicit current-view action, not an automatic import retry",modulePage218.location.reloaded===true&&moduleRequests218===1&&moduleAccess218===0);
+
+  for(const leave218 of ["route", "identity"]){
+    const q218=await treasuryPage218();let fail218=null,entered218=0;
+    q218.intercept(path=>{if(path==="/api/treasury-plan/access")return reply218(false);});
+    q218.window.__treasuryModuleFixture218=()=>{entered218++;return new Promise((resolve,reject)=>{fail218=reject;});};
+    await q218.go("#/treasury-plan");await waitFor(()=>entered218===1&&typeof fail218==="function","held Treasury module");
+    if(leave218==="route")await q218.go("#/guide/member");else q218.window.__treasuryClientFixture218.replaceIdentity("300000000000218197");
+    await settle();const survivingText218=q218.app.textContent;fail218(new TypeError("Failed to fetch"));await pause218(30);
+    check(".218 a late failed module cannot overwrite a changed "+leave218,q218.app.textContent===survivingText218&&!q218.app.textContent.includes("Treasury plan temporarily unavailable")&&!q218.app.textContent.includes("Failed to fetch"));
+  }
+
+  // Real signOut intent increments the actor revision BEFORE the held logout request completes.
+  const logoutLate218=await treasuryPage218(),logoutGate218=deferred218();let logoutStarted218=false,lateModuleReject218=null,logoutModules218=0;
+  logoutLate218.intercept(async path=>{if(path==="/auth/logout"){logoutStarted218=true;await logoutGate218.promise;return new Response("{}",{status:200});}});
+  logoutLate218.window.__treasuryModuleFixture218=()=>{logoutModules218++;return new Promise((resolve,reject)=>{lateModuleReject218=reject;});};
+  await logoutLate218.go("#/treasury-plan");await waitFor(()=>typeof lateModuleReject218==="function","Treasury module before held logout");
+  const logoutOwner218=logoutLate218.window.__treasuryClientFixture218.owner(),logoutRevision218=logoutLate218.window.__treasuryClientFixture218.state().revision;
+  byText(logoutLate218.app,"button","Sign out").click();await waitFor(()=>logoutStarted218,"actual signOut held transport");
+  const logoutWaitingText218=logoutLate218.app.textContent;
+  lateModuleReject218(new TypeError("Failed to fetch"));await pause218(30);
+  check(".218 a late module rejection after real logout intent cannot paint recovery while the original view still exists",logoutLate218.window.__treasuryClientFixture218.state().revision===logoutRevision218+1&&logoutLate218.window.__treasuryClientFixture218.state().signedIn&&logoutLate218.window.__treasuryClientFixture218.owner()===logoutOwner218&&logoutLate218.location.hash==="#/treasury-plan"&&logoutLate218.app.textContent===logoutWaitingText218&&!logoutLate218.app.textContent.includes("Treasury plan temporarily unavailable")&&!byText(logoutLate218.app,"button","Reload Treasury plan")&&logoutModules218===1&&!logoutLate218.location.reloaded);
+  logoutGate218.resolve();await settle();
+
+  const logoutButton218=await treasuryPage218(),buttonLogoutGate218=deferred218();let buttonLogoutStarted218=false;
+  logoutButton218.intercept(async path=>{if(path==="/auth/logout"){buttonLogoutStarted218=true;await buttonLogoutGate218.promise;return new Response("{}",{status:200});}});
+  logoutButton218.window.__treasuryModuleFixture218=()=>Promise.reject(new TypeError("Failed to fetch"));
+  await logoutButton218.go("#/treasury-plan");await waitFor(()=>!!byText(logoutButton218.app,"button","Reload Treasury plan"),"Treasury reload button before held logout");
+  const oldReload218=byText(logoutButton218.app,"button","Reload Treasury plan"),buttonOwner218=logoutButton218.window.__treasuryClientFixture218.owner(),buttonRevision218=logoutButton218.window.__treasuryClientFixture218.state().revision;
+  byText(logoutButton218.app,"button","Sign out").click();await waitFor(()=>buttonLogoutStarted218,"reload-button actual signOut held transport");oldReload218.click();await pause218(30);
+  check(".218 a Treasury reload button created before logout intent is inert while logout transport waits",logoutButton218.window.__treasuryClientFixture218.state().revision===buttonRevision218+1&&logoutButton218.window.__treasuryClientFixture218.state().signedIn&&logoutButton218.window.__treasuryClientFixture218.owner()===buttonOwner218&&logoutButton218.location.hash==="#/treasury-plan"&&logoutButton218.app.contains(oldReload218)&&!logoutButton218.location.reloaded);
+  buttonLogoutGate218.resolve();await settle();
+
+  const validFalse218=await treasuryPage218();let validFalseReads218=0;
+  validFalse218.intercept(path=>{if(path==="/api/treasury-plan/access"){validFalseReads218++;return reply218(false);}});
+  await validFalse218.window.__treasuryClientFixture218.refresh({fresh:true});await validFalse218.window.__treasuryClientFixture218.refresh({});
+  check(".218 a real boolean refusal still has the existing scoped presentation cache",validFalseReads218===1&&validFalse218.window.__treasuryClientFixture218.owner().canReadTreasuryPlan===false);
 
   console.log("\n" + ok + "/" + n + " passed");
   process.exit(ok === n ? 0 : 1);

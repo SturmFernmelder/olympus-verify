@@ -1216,7 +1216,7 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .role-variant203>summary{font-size:.86rem;color:#c4bdac}
 @media(max-width:390px){.launch-notice218{padding:.9rem}.launch-notice218 .launch-notice-title218{font-size:1.05rem}.role-reporting218{overflow-wrap:anywhere}.role-primary203 .role-facts dd{margin-left:0}}
 /* .218: plain disclosure rows stay large enough to select on narrow screens. */
-.shell summary{min-height:32px}
+:where(.shell) summary{min-height:32px}
 
 /* Primary frame headings keep the plaque’s original scale and wrapping. */
 .plaque h1.page-heading218{font-size:1.55rem;overflow-wrap:anywhere;min-width:0}

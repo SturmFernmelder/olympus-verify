@@ -164,7 +164,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     if (proof.allows(roster[0])) return { canRead: true, source: "roster", check, readmit: () => readmit(proof) };
   }
   // Only the Discord path costs a provider call, so only it is limited (per isolate, per account).
-  if (rateLimited(`tpd:${subject.discordId}`, TREASURY_DISCORD_READS_PER_MINUTE, 60)) return refusal("slow_down", 429, "Too many checks. Wait a minute and try again.");
+  if (rateLimited(`tpd:${subject.discordId}`, TREASURY_DISCORD_READS_PER_MINUTE, 60)) return privateSiteAsset(apiJson({ error: "slow_down", message: "Too many checks. Wait a minute and try again." }, 429, { "Retry-After": "60" }));
   // Discord authority is one fresh provider-response snapshot per request, before asset storage.
   // A caller whose role changes during that asset await can still receive that one response. Later requests
   // check a new provider response; no cross-request result cache or strong upstream consistency

@@ -330,6 +330,17 @@ async function frontendOwner197() {
       &&!!family&&!!primary&&(family.kind==='institution'?!primary.querySelector('.rank-office199'):(primary.querySelector('.rank-office199')||['member','raider','pvp_team'].includes(family.primaryKey)))
       &&guide?.textContent.includes('Responsibilities')&&guide.textContent.includes('Expectations')&&guide.textContent.includes('Time')&&guide.querySelectorAll('li').length>=4;
   }));
+  const institutionFamiliesP2 = ['court','high_council','justice','loot_council','privy_council','war_head'];
+  check('.218 all six institutions keep their primary free of rank claims and attribute every retained rank badge to its own source',
+    JSON.stringify(model203.families.filter(family=>family.kind==='institution').map(family=>family.key).sort())===JSON.stringify(institutionFamiliesP2)
+    && institutionFamiliesP2.every(key=>{
+      const family=model203.families.find(row=>row.key===key),card=guided199.app.querySelector('[data-role-family203="'+key+'"]'),primary=card?.querySelector('.role-primary203');
+      return !!primary&&!primary.querySelector('.rank-office199')&&card.querySelectorAll('.rank-office199').every(badge=>{
+        const owner=badge.closest('[data-role-key201]'),source=allRows201.find(row=>row.key===owner?.getAttribute('data-role-key201'));
+        return !!owner&&!!source&&!primary.contains(badge)&&family.sourceKeys.includes(source.key)&&source.key!==family.primaryKey
+          &&!!owner.closest('.role-variant203')&&badge.textContent.includes('Rank '+source.nativeRankOrdinal+' ');
+      });
+    }));
   const councilInstitution218=guided199.app.querySelector('[data-role-family203="high_council"]'),nativeCouncil218=councilInstitution218?.querySelector('[data-role-key201="rank_high_council"]');
   check('.218 an institutional primary claims no native rank while its own retained High Council native reference keeps Rank2 metadata',!!councilInstitution218&&!councilInstitution218.querySelector('.role-primary203').querySelector('.rank-office199')&&nativeCouncil218?.querySelectorAll('.rank-office199').length===1&&nativeCouncil218.querySelector('.rank-office199').textContent.includes('Rank 2 High Council'));
   check('.203 exactly three ordinary job families offer applications while optional activities, standings and institutions do not become application tracks',JSON.stringify(guided199.app.querySelectorAll('[data-family-apply203]').map(button=>button.getAttribute('data-family-apply203')).sort())===JSON.stringify(['artisan','member','raider'])&&guided199.app.querySelectorAll('.role-variant203').length===70&&new Set(families203.map(card=>card.querySelector('summary .role-entry-name201').textContent)).size===70);
@@ -401,6 +412,9 @@ async function frontendOwner197() {
   const table199=roles199.app.querySelector('.rosetta-table199'),headings199=['In-Game Rank Number & Name','Tier & Statutory Codex Title','Organization Department & Branch Offices','Discord Role & Portal Access','How to Attain It'];
   const rows199=table199.querySelectorAll('[data-rank-crosswalk]');
   check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows',JSON.stringify(table199.querySelectorAll('th').map(th=>th.textContent))===JSON.stringify(headings199)&&rows199.length===10&&rows199.every((row,index)=>row.getAttribute('data-rank-crosswalk')===String(index+1)&&row.querySelectorAll('td').length===5&&row.querySelectorAll('td').every((td,column)=>td.getAttribute('data-column')===headings199[column])));
+  check('.218 all five leadership rank rows use reserved rather than royal appointment wording and offer no public application',
+    rows199.slice(0,5).every(row=>{const cell=row.querySelectorAll('td')[4];return cell.querySelector('p')?.textContent==='Reserved appointment; no public application.'&&!cell.textContent.includes('Royal appointment')&&!cell.querySelector('a[href^="#/vote"]');})
+    &&rows199.slice(5).every(row=>row.querySelectorAll('td')[4].textContent.startsWith('Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ')&&!!row.querySelectorAll('td')[4].querySelector('a[href="#/vote"]')));
   const bridgeKeys199=rows199.flatMap(row=>row.querySelectorAll('li a').map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length))));
   check('.199 Rosetta Stone enumerates all137 assignable keys exactly once across their ten rank rows',bridgeKeys199.length===137&&new Set(bridgeKeys199).size===137&&JSON.stringify(bridgeKeys199.slice().sort())===JSON.stringify(keys201));
   const roleCards201=roles199.app.querySelectorAll('[data-role-key201]');
@@ -590,9 +604,9 @@ async function frontendOwner197() {
       const loader = instantiate199(actualStaticFetch, globalThis.crypto, TextDecoder, (object,key)=>Object.prototype.hasOwnProperty.call(object,key));
       return {read:()=>loader.governanceModel(),reads,override:bytes=>{bodyOverride=bytes;}};
     };
-    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===436775&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
+    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===437147&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
     const currentClient199=loadClient199(),model199=await currentClient199.read();
-    check('.199 actual authenticated Worker HTTP and current app loader accept every436775 source byte with101 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===101&&model199.appointments.length===137);
+    check('.199 actual authenticated Worker HTTP and current app loader accept every437147 source byte with101 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===101&&model199.appointments.length===137);
     // Reuse the existing Organization DOM fixture definitions, not its test body.
     // Only that fixture's data binding is supplied from the real loader above.
     // Keep this original focused relationship-map witness explicit; the wide

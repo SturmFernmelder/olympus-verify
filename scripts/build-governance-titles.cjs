@@ -14,17 +14,21 @@ const factsBytes = fs.readFileSync(path.join(root, "docs/governance-facts204.jso
 if (sha256(factsBytes) !== "b510426c726d014b471b993b73a5f71a5eee6b6d2c96672a7c592ff9b055e2b5") throw Error("Governance204 finite facts manifest digest");
 const facts = JSON.parse(factsBytes);
 const presentationBytes218 = fs.readFileSync(path.join(root, "docs/governance-presentation218.json"));
-if (sha256(presentationBytes218) !== "6f5f6f0aa3d9f26c452aa1ceb7f22c2479d1ddfcdcdd3ed6d47585cb9fdf4fce") throw Error("Governance218 finite presentation manifest digest");
+if (sha256(presentationBytes218) !== "12f8f36ac9a4d42174f465cca5a947b42d26c2e4ed43d47bcd822dad783c6715") throw Error("Governance218 finite presentation manifest digest");
 const presentation218 = JSON.parse(presentationBytes218);
 function presentationBridge218(text, inverse = false) {
-  const keys = ['rc9-officer-principles', 'master218-intake-current-reporting', 'master218-ord02-current-reporting'];
+  const keys = ['rc9-officer-principles', 'master218-intake-current-reporting', 'master218-ord02-current-reporting', 'master218-charter-intake-reporting', 'master218-heraldry-intake-separation', 'master218-current-office-census'];
   if (presentation218.schema !== "olympus-governance-presentation218-v1" || JSON.stringify(presentation218.changes.map(change => change.key)) !== JSON.stringify(keys)) throw Error("Governance218 presentation census");
+  const intermediateKeys = ['master218-intake-current-reporting', 'master218-ord02-current-reporting'];
+  if (JSON.stringify(presentation218.changes.filter(change => Object.hasOwn(change, 'previousAfter')).map(change => change.key)) !== JSON.stringify(intermediateKeys)) throw Error("Governance218 intermediate edition census");
   for (const change of inverse ? presentation218.changes.slice().reverse() : presentation218.changes) {
     const before = "\n\n" + change.before + "\n\n", after = "\n\n" + change.after + "\n\n";
-    const oldCount = text.split(before).length - 1, newCount = text.split(after).length - 1;
-    if (oldCount === 1 && newCount === 0) { if (!inverse) text = text.replace(before, after); }
-    else if (oldCount === 0 && newCount === 1) { if (inverse) text = text.replace(after, before); }
-    else throw Error("Ambiguous governance218 presentation paragraph: " + change.key);
+    // Only two pinned P2 reporting paragraphs have a retained intermediate edition.
+    // Exactly one complete original, intermediate or current paragraph must exist.
+    const variants = [before, after, ...(change.previousAfter === undefined ? [] : ["\n\n" + change.previousAfter + "\n\n"])];
+    const matches = variants.map(value => ({ value, count: text.split(value).length - 1 })).filter(row => row.count !== 0);
+    if (matches.length !== 1 || matches[0].count !== 1) throw Error("Ambiguous governance218 presentation paragraph: " + change.key);
+    text = text.replace(matches[0].value, inverse ? before : after);
   }
   return text;
 }
@@ -58,7 +62,7 @@ function rankBridge(text, inverse = false, keys = null) {
 function projection(book, source) {
   if (source.includes("\r") || book.includes("\r") || !source.startsWith(firstTitle)) throw Error("Expected LF authored governance sources");
   if ((source.match(/^# Title /gm) || []).length !== 5 || (source.match(/^## Article [IVX]+\.\d+ — /gm) || []).length !== 36 || (source.match(/^### Section [IVX]+\.\d+\.\d+ — /gm) || []).length !== 72 || (source.match(/^\([a-d]\) /gm) || []).length !== 147) throw Error("Unexpected five-Title structural census");
-  const uncorrected = factsBridge(book, true);
+  const uncorrected = factsBridge(presentationBridge218(book, true), true);
   const end = uncorrected.indexOf(nextChapter), start = uncorrected.indexOf(firstTitle);
   if (end < 0 || uncorrected.indexOf(nextChapter, end + 1) >= 0 || (start >= 0 && (start > end || uncorrected.indexOf(firstTitle, start + 1) >= 0))) throw Error("Ambiguous governance insertion boundary");
   const result = presentationBridge218(factsBridge(rankBridge(uncorrected.slice(0, start < 0 ? end : start) + source.trimEnd() + "\n\n" + uncorrected.slice(end))));

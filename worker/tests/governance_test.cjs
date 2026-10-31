@@ -56,16 +56,17 @@ check("current privacy distinguishes attributable guild-role cleanup, separate s
 check("current marker summary uses original-decision expiry and bounded generation barriers without anonymous or blanket audit claims", currentPrivacy[1].includes("365 days from the original decision") && currentPrivacy[1].includes("366 days from erasure") && currentPrivacy[1].includes("not promised to be anonymous") && !currentPrivacy[1].includes("audit log is an expressly selected erasure exception") && !currentPrivacy[1].includes("hash of the Discord ID and character") && section("## ORD 15", "## ORD 16").includes("separate rejection marker, active safety cases and original unresolved-effect custody") && !section("## ORD 15", "## ORD 16").includes("banned-or-denied safety marker"));
 check("standalone operational charter is embedded exactly and distinguishes reset preservation from personal erasure", text.includes(charter.trim()) && charter.includes("Reset preservation is distinct from an account owner's authenticated erasure request:") && charter.includes("Completion covers live serving-account cleanup, not every copy."));
 check("superseded source decisions remain explicit history followed by the current owner clarification", text.includes("D11 Historical owner erasure decision — 7 October 2026; superseded for current operation by D13.") && text.includes("D12 Historical owner transition decision — 7 October 2026; superseded by D14.") && text.includes("D13 Current Native erasure clarification — 18 October 2026.") && text.includes("D14 Current beta-reset clarification — 18 October 2026."));
-check("R7 plus owner199five-Title and finite rank reconciliation has exact source bytes and SHA256", bytes.length === 270762 && crypto.createHash("sha256").update(bytes).digest("hex") === "4270ce6ce70ad14fc4aa9345896cb1dd5e82d1805591723084f5931738c2cf81");
+check("R7 plus owner199five-Title and finite rank reconciliation has exact source bytes and SHA256", bytes.length === 271522 && crypto.createHash("sha256").update(bytes).digest("hex") === "0495d02d98aa1f31a64a575c6bc88caee4864e0c17db1140235f5aa8d416215b");
 check("canonical Titles and finite218/204 plus original17 inverses restore every prior outside-R7 byte", titleStart > 0 && titleEnd > titleStart && titleEdition === titles.trimEnd() + "\n\n" && titleBuilder.presentationBridge218(titleBuilder.factsBridge(titleBuilder.rankBridge(precedingEdition))) === currentOutside && Buffer.byteLength(precedingEdition) === 173953 && crypto.createHash("sha256").update(precedingEdition).digest("hex") === "54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5");
 check("finite204 substitutions are idempotent and refuse missing or duplicated corrected paragraphs", (() => {
+  const currentFactsOutside218 = titleBuilder.presentationBridge218(currentOutside, true);
   const facts = JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-facts204.json"),"utf8"));
   const corrected = "\n\n" + facts.changes[0].after + "\n\n";
   let missing = false, duplicate = false;
-  try { titleBuilder.factsBridge(currentOutside.replace(corrected,"\n\nUnapproved replacement.\n\n"),true); } catch { missing = true; }
-  try { titleBuilder.factsBridge(currentOutside + corrected,true); } catch { duplicate = true; }
-  const oldOutside = titleBuilder.factsBridge(currentOutside,true);
-  return facts.changes.length === 8 && titleBuilder.factsBridge(currentOutside) === currentOutside && titleBuilder.factsBridge(oldOutside,true) === oldOutside && titleBuilder.factsBridge(oldOutside) === currentOutside && missing && duplicate;
+  try { titleBuilder.factsBridge(currentFactsOutside218.replace(corrected,"\n\nUnapproved replacement.\n\n"),true); } catch { missing = true; }
+  try { titleBuilder.factsBridge(currentFactsOutside218 + corrected,true); } catch { duplicate = true; }
+  const oldOutside = titleBuilder.factsBridge(currentFactsOutside218,true);
+  return facts.changes.length === 8 && titleBuilder.factsBridge(currentFactsOutside218) === currentFactsOutside218 && titleBuilder.factsBridge(oldOutside,true) === oldOutside && titleBuilder.factsBridge(oldOutside) === currentFactsOutside218 && missing && duplicate;
 })());
 check("the expansion has five complete numbered Titles and36Articles,72Sections and147subclauses", JSON.stringify([...titles.matchAll(/^# (Title .+)$/gm)].map(m => m[1])) === JSON.stringify(titleNames) && (titles.match(/^## Article [IVX]+\.\d+ — /gm) || []).length === 36 && (titles.match(/^### Section [IVX]+\.\d+\.\d+ — /gm) || []).length === 72 && (titles.match(/^\([a-d]\) /gm) || []).length === 147 && Buffer.byteLength(titles) > 80000);
 check("each Article has two uniquely numbered substantial Sections with distinct(a)/(b)subclauses", [...titles.matchAll(/^## Article ([IVX]+\.\d+) — [^\n]+\n([\s\S]*?)(?=^## Article |^# Title |$(?![\s\S]))/gm)].every(m => {
@@ -98,6 +99,23 @@ check("deterministic five-Title projection rejects malformed,oversize and unappr
   try { projection(text,exactOverCapTitles218); } catch(error) { exactOverCap=error.message==="Governance reader size or chapter bound"; }
   try { projection(text.replace("The book joins","The book secretly revises"),titles); } catch(error) { outside=error.message==="Governance outside-Titles baseline differs beyond finite owner rank bridge"; }
   return same.text===text&&same.bytes===bytes.length&&same.sha256===data.book.sha256&&(same.text.match(/^# /gm)||[]).length===20&&capBytes218===524288&&predictedProjectionBytes218===524289&&malformed&&oversize&&exactOverCap&&outside;
+})());
+check("the real governance projection accepts exactly524288 bytes and refuses exactly524289 before a bounded cap mutant can expose it", (() => {
+  const baseline=titleBuilder.projection(text,titles),cap=524288;
+  const atCapTitles=titles.trimEnd()+"\n"+"x".repeat(cap-baseline.bytes-1);
+  const overCapTitles=titles.trimEnd()+"\n"+"x".repeat(cap-baseline.bytes);
+  const atCap=titleBuilder.projection(text,atCapTitles);
+  let refused=false;try{titleBuilder.projection(text,overCapTitles);}catch(error){refused=error.message==="Governance reader size or chapter bound";}
+  // Execute only a private in-memory copy of this actual module with its one cap raised by one byte.
+  // Its require.main guard stays false; no generator output is written and every other byte is exact.
+  const builderPath=path.resolve(__dirname,"../../scripts/build-governance-titles.cjs"),original=fs.readFileSync(builderPath,"utf8"),bound="bytes.length > 524288";
+  if(original.split(bound).length!==2)throw Error("one actual governance size predicate required for boundary witness");
+  const successor=original.replace(bound,"bytes.length > 524289"),Module=require("node:module").Module,copy=new Module(builderPath,module);
+  copy.filename=builderPath;copy.paths=Module._nodeModulePaths(path.dirname(builderPath));copy._compile(successor,builderPath);
+  const oneOver=copy.exports.projection(text,overCapTitles);
+  return atCap.bytes===524288&&Buffer.byteLength(atCap.text,"utf8")===524288
+    &&refused&&oneOver.bytes===524289&&Buffer.byteLength(oneOver.text,"utf8")===524289
+    &&successor.replace("bytes.length > 524289",bound)===original;
 })());
 check("model and reader bind the exact current R7 source", data.revision === "R7" && data.book.bytes === bytes.length && data.book.sha256 === crypto.createHash("sha256").update(bytes).digest("hex") && data.book.path === "/static/governance/reconciled-book.md" && app.includes('const GOVERNANCE_SHA256 = "' + data.book.sha256 + '";') && app.includes('bytes.length !== ' + bytes.length) && app.includes('data.book.bytes !== ' + bytes.length));
 check("operative Council,Treasury,OfficerAlt and ArticleS3 agree with the exact ten-rank owner199ladder", text.includes("High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3") && text.includes("| 3 | Officer | Zero-based Slot 2;") && text.includes("| 4 | Officer Alt | Zero-based Slot 3;") && text.includes("Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks") && !text.includes("current Treasurer native rank at Slot 3") && !text.includes("Officer Alt is a historical extended label") && !text.includes("Officer Alt remains a historical extended label") && !text.includes("places Treasurer in Slot 3") && !text.includes("Treasurer occupies Slot 3") && text.includes("D16 Historical owner master directive") && text.includes("D17 Current owner Build .199 directive") && titles.includes("#/roles/rosetta-stone"));
@@ -246,7 +264,7 @@ check("current portfolio count explicitly adds no native ranks",
  && data.cabinet218.nativeRankCount===10 && composition.cabinetSeatCount===12);
 check("each exact current presentation remains reversible and rejects missing or duplicate paragraphs",(()=>{
  const manifest=JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-presentation218.json"),"utf8"));
- if(JSON.stringify(manifest.changes.map(row=>row.key))!=='["rc9-officer-principles","master218-intake-current-reporting","master218-ord02-current-reporting"]')return false;
+ if(JSON.stringify(manifest.changes.map(row=>row.key))!=='["rc9-officer-principles","master218-intake-current-reporting","master218-ord02-current-reporting","master218-charter-intake-reporting","master218-heraldry-intake-separation","master218-current-office-census"]')return false;
  const inverse=titleBuilder.presentationBridge218(text,true);
  if(titleBuilder.presentationBridge218(inverse)!==text)return false;
  return manifest.changes.every(change=>{
@@ -265,7 +283,75 @@ check("current reporting and policy copy state the exact limits",
  && titles.includes("ORD 02's earlier reporting line under Heraldry is superseded")
  && titles.includes("Both service proposals remain subject to Blizzard policy")
  && titles.includes("no price buys loot priority, a governing office or a favourable judgment")
- && titles.split("While suspended, the whole historical reference, including its 25g civil filing, is shown as not active.").length===3);
+ && titles.split("While suspended, the whole historical programme, including its 25g civil filing, remains inactive.").length===3);
+
+check(".218 six finite reader overlays declare their actual guide, reporting and census scope",(()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-presentation218.json"),"utf8"));
+ return manifest.changes.length===6 && manifest.authority.includes("current Council reporting and the current office census") && manifest.authority.includes("original R7 adoption and historical source recoverable");
+})());
+check(".218 exactly two retained P2 reporting paragraphs migrate to current prose without changing original inverse",(()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-presentation218.json"),"utf8"));
+ const prior=manifest.changes.filter(row=>Object.hasOwn(row,"previousAfter"));
+ if(JSON.stringify(prior.map(row=>row.key))!=='["master218-intake-current-reporting","master218-ord02-current-reporting"]')return false;
+ let predecessor=text;
+ for(const row of prior)predecessor=predecessor.replace(row.after,row.previousAfter);
+ return titleBuilder.presentationBridge218(predecessor)===text&&titleBuilder.presentationBridge218(predecessor,true)===titleBuilder.presentationBridge218(text,true)&&prior.every(row=>{
+  let refused=false;try{titleBuilder.presentationBridge218(text+"\n\n"+row.previousAfter+"\n\n");}catch(error){refused=error.message==="Ambiguous governance218 presentation paragraph: "+row.key;}
+  return refused;
+ });
+})());
+check(".218 Charter1.5 and the Heraldry entry consistently place current intake with Chancery",(()=>{
+ const charterScope=section("## 1 5 Departments and guild autonomy","## 1 6 Justice and review");
+ const heralds=text.split("\n\n").filter(p=>p.startsWith("**Minister of Heraldry.**"));
+ return charterScope.includes("Recruitment was initially coordinated under Heraldry; the Chancery now coordinates intake and reports directly to the High Council, with Heraldry as its communications partner.")
+  && heralds.length===1 && heralds[0].includes("supervises Events, Media and community support teams")
+  && heralds[0].includes("communications partner for the Chancery’s intake function") && !heralds[0].includes("supervises Intake");
+})());
+check(".218 operative II8 explicitly supersedes all four earlier intake placements without rewriting O8",(()=>{
+ const scope=titles.slice(titles.indexOf("### Section II.8.1 —"),titles.indexOf("### Section II.8.2 —"));
+ return scope.includes("ORD 02's earlier reporting line under Heraldry is superseded")
+  && ["Charter section 1.5","Minister of Heraldry office entry","Operational Charter O8","historical source text, not a current grant of intake supervision"].every(s=>scope.includes(s))
+  && crypto.createHash("sha256").update(charter).digest("hex")==="9c0e4a709645d02d934229eae7f1222ed6320eea414215da4e2e67c68c5fe3aa" && text.includes(charter.trim());
+})());
+const policyClause218=(source,heading,opening)=>{
+ const from=source.indexOf(heading+"\n\n");if(from<0||source.indexOf(heading+"\n\n",from+1)>=0)return null;
+ const after=source.slice(from+heading.length+2),end=after.search(/^#{1,3} /m),scope=end<0?after:after.slice(0,end);
+ const matches=scope.split("\n\n").filter(p=>p.startsWith(opening));return matches.length===1?matches[0]:null;
+};
+const labelledPolicyClauses218=[
+ ["### Section III.8.2 — The service tariffs and the custodian's conditions","(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow**"],
+ ["### Section III.9.2 — Games of chance, wagers and activation","(a) The proposed Imperial Guild Lottery"],
+ ["### Section III.9.2 — Games of chance, wagers and activation","(b) The proposed Writs of Blood & Vengeance"],
+ ["### Section V.8.1 — A Herald's fee does not purchase the voice of truth","(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow**"]
+];
+check(".218 each of the four visible lottery, PvP and suspended-escrow clauses carries its own Blizzard-policy label",labelledPolicyClauses218.length===4&&labelledPolicyClauses218.every(([heading,opening])=>{
+ const clause=policyClause218(titles,heading,opening);return !!clause&&clause.includes("subject to Blizzard policy");
+}));
+check(".218 removing any one clause label cannot borrow the label from another paragraph",labelledPolicyClauses218.every(([heading,opening])=>{
+ const clause=policyClause218(titles,heading,opening);if(!clause)return false;
+ const mutant=titles.replace(clause,clause.replace("subject to Blizzard policy","pending a separate review"));
+ const changed=policyClause218(mutant,heading,opening);return !!changed&&!changed.includes("subject to Blizzard policy")&&mutant.includes("subject to Blizzard policy");
+}));
+check(".218 bounty reference remains in-game only and excludes named-target publication",(()=>{
+ const clause=policyClause218(titles,"### Section III.9.2 — Games of chance, wagers and activation","(b) The proposed Writs of Blood & Vengeance");
+ return !!clause&&clause.includes("Any bounty is posted in-game only; this site never lists a named target")&&clause.includes("No named bounty target, personal dossier or harassment instruction")&&clause.includes("duel stakes remain disabled");
+})());
+const safeGovernanceLinks218=source=>{const links=[...source.matchAll(/\[[^\]\n]+\]\(([^)\s]+)\)/g)];return links.length===21&&links.every(m=>/^(?:#\/|https:\/\/)/.test(m[1]));};
+check(".218 all21 book links fit the existing narrow reader allowlist and rank planner uses a fragment",safeGovernanceLinks218(text)&&text.includes("[rank planner](#/admin/ranks)")&&!text.includes("[rank planner](/admin/ranks)"));
+check(".218 an otherwise identical root-relative rank link is rejected by the finite link guard",!safeGovernanceLinks218(text.replace("[rank planner](#/admin/ranks)","[rank planner](/admin/ranks)")));
+check(".218 current introduction names101offices and137keys without silently rewriting historical register evidence",(()=>{
+ const intro=section("# Reading and Adopting This Book","# 1 Guild Charter of Olympus");
+ return intro.includes("all 101 stable offices / 137 assignable keys")&&!intro.includes("all 95 stable offices / 131 assignable keys")&&data.terms.length===101&&data.appointments.length===137
+  && precedingEdition.includes("# Reading and Adopting This Book")&&Buffer.byteLength(precedingEdition)===173953&&crypto.createHash("sha256").update(precedingEdition).digest("hex")==="54b4a8f0676d9cc3fd846d62bbb931f080c31e22017ed716e687197b8ebe4ef5";
+})());
+check(".218 member Council reference states current reporting without internal codenames or operator readback",cabinetDirection.includes("Owner-directed Council supplement, 30 October 2026")&&cabinetDirection.includes("preserving the 13 October 2026 R7 adoption and recoverable historical text")&&cabinetDirection.includes("Titles I, II and V. Register key: office_03")&&!/Master218|authenticated rollout readback|Appointment readback and deliberate re-recording|without changing the adopted R7 source/.test(cabinetDirection));
+check(".218 dormant Council payload description names all12portfolios and explicitly offers no applications",(()=>{
+ const rows=data.applicationTracks.filter(row=>row.id==="high_council");if(rows.length!==1)return false;
+ const description=rows[0].description;
+ const portfolios=["Co-Guild Master / Hand of the Sovereign","Lord High Treasurer","Lord High Chancellor / Head of Justice","Grand Marshal of PvE","Grand Marshal of PvP","High Inquisitor / Internal Security","High Minister of the Chancery & Imperial Census","Grand Concordat Director","Grand Master Artisan","High Architect of Systems","Lord High Herald","Head of Trading & Markets"];
+ return portfolios.length===12&&portfolios.every(label=>description.split(label).length===2)&&description.startsWith("Reserved historical category; not open for applications.")&&description.includes("Every appointment and permission requires separate review.");
+})());
+
 
 // Download contract preserves historical R6 bytes and checks the current reader's exact h/add quicklink slice.
 for (const result of require("./governance_download_contract.cjs").runChecks(root)) check(result.name, result.passed);
