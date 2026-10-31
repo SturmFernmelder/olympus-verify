@@ -18,13 +18,13 @@ let checks = 0, failed = 0;
 function check(label, condition) { checks++; if (condition) console.log('PASS ' + label); else { failed++; console.error('FAIL ' + label); } }
 const catalogue = load('governance-offices'), content = load('site-role-guides201'), site = load('site-data');
 const guides = content.OFFICE_ROLE_GUIDES_201, complete = content.roleGuides201(site.POSITIONS), meta = site.meta();
-const stable = catalogue.OFFICE_APPOINTMENTS.filter(row => /^office_\d\d$/.test(row.key));
+const stable = catalogue.OFFICE_APPOINTMENTS.filter(row => /^office_\d{2,3}$/.test(row.key));
 const words = guide => [guide.definition, ...guide.responsibilities, ...guide.expectations, guide.commitment, guide.worksWith].join(' ').trim().split(/\s+/).length;
-check('all original95 stable offices and the owner-directed trading office remain represented', stable.length === 96 && stable.every(row => guides[row.key]));
-check('all132 assignable display keys have exactly one guide', Object.keys(guides).length === 132 && catalogue.OFFICE_APPOINTMENTS.every(row => guides[row.key]?.key === row.key));
-check('96 office definitions are individually written', new Set(stable.map(row => guides[row.key].definition)).size === 96);
-check('96 office responsibility lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].responsibilities))).size === 96);
-check('96 office expectation lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].expectations))).size === 96);
+check('all original96 offices and five new individual Council portfolios remain represented', stable.length === 101 && stable.every(row => guides[row.key]));
+check('all132 assignable display keys have exactly one guide', Object.keys(guides).length === 137 && catalogue.OFFICE_APPOINTMENTS.every(row => guides[row.key]?.key === row.key));
+check('101 office definitions are individually written', new Set(stable.map(row => guides[row.key].definition)).size === 101);
+check('101 office responsibility lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].responsibilities))).size === 101);
+check('101 office expectation lists are individually written', new Set(stable.map(row => JSON.stringify(guides[row.key].expectations))).size === 101);
 for (const row of catalogue.OFFICE_APPOINTMENTS) {
   const guide = guides[row.key];
   check(row.key + ' has a definition, three duties, two expectations, commitment, colleagues and access boundary', !!guide && guide.definition.length > 100 && guide.responsibilities.length >= 3 && guide.responsibilities.every(text => typeof text === 'string' && text.length > 35) && guide.expectations.length >= 2 && guide.expectations.every(text => typeof text === 'string' && text.length > 35) && guide.commitment.length > 15 && guide.worksWith.length > 10 && /changes no game rank, Discord role, bank limit, signing authority or addon permission/.test(guide.boundaries));
@@ -39,7 +39,7 @@ check('every stable office has at least100 concrete words before its shared acce
 check('native guide keeps the exact ten-rank order and no extra Treasurer rank', content.NATIVE_RANK_GUIDES_201.length === 10 && content.NATIVE_RANK_GUIDES_201.map(row => row.label).join('|') === 'Leader|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && content.NATIVE_RANK_GUIDES_201.every((row, index) => row.nativeSlot === index && row.nativeRankOrdinal === index + 1));
 check('native leadership slots0 through4 are reserved and member standings are not leadership vacancies', content.NATIVE_RANK_GUIDES_201.every((row, index) => row.eligibility === (index < 5 ? 'reserved' : 'standing')));
 check('historical Treasurer key still describes the reserved appointment at Council slot1', guides.rank_treasurer.nativeSlot === 1 && guides.rank_treasurer.eligibility === 'reserved' && /not an additional native rank/.test(guides.rank_treasurer.boundaries));
-for (const position of site.POSITIONS.filter(row => !/^office_\d\d$/.test(row.key))) {
+for (const position of site.POSITIONS.filter(row => !/^office_\d{2,3}$/.test(row.key))) {
   const guide = complete[position.key];
   check('legacy detailed copy retained for ' + position.key, !!guide && guide.definition === position.info.about && JSON.stringify(guide.responsibilities) === JSON.stringify(position.info.duties) && JSON.stringify(guide.expectations) === JSON.stringify(position.info.expect) && guide.commitment === position.info.time);
 }

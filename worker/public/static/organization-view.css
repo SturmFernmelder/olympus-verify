@@ -109,6 +109,12 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
 .org-alliance-card-heading:hover, .org-alliance-family > summary:hover { color: #fff0c8; }
 .org-alliance-badges { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .45rem; margin: .6rem 0 0; }
 .org-alliance-badges > * { max-width: 100%; margin: 0; font-size: .9rem; line-height: 1.4; overflow-wrap: anywhere; }
+.org-alliance-institution218 { border-style: dashed; }
+.org-alliance-family.org-alliance-institution218 .org-alliance-tier { color: #d4c8e8; border-color: #8e76a8; }
+.org-alliance-guide-group218 { margin-top: 1rem; padding-top: .6rem; border-top: 1px solid #9b89523d; min-width: 0; }
+.org-alliance-guide-group218 > h4 { margin: 0 0 .5rem; color: var(--alliance-gold); font-size: 1rem; }
+.org-alliance-guide-group218 > details { min-width: 0; overflow-wrap: anywhere; }
+.org-register-context218 > summary { min-height: 44px; padding: .5rem 0; cursor: pointer; }
 .org-alliance-tier { display: inline-block; padding: .2rem .4rem; border: 1px solid #786744; border-radius: 3px; background: #d1b5730c; color: #e6cf9c; font-weight: 600; }
 .org-alliance-tier[data-tier='leader'], .org-alliance-tier[data-tier='high_council'] { border-color: #a98b49; color: #f1d793; }
 .org-alliance-tier[data-tier='officer_corps'] { border-color: #5a849b; background: #86c2e50b; color: #b7d9ec; }

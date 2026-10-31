@@ -238,9 +238,9 @@ const recordTool169 = (page, namespace, calls) => {
   await member.go("#/guide/member");
   const navigationCSS = fs.readFileSync(path.join(root, "public/static/app.css"), "utf8");
   check(".170 navigation retains the same header/footer and popups stay outside header layout flow", member.app.querySelector("header") === navigationHeader && member.app.querySelector("footer") === navigationFooter && /\.nav-menu \{[^}]*position: absolute/.test(navigationCSS) && /\.nav-menu::before \{[^}]*height: 9px/.test(navigationCSS) && openMenus().length === 0);
-  check(".169 member guide is a five-step informational route with permission and source caveats", !!byText(member.app, "h2", "Member guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && member.app.textContent.includes("permissions and current server decisions remain authoritative") && member.app.textContent.includes("do not bypass an appointment"));
+  check(".169 member guide is a five-step informational route with permission and source caveats", !!byText(member.app, "h1", "Member guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && member.app.textContent.includes("permissions and current server decisions remain authoritative") && member.app.textContent.includes("do not bypass an appointment"));
   await member.go("#/guide/officer");
-  check(".169 officer process guide does not grant a non-staff account an Admin control", !!byText(member.app, "h2", "Officer guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && !byText(member.app, "a", "Open Admin") && member.app.textContent.includes("Only controls your account is actually allowed to use"));
+  check(".169 officer process guide does not grant a non-staff account an Admin control", !!byText(member.app, "h1", "Officer Operational Guide") && member.app.querySelectorAll(".guide-steps section").length === 5 && !byText(member.app, "a", "Open Admin") && member.app.textContent.includes("Only controls your account is actually allowed to use"));
   await staff.go("#/guide/officer");
   check(".169 the officer guide links Admin only for the admitted staff fixture", !!byText(staff.app, "a", "Open Admin"));
   const denied = await openPage(DENIED);
@@ -267,16 +267,16 @@ const recordTool169 = (page, namespace, calls) => {
   await tools.go("#/guide/member");
   const departedHash = tools.location.hash;
   talentCalls[0].options.onBuildChange({ className: "warlock", build: "late" });
-  check(".169 leaving an active tool disposes it once and ignores its late address callback", talentCalls[0].destroyed === 1 && tools.location.hash === departedHash && !!byText(tools.app, "h2", "Member guide"));
+  check(".169 leaving an active tool disposes it once and ignores its late address callback", talentCalls[0].destroyed === 1 && tools.location.hash === departedHash && !!byText(tools.app, "h1", "Member guide"));
   await tools.go("#/talents/warrior"); await waitFor(() => talentCalls.length === 2, "warm talent mount");
   check(".169 reopening talents reuses its loaded script and stylesheet but creates a fresh renderer", talentCalls.length === 2 && head.querySelectorAll("script").length === 3 && head.querySelectorAll('link[data-olympus-tool="OlympusTalents"]').length === 1);
   await tools.go("#/roles");
   check(".169 a second tool instance also disposes exactly once", talentCalls[1].destroyed === 1);
-  check(".203 leaving the tool mounts the consolidated role families and ten linked native ranks without changing the original catalogue", tools.app.querySelectorAll("details.role-family203").length === tools.boot.meta.roleDirectory203.families.length && tools.app.querySelectorAll(".role-ranks203 [data-rank-family203]").length === 10 && tools.app.querySelectorAll("[data-role-key201]").length === 135 && new Set(tools.app.querySelectorAll("[data-role-key201]").map(row => row.getAttribute("data-role-key201"))).size === 135);
+  check(".203 leaving the tool mounts the consolidated role families and ten linked native ranks without changing the original catalogue", tools.app.querySelectorAll("details.role-family203").length === tools.boot.meta.roleDirectory203.families.length && tools.app.querySelectorAll(".role-ranks203 [data-rank-family203]").length === 10 && tools.app.querySelectorAll("[data-role-key201]").length === 140 && new Set(tools.app.querySelectorAll("[data-role-key201]").map(row => row.getAttribute("data-role-key201"))).size === 140);
   const abandoned = await openPage(MEMBER), abandonedHead = head169(abandoned), abandonedCalls = [];
   await abandoned.go("#/talents/rogue"); await abandoned.go("#/guide/member");
   recordTool169(abandoned, "OlympusTalents", abandonedCalls); abandonedHead.querySelector("script").dispatchEvent(new Event("load")); await settle();
-  check(".169 a script arriving after navigation never mounts into the replacement page", abandonedCalls.length === 0 && !!byText(abandoned.app, "h2", "Member guide") && !abandoned.app.textContent.includes("OlympusTalents:"));
+  check(".169 a script arriving after navigation never mounts into the replacement page", abandonedCalls.length === 0 && !!byText(abandoned.app, "h1", "Member guide") && !abandoned.app.textContent.includes("OlympusTalents:"));
   check(".185 an abandoned calculator load never starts analysis or guide loading", abandonedHead.querySelectorAll("script").length === 1);
   const lateDependencies = await openPage(MEMBER), lateHead = head169(lateDependencies), lateCalls = [];
   recordTool169(lateDependencies, "OlympusTalents", lateCalls);
@@ -286,13 +286,13 @@ const recordTool169 = (page, namespace, calls) => {
   lateDependencies.window.OlympusTalentAnalysis = {}; lateDependencies.window.OlympusTalentGuides = {};
   for (const dependency of lateHead.querySelectorAll("script")) dependency.dispatchEvent(new Event("load"));
   await settle();
-  check(".185 dependency completion after route exit cannot mount or replace the current page", lateCalls.length === 0 && !!byText(lateDependencies.app, "h2", "Member guide"));
+  check(".185 dependency completion after route exit cannot mount or replace the current page", lateCalls.length === 0 && !!byText(lateDependencies.app, "h1", "Member guide"));
   const pendingMount = await openPage(MEMBER); head169(pendingMount); let releaseMount, lateDisposals = 0;
   pendingMount.window.OlympusTalentAnalysis = {}; pendingMount.window.OlympusTalentGuides = {};
   pendingMount.window.OlympusTalents = { mount: () => new Promise(resolve => { releaseMount = () => resolve({ destroy: () => { lateDisposals++; } }); }) };
   await pendingMount.go("#/talents"); await waitFor(() => !!releaseMount, "pending asynchronous tool mount");
   await pendingMount.go("#/guide/member"); releaseMount(); await settle();
-  check(".169 a mount completing after route disposal is itself destroyed instead of becoming current", lateDisposals === 1 && !!byText(pendingMount.app, "h2", "Member guide"));
+  check(".169 a mount completing after route disposal is itself destroyed instead of becoming current", lateDisposals === 1 && !!byText(pendingMount.app, "h1", "Member guide"));
   // .186: the optional analysis and guide modules settle independently; either failing leaves the calculator mounted without that feature.
   for (const [failed186, kept186] of [["analysis", "guides"], ["guides", "analysis"]]) {
     const partial186 = await openPage(MEMBER), partialHead186 = head169(partial186), partialCalls186 = [];
@@ -417,7 +417,7 @@ const recordTool169 = (page, namespace, calls) => {
   check(".169 summary still refreshes other roles while preserving the selected-role response", race.app.querySelector('.role-pick option[value="raid_leader_na"]').textContent.endsWith("(4)"));
   const late = await openPage(MEMBER); late.hold(pathname => pathname === "/api/board" ? 250 : 0);
   await late.go("#/vote/officer"); await late.go("#/guide/member"); await pause169(300);
-  check(".169 departed summary work cannot overwrite an unrelated guide or its active resource link", !!byText(late.app, "h2", "Member guide") && !late.app.querySelector(".board-layout") && !late.app.textContent.includes("Something went wrong") && link169(late, "#/guide/member").getAttribute("aria-current") === "page");
+  check(".169 departed summary work cannot overwrite an unrelated guide or its active resource link", !!byText(late.app, "h1", "Member guide") && !late.app.querySelector(".board-layout") && !late.app.textContent.includes("Something went wrong") && link169(late, "#/guide/member").getAttribute("aria-current") === "page");
 
   // This candidate and both vote commands use the real Worker/SQLite. Only the
   // completed summary reply is held; no successful write response is fabricated.

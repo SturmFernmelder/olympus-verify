@@ -35,3 +35,8 @@
 .resources169-directory-block { margin:1rem 0; }
 .resources169-directory-block h4 { color:var(--gold,#dfbd76); margin-bottom:.4rem; }
 .resources169-directory-block p { line-height:1.65; }
+.resources169-more { margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--line, #665735); }
+.resources169-browse a { display:inline-flex; align-items:center; min-height:2.5rem; color:var(--gold, #dfbd76); font-weight:600; }
+.resources169-watchlist ul { padding-left:1.2rem; line-height:1.55; }
+.resources169-watchlist li { margin:.45rem 0; }
+.resources169-watchlist a { color:var(--gold, #dfbd76); }

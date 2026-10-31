@@ -7,7 +7,7 @@ const json = bytes => JSON.parse(bytes.toString('utf8'));
 const need = (ok, message) => { if (!ok) throw Error(message); };
 const BOOT = ['LICENSE', 'README.md', 'CLAUDE.md', 'THIRD_PARTY_NOTICES.md', 'docs/source-provenance.md', 'docs/design.md', 'docs/deploy-checklist.md',
   'docs/treasury-plan207.md', 'index.html', 'privacy.html', 'terms.html', 'worker/src/index.ts', 'worker/src/policy-content.ts',
-  'worker/src/site-data.ts', 'worker/src/site-ranks.ts', 'worker/src/site-core.ts',
+  'worker/src/site-data.ts', 'worker/src/site-ranks.ts', 'worker/src/site-core.ts', 'worker/src/site-news.ts',
   'worker/tests/site_test.cjs', 'worker/tests/hosts_test.cjs', 'worker/tests/bnet_retention_test.cjs'];
 function git(cwd, args, input) {
   const r = cp.spawnSync('git', args, { cwd, input, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
@@ -83,11 +83,11 @@ function verify(snapshot) {
       && ['path', 'mode', 'bytes', 'sha256'].every(key => row[key] === expectedVariants[i][key])
       && !ref.official_paths.includes(row.path) && !ref.native_paths.includes(row.path)), 'exact nonofficial owner login art variants');
   check(ref.assets.length === 512 && new Set(ref.assets.map(row => row.path)).size === 512
-    && ref.required_public_resources.length === 55 && new Set(ref.required_public_resources.map(row => row.path)).size === 55
-    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 567
+    && ref.required_public_resources.length === 59 && new Set(ref.required_public_resources.map(row => row.path)).size === 59
+    && new Set([...ref.assets, ...ref.required_public_resources].map(row => row.path)).size === 571
     && ref.official_paths.length === 494 && ref.fixed_art_source_pins.length === 7
     && variantPins.every(expected => { const rows = ref.assets.filter(row => row.path === expected.path); return rows.length === 1
-      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset567-public-path binding');
+      && ['path', 'mode', 'bytes', 'sha256'].every(key => rows[0][key] === expected[key]); }), 'closed two-variant512-asset571-public-path binding');
   const talentComparisonResources = ['worker/public/static/talents/analysis.js', 'worker/public/static/talents/guide-builds179.js'];
   check(talentComparisonResources.every(file => ref.required_public_resources.filter(row => row.path === file).length === 1
     && ref.runtime_paths.includes(file) && !ref.official_paths.includes(file) && !ref.native_paths.includes(file)), 'two exact non-art talent comparison resources');
@@ -108,8 +108,15 @@ function verify(snapshot) {
   const treasury207 = ['treasury-plan207.js','treasury-plan-content207.js','treasury-plan-model207.js','treasury-plan207.css'].map(name=>'worker/public/static/'+name);
   check(treasury207.every(file=>ref.required_public_resources.filter(row=>row.path===file&&row.mode==='100644').length===1&&ref.runtime_paths.filter(path=>path===file).length===1&&!ref.assets.some(row=>row.path===file)&&!ref.official_paths.includes(file)&&!ref.native_paths.includes(file)), 'four exact ordinary treasury207 planning resources');
   check(text('worker/public/static/app.js').includes('import("/static/treasury-plan207.js")') && text('worker/public/static/treasury-plan207.js').includes('/static/treasury-plan-content207.js') && text('worker/public/static/treasury-plan207.js').includes('/static/treasury-plan-model207.js'), 'treasury207 app and pure module dependencies');
+  const guides218 = ['guides218.js','guides218.css','guides218.json'].map(name=>'worker/public/static/'+name);
+  check(guides218.every(file=>ref.required_public_resources.filter(row=>row.path===file&&row.mode==='100644').length===1&&ref.runtime_paths.filter(path=>path===file).length===(file.endsWith('.json')?0:1)&&!ref.assets.some(row=>row.path===file)&&!ref.official_paths.includes(file)&&!ref.native_paths.includes(file)), 'three exact ordinary guides218 resources');
+  check(text('worker/public/static/app.js').includes('memberTool(main, "OlympusGuides", "/static/guides218.js", "/static/guides218.css"') && text('worker/public/static/guides218.js').includes('const DATA_URL = "/static/guides218.json"'), 'guides218 app and catalogue dependencies');
   const council206Record = 'worker/public/static/governance/council-composition-2026-10-28.md';
   check(ref.required_public_resources.filter(row => row.path === council206Record && row.mode === '100644').length === 1 && !ref.runtime_paths.includes(council206Record) && !ref.assets.some(row => row.path === council206Record) && !ref.official_paths.includes(council206Record) && !ref.native_paths.includes(council206Record), 'one exact non-art current Council206 record');
+  const council218Record = 'worker/public/static/governance/council-composition-master218.md';
+  check(ref.required_public_resources.filter(row => row.path === council218Record && row.mode === '100644').length === 1
+    && !ref.runtime_paths.includes(council218Record) && !ref.assets.some(row => row.path === council218Record)
+    && !ref.official_paths.includes(council218Record) && !ref.native_paths.includes(council218Record), 'one exact non-art Master218 Council reference');
   const staticReferences = file => [...new Set(text(file).match(/\/static\/[A-Za-z0-9_./-]*/g) || [])].sort();
   check(JSON.stringify(staticReferences(organization205Resources[0])) === JSON.stringify(['/static/organization-context205.js'])
     && staticReferences(organization205Resources[1]).length === 0, 'exact organization205 context dependency; context introduces no static asset dependency');
@@ -169,6 +176,8 @@ function verify(snapshot) {
   }
   check(generated.includes('export const POLICY_SOURCE_DIGEST = "' + sha(Buffer.from(sourceHashes.join('\n'))) + '";'), 'policy source digest drift');
   const build = match('worker/src/index.ts', /^const BUILD = "([^"]+)";/m, 'runtime BUILD declaration');
+  const releaseNote = /export const RELEASE_NOTES: readonly ReleaseNote\[\] = \[\s*\{\s*build: "(\.[0-9]+)", date: "([0-9]{4}-[0-9]{2}-[0-9]{2})"/.exec(text('worker/src/site-news.ts'));
+  check(!!releaseNote && build.startsWith(releaseNote[2] + releaseNote[1] + ' '), 'current release note exactly matches runtime BUILD number and date');
   for (const file of ['site_test.cjs', 'hosts_test.cjs', 'bnet_retention_test.cjs'])
     check(text('worker/tests/' + file).includes('"' + build + '"'), 'runtime health BUILD pin: ' + file);
   const number = /^\d{4}-\d{2}-\d{2}\.(\d+) /.exec(build)?.[1];

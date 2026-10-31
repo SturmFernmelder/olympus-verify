@@ -214,6 +214,12 @@ roster and reload, the panel's **Sync & reload**), `/olv status`, `/olv members 
 every guild member with verified or not, Discord username and display name, filter and sort; the panel's **Members**
 button opens it too); the flush key binding; the pill button (left: send next, right: panel).
 
+### Attended Stockades legacy-role cleanup
+
+The fourteen retired role labels in the appeals server have a separate [fixed-scope operator runbook](docs/stockades-role-reset.md).
+The tool removes confirmed assignments while preserving role definitions and protected roles. It does not reset D1,
+add a Worker endpoint or automatically resync membership. Every live use requires a fresh attended preview and exact-plan confirmation.
+
 ## Configuration knobs (wrangler.toml)
 `ADMISSION_MODE=review` keeps the human decision (card + Approve button in #recruitment-review, matching the
 handbook's admission model); `auto` queues the invite the moment the code is confirmed. `SET_NICKNAME` and
@@ -377,7 +383,8 @@ what never to run, conventions, ownership and the owner gates. The task log is
 - **Checks:** from `worker/`, `npm run test:all` (typecheck, the code vectors, every node suite); the SQL suites with
   `python tests/unverified_sql_test.py` and `python tests/backfill_sql_test.py` (one file per command: `python tests/*.py`
   runs only the first); from `watcher/`, `python tests/test_watcher.py` and `python tests/test_discord_relay.py`; the
-  tools tests `python tools/tests/test_backfill_roles.py` and `python tools/tests/test_review.py`; the addon suites
+  tools tests `python tools/tests/test_backfill_roles.py`, `python tools/tests/test_review.py` and
+  `python tools/tests/test_stockades_role_reset.py` (offline fake Discord); the addon suites
   through the lupa venv (`addon/tests/run_lua_suites.py`).
   `.github/workflows/ci.yml` runs all of that, plus a Gitleaks history scan and a dry-run bundle, once the repository
   is on GitHub.

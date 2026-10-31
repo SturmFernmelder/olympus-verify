@@ -8,10 +8,14 @@ recommendations and qualifications. Authors retain their licenses and attributio
 
 ## Reviewed catalog
 
-`worker/public/static/resources169.json` preserves21 addon choices,12 guide/source entries and7 news/discovery links.
+`worker/public/static/resources169.json` holds 29 addon choices, 12 guide/source entries and 7 news/discovery links. The .218 review
+(research dated 30-31 October 2026) refreshed eight addon versions, added eight addons whose authors list a Forever file
+dated in October 2026, and moved nine requested addons without a qualified Forever file to a separate `addonWatchlist`
+that makes no compatibility claim. The combat log is reported closed to addons on Forever; Olympus made no install, FPS
+or memory measurements, and developer performance claims are labelled as such.
 General tools and Forever-focused discoveries are separate; a Forever tag on an established addon does not mean it
 is a new Forever-exclusive project. Bag and boss-mod alternatives need not be installed together. A compatible boss
-mod core does not establish complete coverage of new encounters. ForeverAuras explicitly remains beta development.
+mod core does not establish complete coverage of new encounters. ForeverAuras is an unofficial fork still under development.
 
 The practical guide default is Wowhead/Icy Veins for class explanations, WoW-Professions for profession routes and
 Blizzard for official changes. Method and Mobalytics add useful authored coverage. Individual page authors, dates,
@@ -94,8 +98,8 @@ The additive `ownerDirectory` object restores all five thematic sections of the 
 main websites and named authors; class communities and theorycrafting checks; independent tools and methodology;
 in-game guides and quest helpers; and confidence, beta scope and evidence. Its separate ten-row corrections appendix
 preserves the material corrections from the owner's sixth section. This is an original structured summary, not copied
-publisher prose, a reputation certificate or a complete inventory of the internet. The existing21/12/7 IDs and order
-remain unchanged. The old catalogue `checkedAt` still dates that older selection; `sourceCheckedAt=2026-10-18` dates the
+publisher prose, a reputation certificate or a complete inventory of the internet. The original 21 addon, 12 guide and 7
+news IDs and their order remain unchanged; the .218 additions follow them. The old catalogue `checkedAt` still dates that older selection; `sourceCheckedAt=2026-10-18` dates the
 owner review and `reconciledAt` dates this new content construction. Those three clocks must not be conflated.
 
 The renderer contract is optional `ownerDirectory:{version:1,title,sourceCheckedAt,reconciledAt,scopeNote,sections,

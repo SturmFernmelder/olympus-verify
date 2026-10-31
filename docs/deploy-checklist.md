@@ -7552,3 +7552,10 @@ Candidate for the owner-authorized unified rollout after exact-head PR and main 
 Use standard Node24.22.1/Python/npm local qualification, all offline Lua suites, affected Native suites, the stock Workerd bundle and projection checks. Artificial Job3 accounting and custom permission-loader experiments stay retired; live Forever interactions remain deferred until4 November. Private recovery/observer tooling remains HELD against its older profile.
 
 The rollout requires a verified fresh D1 export, one unified deployment with dashboard-only vars preserved,90 public probes and live source readbacks, one status-preserving RT16 empty-note save/readback on the oldest open eligible application, and the first natural cron. The owner explicitly carries bot-host robots200 and60000ms first-cron audit-bin allowances; preserve strict/raw evidence. Final actual commit/tree/deployment/results are recorded in the owner QA report and coordination log.
+
+
+## Worker .218 — Guild charter, guides and tools
+
+Working candidate under the renewed Master dual-agent directive. Includes the qualified .217 maintenance changes, twelve separately reserved Council portfolios, explicit ministry/seat mapping, consolidated role specifications, the current launch notice, a canonical Officer Operational Guide and a gated officer Treasury playbook. New service schedules remain inactive proposals; GDKP is excluded, and wagering needs separate authorization. No schema migration or provider dispatch is enabled.
+
+Release requires genuine independent Claude/Codex source and six-width browser acceptance plus mutual signatures on the identical final commit/tree, current13-job CI and completed automated review with no findings. Take and verify one fresh private D1 backup before the single rollout. Verify90 public probes, authenticated exact-source readbacks, unchanged private/native/launch gates and the first ordinary callback if observed under the release plan. Preserve strict outcomes, actual timestamps, all old failures and any explicitly applicable owner criterion. This entry is a plan, not deployment or acceptance evidence.

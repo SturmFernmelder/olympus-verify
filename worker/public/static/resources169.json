@@ -3,7 +3,7 @@
   "checkedAt": "2026-10-19T00:26:49Z",
   "disclaimer": "A curated selection reviewed on the date shown, not a complete directory or a guarantee of in-game compatibility. Publisher dates and advertised scope are separate from that review; beta routes and game data can change. Links open the original publisher; no guide packages or addon files are redistributed here.",
   "viewNotes": {
-    "addons": "This is not every addon. Choose the author's Forever file for your actual client and check its dependencies before installing.",
+    "addons": "This is not every addon. Choose the author's Forever file for your actual client and check its dependencies before installing. The combat log is reported closed to addons on Forever, so features built on it, such as Classic-style threat meters, Spy-style enemy detection and cast-bar or aura triggers, behave differently, and Olympus made no install, FPS or memory measurements.",
     "guides": "Compare each guide's level range, update date and beta limitations. A published route or build is not a promise that every step has been tested in the current game."
   },
   "addons": [
@@ -13,13 +13,13 @@
       "category": "Questing",
       "rationale": "Quest objectives, map markers and quest tracking.",
       "status": "Author lists Forever support",
-      "version": "12.1.0 + QuestieDB 1.0.6",
-      "releasedAt": "2026-10-12",
+      "version": "12.3.1 + QuestieDB 1.0.9",
+      "releasedAt": "2026-10-26",
       "gameBuild": "Forever 1.60.1",
-      "url": "https://github.com/Questie/Questie/releases",
-      "sourceKind": "Author releases",
+      "url": "https://www.curseforge.com/wow/addons/questie",
+      "sourceKind": "Author project page",
       "limitations": [
-        "Forever data and fixes remain in active development.",
+        "The author's Forever work list says quest, NPC and object coverage is still incomplete.",
         "A quest helper, not a complete optimized leveling route."
       ]
     },
@@ -29,13 +29,13 @@
       "category": "Conveniences",
       "rationale": "Optional looting, vendor, quest and interface conveniences.",
       "status": "Author lists Forever file",
-      "version": "1.60.20-forever",
-      "releasedAt": "2026-10-15",
+      "version": "1.60.25-forever",
+      "releasedAt": "2026-10-21",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/leatrix-plus",
       "sourceKind": "Author project page",
       "limitations": [
-        "Choose the Forever file; other game flavors are separate.",
+        "Choose the Forever file; some options differ between game versions.",
         "Enable only the modules you want; features can overlap other addons."
       ]
     },
@@ -45,8 +45,8 @@
       "category": "Maps",
       "rationale": "Optional world-map scaling, positioning and map conveniences.",
       "status": "Author lists Forever file",
-      "version": "1.60.23-forever",
-      "releasedAt": "2026-10-14",
+      "version": "1.60.25-forever",
+      "releasedAt": "2026-10-21",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/leatrix-maps",
       "sourceKind": "Author project page",
@@ -60,13 +60,14 @@
       "category": "Economy",
       "rationale": "Auction-house pricing, buying and posting tools.",
       "status": "Author lists Forever file",
-      "version": "341",
+      "version": "12.1.5",
       "releasedAt": "2026-10-13",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/auctionator",
       "sourceKind": "Author project page",
       "limitations": [
-        "Prices depend on actual scans and your market; not a profit guarantee."
+        "Prices depend on actual scans and your market; not a profit guarantee.",
+        "The automatic scan on opening the auction house is Retail-only; on Forever, start a Full Scan yourself."
       ]
     },
     {
@@ -90,8 +91,8 @@
       "category": "Bags",
       "rationale": "Categorized or single-view inventory management.",
       "status": "Author lists Forever file",
-      "version": "838",
-      "releasedAt": "2026-10-18",
+      "version": "12.1.5",
+      "releasedAt": "2026-10-28",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/baganator",
       "sourceKind": "Author project page",
@@ -131,19 +132,100 @@
       ]
     },
     {
+      "id": "threatclassic2",
+      "name": "ThreatClassic2",
+      "category": "Combat",
+      "rationale": "Threat bars for your group on the current target.",
+      "status": "Author lists Forever file",
+      "version": "2.75-forever",
+      "releasedAt": "2026-10-10",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/threatclassic2",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "On Mainline clients, including Forever, the author notes restricted combat data and no healer mode (your target's target).",
+        "Forever tank detection uses Defensive Stance, Bear Form and Righteous Fury; Righteous Fury is checked only out of combat.",
+        "A mob's threat shows only once you are on its threat table."
+      ]
+    },
+    {
+      "id": "decursive",
+      "name": "Decursive",
+      "category": "Combat",
+      "rationale": "Spots group members with removable harmful effects and cleanses them from prioritized frames.",
+      "status": "Author lists Forever release candidate",
+      "version": "2.9.0-RC3-forever",
+      "releasedAt": "2026-10-04",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/decursive",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The Forever file is a release candidate, not a final release.",
+        "The author does not say how Forever's restricted (secret) auras affect dispel detection."
+      ]
+    },
+    {
+      "id": "grid2",
+      "name": "Grid2",
+      "category": "Raid frames",
+      "rationale": "Party and raid frames built from configurable indicators.",
+      "status": "Author lists Forever file",
+      "version": "4.1.9-forever",
+      "releasedAt": "2026-10-21",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/grid2",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The developer's claim of lower CPU use than similar addons is not independently measured.",
+        "Overlaps other group-frame addons; choose one main raid-frame setup."
+      ]
+    },
+    {
+      "id": "tullactc",
+      "name": "tullaCTC",
+      "category": "Cooldowns",
+      "rationale": "Customizable cooldown text; OmniCC's page points modern clients to it.",
+      "status": "Author lists Forever file",
+      "version": "12.1.4",
+      "releasedAt": "2026-10-11",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/tullactc",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author says it lacks some OmniCC features, such as Finish Effects and Max Duration."
+      ]
+    },
+    {
       "id": "dbm",
       "name": "Deadly Boss Mods Core",
       "category": "Encounters",
       "rationale": "Encounter warnings and boss-mod framework.",
       "status": "Author lists Forever file",
-      "version": "12.1.15",
-      "releasedAt": "2026-10-16",
+      "version": "12.1.18",
+      "releasedAt": "2026-10-26",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/deadly-boss-mods",
       "sourceKind": "Author project page",
       "limitations": [
         "A compatible core does not establish complete new-Forever encounter modules.",
+        "For Vanilla raids, add the separate DBM - SoD and Vanilla pack.",
         "Choose an encounter suite that covers the content you actually play."
+      ]
+    },
+    {
+      "id": "dbm-vanilla",
+      "name": "DBM - SoD and Vanilla",
+      "category": "Encounters",
+      "rationale": "Vanilla and Season of Discovery raid modules for Deadly Boss Mods.",
+      "status": "Author lists Forever file",
+      "version": "r834",
+      "releasedAt": "2026-10-26",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/dbm-vanilla",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Requires Deadly Boss Mods Core.",
+        "No modules for Forever's new raids (Barrow Deeps, Hyjal Summit) were found as of 30 Oct 2026; those raids unlock on 9 Dec 2026."
       ]
     },
     {
@@ -152,13 +234,13 @@
       "category": "Encounters",
       "rationale": "An alternative encounter warning and timer suite.",
       "status": "Author lists Forever file",
-      "version": "427.6",
-      "releasedAt": "2026-10-14",
+      "version": "427.8",
+      "releasedAt": "2026-10-23",
       "gameBuild": "Forever 1.60.1",
-      "url": "https://www.curseforge.com/wow/addons/bigwigs",
+      "url": "https://www.curseforge.com/wow/addons/big-wigs",
       "sourceKind": "Author project page",
       "limitations": [
-        "A compatible core does not establish complete new-Forever encounter modules.",
+        "On Forever its loader uses the BigWigs_Classic pack, whose modules cover only Molten Core, Blackwing Lair and the Ahn'Qiraj raids; no Onyxia or Forever-raid modules were found.",
         "An alternative to DBM; check the author's required modules."
       ]
     },
@@ -323,20 +405,125 @@
       ]
     },
     {
+      "id": "lizzaricks-unit-frames",
+      "name": "Lizzarick's Unit Frames",
+      "category": "Forever discoveries",
+      "rationale": "Luna-style unit frames rebuilt from scratch for Forever and Retail.",
+      "status": "Author lists Forever and Retail support",
+      "version": "0.17.3",
+      "releasedAt": "2026-10-26",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/lizzaricks-unit-frames",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "The author says some Luna features are not possible under Forever's secret values and closed combat log.",
+        "An early 0.17 release with a small user base; check overlap with other frame replacements."
+      ]
+    },
+    {
       "id": "foreverauras",
       "name": "ForeverAuras",
       "category": "Forever discoveries",
-      "rationale": "A Forever aura framework fork.",
-      "status": "Author explicitly marks beta development",
-      "version": "0.92.6",
-      "releasedAt": "2026-10-17",
+      "rationale": "An unofficial Forever-only fork of WeakAuras.",
+      "status": "Author says it is still under development",
+      "version": "1.1.0",
+      "releasedAt": "2026-10-28",
       "gameBuild": "Forever 1.60.1",
       "url": "https://www.curseforge.com/wow/addons/foreverauras",
       "sourceKind": "Author project page",
       "limitations": [
-        "Under development during beta; not a guarantee that existing WeakAuras imports work.",
+        "Still under development; not a guarantee that existing WeakAuras imports work.",
         "Inspect third-party aura code and the author's current limitations."
       ]
+    },
+    {
+      "id": "musca-auras",
+      "name": "Musca Auras",
+      "category": "Forever discoveries",
+      "rationale": "An unofficial port of WeakAuras 5.22.0 to the Forever client.",
+      "status": "Unofficial Forever port",
+      "version": "1.14.0",
+      "releasedAt": "2026-10-22",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/musca-auras",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "Combat-log triggers never fire, and in combat buffs update only through the modern Aura trigger.",
+        "In combat, conditions change only appearance; other players' casts and enemy IDs in instances are hidden.",
+        "Do not install it alongside another WeakAuras build, as the author warns."
+      ]
+    },
+    {
+      "id": "foreverthreat",
+      "name": "ForeverThreat",
+      "category": "Forever discoveries",
+      "rationale": "A Forever-only threat meter for your current target, with threat sharing between users.",
+      "status": "Forever-focused release",
+      "version": "0.2.6",
+      "releasedAt": "2026-10-17",
+      "gameBuild": "Forever 1.60.1",
+      "url": "https://www.curseforge.com/wow/addons/foreverthreat",
+      "sourceKind": "Author project page",
+      "limitations": [
+        "An early 0.2 release with a small user base.",
+        "Keeps no combat history and skips restricted (secret) identity values, as the author notes."
+      ]
+    }
+  ],
+  "addonWatchlist": [
+    {
+      "id": "weakauras",
+      "name": "WeakAuras",
+      "note": "No Forever flavor is listed, and Icy Veins reported on 30 Oct 2026 that it does not work on Forever. Alternatives: Blizzard's built-in Cooldown Manager, ForeverAuras or Musca Auras.",
+      "url": "https://www.curseforge.com/wow/addons/weakauras-2"
+    },
+    {
+      "id": "tradeskill-master",
+      "name": "TradeSkillMaster",
+      "note": "No Forever flavor is listed; its October 2026 release covers Retail, MoP Classic, Classic and Classic TBC, and no Forever announcement was found. Auctionator is in the curated list.",
+      "url": "https://www.curseforge.com/wow/addons/tradeskill-master"
+    },
+    {
+      "id": "gathermate2",
+      "name": "GatherMate2",
+      "note": "The project page names Forever, but every release file shown is tagged Retail, and its optional node data describes retail zones rather than Forever.",
+      "url": "https://www.curseforge.com/wow/addons/gathermate2"
+    },
+    {
+      "id": "omnicc",
+      "name": "OmniCC",
+      "note": "No Forever flavor is listed; its page says it is supported only on WoW Classic and points modern clients to tullaCTC, which is in the curated list.",
+      "url": "https://www.curseforge.com/wow/addons/omni-cc"
+    },
+    {
+      "id": "classiccastbars",
+      "name": "ClassicCastbars",
+      "note": "No Forever flavor is listed; Retail support is paused and the addon is in maintenance mode. A community status table recommends the game's native cast bars.",
+      "url": "https://www.curseforge.com/wow/addons/classiccastbars"
+    },
+    {
+      "id": "cell",
+      "name": "Cell",
+      "note": "No Forever flavor is listed and its last release is from January 2026. A community status table suggests Grid2, VuhDo or HealBot Continued; Grid2 is in the curated list.",
+      "url": "https://www.curseforge.com/wow/addons/cell"
+    },
+    {
+      "id": "spy",
+      "name": "Spy",
+      "note": "The original lists Retail only and reads enemy actions from the combat log. The community Spy (Forever) port's file is dated 29 Sep 2026 and detects enemies only through nameplates, target, focus and mouseover.",
+      "url": "https://www.curseforge.com/wow/addons/spy"
+    },
+    {
+      "id": "battlegroundtargets-classic",
+      "name": "BattlegroundTargets Classic",
+      "note": "Classic only; its last file is dated July 2020, and no Forever build was found.",
+      "url": "https://www.curseforge.com/wow/addons/battlegroundtargets-classic"
+    },
+    {
+      "id": "luna-unit-frames",
+      "name": "Luna Unit Frames",
+      "note": "The official repository supports WoW Classic only and was archived in October 2025. Lizzarick's Unit Frames, in the curated list, is a Luna-style rebuild.",
+      "url": "https://github.com/Aviana/LunaUnitFrames"
     }
   ],
   "guides": [

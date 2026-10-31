@@ -20,6 +20,7 @@
  * This module's named exports are functions only: workerd refuses an entry that exports a scalar (.51).
  */
 import { armyAfterMemberGate, armyGateReply } from "./site-army";
+import { treasuryAfterMemberGate } from "./site-treasury-access";
 import type { Env } from "./env";
 import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
 import { unverifiedReport } from "./unverified";
@@ -225,6 +226,9 @@ export default {
         if (gate) return armyGateReply(request, path, gate);
         const armyPrivate = await armyAfterMemberGate(request, env, path);
         if (armyPrivate) return armyPrivate;
+        // .218: the Treasury plan's files and its access check are for officers and above (site-treasury-access.ts).
+        const treasuryPrivate = await treasuryAfterMemberGate(request, env, path);
+        if (treasuryPrivate) return treasuryPrivate;
         if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/static/')) return path === CAMERA_PAGE_PATH ? privateCameraPageAsset(await env.ASSETS.fetch(request)) : privateSiteAsset(await env.ASSETS.fetch(request));
       }
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
@@ -642,7 +646,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-10-30.217 Residual maintenance";
+const BUILD = "2026-10-30.218 Guild charter, guides and tools";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

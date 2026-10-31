@@ -131,22 +131,31 @@ export function renderOrganization(main, data, ui) {
     ? `Rank ${term.nativeRankOrdinal} ${term.nativeRankName} · zero-based slot ${term.nativeSlot}. Display association; no rank or permission is applied.`
     : "No native rank placement or promotion follows from this title or status.";
   const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
+  const termFamily218 = term => ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
   const seatLink = term => {
     const family = ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
     const app = family?.application;
     if (reservedTerm201(term) || !app || ui.officeAvailability?.[family.primaryKey] === false) return null;
     return h("a", { class: "btn small org-seat-apply", href: "#/vote/" + app.applicationTrack + "/" + encodeURIComponent(app.targetOffice || "new"), "data-office-application": family.primaryKey, "data-application-track": app.applicationTrack, text: "Review ordinary role application" });
   };
-  const officeBadges = term => h("p", { class: "org-office-badges" }, h("span", { class: "org-tier-badge org-tier-" + term.tier, text: term.tierLabel }), h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " · " + term.nativeRankName }), h("span", { class: "small", text: term.codexTitles.map(title => "Title " + title).join(" · ") }));
+  const officeBadges = term => h("p", { class: "org-office-badges" },
+    h("span", { class: "org-tier-badge org-tier-" + term.tier, text: termFamily218(term)?.kind === "institution" ? "Governance institution" : term.tierLabel }),
+    termFamily218(term)?.kind === "institution" ? null : h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " · " + term.nativeRankName }),
+    h("span", { class: "small", text: term.codexTitles.map(title => "Title " + title).join(" · ") }));
   function select(id, move = false, focus = false, term = null) {
     const n = byId.get(id); if (!n) return; selected = id; detailSummary.textContent = "Office details · " + n.title;
     if ((move || focus) && relationshipMap205) relationshipMap205.open = true;
     for (const [key, button] of buttons) button.setAttribute("aria-pressed", String(key === id));
     for (const e of edges) e.path.classList.toggle("org-edge-active", e.fromId === id || e.toId === id);
     const offices = (data.officeMandates || []).filter(o => o.nodeId === id);
-    clear(detail); add(detail, [h("p", { class: "eyebrow", text: n.kind }), h("h2", { text: n.title }), term ? h("p", { text: term.label + ": " + term.note }) : null,
-      term ? h("p", { class: "small", "data-native-placement": String(term.ordinal), text: termPlacement(term) }) : null,
-      term?.nativeMappingNote ? h("p", { class: "small muted", text: term.nativeMappingNote }) : null,
+    const family = term ? termFamily218(term) : null, institution = family?.kind === "institution";
+    clear(detail); add(detail, [h("p", { class: "eyebrow", text: n.kind }), h("h2", { text: n.title }),
+      term ? h("p", { text: institution ? family.label + ": a collective institution or retained historical mandate, separate from its current individual Council portfolio." : term.label + ": " + term.note }) : null,
+      term && !institution ? h("p", { class: "small", "data-native-placement": String(term.ordinal), text: termPlacement(term) }) : null,
+      institution ? h("details", {class:"org-register-context218"}, h("summary", {text:"Earlier register wording & rank associations"}),
+        h("p", {text:term.label + ": " + term.note}), h("p", {class:"small",text:termPlacement(term)}),
+        term.nativeMappingNote ? h("p", {class:"small muted",text:term.nativeMappingNote}) : null)
+        : term?.nativeMappingNote ? h("p", { class: "small muted", text: term.nativeMappingNote }) : null,
       term ? officeBadges(term) : null,
       term ? seatLink(term) : null,
       h("h3", { text: "Purpose" }), h("p", { text: n.remit }), h("h3", { text: "Authority and boundaries" }), h("p", { text: n.limits }),
@@ -237,9 +246,13 @@ export function renderOrganization(main, data, ui) {
     const terms = data.terms.filter(t => t.tier === tier), group = h("ul", { class: "org-office-grid", "aria-label": title });
     for (const t of terms) {
       const closed = ui.officeAvailability?.[t.officeKey] === false;
-      const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier }, h("button", { type: "button", class: "organization-term", text: t.label, onclick: () => select(t.nodeId, true, true, t) }), officeBadges(t), t.applicationAliases?.length ? h("p", { class: "small", text: "Application portfolio: " + t.applicationAliases.join(" · ") }) : null,
+      const family = termFamily218(t);
+      const aliasLabels = t.applicationAliases?.length ? h("p", { class: "small", text: "Retained portfolio labels: " + t.applicationAliases.join(" · ") }) : null;
+      const historicalAliases = aliasLabels && (family?.kind === "institution" || t.applicationMetadataScope) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
+        h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
+      const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier }, h("button", { type: "button", class: "organization-term", text: family?.kind === "institution" ? family.label : t.label, onclick: () => select(t.nodeId, true, true, t) }), officeBadges(t), historicalAliases,
         h("p", { class: "small", text: t.department }), h("p", { class: "small", text: t.note }), h("p", { class: "small muted", text: termPlacement(t) }),
-        h("p", { class: "small muted", text: reservedTerm201(t) ? "Reserved seat — no applications. A missing holder is not a vacancy; leadership fills this office by appointment." : closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Ordinary role application available; admission and any later standing are reviewed separately." : t.acquisition }),
+        reservedTerm201(t) ? null : h("p", { class: "small muted", text: closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Ordinary role application available; admission and any later standing are reviewed separately." : t.acquisition }),
         ui.roleGuide201 ? h("details", {class:"org-role-guide201"},h("summary",{text:"Definition, responsibilities & expectations"}),ui.roleGuide201(t.officeKey)) : null);
       group.append(li); termRows.push({t,li});
     }
@@ -263,7 +276,8 @@ export function renderOrganization(main, data, ui) {
   relationshipMap205.open = !allianceOverview205;
   relationshipMap205.addEventListener("toggle", () => { if (relationshipMap205.open) requestAnimationFrame(present); });
   add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null, h("p", { class: "eyebrow", text: "The administration of Olympus" }), h("h1", { text: "Many guilds. One Olympus." }), h("p", { text: "Follow a line of responsibility, find the people a duty serves, and understand where an office’s authority ends." }))),
-    h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }), h("p", { text: "Adopted by the authorized guild administration. An office shown here does not appoint a holder, grant a Council vote or alter game, Discord, website or bank permissions. Individual appointments and actual access remain separately recorded." })),
+    h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }), h("p", { text: "Adopted by the authorized guild administration. An office shown here does not appoint a holder, grant a Council vote or alter game, Discord, website or bank permissions. Individual appointments and actual access remain separately recorded." }),
+      h("p", {class:"small",text:"Reserved seat — no applications. A missing holder is not a vacancy; leadership fills these offices by appointment. Collective institutions and their case panels are not additional individual seats."})),
     h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" }, h("a", { class: "btn", href: "#/roles/rosetta-stone", text: "Olympus Role & Rank Rosetta Stone" }), h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Read the operational charter" }), h("a", { class: "btn", href: data.directoryRoute, text: "Current appointed leadership" }), h("a", { class: "btn small", href: "#/governance", text: "Complete governance book" })),
     allianceOverview205,
     relationshipMap205,
@@ -276,7 +290,7 @@ export function renderOrganization(main, data, ui) {
       data.councilComposition ? h("p", { class: "org-composition-status", role: "note", text: data.councilComposition.formalStatus }) : null,
       h("p", { text: "The Treasurer, Co-Guild Master, MAIN Raid Lead, MAIN PvP Lead and Head of Justice are High Council offices alongside the other current alliance portfolios. Council seats require an accepted appointment. Regional Raid and PvP leads remain distinct Officer Corps responsibilities. Accepted councillors without another portfolio ordinarily serve the Council of Justice, subject to case designation and conflict review." }),
       h("p", { class: "small muted", text: "Systems and Addons remains shared support, with its Council portfolio distinct from specialist advisers. Advisers are not automatically voting councillors. This current composition does not itself issue an eligible vote, individual warrant, native rank or permission. One person still has one vote, subject to recusal." }),
-      h("div", { class: "org-composition-links" }, data.councilComposition ? h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council clarification (28 October 2026)" }) : null,
+      h("div", { class: "org-composition-links" }, data.councilComposition ? h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council reference" }) : null,
       data.councilComposition?.previousDirection ? h("a", { href: data.councilComposition.previousDirection.sourcePath, text: "Historical Council direction (19–23 October 2026)" }) : null,
       h("a", { href: "#/governance/operational-charter-the-work-of-olympus", text: "Read Operational Charter O3 — The High Council and its offices" }))),
     h("div", { class: "org-guide" }, h("h2", { text: "How to read the chart" }), h("p", { text: "Solid gold arrows point from an office toward the authority it answers to. Dashed blue two-way lines connect partners who coordinate. Dotted violet lines show independent review, never command by the person under review. Select a card to read its mandate. The rank and status groupings below carry no command arrows." }),
@@ -284,7 +298,7 @@ export function renderOrganization(main, data, ui) {
     chartLocation, chartDialog,
     h("details", { class: "frame org-profile-notes" }, h("summary", { text: "Technical & Historical Profile Notes" }), h("p", { text: data.roleRank199.historicalProfileNote }), h("p", { text: "Older drafts that gave Treasurer a separate native slot are superseded. The historical beta-five client observation and the addon’s second-rank Captain assumption remain evidence to review before real native adoption; this page performs no in-game rank write or key-profile activation. Officer Alt is now the fourth native rank, while the Treasurer key is an appointment alias. No title alone grants bank withdrawal, invitations, key signing or confidential access." })),
     h("section", { class: "frame" }, h("h2", { text: "Olympus I–X · affiliation and succession" }), h("p", { text: "These are directory places for affiliated guilds, not assertions that ten guilds are formed or that their Guild Masters have been appointed. A local Guild Master retains local command while accepting the common charter. Each guild names five correspondents: PvP, Raiding, Finance, Artisanry and Heraldry." }), h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map(g => h("li", null, h("strong", { text: g.name }), h("small", { text: g.state }))))),
-    h("section", { class: "frame" }, h("h2", { text: "Role families, duties and expectations" }), h("p", { text: "One guide brings together alternate titles and regional or class specialisms. The chart retains the separate lines of responsibility; grouping guides does not merge appointments, permissions or historical records." }), ui.roleFamilyDirectory203 ? ui.roleFamilyDirectory203() : h("p", { role:"alert", text:"The consolidated role guide is unavailable. Reload before choosing a role." }), h("details", { class:"org-catalogue-history203" }, h("summary", { text:"Historical catalogue records · 96 stable offices / 132 stored keys" }), h("p", { class:"small muted", text:"These original identifiers and scoped records are retained for existing links and records. They are not additional jobs or vacancies. Use the role-family guide above for current definitions and admission options." }), termList))]);
+    h("section", { class: "frame" }, h("h2", { text: "Role families, duties and expectations" }), h("p", { text: "One guide brings together alternate titles and regional or class specialisms. The chart retains the separate lines of responsibility; grouping guides does not merge appointments, permissions or historical records." }), ui.roleFamilyDirectory203 ? ui.roleFamilyDirectory203() : h("p", { role:"alert", text:"The consolidated role guide is unavailable. Reload before choosing a role." }), h("details", { class:"org-catalogue-history203" }, h("summary", { text:"Office register · 101 stable offices / 137 stored keys" }), h("p", { class:"small muted", text:"These original identifiers and scoped records are retained for existing links and records. They are not additional jobs or vacancies. Use the role-family guide above for current definitions and admission options." }), termList))]);
   // Keep the detailed relationship explorer available without shrinking the new default overview.
   for (const node of [...main.children]) {
     if (node.classList?.contains("org-rank-guide") || node.classList?.contains("org-council-overview") || node.classList?.contains("org-guide") || node === chartLocation || node === chartDialog) relationshipMap205.append(node);

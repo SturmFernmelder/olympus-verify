@@ -13,6 +13,7 @@ export function buildAllianceOverview205(data, directory) {
     { key: "leadership", title: "Leader & founding recognition", families: [] },
     { key: "council", title: "High Council · current alliance leadership", families: [] },
     { key: "independent", title: "Justice & independent review", families: [] },
+    { key: "institutions", title: "Guild institutions & governing bodies", families: [] },
     ...ORGANIZATION_LANES205.map(lane => ({ ...lane, families: [] })),
     { key: "officers", title: "Branch leadership & Officer Corps", families: [] },
     { key: "members", title: "Membership, specialists & recognition", families: [] }
@@ -32,7 +33,8 @@ export function buildAllianceOverview205(data, directory) {
       ancestors.add(current.id);
     }
     let groupKey;
-    if (family.tier === "leader") groupKey = "leadership";
+    if (family.kind === "institution") groupKey = "institutions";
+    else if (family.tier === "leader") groupKey = "leadership";
     else if (family.tier === "high_council") groupKey = "council";
     else if (ancestors.has("justice") || ancestors.has("auditor")) groupKey = "independent";
     else if (family.tier === "member_specialist") groupKey = "members";
@@ -52,7 +54,7 @@ export function buildAllianceOverview205(data, directory) {
   }
   if (sourceKeys.size !== directory.sourceKeyCount || directory.ranks.length !== 10 || directory.ranks.some((rank, slot) => rank.nativeSlot !== slot || rank.nativeRankOrdinal !== slot + 1)) throw new Error("Incomplete canonical role or rank coverage.");
   const councilSeats = data.councilComposition?.currentSeats;
-  const seatIds = ["gm-chair", "co-gm", "treasurer", "head-trading", "main-raid-lead", "main-pvp-lead", "head-justice", "artisanry", "heraldry", "intake", "systems"];
+  const seatIds = ["gm-chair", "co-gm", "treasurer", "head-trading", "main-raid-lead", "main-pvp-lead", "head-justice", "artisanry", "heraldry", "intake", "systems", "internal-security", "concordat"];
   const canonicalFamilies = new Map(directory.families.map(family => [family.key, family]));
   if (!Array.isArray(councilSeats) || councilSeats.length !== seatIds.length || new Set(councilSeats.map(seat => seat.id)).size !== seatIds.length || seatIds.some(id => !councilSeats.some(seat => seat.id === id)) || councilSeats.some(seat => {
     const family = canonicalFamilies.get(seat.familyKey);
@@ -83,28 +85,35 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
   function nodeButton(id, text) {
     return h("button", { type: "button", class: "btn small", text, onclick: () => onSelectNode?.(id) });
   }
-  function guide(key) {
-    return ui.roleGuide201 ? ui.roleGuide201(key) : h("a", { href: "#/roles/" + encodeURIComponent(ui.roleDirectory203.keyToFamily[key] || "rosetta-stone"), text: "Read the complete role guide" });
+  function guide(key, options) {
+    return ui.roleGuide201 ? ui.roleGuide201(key, options) : h("a", { href: "#/roles/" + encodeURIComponent(ui.roleDirectory203.keyToFamily[key] || "rosetta-stone"), text: "Read the complete role guide" });
   }
   function familyCard(row) {
-    const family = row.family, node = nodes.get(row.nodeId), reserved = family.tier !== "member_specialist" && family.kind !== "status";
+    const family = row.family, node = nodes.get(row.nodeId), institution = family.kind === "institution", reserved = family.kind === "role" && family.tier !== "member_specialist";
     const body = h("div", { class: "org-alliance-family-guide" });
-    const card = h("details", { class: "org-alliance-family", "data-alliance-family": family.key },
-      h("summary", { class: "org-alliance-card-heading" }, posIcon(node.icon), h("span", null, h("strong", { text: family.label }), h("small", { text: TIERS205[family.tier] + (reserved ? " · Reserved appointment" : " · " + (family.kind === "status" ? "Standing or recognition" : "Role or voluntary activity")) }))),
-      h("p", { class: "org-alliance-badges" }, h("span", { class: "org-alliance-tier", "data-tier": family.tier, text: TIERS205[family.tier] }), h("span", { class: "small", text: row.slots.length ? row.slots.map(slot => "Rank " + (slot + 1) + " " + model.ranks[slot].label).join(" · ") : "No native rank assigned" })),
-      reserved ? h("p", { class: "small", text: "Reserved seat — no applications. A missing published holder does not make this office vacant." }) : h("p", { class: "small muted", text: "Standing, recognition and specialist work remain separately reviewed; a label grants no officer authority." }), body,
+    const card = h("details", { class: "org-alliance-family" + (institution ? " org-alliance-institution218" : ""), "data-alliance-family": family.key },
+      h("summary", { class: "org-alliance-card-heading" }, posIcon(node.icon), h("span", null, h("strong", { text: family.label }), h("small", { text: institution ? "Collective institution or historical mandate" : TIERS205[family.tier] + (reserved ? " · Reserved appointment" : " · " + (family.kind === "status" ? "Standing or recognition" : "Role or voluntary activity")) }))),
+      h("p", { class: "org-alliance-badges" }, h("span", { class: "org-alliance-tier", "data-tier": family.tier, text: institution ? "Governance institution" : TIERS205[family.tier] }),
+        institution ? null : h("span", { class: "small", text: row.slots.length ? row.slots.map(slot => "Rank " + (slot + 1) + " " + model.ranks[slot].label).join(" · ") : "No native rank assigned" })),
+      body,
       h("a", { class: "btn small", href: "#/roles/" + encodeURIComponent(family.key), text: "Open this complete role family" }),
       nodeButton(row.nodeId, "Trace responsibilities"));
     let loaded = false;
     card.addEventListener("toggle", () => {
       if (!card.open || loaded) return;
       loaded = true;
-      body.append(guide(family.primaryKey));
-      for (const variant of family.variants) {
-        const variantBody = h("div"), disclosure = h("details", { "data-alliance-variant": variant.key }, h("summary", { text: variant.label }), variantBody);
-        let variantLoaded = false;
-        disclosure.addEventListener("toggle", () => { if (disclosure.open && !variantLoaded) { variantLoaded = true; variantBody.append(guide(variant.key)); } });
-        body.append(disclosure);
+      body.append(guide(family.primaryKey, { canonical:true, familyKey:family.key }));
+      for (const [groupKey,title,kinds] of [["offices","Separate offices & remits",["office"]], ["specialisms","Regional & class duties",["region","class"]], ["associations","Related titles & rank details",["alias","native","historical"]]]) {
+        const variants = family.variants.filter(variant => kinds.includes(variant.presentation || (["region","class"].includes(variant.kind) ? variant.kind : "office")));
+        if (!variants.length) continue;
+        const group = h("section", { class:"org-alliance-guide-group218", "data-alliance-guide-group218":groupKey }, h("h4", {text:title}));
+        for (const variant of variants) {
+          const variantBody = h("div"), disclosure = h("details", { "data-alliance-variant": variant.key }, h("summary", { text: variant.label }), variantBody);
+          let variantLoaded = false;
+          disclosure.addEventListener("toggle", () => { if (disclosure.open && !variantLoaded) { variantLoaded = true; variantBody.append(guide(variant.key, { association:groupKey === "associations", sharedWith:family.primaryKey, familyKey:family.key })); } });
+          group.append(disclosure);
+        }
+        body.append(group);
       }
     });
     const searchable = row.searchText + " " + family.sourceKeys.map(key => JSON.stringify(ui.roleGuides201?.[key] || "")).join(" ").toLowerCase();
@@ -130,7 +139,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     h("p", { text: "The Guild Master chairs the Council. The Co-GM, Treasurer, Head of Trading & Markets, main Raid Lead, main PvP Lead and head of Justice sit alongside the other alliance portfolio heads below. These are alliance-wide responsibilities; regional and branch activity leaders have separate remits." }),
     h("ul", { class: "org-alliance-council-seats" }, model.councilSeats.map(seat => seatReference(seat, true))),
     h("p", { class: "small muted", text: "Council composition identifies the remit, not a named holder. Leadership seats remain reserved appointments. Regional Raid Leaders and PvP Leads do not acquire a Council seat through an event assignment." }),
-    h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council composition (28 October 2026)" }));
+    h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council portfolios & reporting lines" }));
   referenceGroups.push({ element: councilRoster, rows: seatReferences.slice() });
   function councilReferences(rootId) {
     const seats = model.councilSeats.filter(seat => {
@@ -181,6 +190,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
       h("p", { text: "Every High Council role family is collected here, including its departmental heads. Expand a guide for the full mandate and expectations. Council appointments do not add native rank slots." }), groupCards("council")),
     h("div", { class: "org-alliance-support" }, h("section", { class: "org-alliance-independent" }, h("h3", { text: "Justice & independent review" }),
       h("p", { text: "The head of Justice is a High Council portfolio holder. Judicial case panels and the Bank Auditor retain unconflicted, independent review; they are not subordinate to the officer or Treasury custodian whose work is under review." }), councilReferences("justice"), groupCards("independent"))),
+    groupSection("institutions", "org-alliance-institutions", "These are institutions and collective mandates, not extra Council seats or individual jobs. Their members, hearing panels and delegated powers require their own accepted appointments."),
     departments,
     h("section", { class: "org-alliance-branches" }, branchTitle, branchDescription,
       h("div", { class: "org-alliance-branch-guides" }, ["guilds", "officers", "emissaries"].map(id => h("article", { class: "org-alliance-card" }, h("h4", null, posIcon(nodes.get(id).icon), h("span", { text: nodes.get(id).title })), h("p", { text: nodes.get(id).remit }), nodeButton(id, "Read the local mandate")))),

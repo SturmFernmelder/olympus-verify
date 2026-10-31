@@ -40,6 +40,14 @@ function seed(f){
  f.app(ID,{references:[],text:'Own application is deleted later by the account eraser'});
 }
 (async()=>{
+ { const f=fixture('erasing');
+  const publication='office_100:publication:'+'a'.repeat(64);
+  f.set('appointed',{office_100:'<@'+ID+'>',office_101:OTHER,[publication]:'<@'+ID+'>'});
+  const out=await cleanup.cleanupNativePersonalReferences(f.env,f.proof), value=JSON.parse(f.value('appointed'));
+  check('three-digit Council references and publication pointers are scrubbed without extra statements',out.state==='cleaned'&&value.office_100==='Name withheld'&&value[publication]==='Name withheld'&&value.office_101===OTHER&&Object.keys(value).length===3&&f.trace.length===6);
+  f.close();
+ }
+
  for(const state of ['waiting_role','held','erasing']){
   const f=fixture(state);seed(f);const beforeNotice=f.value('notice'),beforeOwn=f.answers(ID),out=await cleanup.cleanupNativePersonalReferences(f.env,f.proof);
   const a=JSON.parse(f.value('appointed')),d=JSON.parse(f.value('leadership')),answer=JSON.parse(f.answers(OTHER));

@@ -1198,3 +1198,20 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .role-variant-body203 { padding-left: 4px; padding-right: 4px; }
   .role-ranks203 { column-gap: 8px; }
 }
+
+/* Master218: one role specification and a compact, dated launch notice. */
+.launch-notice218{margin:0 0 1.25rem;padding:1.1rem 1.25rem;border:1px solid #b6954b66;border-radius:12px;background:linear-gradient(120deg,#33291788,#131b2588);box-shadow:inset 3px 0 #b6954b}
+.launch-notice218 h3{margin:0 0 .65rem;color:#e7cd8d;font-size:1.15rem}
+.launch-notice218 p{font-size:.88rem;line-height:1.6;max-width:85ch;margin:.55rem 0 0}
+.launch-notice218 .count{justify-content:flex-start}
+.role-reporting218{font-size:.85rem;color:#d6bc7b;border-left:2px solid #8e763f;padding:.35rem .7rem;line-height:1.6}
+.application-reporting218{flex-basis:100%;overflow-wrap:anywhere}
+.role-primary203 .role-info{border:0;background:transparent;padding:0;color:var(--text);box-shadow:none}
+.role-primary203 .role-info>h4{margin-top:1.2rem;letter-spacing:.035em;color:var(--gold-soft)}
+.role-primary203 .role-info dt,.role-primary203 .role-info :is(b,strong,a){color:var(--gold-soft)}
+.role-primary203 .role-info .muted{color:var(--muted)}
+.role-primary203 .role-info li{margin-bottom:.5rem;line-height:1.65}
+.role-primary203 .role-facts{padding:.8rem 0;border-top:1px solid #ffffff14}
+.role-variants203{margin-top:1.2rem;border-top:1px solid #ffffff14;padding-top:.8rem}
+.role-variant203>summary{font-size:.86rem;color:#c4bdac}
+@media(max-width:390px){.launch-notice218{padding:.9rem}.launch-notice218 h3{font-size:1.05rem}.role-reporting218{overflow-wrap:anywhere}.role-primary203 .role-facts dd{margin-left:0}}

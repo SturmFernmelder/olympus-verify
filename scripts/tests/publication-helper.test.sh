@@ -52,8 +52,8 @@ for row in ref["assets"] + ref["fixed_art_source_pins"] + ref["required_public_r
     raw = path.read_bytes()
     assert len(raw) == row["bytes"] and hashlib.sha256(raw).hexdigest() == row["sha256"], row["path"]
 assert len(ref["assets"]) == 512 and len(ref["fixed_art_source_pins"]) == 7
-assert len(ref["required_public_resources"]) == 55
-assert len({row["path"] for row in ref["assets"] + ref["required_public_resources"]}) == 567
+assert len(ref["required_public_resources"]) == 59
+assert len({row["path"] for row in ref["assets"] + ref["required_public_resources"]}) == 571
 # .205 adds exactly two non-art organization modules; neither broadens official/native artwork.
 organization205_resources = {"worker/public/static/organization-overview205.js", "worker/public/static/organization-context205.js"}
 assert all(sum(row["path"] == path and row["mode"] == "100644" for row in ref["required_public_resources"]) == 1 for path in organization205_resources)

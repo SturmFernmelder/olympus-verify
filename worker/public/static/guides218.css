@@ -1,0 +1,63 @@
+/* .218 Olympus guides and tools. Scoped to .guides218; colours follow app.css; no remote images or fonts. */
+.guides218{display:grid;gap:16px;min-width:0}
+.guides218 h1{margin:0 0 4px;font-size:clamp(24px,4vw,34px);line-height:1.15}
+.guides218 h2{margin:0 0 10px;font-size:20px}
+.guides218 h3{margin:14px 0 6px;font-size:16px}
+.guides218-head{display:flex;gap:14px;align-items:flex-start}
+.guides218-head .guides218-icon{width:56px;height:56px;flex:0 0 56px;border-radius:6px}
+.guides218-lead{margin:0 0 6px;font-size:16px}
+.guides218-icon{width:24px;height:24px;vertical-align:middle;border-radius:4px}
+.guides218-crumbs{font-size:14px}
+.guides218-crumbs a,.guides218-tabs a{min-height:24px}
+.guides218-section{min-width:0;overflow-wrap:anywhere}
+.guides218-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.guides218-card{border:1px solid rgba(188,154,82,.35);border-radius:8px;padding:10px 12px;min-width:0}
+.guides218-card h3{margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.guides218-card a{display:inline-block;min-height:24px;min-width:24px;line-height:24px;padding:0 3px;text-align:center}
+.guides218-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.guides218-tabs a{display:inline-flex;align-items:center;gap:6px}
+.guides218-tabs a.active,.guides218-tabs a[aria-current="page"]{outline:2px solid #bc9a52;outline-offset:1px}
+.guides218-columns{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.guides218-list{margin:0;padding-left:20px}
+.guides218-list li,.guides218-claims li{margin:4px 0}
+.guides218-claims{margin:0;padding-left:0;list-style:none}
+.guides218-claim{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.guides218-claim[data-grade="D"],.guides218-claim[data-grade="E"]{opacity:.9}
+.guides218-grade{display:inline-block;min-width:22px;padding:0 6px;border:1px solid currentColor;border-radius:10px;font-size:12px;line-height:18px;text-align:center;text-decoration:none;cursor:help}
+.guides218-grade[data-grade="A"],.guides218-grade[data-grade="B"]{color:#9fd59f}
+.guides218-grade[data-grade="C"]{color:#a9c8ef}
+.guides218-grade[data-grade="D"],.guides218-grade[data-grade="E"]{color:#e3c27a}
+.guides218-grade[data-grade="U"]{color:#d0d0d0}
+.guides218-sources{font-size:13px;opacity:.9}
+.guides218-note{font-size:13px}
+.guides218-status{display:inline-block;padding:0 6px;border-radius:10px;border:1px solid rgba(255,255,255,.35);font-size:12px;line-height:18px}
+.guides218-presets{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.guides218-preset{border:1px solid rgba(188,154,82,.35);border-radius:8px;padding:10px 12px;min-width:0}
+.guides218-preset h3{margin-top:0}
+.guides218-preset .btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.guides218-preset .btn{min-height:40px}
+.guides218-matchups dt,.guides218-compendium dt{font-weight:700;margin-top:8px}
+.guides218-matchups dd,.guides218-compendium dd{margin:2px 0 0}
+.guides218-checklist{list-style:none;margin:0;padding:0}
+.guides218-checklist li{display:grid;grid-template-columns:32px 1fr;gap:2px 8px;align-items:start;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.guides218-checklist li>*:nth-child(n+3){grid-column:2}
+.guides218-checklist input{width:24px;height:24px;margin:0}
+.guides218-checklist label{min-height:24px;line-height:24px}
+.guides218-buffs{margin-top:8px}
+.guides218-total{margin-top:12px;padding:10px 12px;border:1px solid rgba(188,154,82,.5);border-radius:8px}
+.guides218 select{min-height:32px}
+.guides218-table{width:100%;border-collapse:collapse;font-size:14px}
+.guides218-table caption{text-align:left;margin-bottom:6px;opacity:.9}
+.guides218-table th,.guides218-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left}
+.guides218-table td{font-variant-numeric:tabular-nums}
+.guides218-legend summary{min-height:24px;line-height:24px;cursor:pointer}
+.guides218-legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:8px 0 0}
+.guides218-legend dd{margin:0}
+@media (max-width:560px){
+  .guides218-head{flex-direction:column}
+  .guides218-table{font-size:13px}
+  .guides218-table th,.guides218-table td{padding:5px 4px}
+  .guides218-section{padding-left:12px;padding-right:12px}
+}
+@media (prefers-reduced-motion:reduce){.guides218 *{transition:none!important;animation:none!important}}
+@media (forced-colors:active){.guides218-grade,.guides218-status,.guides218-card,.guides218-preset,.guides218-total{border-color:CanvasText;color:CanvasText}}

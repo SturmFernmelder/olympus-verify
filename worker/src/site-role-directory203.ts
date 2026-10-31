@@ -8,10 +8,12 @@ import { OFFICE_APPOINTMENTS, NATIVE_RANKS_199 } from './governance-offices';
 export type RoleDirectoryKind203 = 'role' | 'activity' | 'status' | 'institution';
 export type RoleDirectoryTier203 = 'leader' | 'high_council' | 'officer_corps' | 'member_specialist';
 export type RoleVariantKind203 = 'region' | 'class' | 'subrole' | 'historical';
+export type RoleVariantPresentation218 = 'alias' | 'native' | 'historical' | 'office' | 'region' | 'class';
 export interface RoleDirectoryVariant203 {
   readonly key: string;
   readonly label: string;
   readonly kind: RoleVariantKind203;
+  readonly presentation: RoleVariantPresentation218;
 }
 export interface RoleDirectoryFamily203 {
   readonly key: string;
@@ -29,7 +31,7 @@ export interface RoleDirectory203 {
   readonly families: readonly RoleDirectoryFamily203[];
   readonly ranks: readonly Readonly<{ nativeSlot: number; nativeRankOrdinal: number; label: string; familyKey: string }>[];
   readonly keyToFamily: Readonly<Record<string, string>>;
-  readonly sourceKeyCount: 135;
+  readonly sourceKeyCount: 140;
 }
 
 interface FamilySeed203 {
@@ -51,14 +53,19 @@ const seeds203: readonly FamilySeed203[] = [
   { key: 'founder', label: 'Founder Recognition', kind: 'status', tier: 'leader', primaryKey: 'office_42', sourceKeys: ['office_42'] },
   { key: 'high_council', label: 'High Council & Portfolio Appointments', kind: 'institution', tier: 'high_council', primaryKey: 'office_45', sourceKeys: ['office_45', 'office_28', 'office_57'], contexts: { office_28: 'Department Head — portfolio responsibility and officer coordination', office_57: 'Minister — statutory Council portfolio category' } },
   { key: 'co_gm', label: 'Co-Guild Master / Vice Guild Master', kind: 'role', tier: 'high_council', primaryKey: 'office_19', sourceKeys: ['office_19', 'office_92'], contexts: { office_92: 'Vice Guild Master — the recorded continuity and succession delegation', co_gm: 'Co-Guild Master — retained detailed second-in-command guide' } },
-  { key: 'justice', label: 'Head of Justice & Council of Justice', kind: 'institution', tier: 'high_council', primaryKey: 'office_26', sourceKeys: ['office_26'] },
+  { key: 'justice', label: 'Council of Justice — institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_26', sourceKeys: ['office_26'] },
   { key: 'privy_council', label: 'Privy Council', kind: 'institution', tier: 'high_council', primaryKey: 'office_67', sourceKeys: ['office_67'] },
   { key: 'court', label: 'The Court — Constitutional Institution', kind: 'institution', tier: 'high_council', primaryKey: 'office_84', sourceKeys: ['office_84'] },
   { key: 'chief_intake', label: 'Chief of Intake / Gatekeeper', kind: 'role', tier: 'high_council', primaryKey: 'office_14', sourceKeys: ['office_14'] },
   { key: 'minister_artisanry', label: 'Minister of Artisanry', kind: 'role', tier: 'high_council', primaryKey: 'office_58', sourceKeys: ['office_58'] },
   { key: 'minister_heraldry', label: 'Minister of Heraldry', kind: 'role', tier: 'high_council', primaryKey: 'office_59', sourceKeys: ['office_59'] },
-  { key: 'war_head', label: 'War Heads — MAIN Raid & PvP Leads', kind: 'role', tier: 'high_council', primaryKey: 'office_94', sourceKeys: ['office_94'] },
+  { key: 'war_head', label: 'War Directorate — historical shared template', kind: 'institution', tier: 'high_council', primaryKey: 'office_94', sourceKeys: ['office_94'] },
   { key: 'treasurer', label: 'Treasurer / Guild Bank', kind: 'role', tier: 'high_council', primaryKey: 'office_86', sourceKeys: ['office_86'], contexts: { treasurer: 'Treasurer — retained detailed financial stewardship guide', rank_treasurer: 'Historical Treasurer rank label — a current Council appointment, not an eleventh rank' } },
+  { key: 'main_raid', label: "Grand Marshal of PvE", kind: 'role', tier: 'high_council', primaryKey: 'office_97', sourceKeys: ['office_97'] },
+  { key: 'main_pvp', label: "Grand Marshal of PvP", kind: 'role', tier: 'high_council', primaryKey: 'office_98', sourceKeys: ['office_98'] },
+  { key: 'internal_security', label: "High Inquisitor / Minister of Internal Security", kind: 'role', tier: 'high_council', primaryKey: 'office_99', sourceKeys: ['office_99'] },
+  { key: 'concordat_director', label: "Grand Concordat Director", kind: 'role', tier: 'high_council', primaryKey: 'office_100', sourceKeys: ['office_100'] },
+  { key: 'head_justice', label: "Lord High Chancellor / Head of Justice", kind: 'role', tier: 'high_council', primaryKey: 'office_101', sourceKeys: ['office_101'] },
   { key: 'head_trading', label: 'Head of Trading & Markets', kind: 'role', tier: 'high_council', primaryKey: 'office_96', sourceKeys: ['office_96'] },
   { key: 'officer', label: 'Officer', kind: 'role', tier: 'officer_corps', primaryKey: 'office_62', sourceKeys: ['office_62'] },
   { key: 'officer_alt', label: 'Officer Alt', kind: 'role', tier: 'officer_corps', primaryKey: 'office_63', sourceKeys: ['office_63'] },
@@ -141,7 +148,7 @@ function directory203(): RoleDirectory203 {
     add(familyKey, row.key);
   }
   const expected = [...OFFICE_APPOINTMENTS.map(row => row.key), 'member', 'raider', 'pvp_team'].sort();
-  if (expected.length !== 135 || new Set(expected).size !== 135 || JSON.stringify(Object.keys(keyToFamily).sort()) !== JSON.stringify(expected)) throw new Error('Incomplete .203 directory source coverage');
+  if (expected.length !== 140 || new Set(expected).size !== 140 || JSON.stringify(Object.keys(keyToFamily).sort()) !== JSON.stringify(expected)) throw new Error('Incomplete .203 directory source coverage');
 
   const families = seeds203.map(seed => {
     const sourceKeys = sources.get(seed.key)!;
@@ -152,14 +159,20 @@ function directory203(): RoleDirectory203 {
     const variants = sourceKeys.filter(key => key !== seed.primaryKey).map(key => {
       const row = rows203.get(key);
       const kind: RoleVariantKind203 = key.startsWith('class_lead:') ? 'class' : /^raid_(?:leader|assist)_(?:na|eu)$/.test(key) ? 'region' : key === 'rank_treasurer' ? 'historical' : 'subrole';
+      // A shared family is not evidence that two independently written offices have the same remit.
+      // The old branch-GM guide is narrower than the alliance Sovereign even though its stored key aliases the GM.
+      const alias = key !== 'guild_master' && (row?.aliasOf === seed.primaryKey
+        || (seed.key === 'member' && key === 'office_55') || (seed.key === 'raider' && key === 'office_75'));
+      const presentation: RoleVariantPresentation218 = kind === 'region' || kind === 'class' ? kind
+        : kind === 'historical' ? 'historical' : row?.group === 'native' ? 'native' : alias ? 'alias' : 'office';
       const label = seed.contexts?.[key] ?? (row?.group === 'native' ? `${row.label} — native rank ${row.nativeRankOrdinal} (slot ${row.nativeSlot})` : sourceLabel203(key));
-      return Object.freeze({ key, label, kind });
+      return Object.freeze({ key, label, kind, presentation });
     });
     const alternateTitles = [...new Set(sourceKeys.map(sourceLabel203).filter(label => label !== seed.label && label !== sourceLabel203(seed.primaryKey)))];
     return Object.freeze({ key: seed.key, label: seed.label, kind: seed.kind, tier: seed.tier, primaryKey: seed.primaryKey, sourceKeys: Object.freeze([...sourceKeys]), alternateTitles: Object.freeze(alternateTitles), variants: Object.freeze(variants), ...(seed.application ? { application: Object.freeze({ ...seed.application }) } : {}) });
   });
   const ranks = NATIVE_RANKS_199.map(rank => Object.freeze({ nativeSlot: rank.nativeSlot, nativeRankOrdinal: rank.nativeRankOrdinal, label: rank.name, familyKey: rankFamilies203[rank.nativeSlot] }));
-  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 135 });
+  return Object.freeze({ version: 1, families: Object.freeze(families), ranks: Object.freeze(ranks), keyToFamily: Object.freeze(keyToFamily), sourceKeyCount: 140 });
 }
 
 /** Plain serializable display metadata. It is not read by backend admission. */

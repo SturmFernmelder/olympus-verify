@@ -1,0 +1,11 @@
+{
+  "schema": "olympus-governance-presentation218-v1",
+  "authority": "Owner Master218 consolidation of the canonical Officer Operational Guide",
+  "changes": [
+    {
+      "key": "rc9-officer-principles",
+      "before": "## RC9 Officer Operational Guide",
+      "after": "## RC9 Officer mandate and safeguards\n\nThe [Officer Operational Guide](#/guide/officer) is the canonical practical walkthrough. This section records its constitutional principles; it is not a second operational guide."
+    }
+  ]
+}

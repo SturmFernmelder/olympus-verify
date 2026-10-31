@@ -16,14 +16,14 @@ const member=id=>({user:{id,username:'synthetic-'+id,global_name:null},nick:null
 function fictionalMap(count,base=330000000000000000n){const map={};for(let i=0;i<count;i++){const id=String(base+BigInt(i+1));H.discordMembers.set(id,member(id));map[roles[i]]='<@'+id+'>';}return map;}
 async function buildInBatches(f,map){let partial={};for(let i=0;i<Object.keys(map).length;i+=32){Object.assign(partial,Object.fromEntries(Object.entries(map).slice(i,i+32)));const before=H.reads();await f.publish(partial);check('one explicit batch performs at most32 fresh member attempts',H.reads()-before<=32);}return saved(f);}
 (async()=>{
-  check('the entire source catalogue remains132 distinct keys',roles.length===132&&new Set(roles).size===132);
+  check('the entire source catalogue remains137 distinct keys',roles.length===137&&new Set(roles).size===137);
   {
-    const f=await H.fixture(),{ADMIN,VIEWER}=H.ids(),map=fictionalMap(132);
+    const f=await H.fixture(),{ADMIN,VIEWER}=H.ids(),map=fictionalMap(137);
     try{
       const start=H.reads(),tooMany=await f.call('PUT','/api/admin/settings',ADMIN,{appointed:map,namesConfirmed:true,appointedCharactersConfirmed:true,notice:'must remain absent'});
-      check('132 new distinct members refuse before the first provider call and before any partial setting',tooMany.status===409&&tooMany.body.accountStatus==='fresh_check_limit'&&H.reads()===start&&!f.db.prepare("SELECT 1 FROM site_settings WHERE key IN('appointed','notice')").get());
+      check('137 new distinct members refuse before the first provider call and before any partial setting',tooMany.status===409&&tooMany.body.accountStatus==='fresh_check_limit'&&H.reads()===start&&!f.db.prepare("SELECT 1 FROM site_settings WHERE key IN('appointed','notice')").get());
       const approved=await buildInBatches(f,map),beforeReuse=H.reads();await f.publish(map);const kept=saved(f);
-      check('all132 qualified associations remain editable with zero repeated provider calls and exact original proof keys',H.reads()===beforeReuse&&proofKeys(approved).length===132&&JSON.stringify(proofKeys(approved))===JSON.stringify(proofKeys(kept))&&proofKeys(approved).every(key=>kept[key]===approved[key]));
+      check('all137 qualified associations remain editable with zero repeated provider calls and exact original proof keys',H.reads()===beforeReuse&&proofKeys(approved).length===137&&JSON.stringify(proofKeys(approved))===JSON.stringify(proofKeys(kept))&&proofKeys(approved).every(key=>kept[key]===approved[key]));
       let cursor=null,revision=null,done=false;const people=[],pageSizes=[];
       for(let page=0;page<5;page++){
         const before=H.reads(),r=await requestPage(f,VIEWER,cursor,revision);
@@ -32,7 +32,7 @@ async function buildInBatches(f,map){let partial={};for(let i=0;i<Object.keys(ma
         people.push(...r.body.identities);pageSizes.push(r.body.identities.length);cursor=r.body.nextCursor;revision=r.body.revision;done=r.body.complete;
         if(done)break;
       }
-      check('five actual pages expose every132 separately consented office without loss or duplicate',done&&cursor===null&&JSON.stringify(pageSizes)==='[32,32,32,32,4]'&&people.length===132&&new Set(people.map(p=>p.role)).size===132&&people.every(p=>p.appointment===map[p.role]&&p.characters.length===0));
+      check('five actual pages expose every137 separately consented office without loss or duplicate',done&&cursor===null&&JSON.stringify(pageSizes)==='[32,32,32,32,9]'&&people.length===137&&new Set(people.map(p=>p.role)).size===137&&people.every(p=>p.appointment===map[p.role]&&p.characters.length===0));
       const removed=roles[0],less={...map};delete less[removed];await f.publish(less);const restoreStart=H.reads();await f.publish(map);
       check('a deleted role proof cannot be silently reused on restoration',H.reads()-restoreStart===1&&saved(f)[removed]===map[removed]);
       const replacement='339000000000000001';H.discordMembers.set(replacement,member(replacement));const changed={...map,[roles[1]]:'<@'+replacement+'>'},changeStart=H.reads();await f.publish(changed);

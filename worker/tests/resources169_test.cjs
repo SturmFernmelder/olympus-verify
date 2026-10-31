@@ -106,19 +106,45 @@ function renderer(fetcher) {
   check('.183 the new Forever feed cannot reuse a cached record from the old all-WoW blue feed', cacheWrites[1].key.url === 'https://olympus.roachcouncil.com/__public-publisher-headlines169/wowhead-blues-forever183' && cacheWrites[1].value.sourceId === 'wowhead-blues');
 
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'public/static/resources169.json'), 'utf8'));
-  check('catalog covers21 curated addons,12 guide sources and7 news/discovery sources', catalog.version === 1 && catalog.addons.length === 21 && catalog.guides.length === 12 && catalog.newsSources.length === 7);
+  check('catalog covers29 curated addons,12 guide sources and7 news/discovery sources', catalog.version === 1 && catalog.addons.length === 29 && catalog.guides.length === 12 && catalog.newsSources.length === 7);
   check('catalog explicitly disclaims exhaustive inventory and independent compatibility qualification', /not every addon/.test(catalog.viewNotes.addons) && /not.*guarantee of in-game compatibility/.test(catalog.disclaimer));
   check('every addon carries publisher identity, rationale, advertised client/release and limits', catalog.addons.every(a => a.id && a.name && a.category && a.rationale && a.status && a.version && /^2026-10-\d{2}$/.test(a.releasedAt) && a.gameBuild.includes('Forever') && a.sourceKind && a.limitations.length && new URL(a.url).protocol === 'https:'));
-  check('all catalog IDs are unique and guide provisional boundaries remain explicit', new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources].map(x => x.id)).size === 40 && catalog.guides.every(g => g.scope && g.status && g.sourceKind && g.limitations.length) && catalog.guides.find(g => g.id === 'wow-professions').limitations.some(x => /untested/.test(x)));
+  check('all catalog IDs are unique and guide provisional boundaries remain explicit', new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources].map(x => x.id)).size === 48 && catalog.guides.every(g => g.scope && g.status && g.sourceKind && g.limitations.length) && catalog.guides.find(g => g.id === 'wow-professions').limitations.some(x => /untested/.test(x)));
   const trackerLinks = ['https://www.wowhead.com/forever/blue-tracker', 'https://www.bluetracker.gg/wow/category/187-forever/'];
   check('.183 exact Forever tracker references distinguish the actual advertised RSS from an unverified machine feed', catalog.newsSources.some(s => s.url === trackerLinks[0] && s.status === 'Publisher-advertised RSS verified') && catalog.newsSources.some(s => s.url === trackerLinks[1] && s.status === 'Direct link only' && /No automatic feed is verified here/.test(s.scope)));
   check('Blizzard News is direct-link only and forums are not mislabelled all-official', catalog.newsSources.find(s => s.id === 'blizzard-news').status === 'Direct link only' && /not every topic/.test(catalog.newsSources.find(s => s.id === 'blizzard-forum').scope));
+  // .218: file versions and publisher dates from the 30 Oct 2026 addon research snapshot (research-v1.json, Addons topic).
+  const addon218 = id => catalog.addons.find(x => x.id === id);
+  const fileMatches218 = table => Object.entries(table).every(([id, [version, releasedAt]]) => addon218(id)?.version === version && addon218(id).releasedAt === releasedAt);
+  check('.218 every refreshed addon names the exact newer research file and publisher date', fileMatches218({ questie: ['12.3.1 + QuestieDB 1.0.9', '2026-10-26'], dbm: ['12.1.18', '2026-10-26'], bigwigs: ['427.8', '2026-10-23'], 'leatrix-plus': ['1.60.25-forever', '2026-10-21'], 'leatrix-maps': ['1.60.25-forever', '2026-10-21'], baganator: ['12.1.5', '2026-10-28'], auctionator: ['12.1.5', '2026-10-13'], foreverauras: ['1.1.0', '2026-10-28'] }));
+  const new218 = { threatclassic2: ['2.75-forever', '2026-10-10'], foreverthreat: ['0.2.6', '2026-10-17'], decursive: ['2.9.0-RC3-forever', '2026-10-04'], grid2: ['4.1.9-forever', '2026-10-21'], tullactc: ['12.1.4', '2026-10-11'], 'musca-auras': ['1.14.0', '2026-10-22'], 'lizzaricks-unit-frames': ['0.17.3', '2026-10-26'], 'dbm-vanilla': ['r834', '2026-10-26'] };
+  check('.218 eight new addons carry their exact research file versions and October publisher dates', fileMatches218(new218));
+  check('.218 new addons use exactly the existing entry fields, the Forever 1.60.1 client, their own CurseForge project page and non-empty limits', Object.keys(new218).every(id => { const a = addon218(id); return Object.keys(a).sort().join() === 'category,gameBuild,id,limitations,name,rationale,releasedAt,sourceKind,status,url,version' && a.gameBuild.includes('Forever 1.60.1') && a.url === 'https://www.curseforge.com/wow/addons/' + id && a.sourceKind === 'Author project page' && a.limitations.length > 0 && a.limitations.every(x => typeof x === 'string' && x.length > 0); }));
+  check('.218 BigWigs links its actual CurseForge project slug', addon218('bigwigs').url === 'https://www.curseforge.com/wow/addons/big-wigs');
+  const limits218 = {
+    questie: /work list says quest, NPC and object coverage is still incomplete/,
+    bigwigs: /BigWigs_Classic.*Molten Core, Blackwing Lair and the Ahn'Qiraj raids.*no Onyxia or Forever-raid modules/,
+    auctionator: /automatic scan on opening the auction house is Retail-only/,
+    foreverauras: /still under development/,
+    threatclassic2: /no healer mode/,
+    decursive: /release candidate[\s\S]*does not say how Forever's restricted \(secret\) auras affect dispel detection/,
+    grid2: /developer's claim of lower CPU use[^.]*not independently measured/,
+    tullactc: /lacks some OmniCC features, such as Finish Effects and Max Duration/,
+    'musca-auras': /unofficial port of WeakAuras[\s\S]*Combat-log triggers never fire/,
+    'lizzaricks-unit-frames': /Luna-style[\s\S]*some Luna features are not possible/,
+    'dbm-vanilla': /Requires Deadly Boss Mods Core[\s\S]*Barrow Deeps, Hyjal Summit/,
+  };
+  check('.218 refreshed and new entries keep their research-backed limits beside the version', Object.entries(limits218).every(([id, pattern]) => pattern.test([addon218(id).rationale, addon218(id).status, ...addon218(id).limitations].join(' '))));
+  check('.218 performance wording in curated addons is only a labelled developer claim that is not independently measured', catalog.addons.every(a => [a.rationale, a.status, ...a.limitations].every(text => !/\b(?:CPU|memory|FPS|frame rate|faster|lightweight)\b/i.test(text) || (/developer's claim/.test(text) && /not independently measured/.test(text)))));
+  check('.218 the addons note reports the closed combat log and that Olympus measured no install, FPS or memory figures', /^This is not every addon\. /.test(catalog.viewNotes.addons) && /The combat log is reported closed to addons on Forever, so features built on it, such as Classic-style threat meters, Spy-style enemy detection and cast-bar or aura triggers, behave differently, and Olympus made no install, FPS or memory measurements\.$/.test(catalog.viewNotes.addons));
+  const watch218 = catalog.addonWatchlist, watchIds218 = ['weakauras', 'tradeskill-master', 'gathermate2', 'omnicc', 'classiccastbars', 'cell', 'spy', 'battlegroundtargets-classic', 'luna-unit-frames'];
+  check('.218 nine requested addons without a qualified Forever file stay in a separate plain watchlist with project links and no compatibility claim', Array.isArray(watch218) && watch218.map(w => w.id).join() === watchIds218.join() && watch218.every(w => Object.keys(w).sort().join() === 'id,name,note,url' && [w.id, w.name, w.note, w.url].every(s => typeof s === 'string' && s.length > 0 && s.length < 400) && ['www.curseforge.com', 'github.com'].includes(new URL(w.url).hostname) && !/Forever file|compatib/i.test(w.note) && !catalog.addons.some(a => a.id === w.id)) && new Set([...catalog.addons, ...catalog.guides, ...catalog.newsSources, ...watch218].map(x => x.id)).size === 57);
   check('source adapter has no database, cron, schema, settings or credential dependencies', !/env\.DB|site_settings|COOKIE_SECRET|Authorization:|registerCommunityData|scheduled\(/.test(source));
 
   const r = renderer(async url => { assert.equal(url, '/static/resources169.json'); return Response.json(catalog); }), holder = new Element('div');
   const mounted = r.api.mount(holder, { view: 'addons' }); await settle();
-  check('actual renderer mounts catalog cards through text nodes and original safe links', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 21 && textOf(holder).includes('Author lists Forever') && walk(holder).filter(x => x.tagName === 'A').every(x => x.href.startsWith('https://') && x.rel === 'noopener noreferrer'));
-  const addonCount215 = walk(holder).find(x => x.textContent === '21 of 21 curated entries.');
+  check('actual renderer mounts catalog cards through text nodes and original safe links', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 29 && textOf(holder).includes('Author lists Forever') && walk(holder).filter(x => x.tagName === 'A').every(x => x.href.startsWith('https://') && x.rel === 'noopener noreferrer'));
+  const addonCount215 = walk(holder).find(x => x.textContent === '29 of 29 curated entries.');
   const politeCount215 = node => node?.role === 'status' && node['aria-live'] === 'polite' && node['aria-atomic'] === 'true';
   check('.215 Addons exposes one complete polite result-count status', politeCount215(addonCount215) && walk(holder).filter(x => x.role === 'status').length === 1);
   const featured185 = walk(holder).filter(x => x.tagName === 'ARTICLE' && x.className.includes('resources169-featured'));
@@ -128,14 +154,27 @@ function renderer(fetcher) {
   check('.210 the current1.3.3 publisher release is dated separately from its earlier API review', olympus185.version === '1.3.3' && olympus185.releasedAt === '2026-10-26' && olympus185.status === 'Author lists Forever file' && olympus185.sourceKind.includes('earlier addon API reviewed 2026-10-21') && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild/files/9338970'));
   check('.210 optional unified addon names published1.3.3 while retaining website setup and coverage boundaries', textOf(featured185[0]).includes('Optional for website readers; no desktop companion is needed.') && textOf(featured185[0]).includes('retired standalone Army ZIP is not offered') && textOf(featured185[0]).includes('Olympus Guild 1.3.3 is published. Website snapshot reporting has separate setup and availability.') && !textOf(featured185[0]).includes('upstream adoption') && textOf(featured185[0]).includes('not proof that every guild has a current website report'));
   check('.210 dated1.3.2 checkpoint and local patch remain distinct from published1.3.3 and website qualification', textOf(featured185[0]).includes('permission-gated') && textOf(featured185[0]).includes('read-only GetCensusCheckpoint') && textOf(featured185[0]).includes('not this website’s OLCS2 export') && textOf(featured185[0]).includes('local compatibility patch was prepared against 1.3.2') && textOf(featured185[0]).includes('later published 1.3.3 package has separate installed-client and website-export qualification') && textOf(featured185[0]).includes('Publishing the addon does not enable website reporting.') && walk(featured185[0]).some(x => x.tagName === 'A' && x.href === 'https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md') && r.calls.length === 1);
+  // .218: the browse link and requested-addon watchlist follow the curated grid, outside its cards, filters and count.
+  const wrap218 = holder.children[0], grid218 = walk(holder).find(x => x.className === 'resources169-grid');
+  const position218 = node => wrap218.children.findIndex(child => walk(child).includes(node));
+  const watchDetails218 = walk(holder).filter(x => x.tagName === 'DETAILS' && x.children.some(y => y.tagName === 'SUMMARY' && y.textContent === 'Requested addons not listed for Forever'));
+  const watchRows218 = watchDetails218.length === 1 ? walk(watchDetails218[0]).filter(x => x.tagName === 'LI') : [];
+  check('.218 the requested-addon watchlist renders once after the curated grid as a closed native disclosure list, not as cards', watchDetails218.length === 1 && !watchDetails218[0].open && position218(watchDetails218[0]) > position218(grid218) && !walk(grid218).includes(watchDetails218[0]) && !walk(watchDetails218[0]).some(x => x.tagName === 'ARTICLE') && walk(watchDetails218[0]).some(x => x.tagName === 'UL') && watchRows218.length === catalog.addonWatchlist.length);
+  check('.218 each watchlist row shows its exact project link and note without any Forever compatibility claim', catalog.addonWatchlist.every((w, i) => { const a = watchRows218[i].children.find(x => x.tagName === 'A'); return !!a && a.textContent === w.name && a.href === w.url && a.target === '_blank' && a.rel === 'noopener noreferrer' && watchRows218[i].children.some(x => x.textContent === w.note); }) && !/Forever file|compatib/i.test(textOf(watchDetails218[0])));
+  const browse218 = walk(holder).filter(x => x.tagName === 'A' && x.textContent === 'Browse more Forever addons'), directory218 = catalog.newsSources.find(x => x.id === 'curseforge-forever');
+  check('.218 exactly one safe Browse more Forever addons link follows the grid and uses the reviewed directory entry', browse218.length === 1 && browse218[0].href === directory218.url && browse218[0].target === '_blank' && browse218[0].rel === 'noopener noreferrer' && position218(browse218[0]) > position218(grid218) && !walk(grid218).includes(browse218[0]) && textOf(holder).includes(directory218.scope));
+  check('.218 the addons disclosure states the closed combat log and that Olympus made no measurements', textOf(holder).includes('The combat log is reported closed to addons on Forever') && textOf(holder).includes('Olympus made no install, FPS or memory measurements.') && r.calls.length === 1);
   const search = walk(holder).find(x => x.tagName === 'INPUT' && x.type === 'search'); r.document.activeElement = search; search.value = 'Syndicator'; search.fire('input');
   check('catalog search includes documented dependency/limitation text', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 1 && textOf(holder).includes('Baganator'));
-  check('.215 addon search updates the same live count without replacing its focused input', politeCount215(addonCount215) && addonCount215.textContent === '1 of 21 curated entries.' && walk(holder).includes(addonCount215) && walk(holder).includes(search) && r.document.activeElement === search && r.calls.length === 1);
+  check('.215 addon search updates the same live count without replacing its focused input', politeCount215(addonCount215) && addonCount215.textContent === '1 of 29 curated entries.' && walk(holder).includes(addonCount215) && walk(holder).includes(search) && r.document.activeElement === search && r.calls.length === 1);
   check('.185 the feature obeys search filters instead of remaining as an unrelated pinned advertisement', !walk(holder).some(x => x.className && x.className.includes('resources169-featured')) && !textOf(holder).includes('Get Olympus Guild'));
   const select = walk(holder).find(x => x.tagName === 'SELECT'); r.document.activeElement = select; search.value = ''; select.value = 'Forever discoveries'; select.fire('change');
-  check('category filter exposes8 reviewed Forever-focused discoveries', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 8);
-  check('.215 category changes update the full live count while keeping selector focus', politeCount215(addonCount215) && addonCount215.textContent === '8 of 21 curated entries.' && walk(holder).includes(addonCount215) && r.document.activeElement === select && r.calls.length === 1);
+  check('category filter exposes11 reviewed Forever-focused discoveries', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 11);
+  check('.215 category changes update the full live count while keeping selector focus', politeCount215(addonCount215) && addonCount215.textContent === '11 of 29 curated entries.' && walk(holder).includes(addonCount215) && r.document.activeElement === select && r.calls.length === 1);
   check('.185 category filtering still excludes the Guild tools promotion without an extra request', !textOf(holder).includes('Get Olympus Guild') && r.calls.length === 1);
+  check('.218 search and category filters keep the same browse link and closed watchlist outside the single curated count', walk(holder).includes(browse218[0]) && walk(holder).includes(watchDetails218[0]) && !watchDetails218[0].open && walk(holder).filter(x => x.role === 'status').length === 1 && r.calls.length === 1);
+  search.value = 'TradeSkillMaster'; select.value = 'all'; select.fire('change');
+  check('.218 searching filters curated cards only: a watchlist name finds no card while its watchlist row remains', walk(holder).filter(x => x.tagName === 'ARTICLE').length === 0 && addonCount215.textContent === '0 of 29 curated entries.' && textOf(grid218).includes('No sources match these filters.') && walk(watchDetails218[0]).some(x => x.tagName === 'A' && x.textContent === 'TradeSkillMaster') && walk(holder).filter(x => x.role === 'status').length === 1 && r.calls.length === 1);
   mounted.destroy(); check('unmount removes the view and leaves no polling timer', holder.children.length === 0 && r.intervals.size === 0);
   const guideRenderer = renderer(async () => Response.json(catalog)), guideHolder = new Element('div');
   const guides = guideRenderer.api.mount(guideHolder, { view: 'guides' }); await settle();
@@ -353,7 +392,7 @@ function renderer(fetcher) {
   const unsafeApi185 = structuredClone(catalog); unsafeApi185.addons.find(x => x.id === 'olympus-guild').apiUrl = 'https://evil.invalid/private';
   const unsafeApiUi185 = renderer(async () => Response.json(unsafeApi185)), unsafeApiHolder185 = new Element('div');
   const unsafeApiMount185 = unsafeApiUi185.api.mount(unsafeApiHolder185, { view: 'addons' }); await settle();
-  check('.185 an unapproved optional documentation URL cannot create an active link', walk(unsafeApiHolder185).filter(x => x.tagName === 'ARTICLE').length === 21 && !walk(unsafeApiHolder185).some(x => x.tagName === 'A' && x.href === 'https://evil.invalid/private') && unsafeApiUi185.calls.length === 1);
+  check('.185 an unapproved optional documentation URL cannot create an active link', walk(unsafeApiHolder185).filter(x => x.tagName === 'ARTICLE').length === 29 && !walk(unsafeApiHolder185).some(x => x.tagName === 'A' && x.href === 'https://evil.invalid/private') && unsafeApiUi185.calls.length === 1);
   unsafeApiMount185.destroy();
   const unsafeCatalog = structuredClone(catalog); unsafeCatalog.addons[0].url = 'javascript:alert(1)';
   const unsafeUi = renderer(async () => Response.json(unsafeCatalog)), unsafeHolder = new Element('div'); unsafeUi.api.mount(unsafeHolder, { view: 'addons' }); await settle();
@@ -362,6 +401,38 @@ function renderer(fetcher) {
     const otherCatalog = structuredClone(catalog); otherCatalog.addons[0].url = url;
     const otherUi = renderer(async () => Response.json(otherCatalog)), otherHolder = new Element('div'); otherUi.api.mount(otherHolder, { view: 'addons' }); await settle();
     check('.183 the exact BlueTracker reference does not admit another path, query or lookalike host: ' + url, walk(otherHolder).filter(x => x.tagName === 'A').length === 0 && textOf(otherHolder).includes('could not be loaded'));
+  }
+  // .218: the optional watchlist is all-or-nothing; any malformed row refuses the whole addon catalogue.
+  const mountAddons218 = async data => { const ui = renderer(async () => Response.json(data)), holder = new Element('div'), mounted = ui.api.mount(holder, { view: 'addons' }); await settle(); return { ui, holder, mounted }; };
+  const watchSummary218 = holder => walk(holder).some(x => x.tagName === 'SUMMARY' && x.textContent === 'Requested addons not listed for Forever');
+  for (const [label, change] of [
+    ['extra key', w => { w[0].html = '<b>unreviewed</b>'; }],
+    ['unsafe url', w => { w[0].url = 'https://www.curseforge.com.evil.invalid/wow/addons/weakauras-2'; }],
+    ['21 items', w => { while (w.length < 21) w.push({ ...w[0], id: 'requested-' + w.length }); }],
+    ['400-character note', w => { w[0].note = 'x'.repeat(400); }],
+    ['non-project host', w => { w[0].url = 'https://www.wowhead.com/forever/guides'; }],
+    ['duplicate id', w => { w[1].id = w[0].id; }],
+    ['missing note', w => { delete w[0].note; }],
+    ['not a list', (w, data) => { data.addonWatchlist = { weakauras: w[0] }; }],
+  ]) {
+    const bad218 = structuredClone(catalog); change(bad218.addonWatchlist, bad218);
+    const { ui, holder: badHolder218, mounted } = await mountAddons218(bad218);
+    check('.218 a malformed watchlist refuses the whole addon catalogue: ' + label, !walk(badHolder218).some(x => ['ARTICLE', 'A', 'DETAILS', 'INPUT', 'SELECT'].includes(x.tagName)) && textOf(badHolder218).includes('The source catalog could not be loaded. Try reopening this view.') && ui.calls.length === 1);
+    mounted.destroy();
+  }
+  {
+    const twenty218 = structuredClone(catalog); while (twenty218.addonWatchlist.length < 20) twenty218.addonWatchlist.push({ ...twenty218.addonWatchlist[0], id: 'requested-' + twenty218.addonWatchlist.length });
+    const { ui, holder: twentyHolder218, mounted } = await mountAddons218(twenty218);
+    check('.218 a watchlist at the 20-item limit still renders every row beside all curated cards', walk(twentyHolder218).filter(x => x.tagName === 'ARTICLE').length === 29 && watchSummary218(twentyHolder218) && walk(twentyHolder218).filter(x => x.tagName === 'LI' && x.children.some(y => y.tagName === 'A' && y.href === twenty218.addonWatchlist[0].url)).length === 12 && ui.calls.length === 1);
+    mounted.destroy();
+    const legacy218 = structuredClone(catalog); delete legacy218.addonWatchlist;
+    const { ui: legacyUi218, holder: legacyHolder218, mounted: legacyMount218 } = await mountAddons218(legacy218);
+    check('.218 a catalogue without the optional watchlist still renders every curated addon and the browse link, with no watchlist disclosure', walk(legacyHolder218).filter(x => x.tagName === 'ARTICLE').length === 29 && walk(legacyHolder218).some(x => x.textContent === '29 of 29 curated entries.') && !watchSummary218(legacyHolder218) && walk(legacyHolder218).filter(x => x.tagName === 'A' && x.textContent === 'Browse more Forever addons').length === 1 && legacyUi218.calls.length === 1);
+    legacyMount218.destroy();
+    const unsafeBrowse218 = structuredClone(catalog); unsafeBrowse218.newsSources.find(x => x.id === 'curseforge-forever').url = 'https://www.curseforge.com.evil.invalid/wow/search';
+    const { ui: browseUi218, holder: browseHolder218, mounted: browseMount218 } = await mountAddons218(unsafeBrowse218);
+    check('.218 an unapproved directory URL removes only the browse link; curated cards and the watchlist still render', walk(browseHolder218).filter(x => x.tagName === 'ARTICLE').length === 29 && watchSummary218(browseHolder218) && !textOf(browseHolder218).includes('Browse more Forever addons') && !walk(browseHolder218).some(x => x.tagName === 'A' && x.href.includes('evil.invalid')) && browseUi218.calls.length === 1);
+    browseMount218.destroy();
   }
 
   const directory196 = catalog.ownerDirectory;

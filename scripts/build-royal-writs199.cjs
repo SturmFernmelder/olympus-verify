@@ -21,7 +21,7 @@ function run(mode) {
   const expected = projection();
   if (mode === "--write") fs.writeFileSync(targetPath, expected, "utf8");
   else if (fs.readFileSync(targetPath, "utf8") !== expected) throw Error("royal_writ_projection_drift");
-  console.log(JSON.stringify({ mode, bytes: Buffer.byteLength(expected), records: 20 }));
+  console.log(JSON.stringify({ mode, bytes: Buffer.byteLength(expected), records: 27 }));
 }
 if (require.main === module) {
   if (process.argv.length !== 3 || !["--check", "--write"].includes(process.argv[2])) throw Error("Use --check or --write");
