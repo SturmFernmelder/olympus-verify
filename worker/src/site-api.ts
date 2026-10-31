@@ -149,7 +149,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   }
   // .56: the community modules (consolidation batches 1-8) apply their own write fence (community-context.ts).
   if (path.startsWith("/api/community/")) return handleCommunity(request, env, path);
-  if (m === "GET" && path === "/api/me") return apiJson(await meData(env, user));
+  if (m === "GET" && path === "/api/me") return apiJson(new URL(request.url).search === '?view=seats' ? await meSeatsData(env, user) : await meData(env, user));
   if (m === "GET" && path === "/api/me/export") return exportMyData(request, env, user); // .71: the member's own copy
   if (m === "GET" && path === "/api/search") return search(env, user, new URL(request.url), admin);
   if (m === "GET" && path === "/api/leadership") return qualifiedLeadershipPage(request, env); // .114: the I-X directory, confirmed members only
@@ -245,6 +245,14 @@ const reservedOut = (rows: ReservedRow[]) => rows.map((r) => ({ id: r.id, name: 
 
 /** A role members vote on and write people in for: neither appointed nor chosen without a public vote. */
 const boardOpenFor = (s: SiteSettings, key: string) => !isAppointed(s, key) && !isNoVote(s, key);
+
+/** Same original authenticated /api/me entry; no new session cache or raw-DB route. */
+export async function meSeatsData(env: Env, user: SiteUser) {
+  const seatInfo = user.denied ? null : await guildSeats(env, now(), user.discord_id);
+  return { signedIn: true, now: now(), user: { id: user.discord_id }, denied: !!user.denied,
+    seats: seatInfo && memberSeats(env, seatInfo.seats),
+    myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [] };
+}
 
 export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
   const state = settings && ruleset ? { settings, ruleset } : await loadSiteState(env);

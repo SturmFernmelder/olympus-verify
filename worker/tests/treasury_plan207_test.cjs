@@ -73,6 +73,8 @@ for (const [label, patch, key] of [
   ['exponent text', { goodsSales: '1e5' }, 'goodsSales']
 ]) { const actual = model.calculateTreasury207({ ...defaults, ...patch }); check(label + ' input fails closed with a field-specific error', !actual.ok && !!actual.errors[key] && !('projectedCash' in actual)); }
 check('zero values and exact percentage endpoints are valid', model.calculateTreasury207(Object.fromEntries(Object.keys(defaults).map(key => [key, 0]))).ok && model.calculateTreasury207({ ...defaults, donorPercent: 100, goodsMarginPercent: 100 }).ok);
+check('ordinary leading decimals equal their zero-prefixed amounts', ['.5', '.05', ' .125 '].every(value => { const a = model.calculateTreasury207({ ...defaults, weeklyGift: value }), b = model.calculateTreasury207({ ...defaults, weeklyGift: Number(value) }); return a.ok && b.ok && a.projectedCash === b.projectedCash; }));
+check('leading decimals preserve whole-number fields and reject incomplete or nondecimal text', !model.calculateTreasury207({ ...defaults, activePlayers: '.5' }).ok && ['.', '1.', '.5e2', '0x10', '+.5', '-.5', '.Infinity'].every(value => !model.calculateTreasury207({ ...defaults, weeklyGift: value }).ok));
 let badDays = 0;
 for (const day of [-1, 91, Infinity, NaN]) { try { model.treasuryRampWeeks207(day); } catch (error) { if (error instanceof Error || error.name === 'RangeError') badDays++; } }
 check('ramp refuses invalid day ranges', badDays === 4);

@@ -20,6 +20,7 @@ writes one data file WoW reads at load time — the same contract every addon-co
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import http.client
 import json
@@ -100,7 +101,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.10"
+WATCHER_VERSION = "0.6.11"
 
 
 # Where a relay character may come from: a login note addressed to the name it carries (a whisper the server delivered),
@@ -331,6 +332,30 @@ class Delivery(str, Enum):
         return self is Delivery.DELIVERED
 
 
+def atomic_local_text(path: Path, payload: str) -> None:
+    """Retry only frozen local bytes when a short sharing/access failure interrupts replacement.
+
+    No renderer, state serializer or provider operation runs inside this retry. An
+    exhausted state save still reaches the caller's original custody-stop path.
+    """
+    tmp = path.with_suffix(".tmp")
+    for attempt in range(3):
+        try:
+            with tmp.open("w", encoding="utf-8") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(tmp, path)
+            return
+        except OSError as error:
+            transient = (isinstance(error, PermissionError)
+                         or error.errno in (errno.EACCES, errno.EBUSY, errno.EPERM)
+                         or getattr(error, "winerror", None) in (5, 32, 33))
+            if not transient or attempt == 2:
+                raise
+            time.sleep(0.05 * (attempt + 1))
+
+
 class State:
     def __init__(self, path: Path):
         self.path = path
@@ -365,12 +390,8 @@ class State:
                 raise ValueError("watcher state unreadable; original file retained, delivery must stay stopped") from error
 
     def save(self) -> None:
-        tmp = self.path.with_suffix(".tmp")
-        with tmp.open("w", encoding="utf-8") as stream:
-            stream.write(json.dumps(self.d))
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(tmp, self.path)
+        # Freeze before the first attempt, including any exact retained provider original.
+        atomic_local_text(self.path, json.dumps(self.d))
 
     @staticmethod
     def _k(key: str) -> str:
@@ -1308,9 +1329,7 @@ class Watcher:
             self.retry_queue_written()
             return
         self.queue_file.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.queue_file.with_suffix(".tmp")
-        tmp.write_text(body, encoding="utf-8")
-        os.replace(tmp, self.queue_file)
+        atomic_local_text(self.queue_file, body)
         self.state.d["queue_hash"] = h
         queued = [e["id"] for e in entries if e.get("status") == "queued"]
         if queued:
@@ -1449,15 +1468,18 @@ class Watcher:
             ok &= exists or label != "addon folder"
         reachable, res = self.worker.call("GET", "/queue", retries=1)
         paused = res if isinstance(res, dict) and (res.get("paused") or res.get("configurationError") or res.get("httpStatus") in (401, 403, 429)) else None
+        queue_ready = reachable and not paused and isinstance(res, dict) and isinstance(res.get("entries"), list)
         if paused:
             # 0.6.5: a pause is reported as one, with its cause, instead of a bare FAILED
             until = datetime.fromtimestamp(time.time() + int(paused.get("retryAfterSeconds") or 0)).strftime("%d %b %H:%M")
             log(f"worker: {self.worker.base} PAUSED until {until} after http {paused.get('httpStatus')}"
                 + (" — a redirect: worker_url must be the Worker's own HTTPS origin" if paused.get("configurationError") else " — check watcher_token" if paused.get("httpStatus") in (401, 403) else " — rate limited"))
         else:
-            log(f"worker: {self.worker.base} {'OK' if reachable else 'FAILED (url/token?)'}")
-        ok &= reachable
-        if reachable:
+            log(f"worker: {self.worker.base} {'OK' if queue_ready else 'FAILED (url/token/queue response?)'}")
+        # Worker.call deliberately treats a terminal4xx as a delivery receipt for POSTs.
+        # A diagnostic GET needs an actual queue object, not that transport-level boolean.
+        ok &= bool(queue_ready)
+        if queue_ready:
             got, u = self.worker.call("GET", "/queue/unverified", retries=1)
             if got and isinstance(u, dict) and isinstance(u.get("members"), list):
                 log(f"unverified list: {len(u['members'])} not verified, {len(u.get('verified') or [])} verified with Discord names (build {u.get('build', '?')})"
@@ -1480,7 +1502,7 @@ class Watcher:
         r = self.state.d.get("relay") or {}
         log(f"relay: {self.relay_character() or '(no officer_character)'} — " + ("in the world" if on else "not in the world" if on is False else "cannot tell (presence not reported)")
             + (f"; addon {r.get('addon')} said so {datetime.fromtimestamp(r.get('at') or 0).strftime('%d %b %H:%M')}" if r.get("addon") else "; no login note from the addon yet (/reload once)"))
-        if reachable:
+        if queue_ready:
             got, h = self.worker.call("GET", "/health", retries=1)
             rel = (h or {}).get("relays") if got and isinstance(h, dict) else None
             if isinstance(rel, dict) and "requestCodes" in rel:

@@ -172,7 +172,8 @@ async function applicationNative199(){
   const historical=await require('./historical_application201_fixture.cjs').historicalApplicationFixture201({validate:load('site-api').validateApplication,run:f.write,previous:id=>f.raw('SELECT * FROM site_applications WHERE discord_id=?',id),id:ID,payload,time:clock});
   check('explicit historical High Council parser fixture retains its original target for Native copy and erasure',!('error' in historical.validation)&&JSON.parse(f.raw('SELECT answers FROM site_applications WHERE discord_id=?',ID).answers).targetOffice==='office_03');
   const ordinary=await f.call('GET','/api/me/export',{cookie}),own=await ordinary.json();check('Native signed-in own copy retains canonical High Council intent',ordinary.status===200&&own.site.application.answers.applicationTrack==='high_council'&&own.site.application.answers.targetOffice==='office_03');
-  const start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
+  const entryPage=await f.call('GET','/privacy/signin'),entryHtml=await entryPage.text(),entryToken=/name="csrf" value="([^"]+)"/.exec(entryHtml)[1],entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');
+  const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken}}),u=new URL(start.headers.get('Location')),flowCookie=Object.entries(cookies(start)).map(([k,v])=>k+'='+v).join('; ');
   const callback=await f.call('GET','/privacy/callback?code=code-'+ID+'&state='+encodeURIComponent(u.searchParams.get('state'))+'&iss=https%3A%2F%2Fdiscord.com',{cookie:flowCookie});
   const privacyCookie=Object.entries(cookies(callback)).filter(([k])=>!k.includes('state')).map(([k,v])=>k+'='+v).join('; ');
   const page=await f.call('GET','/privacy/access',{cookie:privacyCookie}),html=await page.text(),form=/<form method="post" action="\/privacy\/access\/export">([\s\S]*?)<\/form>/.exec(html);assert.ok(form,'actual identify export form');
@@ -188,7 +189,7 @@ async function applicationNative199(){
 }
 module.exports=(async()=>{
  const worker=new Module(__filename,module);worker.filename=__filename;worker.paths=Module._nodeModulePaths(__dirname);worker._compile(frontPrefix199+'\nmodule.exports=('+applicationTrackWorker199.toString()+')();',__filename);const workerResult=await worker.exports;
- const nativePrefix=prefix199('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'83b4fe71835e987ede23c482568ab067ce84700b51cca4b4efac6119f262896a');
+ const nativePrefix=prefix199('privacy_native_erasure_mode_test.cjs',/\(async\(\)=>\{\r?\n \/\/ \.174:/g,'572066b31422497e89314f47c972536517104de10521a45434b4f041f6ad02a3');
  const native=new Module(__filename,module);native.filename=__filename;native.paths=Module._nodeModulePaths(__dirname);native._compile(nativePrefix+'\nmodule.exports=('+applicationNative199.toString()+')();',__filename);const nativeResult=await native.exports;
  return{worker:workerResult,native:nativeResult};
 })();

@@ -1,5 +1,8 @@
 # Private recovery successor (.162)
 
+> **HELD — current .217 maintenance.** This document records a private recovery design, not current rollout authority. The recovery/observer helpers retain historical source and configuration pins; do not repin or execute them as part of ordinary release QA. Their acceptance requires a separate exact-profile review and owner-approved private recovery operation. Standard local Native/Lua/Workerd/npm qualification is authorized for .217; that does not activate this recovery workflow.
+
+
 This is the attended return to configured serving after the .161 cutover incident. The original
 install-and-reopen operation timed out in its tail, after the Native open. Native was then SERVING at the
 original next write epoch (E1), while the Floor gate stayed `closing_held` for that operation forever.

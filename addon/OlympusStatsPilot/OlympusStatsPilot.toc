@@ -2,7 +2,7 @@
 ## Title: Olympus Stats Pilot (local preview + Army QR)
 ## Notes: Optional own-guild aggregate QR. /ogstats local preview; /ogarmy browser review. No addon uploads, SavedVariables or verification.
 ## Author: Olympus
-## Version: 0.2.0
+## Version: 0.2.1
 
 Libs\StatsPilotQr.lua
 Core.lua

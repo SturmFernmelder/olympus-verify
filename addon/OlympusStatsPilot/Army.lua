@@ -260,7 +260,8 @@ end
 function B.HideDisplay()
   state.showing=false;if copy then copy:SetText('');copy:Hide();copyContainer:Hide() end;redraw()
 end
-function B.OnEvent(event)
+function B.OnEvent(event,unit)
+  if event=='PLAYER_GUILD_UPDATE' and unit~=nil and unit~='player' then return end
   if event=='GUILD_ROSTER_UPDATE' then
     local action=state.pending and collect or (state.frames and revalidate)
     if action then
@@ -301,7 +302,7 @@ if type(CreateFrame)=='function' then
   panel:SetScript('OnHide',function()B.Stop()end);panel:Hide()
   eventFrame=CreateFrame('Frame')
   for _,event in ipairs({'GUILD_ROSTER_UPDATE','PLAYER_GUILD_UPDATE','PLAYER_ENTERING_WORLD','PLAYER_LEAVING_WORLD','PLAYER_LOGOUT','PLAYER_REGEN_DISABLED'}) do eventFrame:RegisterEvent(event) end
-  eventFrame:SetScript('OnEvent',function(_,event)B.OnEvent(event)end)
+  eventFrame:SetScript('OnEvent',function(_,event,unit)B.OnEvent(event,unit)end)
   eventFrame:SetScript('OnUpdate',B.Poll)
   SlashCmdList=SlashCmdList or {}
   SLASH_OLYMPUSARMYSTATS1='/ogarmy'

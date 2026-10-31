@@ -257,4 +257,16 @@ f = gm.review(m, ["GUILD HALL"], ["OFFICER COUNCIL", "SUPPORT TICKETS"], [], [],
 check(not lines(f, "NOTE", "one specific member") and lines(f, "INFO", "[SUPPORT TICKETS] 1 channel(s) with 1 per-member"),
       "ticket overwrites are expected")
 
+# The actual CLI must give an actionable failure exit for its own offline review findings.
+import json, subprocess, sys, tempfile
+with tempfile.TemporaryDirectory(prefix="olympus-map-check-") as directory:
+    snapshot = base_map()
+    snapshot['guild'].update(name='Synthetic test server')
+    snapshot['counts'] = {'roles':len(snapshot['roles']),'categories':2,'channels':3,'overwrites':0}
+    snapshot['build'] = 'offline fixture'
+    target = pathlib.Path(directory) / 'snapshot.json'
+    target.write_text(json.dumps(snapshot), encoding='utf-8')
+    result = subprocess.run([sys.executable, str(HERE.parent / 'guild-map.py'), '--from', str(target), '--check', '--public', 'GUILD HALL', '--private', 'OFFICER COUNCIL', '--members', '', '--retired', '', '--bot-channels', ''], capture_output=True, text=True, timeout=10)
+    check(result.returncode == 1 and ('PROBLEM' in result.stdout or 'CRITICAL' in result.stdout), 'actual --check CLI reports permission findings with exit1')
+
 print(f"{passed}/{passed} passed")

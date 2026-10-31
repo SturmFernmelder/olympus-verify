@@ -40,7 +40,8 @@ async function review(){
  const ordinary=await issueFixtureCookie(f);await fixtureWrite(f,'UPDATE site_users SET in_server=0,denied=1 WHERE discord_id=?',A);const connection=await connect(f),nonce='n'.repeat(43),cookies=ordinary+'; '+formCore.FORM_COOKIE+'='+nonce;
  const before=state(f),originalGrants=grants(f),onPage=await call(f,'/privacy/access',connection.cookie),onHtml=await onPage.text();
  eq('enabled identify page status',onPage.status,200);safeHtml('enabled identify page',onPage,onHtml);
- eq('enabled identify page keeps export and original erasure forms',[...onHtml.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]),['/privacy/access/export','/privacy/access/erasure']);
+ eq('enabled identify page keeps initiation, export and original erasure forms',[...onHtml.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]),['/privacy/signin','/privacy/access/export','/privacy/access/erasure']);
+ eq('enabled initiation form carries only its original-purpose token',Object.keys(fields(section(onHtml,'/privacy/signin'))),['csrf']);
  ok('enabled copy retains Root size-refusal disclosure',onHtml.includes(sizeCopy));
  eq('enabled identify has exact38 aggregate and40 separate disclosure once',onHtml.split(historyCurrent).length,2);
  ok('enabled erasure original confirmation is present',section(onHtml,'/privacy/access/erasure').includes('name="confirm" value="yes" required'));
@@ -77,7 +78,7 @@ async function review(){
   sql.length=0;const page=await call(f,'/privacy/access',connection.cookie),html=await page.text();
   eq('disabled '+String(flag)+' identify page status',page.status,200);safeHtml('disabled '+String(flag)+' identify page',page,html);
   eq('disabled '+String(flag)+' page keeps two grant reads with their Native profile proofs',sql.length,4);
-  eq('disabled '+String(flag)+' identify offers only own download',[...html.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]),['/privacy/access/export']);
+  eq('disabled '+String(flag)+' identify offers initiation and only own download',[...html.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]),['/privacy/signin','/privacy/access/export']);
   ok('disabled '+String(flag)+' page explains pause and reconnect cannot enable erasure',html.includes(paused)&&html.includes('Reconnecting Discord does not enable erasure.'));
   ok('disabled '+String(flag)+' page offers officer help and existing status',html.includes('Ask an Olympus officer for attended help.')&&html.includes('Check an erasure request with its private status code'));
   ok('disabled '+String(flag)+' page retains corrected size disclosure',html.includes(sizeCopy));
@@ -111,7 +112,7 @@ async function review(){
  eq('disabled genuine identity aggregate download succeeds',r.status,200);eq('disabled aggregate retains exact 38 coverage histories',Object.keys(data.coverage.histories).sort(),[...first.PRIVACY_HISTORY_COLLECTIONS,...history.PRIVACY_FAMILY_HISTORY_COLLECTIONS].sort());eq('disabled aggregate has only the 38 source-qualified histories',Object.keys(data.coverage.histories).length,38);
  eq('disabled aggregate costs original97 plus1 packed own metadata read',sql.length,98);ok('disabled aggregate actual physical attempts stay strictly below100',sql.length<100);eq('disabled aggregate preserves account authority and role/provider custody',state(f),before);
  eq('disabled aggregate consumes only original own-export grant',JSON.parse(JSON.stringify(f.db.prepare('SELECT purpose,consumed_at IS NOT NULL AS spent FROM privacy_access_grants ORDER BY purpose').all())),[{purpose:'own_erasure',spent:0},{purpose:'own_export',spent:1}]);
- r=await call(f,'/privacy/access',connection.cookie);h=await r.text();ok('spent disabled page does not replace download with unavailable erasure form',!/<form\b/.test(h)&&h.includes('fresh download grant')&&h.includes(paused));
+ r=await call(f,'/privacy/access',connection.cookie);h=await r.text();ok('spent disabled page offers only re-initiation, never an unavailable erasure form',JSON.stringify([...h.matchAll(/<form method="post" action="([^"]+)"/g)].map(x=>x[1]))===JSON.stringify(['/privacy/signin'])&&h.includes('fresh download grant')&&h.includes(paused));
  const second=await connect(f),secondForm=await form(f,second);calls=[];sql.length=0;r=await call(f,'/privacy/access/export',second.cookie,'POST',{csrf:secondForm.csrf,grant:secondForm.grant,collection:'site.votes'});const page=await r.json();
  eq('disabled genuine selected history download succeeds',r.status,200);eq('disabled selected history matches selected collection',page.history.collection,'site.votes');eq('disabled selected history retains 13-physical-attempt bound',sql.length,13);eq('disabled selected history changes no account authority',state(f),before);
  const ordinaryCopy=fields(section(accountOnHtml,'/privacy/account/export',0));r=await call(f,'/privacy/account/export',cookies,'POST',{...ordinaryCopy,mode:'download'});const oldSessionCopy=await r.json();
@@ -139,7 +140,8 @@ async function review(){
    throw Error('unexpected managed privacy UI provider endpoint');
   });
   const actualCall=(route,cookie='',method='GET',values={},more={})=>actualIndex.fetch(request(route,cookie,method,values,more),managed.env,{waitUntil(p){managed.pending.push(p);}});
-  const begin=await actualCall('/privacy/signin'),authorize=new URL(begin.headers.get('Location')),flow=begin.headers.get('Set-Cookie').split(';')[0];
+  const initiationPage=await actualCall('/privacy/signin'),initiationFields=fields(section(await initiationPage.text(),'/privacy/signin')),initiationCookie=initiationPage.headers.get('Set-Cookie').split(';')[0];
+  const begin=await actualCall('/privacy/signin',initiationCookie,'POST',initiationFields),authorize=new URL(begin.headers.get('Location')),flow=begin.headers.get('Set-Cookie').split(';')[0];
   const callback=await actualCall('/privacy/callback?state='+authorize.searchParams.get('state')+'&code=original_ui_fixture_code&iss=https%3A%2F%2Fdiscord.com',flow);
   if(callback.status!==303)console.log('MANAGED_UI_CALLBACK_DIAGNOSTIC',callback.status,await callback.clone().text(),providerAttempts);eq('managed status genuine identify callback303',callback.status,303);const statusConnectionCookie=callback.headers.get('Set-Cookie').split(', ').find(v=>v.startsWith(access.PRIVACY_ACCESS_COOKIE+'=')).split(';')[0];
   const statusPage=await actualCall('/privacy/access',statusConnectionCookie),statusForm=fields(section(await statusPage.text(),'/privacy/access/erasure'));providerAttempts=0;
@@ -155,7 +157,7 @@ async function review(){
   const statusSQL=managed.d.trace.slice(beforeStatus).map(row=>row.sql);eq('disabled status retains two original payload reads besides Native profile proofs',statusSQL.filter(sql=>sql.startsWith('SELECT state,hold_reason,staff_access,request_digest')||sql.startsWith('SELECT COALESCE(SUM(m.state')).length,2);ok('disabled status performs no D1 mutation',statusSQL.every(sql=>/^\s*(SELECT|WITH)\b/i.test(sql)));eq('enabled queued admission and disabled status make no provider calls',providerAttempts,0);
   console.log('MEASURED_DISABLED_STATUS_NATIVE '+JSON.stringify({physicalStatements:statusSQL.length,originalPayloadReads:2,syntheticManagedOpen:true,currentCompletionClaim:false,providerCalls:providerAttempts}));
   const pieces=token.split('.'),signature=pieces[1],invalidToken=pieces[0]+'.'+(signature[0]==='A'?'B':'A')+signature.slice(1);ok('invalid status fixture changes decoded MAC bytes',!Buffer.from(signature,'base64url').equals(Buffer.from(invalidToken.split('.')[1],'base64url')));r=await actualCall('/privacy/account/erasure-status',statusCookie,'POST',{...statusFields,operationId:job.operation_id,statusToken:invalidToken});h=await r.text();eq('disabled status retains original invalid proof refusal',r.status,503);ok('disabled invalid status proof never reports completion',h.includes('The service could not confirm this request.')&&!h.includes('Serving account records were erased'));
-  r=await actualCall('/privacy/access');h=await r.text();ok('disabled signed-out identify page clearly explains pause and still links identify entry',h.includes(paused)&&h.includes('href="/privacy/signin"')&&!h.includes('action="/privacy/access/erasure"'));
+  r=await actualCall('/privacy/access');h=await r.text();ok('disabled signed-out identify page clearly explains pause and offers the initiation form',h.includes(paused)&&h.includes('action="/privacy/signin"')&&!h.includes('action="/privacy/access/erasure"'));
   const offEnv={...managed.env,PRIVACY_ACCESS_ENABLED:'false'},offAccess=await actualIndex.fetch(request('/privacy/access'),offEnv,{waitUntil(p){managed.pending.push(p);}});eq('access feature OFF original route refusal is unchanged',offAccess.status,503);
  }finally{H.providerFetch(null);await Promise.allSettled(managed.pending);managed.close();}
  provider=null;console.log(`privacy_erasure_disabled_ui_test: ${checks} checks PASS`);

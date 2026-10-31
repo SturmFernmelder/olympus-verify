@@ -110,7 +110,7 @@ async function extraCollectionHistoryCases(){
  for(const c of extras){
   const f=fixture();if(c==='verification.rosterEffects')await subject(f);await seedExtra(f,c);const tableCount=count(f,'sqlite_master'),originalDownload=await download(f,c),first=originalDownload.data.history;
   ok(c+' collection-specific truthful scope note',typeof originalDownload.data.coverage.collectionScope==='string'&&originalDownload.data.coverage.collectionScope.length>60);if(c==='verification.rosterEffects')ok('roster processing explicitly before provider with no success claim',originalDownload.data.coverage.collectionScope.includes('before provider work')&&originalDownload.data.coverage.collectionScope.includes('does not confirm'));if(c==='site.settingUpdates')ok('settings scope is current last-updater not edit history',originalDownload.data.coverage.collectionScope.includes('current last updater')&&originalDownload.data.coverage.collectionScope.includes('not edit history'));
-  const wanted=c==='site.settingUpdates'?24:1002;eq(c+' exact selected retained count',first.capture.count,wanted);eq(c+' first bounded1000',first.entries.length,Math.min(wanted,1000));
+  const wanted=c==='site.settingUpdates'?26:1002;eq(c+' exact selected retained count',first.capture.count,wanted);eq(c+' first bounded1000',first.entries.length,Math.min(wanted,1000));
   const serialized=JSON.stringify(first.entries);ok(c+' private operational/source material omitted',!/(PRIVATE_|FOREIGN_|NULL_G_|OLD_G_|__history|subject_generation|character_id|name_key|discord_id)/.test(serialized));
   if(c==='verification.battleNetCharacters'){eq('original historical fetch time unchanged',first.entries[0].fetchedAt,new Date((f.time()-100)*1000).toISOString());eq('nullable historical realm/level remains explicit',[first.entries[0].realmOrRuleset,first.entries[0].level],[null,null]);eq('bnet character ID never emitted',Object.keys(first.entries[0]).sort(),['fetchedAt','level','name','realmOrRuleset']);}
   if(c==='verification.rosterEffects'){eq('parent run creation is original contextual time',first.entries[0].run.createdAt,new Date((f.time()-600)*1000).toISOString());eq('own orphan retains honest null parent',first.entries[1].run,null);eq('null done time is pending stored intent',[first.entries[1].processingRecordedAt,first.entries[1].processingStatus],[null,'pending']);eq('recorded processing is stored intent, not provider settlement',first.entries[0].processingStatus,'recorded');}
@@ -128,7 +128,7 @@ async function extraCollectionHistoryCases(){
  // NULL original generation refuses only the roster history. It does not acquire a generation or block other histories.
  {
   const f=fixture();await seedExtra(f,'verification.rosterEffects',1);await expectRefusal('missing original rosterG',f,{collection:'verification.rosterEffects'},409);eq('missingG refusal leaves grant unconsumed',consumed(f),null);
-  await seedExtra(f,'verification.battleNetCharacters',1);eq('NULLG historical bnet remains independently admitted',(await download(f,'verification.battleNetCharacters')).data.history.entries.length,1);await seedExtra(f,'site.settingUpdates');eq('NULLG settings remain independently admitted',(await download(f,'site.settingUpdates')).data.history.entries.length,24);eq('read never invents serving generation',count(f,'privacy_subjects'),0);f.db.close();
+  await seedExtra(f,'verification.battleNetCharacters',1);eq('NULLG historical bnet remains independently admitted',(await download(f,'verification.battleNetCharacters')).data.history.entries.length,1);await seedExtra(f,'site.settingUpdates');eq('NULLG settings remain independently admitted',(await download(f,'site.settingUpdates')).data.history.entries.length,26);eq('read never invents serving generation',count(f,'privacy_subjects'),0);f.db.close();
  }
  for(const state of ['retiring','retired']){const f=fixture();await subject(f,state);await seedExtra(f,'verification.rosterEffects',1);eq(state+' original ownG metadata remains readable without granting authority',(await download(f,'verification.rosterEffects')).data.history.entries.length,1);f.db.close();}
  for(const mutation of ['generation','revision','state','expiry']){
@@ -137,7 +137,7 @@ async function extraCollectionHistoryCases(){
   await refused('roster original '+mutation+' race refused',()=>copy.exportPrivacyAccess(frm.request({collection:'verification.rosterEffects'}),f.env));ok('roster '+mutation+' native seam hit',hit);eq('roster '+mutation+' native rollback preserves grant',consumed(f),null);f.db.close();
  }
  for(const c of extras){
-  const f=fixture();if(c==='verification.rosterEffects')await subject(f);await seedExtra(f,c,c==='site.settingUpdates'?24:1002);const first=(await download(f,c)).data.history;
+  const f=fixture();if(c==='verification.rosterEffects')await subject(f);await seedExtra(f,c,c==='site.settingUpdates'?26:1002);const first=(await download(f,c)).data.history;
   const frm=await prepared(f);await refused(c+' wrong collection bound cursor refused',()=>copy.exportPrivacyAccess(frm.request({collection:c==='site.settingUpdates'?'verification.battleNetCharacters':'site.settingUpdates',cursor:first.currentCursor}),f.env));eq(c+' invalid cursor does not consume fresh grant',consumed(f),null);
   if(c!=='site.settingUpdates'){
    if(c==='verification.battleNetCharacters')await fixtureWrite(f,'INSERT INTO bnet_characters VALUES(?,?,?,?,?,?)',A,'backdated-extra','New Backdated',null,null,f.time()-500);
@@ -550,6 +550,21 @@ async function mainHistory(){
   eq(table+' foreign NUL remains excluded from genuine individual history admission',(await nmIdentify(f,collection)).status,200);f.db.close();
  }
 
+ // .217: literal writer keys are an independent oracle, not a copy of the implementation allowlist.
+ {
+  const f=fixture(),at=f.time()-400;
+  for(const [key,value,stamp,who]of [['loginAnimation','PRIVATE_LOGIN_SETTING',at,A],['royalWritsOn','PRIVATE_WRITS_SETTING',at+1,A],['namesOpenAt','PRIVATE_OTHER_UPDATER',at,B],['unknown_human_setting','PRIVATE_UNKNOWN_SETTING',at,A],['officer_digest','PRIVATE_BACKGROUND_SETTING',at,A]])
+   await fixtureWrite(f,'INSERT INTO site_settings(key,value,updated_at,updated_by) VALUES(?,?,?,?)',key,value,stamp,who);
+  const first=(await download(f,'site.settingUpdates')).data.history;
+  eq('.217 both literal current setting updater records are included',first.entries.map(r=>r.key),['loginAnimation','royalWritsOn']);
+  eq('.217 literal updater records preserve original times',first.entries.map(r=>r.updatedAt),[at,at+1].map(t=>new Date(t*1000).toISOString()));
+  ok('.217 updater records expose only key and original time',first.entries.every(r=>JSON.stringify(Object.keys(r).sort())===JSON.stringify(['key','updatedAt'])));
+  ok('.217 updater copy withholds values and other actor IDs',!/(PRIVATE_|11111111111111111|22222222222222222)/.test(JSON.stringify(first.entries)));
+  await fixtureWrite(f,"UPDATE site_settings SET updated_by=? WHERE key='loginAnimation'",B);
+  const next=(await download(f,'site.settingUpdates')).data.history;
+  eq('.217 updater history follows the current last updater only',next.entries.map(r=>r.key),['royalWritsOn']);
+  f.db.close();
+ }
  provider=null;console.log('privacy_access_history_test: '+checks+' checks PASS');
 }
 mainHistory().catch(e=>{console.error('FAIL privacy_access_history_test',e);process.exitCode=1;});

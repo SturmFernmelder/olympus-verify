@@ -6,9 +6,7 @@ Guidance for the AI coding agents working in this repository (Claude Code reads 
 `AGENTS.md`, which points here). It describes how the code is built and the rules that are easy to break. For what is
 deployed and what is open, read the tail of the task log (below) and `docs/deploy-checklist.md` (newest build last).
 
-**Current maintenance instructions (30 Oct 2026):** Read the [.212 maintenance checkpoint](#current-maintenance-checkpoint-30-oct-2026)
-and `docs/maintenance-audit-2026-10-30.md` before interpreting the historical release overrides below. Build .212 is
-accepted and live; the owner authorized separate maintenance PRs, not another deployment or a restart of waived experiments.
+**Current release instruction (30 Oct 2026):** Build .216 is the accepted live baseline (main `fb0c0cc`). The owner authorizes the actionable residual scopes in the local `audit216-residuals-2026-10-30/AUDIT.md`, companion PR24 dependency/typing completion, exact-head qualification and one unified .217 rollout after all PR and main gates. Use ordinary Node/Python/npm tooling for Native SQLite, all16 offline Lua suites, Workerd and lock resolution. The artificial three-process Job3 cap and custom Node `--permission` loader experiments are permanently retired. Only live World of Warcraft: Forever interactions remain deferred until4 November. The explicit bot-host robots200 exception and60000ms first-cron audit-bin allowance apply to this release; preserve strict/raw results. Existing default-OFF gates,443 live schema objects and identify-copy physical statement budget below100 remain requirements. See `docs/maintenance-audit-2026-10-30.md` for dated history and the new closeout.
 
 **Current owner instruction (3 Oct 2026):** Claude Code reached its weekly usage limit; the owner instructed Codex to
 "Take over from here and finish the task yourself without a dual sign off." The interrupted .115 work is preserved
@@ -16,7 +14,7 @@ at local non-release checkpoint `568c76d958eeee2f2786798bd959b0b2ae8ec299`; it i
 Codex now carries implementation and exact-commit release qualification under the collaboration rules below.
 Historical ownership and signatures remain historical evidence; no new Claude signature is required or implied.
 
-**Current unified rollout instruction (30 Oct 2026):** The owner now authorizes dependency-order squash merges of PR107–PR110, integration of the cumulative reviewed Claude branch in a final PR, exact-head qualification, one verified fresh D1 backup and one unified .216 deployment. This supersedes the earlier maintenance-only deployment hold below for this request. See [unified rollout instructions](#unified-rollout-instruction-30-oct-2026). Native QA remains deferred and waived experiments remain stopped.
+**Historical .216 rollout instruction (30 Oct 2026):** The owner now authorizes dependency-order squash merges of PR107–PR110, integration of the cumulative reviewed Claude branch in a final PR, exact-head qualification, one verified fresh D1 backup and one unified .216 deployment. This supersedes the earlier maintenance-only deployment hold below for this request. See [unified rollout instructions](#unified-rollout-instruction-30-oct-2026). Native QA remains deferred and waived experiments remain stopped.
 
 ## What this is
 

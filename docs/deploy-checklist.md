@@ -7543,3 +7543,12 @@ Qualify the final source with affected focused tests (including verification, wa
 Postchecks retain all90 public cases, authenticated actual-version/asset readbacks and the attended RT16 application-note check on an owner-controlled QA application. Preserve strict results and the original healthy first scheduled callback. For this unified release only the owner explicitly carried bot-host comment-only robots GET/HEAD200 and a maximum60000ms whole-audit-bin allowance; no clock correction, manual callback replay, cap increase or future allowance is implied.
 
 Native QA remains deferred and the waived aggregate/custom Workerd/npm-permission/lockfile experiments remain stopped. Treasury live dispatch, Army aggregate and Olympus Link remain OFF. Preserve the prior .212 release, backup and failed local evidence; rollback is a separate exact-commit deployment without production-data restore.
+
+
+## Worker .217 — Residual maintenance
+
+Candidate for the owner-authorized unified rollout after exact-head PR and main CI/reviews. Completes watcher local replacement retries; current setting updater history; eligible reminder selection; privacy connection forms; operator and deployment tool contracts; bounded admin reads; form/dialog accessibility; thinner authenticated seat refreshes; verification recovery guidance; addon guild-event scope; Treasury decimal spelling; and explicit test inventory/Node guidance. No schema migration or feature activation.
+
+Use standard Node24.22.1/Python/npm local qualification, all offline Lua suites, affected Native suites, the stock Workerd bundle and projection checks. Artificial Job3 accounting and custom permission-loader experiments stay retired; live Forever interactions remain deferred until4 November. Private recovery/observer tooling remains HELD against its older profile.
+
+The rollout requires a verified fresh D1 export, one unified deployment with dashboard-only vars preserved,90 public probes and live source readbacks, one status-preserving RT16 empty-note save/readback on the oldest open eligible application, and the first natural cron. The owner explicitly carries bot-host robots200 and60000ms first-cron audit-bin allowances; preserve strict/raw evidence. Final actual commit/tree/deployment/results are recorded in the owner QA report and coordination log.

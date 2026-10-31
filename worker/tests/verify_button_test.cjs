@@ -257,7 +257,7 @@ const check = (name, cond) => { n++; if (cond) ok++; console.log((cond ? "PASS "
   const nightOwn = shownCode(await verify(VICTIM, "Night Elf"));
   const nightUnbind = await unbind("Night Elf");
   const nightBare = (await content(await handleInteraction(env, slash(VICTIM)))).match(/Your code: `([A-Z2-9]{7})`/);
-  check("an unbind of a linked name: the account gets a request code from /verify at once, and /verify by name from 00:00 UTC", !!nightOwn && nightUnbind.includes("They can run `/verify` again") && !!nightBare && !shownCode(await verify(VICTIM, "Night Elf")));
+  check("an unbind of a linked name: the account gets a request code from /verify at once, and /verify by name from 00:00 UTC", !!nightOwn && nightUnbind.includes("Get my code") && nightUnbind.includes("00:00 UTC") && !!nightBare && !shownCode(await verify(VICTIM, "Night Elf")));
   // An unbound name has no live binding, so its unbind is a release: the squatting request is closed and its holder named,
   // not the former owner the name is still recorded against.
   at(D + 77 * 3600);
@@ -395,6 +395,19 @@ const check = (name, cond) => { n++; if (cond) ok++; console.log((cond ? "PASS "
     if (lastCode && text.includes("ended just now") && db.prepare("SELECT consumed_at FROM pending WHERE name_key = ?1").get(name.toLowerCase()).consumed_at === null) endedNow = true;
   }
   check("a request that lapses while an officer releases it is reported as ended, not as closed", endedNow);
+  // .217: recovery copy distinguishes an available ticket from the unchanged by-name UTC cooldown.
+  const recoveryMode217=env.REQUEST_CODES,recoveryUser217='888888888888888811',recoveryName217='Recovery Linden';
+  at(D+192*3600+3600);env.REQUEST_CODES='off';
+  const recoveryCode217=shownCode(await verify(recoveryUser217,recoveryName217));
+  const recoveryLink217=await (await postVerify(env,{character:recoveryName217,code:recoveryCode217,source:'whisper'})).json();
+  check('.217 recovery fixture genuinely verifies its original character',!!recoveryCode217&&recoveryLink217.result==='verified'&&linked('recovery linden')===recoveryUser217);
+  const recoveryReply217=await unbind(recoveryName217),recoveryBlocked217=await verify(recoveryUser217,recoveryName217);
+  check('.217 unbind guidance names request-code recovery and the by-name UTC wait',recoveryReply217.includes('Get my code')&&recoveryReply217.includes('request code')&&recoveryReply217.includes('by-name')&&recoveryReply217.includes('00:00 UTC')&&!recoveryReply217.includes('They can run `/verify` again.'));
+  check('.217 tickets off preserves the actual same-day name cooldown',!shownCode(recoveryBlocked217)&&recoveryBlocked217.includes('00:00 UTC')&&!recoveryBlocked217.includes('Get my code'));
+  env.REQUEST_CODES='on';const recoveryTicket217=await content(await handleInteraction(env,button(recoveryUser217)));
+  check('.217 ready request codes provide the distinct recovery route',/Your code: `[A-Z2-9]{7}`/.test(recoveryTicket217));
+  at(D+216*3600);check('.217 by-name verification opens at the next UTC day',!!shownCode(await verify(recoveryUser217,recoveryName217)));
+  if(recoveryMode217===undefined)delete env.REQUEST_CODES;else env.REQUEST_CODES=recoveryMode217;
   globalThis.Date = RealDate;
 
   console.log("\n== the guide promises only what the config delivers (.51/.52, Codex 00:38 and the content candidate) ==");

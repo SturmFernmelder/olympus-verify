@@ -838,16 +838,18 @@
     setTimeout(() => t.remove(), kind === "bad" ? 9000 : 4500);
   }
   let dialogSeq = 0;
-  function dialog(content, { wide = false } = {}) {
+  function dialog(content, { wide = false, description = null, initialFocus = null } = {}) {
     const d = h("dialog", { class: wide ? "wide" : "" });
     add(d, [h("button", { class: "x", type: "button", "aria-label": "Close", title: "Close", onclick: () => d.close() }), content]);
     // .109: the dialog is named by its own heading
     const head = content && content.querySelector ? content.querySelector("h2, h3") : null;
     if (head) { if (!head.id) head.id = `dialog-title-${++dialogSeq}`; d.setAttribute("aria-labelledby", head.id); }
+    if (description) { if (!description.id) description.id = `dialog-description-${++dialogSeq}`; d.setAttribute("aria-describedby", description.id); }
     d.addEventListener("close", () => d.remove());
     if (streamShield) { toast("Stream Shield is on. Turn it off to open private dialogs; no action was confirmed."); setTimeout(() => d.dispatchEvent(new Event("close")), 0); return d; }
     document.body.appendChild(d);
     d.showModal();
+    if (initialFocus) initialFocus.focus();
     return d;
   }
   function confirmBox(title, body, okText, { danger = false, typeToConfirm = "", extra = null } = {}) {
@@ -860,8 +862,9 @@
         input.addEventListener("input", () => { ok.disabled = input.value.trim() !== typeToConfirm; });
       }
       let done = false;
-      const d = dialog(h("div", null, h("h2", { text: title }), h("p", { text: body }), extra, input ? h("label", { class: "field" }, h("span", { class: "lab", text: `Type ${typeToConfirm} to confirm` }), input) : null, h("div", { class: "btn-row" }, ok, cancel)));
-      ok.addEventListener("click", () => { done = true; d.close(); resolve(true); });
+      const description = h("p", { text: body });
+      const d = dialog(h("div", null, h("h2", { text: title }), description, extra, input ? h("label", { class: "field" }, h("span", { class: "lab", text: `Type ${typeToConfirm} to confirm` }), input) : null, h("div", { class: "btn-row" }, ok, cancel)), { description, initialFocus: cancel });
+      ok.addEventListener("click", () => { if (ok.disabled || (input && input.value.trim() !== typeToConfirm)) return; done = true; d.close(); resolve(true); });
       cancel.addEventListener("click", () => d.close());
       d.addEventListener("close", () => { if (!done) resolve(false); });
     });
@@ -870,8 +873,11 @@
     return new Promise((resolve) => {
       const input = h("textarea", { maxlength: String(max), rows: "3" });
       const ok = h("button", { class: "btn" + (danger ? " danger" : ""), type: "button", text: okText });
+      const cancel = h("button", { class: "btn", type: "button", text: "Cancel" });
+      const description = h("p", { text: body });
       let done = false;
-      const d = dialog(h("div", null, h("h2", { text: title }), h("p", { text: body }), h("label", { class: "field" }, h("span", { class: "lab", text: label }), input), h("div", { class: "btn-row" }, ok, h("button", { class: "btn", type: "button", text: "Cancel", onclick: () => d.close() }))));
+      const d = dialog(h("div", null, h("h2", { text: title }), description, h("label", { class: "field" }, h("span", { class: "lab", text: label }), input), h("div", { class: "btn-row" }, ok, cancel)), { description, initialFocus: danger ? cancel : input });
+      cancel.addEventListener("click", () => d.close());
       ok.addEventListener("click", () => { done = true; d.close(); resolve(input.value); });
       d.addEventListener("close", () => { if (!done) resolve(null); });
     });
@@ -2043,7 +2049,7 @@
       const requestGeneration = ++generation, requestLive = () => live() && generation === requestGeneration;
       stopTimers(); forget(); clear(box); box.hidden = false;
       add(box, h("p", { class: "muted small", role: "status", text: "Checking the latest Olympus I officer report…" }));
-      api("GET", "/api/me", undefined, { live: requestLive }).then(data => {
+      api("GET", "/api/me?view=seats", undefined, { live: requestLive }).then(data => {
         if (!requestLive()) return;
         if (!data || data.signedIn !== true || data.denied !== false || !data.user || data.user.id !== user.id || !Number.isSafeInteger(data.now)) throw new Error("seat reader refused");
         // Only these two fields are refreshed. Never replace account, settings, capabilities, application or form state.
@@ -2297,14 +2303,15 @@
   // ---------------------------------------------------------------- apply
   function fieldBox(key, labelText, control, { hint, required, counter, hintBelow = false } = {}) {
     const err = h("span", { class: "err", hidden: true, id: `err-${key}` });
-    const hintEl = hint ? h("span", { class: "hint" + (hintBelow ? " below" : ""), text: hint }) : null;
+    const hintEl = hint ? h("span", { class: "hint" + (hintBelow ? " below" : ""), id: `hint-${key}`, text: hint }) : null;
     const box = h("div", { class: "field", "data-field": key },
       h("label", { class: "lab", for: `f-${key}` }, labelText, required ? h("span", { class: "req", "aria-hidden": "true", text: "*" }) : null),
       hintBelow ? null : hintEl,
       control, hintBelow ? hintEl : null, counter || null, err);
     if (!control.id) control.id = `f-${key}`;
     box.querySelector("label").setAttribute("for", control.id);
-    control.setAttribute("aria-describedby", `err-${key}`);
+    control.setAttribute("aria-describedby", [hintEl && hintEl.id, `err-${key}`].filter(Boolean).join(" "));
+    control.setAttribute("aria-invalid", "false");
     // .210: the visible asterisk is hidden from assistive technology, so state the requirement there too (no native popup).
     if (required) control.setAttribute("aria-required", "true");
     return box;
@@ -2322,7 +2329,7 @@
   }
   function showFieldError(form, field, message) {
     const ownError = box => [...box.children].find(child => child.classList.contains("err"));
-    for (const f of form.querySelectorAll(".invalid")) { f.classList.remove("invalid"); const e = ownError(f); if (e) { e.hidden = true; e.textContent = ""; } }
+    for (const f of form.querySelectorAll(".invalid")) { f.classList.remove("invalid"); const control = f.querySelector("input, select, textarea, button"); if (control) control.setAttribute("aria-invalid", "false"); const e = ownError(f); if (e) { e.hidden = true; e.textContent = ""; } }
     const box = field && form.querySelector(`[data-field="${CSS.escape(field)}"]`);
     if (box) {
       box.classList.add("invalid");
@@ -2330,7 +2337,7 @@
       if (e) { e.textContent = message; e.hidden = false; }
       box.scrollIntoView({ behavior: "smooth", block: "center" });
       const c = box.querySelector("input, select, textarea, button");
-      if (c) c.focus({ preventScroll: true });
+      if (c) { c.setAttribute("aria-invalid", "true"); c.focus({ preventScroll: true }); }
     }
     toast(message, "bad");
   }
@@ -4822,8 +4829,18 @@
       h("div", { class: "filters" }, num("minAccountDays", "Account at least (days)"), num("minServerDays", "In the server at least (days)")),
       h("div", { class: "btn-row" }, chk("includeDenied", "Count denied accounts"), chk("includeLeft", "Count people who left the server"), chk("onlyApplicants", "Only voters who applied")));
   }
+  const adminListReads = new WeakMap();
+  function adminListRead(body, retry) {
+    const read = {}, owner = S.user, route = currentRoute();
+    adminListReads.set(body, read);
+    const live = () => adminListReads.get(body) === read && app.contains(body) && S.signedIn && !S.denied && S.user === owner && owner?.isAdmin && currentRoute() === route;
+    return { live, failed() { if (!live()) return; clear(body); add(body, noticeBox("bad", null, h("p", { role: "alert", text: "This admin view could not be loaded. Refresh it to check the current results." }), h("button", { class: "btn", type: "button", text: "Refresh this view", onclick: retry }))); } };
+  }
   async function adminVotes(body) {
-    const [board, writeIn] = await Promise.all([api("GET", "/api/admin/board?" + qs(A.votes)), api("GET", "/api/admin/votes?" + qs(A.votes))]);
+    const sent = { ...A.votes }, read = adminListRead(body, () => adminVotes(body));
+    try {
+    const [board, writeIn] = await Promise.all([api("GET", "/api/admin/board?" + qs(sent), undefined, { live: read.live }), api("GET", "/api/admin/votes?" + qs(sent), undefined, { live: read.live })]);
+    if (!read.live()) return;
     const wi = Object.fromEntries(writeIn.ballots.map((b) => [b.key, b]));
     const card = (b) => {
       const w = wi[b.key] || { top: [], voters: 0 };
@@ -4845,9 +4862,13 @@
       h("div", { class: "grid three" }, board.roles.filter((b) => !b.key.startsWith("class_lead:")).map(card)),
       h("div", { class: "group-label", text: "Class leads" }),
       h("div", { class: "grid three" }, board.roles.filter((b) => b.key.startsWith("class_lead:")).map(card))));
+    } catch { read.failed(); }
   }
   async function adminRole(body, role) {
-    const [data, wi] = await Promise.all([api("GET", "/api/admin/board?" + qs(Object.assign({ role }, A.votes))), api("GET", "/api/admin/votes?" + qs(Object.assign({ ballot: role }, A.votes)))]);
+    const sent = { ...A.votes }, read = adminListRead(body, () => adminRole(body, role));
+    try {
+    const [data, wi] = await Promise.all([api("GET", "/api/admin/board?" + qs(Object.assign({ role }, sent)), undefined, { live: read.live }), api("GET", "/api/admin/votes?" + qs(Object.assign({ ballot: role }, sent)), undefined, { live: read.live })]);
+    if (!read.live()) return;
     // Without a public vote there is no board: only votes cast before it was taken off the vote are worth listing.
     const quiet = noVoteFor(role);
     const shown = quiet ? data.candidates.filter((c) => c.yes || c.no) : data.candidates;
@@ -4909,6 +4930,7 @@
           : h("p", { class: "muted", text: "No write-ins with these filters." }),
         h("p", { class: "muted small", text: "Select someone to see who wrote them in. A person typed by hand and the same person picked from Discord are counted separately." })),
     ]);
+    } catch { read.failed(); }
   }
   async function showBoardVoters(role, c) {
     const data = await api("GET", "/api/admin/board/voters?" + qs(Object.assign({ role: role.key, candidate: c.id }, A.votes)));
@@ -4941,7 +4963,10 @@
   // ---------- reserved names ----------
   async function adminNames(body) {
     const f = A.names;
-    const data = await api("GET", "/api/admin/reserved?" + qs({ status: f.status, q: f.q, contested: f.contested, applicants: f.applicants, offset: f.offset }));
+    const sent = { ...f }, read = adminListRead(body, () => adminNames(body));
+    try {
+    const data = await api("GET", "/api/admin/reserved?" + qs(sent), undefined, { live: read.live });
+    if (!read.live()) return;
     const s = S.settings || {};
     const selected = new Set();
     const status = h("select", null, [["active", "All but released"], ["claimed", "Entered, not approved"], ["approved", "Approved, waiting for launch"], ["queued", "In the invite queue"], ["in_guild", "Already in the guild"], ["released", "Released"], ["all", "Everything"]].map(([k, t]) => h("option", { value: k, text: t, selected: f.status === k })));
@@ -5008,6 +5033,7 @@
         h("div", { class: "btn-row" },
           h("button", { class: "btn small", type: "button", text: "Previous", disabled: data.offset === 0, onclick: () => { f.offset = Math.max(0, f.offset - data.pageSize); adminNames(body); } }),
           h("button", { class: "btn small", type: "button", text: "Next", disabled: data.offset + data.items.length >= data.total, onclick: () => { f.offset += data.pageSize; adminNames(body); } })))));
+    } catch { read.failed(); }
   }
 
   // ---------- friends ----------
@@ -5363,7 +5389,7 @@
       const refocus = document.activeElement === refreshButton;
       stop(); draw(); if (refocus) refreshButton.focus(); unavailable("Checking current officer evidence…");
       const request = ++generation, requestLive = () => live() && generation === request;
-      api("GET", "/api/me", undefined, { live: requestLive }).then(data => {
+      api("GET", "/api/me?view=seats", undefined, { live: requestLive }).then(data => {
         if (!requestLive()) return;
         if (!data || data.signedIn !== true || data.denied !== false || data.user?.id !== user.id || !Number.isSafeInteger(data.now) || data.now <= 0) throw Error("Capacity reader refused");
         const seat = data.seats;

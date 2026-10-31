@@ -89,6 +89,49 @@ OlympusVerifyConfigCache = {
 '''
 
 
+class LocalWriteTests(unittest.TestCase):
+    def test_state_retry_uses_one_frozen_serialization(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = watcher.State(Path(folder) / "state.json")
+            state.d["outbox"] = [{"body": {"value": "original synthetic payload"}}]
+            expected = json.dumps(state.d)
+            real_replace = os.replace
+            attempts = []
+
+            def replace(source, target):
+                attempts.append(Path(source).read_text(encoding="utf-8"))
+                if len(attempts) == 1:
+                    state.d["outbox"][0]["body"]["value"] = "later in-memory mutation"
+                    raise PermissionError(13, "synthetic private-path sentinel")
+                real_replace(source, target)
+
+            with patch.object(watcher.os, "replace", side_effect=replace), patch.object(watcher.time, "sleep") as sleep:
+                state.save()
+            self.assertEqual(attempts, [expected, expected])
+            self.assertEqual(state.path.read_text(encoding="utf-8"), expected)
+            sleep.assert_called_once_with(0.05)
+
+    def test_exhausted_local_retry_retains_original_and_withholds_payload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "queue.lua"
+            target.write_text("old original", encoding="utf-8")
+            output = io.StringIO()
+            with patch.object(watcher.os, "replace", side_effect=PermissionError(13, "private sentinel")) as replace, patch.object(watcher.time, "sleep") as sleep, contextlib.redirect_stdout(output):
+                with self.assertRaises(PermissionError):
+                    watcher.atomic_local_text(target, "frozen synthetic note")
+            self.assertEqual(replace.call_count, 3)
+            self.assertEqual(sleep.call_count, 2)
+            self.assertEqual(target.read_text(encoding="utf-8"), "old original")
+            self.assertEqual(output.getvalue(), "")
+
+    def test_permanent_disk_error_is_not_retried(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(watcher.os, "replace", side_effect=OSError(28, "synthetic full disk")) as replace, patch.object(watcher.time, "sleep") as sleep:
+            with self.assertRaises(OSError):
+                watcher.atomic_local_text(Path(folder) / "state.json", "synthetic")
+            self.assertEqual(replace.call_count, 1)
+            sleep.assert_not_called()
+
+
 class CodeTests(unittest.TestCase):
     def test_vectors(self):
         for v in VECTORS:
@@ -393,6 +436,83 @@ class ResilienceTests(unittest.TestCase):
         time.sleep(1.1)
         self.w.pull_queue()
         self.assertEqual(first, self.w.state.d["queue_hash"], "generatedAt must not be part of the dedupe hash")
+
+    def test_queue_local_retry_does_not_repeat_worker_or_advance_before_replace(self):
+        entries = [{"id": 7, "character": "Synthetic Queue", "discordId": "1", "status": "queued"}]
+        calls, payloads = [], []
+        self.w.pull_unverified = lambda: None
+        self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p, b)) or (True, {"entries": entries} if m == "GET" else {"ok": True}))
+        real_replace = os.replace
+
+        def replace(source, target):
+            if target == self.w.queue_file:
+                payloads.append(Path(source).read_text(encoding="utf-8"))
+                self.assertEqual(self.w.state.d["queue_hash"], "")
+                self.assertEqual(self.w.state.d["queue_written_pending"], [])
+                if len(payloads) == 1:
+                    raise PermissionError(13, "synthetic lock")
+            return real_replace(source, target)
+
+        with patch.object(watcher.os, "replace", side_effect=replace), patch.object(watcher.time, "sleep"):
+            self.w.pull_queue()
+        self.assertEqual(len(payloads), 2)
+        self.assertEqual(payloads[0], payloads[1])
+        self.assertEqual([m for m, _, _ in calls], ["GET", "POST"])
+        self.assertEqual(calls[1][1], "/queue/written")
+        self.assertEqual(calls[1][2], {"ids": [7], "officer": self.w.officer_id})
+
+    def test_queue_exhausted_write_does_not_acknowledge_or_change_custody(self):
+        self.w.pull_unverified = lambda: None
+        calls = []
+        self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p)) or (True, {"entries": [{"id": 8, "character": "Synthetic", "status": "queued"}]}))
+        with patch.object(watcher.os, "replace", side_effect=PermissionError(13, "synthetic lock")), patch.object(watcher.time, "sleep"):
+            with self.assertRaises(PermissionError):
+                self.w.pull_queue()
+        self.assertEqual([m for m, _ in calls], ["GET"])
+        self.assertEqual(self.w.state.d["queue_hash"], "")
+        self.assertEqual(self.w.state.d["queue_written_pending"], [])
+        self.assertIsNone(self.w.state.d["queue_written_original"])
+
+    def test_check_refuses_terminal_4xx_or_malformed_queue_without_followup(self):
+        self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
+        for response in (None, {}, {"entries": "not a queue"}):
+            with self.subTest(response=response):
+                calls, output = [], io.StringIO()
+                self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p)) or (True, response))
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(self.w.check(), 1)
+                self.assertEqual(calls, [("GET", "/queue")])
+                self.assertIn("FAILED", output.getvalue())
+
+    def test_check_accepts_actual_queue_and_keeps_optional_diagnostics_separate(self):
+        self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
+        self.w.worker.call = lambda m, p, b=None, retries=3: (True, {"entries": []} if p == "/queue" else {})
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(self.w.check(), 0)
+
+    def test_ack_settlement_retry_is_local_even_if_replace_committed_then_raised(self):
+        calls, settled_payloads = [], []
+        self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p, b)) or (True, {"ok": True}))
+        original_replace = os.replace
+        replacements = 0
+
+        def replace(source, target):
+            nonlocal replacements
+            if target == self.w.state.path:
+                replacements += 1
+                if replacements >= 2:
+                    settled_payloads.append(Path(source).read_text(encoding="utf-8"))
+                if replacements == 2:
+                    original_replace(source, target)
+                    raise PermissionError(13, "synthetic uncertain local replacement")
+            return original_replace(source, target)
+
+        with patch.object(watcher.os, "replace", side_effect=replace), patch.object(watcher.time, "sleep"):
+            result = self.w.post("/ingest/events", {"events": []}, "synthetic")
+        self.assertIs(result, watcher.Delivery.DELIVERED)
+        self.assertEqual(len(calls), 1, "local settlement must not repeat HTTP")
+        self.assertEqual(settled_payloads, [settled_payloads[0]] * 2)
+        self.assertEqual(json.loads(self.w.state.path.read_text(encoding="utf-8"))["outbox"], [])
 
     def test_signed_join_is_trusted_and_plain_text_is_not(self):
         self.log.write_text(self._pad(), encoding="utf-8")
@@ -929,7 +1049,13 @@ class GuildSiteTests(unittest.TestCase):
         import subprocess
         lua = shutil.which("lua5.1") or shutil.which("lua")
         if not lua:
-            self.skipTest("no Lua interpreter")
+            try:
+                import lupa.luajit21 as runtime
+            except ImportError:
+                self.skipTest("no Lua interpreter")
+            machine = runtime.LuaRuntime(unpack_returned_tuples=True)
+            machine.execute(body)
+            return machine.execute("return (function(...) local out={} for i=1,select('#',...) do out[i]=tostring(select(i,...)) end return table.concat(out,'\\t') end)(" + expr + ")")
         f = Path(self.tmp.name) / "q.lua"
         f.write_text(body + f"\nprint({expr})\n", encoding="utf-8")
         out = subprocess.run([lua, str(f)], capture_output=True, text=True)
@@ -1099,6 +1225,15 @@ class TransportTests(unittest.TestCase):
             self.assertEqual(worker.call("GET", "/queue", retries=3), (False, "unreachable"))
         self.assertEqual(transport.call_count, 3, "a 5xx is retried")
         self.assertIsNone(worker.paused(), "and does not pause: the next poll tries again")
+        self.assertNotIn("NEVER_LOG_SECRET", self.logs())
+
+    def test_check_command_returns_failure_for_actual_terminal_4xx(self):
+        config = Path(self.cfg["wow_dir"]) / "synthetic-check.json"
+        config.write_text(json.dumps(self.cfg), encoding="utf-8")
+        for status in (400, 404, 422):
+            with self.subTest(status=status), patch.object(sys, "argv", ["watcher.py", "--config", str(config), "--check"]), patch.object(urllib.request.OpenerDirector, "open", side_effect=self._http_error(status)) as transport, contextlib.redirect_stdout(self.out):
+                self.assertEqual(watcher.main(), 1)
+            self.assertEqual(transport.call_count, 1, "diagnostics must not treat a4xx receipt as a healthy queue")
         self.assertNotIn("NEVER_LOG_SECRET", self.logs())
 
     def test_check_reports_a_pause_and_main_refuses_a_bad_origin(self):

@@ -40,7 +40,7 @@ export function calculateTreasury207(raw) {
   for (const field of TREASURY_FIELDS207) {
     const input = raw?.[field.key];
     const text = typeof input === "number" ? String(input) : typeof input === "string" ? input.trim() : "";
-    const number = /^\d+(?:\.\d+)?$/.test(text) ? Number(text) : NaN;
+    const number = /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(text) ? Number(text) : NaN;
     if (!Number.isFinite(number) || number < 0 || number > field.max || (field.integer && !Number.isInteger(number))) {
       errors[field.key] = field.label + " must be " + (field.integer ? "a whole number" : "a number") + " from 0 to " + field.max.toLocaleString("en-US") + ".";
     } else values[field.key] = number;

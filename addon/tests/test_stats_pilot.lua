@@ -165,6 +165,9 @@ ready();rows[3].name=rows[2].name;check(not A.OnEvent('GUILD_ROSTER_UPDATE') and
 ready();mutateDuringRead=function(i)if i==10 then clock=clock+1 end end;check(not A.OnEvent('GUILD_ROSTER_UPDATE') and not A.Status().ready,'later event crossing a server second fails original within-read clock equality')
 ready();clock=clock+10;A.Poll();clock=clock-1;check(not A.OnEvent('GUILD_ROSTER_UPDATE') and not A.Status().enabled,'later duplicate event cannot revive a rolled-back clock')
 ready();combatState=true;check(not A.OnEvent('GUILD_ROSTER_UPDATE') and not A.Status().enabled,'later native event in combat cannot revalidate or renew data')
+ready();local beforeOtherGuild=A.CopyFrames();A.OnEvent('PLAYER_GUILD_UPDATE','party1')
+check(A.Status().enabled and A.CopyFrames()==beforeOtherGuild,'other unit guild change preserves the original enabled session and exact output')
+A.OnEvent('PLAYER_GUILD_UPDATE','player');check(not A.Status().enabled and A.CopyFrames()==nil,'player guild change clears original session')
 for _,event in ipairs({'PLAYER_GUILD_UPDATE','PLAYER_ENTERING_WORLD','PLAYER_LEAVING_WORLD','PLAYER_LOGOUT','PLAYER_REGEN_DISABLED'}) do ready();A.OnEvent(event);check(not A.Status().enabled and A.CopyFrames()==nil,event..' clears session and snapshot') end
 ready();check(A.Stop() and not A.Status().enabled and A.CopyFrames()==nil,'explicit Stop clears all output')
 
@@ -205,4 +208,13 @@ check(clockDiagnostic and clockDiagnostic.serverDeltaSeconds==-1 and clockDiagno
 fixture(10);A.Start(nonce);clock=clock+1;wall=wall-0.5;A.Poll()
 check(A.Status().enabled and A.Status().clockDiagnostic==nil,'local diagnostic time never replaces the unchanged server-clock acceptance guards')
 A.Stop();check(A.Status().clockDiagnostic==nil,'final Stop leaves no retained clock measurement')
+dofile('wow_mock.lua')
+local scripts217,create217={},CreateFrame
+CreateFrame=function(...)local frame=create217(...);local set=frame.SetScript;frame.SetScript=function(self,name,fn)if name=='OnEvent' then scripts217.OnEvent=fn end;return set(self,name,fn)end;return frame end
+dofile('../OlympusStatsPilot/OlympusStatsPilot.lua')
+local originalEvent217=A.OnEvent;local forwarded217
+A.OnEvent=function(event,unit)forwarded217={event,unit}end
+scripts217.OnEvent({},'PLAYER_GUILD_UPDATE','party1')
+check(forwarded217[1]=='PLAYER_GUILD_UPDATE' and forwarded217[2]=='party1','actual pilot frame forwards the original unit to scope filtering')
+A.OnEvent=originalEvent217
 print(string.format('%d passed, 0 failed (local synthetic addon pilot only)',passed))

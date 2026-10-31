@@ -325,7 +325,9 @@ events:RegisterEvent("PLAYER_LOGIN"); events:RegisterEvent("ADDON_LOADED"); even
 events:RegisterEvent("PLAYER_GUILD_UPDATE"); events:RegisterEvent("PLAYER_REGEN_ENABLED"); events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_LOGIN" then loadedIdentity = Identity()
-  elseif event == "PLAYER_GUILD_UPDATE" and (unit == nil or unit == "player") then
+  elseif event == "PLAYER_GUILD_UPDATE" then
+    -- The event also names other units; they cannot invalidate this player's guild scope.
+    if unit ~= nil and unit ~= "player" then return end
     if loadedIdentity and Identity() ~= loadedIdentity then changedGuild = true end
   elseif event == "GUILD_ROSTER_UPDATE" then
     nativeAt, sourceIndex = nil, nil

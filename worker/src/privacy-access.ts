@@ -6,7 +6,7 @@ import { PRIVACY_ALL_HISTORY_COLLECTIONS, type PrivacyHistoryCollection } from '
 import { API, credentialFetch } from './discord';
 import { b64u, sign, siteHost, rateLimited } from './site-core';
 import { htmlResponse, policyHeaders } from './policy-render';
-import { FormError, readForm, hidden } from './policy-form-core';
+import { FormError, readForm, hidden, formNonce, formCookie, formToken, requireFormToken } from './policy-form-core';
 import { discardPrivacyProvider, fetchPrivacyProvider, readPrivacyProviderJson, PRIVACY_PROVIDER_DEADLINE_MS } from './privacy-provider-body';
 
 export const PRIVACY_ACCESS_COOKIE='__Host-olg_privacy_access';
@@ -145,8 +145,10 @@ export function privacyAccessPurgeStatements(env:Env):D1PreparedStatement[]{retu
  ];}
 export async function beginPrivacyAccess(request:Request,env:Env):Promise<Response>{
  const base=origin(env,request),u=new URL(request.url);
- if(request.method!=='GET'||u.pathname!=='/privacy/signin'||u.search)throw new FormError('invalid_identity_flow');
+ if(request.method!=='POST'||u.pathname!=='/privacy/signin'||u.search)throw new FormError('invalid_identity_flow');
  if(!env.DISCORD_APP_ID||!env.DISCORD_CLIENT_SECRET||!env.COOKIE_SECRET)throw new FormError('privacy_unavailable',503);
+ const form=await readForm(request,['csrf']);
+ await requireFormToken(env,request,form.csrf??'','privacy-signin');
  if(rateLimited('privacy-access:'+String(request.headers.get('CF-Connecting-IP')??''),10,60))throw new FormError('slow_down',429);
  const state=random(),browser=random(),stateHash=await privacyAccessHash(state),browserHash=await privacyAccessHash(browser);
  await env.DB.batch(privacyAccessPurgeStatements(env));
@@ -280,13 +282,15 @@ export async function privacyAccessPage(request:Request,env:Env):Promise<Respons
  let body=erasureEnabled?'<p>Connect your Discord account to read a curated copy of your own retained records or request serving-account erasure. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each form can be used once.</p>':'<p>Connect your Discord account to read a curated copy of your own retained records. You can use this connection after leaving the server or without a website account. The connection lasts twelve minutes and each download form can be used once.</p>'+erasurePaused;
  body+='<details class="privacy-connection-scope"><summary>About this Discord connection</summary><p>This connection asks Discord only to identify your account. A returned token may also permit reading linked accounts or guild membership, or updating this app&#39;s connection metadata. This privacy connection uses none of those permissions: it uses only your account ID, keeps no Discord token, and does not sign you in to the ordinary website or grant guild or staff roles.</p></details>';
  body+=accountDataCoverageHtml();
- if(!session||!grants.some(Boolean))body+='<p><a href="/privacy/signin">Connect Discord for privacy requests</a></p>';
- else for(const g of grants){if(!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
+ const existingNonce=formNonce(request),nonce=existingNonce??random(),signin=await formToken(env,nonce,'privacy-signin');
+ const connectLabel=session&&grants.some(Boolean)?`Reconnect Discord for a fresh ${erasureEnabled?'page':'download'} grant`:'Connect Discord for privacy requests';
+ body+=`<form method="post" action="/privacy/signin">${hidden('csrf',signin)}<button type="submit">${connectLabel}</button></form>`;
+ for(const g of grants){if(!session||!g||g.consumedAt!==null||!erasureEnabled&&g.purpose==='own_erasure')continue;
  const csrf=await csrfFor(env,session,g.purpose),erase=g.purpose==='own_erasure';
  body+=`<section><h2>${erase?'Request serving-account erasure':'Download my retained records'}</h2><p>${erase?'Erasure is held while the bot-managed Guild Member role or Discord outcome is unresolved. Active bans and safety cases can be retained under policy exceptions. Staff permissions require human handling, and private recovery copies have separate custody.':'The copy includes selected account, verification and community records, with a preview of up to 25 entries per history and an exact count. Larger histories can be continued separately. The file states selected fields and omissions. A record that cannot safely fit holds the download and can require attended help from an officer. The account copy previews 38 selected histories. There are 41 individual history download options. The three extra histories are fresh historical Battle.net character labels, roster processing intents attributable to your original account link, and current setting keys/times while you remain their last updater. Those three are not in the account-copy file. The Battle.net connector stays off. Roster rows missing the original linkage require attended review; processing records do not confirm provider success. Settings values and edit history are not included. To continue a history, save nextCursor from its file, reconnect Discord, select the same history and paste it below. Leave the cursor empty to start a new capture. Each history page holds at most 1,000 entries, and its original traversal deadline is twenty-four hours.'}</p><form method="post" action="/privacy/access/${erase?'erasure':'export'}">${hidden('grant',g.grantId)}${hidden('csrf',csrf)}${erase?'<label><input type="checkbox" name="confirm" value="yes" required> Request erasure of my own serving account records.</label>':historyControls()}<button type="submit">${erase?'Request my erasure':'Download my data'}</button></form></section>`;
  }
- body+=erasureEnabled?'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh page grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>':'<p>This connection grants only these privacy actions. <a href="/privacy/signin">Reconnect Discord for a fresh download grant</a> · <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
- return htmlResponse(request,'Privacy account connection',body);
+ body+='<p>This connection grants only these privacy actions. <a href="/privacy/account">Check an erasure request with its private status code</a> · <a href="/privacy/contact">Account help</a></p>';
+ return htmlResponse(request,'Privacy account connection',body,200,existingNonce?undefined:formCookie(nonce));
 }
 export function privacyAccessRefusal(request:Request,error:unknown):Response{
   if(error instanceof FormError&&error.code==='privacy_history_generation_unavailable'&&error.status===409&&new URL(request.url).pathname==='/privacy/access/export')return htmlResponse(request,'Roster history needs review','<p>This roster-history download needs attended review because the original account link required for attribution was unavailable when you connected Discord. A fresh Discord sign-in alone does not create that link. Ask an Olympus officer for help with this download.</p><p><a href="/privacy/access">Other account downloads</a> &middot; <a href="/privacy/contact">Account help</a></p>',error.status);

@@ -6,7 +6,7 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const manifestBytes = fs.readFileSync(path.join(__dirname, 'fixtures/reviewed212-sen01-source-contexts.json'));
-if (sha(manifestBytes) !== '7badbe12055f27ae936b6e212594ef9483550e34c2e1eefd2dd98913d58f61d6') throw Error('reviewed212 SEN-01 source contexts differ');
+if (sha(manifestBytes) !== '59cd3fe6d5bc52dc7193e434bd6a70277ef0bce5ff1f8f77d33c9e6b0c2f0391') throw Error('reviewed212 SEN-01 source contexts differ');
 const manifest = JSON.parse(manifestBytes.toString('utf8'));
 if (manifest.schema !== 'reviewed212-sen01-source-contexts-v1') throw Error('reviewed212 SEN-01 schema differs');
 function original212Interactions(raw) {
@@ -33,6 +33,7 @@ function driftControls(raw) {
     ['duplicate reviewed context', replace(manifest.edits[0].from, manifest.edits[0].from + manifest.edits[0].from)],
     ["today's code restored", replace('dayBucket(new Date(opened * 1000))', 'dayBucket(new Date())')],
     ['refusal expiry restored', replace('another account. If the character is yours,', 'another account. It expires <t:${open.expires_at}:R>; if the character is yours,')],
+    ['recovery guidance changed', replace('A same-day character-code request can keep by-name', 'A same-day character-code request cannot keep by-name')],
     ['same-day rule disabled', replace('((p.created_at >= ?6', '((p.created_at >= ?6 AND 0')],
     ['holder lock disabled', replace("AND (p.consumed_source = 'release'", "AND 0 AND (p.consumed_source = 'release'")],
     ['unbound names not released', replace('key && (!row || row.status === "unbound") ?', 'key && !row ?')],

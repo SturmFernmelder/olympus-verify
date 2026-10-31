@@ -31,6 +31,8 @@ SUITES = {
     "preview": (ADDON, Path("test/preview.lua")),
     "secret_placeholder": (TESTS, Path("test_secret_placeholder.lua")),
     "queue_dismiss": (TESTS, Path("test_queue_dismiss.lua")),
+    "stats_pilot": (TESTS, Path("test_stats_pilot.lua")),
+    "army_stats": (TESTS, Path("test_army_stats.lua")),
 }
 
 

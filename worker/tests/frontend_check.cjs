@@ -49,10 +49,10 @@ class Text extends Node {
 const walk = (n, f) => { for (const c of n.childNodes) { f(c); walk(c, f); } };
 function parseCompound(s) {
   const out = { tag: null, id: null, classes: [], attrs: [] };
-  const re = /^([a-zA-Z][\w-]*)|#([\w-]+)|\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g;
+  const re = /^([a-zA-Z][\w-]*)|#([\w-]+)|\.([\w-]+)|\[([\w-]+)(?:=(?:"([^"]*)"|([^\]\s"\']+)))?\]/g;
   let m, i = 0;
   while (i < s.length && (m = re.exec(s.slice(i)))) {
-    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined ? null : m[5].replace(/\\(.)/g, "$1")]);
+    if (m[1]) out.tag = m[1].toUpperCase(); else if (m[2]) out.id = m[2]; else if (m[3]) out.classes.push(m[3]); else out.attrs.push([m[4], m[5] === undefined && m[6] === undefined ? null : (m[5] ?? m[6]).replace(/\\(.)/g, "$1")]);
     i += m[0].length; re.lastIndex = 0;
   }
   return out;
@@ -3180,6 +3180,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     byText(adm210.app, "button", "Delete their site data")?.click();
     await waitFor(() => !!dialog210() && !!dialog210().querySelector("input[type=text]"), ".210 the delete confirmation");
     const typed210 = dialog210()?.querySelector("input[type=text]");
+    byText(dialog210(), "button", "Delete their data")?.click();
+    check('.217 disabled typed confirmation cannot dispatch a delete even on a synthetic click', !!one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210) && !sent210.some(([m,p]) => m === 'POST' && p.endsWith('/delete')));
     if (typed210) { typed210.value = "DELETE"; typed210.dispatchEvent(new Event("input", { bubbles: true })); byText(dialog210(), "button", "Delete their data")?.click(); }
     await waitFor(() => !one("SELECT 1 AS k FROM site_applications WHERE discord_id = ?", DEL210), ".210 the deleted site data");
     check(".210 Delete their site data on the admin page is admitted as a partial delete and removes the application",
@@ -3360,6 +3362,67 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       await p.go("#/admin"); await new Promise(resolve => setTimeout(resolve, 200));
       check("RT16 a dispatched write may land but its late answer cannot toast, redraw, navigate or prepare a replacement view", status210(id).admin_note === "Already dispatched before leaving" && posts210(rows).length === 1 && preparations210(rows).length === 4 && rows.filter(r => r.path === `/api/admin/applications/${id}`).length === 1 && p.location.hash === "#/admin" && !p.document.body.textContent.includes("Marked submitted."));
     }
+  }
+
+  console.log("\n== .217 owned admin reads and accessible confirmations ==");
+  {
+    const p = await openPage(STAFF);
+    await p.go('#/admin/votes');
+    await waitFor(() => p.app.querySelector('input[type="checkbox"]'), 'admin vote filters');
+    const originalFilter = p.app.querySelector('input[type="checkbox"]');
+    let release, boardRead = 0;
+    const older = new Promise(resolve => { release = resolve; });
+    p.intercept(async pathname => {
+      if (pathname.startsWith('/api/admin/board?')) {
+        const n = ++boardRead; if (n === 1) await older;
+        return new Response(JSON.stringify({roles:[{key:'member',label:n === 1 ? 'Older held tally' : 'Newer settled tally',top:[],applicants:0,voters:0}]}));
+      }
+      if (pathname.startsWith('/api/admin/votes?')) return new Response(JSON.stringify({ballots:[]}));
+    });
+    originalFilter.checked = true; fire(originalFilter, 'change');
+    originalFilter.checked = false; fire(originalFilter, 'change');
+    await waitFor(() => p.app.textContent.includes('Newer settled tally'), 'newer admin tally');
+    release(); await new Promise(resolve => setTimeout(resolve, 40));
+    check('.217 late older vote-list read cannot overwrite the latest filter result', boardRead === 2 && p.app.textContent.includes('Newer settled tally') && !p.app.textContent.includes('Older held tally'));
+    p.intercept(pathname => pathname.startsWith('/api/admin/') ? new Response('{}',{status:503}) : undefined);
+    fire(p.app.querySelector('input[type="checkbox"]'), 'change');
+    await waitFor(() => p.app.textContent.includes('Refresh this view'), 'owned admin read error');
+    check('.217 current admin read failures expose an attended refresh without an unhandled rejection', p.app.querySelector('[role="alert"]')?.textContent.includes('could not be loaded'));
+    p.intercept(null); byText(p.app, 'button', 'Refresh this view').click();
+    await waitFor(() => p.app.querySelector('input[type="checkbox"]'), 'manual tally refresh');
+    check('.217 manual refresh performs a fresh current read', !p.app.textContent.includes('Refresh this view'));
+    for (const hash of ['#/admin/votes/raid_leader_na', '#/admin/names']) {
+      p.intercept(pathname => pathname.startsWith('/api/admin/') ? new Response('{}',{status:503}) : undefined);
+      await p.go(hash); await waitFor(() => p.app.textContent.includes('Refresh this view'), 'role/name failure');
+      check('.217 ' + hash + ' has a visible read failure and manual refresh', !!p.app.querySelector('[role="alert"]'));
+      p.intercept(null); byText(p.app, 'button', 'Refresh this view').click();
+      await waitFor(() => !p.app.textContent.includes('Refresh this view') && !p.app.textContent.includes('Loading…'), 'role/name refresh');
+    }
+    await p.go('#/admin/names');
+    byText(p.app, 'button', 'Queue every approved name now')?.click();
+    await waitFor(() => !!p.document.body.querySelector('dialog'), 'safe confirmation');
+    const dialog = p.document.body.querySelector('dialog'), description = p.document.getElementById(dialog.getAttribute('aria-describedby'));
+    check('.217 confirmation consequence is associated and Cancel has initial focus', !!description?.textContent && p.document.activeElement === byText(dialog,'button','Cancel'));
+    byText(dialog,'button','Cancel').click();
+  }
+  {
+    const plain = new Element('input'); plain.setAttribute('type','checkbox');
+    check('.217 fixture uses the real unquoted CSS type selector semantics', !plain.matches('input[type=text]') && plain.matches('input[type=checkbox]'));
+    const p = await openPage(STAFF); await p.go('#/admin/news');
+    await waitFor(() => !!p.app.querySelector('[data-field="news-title"]'), 'news field help');
+    const field = p.app.querySelector('[data-field="news-title"]'), input = field.querySelector('input');
+    check('.217 ordinary form help and error text are both associated with their control', input.getAttribute('aria-describedby').split(' ').length === 2 && input.getAttribute('aria-describedby').split(' ').every(id => !!p.document.getElementById(id)) && input.getAttribute('aria-invalid') === 'false');
+    const fresh = '300000000000000217'; await siteUser(fresh);
+    const member = await openPage(fresh); await member.go('#/apply');
+    const ackBox = member.app.querySelector('[data-field="ack"]'), ack = ackBox?.querySelector('input');
+    fire(member.app.querySelector('form'), 'submit');
+    await waitFor(() => ack?.getAttribute('aria-invalid') === 'true', 'application error state');
+    check('.217 actual application validation marks its associated control invalid', ack?.getAttribute('aria-invalid') === 'true');
+    ack.checked = true;
+    member.intercept((pathname,init) => pathname === '/api/application' && init.method === 'PUT' ? new Response(JSON.stringify({error:'invalid',field:'class',message:'Choose a class.'}),{status:400}) : undefined);
+    fire(member.app.querySelector('form'), 'submit');
+    await waitFor(() => member.app.querySelector('[data-field="class"]')?.classList.contains('invalid'), 'next application field error');
+    check('.217 replacing an error clears the previous aria-invalid state', ack.getAttribute('aria-invalid') === 'false' && member.app.querySelector('[data-field="class"] select')?.getAttribute('aria-invalid') === 'true');
   }
 
   console.log(`\n${ok}/${n} passed`);

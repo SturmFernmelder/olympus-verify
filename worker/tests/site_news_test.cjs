@@ -1423,7 +1423,7 @@ const app = async (id, { created, status = "submitted", reviewed = null }) =>
   },
 {
   "file": "worker/src/index.ts",
-  "startMarker": "const BUILD = \"2026-10-30.216 Maintenance integration\";",
+  "startMarker": "const BUILD = \"2026-10-30.217 Residual maintenance\";",
   "singleLine": true,
   "paragraphSha256": "aba9f6548957197d62f4a92550d15c1bd1ba084296c1676754b3a51bac1d9d68",
   "paragraphBytes": 55,

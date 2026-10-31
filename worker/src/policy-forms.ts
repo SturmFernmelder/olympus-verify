@@ -192,11 +192,11 @@ export async function handlePolicyForms(request: Request, env: Env, path: string
   if (!["GET", "HEAD", "POST"].includes(m)) { const r = htmlResponse(request, "Method not allowed", "<p>Use this page's form.</p>", 405); r.headers.set("Allow", "GET, HEAD, POST"); return r; }
   if (!schemaReady) return htmlResponse(request, "Temporarily unavailable", "<p>The database is updating. No request was submitted.</p>", 503);
   if (env.PRIVACY_ACCESS_ENABLED === 'true' && ['/privacy/signin','/privacy/callback','/privacy/access','/privacy/access/export','/privacy/access/erasure'].includes(path)) {
-    if (m === 'HEAD' && path === '/privacy/access') return htmlResponse(request,'Privacy account connection','');
-    const expected = path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
-    if (m !== expected) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
+    if (m === 'HEAD' && (path === '/privacy/access' || path === '/privacy/signin')) return htmlResponse(request,'Privacy account connection','');
+    const expected = path === '/privacy/signin' || path === '/privacy/access/export' || path === '/privacy/access/erasure' ? 'POST' : 'GET';
+    if (m !== expected && !(path === '/privacy/signin' && m === 'GET')) { const out=htmlResponse(request,'Method not allowed','<p>Use the supplied privacy form.</p>',405);out.headers.set('Allow',expected);return out; }
     try {
-      if (path === '/privacy/signin') return await beginPrivacyAccess(request,env);
+      if (path === '/privacy/signin') return await (m === 'GET' ? privacyAccessPage(request,env) : beginPrivacyAccess(request,env));
       if (path === '/privacy/callback') return await finishPrivacyAccess(request,env);
       if (path === '/privacy/access/export') return await exportPrivacyAccess(request,env);
       if (path === '/privacy/access/erasure') return await erasePrivacyAccess(request,env);

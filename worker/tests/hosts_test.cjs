@@ -114,7 +114,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-30.216 Maintenance integration");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-10-30.217 Residual maintenance");
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");
@@ -414,6 +414,16 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   }
   res = await get("https://verify.example/admin/guild-map", env({ WATCHER_TOKEN: "" }), { headers: { Authorization: "Bearer " } });
   check("  the admin routes too", res.status === 401);
+
+  for (const [status, category] of [[401, 'discord_authentication'], [403, 'discord_permissions']]) {
+    fetchResponder = () => new Response('untrusted Bot abc.def.ghi', { status });
+    const response = await get('https://verify.example/admin/guild-map', env(), { headers: { Authorization: `Bearer ${TOKEN}` } });
+    const value = await response.json();
+    check('.217 authorized map route exposes only the fixed Discord ' + status + ' category', response.status === 502 && JSON.stringify(value) === JSON.stringify({error:category}));
+    const anonymous = await get('https://verify.example/admin/guild-map', env());
+    check('.217 Discord diagnostics remain watcher-authorized', anonymous.status === 401);
+  }
+  fetchResponder = null;
 
   console.log("\n== the top-level catch ==");
   const errLog = [];

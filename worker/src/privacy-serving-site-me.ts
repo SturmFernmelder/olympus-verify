@@ -3,12 +3,13 @@
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type {Env} from './env';
 import {nativeErasureMode} from './privacy-native-mode';
-import {currentUser,readSession,apiJson,SESSION_COOKIE,ON_BOARD,ROLE_OF_FIRST,type SiteUser} from './site-core';
-import {meData} from './site-api';
+import {currentUser,readSession,apiJson,isSiteAdmin,SESSION_COOKIE,ON_BOARD,ROLE_OF_FIRST,type SiteUser} from './site-core';
+import {meData,meSeatsData} from './site-api';
+import {ownPublicationReadSql} from './site-appointed-identities';
 import {ensureSchema} from './schema';
 import {PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,type AdmissionLayout} from './privacy-write-admission';
 import {ADMISSION_EXPECTED_JSON,ADMISSION_PHYSICAL_EXPECTED_JSON} from './privacy-write-admission-catalogue';
-import {privacyBoundSiteEnv,privacyGenerationLiteralFenceSql,privacyGenerationFenceSql,PRIVACY_DB_NOW,PrivacySiteRequestHeld} from './privacy-serving-authority';
+import {privacyBoundSiteEnv,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql,privacyGenerationFenceSql,PRIVACY_DB_NOW,PrivacySiteRequestHeld} from './privacy-serving-authority';
 import {createServingRecoveryGateClient,bindServingGateClientWitness,readServingRecoveryFloor,type ServingGateClient,type ServingOriginalConfig,type ServingGateEnvironment} from './privacy-serving-recovery-gate-client';
 import {prepareServingInvocation,dispatchServingInvocation,runServingChild,servingContextCustody,type ServingContext} from './privacy-serving-recovery-context';
 
@@ -20,11 +21,11 @@ type Method=Readonly<{receiver:object;owner:object;fn:Function}>;
 type Slot=Readonly<{key:string;present:boolean;value:unknown}>;
 type Session=Readonly<{u:string;v:number;e:number;g:string|null;n:string}>;
 type Plan=Readonly<{sql:string;values:readonly (string|number|null)[]|null}>;
-type Group=Readonly<{label:string;method:'first'|'all'|'batch';plans:readonly Plan[]}>;
+type Group=Readonly<{label:string;method:'first'|'all'|'batch';plans:readonly Plan[];repeat?:boolean}>;
 type RawRecord={raw:D1PreparedStatement;plan:Plan;bound:boolean;methods:ReadonlyMap<string,Method|null>};
 type Active={child:ServingContext;label:string;expected:readonly Plan[];prepared:RawRecord[];nativeStarted:boolean;direct:boolean};
 export type SiteMeOrigin=Readonly<{scope:'site_me_original_read';externalOriginQualified:false;readyToReopen:false}>;
-type Origin={env:Env;request:Request;requestTuple:string;authRequest:Request;authTuple:string;cookie:string;slots:readonly Slot[];native:D1Database;prepare:Method;batch:Method;metadata:object;metadataTuple:string;config:ServingOriginalConfig;layout:AdmissionLayout;client:ServingGateClient;created:number;expires:number;id:string;nonce:string;phase:'captured'|'running'|'terminal'|'unknown';spent:boolean;session:Session|null;originalRead:OriginalSiteSession|null;user:Readonly<SiteUser>|null;active:Active|null;admitted:D1Database|null;sourceEnv:Env|null;dataIndex:number;dataGroups:readonly Group[];failed:boolean};
+type Origin={seatsOnly:boolean;env:Env;request:Request;requestTuple:string;authRequest:Request;authTuple:string;cookie:string;slots:readonly Slot[];native:D1Database;prepare:Method;batch:Method;metadata:object;metadataTuple:string;config:ServingOriginalConfig;layout:AdmissionLayout;client:ServingGateClient;created:number;expires:number;id:string;nonce:string;phase:'captured'|'running'|'terminal'|'unknown';spent:boolean;session:Session|null;originalRead:OriginalSiteSession|null;user:Readonly<SiteUser>|null;active:Active|null;admitted:D1Database|null;sourceEnv:Env|null;dataIndex:number;dataGroups:readonly Group[];failed:boolean};
 const origins=new WeakMap<SiteMeOrigin,Origin>();
 const held=():never=>{throw new PrivacySiteRequestHeld();};
 const hex=(v:unknown,n:number):v is string=>typeof v==='string'&&v.length===n&&!/[^0-9a-f]/.test(v);
@@ -85,7 +86,7 @@ export function captureServingSiteMeOrigin(request:Request,env:Env):SiteMeOrigin
  // Its cookie comes only from the entry's captured native header; no late session or credential is adopted.
  const authRequest=Object.freeze(new NativeRequest(url.toString(),{method:'GET',headers:new NativeHeaders({Cookie:snapshot.cookie})})),authTuple=requestTuple(authRequest).tuple;
  const h=Object.freeze({scope:'site_me_original_read' as const,externalOriginQualified:false as const,readyToReopen:false as const});
- const o:Origin={env,request,requestTuple:snapshot.tuple,authRequest,authTuple,cookie:snapshot.cookie,slots,native:native as D1Database,prepare:method(native,'prepare'),batch:method(native,'batch'),metadata:meta,metadataTuple:tuple,config,layout,client,created,expires:created+300,id:random(),nonce:random(),phase:'captured',spent:false,session:null,originalRead:null,user:null,active:null,admitted:null,sourceEnv:null,dataIndex:0,dataGroups:[],failed:false};
+ const o:Origin={seatsOnly:url.search==='?view=seats',env,request,requestTuple:snapshot.tuple,authRequest,authTuple,cookie:snapshot.cookie,slots,native:native as D1Database,prepare:method(native,'prepare'),batch:method(native,'batch'),metadata:meta,metadataTuple:tuple,config,layout,client,created,expires:created+300,id:random(),nonce:random(),phase:'captured',spent:false,session:null,originalRead:null,user:null,active:null,admitted:null,sourceEnv:null,dataIndex:0,dataGroups:[],failed:false};
  origins.set(h,o);bindServingGateClientWitness(client,()=>bindings(o));current(o);return h;
 }
 function session(v:unknown):Session{assertOriginalSiteSessionRead(v as OriginalSiteSession);if(!v||typeof v!=='object')return held();const u=data(v,'u'),ver=data(v,'v'),e=data(v,'e'),g=data(v,'g'),n=data(v,'n');if(typeof u!=='string'||!/^\d{17,20}$/.test(u)||!integer(ver,1)||!integer(e,1)||g!==null&&!hex(g,32)||!hex(n,32))return held();return Object.freeze({u,v:ver,e,g:g as string|null,n});}
@@ -95,7 +96,7 @@ function user(v:SiteUser,o:Origin):Readonly<SiteUser>{const s=o.session;if(!s||!
 }
 function projected(o:Origin,db:D1Database):Env{const ds=Object.getOwnPropertyDescriptors(o.env);ds.DB={value:db,writable:false,configurable:false,enumerable:true};return Object.freeze(Object.create(Object.getPrototypeOf(o.env),ds)) as Env;}
 function schemaPlan(o:Origin):Plan{return Object.freeze({sql:PRIVACY_ADMISSION_SCHEMA_PROOF_SQL,values:Object.freeze(['','',o.layout==='canonical'?ADMISSION_EXPECTED_JSON:ADMISSION_PHYSICAL_EXPECTED_JSON,o.config.writeEpoch])});}
-function sitePlan(o:Origin):Plan{const s=o.session??held();return Object.freeze({sql:`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?2 AND account_incarnation='${s.n}')
+function sitePlan(o:Origin):Plan{const s=o.session??held();return Object.freeze({sql:`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND session_version=?2 AND ${privacyAccountIncarnationLiteralFenceSql('account_incarnation',s.n)})
  AND ?3>${PRIVACY_DB_NOW} AND ${privacyGenerationFenceSql(1,4)} THEN 1 ELSE json_extract('privacy_site_request_refused','$') END AS admitted`,values:Object.freeze([s.u,s.v,s.e,s.g])});}
 function ownArray<T>(v:unknown,maximum:number):readonly T[]{if(!Array.isArray(v))return held();const length=data(v,'length');if(!integer(length)||length>maximum||Reflect.ownKeys(v).some(k=>k!=='length'&&(typeof k!=='string'||!/^(?:0|[1-9]\d*)$/.test(k)||Number(k)>=length)))return held();return Object.freeze(Array.from({length},(_,i)=>data(v,String(i)) as T));}
 function sameValues(a:readonly unknown[]|null,b:readonly unknown[]|null):boolean{if(a===null||b===null)return a===b;const x=ownArray<unknown>(a,16),y=ownArray<unknown>(b,16);return x.length===y.length&&x.every((v,i)=>(v===null||typeof v==='string'||typeof v==='number'&&Number.isSafeInteger(v))&&v===y[i]);}
@@ -123,7 +124,7 @@ async function child<T>(o:Origin,parent:ServingContext,label:string,plans:readon
  current(o);if(!result.claimed||result.state!=='settled'||!result.nativeTerminal){o.failed=true;return held();}return result.value as T;
 }
 function groups(o:Origin):readonly Group[]{const id=o.session!.u,p=(sql:string,bind=true)=>payload(sql,bind?[id]:null),g=(label:string,method:Group['method'],plans:Plan[]):Group=>Object.freeze({label,method,plans:Object.freeze(plans)});
- const out=[
+ const out=o.seatsOnly?[]:[
   g('settings','all',[p("SELECT key, value FROM site_settings WHERE key < 'newsWebhook:' OR key >= 'newsWebhook;'",false)]),
   g('application','first',[p('SELECT * FROM site_applications WHERE discord_id = ?1')]),
   g('votes','all',[p('SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot')]),
@@ -149,17 +150,19 @@ function groups(o:Origin):readonly Group[]{const id=o.session!.u,p=(sql:string,b
     WHERE q.discord_id = ?1 AND q.status IN ('queued','written')
     ORDER BY q.priority DESC, q.id LIMIT 5`)
  ]));
- out.push(g('reapply','first',[p("SELECT old_name, new_name, decided_at FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply' ORDER BY decided_at DESC LIMIT 1")]));return Object.freeze(out);
+ if(!o.seatsOnly&&!o.user!.denied&&!isSiteAdmin(o.env,id))for(const key of ['office_12','office_50'])out.push(Object.freeze({...g(key,'all',[p(ownPublicationReadSql([key]))]),repeat:true}));
+ if(!o.seatsOnly)out.push(g('reapply','first',[p("SELECT old_name, new_name, decided_at FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply' ORDER BY decided_at DESC LIMIT 1")]));return Object.freeze(out);
 }
 function authProducer(o:Origin):D1Database{const sql=`SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation = ?2 AND session_version = ?3 AND ?4>CAST(strftime('%s','now') AS INTEGER) AND ${privacyGenerationLiteralFenceSql('discord_id',o.session!.g)}`;let prepared=false,bound=false,read=false;
  return Object.freeze({prepare(text:string){current(o);if(prepared||text!==sql)return held();prepared=true;return Object.freeze({bind(...values:unknown[]){current(o);if(bound||!sameValues(values,[o.session!.u,o.session!.n,o.session!.v,o.session!.e]))return held();bound=true;return Object.freeze({async first(){current(o);if(read||!o.active||o.active.label!=='auth')return held();read=true;return o.admitted!.prepare(sql).bind(o.session!.u,o.session!.n,o.session!.v,o.session!.e).first<SiteUser>();}});}});}}) as unknown as D1Database;
 }
 function dataProducer(o:Origin,parent:ServingContext,boundEnv:Env):D1Database{
- const records=new WeakMap<object,Plan>();let prepared=0;
- const validate=(plans:readonly Plan[],methodName:Group['method']):Group=>{current(o);const g=o.dataGroups[o.dataIndex];if(!g||g.method!==methodName||g.plans.length!==plans.length||plans.some((p,i)=>p.sql!==g.plans[i].sql||!sameValues(p.values,g.plans[i].values)))return held();o.dataIndex++;return g;};
+ const records=new WeakMap<object,Plan>();let prepared=0,repeatUsed=false;
+ // Only the two existing office producers may repeat their exact read once after crypto awaits.
+ const validate=(plans:readonly Plan[],methodName:Group['method']):Group=>{current(o);const sameGroup=(g:Group|undefined)=>g&&g.method===methodName&&g.plans.length===plans.length&&plans.every((p,i)=>p.sql===g.plans[i].sql&&sameValues(p.values,g.plans[i].values));const g=o.dataGroups[o.dataIndex];if(sameGroup(g)){o.dataIndex++;repeatUsed=false;return g;}const previous=o.dataGroups[o.dataIndex-1];if(previous?.repeat&&!repeatUsed&&sameGroup(previous)){repeatUsed=true;return previous;}return held();};
  const execute=async(plans:readonly Plan[],methodName:Group['method']):Promise<D1Result[]>=>{const g=validate(plans,methodName),nativePlans=Object.freeze([schemaPlan(o),sitePlan(o),...plans]);return child(o,parent,g.label,nativePlans,false,async()=>{current(o);const own=plans.map(p=>{const s=boundEnv.DB.prepare(p.sql);return p.values===null?s:s.bind(...p.values);});return boundEnv.DB.batch(own);});};
  const make=(sql:string,values:readonly (string|number|null)[]|null):D1PreparedStatement=>{const p=payload(sql,values),s=Object.freeze({bind(...args:unknown[]){current(o);if(values!==null||args.some(v=>v!==null&&typeof v!=='string'&&typeof v!=='number'||typeof v==='number'&&!Number.isSafeInteger(v)))return held();return make(sql,args as (string|number|null)[]);},async all(){return(await execute([p],'all'))[0];},async first(column?:string){if(column!==undefined)return held();return(await execute([p],'first'))[0]?.results[0]??null;},run(){return held();},raw(){return held();}});records.set(s,p);return s as unknown as D1PreparedStatement;};
- return Object.freeze({prepare(sql:string){current(o);if(typeof sql!=='string'||++prepared>11)return held();return make(sql,null);},async batch(statements:D1PreparedStatement[]){const plans=ownArray<object>(statements,3).map(s=>records.get(s)??held());return execute(Object.freeze(plans),'batch');}}) as unknown as D1Database;
+ return Object.freeze({prepare(sql:string){current(o);if(typeof sql!=='string'||++prepared>(o.seatsOnly?3:15))return held();return make(sql,null);},async batch(statements:D1PreparedStatement[]){const plans=ownArray<object>(statements,3).map(s=>records.get(s)??held());return execute(Object.freeze(plans),'batch');}}) as unknown as D1Database;
 }
 /** A spent origin cannot retry; only this source invokes the genuine fixed schema/auth/data producers. */
 export async function dispatchServingSiteMe(h:SiteMeOrigin|undefined):Promise<Response>{const o=h&&origins.get(h);if(!o||o.spent)return held();o.spent=true;const output:{response:Response|null;headers:string|null}={response:null,headers:null};
@@ -173,7 +176,7 @@ export async function dispatchServingSiteMe(h:SiteMeOrigin|undefined):Promise<Re
    else{o.originalRead=signed;o.session=session(signed);current(o);const authSql=`SELECT * FROM site_users WHERE discord_id = ?1 AND account_incarnation = ?2 AND session_version = ?3 AND ?4>CAST(strftime('%s','now') AS INTEGER) AND ${privacyGenerationLiteralFenceSql('discord_id',o.session.g)}`,auth=payload(authSql,[o.session.u,o.session.n,o.session.v,o.session.e]);
     const found=await child(o,parent,'auth',Object.freeze([schemaPlan(o),auth]),false,()=>currentUser(projected(o,authProducer(o)),o.authRequest));current(o);
     if(!found)output.response=apiJson({error:'signed_out',message:'You are signed out. Sign in with Discord again.'},401);
-    else{o.user=user(found,o);o.dataGroups=groups(o);const bound=privacyBoundSiteEnv(o.sourceEnv,o.originalRead!),producer=projected(o,dataProducer(o,parent,bound)),dto=await meData(producer,o.user);current(o);if(o.dataIndex!==o.dataGroups.length)return held();plain(dto);output.response=apiJson(dto);}
+    else{o.user=user(found,o);o.dataGroups=groups(o);const bound=privacyBoundSiteEnv(o.sourceEnv,o.originalRead!),producer=projected(o,dataProducer(o,parent,bound)),dto=o.seatsOnly?await meSeatsData(producer,o.user):await meData(producer,o.user);current(o);if(o.dataIndex!==o.dataGroups.length)return held();plain(dto);output.response=apiJson(dto);}
    }
    const result=output.response??held();output.headers=JSON.stringify([...result.headers]);const body=await result.clone().text();current(o);const resultDigest=await digest(['site-me-response-known-v1',rootDigest,result.status,output.headers,body]);current(o);return {kind:'known_local' as const,value:result,resultDigest};
   });

@@ -163,7 +163,7 @@ function originalReminderRow(row:Reminder):Readonly<Reminder>{
 export async function runEventReminders(env: Env): Promise<number> {
   if (!enabled(env)) return 0;
   const d = destination(env); if (!d) return 0;
-  const nativeRow = await env.DB.prepare(`SELECT r.*,(SELECT generation FROM privacy_subjects WHERE subject_id=r.actor) AS privacy_generation FROM community_event_reminders r WHERE r.state='armed' AND ${current} ORDER BY r.last_attempt_at,r.starts_at,r.event_id LIMIT 1`).first<Reminder>();
+  const nativeRow = await env.DB.prepare(`SELECT r.*,(SELECT generation FROM privacy_subjects WHERE subject_id=r.actor) AS privacy_generation FROM community_event_reminders r WHERE r.state='armed' AND r.consent_account_incarnation IS NOT NULL AND ${current} ORDER BY r.last_attempt_at,r.starts_at,r.event_id LIMIT 1`).first<Reminder>();
   if (!nativeRow) return 0;
   const r=originalReminderRow(nativeRow);if(r.consent_account_incarnation===null)return 0;
   const originalNonce=privacyAccountIncarnation(r.consent_account_incarnation);
