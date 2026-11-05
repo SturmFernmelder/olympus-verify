@@ -71,7 +71,7 @@
     "test:launch229": "node tests/guild_affiliation229_test.cjs && node tests/launch_operations229_test.cjs && node tests/launch_operations229_native_test.cjs && node tests/frontend_launch229_test.cjs && node tests/guild_alias229_test.cjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261023.1",
+    "@cloudflare/workers-types": "5.20261029.1",
     "typescript": "5.9.3",
     "wrangler": "4.155.0"
   }
