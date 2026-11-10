@@ -6,9 +6,13 @@ const expected=require('./fixtures/rt06-verify210-successor.json');
 const sha=value=>crypto.createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function sourceChecks(src){return{restore:sha(fs.readFileSync(path.join(src,'restore.ts')))===expected.restoreSHA256,fixture:sha(fs.readFileSync(path.join(__dirname,'fixtures/rt06-verify210-successor.json')))==='bb12938e1b55b0047ab6d841c78895131173ac1db88522325e93f674de658b8e'};}
-function inspect(r,{variant,pin,digestOf}){
+function inspect(r,{variant,pin,digestOf,readProofComparison265}){
+ let comparison=null,readProofRejection=null;
+ try{comparison=readProofComparison265(r.trace);}
+ catch(error){if(!(error instanceof Error)||error.message!=='identity265_read_proof_tuple')throw error;readProofRejection=error.message;}
  const e=expected.cases[variant],cache=r.trace.filter(v=>v.sql==='UPDATE seen_interactions SET response = ?2 WHERE id = ?1');
- const physical=!!e&&sha(r.trace)===e.rawTraceSHA256;
+ // The sealed whole-trace oracle consumes a comparison copy; raw cache/row guards stay current.
+ const physical=!!e&&comparison!==null&&sha(comparison.trace)===e.rawTraceSHA256;
  const reconstructed={...r,trace:r.trace.slice(),response:e?.oldResponse};
  // One closed whole event is checked before replacing its sole response bind.
  // Nothing is searched/replaced inside text and no other event is reordered.
@@ -20,7 +24,9 @@ function inspect(r,{variant,pin,digestOf}){
   custody_rows:sha(r.twelve)===pin.twelve&&r.errors.length===0&&r.laneCalls.length===0&&r.freshFailed.length===0&&r.patchReceipts.length===0,
   historical_trace:physical&&exactCache&&same(digestOf(reconstructed),pin),
   current_trace:physical&&same(digestOf(r),e.currentDigest)};
- return{checks,failures:Object.keys(checks).filter(k=>!checks[k]),all:Object.values(checks).every(Boolean)};
+ const all=Object.values(checks).every(Boolean);
+ if(all)console.log('HELD210_HISTORICAL_PROJECTION_COPY_WITNESS',JSON.stringify({case:variant,...comparison.witness,expectedHistoricalTraceSHA256:e.rawTraceSHA256}));
+ return{checks,failures:Object.keys(checks).filter(k=>!checks[k]),all,readProofRejection};
 }
 function negativeMutations(r,context){
  const list=[],add=(name,key,mutate)=>list.push({name,key,mutate}),editBody=(x,change)=>{const b=JSON.parse(x.response.body);change(b);x.response.body=JSON.stringify(b);};
@@ -39,6 +45,6 @@ function negativeMutations(r,context){
  add('changed custody row','custody_rows',x=>{x.twelve[0].state='pending';});
  add('changed lane custody','custody_rows',x=>x.laneCalls.push('settleLaneBan'));
  add('changed error state','custody_rows',x=>x.errors.push('synthetic'));
- return list.map(({name,key,mutate})=>{const copy=JSON.parse(JSON.stringify(r));mutate(copy);const result=inspect(copy,context);return{name,key,refused:!result.all&&result.checks[key]===false};});
+ return list.map(({name,key,mutate})=>{const copy=JSON.parse(JSON.stringify(r));mutate(copy);const result=inspect(copy,context),expectedRejection=name==='changed other SQL bind'&&key==='physical_trace'?'identity265_read_proof_tuple':null;return{name,key,refused:!result.all&&result.checks[key]===false&&result.readProofRejection===expectedRejection};});
 }
 module.exports={sourceChecks,inspect,negativeMutations};

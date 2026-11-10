@@ -283,6 +283,42 @@ const A6 = [
   [/The guild roles are removed automatically if no other character of this account is still in the guild\./g, 'The Guild Member role is left as it is; remove it in Discord by hand if they should lose it.'],
 ];
 const mask = (text) => A6.reduce((t, [re, to]) => t.replace(re, to), text);
+// The finite successor helpers also pin whole physical traces. Supply only the
+// same closed read-proof inverse as a comparison copy; retain their raw guards.
+function successorReadProofComparison265(trace,banLiveConfiguredLane=false){
+  const rawCurrentTraceSHA256=sha(trace),comparison=comparisonReadProof265(trace),lane=banLiveConfiguredLane?successorLaneReadProof265(comparison.trace):null,copy=lane?.trace??comparison.trace;
+  if(lane&&!successorLaneControls265Done){successorLaneReadProofControls265(comparison.first,lane.first);successorLaneControls265Done=true;}
+  const retained=trace.every((frame,index)=>copy[index]===frame||frame.k==='sql'&&(frame.tag==='legacy'||banLiveConfiguredLane&&frame.tag==='lane')&&frame.params===copy[index].params&&sha(frame.sql)===READ_PROOF265.currentSHA256&&sha(copy[index].sql)===READ_PROOF265.historicalSHA256);
+  if(rawCurrentTraceSHA256!==sha(trace)||!retained||copy.length!==trace.length)throw Error('identity265_successor_trace_drift');
+  const historicalProof=copy[trace.indexOf(comparison.first)],historicalLane=lane?copy[trace.indexOf(lane.first)]:null;
+  return {trace:copy,witness:{kind:'strict_readproof_projection_copy_for_historical_successor_comparison',legacyFrames:comparison.count,laneFrames:lane?.count??0,currentProofBytes:Buffer.byteLength(comparison.first.sql),currentProofSHA256:sha(comparison.first.sql),historicalProofBytes:Buffer.byteLength(historicalProof.sql),historicalProofSHA256:sha(historicalProof.sql),manifestSHA256:sha(comparison.first.params[2]),canonicalBindCount:comparison.first.params.length,laneCurrentProofSHA256:lane?sha(lane.first.sql):null,laneHistoricalProofSHA256:historicalLane?sha(historicalLane.sql):null,laneCanonicalBindCount:lane?lane.first.params.length:null,rawCurrentTraceSHA256,projectionCopyTraceSHA256:sha(copy),rawCurrentTraceRetained:true,allOtherFramesRetained:retained,traceLengthUnchanged:true}};
+}
+// Only the live configured ban's whole-trace successor includes admitted lane
+// reads. Keep the original legacy inverse and its default/controls unchanged.
+let successorLaneControls265Done=false;
+function successorLaneReadProof265(input,requiredCount=null){
+  if(!Array.isArray(input)||requiredCount!==null&&(!Number.isSafeInteger(requiredCount)||requiredCount<1))throw Error('identity265_lane_read_proof_trace');
+  let count=0,first=null;
+  const trace=input.map(frame=>{
+    if(!frame||frame.k!=='sql'||frame.tag!=='lane'||typeof frame.sql!=='string'||Buffer.byteLength(frame.sql)!==READ_PROOF265.currentBytes||sha(frame.sql)!==READ_PROOF265.currentSHA256)return frame;
+    if(Object.keys(frame).join(',')!=='k,tag,sql,params'||!Array.isArray(frame.params)||Object.keys(frame.params).join(',')!=='0,1,2,3'||frame.params.length!==4||frame.params[0]!==''||frame.params[1]!==''||typeof frame.params[2]!=='string'||sha(frame.params[2])!==COMPOSED_MANIFEST_SHA||frame.params[3]!=='a'.repeat(32))throw Error('identity265_lane_read_proof_tuple');
+    if(frame.sql.split(READ_PROOF265.currentWindow).length!==2)throw Error('identity265_lane_read_proof_window');
+    const historical=frame.sql.replace(READ_PROOF265.currentWindow,READ_PROOF265.historicalWindow);
+    if(Buffer.byteLength(historical)!==READ_PROOF265.historicalBytes||sha(historical)!==READ_PROOF265.historicalSHA256)throw Error('identity265_lane_read_proof_inverse');
+    count++;first??=frame;return {...frame,sql:historical};
+  });
+  if(count<1||requiredCount!==null&&count!==requiredCount)throw Error('identity265_lane_read_proof_count');
+  return {trace,count,first};
+}
+function successorLaneReadProofControls265(legacyFrame,frame){
+  const immutable=Object.freeze({...frame,params:Object.freeze(frame.params.slice())}),single=Object.freeze([immutable]),copied=successorLaneReadProof265(single,1);
+  check('.265 ban lane comparison preserves original raw tuple and canonical binds',single[0]===immutable&&sha(immutable.sql)===READ_PROOF265.currentSHA256&&sha(copied.trace[0].sql)===READ_PROOF265.historicalSHA256&&copied.trace[0].params===immutable.params);
+  const binds=[['first bind',['x',...immutable.params.slice(1)]],['second bind',['','x',...immutable.params.slice(2)]],['manifest',[...immutable.params.slice(0,2),immutable.params[2]+' ',immutable.params[3]]],['epoch',[...immutable.params.slice(0,3),'b'.repeat(32)]],['bind order',[immutable.params[2],immutable.params[1],immutable.params[0],immutable.params[3]]],['extra bind',[...immutable.params,1]]];
+  const probes=[['missing',[],'count'],['duplicate',[immutable,immutable],'count'],['SQL prefix',[{...immutable,sql:' '+immutable.sql}],'count'],['SQL suffix',[{...immutable,sql:immutable.sql+' '}],'count'],['SQL line endings',[{...immutable,sql:immutable.sql.replaceAll('\n','\r\n')}],'count'],['changed index',[{...immutable,sql:immutable.sql.replace('audit_actor_action WHERE','audit_ts WHERE')}],'count'],['legacy context',[{...immutable,tag:'legacy'}],'count'],['foreign context',[{...immutable,tag:'foreign'}],'count'],['wrong kind',[{...immutable,k:'http'}],'count'],['extra key',[{...immutable,extra:true}],'tuple'],['key order',[{tag:immutable.tag,k:immutable.k,sql:immutable.sql,params:immutable.params}],'tuple'],...binds.map(([name,params])=>[name,[{...immutable,params}],'tuple'])];
+  for(const[name,input,reason]of probes){let refused=false;try{successorLaneReadProof265(input,1);}catch(error){if(!(error instanceof Error)||error.message!=='identity265_lane_read_proof_'+reason)throw error;refused=true;}check('.265 exact ban lane comparison refuses '+name,refused);}
+  const defaultCopy=successorReadProofComparison265([legacyFrame,immutable]);
+  check('.265 default successor comparison leaves lane proof untouched outside live configured ban',defaultCopy.trace[1]===immutable&&defaultCopy.witness.laneFrames===0);
+}
 const digestOf = (r, masked = false) => {
   // Exact paired public-copy comparison only; raw r.trace/r.response remain current.
   if(!RECORD&&!DUMP){
@@ -585,10 +621,10 @@ const NEW_TEXT = { ban: 'New guild roles: removal runs right after this reply (o
         }
       }else if(phase==='pre'&&profile==='plain'&&variant==='absent'&&scenario==='queue')check('.227 query inverse leaves non-ingest traces untouched',source227.traceInverse(r.trace)===r.trace);
       check(`${where}: no deferred work threw`, r.errors.length === 0, r.errors);
-      const banContext={phase,profile,variant,pin,mask,digestOf};
+      const banContext={phase,profile,variant,pin,mask,digestOf,readProofComparison265:trace=>successorReadProofComparison265(trace,phase==='live'&&variant==='configured')};
       const banResult=scenario==='ban'?ban210.inspect(r,banContext):null;
       const heldScope=phase==='pre'&&profile==='settlement'&&scenario==='verify';
-      const heldContext={variant,pin,digestOf},heldResult=heldScope?held210.inspect(r,heldContext):null;
+      const heldContext={variant,pin,digestOf,readProofComparison265:successorReadProofComparison265},heldResult=heldScope?held210.inspect(r,heldContext):null;
       const recoveryContext={pin,digestOf,masked:variant==='configured'&&phase==='live'},recoveryResult=scenario==='unbind'?recovery217.inspect(r,recoveryContext):null;
       if(scenario==='ban'&&phase==='pre'&&variant==='absent'){
         for(const mutation of ban210.negativeMutations(r,banContext))check(`ban210 ${profile} successor refuses ${mutation.name} through its specific ${mutation.key} oracle`,mutation.refused);

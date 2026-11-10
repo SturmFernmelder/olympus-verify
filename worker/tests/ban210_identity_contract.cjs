@@ -27,7 +27,10 @@ function sourceChecks(src,pins){
   historicalPins:sha(pins)===expected.historicalPINSSHA256};
 }
 function inspect(r,context){
- const {phase,profile,variant,pin,mask,digestOf}=context,casePin=expected.cases[[phase,profile,variant].join('/')];
+ const {phase,profile,variant,pin,mask,digestOf,readProofComparison265}=context,casePin=expected.cases[[phase,profile,variant].join('/')];
+ let comparison=null,readProofRejection=null;
+ try{comparison=readProofComparison265(r.trace);}
+ catch(error){if(!(error instanceof Error)||error.message!=='identity265_read_proof_tuple')throw error;readProofRejection=error.message;}
  const events=r.trace.filter(e=>e.tag==='legacy'),sql=events.filter(e=>e.k==='sql'),http=events.filter(e=>e.k==='http');
  const patch=http.filter(e=>e.method==='PATCH'),body=patch.length===1?parse(patch[0].body):null;
  const initial={status:200,body:JSON.stringify({type:5,data:{flags:64}})};
@@ -56,7 +59,9 @@ function inspect(r,context){
   if(selected.length===1){selected[0].id=OLD_ID;selected[0].claim_nonce=OLD_NONCE;}
  }
  const receipt=r.patchReceipts?.[0];
- const physicalIntact=!!casePin&&sha(r.trace)===casePin.rawTraceSHA256;
+ // These historical hashes consume the strict projection copy, never raw r.trace.
+ const comparisonSQL=comparison?.trace.filter(e=>e.tag==='legacy'&&e.k==='sql');
+ const physicalIntact=!!casePin&&comparison!==null&&sha(comparison.trace)===casePin.rawTraceSHA256;
  const checks={initial:same(r.response,initial),one_patch:!!onePatch,
   original_content:!!former&&sha(phase==='live'&&variant==='configured'?mask(JSON.stringify(former)):JSON.stringify(former))===pin.response,
   provider_shape:same(http.map(({method,path,reason})=>({method,path,reason})),expected.providerShape[profile]),
@@ -66,15 +71,17 @@ function inspect(r,context){
   native_epoch_manifest:native,
   cache_position:cacheIndex===(profile==='plain'?4:5)&&same(cacheEvent?.params,[INTERACTION,JSON.stringify(initial)]),
   physical_trace:physicalIntact,
-  sql_order:!!casePin&&sha(sql.map(e=>e.sql))===casePin.rawLegacySQLSequenceSHA256,
+  sql_order:!!casePin&&comparison!==null&&sha(comparisonSQL.map(e=>e.sql))===casePin.rawLegacySQLSequenceSHA256,
   batch_shapes:!!casePin&&same(events.filter(e=>e.k==='batch').map(e=>e.n),casePin.legacyBatchSizes),
   business_order:!!casePin&&sha(cache.map(e=>e.sql))===casePin.businessSQLSequenceSHA256,
   historical_rows:sha(rows)===pin.twelve,row_correlation:rowCorrelation,
   // Rejected synthetic mutations must not enter the original observed-manifest
-  // ledger. Only an intact exact physical trace reaches that existing oracle.
+  // ledger. Only an intact whole historical comparison copy reaches that oracle.
   successor_digest:physicalIntact&&same(digestOf(r,phase==='live'&&variant==='configured'),casePin.successorDigest),
   bounded_counts:sql.length===(profile==='plain'?57:97)&&http.length===(profile==='plain'?4:9)};
- return {checks,failures:Object.keys(checks).filter(k=>!checks[k]),all:Object.values(checks).every(Boolean)};
+ const all=Object.values(checks).every(Boolean);
+ if(all)console.log('BAN210_HISTORICAL_PROJECTION_COPY_WITNESS',JSON.stringify({case:[phase,profile,variant].join('/'),...comparison.witness,expectedHistoricalTraceSHA256:casePin.rawTraceSHA256,projectionCopyLegacySQLSequenceSHA256:sha(comparisonSQL.map(e=>e.sql)),expectedHistoricalLegacySQLSequenceSHA256:casePin.rawLegacySQLSequenceSHA256}));
+ return {checks,failures:Object.keys(checks).filter(k=>!checks[k]),all,readProofRejection};
 }
 function negativeMutations(r,context){
  const mutations=[],add=(name,key,mutate)=>mutations.push({name,key,mutate});
@@ -105,6 +112,6 @@ function negativeMutations(r,context){
   add('wrong ban row identity','row_correlation',x=>{row(x).id='f'.repeat(32);});
   add('wrong claim correlation','row_correlation',x=>{x.trace.find(e=>e.sql?.startsWith("UPDATE role_settlements SET state='dispatching'")).params[2]='f'.repeat(32);});
  }
- return mutations.map(({name,key,mutate})=>{const copy=JSON.parse(JSON.stringify(r));mutate(copy);const result=inspect(copy,context);return{name,key,refused:!result.all&&result.checks[key]===false};});
+ return mutations.map(({name,key,mutate})=>{const copy=JSON.parse(JSON.stringify(r));mutate(copy);const result=inspect(copy,context),expectedRejection=key==='native_epoch_manifest'&&(name==='changed epoch'||name==='changed manifest')?'identity265_read_proof_tuple':null;return{name,key,refused:!result.all&&result.checks[key]===false&&result.readProofRejection===expectedRejection};});
 }
 module.exports={sourceChecks,inspect,negativeMutations};
