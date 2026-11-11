@@ -1,3 +1,4 @@
+import {D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} from './d1-performance-index';
 /** Optional workerd-owned metadata is a separately checked schema companion, never application data.
  * Absence or the exact provider DDL and one ordinary two-column main-table summary are allowed.
  * The exact DDL supplies column types/defaults/primary-key facts. Argument-free table_list supplies
@@ -9,7 +10,10 @@
 export const PROVIDER_METADATA_DDL="CREATE TABLE _cf_METADATA (\n        key INTEGER PRIMARY KEY,\n        value BLOB\n      )" as const;
 // Exact UTF8 DDL bytes stay inert data; admission rejects CREATE even inside a logical SQL string.
 const PROVIDER_METADATA_DDL_HEX='435245415445205441424c45205f63665f4d4554414441544120280a20202020202020206b657920494e5445474552205052494d415259204b45592c0a202020202020202076616c756520424c4f420a20202020202029' as const;
-export const PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL="name COLLATE BINARY<>'_cf_METADATA'" as const;
+/** Shared application catalogue filter. Provider metadata and the optional
+ * application performance index are distinct companions, not the same owner.
+ * Every call site applies this to sqlite_master before column projection. */
+export const PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL=`(name COLLATE BINARY<>'_cf_METADATA' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL})`;
 export const PROVIDER_METADATA_CURRENT_SQL=`(
  NOT EXISTS(SELECT 1 FROM main.sqlite_master WHERE name COLLATE NOCASE='_cf_METADATA' OR tbl_name COLLATE NOCASE='_cf_METADATA')
  OR ((SELECT count(*) FROM main.sqlite_master WHERE name COLLATE NOCASE='_cf_METADATA' OR tbl_name COLLATE NOCASE='_cf_METADATA')=1

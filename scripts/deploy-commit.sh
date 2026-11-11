@@ -18,7 +18,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 commit="${1:-}"
 case "$commit" in
-  ""|-*) echo "usage: scripts/deploy-commit.sh <commit> [--target <fixed-target>] [--dry-run] [--outdir <dir>] [--tag <tree> --message <bundle-sha256>] [--bind-source-tree] [--keep-vars (main only)]" >&2; exit 1 ;;
+  ""|-*) echo "usage: scripts/deploy-commit.sh <commit> [--target <fixed-target>] [--dry-run] [--outdir <dir>] [--tag <tree> --message <bundle-sha256>] [--bind-source-tree] [--keep-vars (main/operator/successor)]" >&2; exit 1 ;;
 esac
 shift
 [ -z "${CLOUDFLARE_ENV:-}" ] || { echo "refusing: CLOUDFLARE_ENV is set; this project has no environments" >&2; exit 1; }
@@ -81,8 +81,13 @@ case "$target" in
   privacy-successor) config="wrangler.privacy-successor.private.toml"; source_binding="PRIVACY_SUCCESSOR_CONTROL_SOURCE_TREE" ;;
   *) echo "refusing: unknown fixed deployment target" >&2; exit 1 ;;
 esac
-if [ -n "$keep_vars" ] && [ "$target" != main ]; then
-  echo "refusing: --keep-vars is supported only for the main target" >&2; exit 1
+if [ -n "$keep_vars" ]; then
+  # .266: compatible private schema readers must retain their existing OFF
+  # switches and source/epoch variables while the exact index companion rolls out.
+  case "$target" in
+    main|privacy-operator|privacy-successor) ;;
+    *) echo "refusing: --keep-vars is unsupported for this fixed target" >&2; exit 1 ;;
+  esac
 fi
 if [ -n "$tag" ] || [ -n "$message" ]; then
   [ -n "$tag" ] && [ -n "$message" ] || { echo "refusing: --tag and --message must be supplied together" >&2; exit 1; }

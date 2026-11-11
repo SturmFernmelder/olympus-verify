@@ -78,6 +78,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".266", date: "2026-11-10", lines: [
+      "Reduced delays in guild rank synchronization and preserved pending work when a separate queue wake fails.",
+    ],
+  },
+  {
     build: ".265", date: "2026-11-10", lines: [
       "Background guild rank checks now use narrower audit lookups while retaining the same eligibility and safety checks.",
     ],

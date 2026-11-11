@@ -1,3 +1,4 @@
+import {D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} from './d1-performance-index';
 /** Isolated epoch-2 candidate. Native installation/closure only; no restore/reopen/provider authority.
  * The originating native database and original full control tuple are held in a private capability.
  * Byte/source hashes qualify constructor inputs; they never authenticate a remote current origin.
@@ -42,8 +43,8 @@ function proof(m:Manifest,legacy:boolean,mode:'closed'|'serving'|null,original:b
  AND (SELECT COUNT(*) FROM sqlite_master WHERE type='trigger')=${m.triggers.length}
  AND NOT EXISTS(SELECT name,sql FROM sqlite_master WHERE type='trigger' EXCEPT SELECT name,sql FROM expected_triggers)
  AND NOT EXISTS(SELECT name,sql FROM expected_triggers EXCEPT SELECT name,sql FROM sqlite_master WHERE type='trigger')
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' EXCEPT SELECT name,sql,tbl_name FROM expected_indexes)
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM expected_indexes EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_')
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} EXCEPT SELECT name,sql,tbl_name FROM expected_indexes)
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM expected_indexes EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL})
  AND (SELECT COUNT(*) FROM ${SLOT})=1 AND EXISTS(SELECT 1 FROM ${SLOT} WHERE singleton=1 AND typeof(singleton)='integer'
  AND protocol='${legacy?predecessor.protocol:VERSION}' AND typeof(active)='integer' AND active=0 AND nonce='' AND purpose=''
  AND typeof(entry_changes)='integer' AND entry_changes>=0 AND typeof(logical_changes)='integer' AND logical_changes>=0${epochClause}${original?` AND ${tupleSql(legacy)}=?2`:''})

@@ -1,6 +1,7 @@
 // Optional .242 features are lazy boundaries: preserve the original Core/QR initialization order.
 async function handleRoleContinuation242(...args:Parameters<typeof import('./role-reconcile242').handleRoleContinuation242>){return (await import('./role-reconcile242')).handleRoleContinuation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){return (await import('./role-reconcile242')).kickRoleWork242(...args);}
+async function kickRoleWorkGroups266(...args:Parameters<typeof import('./role-reconcile242').kickRoleWorkGroups266>){return (await import('./role-reconcile242')).kickRoleWorkGroups266(...args);}
 async function postIntake242(...args:Parameters<typeof import('./intake242').postIntake242>){return (await import('./intake242')).postIntake242(...args);}
 import './treasury-data242';
 import { isGuildCommand219, guildCommandReadOnly219, handleGuildCommand219 } from './guild-commands219';
@@ -367,8 +368,7 @@ async function runSourceCanonicalRankScheduledBody(env:Env,ctx:ExecutionContext,
   const calls=callBudget(counted);calls.limit=Math.min(calls.limit,CANONICAL_RANK_SCHEDULE_HTTP);
   const result=await pass.runFreshPass(counted,{calls,adm:pass.nativeAdmission232(count,CANONICAL_RANK_CHILD_STATEMENTS)},'scheduled',lane);check();
   // A signed new request owns its own statement/subrequest budget.
-  await kickRoleWork242(env,'requests');
-   if(result.continuation&&result.nativeSweep)await kickRoleWork242(env,'sweep',result.nativeSweep);check();
+  await kickRoleWorkGroups266(env,result.continuation?result.nativeSweep:undefined);check();
  });
 }
 
@@ -731,7 +731,8 @@ async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,r
   let counted = env, adm: Admission | undefined;
   try { const count = { used: 0 }; counted = countStatements(env, count); adm = lane.native232?.present ? pass.nativeAdmission232(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS) : pass.freshAdmission(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS); }
   catch { counted = env; adm = undefined; }
-  await pass.runFreshPass(counted, { calls: parent, adm, reserve: QUEUE_ROUTE_STATEMENTS }, 'watcher', lane);
+  const result=await pass.runFreshPass(counted, { calls: parent, adm, reserve: QUEUE_ROUTE_STATEMENTS }, 'watcher', lane);
+  if(result.continuation&&result.nativeSweep)await kickRoleWork242(env,'sweep',result.nativeSweep);
 }
 /** A refused fresh-role registration is audited when D1 still answers. Only the /queue caller rethrows (.160's response);
  * the new ingest and ban deferrals never change a response. */
@@ -740,7 +741,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-10.265 Bounded audit lookups";
+const BUILD = "2026-11-10.266 Bounded D1 reconciliation";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

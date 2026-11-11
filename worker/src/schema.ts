@@ -1,3 +1,4 @@
+import {D1_PERFORMANCE_INDEX_LEGACY_DDL} from './d1-performance-index';
 /**
  * Columns and tables added after the first deploy, applied by the Worker itself so a deploy never depends on someone
  * remembering to run a migration first. Everything here is idempotent: a column that exists is left alone, and two
@@ -104,6 +105,8 @@ async function migrate(env: Env) {
   // 1 Oct 2026 (.50): /verify-status asks whether this account ever linked (bnet-retention.ts everLinked). Same as
   // migrations/2026-10-01-audit-actor-action.sql.
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action)").run();
+  // .266 optional performance companion; only this dormant legacy migration runs DDL.
+  await env.DB.prepare(D1_PERFORMANCE_INDEX_LEGACY_DDL).run();
   // Older production restriction tables predate retain_until. Create the canonical cold shape first,
   // then consume a zero-row probe/guarded ALTER before the site batch's retain index can reference it.
   await env.DB.prepare(SITE_SCHEMA.find(s=>s.startsWith('CREATE TABLE IF NOT EXISTS community_restriction_cases'))!).run();

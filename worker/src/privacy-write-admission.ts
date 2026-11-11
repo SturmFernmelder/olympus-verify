@@ -1,3 +1,4 @@
+import {D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} from './d1-performance-index';
 /** Source-qualified transaction transport. Entry selection is explicit and installation is separate.
  * Original generation/session/custody predicates remain payload authority. The global slot supplies
  * only transaction-local exclusion of old unwrapped writers. A committed active slot is refused.
@@ -237,8 +238,8 @@ const TABLES_CURRENT=`${PROVIDER_METADATA_CURRENT_SQL} AND (SELECT sql FROM sqli
  AND NOT EXISTS(SELECT name,sql FROM expected EXCEPT SELECT name,sql FROM business)
  AND NOT EXISTS(SELECT name,column_name FROM actual_columns EXCEPT SELECT name,column_name FROM wanted_columns)
  AND NOT EXISTS(SELECT name,column_name FROM wanted_columns EXCEPT SELECT name,column_name FROM actual_columns)
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' EXCEPT SELECT name,sql,tbl_name FROM expected_indexes)
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM expected_indexes EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_')`;
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} EXCEPT SELECT name,sql,tbl_name FROM expected_indexes)
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM expected_indexes EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL})`;
 const SCHEMA_CURRENT=`${TABLES_CURRENT} AND (SELECT COUNT(*) FROM sqlite_master WHERE type='trigger')=json_array_length(?3,'$.triggers')
  AND NOT EXISTS(SELECT name,sql FROM sqlite_master WHERE type='trigger' EXCEPT SELECT name,sql FROM expected_triggers)
  AND NOT EXISTS(SELECT name,sql FROM expected_triggers EXCEPT SELECT name,sql FROM sqlite_master WHERE type='trigger')`;
@@ -252,7 +253,7 @@ const CURRENT_SCHEMA=`${CATALOGUE_CTE} SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${
  AND EXISTS(SELECT 1 FROM site_settings WHERE key='auditTypedNames' AND value='115')
  AND NOT EXISTS(SELECT 1 FROM site_applications WHERE position IN('raid_leader','raid_assist'))
  AND NOT EXISTS(SELECT 1 FROM site_votes WHERE ballot='raid_leader')
- AND NOT EXISTS(SELECT 1 FROM audit INDEXED BY audit_actor_action WHERE action='site.settings' AND CASE WHEN json_valid(details)
+ AND NOT EXISTS(SELECT 1 FROM audit WHERE action='site.settings' AND CASE WHEN json_valid(details)
  THEN json_type(details,'$.appointed') IS NOT NULL OR json_type(details,'$.notice')='text' ELSE 1 END)
  THEN 1 ELSE json_extract('privacy_current_schema_requires_attended_setup','$') END AS current`;
 /** Data only: this SQL literal issues no admission, operation or origin authority. */

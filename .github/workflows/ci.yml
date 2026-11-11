@@ -36,7 +36,7 @@ jobs:
       - run: npm ci
         working-directory: worker
       - name: TypeScript and targeted genuine Workerd D1 behavior
-        run: npm run qualify -- --target lease --target treasury
+        run: npm run qualify -- --target lease --target treasury --target reconciliation
         working-directory: worker
 
   addon:

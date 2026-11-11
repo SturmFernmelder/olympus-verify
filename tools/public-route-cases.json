@@ -1,0 +1,4865 @@
+{
+  "schema": "olympus-public-routes-v1",
+  "scope": "Existing90 owner-approved anonymous postdeployment behaviors; static source digests are computed from the supplied current commit, not frozen here.",
+  "cases": [
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/app.css",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/app.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/approved-guild-helper196.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/army.css",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/army.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/decoder.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/pilot.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/protocol.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/report.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/sanitized-export.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-live/savedvariables-import.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-qr-review/decoder.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-qr-review/manifest.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-qr-review/pilot.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/army-qr-review/protocol.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/council-composition-2026-10-19.md",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/downloads-manifest.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-adoption-checklist-r6.pdf",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-governance-r6.pdf",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-governance-r6.zip",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-guide-r6.pdf",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-release-preparation.pdf",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/olympus-templates-r6.pdf",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/operational-charter.md",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/organization.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/governance/reconciled-book.md",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/legal-view196.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/organization-view.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-phase1-decoder.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-phase1.html",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-phase1.mjs",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-vendor/jsqr-1.4.0.LICENSE.txt",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-vendor/jsqr-1.4.0.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/qr-vendor/jsqr-1.4.0.source.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/rank-planner/app.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/rank-planner/catalogue.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/rank-planner/model.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/rank-planner/styles.css",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/resources169.css",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/resources169.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/resources169.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/LICENSE-DATA.txt",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/analysis.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/art-provenance.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/art.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/calculator.css",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/calculator.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/data.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/guide-builds179.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/naked60-186.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/provenance.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/stat-effects186.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/stats60.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/wow/login/dark-portal-provenance.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/robots.txt",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/plain"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        }
+      ]
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/robots.txt",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/plain"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/robots.txt",
+      "status": 404,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/plain"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "907ba78b4545338d3539683e63ecb51cf51c10adc9dabd86e92bd52339f298b9"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/robots.txt",
+      "status": 404,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/plain"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/legal/privacy",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/legal/privacy",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/legal/terms",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/legal/terms",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/privacy",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/privacy",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/terms",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/terms",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/api/me",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/army",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/army/report",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/api/army",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/admin/ranks",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/health",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ]
+    },
+    {
+      "method": "OPTIONS",
+      "url": "https://olympus-verify.roach-council.workers.dev/proof",
+      "status": 404,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/plain"
+        },
+        {
+          "name": "access-control-allow-origin",
+          "mode": "absent"
+        },
+        {
+          "name": "access-control-allow-methods",
+          "mode": "absent"
+        },
+        {
+          "name": "access-control-allow-headers",
+          "mode": "absent"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "907ba78b4545338d3539683e63ecb51cf51c10adc9dabd86e92bd52339f298b9"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/olympus-icon.png",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "image/png"
+        },
+        {
+          "name": "cache-control",
+          "mode": "equals",
+          "value": "private, no-store, no-transform"
+        },
+        {
+          "name": "vary",
+          "mode": "includes",
+          "value": "Cookie"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus.roachcouncil.com/static/olympus-icon.png",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "image/png"
+        },
+        {
+          "name": "cache-control",
+          "mode": "equals",
+          "value": "private, no-store, no-transform"
+        },
+        {
+          "name": "vary",
+          "mode": "includes",
+          "value": "Cookie"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/static/olympus-icon.png",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "image/png"
+        },
+        {
+          "name": "cache-control",
+          "mode": "equals",
+          "value": "private, no-store, no-transform"
+        },
+        {
+          "name": "vary",
+          "mode": "includes",
+          "value": "Cookie"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/static/olympus-icon.png",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "image/png"
+        },
+        {
+          "name": "cache-control",
+          "mode": "equals",
+          "value": "private, no-store, no-transform"
+        },
+        {
+          "name": "vary",
+          "mode": "includes",
+          "value": "Cookie"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/legal/privacy",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/legal/privacy",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/legal/terms",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ]
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/legal/terms",
+      "status": 200,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/privacy",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/privacy",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus-verify.roach-council.workers.dev/terms",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "HEAD",
+      "url": "https://olympus-verify.roach-council.workers.dev/terms",
+      "status": 410,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "text/html"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        },
+        {
+          "name": "referrer-policy",
+          "mode": "equals",
+          "value": "no-referrer"
+        },
+        {
+          "name": "content-security-policy",
+          "mode": "equals",
+          "value": "default-src 'none'; script-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'"
+        }
+      ],
+      "bodySHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/privacy/account",
+      "status": 200,
+      "headers": [],
+      "form": true,
+      "queryFree": true
+    },
+    {
+      "method": "GET",
+      "url": "https://guild.roachcouncil.com/",
+      "status": 301,
+      "headers": [
+        {
+          "name": "location",
+          "mode": "equals",
+          "value": "https://olympus.roachcouncil.com/"
+        }
+      ],
+      "preserveQuery": true
+    },
+    {
+      "method": "GET",
+      "url": "https://guild.roachcouncil.com/legal/privacy",
+      "status": 301,
+      "headers": [
+        {
+          "name": "location",
+          "mode": "equals",
+          "value": "https://olympus.roachcouncil.com/legal/privacy"
+        }
+      ],
+      "preserveQuery": true
+    },
+    {
+      "method": "GET",
+      "url": "https://guild.roachcouncil.com/privacy",
+      "status": 302,
+      "headers": [
+        {
+          "name": "location",
+          "mode": "equals",
+          "value": "https://olympus.roachcouncil.com/"
+        }
+      ]
+    }
+  ]
+}

@@ -9,11 +9,11 @@ for(let i=2;i<process.argv.length;i++){
   if(arg==='--output'&&output===undefined){output=process.argv[++i];if(!output)throw Error('--output requires a directory');}
   else if(arg==='--target')targets.push(process.argv[++i]);
   else if(arg==='--help'){
-    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury]\nRuns tsc --noEmit and one genuine local Workerd/D1 baseline, once. Additional targets are explicit and run in the same runtime. Whole-run cap:180 seconds; no retries.');
+    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation]\nRuns tsc --noEmit and one genuine local Workerd/D1 baseline, once. Additional targets are explicit and run in the same runtime. Whole-run cap:180 seconds; no retries.');
     process.exit(0);
   }else throw Error('unknown qualification argument: '+arg);
 }
-if(targets.some(x=>!['lease','treasury'].includes(x))||new Set(targets).size!==targets.length)throw Error('unknown or duplicate runtime target');
+if(targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('unknown or duplicate runtime target');
 if(output!==undefined&&(!path.isAbsolute(output)||fs.existsSync(output)))throw Error('output must be a new absolute directory');
 output=output??fs.mkdtempSync(path.join(os.tmpdir(),'olympus-qualification-'));
 if(!fs.existsSync(output))fs.mkdirSync(output,{recursive:true});

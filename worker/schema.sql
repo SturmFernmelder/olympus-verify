@@ -175,6 +175,8 @@ CREATE TABLE IF NOT EXISTS audit (
 );
 CREATE INDEX IF NOT EXISTS audit_ts ON audit(ts);
 CREATE INDEX IF NOT EXISTS audit_actor_action ON audit(actor, action); -- .50: /verify-status asks "did this account ever link?"
+-- .266: optional action-leading lookup/order index, not a required admission-profile object.
+CREATE INDEX IF NOT EXISTS audit_reconcile266 ON audit(action, actor, subject, ts DESC, id DESC);
 
 -- Phase 3: characters reported by the Battle.net profile API for a linked account.
 CREATE TABLE IF NOT EXISTS bnet_characters (

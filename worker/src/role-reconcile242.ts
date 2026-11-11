@@ -63,6 +63,18 @@ export async function kickRoleWork242(env:Env,kind:'requests'|'sweep',sweep?:Nat
  if(!response.ok){const error=Object.assign(Error('role242_continuation_held'),{status:response.status});console.error('role242_continuation_held',errorRef(error));throw error;}
 }
 
+/** .266: these are independent scheduling signals. An unavailable request queue
+ * must not discard a durably pending sweep. Both keep their original signature,
+ * nonce and guarded issuer; neither failure retries an effect or clears a lease. */
+export async function kickRoleWorkGroups266(env:Env,sweep?:NativeSweep249):Promise<void>{
+ const failures:unknown[]=[];
+ try{await kickRoleWork242(env,'requests');}
+ catch(error){console.error('role266_requests_wake_held',errorRef(error));failures.push(error);}
+ if(sweep)try{await kickRoleWork242(env,'sweep',sweep);}
+ catch(error){console.error('role266_sweep_wake_held',errorRef(error));failures.push(error);}
+ if(failures.length)throw new AggregateError(failures,'role266_scheduling_incomplete');
+}
+
 export async function runRoleWork242(env:Env,kind:'requests'|'sweep',defer?:RoleWorkDefer242,sweep?:NativeSweep249):Promise<void>{
  let more=false,nextSweep:NativeSweep249|undefined;
  try{
