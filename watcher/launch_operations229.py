@@ -15,6 +15,7 @@ PROTOCOL = "officer-operations-v233"
 MAX_BYTES = 262144
 MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
+MAX_RATE_RETRIES = 2
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
 _KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions"}
 
@@ -191,12 +192,14 @@ class Scan:
         self.cursor: str | None = None
         self.refresh: list[int] = []
         self.calls = 0
-        self.refreshed = 0
+        self.refreshed = 0  # Shared auxiliary attempts: discovery retries and explicit rechecks/retries.
         self.next_at = 0.0
         self.complete = False
         self.stopped: str | None = None
         self.last_start = -math.inf
         self.expected_snapshot: tuple[int, int] | None = None
+        self.rate_retry: tuple[int, str] | None = None
+        self.rate_retries: dict[int, int] = {}
 
     def request(self, value: dict[str, Any], at: float) -> bool:
         action = value['action']
@@ -205,9 +208,10 @@ class Scan:
                 return False
             self.pages = {}; self.scope_hash = value['scopeHash']; self.calls = 0; self.refreshed = 0
             self.expected_snapshot = None
+            self.rate_retry = None; self.rate_retries = {}
             self.cursor = None; self.complete = False; self.phase = 'discover'; self.last_start = at
         elif action == 'stop':
-            self.phase = 'idle'; self.stopped = 'operator-stopped'; self.control_id = value['id']; return True
+            self._stop('operator-stopped'); self.control_id = value['id']; return True
         else:
             page = self.pages.get(value['offset'])
             if (self.phase != 'idle' or self.stopped is not None or self.refreshed >= MAX_REFRESH_ATTEMPTS
@@ -218,30 +222,72 @@ class Scan:
         return True
 
     def _stop(self, reason: str) -> None:
-        self.phase = 'idle'; self.stopped = reason
+        self.phase = 'idle'; self.stopped = reason; self.rate_retry = None
+
+    def expire(self, at: float) -> bool:
+        if self.phase != 'idle' and self.pages and at >= self.pages[min(self.pages)]['scan']['expiresAt']:
+            self._stop('scan-expired'); return True
+        return False
+
+    def defer_rate_limit(self, delay: Any) -> bool:
+        """Honor a known transport pause without issuing or charging another GET."""
+        if self.phase == 'idle':
+            return False
+        before = (self.phase, self.stopped)
+        if not self.pages or not _integer(delay, 1, 86400):
+            self._stop('source-refused')
+        else:
+            self.next_at = max(self.next_at, self.clock() + max(5, delay))
+            if self.next_at >= self.pages[min(self.pages)]['scan']['expiresAt']:
+                self._stop('rate-limit-exceeds-scan')
+            else:
+                self.stopped = 'rate-limited-wait'
+        return before != (self.phase, self.stopped)
+
+    def _rate_wait(self, offset: int, cursor: str | None, delay: Any) -> None:
+        # Only an already captured signed cursor can preserve the original scan.
+        # A cursorless first-request refusal must never bootstrap a new scan.
+        if not self.pages or not _text(cursor, 4096) or not cursor or not cursor.isascii() or not _integer(delay, 1, 86400):
+            self._stop('source-refused'); return
+        if self.rate_retries.get(offset, 0) >= MAX_RATE_RETRIES:
+            self._stop('rate-limit-retries-exhausted'); return
+        if self.refreshed >= MAX_REFRESH_ATTEMPTS:
+            self._stop('refresh-budget-exhausted'); return
+        self.defer_rate_limit(delay)
+        if self.phase != 'idle':
+            self.rate_retry = (offset, cursor)
 
     def step(self, call: Callable[..., tuple[bool, Any]], at: float) -> bool:
-        if self.phase == 'idle' or at < self.next_at:
+        if self.phase == 'idle':
             return False
-        if self.pages and at >= self.pages[min(self.pages)]['scan']['expiresAt']:
-            self._stop('scan-expired'); return True
-        if self.phase == 'discover' and len(self.pages) >= MAX_PAGES:
-            self._stop('scan-cap'); return True
+        if self.expire(at):
+            return True
+        if at < self.next_at:
+            return False
+        auxiliary = self.phase == 'refresh' or self.rate_retry is not None
+        if auxiliary and self.refreshed >= MAX_REFRESH_ATTEMPTS:
+            self._stop('refresh-budget-exhausted'); return True
+        if self.phase == 'discover' and not auxiliary and self.calls - self.refreshed >= MAX_PAGES:
+            self._stop('discovery-budget-exhausted'); return True
         if self.phase == 'refresh':
-            if self.refreshed >= MAX_REFRESH_ATTEMPTS:
-                self._stop('refresh-budget-exhausted'); return True
-            if not self.refresh:
+            if not self.refresh and self.rate_retry is None:
                 self.phase = 'idle'; return True
+        if self.rate_retry is not None:
+            offset, cursor = self.rate_retry
+            self.rate_retries[offset] = self.rate_retries.get(offset, 0) + 1
+        elif self.phase == 'refresh':
             offset = self.refresh.pop(0)
             cursor = self.pages[offset]['pageCursor']
         else:
             offset = len(self.pages) * 20
             cursor = self.cursor
         path = PATH + ('&cursor=' + urllib.parse.quote(cursor, safe='') if cursor else '')
-        # Spend each attempt, including refusal/unknown, before transport. Controls do
-        # not reset the per-scan counters or the five-second cross-request spacing.
+        # Spend each attempt, including refusal/unknown, before transport. The first
+        # request for each discovery offset spends one of 50 discovery attempts;
+        # every retry and explicit recheck shares the other 50 (at most 100 total).
+        # Controls do not reset counters or five-second cross-request spacing.
         self.calls += 1
-        if self.phase == 'refresh':
+        if auxiliary:
             self.refreshed += 1
         try:
             okay, page = call('GET', path, retries=1)
@@ -250,6 +296,8 @@ class Scan:
             self._stop('source-unknown'); return True
         self.next_at = self.clock() + 5
         if not okay:
+            if isinstance(page, dict) and type(page.get('httpStatus')) is int and page['httpStatus'] == 429:
+                self._rate_wait(offset, cursor, page.get('retryAfterSeconds')); return True
             self._stop('source-refused'); return True
         if not validate_page(page, int(self.clock())) or page['scopeHash'] != self.scope_hash:
             self._stop('invalid-page'); return True
@@ -264,7 +312,8 @@ class Scan:
             self._stop('duplicate-identity'); return True
         self.pages[offset] = page
         if page['entitlements']['retryAfterSeconds'] is not None:
-            self._stop('rate-limited'); return True
+            self._rate_wait(offset, page['pageCursor'], page['entitlements']['retryAfterSeconds']); return True
+        self.rate_retry = None; self.stopped = None
         if self.phase == 'discover':
             self.cursor = page['nextCursor']
             if self.cursor is None:

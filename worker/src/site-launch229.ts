@@ -6,10 +6,12 @@ import { apiJson } from './site-core';
 import { captureLaunchVerification, type LaunchVerificationCapture } from './launch-verification227';
 import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName } from './guild-affiliation229';
 import { readOfficerInvites233 } from './officer-invites233';
-import { classifyKnightRoles229, projectLaunchOperations229, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
+import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
+import { LaunchRolePacer271 } from './launch-discord-reads271';
 
 type SourceRow229 = LaunchRosterRow229 & {snapshotId: number; snapshotAt: number; memberCount: number; discordId: string | null};
-type Cursor229 = {version: 1; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number};
+type RoleRead271 = [guid: string, state: 'knight' | 'non-knight', observedAt: number];
+type Cursor229 = {version: 1 | 2; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number; roleScope?: string; roleReads?: RoleRead271[]};
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
 const digest229 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
@@ -19,15 +21,23 @@ function encoded229(value: string) { return btoa(value).replace(/\+/g, '-').repl
 function secret229(env: Env): string | null { const d=Object.getOwnPropertyDescriptor(env,'VERIFY_SECRET');return d&&Object.hasOwn(d,'value')&&typeof d.value==='string'&&d.value?d.value:null; }
 async function cursorKey229(secret: string) {return crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 async function writeCursor229(value: Cursor229, secret: string) {const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('officer-operations-cursor|233|'+body)));return body+'.'+mac;}
-async function readCursor229(raw: string, secret: string, at: number): Promise<Cursor229> {
-  if(raw.length>2048||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_launch_cursor');
+async function readCursor229(raw: string, secret: string, at: number, roleSecret: string | null): Promise<Cursor229> {
+  if(raw.length>4096||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_launch_cursor');
   const [body,mac]=raw.split('.');
-  if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac),new TextEncoder().encode('officer-operations-cursor|233|'+body)))throw new LaunchCursor229('invalid_launch_cursor');
   let v: Cursor229;try{const decoded=atob(body.replace(/-/g,'+').replace(/_/g,'/'));v=JSON.parse(decoded);if(encoded229(JSON.stringify(v))!==body)throw Error();}catch{throw new LaunchCursor229('invalid_launch_cursor');}
-  if(!v||Object.keys(v).sort().join(',')!=='expiresAt,issuedAt,offset,rowsDigest,scopeHash,snapshotAt,snapshotId,version'||v.version!==1
+  // VERIFY_SECRET also exists on the officer client. It can select legacy pages,
+  // but must never mint or redate a cached Discord entitlement. V2 requires a
+  // separate purpose key derived from the existing server-only bot credential.
+  const key=v?.version===2?roleSecret:secret;
+  if(!key||!await crypto.subtle.verify('HMAC',await cursorKey229(key),bytes229(mac),new TextEncoder().encode('officer-operations-cursor|233|'+body)))throw new LaunchCursor229('invalid_launch_cursor');
+  if(!v||![1,2].includes(v.version)||Object.keys(v).sort().join(',')!==(v.version===1?'expiresAt,issuedAt,offset,rowsDigest,scopeHash,snapshotAt,snapshotId,version':'expiresAt,issuedAt,offset,roleReads,roleScope,rowsDigest,scopeHash,snapshotAt,snapshotId,version')
     ||!Number.isSafeInteger(v.snapshotId)||v.snapshotId<1||!Number.isSafeInteger(v.snapshotAt)||!Number.isSafeInteger(v.offset)||v.offset<0||v.offset>=1000||v.offset%LAUNCH_ROLE_PAGE229!==0
     ||!Number.isSafeInteger(v.issuedAt)||!Number.isSafeInteger(v.expiresAt)||v.issuedAt>at||v.expiresAt!==Math.min(v.issuedAt+LAUNCH_SCAN_TTL229,v.snapshotAt+LAUNCH_SCAN_TTL229)||v.expiresAt<=at
     ||!/^[a-f0-9]{16}$/.test(v.scopeHash)||!/^[a-f0-9]{64}$/.test(v.rowsDigest))throw new LaunchCursor229('expired_or_invalid_launch_cursor');
+  if(v.version===2&&(!/^[a-f0-9]{64}$/.test(v.roleScope??'')||!Array.isArray(v.roleReads)||v.roleReads.length>LAUNCH_ROLE_PAGE229
+    ||v.roleReads.some(r=>!Array.isArray(r)||r.length!==3||typeof r[0]!=='string'||!/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(r[0])
+      ||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at)
+    ||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length))throw new LaunchCursor229('invalid_launch_cursor');
   return v;
 }
 async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: number, cutoff: number): Promise<SourceRow229[]> {
@@ -44,6 +54,8 @@ async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: nu
         SELECT 1 FROM pending p WHERE p.name_key=rm.name_key AND p.consumed_at IS NULL AND p.expires_at>?2 AND p.created_at>=?3
           AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=p.discord_id AND ps.state<>'active')) THEN 'pending' ELSE 'unverified' END
       WHEN c.status='member' AND c.guid=rm.guid AND g.links=1 AND COALESCE(c.verified_at,c.bound_at)>=?3
+        AND typeof(COALESCE(c.verified_at,c.bound_at))='integer'
+        AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2
         AND COALESCE(m.banned,0)=0 AND COALESCE(u.denied,0)=0
         AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=c.discord_id AND ps.state<>'active') THEN 'verified'
       ELSE 'unknown' END AS verification,
@@ -64,39 +76,77 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
   if(!secret)return held229(at,'native-secret-unconfigured');
-  const captured=cursor?await readCursor229(cursor,secret,at):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff),first=rows[0];
+  const configuration=roleConfiguration229(env);
+  const roleSecret=configuration?JSON.stringify(['officer-role-cursor',271,secret,configuration.guild,configuration.token]):null;
+  const captured=cursor?await readCursor229(cursor,secret,at,roleSecret):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff),first=rows[0];
   if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held229(at,'native-snapshot-unavailable');}
   const scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),rowsDigest=await digest229(JSON.stringify(rows));
   if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.rowsDigest!==rowsDigest))throw new LaunchCursor229('launch_cursor_source_changed',409);
-  const issuedAt=captured?.issuedAt??at,scanExpiresAt=captured?.expiresAt??Math.min(at+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),expiresAt=Math.min(at+LAUNCH_ROLE_TTL229,scanExpiresAt),offset=captured?.offset??0;
+  const issuedAt=captured?.issuedAt??at,scanExpiresAt=captured?.expiresAt??Math.min(at+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??0;
+  let expiresAt=Math.min(at+LAUNCH_ROLE_TTL229,scanExpiresAt);
   const scanId=(await digest229(JSON.stringify(['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
-  const page=rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(r=>r.verification==='verified'),configuration=roleConfiguration229(env),states=new Map<string,KnightState229>();
-  let retryAfterSeconds: number|null=null,rateLimited=false,roleUnavailable=false,next=0;
-  const accountStates=new Map<string,Promise<KnightState229>>();
-  const readRole=async(id:string):Promise<KnightState229>=>{
-    if(!configuration||!/^\d{17,20}$/.test(id)||rateLimited)return 'unknown';
-    if(!accountStates.has(id))accountStates.set(id,(async()=>{
-      try {
-        if(!launch.current()||!configuration.current())return 'unknown';
-        // A single bounded credential GET. A 429 is a held result, never retried here.
-        const response=await credentialFetch(API+'/guilds/'+configuration.guild+'/members/'+id,{method:'GET',headers:{Authorization:'Bot '+configuration.token,'Content-Type':'application/json'}},()=>{if(!launch.current()||!configuration.current())throw Error('launch_source_changed');});
-        if(!launch.current()||!configuration.current())return 'unknown';
-        if(response.status===429){rateLimited=true;const header=Number(response.headers.get('Retry-After'));retryAfterSeconds=Number.isFinite(header)&&header>0?Math.min(3600,Math.ceil(header)):60;return 'unknown';}
-        if(!response.ok){roleUnavailable=true;return 'unknown';}
-        const member=await response.json() as {user?:{id?:unknown};roles?:unknown};
-        if(member?.user?.id!==id)return 'unknown';return classifyKnightRoles229(member.roles);
-      }catch{roleUnavailable=true;return 'unknown';}
-    })());
-    return accountStates.get(id)!;
-  };
-  await Promise.all(Array.from({length:Math.min(4,roleRows.length)},async()=>{while(next<roleRows.length){const row=roleRows[next++];states.set(row.guid,await readRole(row.discordId??''));}}));
+  const page=rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(needsLaunchRole229),states=new Map<string,KnightState229>();
+  // The signed retry cursor carries only this page's exact prior successes, with
+  // their original observation dates. Successful/recheck cursors carry none.
+  const roleScope=await digest229('launch-role-scope|271|'+(configuration?.guild??'')+'|'+(configuration?.token??''));
+  const reads=new Map<string,RoleRead271>();
+  if(captured?.version===2){
+    if(captured.roleScope!==roleScope||captured.roleReads!.some(r=>!roleRows.some(row=>row.guid===r[0])))throw new LaunchCursor229('launch_cursor_role_source_changed',409);
+    for(const read of captured.roleReads!)if(read[2]+LAUNCH_ROLE_TTL229>at)reads.set(read[0],read);
+  }
+  let retryAfterSeconds: number|null=null,rateLimited=false,roleUnavailable=false,readWindowHeld=false;
+  const pacer=new LaunchRolePacer271(roleScope),accountStates=new Map<string,{state:KnightState229;observedAt:number}>();
+  const current=()=>{if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)throw Error('launch_source_changed');};
+  // The Watcher has a 20-second HTTP timeout. Don't hold that request through a
+  // long reset; return its signed progress and known cooldown to the same scan.
+  const readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
+  for(const row of roleRows){
+    const saved=reads.get(row.guid);
+    if(saved){states.set(row.guid,saved[1]);expiresAt=Math.min(expiresAt,saved[2]+LAUNCH_ROLE_TTL229);continue;}
+    const id=row.discordId??'';
+    if(!configuration||!/^\d{17,20}$/.test(id)||rateLimited||readWindowHeld){states.set(row.guid,'unknown');continue;}
+    let observation=accountStates.get(id);
+    if(!observation){
+      observation={state:'unknown',observedAt:now()};
+      try{
+        current();
+        if(!await pacer.wait(readDeadline,current)){
+          if(pacer.cooling()){rateLimited=true;retryAfterSeconds=pacer.delay();}else readWindowHeld=true;
+          states.set(row.guid,'unknown');continue;
+        }
+        current();observation.observedAt=now();
+        // At most one attempt for each account in this page, serial/header-paced.
+        const response=await credentialFetch(API+'/guilds/'+configuration.guild+'/members/'+id,{method:'GET',headers:{Authorization:'Bot '+configuration.token,'Content-Type':'application/json'}},current);
+        current();
+        if(response.status===429){rateLimited=true;retryAfterSeconds=await pacer.limited(response);current();}
+        else if(!response.ok){roleUnavailable=true;await response.body?.cancel();}
+        else{
+          pacer.success(response);
+          const member=await response.json() as {user?:{id?:unknown};roles?:unknown};current();
+          if(member?.user?.id===id)observation.state=classifyKnightRoles229(member.roles);
+          if(observation.state==='unknown')roleUnavailable=true;
+        }
+      }catch{roleUnavailable=true;}
+      accountStates.set(id,observation);
+    }
+    states.set(row.guid,observation.state);
+    if(observation.state!=='unknown'){
+      reads.set(row.guid,[row.guid,observation.state,observation.observedAt]);
+      expiresAt=Math.min(expiresAt,observation.observedAt+LAUNCH_ROLE_TTL229);
+    }
+  }
   // One first-page invite read uses a separate three-request ceiling, so it
   // cannot starve any of the twenty roster evidence rows on that page.
-  const invitePage=offset===0?await readOfficerInvites233(env,{limit:3,attempts:0,retries:0},3,at):{invites:[],heldReasons:[]};
+  const invitePage=offset===0?(rateLimited||readWindowHeld?{invites:[],heldReasons:['officer-invite-read-deferred']}:
+    await readOfficerInvites233(env,{limit:3,attempts:0,retries:0},3,at,{
+      before:()=>pacer.wait(readDeadline,current),
+      observe:async response=>{if(response.status===429)await pacer.limited(response);else if(response.ok)pacer.success(response);current();},
+    })):{invites:[],heldReasons:[]};
   // Re-read the exact Native source and linked/denied/privacy state after provider awaits.
   // For the admin route this also consumes the original signed actor session again.
   const after=await sourceRows229(env,launch,now(),cutoff);
-  if(!launch.current()||configuration&&!configuration.current()||linksNotBefore(env)!==cutoff||await digest229(JSON.stringify(after))!==rowsDigest)return held229(now(),'native-snapshot-changed');
+  if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||await digest229(JSON.stringify(after))!==rowsDigest)return held229(now(),'native-snapshot-changed');
+  if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
   const dto=projectLaunchOperations229({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,states,now(),expiresAt);
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
   const pageGuids=new Set(page.map(row=>row.guid));
@@ -111,12 +161,13 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   dto.entitlements={offset,pageSize:LAUNCH_ROLE_PAGE229,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds};
   if(rateLimited)dto.heldReasons.push('discord-rate-limited');if(roleUnavailable||!configuration)dto.heldReasons.push('discord-entitlement-unavailable');
   if(dto.status!=='held'){
-    const witness={version:1 as const,snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,rowsDigest,issuedAt,expiresAt:scanExpiresAt};
-    dto.pageCursor=await writeCursor229({...witness,offset},secret);
-    if(offset+page.length<rows.length&&!rateLimited)dto.nextCursor=await writeCursor229({...witness,offset:offset+page.length},secret);
+    const source={snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,rowsDigest,issuedAt,expiresAt:scanExpiresAt};
+    const witness=roleSecret?{version:2 as const,...source,roleScope,roleReads:[] as RoleRead271[]}:{version:1 as const,...source};
+    dto.pageCursor=await writeCursor229({...witness,offset,...(roleSecret?{roleReads:rateLimited?[...reads.values()]:[]}:{})},roleSecret??secret);
+    if(offset+page.length<rows.length&&!rateLimited)dto.nextCursor=await writeCursor229({...witness,offset:offset+page.length},roleSecret??secret);
   }
   if(dto.status!=='held')dto.status=dto.entitlements.unscanned||dto.held.some(r=>r.reason==='discord-entitlement-unknown')?'partial':'ready';
-  if(!launch.current()||configuration&&!configuration.current()||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
+  if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
   return dto;
 }
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {

@@ -108,7 +108,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.28"
+WATCHER_VERSION = "0.6.30"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -1813,7 +1813,7 @@ class Watcher:
             # Neither the original source timestamp nor its ACK deadline is renewed.
             verified["fileStamp"] = self._verification_sv_stamp
         if (not begin_launch_scan and self.membership_only and digest is not None and accepted is not None and first is not None
-                and self.launch_scan.stopped is None and at < first['scan']['expiresAt']
+                and self.launch_scan.stopped in (None, 'rate-limited-wait') and at < first['scan']['expiresAt']
                 and first['snapshotId'] == accepted['snapshot'] and first['snapshotAt'] == accepted['exportedAt']
                 and first['snapshotAt'] == self.state.d['roster_sent'] and digest == accepted['digest']
                 and roster['exportedAt'] >= accepted['exportedAt'] and roster['exportedAt'] <= at + 5
@@ -1821,7 +1821,7 @@ class Watcher:
             # Mandatory PLAYER_LOGOUT exports may change only the timestamp. Keep the accepted
             # original's exact source cutoff; no new source/scan freshness is asserted.
             return
-        if first is not None and self.launch_scan.stopped is None:
+        if first is not None and self.launch_scan.stopped in (None, 'rate-limited-wait'):
             self.launch_scan._stop('native-roster-changed-or-expired')
             self.write_launch_operations()
         self._launch_accepted_roster = None
@@ -2055,8 +2055,24 @@ class Watcher:
     def pull_launch_operations(self) -> None:
         if not self.membership_only or self._custody_halted:
             return
+        at = time.time()
+        if self.launch_scan.expire(at):
+            self.write_launch_operations()
+            return
+        if self.launch_scan.phase == 'idle':
+            return
+        paused = self.worker.paused()
+        if paused:
+            if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
+                changed = self.launch_scan.defer_rate_limit(paused.get('retryAfterSeconds'))
+            else:
+                self.launch_scan._stop('source-refused')
+                changed = True
+            if changed:
+                self.write_launch_operations()
+            return
         # One explicit scan page per >=5 seconds, between the ordinary ingestion passes.
-        if self.launch_scan.step(self.worker.call, time.time()):
+        if self.launch_scan.step(self.worker.call, at):
             self.write_launch_operations()
 
     def pull_strict_display(self) -> None:

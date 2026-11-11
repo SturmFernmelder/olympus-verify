@@ -42,37 +42,115 @@ local function Preview()
   return OlympusVerifyUI and OlympusVerifyUI.preview ~= nil
     or OlympusVerifyPreview and OlympusVerifyPreview.State and OlympusVerifyPreview.State() ~= nil
 end
+-- Diagnostics describe only the projection already loaded in this Lua session.
+-- Unknown source strings never become UI text or an instruction to retry.
+local LOADED_STATES = {
+  ["rate-limited"] = { "Rate limited (last loaded)", "The last loaded scan stopped after an upstream rate limit.", "Staff must review the upstream limit and original scan before separately authorized recovery." },
+  ["rate-limited-wait"] = { "Rate-limit wait (last loaded)", "The last loaded scan reported a bounded read-only rate-limit wait; its action hold remains.", "Wait for a newer returned projection, then load it through the approved workflow. The loaded report does not establish the Watcher's current state." },
+  ["rate-limit-retries-exhausted"] = { "Rate-limit retries spent (last loaded)", "The last loaded scan exhausted its bounded same-page rate-limit retries.", "Staff must review the stopped original and the upstream limit before authorizing any fresh scan; this view cannot restart it." },
+  ["rate-limit-exceeds-scan"] = { "Rate limit exceeds scan window (last loaded)", "The reported retry delay would exceed the original scan window.", "Keep the expired or stopped original intact; obtain a separately authorized fresh trusted scan instead of extending its timestamps." },
+  ["discovery-budget-exhausted"] = { "Discovery budget spent (last loaded)", "The last loaded scan exhausted its bounded discovery request budget.", "Staff must review the incomplete coverage and original budget before authorizing a fresh scan." },
+  ["refresh-budget-exhausted"] = { "Recheck budget spent (last loaded)", "The last loaded scan exhausted its bounded recheck attempt budget (including rate-limit retries).", "Do not reset its counters; staff must review the original source and authorize any later fresh scan." },
+  ["source-unknown"] = { "Source reply unknown (last loaded)", "The last loaded scan could not establish a source reply.", "Staff must inspect the original source outcome and connection; an unknown result is not permission to repeat a member request or native action." },
+  ["source-refused"] = { "Source refused (last loaded)", "The last loaded scan reports a refused source read; no specific authentication cause is established here.", "Staff must check the original authenticated source result. This view does not change credentials or retry it." },
+  ["operator-stopped"] = { "Operator stopped (last loaded)", "The original scan was explicitly stopped.", "An operator must review the stopped original before authorizing any new scan." },
+  superseded = { "Superseded (last loaded)", "The local control no longer matches the loaded scan.", "Wait for the matching returned projection; an old result cannot satisfy the new control." },
+  ["scan-expired"] = { "Scan expired (last loaded)", "The original scan has expired.", "Obtain a separately authorized fresh scan; changing displayed dates cannot restore eligibility." },
+  ["source-held"] = { "Source held (last loaded)", "The last loaded scan reports a source hold or an unsupported stop reason.", "Staff must review the source; this view does not reset or retry it." },
+  running = { "Discovery running (last loaded)", "The last loaded projection reported discovery in progress.", "Wait for a newer returned projection. The Watcher's current process and disk state are not observable here." },
+  complete = { "Discovery complete (last loaded)", "The loaded projection reports completed discovery; action freshness remains separate.", "Inspect each original page deadline and exact native target before any hardware action." },
+  partial = { "Discovery incomplete (last loaded)", "The loaded projection contains only partial discovery.", "Unscanned members have no eligibility result; staff must review the source before further work." },
+}
+local LOADED_STOP = { ["rate-limited"]=true,["rate-limited-wait"]=true,["rate-limit-retries-exhausted"]=true,
+  ["rate-limit-exceeds-scan"]=true,["discovery-budget-exhausted"]=true,["refresh-budget-exhausted"]=true,
+  ["source-unknown"]=true,["source-refused"]=true,["operator-stopped"]=true,["scan-expired"]=true,["source-held"]=true }
+local function LoadedScan(data, current, control, now)
+  local code
+  if control and control.action == "stop" then code = "operator-stopped"
+  elseif control and control.id ~= data.controlId then code = "superseded"
+  elseif data.stoppedReason then
+    local stop=Text(data.stoppedReason,64)
+    code=stop and LOADED_STOP[stop] and stop or "source-held"
+  else code = data.running == true and "running" or current.scanComplete and "complete" or "partial" end
+  local spec = LOADED_STATES[code]
+  local report = { code=code, label=spec[1], reason=spec[2], nextStep=spec[3],
+    total=current.pages[1].entitlements.total, queriedAt=0, scanExpiresAt=current.pages[1].scan.expiresAt,
+    stalePages=current.stalePages, scanned=0, progressKnown=true }
+  for index,page in ipairs(current.pages) do
+    report.queriedAt=math.max(report.queriedAt,page.fetchedAt)
+    local e=page.entitlements
+    if not Number(e.scanned,0,20) or e.scanned>math.max(0,e.total-e.offset)
+      or not Number(e.unscanned,0,1000) or e.unscanned~=math.max(0,e.total-e.offset-e.scanned)
+      or index<#current.pages and e.scanned~=20 then report.progressKnown=false
+    else report.scanned=report.scanned+e.scanned end
+    if Number(e.retryAfterSeconds,1,86400) then report.retryAfterSeconds=e.retryAfterSeconds end
+  end
+  if report.progressKnown then report.unscanned=report.total-report.scanned
+  else report.scanned=nil end
+  report.expiryState=now>=report.scanExpiresAt and "scan-expired" or report.stalePages>0 and "pages-expired" or "original-window"
+  if report.expiryState=="scan-expired" and not current.actionHeld then report.label="Scan expired (last loaded)" end
+  report.summary=report.label..(report.progressKnown and string.format(": %d/%d inspected; %d unscanned.",report.scanned,report.total,report.unscanned) or "; inspection counts unavailable.")
+  if report.expiryState~="original-window" then report.summary=report.summary.." Expired source is advisory." end
+  report.reason=report.reason.." "..report.summary
+  if report.progressKnown and report.unscanned>0 then report.reason=report.reason.." Zero recommendations in the inspected pages is not a full-roster eligibility result." end
+  if report.retryAfterSeconds then report.reason=report.reason.." Source reported Retry-After "..report.retryAfterSeconds.."s; this is a dated hint, not a live countdown or permission to act." end
+  if now>=report.scanExpiresAt then report.reason=report.reason.." The original scan is now expired; all rows are advisory."
+  elseif report.stalePages>0 then report.reason=report.reason.." "..report.stalePages.." original page(s) are now expired and advisory." end
+  report.reason=report.reason.." This reports loaded evidence, not whether the Watcher is alive or currently waiting."
+  return report
+end
 function Q.Current()
   local identity, now, data = Identity(), time(), OlympusLaunchQueue
+  local function refuse(code, reason) return nil, "[" .. code .. "] " .. reason, code end
   if cfg.membershipOnly ~= true or not identity then return nil, "Current native Prime identity is unavailable; launch actions held." end
   if Q.scopeChanged then return nil, "Native guild identity changed. Refresh the watcher and reload; launch actions held." end
   if Q.loadedIdentity and (Q.loadedIdentity.guild ~= identity.guild or Q.loadedIdentity.realm ~= identity.realm or Q.loadedIdentity.guid ~= identity.guid) then
     Q.scopeChanged = true; return nil, "Native guild/character identity changed; launch actions held." end
   if Preview() then return nil, "Preview is display only; launch actions held." end
-  if type(data) ~= "table" or data.version ~= 2 or type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
-    return nil, "No dated launch projection is loaded. Run the watcher, then sync and reload." end
+  if type(data) ~= "table" then return refuse("projection_missing", "No dated launch projection is loaded; no action taken.") end
+  if data.version ~= 2 then return refuse("projection_version", "The loaded launch container version is incompatible; no action taken.") end
+  if type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
+    local stop=Text(data.stoppedReason,64)
+    local spec=stop and LOADED_STOP[stop] and LOADED_STATES[stop]
+    return refuse("projection_pages", "No supported launch page list is loaded; no action taken."
+      ..(spec and (" Unvalidated loaded container reports: "..spec[1]..". "..spec[2].." Next step: "..spec[3]) or "")) end
   local control = OlympusVerifyDB and OlympusVerifyDB.launchControl
   local held = data.stoppedReason or control and (control.action == "stop" or control.id ~= data.controlId)
   local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, partial = data.scanComplete ~= true,
     pages = data.pages, actionHeld = held, freshness = {}, scanComplete = data.scanComplete == true, stalePages = 0 }
   local first, guids = data.pages[1], {}
+  if type(first) ~= "table" then return refuse("malformed_page", "The first launch page is malformed; no action taken.") end
+  if first.protocol ~= "officer-operations-v233" then
+    return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
   if type(first) ~= "table" or type(first.scan) ~= "table" or not Text(first.scan.id, 32) or #first.scan.id ~= 32
     or not first.scan.id:match("^%x+$") or not Number(first.scan.startedAt, 1, now + 5)
-    or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then return nil, "Invalid scan identity; actions held." end
+    or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then
+    return refuse("malformed_scan", "The original launch scan identity or clock bounds are malformed; no action taken.") end
+  if type(first.entitlements) ~= "table" or not Number(first.entitlements.total, 0, 1000) then
+    return refuse("malformed_entitlements", "The first launch page's entitlement metadata is malformed; no action taken.") end
   for index, page in ipairs(data.pages) do
-    if type(page) ~= "table" or page.protocol ~= "officer-operations-v233" or (page.status ~= "ready" and page.status ~= "partial")
-      or not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + 60)
+    if type(page) ~= "table" then return refuse("malformed_page", "A launch page is malformed; no action taken.") end
+    if page.protocol ~= "officer-operations-v233" then
+      return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
+    if page.status ~= "ready" and page.status ~= "partial" then
+      return refuse("page_status", "A launch page is not in a supported ready or partial source state; no action taken.") end
+    if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + 60)
       or page.fetchedAt > now + 5 or not Number(page.snapshotAt, 1, page.fetchedAt)
-      or page.fetchedAt - page.snapshotAt >= 600 or not Number(page.snapshotId, 1, 2147483647)
-      or page.guild ~= identity.guild or page.realm ~= identity.realm or page.scopeHash ~= identity.scopeHash
-      or page.canonicalGuild ~= "OLYMPUS PRIME" or page.snapshotId ~= first.snapshotId or page.snapshotAt ~= first.snapshotAt
+      or page.fetchedAt - page.snapshotAt >= 600 or not Number(page.snapshotId, 1, 2147483647) then
+      return refuse("malformed_page_dates", "A launch page has invalid original source clocks or snapshot identity; no action taken.") end
+    if page.guild ~= identity.guild or page.realm ~= identity.realm or page.scopeHash ~= identity.scopeHash or page.canonicalGuild ~= "OLYMPUS PRIME" then
+      return refuse("native_scope_mismatch", "The loaded launch projection does not match this current native Prime guild and realm scope; no action taken.") end
+    if page.snapshotId ~= first.snapshotId or page.snapshotAt ~= first.snapshotAt
       or type(page.scan) ~= "table" or page.scan.id ~= first.scan.id or page.scan.startedAt ~= first.scan.startedAt or page.scan.expiresAt ~= first.scan.expiresAt
-      or page.scan.expiresAt > page.snapshotAt + 600 or page.fetchedAt < page.scan.startedAt or page.fetchedAt >= page.scan.expiresAt
-      or type(page.entitlements) ~= "table" or page.entitlements.offset ~= (index-1)*20 or page.entitlements.total ~= first.entitlements.total
-      or type(page.invites) ~= "table" or #page.invites > 3 or index ~= 1 and #page.invites ~= 0
-      or type(page.actions) ~= "table" or page.actions.automatic ~= false or page.actions.roleGrants ~= false
+      or page.scan.expiresAt > page.snapshotAt + 600 or page.fetchedAt < page.scan.startedAt or page.fetchedAt >= page.scan.expiresAt then
+      return refuse("original_scan_mismatch", "Launch pages do not share the same original snapshot and scan bounds; no action taken.") end
+    if type(page.entitlements) ~= "table" or page.entitlements.offset ~= (index-1)*20 or page.entitlements.total ~= first.entitlements.total then
+      return refuse("malformed_entitlements", "A launch page's entitlement offset or total does not match the original page sequence; no action taken.") end
+    if type(page.invites) ~= "table" or #page.invites > 3 or index ~= 1 and #page.invites ~= 0 then
+      return refuse("unsupported_invitations", "The launch projection contains unsupported invitation placement or count; no action taken.") end
+    if type(page.actions) ~= "table" or page.actions.automatic ~= false or page.actions.roleGrants ~= false
       or page.actions.removals ~= false or page.actions.requiresNativeRecheck ~= true then
-      return nil, "Launch projection is held, expired, mismatched or contains unsupported invitations. Refresh; no action taken." end
+      return refuse("unsupported_action_policy", "The launch projection does not preserve the required hardware-only action policy; no action taken.") end
     if now >= page.expiresAt or now >= page.scan.expiresAt then result.stalePages = result.stalePages + 1 end
     local queueIds, proofIds = {}, {}
     for _, label in ipairs({ "invites", "promotions", "riskBuffer", "held" }) do
@@ -91,9 +169,10 @@ function Q.Current()
           queueIds[row.queueId],proofIds[row.proofId]=true,true
           result.freshness[row.guid].expiresAt=math.min(page.expiresAt,row.expiresAt)
         elseif label == "promotions" then
-          if not Number(row.currentSlot, 7, 9) or row.targetSlot >= row.currentSlot
+          if not Number(row.currentSlot, 7, 9) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
             or not ((row.targetSlot == 6 and row.targetName == "Veteran" and row.reason == "knight-veteran")
-              or (row.targetSlot == 8 and row.targetName == "Member" and row.reason == "verified-initiate" and row.currentSlot == 9)) then return nil, "Unsupported promotion target; no action taken." end
+              or (row.targetSlot == 8 and row.targetName == "Member" and row.reason == "verified-initiate" and row.currentSlot == 9)) then
+            return refuse("unsupported_promotion_target", "The launch projection contains a malformed or unsupported promotion target; no action taken.") end
         elseif label == "riskBuffer" and (row.currentSlot ~= 9 or row.reviewOnly ~= true or row.reason ~= "unverified-initiate") then
           return nil, "Unsupported risk-buffer entry; no action taken."
         end
@@ -101,6 +180,7 @@ function Q.Current()
       end
     end
   end
+  result.loadedScan=LoadedScan(data,result,control,now)
   Q.loadedIdentity = identity
   return result
 end
@@ -305,6 +385,12 @@ function Q.Show()
       local b=CreateFrame("Button",nil,frame,"UIPanelButtonTemplate");b:SetSize(width,24);b:SetPoint("TOPLEFT",x,y);b:SetText(label);b:SetScript("OnClick",fn);return b
     end
     Q.window,Q.windowInfo,Q.rowButtons,Q.rowRecheckButtons,Q.listPage=frame,info,{},{},1
+    local tip=CreateFrame("Frame",nil,frame);tip:SetSize(520,52);tip:SetPoint("TOPLEFT",18,-42);tip:EnableMouse(true)
+    tip:SetScript("OnEnter",function(self)
+      if GameTooltip then GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Last loaded scan result");GameTooltip:AddLine(Q.windowDetails or "No supported loaded result.",0.9,0.86,0.75,true);GameTooltip:Show() end
+    end)
+    tip:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+    Q.sourceTip=tip
     Q.tab="knights";Q.tabButtons={}
     for i,spec in ipairs({{"invites","Knight invites"},{"knights","Knights > Veteran"},{"initiates","Verified > Member"},{"buffer","Purge buffer"}}) do
       local key=spec[1];Q.tabButtons[key]=button(spec[2],18+(i-1)*132,-100,125,function() Q.tab=key;Q.listPage=1;Q.Show() end)
@@ -344,13 +430,18 @@ function Q.Show()
   Q.shownRows=TabRows(current)
   Q.listPage=math.min(Q.listPage,math.max(1,math.ceil(#Q.shownRows/8)))
   local used=OlympusLaunchQueue and OlympusLaunchQueue.refreshedPages;used=Number(used,0,50) and used or 0
-  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 explicit rechecks. Actions need a fresh 60-second page and native roster.") or why
+  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 recheck attempts (including rate-limit retries). Actions need a fresh 60-second page and native roster.") or why
   if Q.tab=="invites" then
     local status=OlympusOfficerInvites233 and OlympusOfficerInvites233.Status()
     details=(details or "").."\nNext checks the original remote whisperer's explicit WHO guild state. Unknown guild stays held. "..(status and status.reason or "Capability unavailable.")
   elseif Q.tab=="buffer" then details=(details or "").."\nReview only: longest offline, then lowest level. Native guild UI removes; no automatic kick." end
   details=(details or "").."\nScan + reload exports. Wait for the Watcher, then Sync again to load its dated queue. No timer reload or instant delivery."
-  Q.windowInfo:SetText(details)
+  if current and current.loadedScan then
+    local s=current.loadedScan
+    details=s.reason.."\nNext step: "..s.nextStep.."\n"..details
+    Q.windowInfo:SetText(s.summary.."\nHover here for the full source reason and next step. Original action guards remain.")
+  else Q.windowInfo:SetText(why or "No supported loaded result. Hover here for details.") end
+  Q.windowDetails=details
   for i,b in ipairs(Q.rowButtons) do
     local row=Q.shownRows[(Q.listPage-1)*8+i]
     if row then

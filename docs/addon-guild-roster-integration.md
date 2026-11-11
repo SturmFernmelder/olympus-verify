@@ -185,3 +185,114 @@ the bounded **0.6.9** layout observation. The owner deferred the later **0.6.13*
 until actual world entry. Native acceptance of the current source still requires the exact
 selected Forever client and a live session. The prepared preview checklist and the frozen
 erasure/B1 evidence retain their original scopes.
+
+
+## Roster exploration candidate 0.6.30
+
+The candidate replaces cycling buttons with direct dropdowns for verification detail,
+native rank, class, presence (all/online/offline), and Member readiness. Search includes
+visible native name/rank/class, safe status labels/reasons and known current Discord
+text. It does not search hidden account identifiers. Prior records, generic link
+review and expired exact-GUID links remain separately filterable while preserving
+their conservative base unknown/stale status.
+
+Every data heading sorts its actual field, including native class, original roster
+age and recommendation readiness. The direction and deterministic name tie-break
+are explicit; empty Discord columns and shared source dates explain why a sort can
+leave the order unchanged. Selected-row details keep the full reason, original
+query/roster dates, native identity, next step and action-readiness reason visible.
+Copy table opens a bounded native edit box containing the current filtered/sorted
+TSV fields. It performs no external transmission and excludes codes, request bodies,
+proofs and Discord account IDs.
+
+Promotion counts now distinguish native Initiates, currently verified display
+Initiates, loaded validated recommendations and actionable exact native targets.
+Missing projection/dispatcher is unavailable, not a claim that nobody needs a
+promotion. Stale pages, partial discovery, source holds, risk-review rows, original
+pending attempts and per-row mismatch reasons remain visible. A known verified
+Initiate without an original fresh recommendation is potential only. The sole
+hardware promotion dispatcher and its original native checks remain unchanged.
+
+The window reevaluates loaded evidence every five seconds while visible. A changed,
+invalid or expired display source triggers one native reclassification; unchanged
+phases do not repeatedly rescan native rows. This may use the existing throttled
+native roster query, but never Worker HTTP, Sync or ReloadUI. Expired current names
+are cleared rather than kept green. This is not a live server-to-addon transport:
+Watcher disk updates still require a supported import path, and the separate
+reload-free bridge remains unimplemented.
+
+Before native acceptance, use an attended test account with the exact candidate:
+check dropdown selection/closure, sorting and ties, copy-box focus/Escape, selected
+row identity after recycling, both window styles/scales, gamepad transitions,
+expired source repaint and absent/held promotion projections. No review label or
+successful delivery receipt authorizes a role, invite, reminder send or promotion.
+
+## Roster and Sync clarification candidate 0.6.31
+
+The **Verified Initiates** shortcut selects current verified native slot-9 rows,
+including potential candidates for whom no supported promotion recommendation is
+loaded. **Ready to promote (signed)** is a separate readiness dropdown selection.
+Only that original recommendation's current exact native target can enable the
+existing hardware promotion action. Historical/expired links are not made current
+by either filter. Source holds, original attempts and page/scan deadlines remain.
+
+Sync records a local request before calling the normal reload API. The alert,
+roster header and Sync tooltip distinguish that request time from the loaded
+server query time and original server roster observation. A newer local request
+is not an upload acknowledgement, a completed verification or a new source date.
+The reload exports pending data; the Watcher processes it afterward, so that same
+reload can still load the previous reply. Wait for the Watcher result and use a
+later deliberate Sync to load its file. If source dates still do not advance,
+inspect the Watcher result; repeated clicks do not establish delivery.
+
+The launch decoder diagnoses incompatible container/page protocols separately
+from malformed metadata, native-scope mismatch, stopped scans and compatible
+expired advisory data. The preserved November 5 `launch-operations-v1` pages are
+both obsolete and incompatible with `officer-operations-v233`; they cannot become
+current recommendations through a redraw or by copying new timestamps onto them.
+Obtain a genuinely fresh compatible scan through the existing attended workflow.
+
+The promotion producer requires the original link anchor to be an integer,
+positive, no later than the server clock and on/after the existing cutoff before
+considering it verified. Invalid anchors stay unknown and do not reach Discord
+entitlement reads. This adds no link repair or role/promotion action.
+
+The owner put the missing live bridge **on hold on 11 November 2026**. Current
+sources expose in-game peer messages and reload-based files, not a supported
+external-to-running-Lua receiver. The separate Companion relay is referenced in
+the private source manifest but was not found in the checked workspaces or
+accessible repository search. Discord's API team also confirms that bots cannot
+post into WoW-linked guild channels:
+<https://github.com/discord/discord-api-docs/issues/8628>.
+No replacement bridge, automatic reload or timer-driven action is introduced.
+
+## Read-only recovery and loaded status candidate 0.6.32
+
+Watcher 0.6.29 can pause an explicitly started read-only promotion scan after a
+temporary Discord rate limit and retry the same signed page. It retains the
+original snapshot, scan identity, expiry and read allowances. There are at most
+two automatic rate-limit retries per page, at least five seconds between reads,
+and no request before the reported cooldown. Retries consume the existing
+50 discovery-call or 50 explicit-recheck-call allowance; they do not add a new
+allowance. A first request refused before any signed page is captured stays held.
+Persistent limits, invalid identity/source, denied access, expiry and exhausted
+budgets still stop the scan. A process restart never resumes it.
+
+An identical timestamp-only roster export during a cooldown preserves the
+original accepted source. A changed roster, scope or explicit Stop cancels the
+waiting scan. No POST, verification proof, role effect or unknown mutation is
+retried by this read-only recovery. The stopped historical scan recorded before
+this candidate is not resumed or rewritten.
+
+The addon describes the **last loaded** scan, coverage and hold reason. A cached
+running/waiting result cannot prove the Watcher is still running, and an elapsed
+Retry-After cannot make a cached result current. Partial discovery with no
+recommendations does not establish that the remaining roster is ineligible.
+Refresh view rereads native rows and loaded evidence only. The missing external
+ingress remains on hold; disk updates still enter this client at normal reload.
+
+Prior-record labels require current proof against the existing admission cutoff;
+dated labels require a newer valid source. Generic account review needs diagnosis
+of the underlying link, native GUID, standing and privacy checks. None is cleared
+by refreshing, copying timestamps or marking a record verified. Diagnose first,
+then use the supported verification/review workflow for the actual cause.

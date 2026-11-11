@@ -61,8 +61,12 @@ local function fixture(size)
     local row = e.ROSTER[i]
     table.insert(e.OlympusVerifyLists.unverified.members, { name = row.name, guid = row.guid, pending = i == 5 })
   end
-  local function load(name) setfenv(assert(loadfile("../OlympusVerify/" .. name)), e)("OlympusVerify", {}) end
-  load("Libs/OlympusHmac.lua"); load("OlympusVerify.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRoster.lua")
+  local function load(name)
+    local override=name=="OlympusVerifyRoster.lua" and rawget(_G,"ROSTER_UI_SOURCE")
+    local chunk=override and assert(loadstring(override)) or assert(loadfile("../OlympusVerify/"..name))
+    setfenv(chunk,e)("OlympusVerify",{})
+  end
+  load("Libs/OlympusHmac.lua"); load("OlympusVerify.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua")
   local h = e.OlympusHmac
   f.page = { protocol = "officer-operations-v233", status = "ready", fetchedAt = e.NOW, expiresAt = e.NOW + 60,
     snapshotAt = e.NOW - 10, snapshotId = 12, guild = "OLYMPUS PRIME", realm = "Native Realm", canonicalGuild = "OLYMPUS PRIME",
@@ -100,12 +104,19 @@ local function fixture(size)
     local out = {}; for _, m in ipairs(f.w.Visible()) do out[#out + 1] = m.name end
     return table.concat(out, ",")
   end
+  f.choose = function(button,value)
+    if not (f.w.menu and f.w.menu:IsShown() and f.w.menu.owner==button) then button:Click() end
+    for _,item in ipairs(f.w.menu.items) do if item.option and item.option.value==value then item:Click();return end end
+    error("missing actual dropdown option: "..tostring(value))
+  end
   f.sort = function(key)
     for _, hdr in ipairs(f.w.headers) do if hdr.col.key == key then hdr:Click(); return end end
     error("missing actual sort heading")
   end
   return f
 end
+
+if rawget(_G,"ROSTER_FIXTURE_ONLY") then return fixture end
 
 do
   local f = fixture()
@@ -114,12 +125,12 @@ do
   f.search("Zulu display"); check("search includes display name", f.names() == "Zulu")
   f.w.clearButton:Click(); f.w.initiateButton:Click()
   check("Initiates shortcut excludes all other native ranks", f.names() == "Alpha,NameOnly,Pending,Unlinked,Zulu")
-  f.w.onlineButton:Click(); check("online filter composes with Initiates", f.names() == "Alpha,Pending")
-  f.w.clearButton:Click(); f.w.statusButton:Click()
+  f.choose(f.w.onlineButton,2); check("online filter composes with Initiates", f.names() == "Alpha,Pending")
+  f.w.clearButton:Click(); f.choose(f.w.statusButton,2)
   check("verified filter is a display classification", f.names() == "Alpha,NameOnly,Zulu")
-  f.w.statusButton:Click(); check("not verified filter does not conflate unknown or pending", f.names() == "Unlinked")
-  f.w.statusButton:Click(); check("pending filter remains separate", f.names() == "Pending")
-  f.w.statusButton:Click(); check("unknown filter remains separate", f.names() == "Knight,Member,Officer")
+  f.choose(f.w.statusButton,3); check("not verified filter does not conflate unknown or pending", f.names() == "Unlinked")
+  f.choose(f.w.statusButton,4); check("pending filter remains separate", f.names() == "Pending")
+  f.choose(f.w.statusButton,5); check("unknown filter remains separate", f.names() == "Knight,Member,Officer")
   f.w.clearButton:Click(); f.w.initiateButton:Click(); f.sort("level")
   check("level sort ascending", f.names() == "NameOnly,Unlinked,Zulu,Pending,Alpha")
   f.sort("level"); check("level sort reverses deterministically", f.names() == "Alpha,Pending,Zulu,Unlinked,NameOnly")
@@ -127,7 +138,7 @@ do
   check("rank sort respects native rank slot and deterministic name ties", f.names() == "Officer,Knight,Member,Alpha,NameOnly,Pending,Unlinked,Zulu")
   f.sort("seen"); check("last online sorts online first then offline age", f.names() == "Alpha,Member,Officer,Pending,Unlinked,Knight,Zulu,NameOnly")
   f.sort("name"); check("name sort returns deterministic alphabetic order", f.names() == "Alpha,Knight,Member,NameOnly,Officer,Pending,Unlinked,Zulu")
-  f.w.readyButton:Click()
+  f.choose(f.w.actionFilterButton, 2)
   check("Ready intersects exact signed Initiate recommendations, not all verified labels", f.names() == "Alpha,Zulu")
   check("ready view and filtering have made no promotion", #f.promotions == 0 and f.attempts == 0)
   f.w.nextButton:Click()
@@ -140,14 +151,14 @@ do
 end
 
 do
-  local f = fixture(); f.w.readyButton:Click(); f.search("zulu"); f.w.nextButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2); f.search("zulu"); f.w.nextButton:Click()
   check("next respects the current search instead of the first global candidate", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
-  f = fixture(); f.w.readyButton:Click(); f.sort("name"); f.w.nextButton:Click()
+  f = fixture(); f.choose(f.w.actionFilterButton, 2); f.sort("name"); f.w.nextButton:Click()
   check("next respects reversed visible name order", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
 end
 
 for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "name reuse", "duplicate GUID", "native rank" }) do
-  local f = fixture(); f.w.readyButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
   local old = f.w.rows[1].promote
   if kind == "expiry" then f.e.NOW = f.page.expiresAt
   elseif kind == "scan expiry" then f.e.NOW = f.page.scan.expiresAt
@@ -162,7 +173,7 @@ for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "na
 end
 
 for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown outcome", "unconfirmed outcome" }) do
-  local f = fixture(); f.w.readyButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
   if kind == "permission" then f.permission = false
   elseif kind == "combat" then f.combat = true
   elseif kind == "native roster age" then f.e.NOW = f.e.NOW + 16
@@ -178,10 +189,10 @@ for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown ou
 end
 
 do
-  local f = fixture(); f.e.OlympusLaunchQueue = nil; f.w.readyButton:Click()
+  local f = fixture(); f.e.OlympusLaunchQueue = nil; f.choose(f.w.actionFilterButton, 2)
   check("fresh verified display cannot manufacture an absent signed promotion", f.names() == "" and not f.w.nextButton:IsEnabled())
   f = fixture(); f.e.OlympusVerifyLists.verified.snapshotAt, f.e.OlympusVerifyLists.unverified.snapshotAt = f.e.NOW - 3601, f.e.NOW - 3601
-  f.w.Show(); for _ = 1, 5 do f.w.statusButton:Click() end
+  f.w.Show(); f.choose(f.w.statusButton,6)
   local dated
   for _, row in ipairs(f.w.rows) do if row:IsShown() and row.member and row.member.name == "Alpha" then dated = row end end
   check("stale verification is a separate dated display, never green", dated and dated.member.status == "stale"
@@ -223,7 +234,7 @@ do
   for _ = 1, 20 do f.search("Synthetic"); f.search(""); f.sort("level"); f.sort("level") end
   check("1000-member search/sort reuses one cached native list", f.reads == 0)
   check("1000-member filter/sort creates no frames or action calls", #f.e.FRAMES == frames and f.attempts == 0 and #f.promotions == 0)
-  check("1000-member view retains16 recycled rows", #f.w.rows == 16 and #f.w.Visible() == 1000)
+  check("1000-member view retains14 recycled rows with evidence panel", #f.w.rows == 14 and #f.w.Visible() == 1000)
   local inside, separated, aligned, edge = true, true, true, 0
   for _, hdr in ipairs(f.w.headers) do
     inside = inside and hdr._point[4] + hdr:GetWidth() <= f.w.frame:GetWidth() - 18

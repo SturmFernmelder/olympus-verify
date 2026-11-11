@@ -838,7 +838,7 @@ local function RefreshHeader(s, pc)
   if s.membershipOnly then
     UI.newBadge:Hide()
     local exchange = s.verificationExchange == "sync-needed" and "proof waiting: Sync & reload"
-      or s.verificationExchange == "sync-requested" and "sync requested: check Watcher result"
+      or s.verificationExchange == "sync-requested" and "local request recorded; server result separate"
       or "Guild changes need Sync & reload"
     local pending = s.autoSync
     UI.summary:SetText(YELLOW .. "Officer verification|r" .. GREY .. "  ·  " .. exchange .. "  ·  " .. (pending and pending.pending and "Pending Sync: hardware required" or "Sync alert clear") .. "|r")
@@ -846,7 +846,9 @@ local function RefreshHeader(s, pc)
     if UI.flushButton then
       UI.flushButton:SetText("Pending Sync")
       UI.flushButton.tipTitle = "One-click hardware Sync & reload"
-      UI.flushButton.tipText = "Timer reloads are disabled. The movable Pending Verification Sync alert and the Sync keybind call the normal Sync API from your click/key press. Right-drag the alert to move it. Combat and unsafe interactions hold it; blocked clients use normal /reload. " .. (pending and pending.held or "Restart to load the module.")
+      UI.flushButton.tipText = OlympusVerifyAutoSync and OlympusVerifyAutoSync.Description
+        and table.concat(OlympusVerifyAutoSync.Description(), "\n")
+        or "Sync exports and reloads. The Watcher processes the export afterward; loaded server dates may still be older."
     end
     return
   end

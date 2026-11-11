@@ -37,7 +37,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.29" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.32" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -1110,6 +1110,12 @@ end
 -- is as fresh as the last /reload. Read-only: OlympusVerifyRoster.lua filters and sorts this and changes nothing.
 local Roster = {}
 Roster.STATUS_ORDER = { verified = 1, pending = 2, unverified = 3, unknown = 4, stale = 5 }
+-- Display details refine a base status; they never change verification/reminder authority.
+Roster.STATUS_DETAIL_BASE = { verified="verified", pending="pending", unverified="unverified", unknown="unknown",
+  prior_record="unknown", link_review="unknown", stale="stale", linked_dated="stale" }
+Roster.STATUS_DETAIL_ORDER = { verified=10, pending=20, unverified=30, unknown=40, prior_record=41, link_review=42, stale=50, linked_dated=51 }
+Roster.STATUS_DETAIL_LABEL = { verified="Verified", pending="Verifying", unverified="Not verified", unknown="Unknown",
+  prior_record="Linked (prior record)", link_review="Link needs review", stale="Stale list", linked_dated="Linked (dated)" }
 
 -- A strict display snapshot is separate from Unverified.Source(), which feeds
 -- legacy removal eligibility. No fallback to the invitation file in this mode.
@@ -1137,6 +1143,22 @@ function Roster.DisplaySource()
     return nil, "The strict Watcher lists or native roster are stale. Refresh the Watcher exchange and reload.", true
   end
   return q
+end
+
+-- Display clocks are observations, never an upload receipt or promotion authority.
+-- Keep the dated source readable after expiry without making it current again.
+function Roster.DisplayFacts()
+  local source, why, stale = Roster.DisplaySource()
+  local q = source or stale and OlympusVerifyLists
+  local v = type(q) == "table" and q.verified
+  local at = time()
+  if type(v) ~= "table" or type(v.fetchedAt) ~= "number" or type(v.snapshotAt) ~= "number"
+    or v.fetchedAt ~= math.floor(v.fetchedAt) or v.snapshotAt ~= math.floor(v.snapshotAt)
+    or v.snapshotAt < 1 or v.snapshotAt > v.fetchedAt or v.fetchedAt > at then
+    return { state = "unavailable", reason = why or "Loaded display clocks are unavailable." }
+  end
+  return { state = source and "loaded" or "stale", queriedAt = v.fetchedAt, rosterObservedAt = v.snapshotAt,
+    reason = why, current = source ~= nil }
 end
 
 -- The verified list, keyed by character GUID (survives a rename) and by name.
@@ -1211,6 +1233,7 @@ function Roster.Members()
         name = base, full = name, rank = rank or "?", rankIndex = rankIndex or 99, level = level or 0, class = classFile,
         guid = guid,
         online = online and true or false, days = DaysOffline(i, online), status = status,
+        statusDetail = display and Roster.STATUS_DETAIL_BASE[display.statusDetail] == status and display.statusDetail or status,
         statusLabel = display and display.label, statusReason = display and display.reason,
         historicalLinked = display and display.historicalLinked, statusAt = display and display.at,
         snapshotAt = display and display.snapshotAt,
@@ -1225,36 +1248,49 @@ function Roster.Members()
   return out, info
 end
 
--- opts: text (matches character, Discord username or display name, any case), status ("all", "verified", "pending",
--- "unverified", "unknown", or "not" = anything but verified), rank, class (the class file, e.g. "PRIEST"), online.
+-- Search visible native/status/known Discord text only, never hidden account or GUID IDs.
+-- statusDetail composes with base status, rank, class and online/offline filters.
 function Roster.Filter(list, opts)
   opts = opts or {}
   local text = string.lower(opts.text or "")
+  local function matches(value)
+    return type(value) == "string" and string.find(string.lower(value), text, 1, true) ~= nil
+  end
   local out = {}
   for _, m in ipairs(list) do
     local ok = true
     if opts.status and opts.status ~= "all" then
       if opts.status == "not" then ok = m.status ~= "verified" else ok = m.status == opts.status end
     end
+    if ok and opts.statusDetail and opts.statusDetail ~= "all" then ok = (m.statusDetail or m.status) == opts.statusDetail end
     if ok and opts.rank then ok = m.rank == opts.rank end
     if ok and opts.class then ok = m.class == opts.class end
     if ok and opts.online then ok = m.online end
+    if ok and opts.offline then ok = not m.online end
     if ok and text ~= "" then
-      ok = string.find(string.lower(m.name), text, 1, true) ~= nil
-        or (m.discord and string.find(string.lower(m.discord), text, 1, true) ~= nil)
-        or (m.display and string.find(string.lower(m.display), text, 1, true) ~= nil) or false
+      ok = matches(m.name) or matches(m.full) or matches(m.rank) or matches(m.class) or matches(m.status)
+        or matches(m.statusLabel) or matches(Roster.STATUS_DETAIL_LABEL[m.statusDetail or m.status])
+        or matches(m.statusReason) or matches(m.discord) or matches(m.display)
     end
     if ok then out[#out + 1] = m end
   end
   return out
 end
 
--- key: name, level, rank, status, discord, display, seen. Blanks sort last either way; the name breaks every tie.
+-- sourceAge uses only the original native roster clock. Missing/invalid clocks sort last.
+-- Blanks sort last either way; ascending native name/full name/GUID breaks every tie.
 function Roster.Sort(list, key, desc)
+  local now = time()
   local function val(m)
     if key == "level" then return m.level or 0
     elseif key == "rank" then return m.rankIndex or 99
-    elseif key == "status" then return Roster.STATUS_ORDER[m.status] or 9
+    elseif key == "status" then
+      local detail = Roster.STATUS_DETAIL_BASE[m.statusDetail] == m.status and m.statusDetail or m.status
+      return Roster.STATUS_DETAIL_ORDER[detail] or (Roster.STATUS_ORDER[m.status] or 9) * 10
+    elseif key == "class" then return nonEmpty(m.class) and string.lower(m.class) or nil
+    elseif key == "sourceAge" then
+      local at = m.snapshotAt
+      return type(at) == "number" and at == math.floor(at) and at > 0 and at <= now and now - at or nil
     elseif key == "discord" then return m.discord and string.lower(m.discord) or nil
     elseif key == "display" then return m.display and string.lower(m.display) or nil
     elseif key == "seen" then return m.online and -1 or (m.days or 1e9)
@@ -3290,7 +3326,8 @@ OlympusVerifyAPI = {
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
-  Roster = { Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource },
+  Roster = { Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
+    DisplayFacts = Roster.DisplayFacts },
   UnverifiedList = function(n) return Unverified.Candidates(n) end,
   UnverifiedRanks = function(info) return Unverified.Ranks(info) end,
   ToggleUnverifiedRank = function(rank) Unverified.ToggleRank(rank) end,

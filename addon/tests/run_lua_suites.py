@@ -49,14 +49,19 @@ SUITES = {
     "bridge_status267": (TESTS, Path("test_bridge_status267.lua")),
     "roster268": (TESTS, Path("test_roster268.lua")),
     "guild_status268": (TESTS, Path("test_guild_status268.lua")),
+    "roster_details": (TESTS, Path("test_roster_details.lua")),
+    "roster_model": (TESTS, Path("test_roster_model.lua")),
+    "roster_controls": (TESTS, Path("test_roster_controls.lua")),
+    "launch_projection_diagnostics": (TESTS, Path("test_launch_projection_diagnostics.lua")),
+    "loaded_scan_status": (TESTS, Path("test_loaded_scan_status.lua")),
 }
-TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268"}
+TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status"}
 
 
 def input_hashes() -> dict[str, str]:
     paths = [
         ADDON / "OlympusVerify" / name
-        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyAutoSync.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyGuild.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "OlympusVerifyLists.lua", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua", "OlympusVerifyCensus.lua", "OlympusVerifyTreasury.lua", "OlympusLaunchQueue.lua", "OlympusVerifyLaunch229.lua", "OlympusVerifyOfficerInvites233.lua")
+        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyAutoSync.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyRosterModel.lua", "OlympusVerifyGuild.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "OlympusVerifyLists.lua", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua", "OlympusVerifyCensus.lua", "OlympusVerifyTreasury.lua", "OlympusLaunchQueue.lua", "OlympusVerifyLaunch229.lua", "OlympusVerifyOfficerInvites233.lua")
     ]
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())

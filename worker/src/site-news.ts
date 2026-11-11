@@ -78,6 +78,24 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".271", date: "2026-11-11", lines: [
+      "Promotion discovery follows Discord reset headers and preserves successful page checks during bounded retries. Already-higher native ranks avoid needless role requests.",
+      "Watcher 0.6.30 keeps all 50 roster pages available by sharing the existing retry/recheck budget. Discovery and fresh promotion permission remain separate.",
+    ],
+  },
+  {
+    build: ".270", date: "2026-11-11", lines: [
+      "Promotion scans can wait through temporary rate limits within their original deadlines and read budgets. Unresolved or expired evidence still holds promotions.",
+      "The roster explains the last loaded scan, partial coverage and recovery state separately from the Watcher process and current verification.",
+    ],
+  },
+  {
+    build: ".269", date: "2026-11-11", lines: [
+      "The roster separates verified Initiates from fresh promotion recommendations and explains incompatible promotion data.",
+      "Sync shows your local request time separately from the loaded server list and roster dates. A reload request does not confirm server processing.",
+    ],
+  },
+  {
     build: ".268", date: "2026-11-10", lines: [
       "Olympus Verify 0.6.29 separates dated linked observations from current verification status and adds filtered, attended Initiate-to-Member promotion tools.",
       "The Watcher refreshes its display lists after confirmed uploads. Discord replies point to current server status instead of the separate guild-approval screen.",

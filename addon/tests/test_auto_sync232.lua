@@ -114,6 +114,35 @@ do
   a.Tick();check("actual main/module timer remains non-dispatching",reloads==0)
 end
 do
+  local f=fixture()
+  local loaded={state="stale",queriedAt=f.wall-120,rosterObservedAt=f.wall-4000}
+  f.e.OlympusVerifyAPI.Roster={DisplayFacts=function() return loaded end}
+  f.e.date=function(format,at) return os.date(format,at) end
+  f.a.Request("whisper");f.a.HardwareSync()
+  local s=f.a.Status()
+  check("Sync click records its original local request time",s.lastRequestedAt==f.wall and s.capturedRosterAt==f.wall)
+  check("local request does not renew stale loaded clocks",s.loadedListAt==f.wall-120 and s.loadedRosterAt==f.wall-4000 and s.displayState=="stale")
+  check("button separates request time from loaded data",f.a.button:GetText():find("Requested",1,true) and f.a.button:GetText():find("loaded",1,true) and f.a.button:GetText():find("stale",1,true))
+  local explanation=table.concat(f.a.Description()," ")
+  check("Sync explains post-reload processing without claiming delivery",explanation:find("not a server confirmation",1,true) and explanation:find("older result",1,true))
+  local saved=f.e.OlympusVerifyDB;f.advance(10)
+  local next=fixture(saved);next.wall=f.wall;next.e.date=f.e.date
+  next.e.OlympusVerifyAPI.Roster={DisplayFacts=function() return loaded end}
+  check("request history survives a client restart without implying current request or delivery",next.a.Status().lastRequestedAt==s.lastRequestedAt and not next.a.Status().requested and next.a.Status().displayState=="stale")
+  loaded={state="loaded",queriedAt=next.wall,rosterObservedAt=next.wall-20}
+  check("new loaded clocks do not become an upload acknowledgement",next.a.Status().lastRequestedAt==s.lastRequestedAt and next.a.Status().loadedListAt==next.wall and not next.a.Status().requested)
+end
+for _,bad in ipairs({"yesterday",0,-1,1793935001,math.huge}) do
+  local f=fixture({pendingSync233={lastRequestedAt=bad,lastSyncAt=bad,lastRequestRosterAt=bad}})
+  check("invalid or future persisted request clocks stay unavailable: "..tostring(bad),f.a.Status().lastRequestedAt==nil and f.a.Status().capturedRosterAt==nil)
+end
+do
+  local f=fixture();f.a.Request("whisper");f.e.OlympusVerifyAPI.Sync=function() return false end
+  check("explicit Sync refusal is not a successful request",not f.a.HardwareSync() and f.a.Status().held:find("client refused",1,true))
+  f=fixture();f.e.OlympusVerifyAPI.Roster={DisplayFacts=function() error("synthetic unreadable display") end}
+  check("unavailable display does not fabricate loaded dates",f.a.Status().loadedListAt==nil and f.a.Status().displayState=="unavailable")
+end
+do
   local file=assert(io.open("../OlympusVerify/Bindings.xml","r"));local xml=file:read("*a");file:close()
   local _,syncCount=xml:gsub('name="OLYMPUSVERIFY_SYNC"','');local _,nextCount=xml:gsub('name="OLYMPUSVERIFY_OFFICER_NEXT"','')
   check("exactly one Sync and officer keybinding is declared",syncCount==1 and nextCount==1 and xml:find("OlympusVerify_Sync()",1,true) and xml:find("OlympusLaunch229.NextAction()",1,true))

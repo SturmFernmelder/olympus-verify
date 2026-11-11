@@ -18,15 +18,15 @@ check('version, complete archive digest and generator are bound', () => {
 });
 const expected = ['Bindings.xml','Config.example.lua','Libs/OlympusHmac.lua','Libs/OlympusQr.lua','OlympusVerify.lua','OlympusVerify.toc',
   'OlympusVerifyAutoSync.lua','OlympusVerifyBrowser.lua','OlympusVerifyCensus.lua','OlympusVerifyGuild.lua','OlympusVerifyLaunch229.lua','OlympusVerifyLive242.lua',
-  'OlympusVerifyOfficerInvites233.lua','OlympusVerifyPreview.lua','OlympusVerifyRanks.lua','OlympusVerifyRoster.lua','OlympusVerifyTreasury.lua','OlympusVerifyUI.lua'];
-check('archive allowlist is exactly the 18 permitted public files', () => {
+  'OlympusVerifyOfficerInvites233.lua','OlympusVerifyPreview.lua','OlympusVerifyRanks.lua','OlympusVerifyRoster.lua','OlympusVerifyRosterModel.lua','OlympusVerifyTreasury.lua','OlympusVerifyUI.lua'];
+check('archive allowlist is exactly the 19 permitted public files', () => {
   assert.deepEqual(pack.FILES, expected); assert.deepEqual(manifest.files.map(row => row.path), expected.map(file => 'OlympusVerify/' + file));
 });
 // Independently walk both ZIP record tables and use Node's native zlib CRC, rather than the generator's CRC routine.
 const zip = result.zip, end = zip.length - 22;
 check('ZIP has exactly one fixed end record with no comment/trailer', () => {
-  assert.equal(zip.readUInt32LE(end), 0x06054b50); assert.equal(zip.readUInt16LE(end + 8), 18);
-  assert.equal(zip.readUInt16LE(end + 10), 18); assert.equal(zip.readUInt16LE(end + 20), 0);
+  assert.equal(zip.readUInt32LE(end), 0x06054b50); assert.equal(zip.readUInt16LE(end + 8), 19);
+  assert.equal(zip.readUInt16LE(end + 10), 19); assert.equal(zip.readUInt16LE(end + 20), 0);
 });
 let central = zip.readUInt32LE(end + 16), local = 0;
 for (let i = 0; i < expected.length; i++) check('ZIP entry/source/manifest parity: ' + expected[i], () => {

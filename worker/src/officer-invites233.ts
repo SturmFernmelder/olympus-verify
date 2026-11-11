@@ -58,12 +58,15 @@ function blockers(env:Env):string[]|null{
  const raw=env.BLOCKING_ROLE_IDS;if(raw===undefined||raw==='')return [];
  if(typeof raw!=='string')return null;const rows=raw.split(/[\s,]+/).filter(Boolean);return rows.length<=250&&rows.every(x=>/^[1-9][0-9]{16,19}$/.test(x))&&new Set(rows).size===rows.length?rows:null;
 }
-async function roles(env:Env,subject:string,b:AttemptBudget,check:()=>void):Promise<readonly string[]|null>{
+export type OfficerReadSchedule271 = Readonly<{before:()=>Promise<boolean>;observe:(response:Response)=>Promise<void>}>;
+async function roles(env:Env,subject:string,b:AttemptBudget,check:()=>void,schedule?:OfficerReadSchedule271):Promise<readonly string[]|null>{
  check();for(const key of ['limit','attempts','retries'] as const){const d=Object.getOwnPropertyDescriptor(b,key);if(!d||!Object.hasOwn(d,'value')||!Number.isSafeInteger(d.value)||d.value<0)return null;}
+ if(schedule){const allowed=await schedule.before();check();if(!allowed)return null;}
  if(b.attempts>=b.limit||b.retries!==0)return null;
  const previous=b.attempts;b.attempts=previous+1;const limit=b.limit;
  const current=()=>{check();for(const [key,value] of [['limit',limit],['attempts',previous+1],['retries',0]] as const){const d=Object.getOwnPropertyDescriptor(b,key);if(!d||!Object.hasOwn(d,'value')||d.value!==value)throw Error('officer233_budget_changed');}};
  const response=await credentialFetch(API+'/guilds/'+GUILD+'/members/'+subject,{method:'GET',headers:{Authorization:'Bot '+env.DISCORD_BOT_TOKEN}},current);current();
+ if(schedule){await schedule.observe(response);current();}
  if(response.status!==200){try{await response.body?.cancel();}catch{}return null;}
  const reader=response.body?.getReader();if(!reader)return null;let size=0;const chunks:Uint8Array[]=[];
  try{while(true){const r=await reader.read();current();if(r.done)break;size+=r.value.byteLength;if(size>32768){await reader.cancel();return null;}chunks.push(r.value);}}finally{reader.releaseLock();}
@@ -151,7 +154,7 @@ export async function postOfficerInvite233(original:Env,body:unknown):Promise<Re
  finally{active=false;}
 }
 /** Bounded read-only projection. Original queued expiry is never renewed by a fresh role GET. */
-export async function readOfficerInvites233(env:Env,budget:AttemptBudget,limit=3,pageAt=now()):Promise<{invites:OfficerInvite233[];heldReasons:string[]}>{
+export async function readOfficerInvites233(env:Env,budget:AttemptBudget,limit=3,pageAt=now(),schedule?:OfficerReadSchedule271):Promise<{invites:OfficerInvite233[];heldReasons:string[]}>{
  const result:{invites:OfficerInvite233[];heldReasons:string[]}={invites:[],heldReasons:[]};
  try{
   const check=selection(env),launch=captureLaunchVerification(env);if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME||!integer(pageAt)||pageAt>now()||pageAt<=now()-60||!Number.isSafeInteger(limit)||limit<0||limit>3){result.heldReasons.push('officer-invite-read-held');return result;}
@@ -172,7 +175,7 @@ export async function readOfficerInvites233(env:Env,budget:AttemptBudget,limit=3
   if(!rows.success)throw Error('read');const blocked=blockers(env);if(blocked===null)throw Error('policy');
   for(const row of rows.results){
    const n=stored(row.note);if(!integer(row.id)||!text(row.name)||normalizeCharacter(row.name)!==row.name_key||!/^\d{17,20}$/.test(row.discord_id)||!n||n.scopeHash!==scopeHash||n.generation!==row.generation||row.state!==null&&row.state!=='active'||n.expiresAt<=now()||n.observedAt>pageAt+5||normalizeCharacter(n.fullName)!==row.name_key){result.heldReasons.push('officer-invite-source-held');continue;}
-   const fresh=await roles(env,row.discord_id,budget,check);check();if(!launch.current())throw Error('scope');
+   const fresh=await roles(env,row.discord_id,budget,check,schedule);check();if(!launch.current())throw Error('scope');
    if(!fresh||classifyKnightRoles229(fresh)!=='knight'||blocked.some(x=>fresh.includes(x))||n.expiresAt<=now()){result.heldReasons.push('officer-invite-standing-held');continue;}
    const current=await env.DB.prepare(`SELECT 1 FROM invite_queue q WHERE (q.id=?1 AND q.discord_id=?2 AND q.name_key=?3 AND q.note=?4) AND (q.approved_by='officer233' AND q.status='queued' AND q.attempts=0)
     AND (${standing(2)}) AND (${privacyGenerationFenceSql(2,5)}) AND ?6>${DB_NOW}

@@ -31,6 +31,12 @@ npm run qualify
 CI also exercises the two explicit current lease/Treasury runtime groups in the
 same Workerd process: `npm run qualify -- --target lease --target treasury`.
 
+The explicit `--target promotions` check traverses all 50 actual cursor requests
+against a genuine local D1 fixture, with only external Discord HTTP substituted.
+It covers header pacing, original-source/expiry refusals and signed retry
+checkpoints. It runs inside the same 180-second whole-command deadline, without
+automatic retries, and does not establish live Discord or native acceptance.
+
 `npm test` and `npm run test:all` are compatibility aliases to this bounded Worker
 qualification. They never expand the retired historical suite chain. TypeScript
 runs once; actual Workerd checks have a 180-second whole-run limit, with no

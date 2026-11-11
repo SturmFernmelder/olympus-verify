@@ -23,6 +23,15 @@ local function readable(value)
   if type(issecretvalue) == "function" then local ok, secret = pcall(issecretvalue, value); if not ok or secret then return false end end
   return true
 end
+local function seconds(value)
+  return readable(value) and type(value)=="number" and value==math.floor(value)
+    and value>0 and value<=time() and value or nil
+end
+local function stamp(value, format)
+  if not seconds(value) or type(date)~="function" then return "unavailable" end
+  local ok,text=pcall(date,format or "%d %b %H:%M:%S",value)
+  return ok and type(text)=="string" and text or "unavailable"
+end
 local function facts()
   local ok, value = pcall(API.AutoSyncFacts)
   return ok and type(value) == "table" and value.strict == true and type(value.digest) == "string" and value or nil
@@ -121,7 +130,18 @@ local function UpdateAlert()
     else b:SetPoint("TOP", UIParent, "TOP", 0, -140) end
     A.button=b
   end
-  A.button:SetText(state.requested and "Sync requested: confirm the UI reload\nIf blocked, use the normal /reload command" or "Pending Verification Sync\nClick or press the Sync keybind (right-drag to move)")
+  local status=A.Status()
+  local detail=status.lastRequestedAt and ("Requested "..stamp(status.lastRequestedAt,"%H:%M")
+    .."; loaded "..stamp(status.loadedListAt,"%H:%M")..(status.displayState=="stale" and " (stale)" or ""))
+    or "Click or press Sync (right-drag to move)"
+  A.button:SetText((state.requested and "Sync requested: confirm the UI reload" or "Pending Verification Sync").."\n"..detail)
+  A.button:SetScript("OnEnter",function(self)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Sync request and loaded server data")
+    for _,line in ipairs(A.Description()) do GameTooltip:AddLine(line,0.9,0.86,0.75,true) end
+    GameTooltip:Show()
+  end)
+  A.button:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
   if state.pendingAt and state.active then A.button:Show() else A.button:Hide() end
 end
 local function Chime()
@@ -133,8 +153,29 @@ local function Chime()
 end
 function A.Status()
   local p=pref(false)
+  local display
+  if type(API.Roster)=="table" and type(API.Roster.DisplayFacts)=="function" then
+    local ok,value=pcall(API.Roster.DisplayFacts)
+    if ok and type(value)=="table" then display=value end
+  end
   return { enabled=false, mode="hardware-pending", sound=p and p.sound~=false or false,
-    held=state.held or "waiting for native data", pending=state.pendingAt~=nil, requested=state.requested==true }
+    held=state.held or "waiting for native data", pending=state.pendingAt~=nil, requested=state.requested==true,
+    lastRequestedAt=p and seconds(p.lastRequestedAt or p.lastSyncAt) or nil,
+    capturedRosterAt=p and seconds(p.lastRequestRosterAt) or nil,
+    loadedListAt=display and seconds(display.queriedAt) or nil,
+    loadedRosterAt=display and seconds(display.rosterObservedAt) or nil,
+    displayState=display and (display.state=="loaded" or display.state=="stale") and display.state or "unavailable" }
+end
+function A.Description()
+  local s=A.Status()
+  return {
+    "Last Sync requested: "..stamp(s.lastRequestedAt)..". This is a local request, not a server confirmation.",
+    "Loaded server list queried: "..stamp(s.loadedListAt).."; server roster observed: "..stamp(s.loadedRosterAt).." ("..s.displayState..").",
+    "Sync exports pending data and reloads once. The Watcher processes that export afterward; the reload can still load the older result.",
+    "Wait for the Watcher result, then use Sync once more to load its newer file. If dates still do not advance, check the Watcher; repeated clicks do not confirm success.",
+    "Loaded dates keep their original values. Current access is checked in Discord /verify-status. Live updates without reload are on hold.",
+    s.held,
+  }
 end
 local function RequestWithFacts(reason, source)
   if reason~="whisper" and reason~="native-change" and reason~="periodic" and reason~="queue-check" then return false end
@@ -164,7 +205,9 @@ function A.NativeChanged() return NativeChangedWithFacts(facts()) end
 function A.RecordSync()
   local p,source=pref(),facts()
   if not p then return end
-  p.lastSyncAt=time()
+  p.lastRequestedAt=time()
+  p.lastSyncAt=p.lastRequestedAt -- legacy cadence field; it never meant server completion
+  p.lastRequestRosterAt=source and seconds(source.exportedAt) or nil
   if source then p.lastSyncedDigest=source.digest end
   state.requested=true
   state.held="sync requested; confirm that the UI reloads"
@@ -183,10 +226,10 @@ function A.HardwareSync()
     state.held="reload API unavailable; type /reload in normal chat"; UpdateAlert(); return false
   end
   state.requested=true
-  local success=pcall(API.Sync)
-  if not success then state.held="client refused Sync; use the normal /reload command" end
+  local success,result=pcall(API.Sync)
+  if not success or result==false then state.held="client refused Sync; use the normal /reload command" end
   UpdateAlert()
-  return success
+  return success and result~=false
 end
 function A.SetEnabled(value)
   -- Compatibility with the retired timer preference never starts automatic reloads.
@@ -198,6 +241,7 @@ function A.Command(argument)
   if arg=="sound on" then A.SetEnabled(true) elseif arg=="sound off" then A.SetEnabled(false) end
   local s=A.Status()
   if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Olympus: timer reloads are disabled. Pending Sync "..(s.pending and "waiting" or "clear").."; "..s.held..". Click the alert or use the Sync keybind. /olv pending sound on|off.") end
+  if DEFAULT_CHAT_FRAME then for _,line in ipairs(A.Description()) do DEFAULT_CHAT_FRAME:AddMessage("Olympus: "..line) end end
 end
 function A.Tick()
   if not state.active then return end
