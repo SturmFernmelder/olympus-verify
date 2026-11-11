@@ -192,7 +192,7 @@ class Scan:
         self.cursor: str | None = None
         self.refresh: list[int] = []
         self.calls = 0
-        self.refreshed = 0
+        self.refreshed = 0  # Shared auxiliary attempts: discovery retries and explicit rechecks/retries.
         self.next_at = 0.0
         self.complete = False
         self.stopped: str | None = None
@@ -251,9 +251,7 @@ class Scan:
             self._stop('source-refused'); return
         if self.rate_retries.get(offset, 0) >= MAX_RATE_RETRIES:
             self._stop('rate-limit-retries-exhausted'); return
-        if self.phase == 'discover' and self.calls - self.refreshed >= MAX_PAGES:
-            self._stop('discovery-budget-exhausted'); return
-        if self.phase == 'refresh' and self.refreshed >= MAX_REFRESH_ATTEMPTS:
+        if self.refreshed >= MAX_REFRESH_ATTEMPTS:
             self._stop('refresh-budget-exhausted'); return
         self.defer_rate_limit(delay)
         if self.phase != 'idle':
@@ -266,11 +264,12 @@ class Scan:
             return True
         if at < self.next_at:
             return False
-        if self.phase == 'discover' and self.calls - self.refreshed >= MAX_PAGES:
+        auxiliary = self.phase == 'refresh' or self.rate_retry is not None
+        if auxiliary and self.refreshed >= MAX_REFRESH_ATTEMPTS:
+            self._stop('refresh-budget-exhausted'); return True
+        if self.phase == 'discover' and not auxiliary and self.calls - self.refreshed >= MAX_PAGES:
             self._stop('discovery-budget-exhausted'); return True
         if self.phase == 'refresh':
-            if self.refreshed >= MAX_REFRESH_ATTEMPTS:
-                self._stop('refresh-budget-exhausted'); return True
             if not self.refresh and self.rate_retry is None:
                 self.phase = 'idle'; return True
         if self.rate_retry is not None:
@@ -283,10 +282,12 @@ class Scan:
             offset = len(self.pages) * 20
             cursor = self.cursor
         path = PATH + ('&cursor=' + urllib.parse.quote(cursor, safe='') if cursor else '')
-        # Spend each attempt, including refusal/unknown, before transport. Controls do
-        # not reset the per-scan counters or the five-second cross-request spacing.
+        # Spend each attempt, including refusal/unknown, before transport. The first
+        # request for each discovery offset spends one of 50 discovery attempts;
+        # every retry and explicit recheck shares the other 50 (at most 100 total).
+        # Controls do not reset counters or five-second cross-request spacing.
         self.calls += 1
-        if self.phase == 'refresh':
+        if auxiliary:
             self.refreshed += 1
         try:
             okay, page = call('GET', path, retries=1)

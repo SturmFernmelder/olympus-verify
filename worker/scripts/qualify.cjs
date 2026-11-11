@@ -9,11 +9,11 @@ for(let i=2;i<process.argv.length;i++){
   if(arg==='--output'&&output===undefined){output=process.argv[++i];if(!output)throw Error('--output requires a directory');}
   else if(arg==='--target')targets.push(process.argv[++i]);
   else if(arg==='--help'){
-    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation]\nRuns tsc --noEmit and one genuine local Workerd/D1 baseline, once. Additional targets are explicit and run in the same runtime. Whole-run cap:180 seconds; no retries.');
+    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation] [--target promotions]\nRuns tsc --noEmit and genuine local Workerd/D1 behavior once. Promotions traverses bounded real cursor requests in its own fixture. Whole-run cap:180 seconds; no retries.');
     process.exit(0);
   }else throw Error('unknown qualification argument: '+arg);
 }
-if(targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('unknown or duplicate runtime target');
+if(targets.some(x=>!['lease','treasury','reconciliation','promotions'].includes(x))||new Set(targets).size!==targets.length)throw Error('unknown or duplicate runtime target');
 if(output!==undefined&&(!path.isAbsolute(output)||fs.existsSync(output)))throw Error('output must be a new absolute directory');
 output=output??fs.mkdtempSync(path.join(os.tmpdir(),'olympus-qualification-'));
 if(!fs.existsSync(output))fs.mkdirSync(output,{recursive:true});
@@ -44,8 +44,9 @@ function stage(name,args){return new Promise((resolve,reject)=>{
 (async()=>{let complete=false,error=null;
   try{
     await stage('typecheck',[require.resolve('typescript/bin/tsc'),'--noEmit']);
-    await stage('workerd',[path.join(__dirname,'qualification-workerd.cjs'),output,...targets]);
+    await stage('workerd',[path.join(__dirname,'qualification-workerd.cjs'),output,...targets.filter(target=>target!=='promotions')]);
+    if(targets.includes('promotions'))await stage('promotions',[path.join(root,'tests/launch_roster_pacing271_workerd_test.cjs')]);
     complete=true;
   }catch(failure){error=String(failure);console.error(error);process.exitCode=1;}
-  finally{record('result.json',{complete,elapsedSeconds:(performance.now()-started)/1000,capSeconds:CAP_MS/1000,stages,targets:['baseline',...targets],error,runtimeStagePassed:stages.some(s=>s.name==='workerd'&&s.exitCode===0&&!s.timedOut&&!s.spawnError),retries:0,providerCalls:0,scope:'Bounded source typecheck and genuine local behavior; live acceptance remains separate.'});}
+  finally{record('result.json',{complete,elapsedSeconds:(performance.now()-started)/1000,capSeconds:CAP_MS/1000,stages,targets:['baseline',...targets],error,runtimeStagePassed:['workerd',...(targets.includes('promotions')?['promotions']:[])].every(name=>stages.some(s=>s.name===name&&s.exitCode===0&&!s.timedOut&&!s.spawnError)),retries:0,providerCalls:0,scope:'Bounded source typecheck and genuine local behavior; live acceptance remains separate.'});}
 })();

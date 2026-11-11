@@ -128,13 +128,16 @@ class RateRecovery(unittest.TestCase):
             if index == 0:
                 self.tick(scan, lambda _: (True, self.current_page(total=20)), 5)
                 self.assertEqual(scan.rate_retries, {0: 2})
-        self.assertEqual((scan.calls, scan.refreshed, scan.stopped), (5, 3, 'rate-limit-retries-exhausted'))
+        self.assertEqual((scan.calls, scan.refreshed, scan.stopped), (5, 4, 'rate-limit-retries-exhausted'))
         self.assertFalse(scan.defer_rate_limit(5))
         self.assertEqual(scan.stopped, 'rate-limit-retries-exhausted')
 
-    def test_discovery_retry_spends_original_fifty_get_ceiling(self):
+    def test_two_discovery_retries_preserve_full_1000_scan_and_spend_shared_pool(self):
         scan = self.scan()
         self.tick(scan, (True, self.limited(total=1000, delay=1)))
+        original_scan = copy.deepcopy(scan.pages[0]['scan'])
+        self.tick(scan, lambda _: (True, self.limited(total=1000, delay=1)), 5)
+        self.tick(scan, lambda _: (True, self.current_page(total=1000)), 5)
         while scan.phase != 'idle':
             def answer(path):
                 query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
@@ -142,8 +145,84 @@ class RateRecovery(unittest.TestCase):
                 offset = int(cursor.rsplit('-', 1)[1])
                 return True, self.current_page(offset, 1000)
             self.tick(scan, answer, 5)
-        self.assertEqual((scan.calls, scan.refreshed, len(scan.pages), len(self.calls)), (50, 0, 49, 50))
-        self.assertEqual(scan.stopped, 'discovery-budget-exhausted')
+        self.assertEqual((scan.calls, scan.refreshed, len(scan.pages), len(self.calls)), (52, 2, 50, 52))
+        self.assertIsNone(scan.stopped)
+        self.assertTrue(scan.complete)
+        self.assertEqual(sorted(scan.pages), list(range(0, 1000, 20)))
+        self.assertTrue(all(value['scan'] == original_scan for value in scan.pages.values()))
+        self.assertEqual(scan.pages[980]['entitlements']['unscanned'], 0)
+        self.assertEqual(scan.rate_retries, {0: 2})
+        self.assert_cursor(1, 'page-0'); self.assert_cursor(2, 'page-0')
+        self.assertEqual(scan.result()['refreshedPages'], 2)
+        self.assertFalse(self.tick(scan, (False, 'no automatic final refresh'), 5))
+        for index in range(48):
+            self.clock += 5
+            self.assertTrue(scan.request(dict(action='recheck', offset=index*20,
+                                             id='chosen-'+str(index), scopeHash=scan.scope_hash), self.clock))
+            self.tick(scan, lambda _: (True, self.current_page(index*20, 1000)))
+        self.assertEqual((scan.calls, scan.refreshed, len(self.calls)), (100, 50, 100))
+        self.assertFalse(scan.request(dict(action='recheck', offset=0, id='spent',
+                                          scopeHash=scan.scope_hash), self.clock+5))
+        self.assertTrue(all(later[0]-earlier[0] >= 5 for earlier,later in zip(self.calls,self.calls[1:])))
+        self.assertLess(self.clock, original_scan['expiresAt'])
+        self.assertEqual(scan.pages[0]['scan'], original_scan)
+
+    def test_last_discovery_page_can_use_shared_retry_pool(self):
+        scan = self.scan()
+        for offset in range(0, 1000, 20):
+            response = self.limited(offset, 1000, 1) if offset == 980 else self.current_page(offset, 1000)
+            self.tick(scan, (True, response), 0 if offset == 0 else 5)
+        self.assertEqual((scan.calls, scan.refreshed, scan.phase), (50, 0, 'discover'))
+        self.assertEqual(scan.rate_retry, (980, 'page-980'))
+        self.tick(scan, lambda _: (True, self.current_page(980, 1000)), 5)
+        self.assertEqual((scan.calls, scan.refreshed, len(scan.pages), scan.complete), (51, 1, 50, True))
+        self.assertIsNone(scan.stopped)
+        self.assert_cursor(50, 'page-980')
+
+    def test_fifty_shared_retries_allow_fifty_distinct_pages_but_never_101st_get(self):
+        scan = self.scan()
+        for offset in range(0, 1000, 20):
+            response = self.limited(offset, 1000, 1) if offset < 500 else self.current_page(offset, 1000)
+            self.tick(scan, (True, response), 0 if offset == 0 else 5)
+            if offset < 500:
+                self.tick(scan, lambda _: (True, self.limited(offset, 1000, 1)), 5)
+                self.tick(scan, lambda _: (True, self.current_page(offset, 1000)), 5)
+        self.assertEqual((scan.calls, scan.refreshed, len(scan.pages), len(self.calls)), (100, 50, 50, 100))
+        self.assertTrue(scan.complete)
+        self.assertIsNone(scan.stopped)
+        self.assertTrue(all(count == 2 for count in scan.rate_retries.values()))
+        self.assertFalse(scan.request(dict(action='recheck', offset=0, id='spent',
+                                          scopeHash=scan.scope_hash), self.clock+5))
+        self.assertFalse(self.tick(scan, (False, 'no automatic 101st GET'), 5))
+        self.assertEqual(len(self.calls), 100)
+
+    def test_exhausted_shared_pool_stops_a_discovery_retry_before_transport(self):
+        scan = self.scan()
+        for offset in range(0, 500, 20):
+            self.tick(scan, lambda _: (True, self.limited(offset, 1000, 1)), 0 if offset == 0 else 5)
+            self.tick(scan, lambda _: (True, self.limited(offset, 1000, 1)), 5)
+            self.tick(scan, lambda _: (True, self.current_page(offset, 1000)), 5)
+        self.assertEqual((scan.calls, scan.refreshed), (75, 50))
+        self.tick(scan, lambda _: (True, self.limited(500, 1000, 1)), 5)
+        original = copy.deepcopy(scan.pages)
+        self.assertEqual((scan.calls, scan.refreshed, scan.stopped), (76, 50, 'refresh-budget-exhausted'))
+        self.assertFalse(self.tick(scan, (True, self.current_page(500, 1000)), 5))
+        self.assertEqual((len(self.calls), scan.pages), (76, original))
+        self.assertFalse(scan.complete)
+        self.assertIsNone(scan.rate_retry)
+
+    def test_fifty_distinct_discovery_attempts_do_not_allow_offset_1000(self):
+        scan = self.scan()
+        for offset in range(0, 1000, 20):
+            def answer(_):
+                report = self.current_page(offset, 1000)
+                if offset == 980:
+                    report.update(status='partial', nextCursor='unbounded-continuation')
+                return True, report
+            self.tick(scan, answer, 0 if offset == 0 else 5)
+        self.assertEqual((scan.calls, scan.refreshed, scan.phase), (50, 0, 'discover'))
+        self.assertTrue(self.tick(scan, (False, 'must not fetch page51'), 5))
+        self.assertEqual((scan.calls, len(self.calls), scan.stopped), (50, 50, 'discovery-budget-exhausted'))
         self.assertFalse(scan.complete)
 
     def test_refresh_retry_spends_original_fifty_refresh_ceiling(self):

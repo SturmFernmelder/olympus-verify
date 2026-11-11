@@ -44,6 +44,11 @@ export interface LaunchPromotion229 { name: string; guid: string; currentSlot: n
 export interface LaunchRisk229 { name: string; guid: string; currentSlot: 9; level: number | null; lastOnlineDays: number | null; reason: 'unverified-initiate'; reviewOnly: true }
 export interface LaunchHeld229 { name: string; guid: string; reason: string }
 const nativeLabels: Readonly<Record<number, string>> = Object.freeze({0: 'Guild Master', 1: 'Stewart', 2: 'High Council', 3: 'Officer', 4: 'Officer Alt', 5: 'Raid Leader', 6: 'Veteran', 7: 'Raider', 8: 'Member', 9: 'Initiate'});
+/** Already-at/above Veteran rows cannot produce a promotion; don't spend Discord reads on them. */
+export function needsLaunchRole229(row: LaunchRosterRow229): boolean {
+  return row.verification === 'verified' && Number.isInteger(row.currentSlot) && row.currentSlot !== null
+    && row.currentSlot > 6 && row.currentSlot <= 9 && nativeLabels[row.currentSlot] === row.rank;
+}
 export function projectLaunchOperations229(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number) {
   const heldReasons: string[] = ['native-unguilded-proof-required'];
   const promotions: LaunchPromotion229[] = [], riskBuffer: LaunchRisk229[] = [], held: LaunchHeld229[] = [];
@@ -77,6 +82,7 @@ export function projectLaunchOperations229(source: LaunchRosterSource229 | null,
       if (slot === 9 && row.rank === 'Initiate') riskBuffer.push({...identity, currentSlot: 9, level: Number.isInteger(row.level) && row.level! >= 1 && row.level! <= 255 ? row.level : null, lastOnlineDays: typeof row.lastOnlineSeconds === 'number' && Number.isFinite(row.lastOnlineSeconds) && row.lastOnlineSeconds > 0 && row.lastOnlineSeconds <= 10 * 366 * 86400 ? row.lastOnlineSeconds / 86400 : null, reason: 'unverified-initiate', reviewOnly: true});
       continue;
     }
+    if (slot <= 6) continue;
     const knight = knightByGuid.get(row.guid) ?? 'unknown';
     if (knight === 'unknown') { held.push({...identity, reason: 'discord-entitlement-unknown'}); continue; }
     if (knight === 'knight' && slot > 6) promotions.push({...identity, currentSlot: slot, targetSlot: 6, targetName: 'Veteran', reason: 'knight-veteran'});
