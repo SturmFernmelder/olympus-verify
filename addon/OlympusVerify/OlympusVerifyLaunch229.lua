@@ -42,6 +42,63 @@ local function Preview()
   return OlympusVerifyUI and OlympusVerifyUI.preview ~= nil
     or OlympusVerifyPreview and OlympusVerifyPreview.State and OlympusVerifyPreview.State() ~= nil
 end
+-- Diagnostics describe only the projection already loaded in this Lua session.
+-- Unknown source strings never become UI text or an instruction to retry.
+local LOADED_STATES = {
+  ["rate-limited"] = { "Rate limited (last loaded)", "The last loaded scan stopped after an upstream rate limit.", "Staff must review the upstream limit and original scan before separately authorized recovery." },
+  ["rate-limited-wait"] = { "Rate-limit wait (last loaded)", "The last loaded scan reported a bounded read-only rate-limit wait; its action hold remains.", "Wait for a newer returned projection, then load it through the approved workflow. The loaded report does not establish the Watcher's current state." },
+  ["rate-limit-retries-exhausted"] = { "Rate-limit retries spent (last loaded)", "The last loaded scan exhausted its bounded same-page rate-limit retries.", "Staff must review the stopped original and the upstream limit before authorizing any fresh scan; this view cannot restart it." },
+  ["rate-limit-exceeds-scan"] = { "Rate limit exceeds scan window (last loaded)", "The reported retry delay would exceed the original scan window.", "Keep the expired or stopped original intact; obtain a separately authorized fresh trusted scan instead of extending its timestamps." },
+  ["discovery-budget-exhausted"] = { "Discovery budget spent (last loaded)", "The last loaded scan exhausted its bounded discovery request budget.", "Staff must review the incomplete coverage and original budget before authorizing a fresh scan." },
+  ["refresh-budget-exhausted"] = { "Recheck budget spent (last loaded)", "The last loaded scan exhausted its bounded recheck attempt budget (including rate-limit retries).", "Do not reset its counters; staff must review the original source and authorize any later fresh scan." },
+  ["source-unknown"] = { "Source reply unknown (last loaded)", "The last loaded scan could not establish a source reply.", "Staff must inspect the original source outcome and connection; an unknown result is not permission to repeat a member request or native action." },
+  ["source-refused"] = { "Source refused (last loaded)", "The last loaded scan reports a refused source read; no specific authentication cause is established here.", "Staff must check the original authenticated source result. This view does not change credentials or retry it." },
+  ["operator-stopped"] = { "Operator stopped (last loaded)", "The original scan was explicitly stopped.", "An operator must review the stopped original before authorizing any new scan." },
+  superseded = { "Superseded (last loaded)", "The local control no longer matches the loaded scan.", "Wait for the matching returned projection; an old result cannot satisfy the new control." },
+  ["scan-expired"] = { "Scan expired (last loaded)", "The original scan has expired.", "Obtain a separately authorized fresh scan; changing displayed dates cannot restore eligibility." },
+  ["source-held"] = { "Source held (last loaded)", "The last loaded scan reports a source hold or an unsupported stop reason.", "Staff must review the source; this view does not reset or retry it." },
+  running = { "Discovery running (last loaded)", "The last loaded projection reported discovery in progress.", "Wait for a newer returned projection. The Watcher's current process and disk state are not observable here." },
+  complete = { "Discovery complete (last loaded)", "The loaded projection reports completed discovery; action freshness remains separate.", "Inspect each original page deadline and exact native target before any hardware action." },
+  partial = { "Discovery incomplete (last loaded)", "The loaded projection contains only partial discovery.", "Unscanned members have no eligibility result; staff must review the source before further work." },
+}
+local LOADED_STOP = { ["rate-limited"]=true,["rate-limited-wait"]=true,["rate-limit-retries-exhausted"]=true,
+  ["rate-limit-exceeds-scan"]=true,["discovery-budget-exhausted"]=true,["refresh-budget-exhausted"]=true,
+  ["source-unknown"]=true,["source-refused"]=true,["operator-stopped"]=true,["scan-expired"]=true,["source-held"]=true }
+local function LoadedScan(data, current, control, now)
+  local code
+  if control and control.action == "stop" then code = "operator-stopped"
+  elseif control and control.id ~= data.controlId then code = "superseded"
+  elseif data.stoppedReason then
+    local stop=Text(data.stoppedReason,64)
+    code=stop and LOADED_STOP[stop] and stop or "source-held"
+  else code = data.running == true and "running" or current.scanComplete and "complete" or "partial" end
+  local spec = LOADED_STATES[code]
+  local report = { code=code, label=spec[1], reason=spec[2], nextStep=spec[3],
+    total=current.pages[1].entitlements.total, queriedAt=0, scanExpiresAt=current.pages[1].scan.expiresAt,
+    stalePages=current.stalePages, scanned=0, progressKnown=true }
+  for index,page in ipairs(current.pages) do
+    report.queriedAt=math.max(report.queriedAt,page.fetchedAt)
+    local e=page.entitlements
+    if not Number(e.scanned,0,20) or e.scanned>math.max(0,e.total-e.offset)
+      or not Number(e.unscanned,0,1000) or e.unscanned~=math.max(0,e.total-e.offset-e.scanned)
+      or index<#current.pages and e.scanned~=20 then report.progressKnown=false
+    else report.scanned=report.scanned+e.scanned end
+    if Number(e.retryAfterSeconds,1,86400) then report.retryAfterSeconds=e.retryAfterSeconds end
+  end
+  if report.progressKnown then report.unscanned=report.total-report.scanned
+  else report.scanned=nil end
+  report.expiryState=now>=report.scanExpiresAt and "scan-expired" or report.stalePages>0 and "pages-expired" or "original-window"
+  if report.expiryState=="scan-expired" and not current.actionHeld then report.label="Scan expired (last loaded)" end
+  report.summary=report.label..(report.progressKnown and string.format(": %d/%d inspected; %d unscanned.",report.scanned,report.total,report.unscanned) or "; inspection counts unavailable.")
+  if report.expiryState~="original-window" then report.summary=report.summary.." Expired source is advisory." end
+  report.reason=report.reason.." "..report.summary
+  if report.progressKnown and report.unscanned>0 then report.reason=report.reason.." Zero recommendations in the inspected pages is not a full-roster eligibility result." end
+  if report.retryAfterSeconds then report.reason=report.reason.." Source reported Retry-After "..report.retryAfterSeconds.."s; this is a dated hint, not a live countdown or permission to act." end
+  if now>=report.scanExpiresAt then report.reason=report.reason.." The original scan is now expired; all rows are advisory."
+  elseif report.stalePages>0 then report.reason=report.reason.." "..report.stalePages.." original page(s) are now expired and advisory." end
+  report.reason=report.reason.." This reports loaded evidence, not whether the Watcher is alive or currently waiting."
+  return report
+end
 function Q.Current()
   local identity, now, data = Identity(), time(), OlympusLaunchQueue
   local function refuse(code, reason) return nil, "[" .. code .. "] " .. reason, code end
@@ -53,7 +110,10 @@ function Q.Current()
   if type(data) ~= "table" then return refuse("projection_missing", "No dated launch projection is loaded; no action taken.") end
   if data.version ~= 2 then return refuse("projection_version", "The loaded launch container version is incompatible; no action taken.") end
   if type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
-    return refuse("projection_pages", "The loaded launch page list is missing or outside its supported bounds; no action taken.") end
+    local stop=Text(data.stoppedReason,64)
+    local spec=stop and LOADED_STOP[stop] and LOADED_STATES[stop]
+    return refuse("projection_pages", "No supported launch page list is loaded; no action taken."
+      ..(spec and (" Unvalidated loaded container reports: "..spec[1]..". "..spec[2].." Next step: "..spec[3]) or "")) end
   local control = OlympusVerifyDB and OlympusVerifyDB.launchControl
   local held = data.stoppedReason or control and (control.action == "stop" or control.id ~= data.controlId)
   local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, partial = data.scanComplete ~= true,
@@ -120,6 +180,7 @@ function Q.Current()
       end
     end
   end
+  result.loadedScan=LoadedScan(data,result,control,now)
   Q.loadedIdentity = identity
   return result
 end
@@ -324,6 +385,12 @@ function Q.Show()
       local b=CreateFrame("Button",nil,frame,"UIPanelButtonTemplate");b:SetSize(width,24);b:SetPoint("TOPLEFT",x,y);b:SetText(label);b:SetScript("OnClick",fn);return b
     end
     Q.window,Q.windowInfo,Q.rowButtons,Q.rowRecheckButtons,Q.listPage=frame,info,{},{},1
+    local tip=CreateFrame("Frame",nil,frame);tip:SetSize(520,52);tip:SetPoint("TOPLEFT",18,-42);tip:EnableMouse(true)
+    tip:SetScript("OnEnter",function(self)
+      if GameTooltip then GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Last loaded scan result");GameTooltip:AddLine(Q.windowDetails or "No supported loaded result.",0.9,0.86,0.75,true);GameTooltip:Show() end
+    end)
+    tip:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
+    Q.sourceTip=tip
     Q.tab="knights";Q.tabButtons={}
     for i,spec in ipairs({{"invites","Knight invites"},{"knights","Knights > Veteran"},{"initiates","Verified > Member"},{"buffer","Purge buffer"}}) do
       local key=spec[1];Q.tabButtons[key]=button(spec[2],18+(i-1)*132,-100,125,function() Q.tab=key;Q.listPage=1;Q.Show() end)
@@ -363,13 +430,18 @@ function Q.Show()
   Q.shownRows=TabRows(current)
   Q.listPage=math.min(Q.listPage,math.max(1,math.ceil(#Q.shownRows/8)))
   local used=OlympusLaunchQueue and OlympusLaunchQueue.refreshedPages;used=Number(used,0,50) and used or 0
-  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 explicit rechecks. Actions need a fresh 60-second page and native roster.") or why
+  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 recheck attempts (including rate-limit retries). Actions need a fresh 60-second page and native roster.") or why
   if Q.tab=="invites" then
     local status=OlympusOfficerInvites233 and OlympusOfficerInvites233.Status()
     details=(details or "").."\nNext checks the original remote whisperer's explicit WHO guild state. Unknown guild stays held. "..(status and status.reason or "Capability unavailable.")
   elseif Q.tab=="buffer" then details=(details or "").."\nReview only: longest offline, then lowest level. Native guild UI removes; no automatic kick." end
   details=(details or "").."\nScan + reload exports. Wait for the Watcher, then Sync again to load its dated queue. No timer reload or instant delivery."
-  Q.windowInfo:SetText(details)
+  if current and current.loadedScan then
+    local s=current.loadedScan
+    details=s.reason.."\nNext step: "..s.nextStep.."\n"..details
+    Q.windowInfo:SetText(s.summary.."\nHover here for the full source reason and next step. Original action guards remain.")
+  else Q.windowInfo:SetText(why or "No supported loaded result. Hover here for details.") end
+  Q.windowDetails=details
   for i,b in ipairs(Q.rowButtons) do
     local row=Q.shownRows[(Q.listPage-1)*8+i]
     if row then

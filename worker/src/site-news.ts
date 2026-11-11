@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".270", date: "2026-11-11", lines: [
+      "Promotion scans can wait through temporary rate limits within their original deadlines and read budgets. Unresolved or expired evidence still holds promotions.",
+      "The roster explains the last loaded scan, partial coverage and recovery state separately from the Watcher process and current verification.",
+    ],
+  },
+  {
     build: ".269", date: "2026-11-11", lines: [
       "The roster separates verified Initiates from fresh promotion recommendations and explains incompatible promotion data.",
       "Sync shows your local request time separately from the loaded server list and roster dates. A reload request does not confirm server processing.",

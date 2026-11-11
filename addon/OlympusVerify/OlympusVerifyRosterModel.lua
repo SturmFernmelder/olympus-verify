@@ -168,6 +168,7 @@ function M.Promotions(list, launchAPI, now)
     end
   end
   diagnostics.queueAvailable = current ~= nil
+  diagnostics.loadedScan=current and current.loadedScan or nil
 
   for index = 1, size do
     local row, info = list[index], nil
@@ -181,7 +182,9 @@ function M.Promotions(list, launchAPI, now)
     elseif not initiate(row) then info = detail("wrong_rank", "Not a native Initiate", "The current native rank is not Initiate slot 9; a loaded recommendation cannot override it.")
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
     elseif launchAPI.pending[id] ~= nil then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
-    elseif current.actionHeld then info = detail("held", "Projection stopped or held", "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")
+    elseif current.actionHeld then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
+      diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
+        or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")
     elseif not recommendations[id] then
       if sourceHeld[id] then
         info = detail("held", "Source eligibility held", heldLabels[sourceHeld[id]]
@@ -218,7 +221,9 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.held = math.max(0, diagnostics.recommendations - diagnostics.ready)
   diagnostics.notReadyInitiates = math.max(0, diagnostics.nativeInitiates - diagnostics.ready)
   if not current then diagnostics.state, diagnostics.reason = "unavailable", unavailable
-  elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", "The promotion projection is stopped or superseded. No recommendations are actionable."
+  elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan
+    and (diagnostics.loadedScan.reason.." No recommendations are actionable. Next step: "..diagnostics.loadedScan.nextStep)
+    or "The promotion projection is stopped or superseded. No recommendations are actionable."
   elseif diagnostics.ready > 0 then diagnostics.state, diagnostics.reason = "ready", tostring(diagnostics.ready) .. " fresh recommendation(s) match unique native Initiates; each hardware click rechecks the native action."
   elseif diagnostics.recommendations == 0 then
     diagnostics.state, diagnostics.reason = "no_recommendation", diagnostics.nativeInitiates == 0
@@ -238,6 +243,9 @@ function M.Promotions(list, launchAPI, now)
   end
   if diagnostics.stalePages > 0 then
     diagnostics.reason = diagnostics.reason .. " " .. diagnostics.stalePages .. " stale source page(s) are advisory only."
+  end
+  if diagnostics.loadedScan and not current.actionHeld then
+    diagnostics.reason=diagnostics.reason.." "..diagnostics.loadedScan.reason.." Next step: "..diagnostics.loadedScan.nextStep
   end
   return candidates, diagnostics
 end

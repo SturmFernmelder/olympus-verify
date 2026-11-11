@@ -1,7 +1,7 @@
 import type { Env } from './env';
 import { securityHeaders } from './site-core';
 
-export const VERIFY_ADDON_VERSION = '0.6.31';
+export const VERIFY_ADDON_VERSION = '0.6.32';
 export const VERIFY_ADDON_ZIP_PATH = `/static/olympus-verify/olympus-verify-${VERIFY_ADDON_VERSION}.zip`;
 const ZIP = VERIFY_ADDON_ZIP_PATH;
 const MANIFEST = '/static/olympus-verify/version.json';

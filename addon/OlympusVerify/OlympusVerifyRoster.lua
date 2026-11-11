@@ -406,6 +406,13 @@ local function CopyTable()
   copyBox.title:SetText(string.format("Table: %d of %d filtered rows%s. Ctrl+A, Ctrl+C to copy; Escape closes.",included,#list,included<#list and " (size limit)" or ""))
   copyBox.input:SetText(table.concat(lines,"\n"));copyBox:Show();copyBox.input:SetFocus();copyBox.input:HighlightText()
 end
+local function SourceLines()
+  return { diagnostics.reason or "No supported last-loaded projection is available.",
+    string.format("Loaded pages: %d; expired pages: %d; source holds: %d; risk-review rows: %d",diagnostics.pageCount or 0,diagnostics.stalePages or 0,diagnostics.sourceHeld or 0,diagnostics.riskReview or 0),
+    "Refresh view rereads native rows and evidence already loaded into this session. It cannot observe the Watcher's current process or read a changed disk file.",
+    "Linked (prior record): earlier exact link needs current-proof review. Linked (dated): exact link in expired evidence. Link needs review: server account/identity checks were unconfirmed; no specific failed check is exposed.",
+    "Potential Initiates and signed action readiness are separate. Original expiry, native and pending-attempt guards remain." }
+end
 
 function W.Refresh()
   if not frame or not frame:IsShown() then return end
@@ -486,6 +493,7 @@ function W.Refresh()
     explanation=empty..explanation
   end
   actionInfo:SetText(GREY..explanation.."|r")
+  W.sourceExplanation=explanation
   local sortLabel=view.sort
   for _,col in ipairs(COLS) do if col.key==view.sort then sortLabel=col.text end end
   local hint="; equal values use character name. Blank values stay last."
@@ -633,6 +641,7 @@ local function Build()
   end, "Clear filters", "Show everyone again; keep the chosen sort order.")
   clear:SetPoint("LEFT", nextBtn, "RIGHT", 6, 0)
   actionInfo=Label(frame,"GameFontDisableSmall","",Layout.PAD+230,Layout.FILTER_Y-69,Layout.INNER-230)
+  actionInfo:SetWordWrap(true);actionInfo:SetHeight(26)
   snapshotText=Label(frame,"GameFontDisableSmall","",Layout.PAD,-49,Layout.INNER)
   queueSummary=Label(frame,"GameFontHighlightSmall","",Layout.PAD,Layout.COLS_Y-Layout.ROWS*Layout.ROW_H-26,Layout.INNER)
   queueSummary:SetWordWrap(true);queueSummary:SetHeight(30)
@@ -647,12 +656,11 @@ local function Build()
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
   sourceTip:SetScript("OnEnter",function(self)
-    local lines={diagnostics.reason or "No validated projection is available.",
-      string.format("Validated pages: %d; stale pages: %d; source holds: %d; risk-review rows: %d",diagnostics.pageCount or 0,diagnostics.stalePages or 0,diagnostics.sourceHeld or 0,diagnostics.riskReview or 0),
-      "Potential Initiates and signed action readiness are separate. Unknown or expired sources cannot enable promotion."}
-    Tip(self,"Recommendation source",lines)
+    local lines=SourceLines();lines[1]=W.sourceExplanation or lines[1]
+    Tip(self,"Last loaded recommendation source",lines)
   end)
   sourceTip:SetScript("OnLeave",HideTip)
+  W.sourceTip=sourceTip
 
   -- column headings: click to sort, again to reverse
   local cols = Fill(frame, "BORDER", C.band, 0.96, -1)

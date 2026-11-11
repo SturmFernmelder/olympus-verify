@@ -265,3 +265,34 @@ accessible repository search. Discord's API team also confirms that bots cannot
 post into WoW-linked guild channels:
 <https://github.com/discord/discord-api-docs/issues/8628>.
 No replacement bridge, automatic reload or timer-driven action is introduced.
+
+## Read-only recovery and loaded status candidate 0.6.32
+
+Watcher 0.6.29 can pause an explicitly started read-only promotion scan after a
+temporary Discord rate limit and retry the same signed page. It retains the
+original snapshot, scan identity, expiry and read allowances. There are at most
+two automatic rate-limit retries per page, at least five seconds between reads,
+and no request before the reported cooldown. Retries consume the existing
+50 discovery-call or 50 explicit-recheck-call allowance; they do not add a new
+allowance. A first request refused before any signed page is captured stays held.
+Persistent limits, invalid identity/source, denied access, expiry and exhausted
+budgets still stop the scan. A process restart never resumes it.
+
+An identical timestamp-only roster export during a cooldown preserves the
+original accepted source. A changed roster, scope or explicit Stop cancels the
+waiting scan. No POST, verification proof, role effect or unknown mutation is
+retried by this read-only recovery. The stopped historical scan recorded before
+this candidate is not resumed or rewritten.
+
+The addon describes the **last loaded** scan, coverage and hold reason. A cached
+running/waiting result cannot prove the Watcher is still running, and an elapsed
+Retry-After cannot make a cached result current. Partial discovery with no
+recommendations does not establish that the remaining roster is ineligible.
+Refresh view rereads native rows and loaded evidence only. The missing external
+ingress remains on hold; disk updates still enter this client at normal reload.
+
+Prior-record labels require current proof against the existing admission cutoff;
+dated labels require a newer valid source. Generic account review needs diagnosis
+of the underlying link, native GUID, standing and privacy checks. None is cleared
+by refreshing, copying timestamps or marking a record verified. Diagnose first,
+then use the supported verification/review workflow for the actual cause.
