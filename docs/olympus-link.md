@@ -442,7 +442,8 @@ This is an unqualified source candidate based on PR #138 head
 Worker. `LINK_ENABLED`, `LINK_MEMBERSHIP_ENABLED` and `LINK_MEMBERSHIP_SCOPE` remain
 absent from the tracked deployment configuration. An enabled-looking membership
 configuration is insufficient: source-owned activation holds return before OAuth,
-either database, character binding, code consumption or Discord role requests.
+Link membership database reads/writes, character binding, code consumption or Discord role requests.
+The normal Worker entry still performs its existing schema/admission checks before invoking this membership handler.
 
 ### Agreed policy and remaining integration
 

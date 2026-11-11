@@ -255,12 +255,13 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
     const text = core.proofText(j.text);
     const parsed = text ? core.parseBundle(text) : null;
     if (!text || !parsed || !parsed.ok || !parsed.bundle) return send(core.reject('format', 'This is not a complete Olympus link.'));
-    // 1. Membership is a separate switch: off, or held, answers before Discord, LINK_DB or the bot's database are touched.
+    // 1. Within this membership handler, off/held answers before Discord or Link membership DB work.
+    // The normal Worker entry has already performed its existing schema/admission checks.
     const gate = captureLiveLinkMembership(env);
     if (gate.mode !== 'on' || !gate.scope || !gate.guildId) return refuse('membership-off', parsed.bundle.R);
     if (parsed.bundle.version !== 6) return refuse('name-only', parsed.bundle.R);
     // A valid flag is not qualification of native-rank integration or R-1. These
-    // source-owned holds are before OAuth, either database, or consumption.
+    // source-owned holds are before OAuth, Link membership DB work, or consumption.
     const activationHold: string | null = liveLinkActivationHold(env);
     if (activationHold) return refuse(activationHold, parsed.bundle.R);
     const witness = slotWitness(env, LIVE_CONFIG);
