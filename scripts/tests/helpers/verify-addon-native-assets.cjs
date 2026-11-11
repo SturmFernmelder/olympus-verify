@@ -61,6 +61,7 @@ module.exports = async function verifyAddonNativeAssets(root) {
     });
     const mf = new Miniflare({
       host: '127.0.0.1', port: 0, cf: false, logRequests: false, telemetry: {enabled: false},
+      unsafeLocalExplorer: false, unsafeObservability: false,
       resourceTmpPath: path.join(scratch, 'tmp'), resourcePersistencePath: path.join(scratch, 'persist'),
       isolatedResourcePersistencePath: path.join(scratch, 'isolated'), log: new Log(LogLevel.NONE),
       workers: [{config: {
@@ -72,7 +73,7 @@ module.exports = async function verifyAddonNativeAssets(root) {
         env: {ASSETS: {type: 'assets'}, SITE_HOST: {type: 'text', value: 'site.example'},
           PUBLIC_BASE_URL: {type: 'text', value: 'https://bot.example'}},
         assets: {directory: assets, runWorkerFirst: true, hasUserWorker: true},
-      }, dev: {outboundService: {type: 'fetcher', handler() {
+      }, dev: {unsafeRegisterWorker: false, outboundService: {type: 'fetcher', handler() {
         throw Error('native asset test attempted external network');
       }}}}],
     });
@@ -115,6 +116,8 @@ module.exports = async function verifyAddonNativeAssets(root) {
           assert.equal(response.headers.get('content-type'), p.endsWith('.zip')
             ? 'application/zip' : 'application/json; charset=utf-8');
           assert.equal(response.headers.get('cache-control'), 'no-store, no-transform');
+          assert.equal(response.headers.get('content-disposition'), p.endsWith('.zip')
+            ? `attachment; filename="olympus-verify-${pack.VERSION}.zip"` : null);
         }
         checks++;
       }
@@ -131,6 +134,19 @@ module.exports = async function verifyAddonNativeAssets(root) {
           assert.equal(response.headers.get('X-Fixture-Asset-Trace'), '[]');
           checks++;
         }
+        for (const p of paths) for (const method of ['POST', 'PUT', 'DELETE', 'OPTIONS']) {
+          const response = await local.mf.dispatchFetch('https://site.example' + p, {method});
+          assert.equal(response.status, 405);
+          assert.equal(response.headers.get('allow'), 'GET, HEAD');
+          assert.equal(response.headers.get('X-Fixture-Asset-Trace'), '[]');
+          await response.arrayBuffer();
+          checks++;
+        }
+        const previous = await local.mf.dispatchFetch('https://site.example/static/olympus-verify/olympus-verify-0.6.29.zip');
+        assert.equal(previous.status, 404);
+        assert.equal(previous.headers.get('X-Fixture-Asset-Trace'), '[]');
+        await previous.arrayBuffer();
+        checks++;
       }
     } finally { await local.dispose(); }
   }
@@ -145,7 +161,7 @@ module.exports = async function verifyAddonNativeAssets(root) {
       checks++;
     }
   } finally { await redirects.dispose(); }
-  assert.equal(checks, 14);
-  console.log('PASS native Request/real ASSETS: historical error counterexample and 14 integration checks');
+  assert.equal(checks, 23);
+  console.log('PASS native Request/real ASSETS: historical error counterexample and 23 integration checks');
   return {checks, priorRouteSHA256: sha(prior), routeSHA256: sha(current)};
 };

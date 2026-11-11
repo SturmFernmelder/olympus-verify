@@ -185,3 +185,44 @@ the bounded **0.6.9** layout observation. The owner deferred the later **0.6.13*
 until actual world entry. Native acceptance of the current source still requires the exact
 selected Forever client and a live session. The prepared preview checklist and the frozen
 erasure/B1 evidence retain their original scopes.
+
+
+## Roster exploration candidate 0.6.30
+
+The candidate replaces cycling buttons with direct dropdowns for verification detail,
+native rank, class, presence (all/online/offline), and Member readiness. Search includes
+visible native name/rank/class, safe status labels/reasons and known current Discord
+text. It does not search hidden account identifiers. Prior records, generic link
+review and expired exact-GUID links remain separately filterable while preserving
+their conservative base unknown/stale status.
+
+Every data heading sorts its actual field, including native class, original roster
+age and recommendation readiness. The direction and deterministic name tie-break
+are explicit; empty Discord columns and shared source dates explain why a sort can
+leave the order unchanged. Selected-row details keep the full reason, original
+query/roster dates, native identity, next step and action-readiness reason visible.
+Copy table opens a bounded native edit box containing the current filtered/sorted
+TSV fields. It performs no external transmission and excludes codes, request bodies,
+proofs and Discord account IDs.
+
+Promotion counts now distinguish native Initiates, currently verified display
+Initiates, loaded validated recommendations and actionable exact native targets.
+Missing projection/dispatcher is unavailable, not a claim that nobody needs a
+promotion. Stale pages, partial discovery, source holds, risk-review rows, original
+pending attempts and per-row mismatch reasons remain visible. A known verified
+Initiate without an original fresh recommendation is potential only. The sole
+hardware promotion dispatcher and its original native checks remain unchanged.
+
+The window reevaluates loaded evidence every five seconds while visible. A changed,
+invalid or expired display source triggers one native reclassification; unchanged
+phases do not repeatedly rescan native rows. This may use the existing throttled
+native roster query, but never Worker HTTP, Sync or ReloadUI. Expired current names
+are cleared rather than kept green. This is not a live server-to-addon transport:
+Watcher disk updates still require a supported import path, and the separate
+reload-free bridge remains unimplemented.
+
+Before native acceptance, use an attended test account with the exact candidate:
+check dropdown selection/closure, sorting and ties, copy-box focus/Escape, selected
+row identity after recycling, both window styles/scales, gamepad transitions,
+expired source repaint and absent/held promotion projections. No review label or
+successful delivery receipt authorizes a role, invite, reminder send or promotion.

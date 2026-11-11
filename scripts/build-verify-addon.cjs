@@ -13,7 +13,7 @@ const MANIFEST = 'worker/public/static/olympus-verify/version.json';
 const FILES = Object.freeze(['Bindings.xml', 'Config.example.lua', 'Libs/OlympusHmac.lua', 'Libs/OlympusQr.lua',
   'OlympusVerify.lua', 'OlympusVerify.toc', 'OlympusVerifyAutoSync.lua', 'OlympusVerifyBrowser.lua',
   'OlympusVerifyCensus.lua', 'OlympusVerifyGuild.lua', 'OlympusVerifyLaunch229.lua', 'OlympusVerifyLive242.lua', 'OlympusVerifyOfficerInvites233.lua',
-  'OlympusVerifyPreview.lua', 'OlympusVerifyRanks.lua', 'OlympusVerifyRoster.lua', 'OlympusVerifyTreasury.lua', 'OlympusVerifyUI.lua']);
+  'OlympusVerifyPreview.lua', 'OlympusVerifyRanks.lua', 'OlympusVerifyRoster.lua', 'OlympusVerifyRosterModel.lua', 'OlympusVerifyTreasury.lua', 'OlympusVerifyUI.lua']);
 // Current package digests describe current bytes. Historical repair source pins
 // remain in Git; the owner permanently retired them as build admission gates.
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');

@@ -190,7 +190,7 @@ local function StaleResult(m, now, fallback)
   why = why .. " List fetched " .. Dated(ix.fetched) .. "; roster observed " .. Dated(ix.snapshot)
     .. ". Sync, let the Watcher refresh its display file, then reload. This is not proof of being unverified."
   if matched then
-    return { status="stale", label="Linked (dated)", historicalLinked=true,
+    return { status="stale", statusDetail="linked_dated", label="Linked (dated)", historicalLinked=true,
       reason="This exact native GUID was linked in the dated Watcher list; current verification and Discord access are unconfirmed. " .. why,
       at=ix.fetched, snapshotAt=ix.snapshot, guid=m.guid, name=m.name }
   end
@@ -199,7 +199,7 @@ end
 
 -- Only exact GUID matches are green. A name-only legacy link remains explicitly unknown;
 -- a new character reusing a linked name must not inherit that character's verification.
-function G.Verification(name, guid)
+local function Verification(name, guid)
   local now, identity = time(), Identity()
   if not identity or changedGuild or not loadedIdentity or identity ~= loadedIdentity then
     return { status = "unknown", reason = "Guild changed or snapshot scope is unknown. Reload with the current watcher's list." }
@@ -232,34 +232,39 @@ function G.Verification(name, guid)
   local matched, unverified = m.guid and ix.guids[m.guid], nk and ix.unverified[nk]
   local review = m.guid and ix.review[m.guid]
   if ix.ambiguous or matched == false or unverified == false or review == false or matched and (unverified or review) or review and unverified then
-    return { status = "unknown", reason = "The loaded verification lists are ambiguous or disagree. Refresh them before contacting anyone." }
+    return { status = "unknown", reason = "The loaded verification lists are ambiguous or disagree. Refresh them before contacting anyone.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
   end
   if matched and matched.status == "member" then
     return { status = "verified", reason = "Exact live GUID matched the watcher's linked-member list; this is a dated display snapshot, not current Discord role authority.", at = v.fetchedAt, snapshotAt = v.snapshotAt, guid = m.guid, name = m.name }
   end
   if review then
     if review.reason == "linked_before_cutoff" then
-      return { status="unknown", label="Linked (prior record)", historicalLinked=true,
+      return { status="unknown", statusDetail="prior_record", label="Linked (prior record)", historicalLinked=true,
         reason="The server has an earlier link for this exact native GUID, but it predates the current launch proof requirement. Current verification and Discord access need review; this is not an unverified-member finding.",
         at=z.fetchedAt, snapshotAt=z.snapshotAt, guid=m.guid, name=m.name }
     end
-    return { status="unknown", label="Link needs review",
+    return { status="unknown", statusDetail="link_review", label="Link needs review",
       reason="The server could not confirm a current link for this native roster entry. Its account or identity checks need review; check Discord /verify-status.",
       at=z.fetchedAt, snapshotAt=z.snapshotAt, guid=m.guid, name=m.name }
   end
   if matched or nk and ix.names[nk] or not m.guid then
-    return { status = "unknown", reason = "Only a name/old account state matched, or the native GUID is unavailable. No current GUID verification is claimed." }
+    return { status = "unknown", reason = "Only a name/old account state matched, or the native GUID is unavailable. No current GUID verification is claimed.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
   end
   if unverified then
     if q == OlympusVerifyLists and Text(unverified.guid, 40) ~= m.guid then
-      return { status = "unknown", reason = "The Watcher display row does not match the current native GUID. No reminder is offered." }
+      return { status = "unknown", reason = "The Watcher display row does not match the current native GUID. No reminder is offered.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
     end
     if nativeAliases[nk] ~= m or Text(unverified.name):find("-", 2, true) and Key(unverified.name) ~= Key(m.name) then
-      return { status = "unknown", reason = "The watcher's plain-name alias is ambiguous in the native guild roster or its explicit realm differs. No reminder is offered." }
+      return { status = "unknown", reason = "The watcher's plain-name alias is ambiguous in the native guild roster or its explicit realm differs. No reminder is offered.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
     end
-    return { status = unverified.pending and "pending" or "unverified", reason = unverified.pending and "The watcher reports a verification already in progress." or "The current watcher's unverified list names this unique native character.", at = u.fetchedAt, guid = m.guid, name = m.name, online = m.online }
+    return { status = unverified.pending and "pending" or "unverified", reason = unverified.pending and "The watcher reports a verification already in progress." or "The current watcher's unverified list names this unique native character.", at = u.fetchedAt, snapshotAt=u.snapshotAt, guid = m.guid, name = m.name, online = m.online }
   end
-  return { status = "unknown", reason = "This character is absent from the loaded watcher lists. Absence is not proof of being unverified." }
+  return { status = "unknown", reason = "This character is absent from the loaded watcher lists. Absence is not proof of being unverified.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
+end
+function G.Verification(name, guid)
+  local result = Verification(name, guid)
+  result.statusDetail = result.statusDetail or result.status
+  return result
 end
 API.Roster.Verification = G.Verification
 
@@ -325,7 +330,7 @@ local function Tooltip(button, r)
   GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
   GameTooltip:SetText(r.status == "unverified" and "Whisper Unverified" or "Olympus Discord verification")
   GameTooltip:AddLine(r.reason, 0.9, 0.86, 0.75, true)
-  if r.at then GameTooltip:AddLine("Watcher fetched " .. date("%d %b %H:%M", r.at), 0.7, 0.7, 0.7) end
+  if r.at then GameTooltip:AddLine("Server list queried " .. date("%d %b %H:%M", r.at), 0.7, 0.7, 0.7) end
   if r.snapshotAt then GameTooltip:AddLine("Server roster observed " .. date("%d %b %H:%M", r.snapshotAt), 0.7, 0.7, 0.7) end
   if r.status == "unverified" then GameTooltip:AddLine("Online: click to open an editable whisper. Nothing is sent until you press Enter.", 0.9, 0.8, 0.5, true) end
   GameTooltip:Show()
