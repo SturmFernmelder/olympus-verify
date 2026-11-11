@@ -531,6 +531,53 @@ do
   check("restored confirmed mail completes its original ID/body/note/clock",row and row.observedAt==at and row.donation.copper==500 and row.donation.items[1].count==3 and row.donation.note=="Original payment note" and x.e.OlympusVerifyDB.intake242.mailCollection242==nil)
   check("mail restore never repeats Take/Delete or supplies automatic tithe credit",x.takes==takes and x.deletes==0 and row and row.evidence.automaticCredit==false)
 end
+-- Upgrade fixtures represent captured0.6.28 SavedVariables before any Watcher
+-- attempt. Exercise actual native capture, interrupted handoff and current reload;
+-- never transform runtime source or rewrite an already-attempted original.
+local function copy268(value)
+  if type(value)~="table" then return value end
+  local out={};for k,v in pairs(value) do out[k]=copy268(v) end;return out
+end
+local function same268(a,b)
+  if type(a)~=type(b) then return false end
+  if type(a)~="table" then return a==b end
+  for k,v in pairs(a) do if not same268(v,b[k]) then return false end end
+  for k in pairs(b) do if a[k]==nil then return false end end
+  return true
+end
+do
+  local x=fixture()
+  local old=x.v.Queue({type="donation",character="Original Donor",clientVersion="0.6.28"},"prior-version")
+  local fresh=x.v.Queue({type="donation",character="New Donor"},"current-version")
+  check("queue preserves a supplied original client version",old.clientVersion=="0.6.28")
+  check("only new unversioned rows receive the current client version",fresh.clientVersion=="0.6.29")
+end
+for _,kind in ipairs({"trade","mail"}) do
+  local x=fixture(true);local queue=x.v.Queue
+  x.v.Queue=function(row,key) if row.type=="donation" then return nil end;return queue(row,key) end
+  if kind=="trade" then pendingTrade627(x,true) else pendingMail627(x,true) end
+  local d=x.e.OlympusVerifyDB.intake242
+  local field=kind=="trade" and "tradeCollection242" or "mailCollection242"
+  local saved=d[field];assert(saved and saved.exportBody,"captured confirmed transfer required")
+  saved.exportBody.clientVersion="0.6.28"
+  local original,context=copy268(saved.exportBody),copy268(saved)
+  local id=saved.transferId;local takes,deletes=x.takes,x.deletes
+  local receipt=x.e.OlympusVerifyDB.treasury.receipts[1];local nativeReceipt=copy268(receipt)
+  local nativeClaim=x.e.OlympusVerifyDB.treasury.liveIntakeOwners242[id]
+  x.e.NOW=x.e.NOW+5;reloadLive627(x)
+  local row=x.rows()[id];local payload=copy268(row);if payload then payload.status=nil end
+  check(kind.." upgrade restores the exact original ID and0.6.28 export payload",row and row.id==id and row.clientVersion=="0.6.28" and same268(payload,original))
+  check(kind.." upgrade keeps original note/items and capture clocks",row and same268(row.donation,original.donation)
+    and row.observedAt==original.observedAt and row.requestedAt==original.requestedAt and row.requestedBy==original.requestedBy)
+  check(kind.." upgrade leaves saved original custody unchanged",same268(saved,context) and d[field]==nil)
+  check(kind.." upgrade preserves the exclusive native claim and receipt MAC",nativeClaim==true
+    and x.e.OlympusVerifyDB.treasury.liveIntakeOwners242[id]==nativeClaim and same268(receipt,nativeReceipt)
+    and #x.e.OlympusVerifyDB.treasury.receipts==1)
+  x.event("BAG_UPDATE_DELAYED");x.event("PLAYER_MONEY");x.v.Flush("upgrade-recheck")
+  check(kind.." upgrade never repeats Take/Delete or creates another donation",x.takes==takes and x.deletes==deletes
+    and x.rows()[id]==row and same268((function()local r=copy268(row);if r then r.status=nil end;return r end)(),original)
+    and #x.e.OlympusVerifyDB.treasury.receipts==1)
+end
 do
   local x=fixture(true);pendingMail627(x,false)
   local saved=x.e.OlympusVerifyDB.intake242.mailCollection242;local id=saved.transferId;local takes=x.takes
