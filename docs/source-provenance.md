@@ -1,5 +1,8 @@
 # Source provenance and publication
 
+> Current testing authority: [permanent release qualification](release-qualification.md), owner-mandated 10 November 2026. Older aggregate/projection-pin testing passages below are historical and no longer release gates. Runtime/source provenance and retained evidence remain scoped to their actual purpose.
+
+
 What the tracked tree is made of, what never enters it, how the generated and derived files are produced, and how a
 public snapshot of this repository is prepared. Written 1 October 2026 for the consolidation (Olympus Verify as the
 keeper of Olympus Forever's better mechanisms) and the planned publication of the repository.

@@ -1,5 +1,8 @@
 # Deploy checklist — what is yours, what is done, what I verify afterwards
 
+> Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
+
+
 > **Historical record, not the current procedure.** This file is the build-by-build log since September 2026, kept as
 > written. Its opening lines and the undated sections "Already filled in `worker/wrangler.toml`" and "Your part" record
 > the first installation: a new D1 database, `npm run db:init` against the remote database, every secret set, `npm run
@@ -8015,3 +8018,10 @@ This prospective owner-directed live-first repair gives the Watcher an independe
 ## Worker .265 - 2026-11-10.265 Bounded audit lookups
 
 This prospective owner-directed live-first change narrows existing audit lookups: CURRENT_SCHEMA uses an existing audit index, and current-walk visit exclusion reads a bounded visited set through NOT IN. It adds no DDL, index, role or identity authority, request budget or freshness allowance. The original Native eligibility, privacy, unknown-effect, exact owned lease and source-custody guards remain required. Addon and Watcher both remain0.6.27. The earlier .264 current-head hosted13 checks and review were reported clean by Root; that history is not .265 qualification, a measured latency result, whole-roster completion or drain evidence. No local regression tests are run because the cumulative allowance is exhausted. Compilation, fresh D1 backup, exact deployed source/version, current-head hosted CI/review and actual fresh-snapshot progression remain separate required evidence. Member interaction checks and branch verification remain owner-held. This section does not assert .265 serving, historical unknown closure or aggregate acceptance.
+
+
+## Permanent qualification restructuring — 10 November 2026 (CI/documentation only)
+
+The owner's permanent mandate replaces the eight-shard/full-suite pre-deploy aggregate and historical static-source projection gates. `worker/package.json`, `.github/workflows/ci.yml` and [release-qualification.md](release-qualification.md) define the bounded path: TypeScript, actual local Workerd/D1 behavior, the Lua 1,000-member performance benchmark and SQLite backup integrity. `npm test` and `test:all` are compatibility aliases to the bounded Worker command, not old-suite expansion. The projection pre-push hook and automatic Army mock workflow are retired; old configuration and receipts remain inert history. Required `check` still refuses failed, cancelled, skipped or missing current jobs.
+
+Before each separately authorized production deployment, export a fresh D1 backup and use the reusable checker to restore-verify it locally, including foreign keys and current-catalogue parity. CI's schema-only restoration is not a production backup. Keep exact-commit deployment, artifact provenance and actual live acceptance with explicit residuals. No runtime source, public asset, addon, Watcher, schema, setting or provider changes accompany this policy change; no runtime BUILD bump or production deployment is needed. Roll back a faulty policy configuration through a reviewed Git change, not by restoring production data or resurrecting retired fixture gates.

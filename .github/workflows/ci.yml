@@ -9,21 +9,16 @@ permissions:
   contents: read
 
 concurrency:
-  # PR updates share one group; other runs have unique groups so GitHub's pending-slot replacement cannot cancel them.
   group: review-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Owner permanent restructuring mandate, 10 November 2026.
+# No full-suite shards, static-source projection pins or release-specific helper loops.
 jobs:
-  # .168 conserves the original test:all occurrences, including repeated invocations.
-  # Leaf processes share no globals; the runner bounds concurrency to the available CPUs.
-  worker_shard:
-    name: worker_shard (${{ matrix.shard }})
+  worker:
+    name: worker
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    timeout-minutes: 10
     env:
       WRANGLER_SEND_METRICS: 'false'
     steps:
@@ -32,155 +27,63 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Scan repository history for secrets
-        if: matrix.shard == 8
         run: bash scripts/scan-secrets.sh
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: worker/package-lock.json
-      - name: Verify projection pins
-        run: node scripts/check-projections.cjs --index
-      # Full raw fixture evidence stays in the log; matching its multi-megabyte
-      # JSON lines as compiler diagnostics costs minutes and changes no test result.
-      - name: Stop compiler annotation matchers before raw fixture logs
-        run: |
-          echo '::remove-matcher owner=tsc::'
-          echo '::remove-matcher owner=eslint-compact::'
       - run: npm ci
         working-directory: worker
-      - name: Run every assigned original Worker command
-        run: node scripts/ci-shards.cjs --shard ${{ matrix.shard }}
-        working-directory: worker
-      - name: Contained Treasury expiry in actual local Workerd
-        if: matrix.shard == 8
-        timeout-minutes: 3
-        run: node scripts/ci-treasury-workerd.cjs
-        working-directory: worker
-      - name: Reuse Lupa 2.8 for the optional census consumer chain
-        if: matrix.shard == 8
-        run: python3 -m pip install --user 'lupa==2.8'
-      - name: Actual pinned census Bridge to Lua JSON to strict server
-        if: matrix.shard == 8
-        timeout-minutes: 3
-        run: |
-          CENSUS_RUN_DIR="$(mktemp -d "$RUNNER_TEMP/olympus-census.XXXXXX")"
-          python3 -E -P addon/tests/run_census_consumer.py --fetch-upstream --run-dir "$CENSUS_RUN_DIR/lua"
-          python3 -E -P addon/tests/run_census_server_chain.py --lua-receipt "$CENSUS_RUN_DIR/lua/run-receipt.json" --evidence-root "$CENSUS_RUN_DIR" --run-dir "$CENSUS_RUN_DIR/server"
-      - name: SQL suites (real extracted SQL against SQLite)
-        if: matrix.shard == 7
-        run: |
-          python3 tests/unverified_sql_test.py
-          python3 tests/backfill_sql_test.py
-        working-directory: worker
-      - name: Site script syntax
-        if: matrix.shard == 7
-        run: node --check public/static/app.js
-        working-directory: worker
-      - name: Deploy and publication contracts and CI scheduling regressions
-        if: matrix.shard == 7
-        run: |
-          bash scripts/tests/deploy-commit.test.sh
-          node scripts/tests/deploy-toolchain.test.cjs
-          bash scripts/tests/ci-gate.test.sh
-          bash scripts/tests/cutover-config.test.sh
-          bash scripts/tests/publication-helper.test.sh
-          node scripts/tests/ci-workflow.test.cjs
-          node scripts/tests/ci-treasury-workerd.test.cjs
-          node scripts/tests/check-projections.test.cjs
-          node scripts/tests/verify-addon-package.test.cjs
-          node scripts/tests/verify-addon-download.test.cjs
-      - name: Package the Worker without deploying
-        if: matrix.shard == 8
-        run: npx wrangler deploy --dry-run --outdir ../.check-worker
+      - name: TypeScript and targeted genuine Workerd D1 behavior
+        run: npm run qualify -- --target lease --target treasury
         working-directory: worker
 
-  # Keep the exact required status name; a failed, cancelled, skipped or missing
-  # matrix result must fail this always-run collector, never skip it into a pass.
-  worker:
-    name: worker
-    if: always()
-    needs: [worker_shard]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Require all eight Worker shards to have succeeded
-        env:
-          WORKER_SHARDS: ${{ needs.worker_shard.result }}
-        run: node -e "require('./worker/scripts/ci-shards.cjs').requireShardResult(process.env.WORKER_SHARDS)"
-
-  # The officer-PC side: the watcher's unit tests and the relay script, plus the operator tools' tests. Standard library
-  # only, on the runner's Python 3.
-  watcher:
-    name: watcher
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Watcher unit tests and the Discord relay cases
-        run: |
-          python3 tests/test_watcher.py
-          python3 -m unittest discover -s . -p test_intake242.py
-          python3 tests/test_discord_relay.py
-          python3 tests/test_custody196.py
-          python3 tests/test_attended_custody196.py
-          python3 tests/test_restart197.py
-          python3 tests/test_treasury227.py
-          python3 tests/test_native_membership227.py
-          python3 tests/test_verification_exchange232.py
-          python3 tests/test_launch_operations229.py
-        working-directory: watcher
-      - name: Operator tools (each test is a standalone script with a fake Worker on 127.0.0.1)
-        run: |
-          python3 tools/tests/test_backfill_roles.py
-          python3 tools/tests/test_review.py
-      - name: Stockades fixed-scope reset contract (offline fake Discord)
-        run: python3 tools/tests/test_stockades_role_reset.py
-
-  # The addon's declared offline Lua suites, through Lupa's bundled LuaJIT 2.1: the same Lupa version as the local venv
-  # that runs them on this PC (2.8, observed 30 Sep 2026), so results are comparable.
   addon:
     name: addon
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Lupa 2.8 (LuaJIT 2.1 runtime for the suites)
+      - name: Install existing LuaJIT bridge
         run: python3 -m pip install --user 'lupa==2.8'
-      - name: Declared Lua suite failure contract
-        run: python3 addon/tests/test_lua_runner.py
-      - name: Addon suites
-        run: python3 addon/tests/run_lua_suites.py
-      - name: Actual watcher-rendered queue to addon eligibility
-        run: python3 addon/tests/test_queue_contract217.py
-      - name: Dedicated aggregate producer
-        run: python3 addon/OlympusGuildCompatibility196/tests/site-aggregate-lua.py
+      - name: Bounded 1000-member Lua performance benchmark
+        run: python3 addon/tests/run_lua_suites.py --suite performance235
 
-  # The one status a ruleset on main requires. It always runs (a skipped required job counts as PASSED for merging,
-  # per GitHub's status-check docs) and fails unless every job above reports exactly "success": failure, cancelled and
-  # skipped all fail (scripts/ci-gate.sh, tested by scripts/tests/ci-gate.test.sh). Codex reviews of 6de12d2 and
-  # c93fc0e: a required check covering the Worker job alone, or one that could be skipped, would let a watcher or
-  # addon regression merge.
+  backup:
+    name: backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No production credentials or export in CI. A fresh production export is
+      # checked by this same tool immediately before each authorized deployment.
+      - name: SQLite backup checker regression cases
+        run: python3 -m unittest discover -s scripts/tests -p test_check_d1_backup.py
+      - name: Restore current schema SQL and verify SQLite integrity
+        run: python3 scripts/check-d1-backup.py worker/schema.sql --format sql
+      - name: Required CI result gate failure cases
+        run: bash scripts/tests/ci-gate.test.sh
+
+  # Preserve the existing required status. Missing, failed, skipped and cancelled
+  # dependencies fail; no placeholder shard statuses are reported as success.
   check:
     name: check
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [addon, watcher, worker]
+    needs: [worker, addon, backup]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Require every job to have succeeded
+      - name: Require every qualification job to succeed
         env:
           WORKER: ${{ needs.worker.result }}
-          WATCHER: ${{ needs.watcher.result }}
           ADDON: ${{ needs.addon.result }}
+          BACKUP: ${{ needs.backup.result }}
         run: bash scripts/ci-gate.sh

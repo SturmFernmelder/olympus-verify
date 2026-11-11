@@ -10,7 +10,9 @@ deployed and what is open, read the tail of the task log (below) and `docs/deplo
 
 Production Verify .228 shipped at commit `68548e8cff218bdb06b5db9d1f8524235e160363`, tree `291e2e788e5b0a387ba69667b2929b285715074b`. The .229 launch operations successor is prepared under the owner's 5 November instruction; this source paragraph does not assert its deployment. The canonical site is `olympus.roachcouncil.com`. The announced launch time was 4 November at 23:00 UTC. The owner-authorized production queue switch is off. Check the append-only shared log for subsequent live readbacks and launch decisions. The .229 operator guide is `docs/launch229-operator.md`.
 
-Claude Code and ChatGPT Codex each audit independently, challenge the other agent’s findings and reconcile them on an isolated candidate. Verify every change with before and after evidence. Both agents independently qualify the final commit and tree and record a primary signature plus a counter-signature of the other agent. Include the exact QA inventory and report hashes. Any shipping byte change requires new signatures. A solo signature requires an explicit owner statement in chat that one agent is out of usage credits.
+The owner's **permanent restructuring mandate of 10 November 2026** supersedes every older full-suite, static-source projection-pin and release-helper requirement in this repository. The current policy is [release qualification](docs/release-qualification.md): TypeScript `tsc --noEmit`, targeted genuine Workerd/D1 behavior, the Lua 1,000-member performance benchmark, and a fresh D1 backup checked with SQLite integrity/foreign-key validation. Do not restart the 334-suite aggregate, require historical source-string/hash reconstruction, or build throwaway operator control loops. Stable live behavior is evidence; genuine runtime failures remain failures.
+
+Review the actual changed code and record its exact commit/tree, test results, live observations and remaining limits. Keep independent reviewer attribution and any expressly applicable owner signature requirements/waivers; never invent a Claude countersignature or usage-exhaustion claim. Historical reports and frozen evidence remain immutable records, not fixtures that must be repaired before the next deployment.
 
 Use the current workflow and runtime receipts for test counts. The dated owner instructions are in [Owner instruction history](docs/owner-instruction-history.md). For merge and deployment, see [Release qualification and production rollout](#release-qualification-and-production-rollout).
 
@@ -31,57 +33,27 @@ a time, and the site moves from `guild.roachcouncil.com` to `olympus.roachcounci
 
 ## Commands
 
-All from `worker/` unless said otherwise. Node 24 (`.nvmrc`); the suites need `node:sqlite` (Node 22.13 or later).
+Node 24 is selected by `.nvmrc`. From `worker/`:
 
 ```bash
-npm run typecheck                          # tsc --noEmit over src/
-npm run check:vectors                      # the 12 shared code vectors (Python, TypeScript and Lua must agree)
-npm run check:policies                     # src/policy-content.ts is what policies/*.html give (regenerate: npm run build:policies)
-npm run test:all                           # typecheck + vectors + every node suite (real src/*.ts over SQLite) + the bundle in workerd
-node tests/bundle_runtime_test.cjs         # the exact dry-run bundle loaded in local Miniflare/workerd (~15 s)
-node tests/site_test.cjs
-node tests/frontend_check.cjs
-node tests/role_budget_test.cjs            # the role writer's request budget: the real discord.ts rest() behind a stubbed fetch (.95/.99)
-node tests/guild_seats_test.cjs
-node tests/site_news_test.cjs
-node tests/scheduled_budget_test.cjs
-node tests/roster_effects_test.cjs
-node tests/rank_planner_test.cjs
-python tests/unverified_sql_test.py        # SQL suites (from worker/)
-python tests/backfill_sql_test.py
-npx wrangler deploy --dry-run --outdir <scratch>   # bundle without deploying
-# from watcher/:
-python tests/test_watcher.py               # exact runtime totals and skips come from the receipt
-python tests/test_discord_relay.py         # 16 relay cases
-python tests/test_custody196.py            # 39 custody tests; CI also runs the next two
-python tests/test_attended_custody196.py   # 19 attended-custody tests
-python tests/test_restart197.py            # restart recovery
-python tests/test_native_membership227.py  # strict launch membership
-python tests/test_treasury_receipts227.py  # local gold receipts
-# from the repository root:
-python tools/tests/test_backfill_roles.py
-python tools/tests/test_review.py
-python tools/tests/test_stockades_role_reset.py   # synthetic only
-bash scripts/tests/deploy-commit.test.sh     # the deploy script's argument contract, with a fake wrangler
-bash scripts/tests/cutover-config.test.sh    # the cutover configuration differs from the live one in exactly the expected keys
-bash scripts/cutover-config.sh               # show that difference (--check in CI; --apply only as the final cutover step, after the gates; --activate after it, activation keys only)
-bash scripts/tests/publication-helper.test.sh # the publication helpers compile, answer --help and load their pinned reference (docs/source-provenance.md)
-# addon suites: no system Lua; use the lupa/LuaJIT venv
-"C:/path/to/Olympus Forever/.local-tools/lua-attestation/Scripts/python.exe" addon/tests/run_lua_suites.py
+npm run typecheck             # pure tsc --noEmit
+npm run qualify               # typecheck once + bounded genuine Workerd/D1 checks
+npm test                      # alias to the same bounded qualification
+npm run test:all               # compatibility alias; NEVER the retired aggregate
 ```
 
-CI (`.github/workflows/ci.yml`) runs eight `worker_shard` matrix jobs with `fail-fast: false`, preserving the complete
-original `test:all` expansion and its repeated invocations. Independent leaves run in separate processes within the
-runner's CPU capacity. The two longest suites opt into isolated whole-fixture groups; continuation chains and all
-original assertions/deadlines remain intact. SQL, census, history scan, script contracts and dry-run packaging
-still run once at their assigned shard. The exact required `worker` name is an always-run collector requiring
-the whole matrix result to be exactly `success`; `watcher` and `addon` retain their original commands. Final `check`
-always requires exact success from `addon`, `watcher` and `worker` (`scripts/ci-gate.sh`). Failure, cancellation,
-skip or missing results cannot pass either collector. No ruleset change accompanies this scheduling change.
-`node scripts/check-projections.cjs --index` from the repository root checks staged projection pins; the optional
-tracked pre-push hook checks actual outgoing commits, as described in `.githooks/README.md`.
-There is no ESLint or Prettier;
-`.editorconfig` sets the style (2 spaces, LF, final newline; Python 4 spaces).
+From the repository root:
+
+```bash
+python addon/tests/run_lua_suites.py --suite performance235
+python scripts/check-d1-backup.py /private/path/fresh-production.sql --format sql --live-catalogue /private/path/live-catalogue.json
+```
+
+The Lua command uses the existing Lupa 2.8 LuaJIT interpreter and exercises both 920- and 1,000-member rosters. The backup checker restores only into a temporary local database, runs SQLite integrity and foreign-key checks, and optionally compares an actual current catalogue. A local CI schema check is not a fresh production backup. See [release-qualification.md](docs/release-qualification.md) for the complete bounded workflow and honest evidence scope.
+
+CI has three qualification jobs (`worker`, `addon`, `backup`) and the existing always-run required `check` collector. `worker` runs the bounded qualification; `addon` runs only the performance benchmark; `backup` checks SQLite restoration and the reusable checker's negative cases. The collector refuses failed, cancelled, skipped or missing dependencies. Existing secret scanning remains independent of the retired test aggregate. There are no shard placeholders, mandatory suite-count census, automatic Army preview mock suite or projection pre-push hook. Historical scripts remain diagnostic records; they cannot block a release through a stale string or file hash.
+
+There is no ESLint or Prettier; `.editorconfig` sets 2 spaces, LF and a final newline (Python 4 spaces).
 
 **Never run:** `npm run deploy` or `wrangler deploy` (the authorized Codex Root deploys through the release gate, from an exact commit with
 `bash scripts/deploy-commit.sh <sha> --keep-vars` for main); `wrangler secret put` (owner only, it redeploys at once); `npm run db:init`
@@ -241,8 +213,8 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   failure goes through `log.ts errorRef` (a fixed category and a bounded status; never the message, the name or a
   digest of either); the hosts suite fails on a bare one. Workers Logs keep what is printed.
 - **The entry exports functions only.** `src/index.ts` may export the default handler and functions; a scalar export
-  makes workerd refuse the bundle at startup (.47 to .50 did not start). `tests/bundle_runtime_test.cjs` loads the real
-  dry-run bundle in workerd and is part of `test:all`.
+  makes Workerd refuse the bundle at startup (.47 to .50 did not start). The bounded qualification loads the actual
+  current Worker in Workerd. The old `tests/bundle_runtime_test.cjs` remains a historical diagnostic, outside the default gate.
 - **Fail closed:** an unknown roster or Discord state holds a grant and never revokes.
 - **The cron's D1 budget** (`src/scheduled-budget.ts`, .115, Codex's finding of 3 Oct 2026): the conservative source/test
   accounting charges every statement attempt, each batch element included, and composes `scheduled()` with every job
@@ -256,30 +228,15 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 ## Conventions
 
-- **Every deployable change bumps `BUILD`** in `src/index.ts` (`YYYY-MM-DD.NN word`). Move the three health build
-  pins (`tests/site_test.cjs`, `tests/hosts_test.cjs`, `tests/bnet_retention_test.cjs`) and the one exact current-BUILD
-  context in `tests/site_news_test.cjs` together. The latter must retain its source-line byte count and SHA-256,
-  unique current marker, predecessor custody and finite credit; do not broaden `GUARD` or `ALLOWED`.
-  The newest member-facing `RELEASE_NOTES` row must have that same build number and date. Add its exact, uniquely
-  counted prepend inverse before older inverses in `tests/resources_admission169_test.cjs`; preserve every historical
-  inverse and the original whole-News digest. Run that actual focused leaf: the fast projection check reads inert
-  declarations and checks current consistency, but does not execute or prove the historical inverse chain.
-  Add a "Worker .NN" section to `docs/deploy-checklist.md` (what changed, config, rollout, rollback, tests) and, where
-  the reason matters, a dated section to `docs/design.md`. These are prospective release requirements; missing
-  historical notes remain history and are not fabricated to retrofit this rule.
-- **Public-asset pins follow the served bytes.** A change to `worker/public/static/app.js` moves five pins: its `bytes`
-  and `sha256` in both `scripts/official_asset_reference.json` entries, that file's hash in `scripts/official_assets.py`
-  (`REFERENCE_SHA256`), the `official_assets.py` and `official_asset_reference.json` hashes in
-  `scripts/reconcile_public_root.py` (`V4_PINS`), and `EXPECTED_SOURCE_SHA256` in `tools/army-qr-local/website-overlay.cjs`
-  and `tools/shared-census-website/website-overlay.cjs`. Stage the change and run `node scripts/check-projections.cjs --index`.
+- **Every deployable runtime change bumps `BUILD`** in `src/index.ts` (`YYYY-MM-DD.NN word`) and the newest member-facing `RELEASE_NOTES` row. Add a dated rollout/rollback note to `docs/deploy-checklist.md`. Test/CI/documentation-only changes do not redeploy or bump a stable runtime. Do not update historical BUILD mocks, source-line hashes, prepend inverses or projection pins merely to qualify a release.
+- **Generated artifacts describe current bytes.** Rebuild an affected official addon/package manifest from current inputs and verify the actual served artifact when deployed. Current artifact digests, dependency integrity and genuine runtime cryptographic/identity checks remain meaningful. Historical static-source fixture hashes, file sizes and exact-copy strings are retired as push/CI/merge/deployment gates. Preserve old signed evidence; do not rewrite it to manufacture a pass.
 - **A watcher behaviour change bumps `WATCHER_VERSION`** (`watcher/watcher.py`): it is sent as `v=` on queue polls, in
   the User-Agent and in the start-up log line, so an unchanged number hides which build an officer runs.
 - **In the shared repository, run Git with `-c maintenance.auto=false -c gc.auto=0`** for commands that write objects.
   Git's automatic maintenance after a commit (Git 2.54 on this host) prunes worktree registrations, which can drop
   another agent's worktree; `gc.auto=0` alone does not stop it. Never run `git gc`, `git maintenance` or
   `git worktree prune` there yourself.
-- **Tests with every change**, in the house style: a `.cjs` script that transpiles the real source, runs the real
-  schema, fakes only Discord, prints `PASS`/`FAIL` per check and exits non-zero on any failure; add it to `test:all`.
+- **Use targeted behavioral regressions** for material changed behavior: execute the actual Worker under Workerd with real local D1, mock only external services, and assert observable results. Extend the bounded runtime checks for the affected path when necessary. Lua performance counters and real SQLite corruption/foreign-key cases belong to their respective small checks. Do not append every test to a growing mandatory aggregate or compare historical source text as a runtime oracle.
 - **Comments say why**, and cite the decision and its date ("the owner's decision (2026-09-25)", "build .47").
 - **Schema changes** go into `schema.sql`, `src/schema.ts` (idempotent, `CREATE ... IF NOT EXISTS` / `addColumn`) and
   a dated file under `migrations/`, all three.
@@ -291,7 +248,9 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 This heading is the stable successor to the earlier `CLAUDE.md:78` deployment reference. Codex Root alone performs the authorized GitHub squash merges, fresh D1 backup, Cloudflare deploy and live Discord registration. Claude Code owns its local implementation and independent review.
 
-Before merge, require both exact-commit and exact-tree primary signatures and counter-signatures, completed automated review with zero findings, all thirteen hosted PR checks and the final local and attended acceptance evidence. Wait for main CI after merge. Take and restore a fresh backup before deploying. Preserve 443 live and 442 portable D1 objects, Native E2, the under-100-statement identify-copy path and the protected RT-16 decision target flow. Keep the Daniel relay, Olympus Link and separate Treasury role dispatch behind their existing gates.
+Before merge, review the exact changed commit/tree and complete the bounded qualification in [release-qualification.md](docs/release-qualification.md), with automated review and any explicitly applicable owner review authority. Use the current CI job graph; the historical thirteen-job/eight-shard requirement is retired. Require actual success from the current required `check` status and main CI after merge. Do not fabricate green statuses for retired jobs. Immediately before an authorized production deployment, export and locally integrity-check a fresh D1 backup; compare its catalogue with the actual live catalogue, explicitly accounting for provider-only objects. Do not substitute a schema-only CI fixture or historical backup.
+
+Use the existing exact-commit deployment entrypoint and concise reusable tooling. Do not generate per-build hardcoded helper hierarchies, helper hash/manifest/review polling loops, historical projection inverses, fixture repair marathons or new aggregate suite requirements. Keep actual commit/tree and deployed-artifact custody, runtime identity/privacy/standing/unknown-effect fences, Native E2, current D1 preservation and protected RT-16 decisions. Keep Daniel relay, Olympus Link and separate Treasury dispatch behind their existing gates. This policy changes qualification, not production behavior or feature activation.
 
 After deployment, check the release identity, all 90 public probes, the original first-cron audit and the attended RT-16 empty-note readback. The reviewed bot-host robots comment and 60-second first-cron allowances apply to those exact checks. Verify then record post-deploy results in `QA-REPORT.md` and the shared log. Live slash registration and native addon or Watcher acceptance each require their own evidence.
 

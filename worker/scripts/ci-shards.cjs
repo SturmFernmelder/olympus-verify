@@ -1,4 +1,10 @@
 'use strict';
+// Retired by the owner's permanent 10 November 2026 qualification mandate.
+if (require.main === module) {
+  console.error('RETIRED: historical projection/census/shard gating is disabled. Use npm run qualify in worker/; see docs/release-qualification.md.');
+  process.exit(2);
+}
+
 // CI scheduling only. Each original command remains a separate Node process and keeps its own clocks/assertions.
 const fs = require('node:fs');
 const path = require('node:path');

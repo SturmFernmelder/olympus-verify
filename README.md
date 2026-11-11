@@ -36,6 +36,10 @@ contact with the API docs).
 >   database (its step 1), then deploys an exact jointly signed commit from its `git archive` with
 >   `bash scripts/deploy-commit.sh <sha>`.
 
+## Current release qualification
+
+The owner's permanent 10 November 2026 mandate replaces the old full-suite and projection-pin gates. Use `npm run qualify` from `worker/` for pure TypeScript checking plus targeted genuine Workerd/D1 behavior, then the Lua 1,000-member performance benchmark. Before an authorized production deployment, verify a fresh private D1 backup with SQLite integrity and foreign-key checks. CI runs the bounded policy; historical suite counts, source/hash fixtures and operator helper loops are retired. See [the current commands and evidence boundaries](docs/release-qualification.md).
+
 ## Current owner-host verification setup
 
 Use the exact reviewed Olympus Verify addon and Watcher on the owner host. Confirm the active
@@ -405,14 +409,7 @@ commit `0a29611`). `CLAUDE.md` (and `AGENTS.md`, which points to it) holds the r
 what never to run, conventions, ownership and the owner gates. The task log is
 `Olympus/consolidation-2026-09-30/claude_code_x_codex.md`.
 
-- **Checks:** from `worker/`, `npm run test:all` (typecheck, the code vectors, every node suite); the SQL suites with
-  `python tests/unverified_sql_test.py` and `python tests/backfill_sql_test.py` (one file per command: `python tests/*.py`
-  runs only the first); from `watcher/`, `python tests/test_watcher.py` and `python tests/test_discord_relay.py`; the
-  tools tests `python tools/tests/test_backfill_roles.py`, `python tools/tests/test_review.py` and
-  `python tools/tests/test_stockades_role_reset.py` (offline fake Discord); the addon suites
-  through the lupa venv (`addon/tests/run_lua_suites.py`).
-  `.github/workflows/ci.yml` runs all of that, plus a Gitleaks history scan and a dry-run bundle, once the repository
-  is on GitHub.
+- **Checks:** this dated section formerly listed the retired aggregate. The permanent current commands are in [release-qualification.md](docs/release-qualification.md). `npm test` and `npm run test:all` now mean the same bounded qualification as `npm run qualify`; neither invokes the historical chain. Individual old suites are diagnostic history, not a release gate.
 - **Deploys** are the owner's, from an exact commit both agents signed: `bash scripts/deploy-commit.sh <sha>` from the
   repository root exports that commit and runs the project's wrangler against the export, so the working folder is
   never uploaded. `/health` then names the build (since .49 the public answer is `ok`, `build` and `d1` only; the

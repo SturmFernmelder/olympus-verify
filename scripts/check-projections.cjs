@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 'use strict';
+// Retired by the owner's permanent 10 November 2026 qualification mandate.
+if (require.main === module) {
+  console.error('RETIRED: historical projection/census/shard gating is disabled. Use npm run qualify in worker/; see docs/release-qualification.md.');
+  process.exit(2);
+}
+
 // .168: read the candidate's Git objects, never refresh projections or execute candidate code.
 const cp = require('node:child_process'), crypto = require('node:crypto'), fs = require('node:fs');
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');

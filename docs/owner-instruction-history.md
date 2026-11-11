@@ -1,5 +1,8 @@
 # Owner instruction history
 
+> Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
+
+
 These are dated instructions from previous releases. The current Evergreen audit and release gates are in [CLAUDE.md](../CLAUDE.md).
 
 **Current launch-readiness request (.227, 3 November 2026):** Root prepares Daniel-confirmed feed choices, strict whisper membership verification and redundant local gold receipt capture for Fern Melder. Keep live realm mapping, per-sister membership proof, producer/replay/erasure evidence and dedicated feed keys as real activation gates; counts never prove individual membership. Membership-only mode refuses missing fresh native roster/GUID before linking or invitations. Preserve443/442 objects, zero DDL, Native E2, current launch cut/floor and external OFF gates. Local addon and Watcher installation, private configuration and real native acceptance are distinct from Worker source/CI. Standing exact-candidate review and single-final-run safeguards still apply; the .226-only solo substitution does not silently cover this candidate. Source/evidence: Olympus/launch227-2026-11-03/.
@@ -158,3 +161,10 @@ The owner explicitly authorizes the current three-part product/bot upgrade on ac
 The owner authorizes both PR squash merges after their gates, shipping-main CI, a fresh restore-verified D1 backup, exact .219 deployment, reviewed main-guild slash registration/readback and final acceptance checks. Preserve443 live/442 application objects with zero DDL, Native E2, identify-copy<100, existing launch settings and external OFF gates. The unmounted Daniel relay stays OFF until contract confirmation. Public90 checks retain the comment-only bot-host robots200 exceptions; the first ordinary cron retains the60,000ms audit-bin allowance with raw timestamps and no clock-correction claim. RT-16 uses the oldest open application whose note is currently empty. No live public fixture posts, extra callback, automatic unknown-provider retry or real game action is authorized as a test.
 
 Application tests may replace obsolete exact-copy/drawer and read-only-open-record assertions with the owner-requested current behaviour, while retaining genuine privacy/authority boundaries and historical failures. See `docs/guild-commands219.md` for the private reply, explicit one-shot reminder and attendance-lock semantics.
+
+
+## Permanent restructuring mandate — 10 November 2026
+
+The owner explicitly directed: “Effective immediately, `CLAUDE.md` and all build/test configurations are amended to permanently retire the 334-suite pre-deploy test marathon, legacy static-source projection test pins, and throwaway operator helper control loops.” The replacement is pure TypeScript type checking (`tsc --noEmit`), targeted genuine Workerd D1 runtime verification, the Lua 1,000-member performance benchmark, and a D1 SQLite integrity backup check. Stable live production must not be blocked by brittle test-mock string matches or historical file-hash pins.
+
+This is permanent, not a single-build exception or an inferred reset of an old test-time allowance. The executable command and CI graph are documented in [release-qualification.md](release-qualification.md). Preserve previous failed/partial evidence without requiring historical fixture repairs. Current cryptographic runtime checks, real behavioral failures, dependency integrity, backup safety, exact deployment provenance and separately required owner authority remain in force. This testing-policy change itself does not redeploy the Worker, mutate Discord, resolve existing D1 delays, resume member interaction checks or approve a branch issuer.

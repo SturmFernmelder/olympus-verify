@@ -1,5 +1,8 @@
 # Launch runbook (the keeper's side)
 
+> Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
+
+
 The owner's steps, in order, from the release-qualified head to the public launch, and what is checked between them. This
 is the keeper's (Olympus Verify's) side; the donor's private phase (Olympus Forever on `olympusforever.roachcouncil.com`)
 follows Codex's private-phase contract and is referred to here only where it gates a keeper step. Written 1 October 2026

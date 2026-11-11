@@ -1,4 +1,10 @@
 'use strict';
+// Retired by the owner's permanent 10 November 2026 qualification mandate.
+if (require.main === module) {
+  console.error('RETIRED: historical projection/census/shard gating is disabled. Use npm run qualify in worker/; see docs/release-qualification.md.');
+  process.exit(2);
+}
+
 // Source inventory only. Reachability is not executed-case or branch coverage.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {expandScripts}=require('../worker/scripts/ci-shards.cjs');

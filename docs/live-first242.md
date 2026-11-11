@@ -1,5 +1,8 @@
 # Build .242: owner-directed live-first rollout
 
+> Current qualification policy: the owner permanently retired full-suite marathons, historical static-source projection pins and throwaway operator control loops on 10 November 2026. [Release qualification](release-qualification.md) supersedes all older testing instructions below. Dated evidence remains history; runtime/privacy/identity and deployment authority are preserved.
+
+
 The owner's 10 November 2026 directive explicitly replaces the pre-deployment qualification sequence for this release. Before deployment, run TypeScript compilation / Worker bundling, Lua syntax loading, and a fresh production D1 backup. Deploy the exact committed source and install the public addon and Watcher files before running regression suites. Hosted CI and automated review are post-deployment evidence for this rollout, not pre-deployment approval claims. This is a release-specific exception; runtime identity, privacy, standing, unknown-effect and role-ownership checks remain in force.
 
 The supplied brief contains fifteen numbered implementation items and a separate Olympus integration specification. The integration specification is implementation input; it does not authorize sending Daniel a message. The append-only release evidence is in `Olympus/launch242-2026-11-10`, with the original directive retained there verbatim. Prior .241 tests, stopped Computer Use, held accounts and operational attempts remain historical evidence and are not .242 passes.

@@ -1,5 +1,8 @@
 # Design — membership verification for Olympus (rev. 2026-09-29, Claude Cowork)
 
+> Current testing authority: [permanent release qualification](release-qualification.md), owner-mandated 10 November 2026. Older aggregate/projection-pin testing passages below are historical and no longer release gates. Runtime/source provenance and retained evidence remain scoped to their actual purpose.
+
+
 ## Current Battle.net capability and release status — 15 October 2026
 
 The opening sketch and phase plan below are historical. They do not describe current activation instructions or promise future provider coverage.
