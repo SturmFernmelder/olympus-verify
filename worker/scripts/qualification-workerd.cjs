@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.resolve(__dirname,'..'),out=process.argv[2],targets=process.argv.slice(3);
-if(!out||!path.isAbsolute(out)||!fs.statSync(out).isDirectory()||targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('invalid_runtime_arguments');
+if(!out||!path.isAbsolute(out)||!fs.statSync(out).isDirectory()||targets.some(x=>!['lease','treasury','reconciliation','live-link'].includes(x))||new Set(targets).size!==targets.length)throw Error('invalid_runtime_arguments');
 const kinds=['baseline',...targets],calls=[],handoffs=[],present=new Set(),blocked='800000000000000103';
 const bundle=buildSync({entryPoints:[path.join(root,'tests/qualification_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
 let mf,complete=false;
@@ -12,7 +12,7 @@ async function run(){
   try{
     mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script:bundle,modules:true,name:'bounded-qualification',compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,
       resourceTmpPath:path.join(out,'runtime-tmp'),resourcePersistencePath:path.join(out,'runtime-persist'),isolatedResourcePersistencePath:path.join(out,'runtime-isolated'),
-      d1Databases:Object.fromEntries(kinds.map(k=>['DB_'+k,'qualification-'+k])),outboundService:async request=>{
+      d1Databases:Object.fromEntries([...kinds,...(targets.includes('live-link')?['live-link-replacement']:[])].map(k=>['DB_'+k,'qualification-'+k])),outboundService:async request=>{
         const u=new URL(request.url),p=u.pathname.replace(/^\/api\/v10/,'');
         if(u.origin==='https://verify.example'&&u.pathname==='/internal/roles242/continue'){
           assert.equal(request.method,'POST');assert.equal(u.search,'');

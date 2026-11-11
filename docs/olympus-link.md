@@ -435,113 +435,113 @@ for up to an hour, as every ephemeral reply is. Logs carry fixed texts and `erro
 - The `/verify` reply waits up to 1.2 s for the code. A slow `LINK_DB` costs the Link block on that press, never the
   whisper reply; measure it before activation (section 8, step 4).
 
-## 5a. Live Link membership (candidate, OFF)
+## 5a. Live Link membership (.269 candidate, activation held)
 
-Status: source only. Nothing here is deployed, enabled or announced; the flag below is absent from `wrangler.toml`, so
-every behaviour in this section is off until the operator sets it. The build number bump, the deploy checklist and the
-release notes belong to Codex Root and are not part of this change. Operator steps for the whole chain (keys, secrets,
-D1, role and venue, OAuth redirect, councillor keys, hosting, release order, the in-game acceptance script, rollback) are
-in the Olympus Link network repository's `docs/LINK-ACTIVATION.md`; this page covers the bot side.
+This is an unqualified source candidate based on PR #138 head
+`535b3fc863f1b3a0a37478225847a1342819fc32`. Nothing here enables Link or deploys a
+Worker. `LINK_ENABLED`, `LINK_MEMBERSHIP_ENABLED` and `LINK_MEMBERSHIP_SCOPE` remain
+absent from the tracked deployment configuration. An enabled-looking membership
+configuration is insufficient: source-owned activation holds return before OAuth,
+Link membership database reads/writes, character binding, code consumption or Discord role requests.
+The normal Worker entry still performs its existing schema/admission checks before invoking this membership handler.
 
-**What it does.** A GUID-version Olympus_Link (an `OLB6~` link) that a High Councillor's addon observed (the confirmer's
-own, fresh guild roster listed the requester under that GUID, signed as `gv=r` and `obs=o`) gives the signed-in account
-Guild Member once, through the central role writer (`queueAndSettleLiveLinkMembership` in `role-settlements.ts`, the
-launch230 lane with a Link-sourced predicate). It never calls `addRole`, `acceptProof`, `linkRole` or `logProof`, and it
-reads LINK_DB (codes, keys) only. An OLB5 link never gives Guild Member: while membership is on it is refused as `name-only` with nothing written and no Discord request (it does not take the cosmetic `LINK_ROLE_ID` path either); while membership is off or held it keeps the unchanged upstream path. An OLB6 link
-never takes the cosmetic `LINK_ROLE_ID` path, whatever the flag says.
+### Agreed policy and remaining integration
 
-**Flags** (both are `Env` keys in `src/env.ts`; absent means off):
+The owner's 11 November decision is that Link-only verification follows a fresh
+native rank and the existing rank rules. An Initiate or Alt is not silently given
+the canonical Member rung. This candidate preserves the canonical producer fence
+and answers `native-rank-integration-pending` whenever canonical ranks are present.
+It does not weaken the fence or claim positive canonical Link admission is complete.
+A GUID and its signed account binding prove identity; they do not independently
+supply current rank, a confirmed payment, guild approval or Discord role authority.
 
-| Key | Value |
-|---|---|
-| `LINK_MEMBERSHIP_ENABLED` | exactly `"true"` to be on; absent, `""` or `"false"` is off; anything else holds |
-| `LINK_MEMBERSHIP_SCOPE` | canonical JSON, byte for byte: `{"version":1,"guild":"OLYMPUS PRIME","faction":"Alliance","servers":["4613"]}`. `guild` must be the flagship guild's exact native spelling (`isFlagshipGuildName`), `faction` `Alliance` or `Horde`, `servers` one to sixteen distinct server ids (the middle number of `Player-<server>-<hex>`). The ids are the real ones for the realm (OQ-2). |
+The proposed future lane now requires an original read of the latest native roster:
+complete, trusted, stored row count equal to declared count, no future timestamp,
+strictly younger than ten minutes, on/after the existing cutoff, and exact configured
+`addon-native-v1` guild/realm provenance. Both normalized name and GUID must match,
+and that GUID must be unique in the snapshot. A newer incomplete/untrusted snapshot
+holds; there is no fallback to a prior good snapshot. The original capability's
+predicate repeats these checks in the consuming transaction and every central
+writer admission, including the final pre-effect read. Source facts cannot be
+copied to mint another capability. This does not yet derive or qualify a rank.
 
-It is on only when `LINK_ENABLED` is on, the scope is valid and, when `VERIFY_NATIVE_SCOPE` is valid, names the same guild
-(the gate re-reads its keys, so a changed key mid-request holds). A held gate and an off gate both answer `membership-off`
-before Discord, LINK_DB or the bot's database are touched. The shared Guild Member venue (`SHARED_MEMBERSHIP230_MODE`
-`enabled` with its closure) must also be enabled; otherwise the link is not consumed and the answer is `membership-off`.
+The real server id `6933` was supplied in the discussion. It still needs attended
+native mapping evidence against the exact configured guild/realm before activation.
+Synthetic local checks using `6933` are not that evidence. Do not copy the upstream
+`4613` fixtures into live configuration. The wire names (`OLB6`, `OLY5`, `DQ`/`DP`,
+`live_link_membership`, `live-link-v1`) remain proposed pending coordination.
 
-**Refusal order** (each refusal below writes nothing to the bot's database and sends no Discord request): `membership-off`
-(gate or venue), `name-only` (not an OLB6 link), the verdict's own reasons from LINK_DB (`format`, `unknown-code`,
-`other-user`, `tag`, `code-used`, `expired`, `not-enough`, `linked-elsewhere`, and `guild-unverified` under
-`LINK_GUILD_POLICY=verified`), `expired` when the submission is later than the code's expiry plus one day, `guid-unobserved`
-(no counted councillor proof with `gv=r` and `obs=o`), `guild-scope` (guild, faction or the GUID's server id outside the
-scope), `blocked` (banned member, denied site user, or an active rename hold), `linked-elsewhere` (the name or the GUID is
-bound to another account), `guid-mismatch` (the latest complete, trusted roster lists this name under another GUID; the
-GUID wins otherwise). Answers after consumption: `member` (settled), `member-already` (a repeat or another code for an
-account that is already settled), `member-pending` (settling, or held).
+### Privacy R-1 and lifecycle hold
 
-**One use.** The state is one `site_settings` marker per code, key `livelink:` plus SHA-256(`live-link|v1|key|`+R), where R is
-the request tag. Value `{v,state,reason,createdAt,updatedAt,expiresAt}`. It holds no account, name, character, GUID, code or signature and
-no digest at all, and it is keyed by the code, not the person. Nothing in it can be recomputed from an account's subject,
-GUID, name or code, or from the settlement fingerprint (see Privacy). `expiresAt` is the code's expiry plus the one-day submit grace plus one more day; the next consume deletes
-expired markers (50 at a time, best effort). A repeat of the same link reads the stored outcome back with zero writes
-(`member-already` once settled, `member-pending` while `consumed` or `held`). Another code for an account is judged by the
-account's own `role_settlements` rows: `settled` gives `member-already`, `pending`, `dispatching` or `unknown` gives
-`member-pending`, and a `held` row lets a new code from `/verify` try again. The consuming batch (the marker, the
-`members` row, the `characters` binding with `source='link'` and the GUID, never over this account's own `member` row) is
-one admitted privacy write; its `RETURNING` mints the original consumption that the writer spends once. The writer's
-idempotency key is `request_digest` = SHA-256 of (a digest of R, account, GUID), guarded in the INSERT. That digest of R is
-not stored in the marker. Known narrow race: two
-different codes of one account submitted in the same instant can each queue a settlement; both are the same idempotent
-role PUT.
+Without canonical configuration the route answers `privacy-contract-pending`.
+There is no environment boolean that can approve this unresolved lifecycle.
+The candidate marker is `livelink:` plus SHA-256 of the domain-separated request
+tag R. Its value holds state/reason/times, but `LINK_DB.codes` stores R beside the
+Discord account, so holding both databases permits a deterministic join. The
+marker is currently outside account copy/erasure, and Phase 1b account erasure
+still does not reach LINK_DB. Hashing, expiration and a full erasure statement
+budget do not establish acceptable lifecycle behavior.
 
-**The writer.** Purpose `live_link_membership`, profile `live-link-v1`, role = the venue's Guild Member role, no rank
-derivation, the same ACK reasons and compensation (PUT, confirmation read, DELETE on a changed admission) as the
-launch230 lane. The lane body is shared, not copied: `queueAndSettleLaunchMembership230` calls it with no Link source and
-its output is unchanged (the launch230 suites run against it).
+Before this hold can be removed, agree and implement subject attribution and
+registered own-copy/erasure for the marker and the LINK_DB account data, preserve
+spent/unknown original effect custody, and qualify coordinated deletion, concurrent
+submission, expiry, key revocation and restore/replay suppression across both
+databases. Review the actual bounded erasure work and recovery catalogue; do not
+repair historical source pins or add a retention workaround to manufacture a pass.
+No retention period, code grace, GM grace or existing erasure behavior changes in
+this candidate. The 48-hour versus seven-day GM lifecycle remains a separate
+unresolved choice; automatic website aggregation stays OFF.
 
-**Privacy.** The marker is not a community-registry family because it holds no subject identifier: it is keyed by a hash of
-the request tag, stores no account, and expires. A registered family would add a statement to the Native erasure job (whose
-196-statement budget is full) and change the exact namespace list closed recovery checks. The character binding and the role
-record are account data and follow the account's own copy and erasure. The settings readers look keys up by name
-(`settingsFrom`), so the `livelink:` key range never reaches a setting; `LIVE_LINK_SETTINGS_FILTER` exists for a reader that
-scans the table, but none needed it (their SQL is exact-pinned by `owner_requests_test`).
+### Known-no-dispatch recovery
 
-The link between an account and the code it used lives only in the settlement row, which is already account data, scoped to
-the account and erased with it. The marker carries no digest that could be matched to that row's fingerprint, so the bot
-database alone cannot tie a marker to an account. The one remaining difference is timing: the marker's `createdAt` is the
-second the link was consumed, which is also close to the settlement row's time. This run does not change when `LINK_DB`
-is erased: as in section 5, an account erasure still does not reach `LINK_DB` until Phase 1b.
+If a future qualified lane has an original acknowledged queue receipt but is
+refused before dispatch, only its exact unchanged `pending`, `attempts=0`,
+`claim_nonce IS NULL` tuple can become `held/live_link_never_dispatched`. A new code
+can then be considered. A claimed attempt, unknown provider outcome, lost original
+queue receipt, settled row or changed tuple is never unspent, replayed or relabeled
+as an ACK. At the original acknowledged queue receipt the cleanup closure pins
+its provider-custody channel, prepared statement and original source/receipt
+witnesses. A later database binding or method change holds cleanup; it cannot
+redirect the write to another ledger carrying a copied tuple. A lost cleanup
+answer remains conservative on readback. This change does
+not repair historical pending/unknown originals automatically. The same held link
+is not retried, and the page wording for held versus pending still needs coordinated
+upstream work before activation.
 
-**Open question for Fern (R-1).** Is a code-keyed, expiring marker acceptable as non-personal? The request tag also appears
-in `LINK_DB.codes` beside the Discord id, so someone holding both databases could join them for the marker's lifetime (at most
-about two days past the code's expiry). That is the only join to the request tag that remains. Inside the bot database the
-marker's `createdAt` is within a few seconds of the settlement row's time, which narrows a match only for an account that
-linked at that moment; no other field of the marker matches the settlement row. This run does not change `LINK_DB` erasure
-timing (Phase 1b). If you rule it personal, the fix is a registered family with its own erase statement
-(room in the 196-statement budget) and a new sealed layer for `privacy-serving-erase.ts`. Nothing else here changes.
+### Existing Link and original Verify integration
 
-**Open question for Fern (OQ-4).** Under `CANONICAL_RANKS233` this path grants exactly `ROLE_GUILD_MEMBER` (the `member`
-rung) with no rank derivation. Should an Initiate or Alt keep that base role until the canonical routine reconciler adjusts
-it, or should Link members wait for a rank? The flag is off, so nothing changes until this is answered.
+While activation is held, `/verify` preserves its existing whisper-first guidance
+and older OLB5 cosmetic behavior. OLB6 never enters the cosmetic role path. Final
+OLB5 refusal behavior belongs to coordinated activation, not an implicit flag flip
+in this candidate. No member is promised an instant grant or an automatic role.
 
-### Purpose allow-list decisions (`grep -rn launch_membership230 worker/src`)
+This separate Link candidate does not replace QueueSelf/Status, OLV242/A626 or the
+Watcher transport. The pinned [Dan integration contract](dan155-integration.md)
+continues to require original IDs, bodies, ACKs, unknown outcomes, retention and
+normal SavedVariables flush behavior. No ordinary member Watcher requirement,
+replacement queue, forced reload loop or automatic website feed is introduced.
 
-| Site | Decision |
-|---|---|
-| `role-settlements.ts` `LAUNCH_MEMBERSHIP230_PURPOSES`, `launch230Purposes`, `launch230KnownReceipt`, `launch230PurposeSql`, the clear guard | **Extended** with `live_link_membership`: a pending, spent or compensated Link grant is an owned shared-member grant like the whisper one |
-| `role-settlements.ts` `settleRoleIntent`, the privacy role-debt visit and `observeLaunchMembershipDebt230` | **Extended**: Link rows are observed, never dispatched, by the generic path |
-| `role-settlements.ts` removal lane (`launch_membership_removal230`) | **Unchanged**: removal is cause based (ban, rename hold, blocking role, guild departure), not purpose based, so it already covers a Link grant |
-| `role-settlements.ts` canonical239/native232 ownership (`c239_native`, own-proof lists) | **Unchanged**: ownership of rank grants for the native ladder |
-| `privacy-native-erasure-roles.ts` `ATTRIBUTED` | **Extended**: an account erasure removes the role a Link grant gave |
-| `beta-reset-retention.ts` (L43-160) | **Unchanged**: its launch source shape needs an integer roster id and a native GUID; Link rows have neither and stay retained as unrecognized (fail closed) |
-| `full-release-roles.ts` L92/L116, `routine-membership-authority232.ts` L56-64 | **Unchanged**: the native rank walk and the routine anchor derive from the native roster; a Link-only member has none (OQ-4) |
-| `qr-phase1-data.ts` L14 | **Unchanged**: native only; read-only reference |
+### Qualification and release
 
-### Vendored core pin
+Run `npm run qualify -- --target live-link` from `worker/`: TypeScript and the
+actual Link refusal routes, original roster capability/predicate and tuple-exact
+no-dispatch SQL under genuine local Workerd/D1. The component checks do not mint a
+production consumption capability, bypass an activation hold or establish a
+positive member grant. Existing `test:live-link` and upstream SQLite/Lua/page
+receipts remain historical diagnostics; they do not substitute for this runtime
+scope or native cross-client acceptance. The old static prepend/projection files
+are inert historical records, not current qualification gates.
 
-`worker/vendor/olympus-link/link-core.mjs` and `guid-vectors.json` come byte for byte from the olympus-network branch
-`konig/link-guid-proof` while it was uncommitted on base `ae27323`; `UPSTREAM.commit` in `build-link-core.mjs` records that
-base plus the file's hash and **must be re-pinned to the merged network commit before this branch merges** (the three
-SHA-256 pins do not change if the merged bytes are the same). The pack names its main guild `Olympus II`; the bot's flagship
-is `OLYMPUS PRIME`, so the vectors that would grant are answered `guild-scope` here
-(`tests/live_link_membership_test.cjs` shows each case).
-
-Tests: `npm run test:live-link` (`tests/live_link_membership_test.cjs`; a manual suite, not part of `test:all`, which is the bounded `qualify.cjs`); the static seals of
-`role-settlements.ts` carry one more counted prepend (`tests/fixtures/reviewed-livelink-role-prepend.json`,
-`tests/source-livelink-static-projection.cjs`) over the unchanged reviewed chain.
+The vendored runtime remains pinned by `worker/scripts/build-link-core.mjs` to
+`dnl-gentile/olympus-network@dc922445e8824a75917746e9de3231aab0421846`.
+Reconcile the actual merged upstream commit and file integrity before integration;
+if it is squashed, update provenance to the merged bytes. Release order remains
+addon Roster.GuidOf and release, then network/page/runbook, then Verify candidate.
+Exact changed-source review, required current `check` CI, post-merge main CI and
+separately authorized deployment/activation remain required. Native game-client,
+member and branch acceptance stays pending. Deploying this held backend candidate
+would require the normal fresh verified production backup and exact-commit process;
+this document is not deployment or activation authorization.
 
 ## 6. Rollback
 
