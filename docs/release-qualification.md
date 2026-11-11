@@ -28,8 +28,11 @@ From `worker/`, using the existing Node version and installed locked dependencie
 npm run qualify
 ```
 
-CI also exercises the two explicit current lease/Treasury runtime groups in the
-same Workerd process: `npm run qualify -- --target lease --target treasury`.
+CI also exercises the explicit current lease/Treasury/reconciliation runtime groups in the
+same Workerd process: `npm run qualify -- --target lease --target treasury --target reconciliation`.
+The held Link candidate has the focused `--target live-link` group for actual
+route refusals, original Native roster fences and known-no-dispatch tuple checks.
+It does not qualify positive Link activation or native client behavior.
 
 `npm test` and `npm run test:all` are compatibility aliases to this bounded Worker
 qualification. They never expand the retired historical suite chain. TypeScript

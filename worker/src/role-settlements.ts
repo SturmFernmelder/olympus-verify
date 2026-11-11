@@ -21,6 +21,7 @@ import { captureLaunchVerification,assertLaunchMembershipMode,launchMembershipPr
 import {assertRuntimeVenue230,runtimeVenue230Facts,runtimeVenue230Predicate,oldSharedMemberProducerHeld230,type RuntimeVenue230} from './shared-membership-cutover230';
 import type {OriginalConsumedMembership230} from './ingest';
 import type {OriginalLiveLinkConsumption} from './live-link-membership';
+import {captureLiveLinkNoDispatch} from './live-link-no-dispatch';
 import {captureNativeRankConfig232,historicalNativeRankPolicy232,nativeRankProducerHeld232,NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,SHARED_MEMBER232,NATIVE_STAFF232} from './native-rank-reconciliation232';
 import type {RoutineMembership232} from './routine-membership-authority232';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233} from './canonical-ranks233';
@@ -1554,15 +1555,17 @@ async function launch230NativeIntent(env:Env,statement:D1PreparedStatement,check
 export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalConsumedMembership230,venue:RuntimeVenue230,b:AttemptBudget=budget()):Promise<Settlement>{
  return launch230Lane(env,cap,venue,b,null);
 }
-/** Live Link membership: the same lane for a Link-sourced original consumption (live-link-membership.ts). It derives no
- * rank (identity only, OQ-4), keeps the 230 reasons so every 230 observer reads its rows, and never uses the roster predicate. */
+/** Candidate Link entry remains held until fresh native-rank integration and R-1
+ * lifecycle are qualified. The dormant lane retains original custody and roster fences. */
 export async function queueAndSettleLiveLinkMembership(env:Env,cap:OriginalLiveLinkConsumption,venue:RuntimeVenue230,b:AttemptBudget=budget()):Promise<Settlement>{
  const L=await import('./live-link-membership');
+ const hold=L.liveLinkActivationHold(env);if(hold)return result('held',hold);
  return launch230Lane(env,cap,venue,b,Object.freeze({purpose:L.LIVE_LINK_PURPOSE,profile:L.LIVE_LINK_PROFILE,assertConsumed230Original:L.assertLiveLinkOriginal,consumed230Facts:L.liveLinkFacts,consumed230Predicate:L.liveLinkPredicate}));
 }
 type Launch230Live=Readonly<{purpose:string;profile:string;assertConsumed230Original:(env:Env,cap:never)=>void;consumed230Facts:(cap:never)=>{subject:string;subjectGeneration:string|null;fingerprint:string;deadline:number;source:{snapshotId:number|null;guid:string}};consumed230Predicate:(env:Env,cap:never,start:number)=>Readonly<{sql:string;values:readonly (string|number|null)[];next:number}>}>;
 async function launch230Lane(env:Env,cap:object,venue:RuntimeVenue230,b:AttemptBudget,live:Launch230Live|null):Promise<Settlement>{
  let id:string|null=null,parent:Launch230Parent|null=null,effectStarted=false,putAcknowledged=false;
+ let closeOriginalUnattemptedLive:(()=>Promise<{id:string}|null>)|null=null;
  try{
   const canonical=captureCanonicalRankConfig233(env),entitlements=captureCanonicalEntitlements233(env);
   if(canonical.present&&canonical.mode!=='enabled')return result('held','canonical233_configuration_held');
@@ -1631,6 +1634,7 @@ async function launch230Lane(env:Env,cap:object,venue:RuntimeVenue230,b:AttemptB
    WHERE ${canonical.present?canonical239And([...clauses,`NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${grantPurpose}' AND request_digest=?6)`]):`${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${grantPurpose}' AND request_digest=?6)`}
    RETURNING *,NULL AS beta_window_id`).bind(...values),check);queueCheck=queuedFacts.check;check();const queued=queuedFacts.intent;
   if(!queued||queued.id!==id||!Number.isSafeInteger(queued.created_at))return result('held','launch230_queue_held',id);
+  if(live)closeOriginalUnattemptedLive=captureLiveLinkNoDispatch(env,[queued.id,queued.subject,queued.guild_id,queued.role_id,queued.subject_generation,queued.request_digest,queued.created_at,queued.expires_at,queued.roster_id,queued.native_guid],check);
   if(b.limit-b.attempts<8)return result('held','role_request_budget',id);
   let target:Member|null;
   try{target=await qualify(env,b,f.subject,role,true,false,[],false,current,false,roleAdmission);check();if(!launch230Member(target,f.subject))throw Error();}
@@ -1685,6 +1689,16 @@ async function launch230Lane(env:Env,cap:object,venue:RuntimeVenue230,b:AttemptB
   // Only this invocation's original successful PUT can mint its compensation child.
   if(putAcknowledged&&parent)return compensateLaunchMembership230(env,parent,venue,b);
   return result(effectStarted?'unknown':'held','launch230_original_admission_held',id);
+ }finally{
+  // A pre-dispatch inventory/configuration refusal used to leave pending forever,
+  // so every new code was blocked even after expiry. Close only this original
+  // acknowledged, unchanged attempts=0 tuple. A claim/unknown/lost queue receipt
+  // cannot match and is never unspent (owner review, 11 November 2026).
+  // The closure pinned its original provider channel and statement while that
+  // receipt was current. An invalid source/method/binding witness holds cleanup.
+  if(closeOriginalUnattemptedLive&&!effectStarted)try{
+   await closeOriginalUnattemptedLive();
+  }catch{/* A lost cleanup answer grants no retry authority; durable readback stays conservative. */}
  }
 }
 

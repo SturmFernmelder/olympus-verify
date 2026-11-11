@@ -1,6 +1,7 @@
 // Genuine local Workerd/D1 behavior. Current exported schema data provisions only
 // this synthetic database; no historical source/pin/projection helpers are loaded.
 import worker from '../src/index.ts';
+import {qualifyLiveLink} from './live_link_qualification.mjs';
 import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL, ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {admittedPrivacySubjectWrite, readPrivacySubject} from '../src/privacy-serving-authority.ts';
@@ -41,7 +42,7 @@ async function provision(db,layout='canonical'){
 
 export default {async fetch(request,bindings,ctx){
   const kind=new URL(request.url).pathname.slice(1), checks=[];
-  if(request.method!=='POST'||!['baseline','lease','treasury','reconciliation'].includes(kind)||ONCE.has(kind))return new Response(null,{status:404});
+  if(request.method!=='POST'||!['baseline','lease','treasury','reconciliation','live-link'].includes(kind)||ONCE.has(kind))return new Response(null,{status:404});
   ONCE.add(kind);
   const check=(name,condition)=>{if(!condition)throw Error(name);checks.push({name,passed:true});};
   const refused=async work=>{try{await work();return false;}catch{return true;}};
@@ -51,7 +52,7 @@ export default {async fetch(request,bindings,ctx){
       const uninstalled=await worker.fetch(new Request('https://verify.example/health'),{...config,DB:db},ctx);
       check('actual Worker refuses an uninstalled D1',uninstalled.status===503);
     }
-    const env=await provision(db,kind==='reconciliation'?'recorded-live-pre-seal-20261017':'canonical');
+    const env=await provision(db,['reconciliation','live-link'].includes(kind)?'recorded-live-pre-seal-20261017':'canonical');
     if(kind==='baseline'){
       const health=await worker.fetch(new Request('https://verify.example/health'),{...config,DB:db},ctx),body=await health.json();
       check('actual Worker health consumes installed schema successfully',health.status===200&&body.ok===true&&body.d1==='ok');
@@ -111,6 +112,9 @@ export default {async fetch(request,bindings,ctx){
       await env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','qualification-expired',?2)").bind(now,JSON.stringify({retainUntil:now-1})).run();
       await intake([]);
       check('cleanup honors an existing server observation deadline',!(await db.prepare("SELECT 1 FROM audit WHERE subject='qualification-expired'").first()));
+    }else if(kind==='live-link'){
+      const replacementDB=bindings['DB_live-link-replacement'];
+      await qualifyLiveLink({env,db,check,replacementDB,replacementEnv:await provision(replacementDB,'recorded-live-pre-seal-20261017')});
     }else{
       // Persisted rows here are scheduling hints only. No fixture identity,
       // Native authority or role effect is inferred from a selector result.

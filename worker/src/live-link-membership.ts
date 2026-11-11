@@ -1,21 +1,24 @@
 /**
  * Live Link membership (candidate, OFF): a GUID-version Olympus Link (OLB6) that a High Councillor's addon observed
- * gives Guild Member through the central writer (role-settlements.ts queueAndSettleLiveLinkMembership), once.
+ * is a candidate identity input to the central writer. Fresh native rank integration and privacy remain held.
  *
  * Shipped OFF. `captureLiveLinkMembership` is synchronous and reads own data properties only:
  *   off   LINK_MEMBERSHIP_ENABLED absent, "" or "false";
  *   on    exactly "true", Link itself on (linkState), a canonical LINK_MEMBERSHIP_SCOPE naming the flagship guild, and
- *         VERIFY_NATIVE_SCOPE (when valid) naming the same guild;
+ *         a valid VERIFY_NATIVE_SCOPE naming the same guild;
  *   held  anything else.
  * Nothing here edits the generated core or calls its acceptProof, linkRole or logProof: LINK_DB codes and keys are only READ
- * (checkProof). The one-use state is a per-code site_settings marker (keyed by a hash of the request tag, expiring) that holds no account. docs/olympus-link.md is the operator's page.
+ * (checkProof). The per-code marker has no direct account value, but joins to the
+ * account through LINK_DB.codes; R-1 remains unresolved. See docs/olympus-link.md.
  */
 import type { Env } from './env';
 import { errorRef } from './log';
 import { isApprovedNativeGuildName, isFlagshipGuildName } from './guild-affiliation229';
-import { parseLaunchNativeScope, captureLaunchVerification } from './launch-verification227';
+import { parseLaunchNativeScope } from './launch-verification227';
 import { linkState, linkEnv, linkCors, loadLinkCore } from './link';
 import { normalizeCharacter } from './codes';
+import { captureCanonicalRankConfig233 } from './canonical-ranks233';
+import { captureLiveLinkRoster, liveLinkRosterFacts, liveLinkRosterPredicate, type LiveLinkRoster } from './live-link-roster';
 import { admittedPrivacySubjectWrite, privacyGenerationFenceSql, privacyProviderCustodyDatabase, readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
 
 export const LIVE_LINK_PURPOSE = 'live_link_membership';
@@ -27,12 +30,16 @@ export const LIVE_LINK_SUBMIT_GRACE = 86400;
 /** The line between the Link block and the whisper reply in /verify when membership is on. */
 export const LIVE_LINK_FALLBACK = "Can't use Olympus Link right now? Whisper instead:"; // link.ts keeps the same text (it cannot import this module statically)
 const LIVE_LINK_DEADLINE = 300;
+/** No environment switch can resolve the unagreed cross-database export/erasure/
+ * restore contract (owner review, 11 November 2026). Remove only with that work. */
+export function liveLinkActivationHold(env: Env): 'native-rank-integration-pending' | 'privacy-contract-pending' {
+  return captureCanonicalRankConfig233(env).present ? 'native-rank-integration-pending' : 'privacy-contract-pending';
+}
 
 const SNOWFLAKE = /^[1-9][0-9]{16,19}$/;
 const GUID = /^Player-([1-9][0-9]{0,5})-[0-9A-F]{8}$/;
 const SERVER = /^[1-9][0-9]{0,5}$/;
 const REQUEST_TAG = /^[0-9A-HJKMNP-TV-Z]{10}$/;
-const HEX64 = /^[0-9a-f]{64}$/;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The gate
@@ -86,15 +93,15 @@ export function captureLiveLinkMembership(env: Env): LiveLinkGate {
     const native = dataSlot(env, 'VERIFY_NATIVE_SCOPE');
     if (!native.ok) return out('held', 'native_scope_shape');
     const parsed = native.present ? parseLaunchNativeScope(native.value) : null;
-    if (parsed && parsed.guild !== scope.guild) return out('held', 'scope_disagrees');
+    if (!parsed || parsed.guild !== scope.guild) return out('held', 'scope_disagrees');
     const guild = dataSlot(env, 'GUILD_ID');
     if (!guild.ok || typeof guild.value !== 'string' || !SNOWFLAKE.test(guild.value)) return out('held', 'guild_id');
     return out('on', 'on', scope, guild.value);
   } catch { return out('held', 'gate_error'); }
 }
 
-/** /verify asks only this: the Link block goes first exactly when membership is on. */
-export const liveLinkMembershipOn = (env: Env): boolean => captureLiveLinkMembership(env).mode === 'on';
+/** The unresolved activation contract never advertises Link as current access. */
+export const liveLinkMembershipOn = (_env: Env): boolean => false;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The state row
@@ -108,9 +115,8 @@ export const LIVE_LINK_MARKER_TTL = 86400;
 /**
  * The one-use marker's key: a hash of the request tag (the code's own random identifier), never the account. The value holds
  * no account, name, character, GUID, code or signature, and nothing derived from the tag or from the settlement fingerprint: only a state, times and an expiry. It keeps no
- * subject identifier, it is deleted once its code can no longer be submitted, and so the Native erasure job (whose statement
- * budget is exactly full) has nothing of the subject to erase here. The account is recorded only in rows that are already
- * account data: the character binding and role_settlements.
+ * direct account field. LINK_DB.codes joins R to the Discord account, so hashing
+ * does not settle its export/erasure/restore obligations. Activation is held.
  */
 export async function liveLinkKey(R: string): Promise<string> {
   if (!REQUEST_TAG.test(R)) throw Error('live_link_tag_held');
@@ -126,11 +132,8 @@ export function parseLiveLinkRecord(raw: unknown): LiveLinkRecord | null {
     || !Number.isSafeInteger(r.expiresAt) || (r.expiresAt as number) <= (r.createdAt as number)) return null;
   return Object.freeze(r) as unknown as LiveLinkRecord;
 }
-// Not in the community registry (registerCommunityData), by design: the marker is keyed by the code, not the account, holds
-// no subject identifier and expires, so there is nothing of the account to export or erase here. A registered family would
-// add a statement to the Native erasure job, whose budget (196 statements) is full, and change the exact namespace list
-// that closed recovery checks. The character binding and the role record are ordinary account data, exported and erased
-// with the account like any other. If Fern rules a code-keyed marker personal, it needs a registered family (docs 5a).
+// Candidate-only unregistered marker. R-1 is unresolved: no claim of non-personal
+// data and no retention/erasure workaround is made here. See the activation hold.
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The original consumption: minted only by the batch below, spent by the central writer once
@@ -138,8 +141,8 @@ export function parseLiveLinkRecord(raw: unknown): LiveLinkRecord | null {
 declare const liveBrand: unique symbol;
 export type OriginalLiveLinkConsumption = Readonly<{ [liveBrand]: true }>;
 export type LiveLinkFacts = Readonly<{ subject: string; subjectGeneration: string | null; fingerprint: string; deadline: number; admittedAt: number; op: string; stateKey: string;
-  source: Readonly<{ snapshotId: null; guid: string; nameKey: string }>; createdAt: number }>;
-type Saved = { facts: LiveLinkFacts; db: D1Database; check: () => void; values: readonly (string | number | null)[] };
+  source: Readonly<{ snapshotId: number; guid: string; nameKey: string }>; createdAt: number }>;
+type Saved = { facts: LiveLinkFacts; db: D1Database; check: () => void; roster: LiveLinkRoster };
 const originals = new WeakMap<OriginalLiveLinkConsumption, Saved>();
 const LIVE_CONFIG = ['LINK_ENABLED', 'LINK_MEMBERSHIP_ENABLED', 'LINK_MEMBERSHIP_SCOPE', 'CANONICAL_ENTITLEMENTS233', 'CANONICAL_RANKS233', 'GUILD_ID', 'ROLE_GUILD_MEMBER',
   'VERIFY_MEMBERSHIP_ONLY', 'VERIFY_NATIVE_SCOPE', 'VERIFY_SECRET', 'LINKS_NOT_BEFORE', 'LINKS_NOT_BEFORE_CLOCK_GATED', 'PRIVACY_WRITE_ADMISSION_ENABLED',
@@ -174,14 +177,15 @@ export function liveLinkPredicate(env: Env, cap: OriginalLiveLinkConsumption, st
   assertLiveLinkOriginal(env, cap);
   if (!Number.isSafeInteger(start) || start < 1 || start > 75) held();
   const saved = originals.get(cap)!, at = (n: number) => '?' + (start + n), f = saved.facts;
+  const roster = liveLinkRosterPredicate(env, saved.roster, start + 7);
   return Object.freeze({
     sql: `EXISTS(SELECT 1 FROM site_settings s WHERE s.key=${at(0)} AND json_valid(s.value) AND json_extract(s.value,'$.state')='consumed' AND json_extract(s.value,'$.createdAt')=${at(1)})
     AND ${privacyGenerationFenceSql(start + 2, start + 3)}
     AND EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=${at(2)} AND c.name_key=${at(4)} AND c.guid=${at(5)} AND c.status IN('verified','member'))
     AND (SELECT COUNT(*) FROM characters WHERE guid=${at(5)} AND status IN('verified','queued','member','left_pending'))=1
-    AND ${at(6)}>CAST(strftime('%s','now') AS INTEGER)`,
-    values: Object.freeze([f.stateKey, f.createdAt, f.subject, f.subjectGeneration, f.source.nameKey, f.source.guid, f.deadline]),
-    next: start + 7,
+    AND ${at(6)}>CAST(strftime('%s','now') AS INTEGER) AND (${roster.sql})`,
+    values: Object.freeze([f.stateKey, f.createdAt, f.subject, f.subjectGeneration, f.source.nameKey, f.source.guid, f.deadline, ...roster.values]),
+    next: roster.next,
   });
 }
 
@@ -209,6 +213,9 @@ type Core = {
 
 const MESSAGES: Record<string, string> = {
   'membership-off': 'Guild Member is not given through Olympus Link yet.',
+  'native-rank-integration-pending': 'Olympus Link membership is held until its fresh native-rank integration is qualified. Use the whisper path.',
+  'privacy-contract-pending': 'Olympus Link membership is held while its account data lifecycle is completed. Use the whisper path.',
+  'roster-unconfirmed': 'A fresh, complete trusted native guild roster must confirm this exact character and ID. Use /verify-status for current access.',
   'name-only': 'This link was made by an older Olympus_Link, which cannot give Guild Member.',
   'guid-unobserved': 'No High Councillor saw this character in the guild roster. Get a new code and try again while one is online.',
   'guild-scope': 'Guild Member is for characters of the main guild.',
@@ -248,11 +255,17 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
     const text = core.proofText(j.text);
     const parsed = text ? core.parseBundle(text) : null;
     if (!text || !parsed || !parsed.ok || !parsed.bundle) return send(core.reject('format', 'This is not a complete Olympus link.'));
-    if (parsed.bundle.version !== 6) return refuse('name-only', parsed.bundle.R);
-
     // 1. Membership is a separate switch: off, or held, answers before Discord, LINK_DB or the bot's database are touched.
     const gate = captureLiveLinkMembership(env);
     if (gate.mode !== 'on' || !gate.scope || !gate.guildId) return refuse('membership-off', parsed.bundle.R);
+    if (parsed.bundle.version !== 6) return refuse('name-only', parsed.bundle.R);
+    // A valid flag is not qualification of native-rank integration or R-1. These
+    // source-owned holds are before OAuth, either database, or consumption.
+    const activationHold: string | null = liveLinkActivationHold(env);
+    if (activationHold) return refuse(activationHold, parsed.bundle.R);
+    const witness = slotWitness(env, LIVE_CONFIG);
+    const check = () => { witness(); if (!gate.check()) held(); };
+    check();
     // The venue (the qualified shared Guild Member role writer) must be enabled before anything is consumed.
     const venueSel = await (await import('./shared-membership-cutover230')).captureRuntimeVenue230(env);
     if (venueSel.mode !== 'enabled') return refuse('membership-off', parsed.bundle.R);
@@ -298,10 +311,11 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
     if (standing.blocked) return refuse('blocked', R);
     if (standing.elsewhere) return refuse('linked-elsewhere', R);
 
-    // 7. GUID wins over name, but a roster that lists the name under another GUID holds the request.
-    const roster = await env.DB.prepare(`SELECT m.guid AS guid FROM roster_members m WHERE m.name_key=?1
-      AND m.snapshot_id=(SELECT s.id FROM roster_snapshots s WHERE s.complete=1 AND s.trusted=1 ORDER BY s.id DESC LIMIT 1)`).bind(nameKey).first<{ guid: string | null }>();
-    if (roster && roster.guid && roster.guid !== guid) return refuse('guid-mismatch', R);
+    // 7. A signed identity does not replace current exact Native membership.
+    const roster = await captureLiveLinkRoster(env, nameKey, guid);
+    check();
+    if (!roster) return refuse('roster-unconfirmed', R);
+    const source = liveLinkRosterFacts(roster);
 
     // 8. Read back before any write: this code's marker, then the account's own settlement record.
     const stateKey = await liveLinkKey(R), op = await liveLinkOp(R);
@@ -339,12 +353,15 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
     const expiresAt = Math.max(t, codeRow.exp) + LIVE_LINK_SUBMIT_GRACE + LIVE_LINK_MARKER_TTL;
     const value = JSON.stringify({ v: 1, state: 'consumed', reason: 'consumed', createdAt: t, updatedAt: t, expiresAt });
     const refused = (n: string) => `json_extract('${n}','$')`;
+    const nativeFence = liveLinkRosterPredicate(env, roster);
+    check();
     let done: D1Result[];
     try {
       done = await admittedPrivacySubjectWrite(env, subject, capture, [
         env.DB.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM site_settings WHERE key=?1)
           AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=?2 AND purpose=?3 AND desired=1 AND state IN('settled','pending','dispatching','unknown'))
-          THEN 1 ELSE ${refused('live_link_state_refused')} END AS admitted`).bind(stateKey, subject, LIVE_LINK_PURPOSE),
+          AND (${nativeFence.sql.replace(/\?(\d+)/g, (_all, n) => '?' + (Number(n) + 3))})
+          THEN 1 ELSE ${refused('live_link_state_refused')} END AS admitted`).bind(stateKey, subject, LIVE_LINK_PURPOSE, ...nativeFence.values),
         env.DB.prepare(`SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM characters WHERE (name_key=?1 OR guid=?2) AND discord_id<>?3 AND status IN('verified','queued','member','left','left_pending'))
           AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?3 AND banned=1) AND NOT EXISTS(SELECT 1 FROM site_users WHERE discord_id=?3 AND denied=1)
           AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?3 AND state='reapply') THEN 1 ELSE ${refused('live_link_standing_refused')} END AS admitted`).bind(nameKey, guid, subject),
@@ -369,10 +386,11 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
     // 10. Mint the original consumption and hand it to the central writer, once.
     const admittedAt = Number(row.admitted_at);
     const facts: LiveLinkFacts = Object.freeze({ subject, subjectGeneration: generation, fingerprint, deadline: admittedAt + LIVE_LINK_DEADLINE, admittedAt, op, stateKey,
-      source: Object.freeze({ snapshotId: null, guid, nameKey }), createdAt: t });
+      source: Object.freeze({ snapshotId: source.snapshotId, guid, nameKey }), createdAt: t });
     const cap = Object.freeze({}) as OriginalLiveLinkConsumption;
-    const db = privacyProviderCustodyDatabase(env), witness = slotWitness(env, LIVE_CONFIG);
-    originals.set(cap, { facts, db, check: witness, values: [] });
+    check();
+    const db = privacyProviderCustodyDatabase(env);
+    originals.set(cap, { facts, db, check, roster });
     let settlement: { state: string; reason: string; operationId: string | null } | null = null;
     try {
       const central = await import('./role-settlements');
@@ -400,5 +418,3 @@ export async function routeLiveLinkMembership(request: Request, env: Env, cors: 
 }
 
 export { linkCors };
-void captureLaunchVerification;
-void HEX64;

@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".269", date: "2026-11-11", lines: [
+      "Prepared stricter native roster checks for the optional Olympus Link integration. Link membership remains unavailable while its rank and account data handling are completed.",
+      "Existing verification guidance and delivery status remain available. A delivery acknowledgement does not establish current access.",
+    ],
+  },
+  {
     build: ".268", date: "2026-11-10", lines: [
       "Olympus Verify 0.6.29 separates dated linked observations from current verification status and adds filtered, attended Initiate-to-Member promotion tools.",
       "The Watcher refreshes its display lists after confirmed uploads. Discord replies point to current server status instead of the separate guild-approval screen.",
