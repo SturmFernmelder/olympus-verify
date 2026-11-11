@@ -57,7 +57,7 @@ do
   local x=fixture();local row=x.queue();local messages=x.messages
   local s=x.registration.exporter()
   check("actual registered verification section is version243",x.registration.name=="verification"and x.registration.version==243 and s.version==243)
-  check("public bridge Status uses the same bounded projection",x.e.OlympusVerifyBridge242.Status().requests[1].id==row.id)
+  check("public bridge Status uses the same opaque stable projection",x.e.OlympusVerifyBridge242.Status().requests[1].id==s.requests[1].id and s.requests[1].id~=row.id and #s.requests[1].id==32)
   check("status explicitly has no membership or role authority",s.deliveryOnly==true and s.membershipProof==false and s.roleAuthority==false)
   check("new request is pending, without a role promise",s.requests[1].deliveryState=="pending")
   assertPublic(s)
@@ -74,19 +74,22 @@ do
 end
 do
   local x=fixture();for i=1,45 do x.queue(x.e.NOW-100+math.floor(i/2))end
-  x.d.entries.malformed={id="not-a-canonical-id",type="verify",character=x.me,requestedAt=x.e.NOW,status="done"}
+  x.d.entries.malformed={id="not a valid intake id",type="verify",character=x.me,requestedAt=x.e.NOW,status="done"}
   x.d.entries.clock={id=string.rep("a",32),type="verify",character=x.me,requestedAt=0/0,status="pending"}
+  local hashes=0;local originalHash=x.e.OlympusHmac.sha256hex
+  x.e.OlympusHmac.sha256hex=function(...)hashes=hashes+1;return originalHash(...)end
   local s=x.v.BridgeStatus()
   check("retained backlog exports at most twenty rows",s.total==47 and #s.requests==20 and s.truncated==true)
+  check("status display hashing is bounded by selected rows",hashes==20)
   local ordered=true;for i=2,#s.requests do local a,b=s.requests[i-1],s.requests[i];ordered=ordered and(a.requestedAt>b.requestedAt or a.requestedAt==b.requestedAt and a.id<b.id)end
   check("latest-first order has a deterministic ID tie-break",ordered)
   assertPublic(s)
-  check("status does not discard retained malformed originals",x.d.entries.malformed.id=="not-a-canonical-id"and x.d.entries.clock.requestedAt~=x.d.entries.clock.requestedAt)
+  check("status does not discard retained malformed originals",x.d.entries.malformed.id=="not a valid intake id"and x.d.entries.clock.requestedAt~=x.d.entries.clock.requestedAt)
 end
 do
   local x=fixture(true);local own=x.queue();x.queue(nil,"Another Member")
   local s=x.v.BridgeStatus()
-  check("non-officer projection keeps existing own-request visibility",s.total==1 and #s.requests==1 and s.requests[1].id==own.id)
+  check("non-officer projection keeps existing own-request visibility",s.total==1 and #s.requests==1 and s.requests[1].id~=own.id and #s.requests[1].id==32)
   x.d.deliveryFailures242={[own.id]="unsupported_callback"}
   check("unsupported callback remains visible as a hold",x.v.BridgeStatus().requests[1].deliveryState=="unsupported_callback")
 end
@@ -104,5 +107,17 @@ do
   assertPublic(s)
   row.code="changed original"
   check("delivery receipt cannot follow an edited original body",x.v.BridgeStatus().requests[1].deliveryState=="unknown")
+end
+do
+  local x=fixture();local original=string.rep("a",24)
+  local row=x.v.Queue({id=original,type="donation",character=x.me,guid=x.e.UnitGUID("player"),requestedAt=x.e.NOW,donation={note="PRIVATE-NOTE-CANARY"}})
+  local s=x.v.BridgeStatus()
+  check("existing24hex Treasury IDs remain visible through opaque projection",#s.requests==1 and #s.requests[1].id==32 and s.requests[1].type=="donation"and s.requests[1].deliveryState=="pending")
+  x.ack(row,"done");s=x.v.BridgeStatus()
+  check("recognized legacy receipt ACK preserves its original ID and delivery",row.id==original and x.d.entries[original]==row and s.requests[1].deliveryState=="delivered")
+  assertPublic(s)
+  local other=x.v.Queue({id="legacy:receipt.42",type="role",character=x.me,requestedAt=x.e.NOW+1,status="done"});other.status="done"
+  s=x.v.BridgeStatus()
+  check("other admitted ID families expose no raw identifier or invented delivery",#s.requests==2 and #s.requests[1].id==32 and s.requests[1].id~=other.id and s.requests[1].deliveryState=="unknown")
 end
 print("bridge_status267: "..passed.." passed, 0 failed")

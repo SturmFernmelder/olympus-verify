@@ -790,7 +790,7 @@ function V.BridgeStatus()
   for _,row in pairs(d and d.entries or {}) do if visibleEntry(row,me,watcher) then
     out.total=out.total+1
     local at=row.requestedAt
-    if text(row.id,32) and #row.id==32 and row.id:match("^[a-f0-9]+$") and kinds[row.type]
+    if text(row.id,128) and row.id:match("^[A-Za-z0-9:._-]+$") and kinds[row.type]
       and type(at)=="number" and at==at and at>0 and at<=253402300799 and at==math.floor(at) then
       selected[#selected+1]={id=row.id,type=row.type,requestedAt=at,row=row}
       table.sort(selected,order);if #selected>20 then table.remove(selected) end
@@ -816,8 +816,12 @@ function V.BridgeStatus()
         if receipt.status=="done" then status="delivered" elseif receipt.status=="rejected" then status="rejected" end
       elseif d.deliveryFailures242 and d.deliveryFailures242[row.id]=="unsupported_callback" then status="unsupported_callback"
       elseif row.status=="pending" then status="pending" end
-      out.requests[#out.requests+1]={id=item.id,type=item.type,requestedAt=item.requestedAt,deliveryState=status}
+      -- Existing native Treasury receipts use24hex IDs; other admitted intake
+      -- families have their own IDs. Hash only the selected view's IDs so none
+      -- is omitted or exposed as arbitrary external text. Originals stay intact.
+      out.requests[#out.requests+1]={id=H.sha256hex("bridge-status243|"..item.id):sub(1,32),type=item.type,requestedAt=item.requestedAt,deliveryState=status}
   end
+  table.sort(out.requests,order)
   out.truncated=out.total>#out.requests
   return out
 end
