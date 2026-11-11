@@ -66,7 +66,7 @@ local STATUS_FILTERS = {
 }
 local PRESENCE_FILTERS = { "Online and offline", "Online only", "Offline only" }
 local ACTION_FILTERS = {
-  { "all", "All readiness states" }, { "ready", "Ready: signed recommendation" },
+  { "all", "All readiness states" }, { "ready", "Ready to promote (signed)" },
   { "not_ready", "Not actionable" }, { "known_verified_initiate", "Verified native Initiates" },
   { "no_recommendation", "No signed recommendation" }, { "expired", "Expired recommendation" },
   { "pending", "Promotion awaiting readback" }, { "held", "Queue held" },
@@ -89,7 +89,7 @@ local selected, menu, detailText, queueSummary, snapshotText, sortText, actionFi
 
 local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, initiateBtn, readyBtn, nextBtn, actionInfo, summary, footer, rows, headers
 local offset = 0
-local view = { text = "", status = 1, rank = 0, class = 0, online = false, sort = "name", desc = false, initiates = false, ready = false, presence = 1, action = 1 }
+local view = { text = "", status = 1, rank = 0, class = 0, online = false, sort = "name", desc = false, initiates = false, presence = 1, action = 1 }
 local cache = { list = {}, info = nil }
 local diagnostics = { byGuid = {}, byRow = {}, reason = "Promotion recommendations not loaded." }
 
@@ -314,7 +314,7 @@ local function Visible()
       or kind=="not_ready" and not Eligible(m,candidates)
       or kind=="known_verified_initiate" and m.rankIndex==9 and m.status=="verified" and not m.historicalLinked
       or kind==action.state
-    if (not view.initiates or m.rankIndex == 9) and (not view.ready or Eligible(m, candidates)) and matches then
+    if (not view.initiates or m.rankIndex == 9) and matches then
       filtered[#filtered + 1] = m
     end
   end
@@ -457,7 +457,8 @@ function W.Refresh()
     if type(m.statusAt)=="number" and (not loadedAt or m.statusAt<loadedAt) then loadedAt=m.statusAt end
     if type(m.snapshotAt)=="number" and (not snapshotAt or m.snapshotAt<snapshotAt) then snapshotAt=m.snapshotAt end
   end
-  snapshotText:SetText(GREY.."Loaded server list: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Native observation: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..") | Cached display; source dates are not renewed by refresh.|r")
+  local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
+  snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
   footer:SetText(GREY..string.format("Showing %d of %d members%s. Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file.",shown,info.total or 0,
     #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "").."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
@@ -466,7 +467,7 @@ function W.Refresh()
   SetButtonText(onlineBtn,PRESENCE_FILTERS[view.presence or 1].." v")
   SetButtonText(actionFilterBtn,ACTION_FILTERS[view.action or 1][2].." v")
   SetButtonText(initiateBtn,(view.initiates and GOLD or WHITE).."Initiates|r")
-  SetButtonText(readyBtn,(view.ready and GOLD or WHITE).."Ready for Member|r")
+  SetButtonText(readyBtn,(view.initiates and view.status==2 and view.action==4 and GOLD or WHITE).."Verified Initiates|r")
   local readyCount=0
   for _,m in ipairs(list) do if Eligible(m,candidates) then readyCount=readyCount+1 end end
   local actionTitle=not diagnostics.queueAvailable and "Promote: unavailable"
@@ -475,9 +476,16 @@ function W.Refresh()
     or string.format("Promote next (%d)",readyCount)
   SetButtonText(nextBtn,actionTitle);nextBtn:SetEnabled(readyCount>0)
   local loaded=diagnostics.queueAvailable and tostring(diagnostics.recommendations or 0) or "unavailable"
-  queueSummary:SetText(WHITE..string.format("Native Initiates: %d | Verified Initiates: %d | Signed recommendations: %s | Actionable: %d total / %d shown | Source holds: %d | Risk review: %d",
+  queueSummary:SetText(WHITE..string.format("Native Initiates: %d | Verified Initiates: %d potential | Signed recommendations: %s | Actionable: %d total / %d shown | Source holds: %d | Risk review: %d",
     diagnostics.nativeInitiates or 0,diagnostics.knownVerifiedInitiates or 0,loaded,diagnostics.ready or 0,readyCount,diagnostics.sourceHeld or 0,diagnostics.riskReview or 0).."|r")
-  actionInfo:SetText(GREY..(diagnostics.reason or why or "No signed recommendation is available.").."|r")
+  local explanation=diagnostics.reason or why or "No signed recommendation is available."
+  if shown==0 then
+    local empty=view.action==2 and "No actionable signed promotions match these filters. "
+      or view.initiates and view.status==2 and view.action==4 and "No current verified Initiates match these filters. "
+      or "No members match these filters. "
+    explanation=empty..explanation
+  end
+  actionInfo:SetText(GREY..explanation.."|r")
   local sortLabel=view.sort
   for _,col in ipairs(COLS) do if col.key==view.sort then sortLabel=col.text end end
   local hint="; equal values use character name. Blank values stay last."
@@ -609,18 +617,18 @@ local function Build()
   actionFilterBtn:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD,Layout.FILTER_Y-64)
 
   initiateBtn = Button(frame, "Initiates", 106, 24, function()
-    CloseMenu();view.initiates = not view.initiates; view.rank = 0; view.ready = false; offset = 0; W.Refresh()
+    CloseMenu();view.initiates = not view.initiates; view.rank = 0; offset = 0; W.Refresh()
   end, "Initiates", "Show native rank-slot 9 Initiates. Other search, status and online filters still apply.")
   initiateBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", Layout.PAD, Layout.FILTER_Y - 32)
-  readyBtn = Button(frame, "Ready for Member", 150, 24, function()
-    CloseMenu();view.ready = not view.ready; view.initiates = false; view.rank = 0; offset = 0; W.Refresh()
-  end, "Ready for Member", "Only exact native GUIDs with a fresh signed Initiate > Member recommendation. Display verification alone never enables promotion.")
+  readyBtn = Button(frame, "Verified Initiates", 150, 24, function()
+    CloseMenu();view.initiates = true; view.rank = 0; view.status = 2; view.action = 4; offset = 0; W.Refresh()
+  end, "Verified Initiates", "Show native slot-9 Initiates whose current loaded base status is verified, including those without a signed promotion recommendation. These are potential candidates; promotion readiness is separate. Other search, class and presence filters still apply.")
   readyBtn:SetPoint("LEFT", initiateBtn, "RIGHT", 6, 0)
   nextBtn = Button(frame, "Promote next (0)", 150, 24, function() Promote() end,
     "Promote next", "Attempt exactly one ready target in the current filtered, sorted order. No background or bulk promotion; native checks run again at the click.")
   nextBtn:SetPoint("LEFT", readyBtn, "RIGHT", 6, 0)
   local clear = Button(frame, "Clear filters", 108, 24, function()
-    CloseMenu();view.status, view.rank, view.class, view.online, view.initiates, view.ready, view.text, view.presence, view.action = 1, 0, 0, false, false, false, "", 1, 1
+    CloseMenu();view.status, view.rank, view.class, view.online, view.initiates, view.text, view.presence, view.action = 1, 0, 0, false, false, "", 1, 1
     search:SetText(""); offset = 0; W.Refresh()
   end, "Clear filters", "Show everyone again; keep the chosen sort order.")
   clear:SetPoint("LEFT", nextBtn, "RIGHT", 6, 0)

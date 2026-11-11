@@ -52,8 +52,9 @@ SUITES = {
     "roster_details": (TESTS, Path("test_roster_details.lua")),
     "roster_model": (TESTS, Path("test_roster_model.lua")),
     "roster_controls": (TESTS, Path("test_roster_controls.lua")),
+    "launch_projection_diagnostics": (TESTS, Path("test_launch_projection_diagnostics.lua")),
 }
-TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls"}
+TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics"}
 
 
 def input_hashes() -> dict[str, str]:

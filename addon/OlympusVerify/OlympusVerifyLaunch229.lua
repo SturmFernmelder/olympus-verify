@@ -44,35 +44,53 @@ local function Preview()
 end
 function Q.Current()
   local identity, now, data = Identity(), time(), OlympusLaunchQueue
+  local function refuse(code, reason) return nil, "[" .. code .. "] " .. reason, code end
   if cfg.membershipOnly ~= true or not identity then return nil, "Current native Prime identity is unavailable; launch actions held." end
   if Q.scopeChanged then return nil, "Native guild identity changed. Refresh the watcher and reload; launch actions held." end
   if Q.loadedIdentity and (Q.loadedIdentity.guild ~= identity.guild or Q.loadedIdentity.realm ~= identity.realm or Q.loadedIdentity.guid ~= identity.guid) then
     Q.scopeChanged = true; return nil, "Native guild/character identity changed; launch actions held." end
   if Preview() then return nil, "Preview is display only; launch actions held." end
-  if type(data) ~= "table" or data.version ~= 2 or type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
-    return nil, "No dated launch projection is loaded. Run the watcher, then sync and reload." end
+  if type(data) ~= "table" then return refuse("projection_missing", "No dated launch projection is loaded; no action taken.") end
+  if data.version ~= 2 then return refuse("projection_version", "The loaded launch container version is incompatible; no action taken.") end
+  if type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
+    return refuse("projection_pages", "The loaded launch page list is missing or outside its supported bounds; no action taken.") end
   local control = OlympusVerifyDB and OlympusVerifyDB.launchControl
   local held = data.stoppedReason or control and (control.action == "stop" or control.id ~= data.controlId)
   local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, partial = data.scanComplete ~= true,
     pages = data.pages, actionHeld = held, freshness = {}, scanComplete = data.scanComplete == true, stalePages = 0 }
   local first, guids = data.pages[1], {}
+  if type(first) ~= "table" then return refuse("malformed_page", "The first launch page is malformed; no action taken.") end
+  if first.protocol ~= "officer-operations-v233" then
+    return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
   if type(first) ~= "table" or type(first.scan) ~= "table" or not Text(first.scan.id, 32) or #first.scan.id ~= 32
     or not first.scan.id:match("^%x+$") or not Number(first.scan.startedAt, 1, now + 5)
-    or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then return nil, "Invalid scan identity; actions held." end
+    or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then
+    return refuse("malformed_scan", "The original launch scan identity or clock bounds are malformed; no action taken.") end
+  if type(first.entitlements) ~= "table" or not Number(first.entitlements.total, 0, 1000) then
+    return refuse("malformed_entitlements", "The first launch page's entitlement metadata is malformed; no action taken.") end
   for index, page in ipairs(data.pages) do
-    if type(page) ~= "table" or page.protocol ~= "officer-operations-v233" or (page.status ~= "ready" and page.status ~= "partial")
-      or not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + 60)
+    if type(page) ~= "table" then return refuse("malformed_page", "A launch page is malformed; no action taken.") end
+    if page.protocol ~= "officer-operations-v233" then
+      return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
+    if page.status ~= "ready" and page.status ~= "partial" then
+      return refuse("page_status", "A launch page is not in a supported ready or partial source state; no action taken.") end
+    if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + 60)
       or page.fetchedAt > now + 5 or not Number(page.snapshotAt, 1, page.fetchedAt)
-      or page.fetchedAt - page.snapshotAt >= 600 or not Number(page.snapshotId, 1, 2147483647)
-      or page.guild ~= identity.guild or page.realm ~= identity.realm or page.scopeHash ~= identity.scopeHash
-      or page.canonicalGuild ~= "OLYMPUS PRIME" or page.snapshotId ~= first.snapshotId or page.snapshotAt ~= first.snapshotAt
+      or page.fetchedAt - page.snapshotAt >= 600 or not Number(page.snapshotId, 1, 2147483647) then
+      return refuse("malformed_page_dates", "A launch page has invalid original source clocks or snapshot identity; no action taken.") end
+    if page.guild ~= identity.guild or page.realm ~= identity.realm or page.scopeHash ~= identity.scopeHash or page.canonicalGuild ~= "OLYMPUS PRIME" then
+      return refuse("native_scope_mismatch", "The loaded launch projection does not match this current native Prime guild and realm scope; no action taken.") end
+    if page.snapshotId ~= first.snapshotId or page.snapshotAt ~= first.snapshotAt
       or type(page.scan) ~= "table" or page.scan.id ~= first.scan.id or page.scan.startedAt ~= first.scan.startedAt or page.scan.expiresAt ~= first.scan.expiresAt
-      or page.scan.expiresAt > page.snapshotAt + 600 or page.fetchedAt < page.scan.startedAt or page.fetchedAt >= page.scan.expiresAt
-      or type(page.entitlements) ~= "table" or page.entitlements.offset ~= (index-1)*20 or page.entitlements.total ~= first.entitlements.total
-      or type(page.invites) ~= "table" or #page.invites > 3 or index ~= 1 and #page.invites ~= 0
-      or type(page.actions) ~= "table" or page.actions.automatic ~= false or page.actions.roleGrants ~= false
+      or page.scan.expiresAt > page.snapshotAt + 600 or page.fetchedAt < page.scan.startedAt or page.fetchedAt >= page.scan.expiresAt then
+      return refuse("original_scan_mismatch", "Launch pages do not share the same original snapshot and scan bounds; no action taken.") end
+    if type(page.entitlements) ~= "table" or page.entitlements.offset ~= (index-1)*20 or page.entitlements.total ~= first.entitlements.total then
+      return refuse("malformed_entitlements", "A launch page's entitlement offset or total does not match the original page sequence; no action taken.") end
+    if type(page.invites) ~= "table" or #page.invites > 3 or index ~= 1 and #page.invites ~= 0 then
+      return refuse("unsupported_invitations", "The launch projection contains unsupported invitation placement or count; no action taken.") end
+    if type(page.actions) ~= "table" or page.actions.automatic ~= false or page.actions.roleGrants ~= false
       or page.actions.removals ~= false or page.actions.requiresNativeRecheck ~= true then
-      return nil, "Launch projection is held, expired, mismatched or contains unsupported invitations. Refresh; no action taken." end
+      return refuse("unsupported_action_policy", "The launch projection does not preserve the required hardware-only action policy; no action taken.") end
     if now >= page.expiresAt or now >= page.scan.expiresAt then result.stalePages = result.stalePages + 1 end
     local queueIds, proofIds = {}, {}
     for _, label in ipairs({ "invites", "promotions", "riskBuffer", "held" }) do
@@ -91,9 +109,10 @@ function Q.Current()
           queueIds[row.queueId],proofIds[row.proofId]=true,true
           result.freshness[row.guid].expiresAt=math.min(page.expiresAt,row.expiresAt)
         elseif label == "promotions" then
-          if not Number(row.currentSlot, 7, 9) or row.targetSlot >= row.currentSlot
+          if not Number(row.currentSlot, 7, 9) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
             or not ((row.targetSlot == 6 and row.targetName == "Veteran" and row.reason == "knight-veteran")
-              or (row.targetSlot == 8 and row.targetName == "Member" and row.reason == "verified-initiate" and row.currentSlot == 9)) then return nil, "Unsupported promotion target; no action taken." end
+              or (row.targetSlot == 8 and row.targetName == "Member" and row.reason == "verified-initiate" and row.currentSlot == 9)) then
+            return refuse("unsupported_promotion_target", "The launch projection contains a malformed or unsupported promotion target; no action taken.") end
         elseif label == "riskBuffer" and (row.currentSlot ~= 9 or row.reviewOnly ~= true or row.reason ~= "unverified-initiate") then
           return nil, "Unsupported risk-buffer entry; no action taken."
         end

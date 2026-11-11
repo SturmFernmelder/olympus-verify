@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".269", date: "2026-11-11", lines: [
+      "The roster separates verified Initiates from fresh promotion recommendations and explains incompatible promotion data.",
+      "Sync shows your local request time separately from the loaded server list and roster dates. A reload request does not confirm server processing.",
+    ],
+  },
+  {
     build: ".268", date: "2026-11-10", lines: [
       "Olympus Verify 0.6.29 separates dated linked observations from current verification status and adds filtered, attended Initiate-to-Member promotion tools.",
       "The Watcher refreshes its display lists after confirmed uploads. Discord replies point to current server status instead of the separate guild-approval screen.",

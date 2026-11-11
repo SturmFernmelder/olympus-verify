@@ -117,5 +117,17 @@ do
   f.api.Sort(ties, "class", true)
   check("sort ties retain native full-name and GUID order", ties[1].full == "Same-A" and ties[1].guid == "A" and ties[2].guid == "B" and ties[3].full == "Same-Z")
 end
+do
+  local f=fixture();local before=f.api.DisplayFacts()
+  check("display facts report original query and native observation clocks",before.state=="loaded" and before.queriedAt==f.now and before.rosterObservedAt==f.now-30)
+  f.e.OlympusVerifyDB.pendingSync233={lastRequestedAt=f.now,lastSyncAt=f.now}
+  f.now=f.now+3601
+  local stale=f.api.DisplayFacts()
+  check("Sync request history cannot refresh expired actual display evidence",stale.state=="stale" and not stale.current and stale.queriedAt==before.queriedAt and stale.rosterObservedAt==before.rosterObservedAt)
+  for _,section in ipairs({f.q.verified,f.q.unverified,f.q.unknown}) do section.fetchedAt=f.now+1 end
+  check("future loaded source clocks are unavailable rather than fresh",f.api.DisplayFacts().state=="unavailable" and f.api.DisplayFacts().queriedAt==nil)
+  f.q.realm="Other Realm"
+  check("foreign native scope cannot supply display clocks",f.api.DisplayFacts().state=="unavailable" and f.api.DisplayFacts().queriedAt==nil and f.effects==0)
+end
 print("roster_details: " .. passed .. " passed, " .. failed .. " failed")
 if failed > 0 then error("roster detail regressions failed") end

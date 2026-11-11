@@ -37,7 +37,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.30" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.31" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -1143,6 +1143,22 @@ function Roster.DisplaySource()
     return nil, "The strict Watcher lists or native roster are stale. Refresh the Watcher exchange and reload.", true
   end
   return q
+end
+
+-- Display clocks are observations, never an upload receipt or promotion authority.
+-- Keep the dated source readable after expiry without making it current again.
+function Roster.DisplayFacts()
+  local source, why, stale = Roster.DisplaySource()
+  local q = source or stale and OlympusVerifyLists
+  local v = type(q) == "table" and q.verified
+  local at = time()
+  if type(v) ~= "table" or type(v.fetchedAt) ~= "number" or type(v.snapshotAt) ~= "number"
+    or v.fetchedAt ~= math.floor(v.fetchedAt) or v.snapshotAt ~= math.floor(v.snapshotAt)
+    or v.snapshotAt < 1 or v.snapshotAt > v.fetchedAt or v.fetchedAt > at then
+    return { state = "unavailable", reason = why or "Loaded display clocks are unavailable." }
+  end
+  return { state = source and "loaded" or "stale", queriedAt = v.fetchedAt, rosterObservedAt = v.snapshotAt,
+    reason = why, current = source ~= nil }
 end
 
 -- The verified list, keyed by character GUID (survives a rename) and by name.
@@ -3310,7 +3326,8 @@ OlympusVerifyAPI = {
   RemoveMember = function(name, reason) return OlympusVerify_RemoveMember(name, reason) end,
   -- The roster window's reads (0.6.4). A table for the same reason as Text and Name: nothing here acts, so /olv
   -- preview has nothing to stand in for.
-  Roster = { Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource },
+  Roster = { Members = Roster.Members, Filter = Roster.Filter, Sort = Roster.Sort, DisplaySource = Roster.DisplaySource,
+    DisplayFacts = Roster.DisplayFacts },
   UnverifiedList = function(n) return Unverified.Candidates(n) end,
   UnverifiedRanks = function(info) return Unverified.Ranks(info) end,
   ToggleUnverifiedRank = function(rank) Unverified.ToggleRank(rank) end,

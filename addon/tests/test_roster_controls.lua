@@ -67,7 +67,7 @@ do
   check("class and source-age headings are actual sortable columns",f.w.view.sort=="sourceAge")
   f.w.refreshButton:Click()
   check("refresh view is read-only and never reloads",f.reloads==0 and f.attempts==0 and #f.promotions==0)
-  check("snapshot header explicitly identifies loaded cached evidence",plain(f.w.snapshotText:GetText()):find("Cached display",1,true))
+  check("snapshot header separates local request from loaded source clocks",plain(f.w.snapshotText:GetText()):find("Local Sync request:",1,true) and plain(f.w.snapshotText:GetText()):find("Loaded server query:",1,true) and plain(f.w.snapshotText:GetText()):find("Server roster:",1,true))
   local strings=true;for _,header in ipairs(f.w.headers) do
     local enter=header:GetScript("OnEnter");if enter then enter(header) end
     for _,line in ipairs(f.e.GameTooltip._lines or {}) do if type(line)~="string" then strings=false end end
@@ -91,6 +91,42 @@ do
   f.w.frame:GetScript("OnUpdate")(f.w.frame,5)
   local stale=false;for _,row in ipairs(f.w.rows) do if row.member and row.member.name=="Alpha" then stale=row.member.status=="stale" end end
   check("visible frame tick automatically expires loaded evidence",stale and f.reloads==0)
+end
+do
+  local f=fixture();f.e.OlympusLaunchQueue=nil;f.w.Show()
+  check("quick filter is named for verified Initiates rather than promotion readiness",plain(f.w.readyButton.label:GetText())=="Verified Initiates")
+  f.w.readyButton:Click()
+  check("quick filter shows all current verified native Initiates without a signed queue",f.names()=="Alpha,NameOnly,Zulu" and f.w.view.initiates and f.w.view.status==2 and f.w.view.action==4)
+  check("potential and actionable counts stay explicitly separate",plain(f.w.queueSummary:GetText()):find("Verified Initiates: 3 potential",1,true) and plain(f.w.queueSummary:GetText()):find("Actionable: 0 total / 0 shown",1,true))
+  local hidden=true;for _,row in ipairs(f.w.rows) do if row.member and row.promote:IsShown() then hidden=false end end
+  check("verified-potential rows do not gain promotion controls from display status",hidden and not f.w.nextButton:IsEnabled())
+  f.w.readyButton:Click()
+  check("repeated quick-filter clicks are idempotent and read only",f.names()=="Alpha,NameOnly,Zulu" and f.attempts==0 and #f.promotions==0 and f.invites==0 and f.removals==0 and f.reloads==0)
+  f.choose(f.w.actionFilterButton,2)
+  check("signed-ready dropdown stays distinct from the potential shortcut",plain(f.w.actionFilterButton.label:GetText())=="Ready to promote (signed) v" and f.names()=="" and not f.w.nextButton:IsEnabled())
+  check("empty signed-ready view states the source gap instead of hiding the reason",plain(f.w.actionInfo:GetText()):find("No actionable signed promotions match these filters.",1,true) and plain(f.w.actionInfo:GetText()):find("No dated launch projection",1,true))
+end
+
+do
+  local f=fixture();f.w.readyButton:Click()
+  check("potential shortcut includes verified Initiates lacking a signed recommendation",f.names()=="Alpha,NameOnly,Zulu")
+  local potential
+  for _,row in ipairs(f.w.rows) do if row.member and row.member.name=="NameOnly" then potential=row end end
+  check("unsigned verified Initiate keeps its no-recommendation explanation",potential and not potential.promote:IsShown() and plain(potential.cells.action:GetText()):find("No loaded recommendation",1,true))
+  f.w.nextButton:Click()
+  check("potential shortcut still dispatches exactly one signed native target per click",f.attempts==1 and #f.promotions==1 and f.promotions[1].guid=="Player-1-0000B002" and f.names()=="NameOnly,Zulu")
+  f=fixture();f.e.NOW=f.page.expiresAt;f.w.readyButton:Click()
+  check("expired signed pages do not hide still-current verified potential",f.names()=="Alpha,NameOnly,Zulu" and not f.w.nextButton:IsEnabled() and plain(f.w.actionInfo:GetText()):find("expired",1,true))
+  f.choose(f.w.actionFilterButton,2)
+  check("expired signed-ready view remains empty with the original expiry reason",f.names()=="" and plain(f.w.actionInfo:GetText()):find("No actionable signed promotions",1,true) and plain(f.w.actionInfo:GetText()):find("expired",1,true) and f.attempts==0)
+end
+
+do
+  local f=reviewFixture();f.w.readyButton:Click()
+  check("verified shortcut excludes historical links and account-review rows",f.names()=="NameOnly" and not f.w.nextButton:IsEnabled())
+  f=fixture();f.e.NOW=f.e.NOW+3601;f.w.readyButton:Click()
+  check("expired display evidence never becomes verified potential",f.names()=="" and plain(f.w.queueSummary:GetText()):find("Verified Initiates: 0 potential",1,true) and not f.w.nextButton:IsEnabled())
+  check("empty verified shortcut explains the current filter and source state",plain(f.w.actionInfo:GetText()):find("No current verified Initiates match these filters.",1,true) and plain(f.w.actionInfo:GetText()):find("expired",1,true) and f.reloads==0 and f.attempts==0)
 end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

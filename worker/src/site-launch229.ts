@@ -44,6 +44,8 @@ async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: nu
         SELECT 1 FROM pending p WHERE p.name_key=rm.name_key AND p.consumed_at IS NULL AND p.expires_at>?2 AND p.created_at>=?3
           AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=p.discord_id AND ps.state<>'active')) THEN 'pending' ELSE 'unverified' END
       WHEN c.status='member' AND c.guid=rm.guid AND g.links=1 AND COALESCE(c.verified_at,c.bound_at)>=?3
+        AND typeof(COALESCE(c.verified_at,c.bound_at))='integer'
+        AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2
         AND COALESCE(m.banned,0)=0 AND COALESCE(u.denied,0)=0
         AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=c.discord_id AND ps.state<>'active') THEN 'verified'
       ELSE 'unknown' END AS verification,

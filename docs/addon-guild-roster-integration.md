@@ -226,3 +226,42 @@ check dropdown selection/closure, sorting and ties, copy-box focus/Escape, selec
 row identity after recycling, both window styles/scales, gamepad transitions,
 expired source repaint and absent/held promotion projections. No review label or
 successful delivery receipt authorizes a role, invite, reminder send or promotion.
+
+## Roster and Sync clarification candidate 0.6.31
+
+The **Verified Initiates** shortcut selects current verified native slot-9 rows,
+including potential candidates for whom no supported promotion recommendation is
+loaded. **Ready to promote (signed)** is a separate readiness dropdown selection.
+Only that original recommendation's current exact native target can enable the
+existing hardware promotion action. Historical/expired links are not made current
+by either filter. Source holds, original attempts and page/scan deadlines remain.
+
+Sync records a local request before calling the normal reload API. The alert,
+roster header and Sync tooltip distinguish that request time from the loaded
+server query time and original server roster observation. A newer local request
+is not an upload acknowledgement, a completed verification or a new source date.
+The reload exports pending data; the Watcher processes it afterward, so that same
+reload can still load the previous reply. Wait for the Watcher result and use a
+later deliberate Sync to load its file. If source dates still do not advance,
+inspect the Watcher result; repeated clicks do not establish delivery.
+
+The launch decoder diagnoses incompatible container/page protocols separately
+from malformed metadata, native-scope mismatch, stopped scans and compatible
+expired advisory data. The preserved November 5 `launch-operations-v1` pages are
+both obsolete and incompatible with `officer-operations-v233`; they cannot become
+current recommendations through a redraw or by copying new timestamps onto them.
+Obtain a genuinely fresh compatible scan through the existing attended workflow.
+
+The promotion producer requires the original link anchor to be an integer,
+positive, no later than the server clock and on/after the existing cutoff before
+considering it verified. Invalid anchors stay unknown and do not reach Discord
+entitlement reads. This adds no link repair or role/promotion action.
+
+The owner put the missing live bridge **on hold on 11 November 2026**. Current
+sources expose in-game peer messages and reload-based files, not a supported
+external-to-running-Lua receiver. The separate Companion relay is referenced in
+the private source manifest but was not found in the checked workspaces or
+accessible repository search. Discord's API team also confirms that bots cannot
+post into WoW-linked guild channels:
+<https://github.com/discord/discord-api-docs/issues/8628>.
+No replacement bridge, automatic reload or timer-driven action is introduced.

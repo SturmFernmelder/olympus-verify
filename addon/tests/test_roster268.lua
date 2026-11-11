@@ -138,7 +138,7 @@ do
   check("rank sort respects native rank slot and deterministic name ties", f.names() == "Officer,Knight,Member,Alpha,NameOnly,Pending,Unlinked,Zulu")
   f.sort("seen"); check("last online sorts online first then offline age", f.names() == "Alpha,Member,Officer,Pending,Unlinked,Knight,Zulu,NameOnly")
   f.sort("name"); check("name sort returns deterministic alphabetic order", f.names() == "Alpha,Knight,Member,NameOnly,Officer,Pending,Unlinked,Zulu")
-  f.w.readyButton:Click()
+  f.choose(f.w.actionFilterButton, 2)
   check("Ready intersects exact signed Initiate recommendations, not all verified labels", f.names() == "Alpha,Zulu")
   check("ready view and filtering have made no promotion", #f.promotions == 0 and f.attempts == 0)
   f.w.nextButton:Click()
@@ -151,14 +151,14 @@ do
 end
 
 do
-  local f = fixture(); f.w.readyButton:Click(); f.search("zulu"); f.w.nextButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2); f.search("zulu"); f.w.nextButton:Click()
   check("next respects the current search instead of the first global candidate", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
-  f = fixture(); f.w.readyButton:Click(); f.sort("name"); f.w.nextButton:Click()
+  f = fixture(); f.choose(f.w.actionFilterButton, 2); f.sort("name"); f.w.nextButton:Click()
   check("next respects reversed visible name order", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
 end
 
 for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "name reuse", "duplicate GUID", "native rank" }) do
-  local f = fixture(); f.w.readyButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
   local old = f.w.rows[1].promote
   if kind == "expiry" then f.e.NOW = f.page.expiresAt
   elseif kind == "scan expiry" then f.e.NOW = f.page.scan.expiresAt
@@ -173,7 +173,7 @@ for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "na
 end
 
 for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown outcome", "unconfirmed outcome" }) do
-  local f = fixture(); f.w.readyButton:Click()
+  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
   if kind == "permission" then f.permission = false
   elseif kind == "combat" then f.combat = true
   elseif kind == "native roster age" then f.e.NOW = f.e.NOW + 16
@@ -189,7 +189,7 @@ for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown ou
 end
 
 do
-  local f = fixture(); f.e.OlympusLaunchQueue = nil; f.w.readyButton:Click()
+  local f = fixture(); f.e.OlympusLaunchQueue = nil; f.choose(f.w.actionFilterButton, 2)
   check("fresh verified display cannot manufacture an absent signed promotion", f.names() == "" and not f.w.nextButton:IsEnabled())
   f = fixture(); f.e.OlympusVerifyLists.verified.snapshotAt, f.e.OlympusVerifyLists.unverified.snapshotAt = f.e.NOW - 3601, f.e.NOW - 3601
   f.w.Show(); f.choose(f.w.statusButton,6)
