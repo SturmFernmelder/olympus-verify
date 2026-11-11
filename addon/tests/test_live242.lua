@@ -579,7 +579,7 @@ for _,kind in ipairs({"trade","mail"}) do
     and #x.e.OlympusVerifyDB.treasury.receipts==1)
 end
 for _,kind in ipairs({"trade","mail"}) do
-  for _,badBody in ipairs({true,42}) do
+  for _,badBody in ipairs({true,42,false}) do
     local x=fixture(true);local queue=x.v.Queue
     x.v.Queue=function(row,key) if row.type=="donation" then return nil end;return queue(row,key) end
     if kind=="trade" then pendingTrade627(x,true) else pendingMail627(x,true) end

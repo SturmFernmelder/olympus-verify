@@ -485,12 +485,15 @@ local function validTransfer627(p,kind)
 end
 local function queueTransfer627(p,row,key)
   local d=db();if not d then return nil end
+  if p.exportBody~=nil and type(p.exportBody)~="table" then
+    p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil
+  end
   local at=p.completedAt or p.observedAt
   row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm
   row.clientVersion=type(p.exportBody)=="table" and p.exportBody.clientVersion or "0.6.29"
   local expected=bodyBinding(row)
-  if not expected or p.exportBody and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
-  if not p.exportBody then p.exportBody=clone(row);saveTransfer627(p) end
+  if not expected or p.exportBody~=nil and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
+  if p.exportBody==nil then p.exportBody=clone(row);saveTransfer627(p) end
   local original=d.entries[p.transferId]
   if original and bodyBinding(original)~=bodyBinding(p.exportBody) then p.heldReason="original_intake_body_conflict";saveTransfer627(p);return nil end
   local queued=V.Queue(clone(p.exportBody),key)
