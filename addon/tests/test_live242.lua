@@ -578,6 +578,23 @@ for _,kind in ipairs({"trade","mail"}) do
     and x.rows()[id]==row and same268((function()local r=copy268(row);if r then r.status=nil end;return r end)(),original)
     and #x.e.OlympusVerifyDB.treasury.receipts==1)
 end
+for _,kind in ipairs({"trade","mail"}) do
+  for _,badBody in ipairs({true,42}) do
+    local x=fixture(true);local queue=x.v.Queue
+    x.v.Queue=function(row,key) if row.type=="donation" then return nil end;return queue(row,key) end
+    if kind=="trade" then pendingTrade627(x,true) else pendingMail627(x,true) end
+    local d=x.e.OlympusVerifyDB.intake242
+    local field=kind=="trade" and "tradeCollection242" or "mailCollection242"
+    local saved=d[field];local id=saved.transferId;local takes,deletes=x.takes,x.deletes
+    saved.exportBody=badBody
+    local ok=pcall(reloadLive627,x);local held=d[field]
+    check(kind.." non-table saved body ("..type(badBody)..") is held without a reload exception",
+      ok and held and held.transferId==id and held.exportBody==badBody and held.heldReason=="saved_transfer_body_unproved")
+    check(kind.." malformed-body hold never repeats native actions or queues credit",
+      x.takes==takes and x.deletes==deletes and x.rows()[id]==nil
+      and #x.e.OlympusVerifyDB.treasury.receipts==1 and x.e.OlympusVerifyDB.treasury.liveIntakeOwners242[id]==true)
+  end
+end
 do
   local x=fixture(true);pendingMail627(x,false)
   local saved=x.e.OlympusVerifyDB.intake242.mailCollection242;local id=saved.transferId;local takes=x.takes

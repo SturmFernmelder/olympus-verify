@@ -487,7 +487,7 @@ local function queueTransfer627(p,row,key)
   local d=db();if not d then return nil end
   local at=p.completedAt or p.observedAt
   row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm
-  row.clientVersion=p.exportBody and p.exportBody.clientVersion or "0.6.29"
+  row.clientVersion=type(p.exportBody)=="table" and p.exportBody.clientVersion or "0.6.29"
   local expected=bodyBinding(row)
   if not expected or p.exportBody and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
   if not p.exportBody then p.exportBody=clone(row);saveTransfer627(p) end
