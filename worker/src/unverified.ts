@@ -18,11 +18,14 @@ import { linksNotBefore, now } from "./db";
 import type { LaunchVerificationCapture } from "./launch-verification227";
 
 export const STRICT_ROSTER_DISPLAY_PROTOCOL = "launch-roster-display-v1";
+export const STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = "launch-roster-display-v2";
 const STRICT_ROSTER_DISPLAY_AGE = 3600;
 
 /** One read against the exact latest admitted native scope. The result has no
  * invitation, moderation, signing or removal authority, even on a fresh read. */
-export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCapture) {
+export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCapture,
+  protocol: typeof STRICT_ROSTER_DISPLAY_PROTOCOL | typeof STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = STRICT_ROSTER_DISPLAY_PROTOCOL) {
+  if (protocol !== STRICT_ROSTER_DISPLAY_PROTOCOL && protocol !== STRICT_ROSTER_DISPLAY_PROTOCOL_V2) return null;
   if (launch.mode !== "members-only" || !launch.scope || !launch.current()) return null;
   const at = now(), cutoff = linksNotBefore(env);
   const rows = await env.DB.prepare(`WITH snapshot AS MATERIALIZED (
@@ -44,36 +47,52 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
         ORDER BY p.id DESC LIMIT 1
       ), 'unverified')
       WHEN c.status = 'member' AND c.guid = rm.guid AND g.links = 1 AND COALESCE(c.verified_at,c.bound_at) >= ?3
+        AND (?4 = 0 OR (typeof(COALESCE(c.verified_at,c.bound_at)) = 'integer'
+          AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2))
         AND COALESCE(m.banned,0) = 0 AND COALESCE(u.denied,0) = 0
         AND NOT EXISTS (SELECT 1 FROM privacy_subjects p WHERE p.subject_id = c.discord_id AND p.state <> 'active')
       THEN 'verified'
       ELSE 'unknown'
     END AS status,
+    CASE WHEN c.status = 'member' AND c.guid = rm.guid AND g.links = 1
+      AND typeof(COALESCE(c.verified_at,c.bound_at)) = 'integer'
+      AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2
+      AND COALESCE(c.verified_at,c.bound_at) < ?3
+      AND COALESCE(m.banned,0) = 0 AND COALESCE(u.denied,0) = 0
+      AND NOT EXISTS (SELECT 1 FROM privacy_subjects p WHERE p.subject_id = c.discord_id AND p.state <> 'active')
+      THEN 'linked_before_cutoff' ELSE 'link_review' END AS unknownReason,
     NULLIF(COALESCE(m.username,u.username),'') AS username, NULLIF(COALESCE(m.global_name,u.global_name),'') AS displayName
   FROM snapshot s JOIN roster_members rm ON rm.snapshot_id = s.id
   LEFT JOIN characters c ON c.name_key = rm.name_key
   LEFT JOIN linked_guids g ON g.guid = rm.guid
   LEFT JOIN members m ON m.discord_id = c.discord_id
   LEFT JOIN site_users u ON u.discord_id = c.discord_id
-  ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope.provenance, at, cutoff).all<{
+  ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope.provenance, at, cutoff,
+    protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2 ? 1 : 0).all<{
     snapshotAt: number; memberCount: number; name: string; guid: string | null;
     status: "pending" | "unverified" | "verified" | "unknown";
+    unknownReason: "linked_before_cutoff" | "link_review";
     username: string | null; displayName: string | null;
   }>();
   const first = rows.results[0], observedAt = now();
   if (!launch.current() || cutoff !== linksNotBefore(env) || observedAt < at || !rows.success || !first
       || first.snapshotAt < observedAt - STRICT_ROSTER_DISPLAY_AGE || rows.results.length !== first.memberCount) return null;
-  const verified = [], unverified = [];
+  const verified = [], unverified = [], unknown = [];
   for (const row of rows.results) {
     if (!row.guid || !/^Player-\d+-[0-9A-Fa-f]+$/.test(row.guid) || row.guid.length > 40) continue;
     if (row.status === "verified") {
       verified.push({ name: row.name, guid: row.guid, status: "member", username: row.username, displayName: row.displayName });
     } else if (row.status === "unverified" || row.status === "pending") {
       unverified.push({ name: row.name, guid: row.guid, pending: row.status === "pending" });
+    } else if (protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2) {
+      // A display explanation only: old links do not acquire fresh admission,
+      // role authority or a green status by being present on the current roster.
+      unknown.push({ name: row.name, guid: row.guid, reason: row.unknownReason });
     }
   }
-  return { protocol: STRICT_ROSTER_DISPLAY_PROTOCOL, fetchedAt: at, snapshotAt: first.snapshotAt,
+  const report = { protocol, fetchedAt: at, snapshotAt: first.snapshotAt,
     guild: launch.scope.guild, realm: launch.scope.realm, verified, unverified };
+  return protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2 ? { ...report, unknown } : report;
 }
 
 export interface UnverifiedMember {

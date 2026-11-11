@@ -31,7 +31,7 @@ import { TREASURY_PLAN_ASSETS, treasuryAfterMemberGate } from "./site-treasury-a
 import { captureLaunchVerification,launchVerificationEnv } from './launch-verification227';
 import type { Env } from "./env";
 import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
-import { STRICT_ROSTER_DISPLAY_PROTOCOL, strictRosterDisplay, unverifiedReport } from "./unverified";
+import { STRICT_ROSTER_DISPLAY_PROTOCOL, STRICT_ROSTER_DISPLAY_PROTOCOL_V2, strictRosterDisplay, unverifiedReport } from "./unverified";
 import { handleLaunchOperations229 } from './site-launch229';
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
@@ -647,8 +647,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
       const versions=query.getAll('keyVersion');
       if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v233')return handleLaunchOperations229(request,env,true);
       if(request.method==='POST'&&path==='/ingest/officer-invite'&&versions.length===1&&versions[0]==='officer-operations-v233'&&query.size===1&&body!==null&&!('keyVersion'in body))return postOfficerInvite233(env,body);
-      if (versions.length === 1 && versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL && request.method === "GET" && path === "/queue/unverified" && query.size === 1) {
-        const report = await strictRosterDisplay(env, captureLaunchVerification(env));
+      if (versions.length === 1 && (versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL || versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL_V2)
+          && request.method === "GET" && path === "/queue/unverified" && query.size === 1) {
+        const report = await strictRosterDisplay(env, captureLaunchVerification(env), versions[0]);
         return new Response(JSON.stringify(report ?? { error: "strict_roster_display_unavailable" }), {
           status: report ? 200 : 409,
           headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store, no-transform" },
@@ -741,7 +742,7 @@ async function freshRegistrationRefused(env: Env, trigger: string): Promise<void
 }
 
 /** Bumped with every change that needs a redeploy, so GET /health shows which build is live. */
-const BUILD = "2026-11-10.267 Olympus bridge compatibility";
+const BUILD = "2026-11-10.268 Roster status and promotion tools";
 
 /**
  * Presence of each secret (never the value) and a D1 round trip — enough to tell a missing `wrangler secret put` from a

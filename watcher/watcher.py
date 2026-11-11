@@ -108,8 +108,8 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.27"
-STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v1"
+WATCHER_VERSION = "0.6.28"
+STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
 
@@ -805,6 +805,12 @@ class Watcher:
             return Delivery.HELD
         self._custody_warning = None
         self._forget_verification_original(item)
+        # .268: a confirmed upload changes the display input immediately. Coalesce
+        # the normal read-only pull; never wait another five minutes or redate old data.
+        # Only a durably settled original can request this read, including recovery.
+        if self.membership_only and item.get("path") in ("/ingest/roster", "/ingest/verify", "/ingest/intake242"):
+            self._next_strict_display_pull = 0.0
+            self._last_queue_pull = 0.0
         return Delivery.DELIVERED
 
     def _forget_verification_original(self, item: dict[str, Any]) -> None:
@@ -2078,25 +2084,38 @@ class Watcher:
         def text(value: Any, limit: int) -> bool:
             return isinstance(value, str) and 0 < len(value.encode("utf-8", errors="surrogatepass")) <= limit and not re.search(r"[\x00-\x1f\x7f\ud800-\udfff]", value)
 
-        if not isinstance(report, dict) or set(report) != {"protocol", "fetchedAt", "snapshotAt", "guild", "realm", "verified", "unverified"}:
+        if not isinstance(report, dict):
+            return None
+        protocol = report.get("protocol")
+        if protocol not in ("launch-roster-display-v1", STRICT_DISPLAY_PROTOCOL):
+            return None
+        v2 = protocol == STRICT_DISPLAY_PROTOCOL
+        keys = {"protocol", "fetchedAt", "snapshotAt", "guild", "realm", "verified", "unverified"}
+        if v2:
+            keys.add("unknown")
+        if set(report) != keys:
             return None
         fetched, snapshot = report["fetchedAt"], report["snapshotAt"]
-        if (report["protocol"] != STRICT_DISPLAY_PROTOCOL or type(fetched) is not int or type(snapshot) is not int
+        if (type(fetched) is not int or type(snapshot) is not int
                 or abs(at - fetched) > 60 or not 0 < snapshot <= fetched <= snapshot + 3600
                 or not text(report["guild"], 128) or not text(report["realm"], 128)):
             return None
-        verified, unverified = report["verified"], report["unverified"]
-        if not isinstance(verified, list) or not isinstance(unverified, list) or len(verified) + len(unverified) > 1000:
+        verified, unverified, unknown = report["verified"], report["unverified"], report.get("unknown", [])
+        if (not isinstance(verified, list) or not isinstance(unverified, list) or not isinstance(unknown, list)
+                or len(verified) + len(unverified) + len(unknown) > 1000):
             return None
         guids: set[str] = set()
         lines = [
             "-- Generated strict roster display only. Do not edit. No invite/removal custody.",
-            "OlympusVerifyLists = { version = 1,",
+            f"OlympusVerifyLists = {{ version = {2 if v2 else 1},",
             f"  guild = {json.dumps(report['guild'], ensure_ascii=False)},",
             f"  realm = {json.dumps(report['realm'], ensure_ascii=False)},",
         ]
-        for label, members in (("verified", verified), ("unverified", unverified)):
-            fields = ("status", "username", "displayName") if label == "verified" else ("pending",)
+        sections = [("verified", verified), ("unverified", unverified)]
+        if v2:
+            sections.append(("unknown", unknown))
+        for label, members in sections:
+            fields = ("status", "username", "displayName") if label == "verified" else ("pending",) if label == "unverified" else ("reason",)
             lines.append(f"  {label} = {{ fetchedAt = {fetched}, snapshotAt = {snapshot}, members = {{")
             for row in members:
                 if not isinstance(row, dict) or set(row) != {"name", "guid", *fields}:
@@ -2109,7 +2128,9 @@ class Watcher:
                     if (row["status"] != "member"
                             or any(row[k] is not None and not text(row[k], 256) for k in ("username", "displayName"))):
                         return None
-                elif type(row["pending"]) is not bool:
+                elif label == "unverified" and type(row["pending"]) is not bool:
+                    return None
+                elif label == "unknown" and row["reason"] not in ("linked_before_cutoff", "link_review"):
                     return None
                 values = [f"{key} = {json.dumps(row[key], ensure_ascii=False)}" for key in ("name", "guid", *fields) if row[key] is not None]
                 lines.append("    { " + ", ".join(values) + " },")

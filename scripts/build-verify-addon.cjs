@@ -2,9 +2,13 @@
 'use strict';
 // Public source only. Fixed inputs, ZIP metadata and ordering; never scans a local addon installation.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
-const VERSION = '0.6.28';
 const SOURCE = 'addon/OlympusVerify/';
-const ZIP = 'worker/public/static/olympus-verify/olympus-verify-0.6.28.zip';
+// The package identity follows the shipped TOC, never a second manually bumped version.
+const toc = fs.readFileSync(path.resolve(__dirname, '..', SOURCE, 'OlympusVerify.toc'), 'utf8');
+const versions = [...toc.matchAll(/^## Version: ([0-9]+\.[0-9]+\.[0-9]+)\r?$/gm)];
+if (versions.length !== 1) throw Error('public addon TOC must declare one version');
+const VERSION = versions[0][1];
+const ZIP = `worker/public/static/olympus-verify/olympus-verify-${VERSION}.zip`;
 const MANIFEST = 'worker/public/static/olympus-verify/version.json';
 const FILES = Object.freeze(['Bindings.xml', 'Config.example.lua', 'Libs/OlympusHmac.lua', 'Libs/OlympusQr.lua',
   'OlympusVerify.lua', 'OlympusVerify.toc', 'OlympusVerifyAutoSync.lua', 'OlympusVerifyBrowser.lua',

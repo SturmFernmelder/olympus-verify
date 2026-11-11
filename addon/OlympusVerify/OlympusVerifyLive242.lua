@@ -47,7 +47,7 @@ function V.Queue(row, key)
   if row.id and d.entries[row.id] then return d.entries[row.id] end
   d.nextId=(tonumber(d.nextId) or 0)+1
   row.id=row.id or H.sha256hex(table.concat({guid(call(UnitGUID,"player")) or ownName() or "unknown",tostring(time()),tostring(d.nextId)},"|")):sub(1,32)
-  row.requestedAt=row.requestedAt or time();row.requestedBy=row.requestedBy or ownName();row.status="pending";row.clientVersion="0.6.28"
+  row.requestedAt=row.requestedAt or time();row.requestedBy=row.requestedBy or ownName();row.status="pending";row.clientVersion="0.6.29"
   row.guild=row.guild or call(GetGuildInfo,"player");row.realm=row.realm or call(GetRealmName)
   d.entries[row.id]=row;if key then d.dedup[key]=row.id end
   if type(OlympusDB)=="table" then
@@ -485,7 +485,7 @@ end
 local function queueTransfer627(p,row,key)
   local d=db();if not d then return nil end
   local at=p.completedAt or p.observedAt
-  row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm;row.clientVersion="0.6.28"
+  row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm;row.clientVersion="0.6.29"
   local expected=bodyBinding(row)
   if not expected or p.exportBody and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
   if not p.exportBody then p.exportBody=clone(row);saveTransfer627(p) end

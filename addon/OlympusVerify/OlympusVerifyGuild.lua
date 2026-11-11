@@ -11,7 +11,7 @@ local REMINDER = "Hi! In Asmongold's Discord, use Get my code in #⚡olympus-ver
 local LABEL = { verified = "Verified", unverified = "Not verified", pending = "Verifying", unknown = "Unknown", stale = "Stale list" }
 local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|cffe8be65", unknown = "|cff9ea3ad", stale = "|cffe8be65" }
 local nativeNames, nativeGuids, nativeAliases, nativeAt, loadedIdentity, changedGuild = {}, {}, {}, nil, nil, false
-local sourceIndex
+local sourceIndex, historyIndex
 local hosts, bridgeEnabled = {}, false -- session-only opt-in, never SavedVariables
 
 local function Text(v, limit)
@@ -75,9 +75,10 @@ local function Live(name, guid)
   if not hit or nativeNames[nk] == false or Key(hit.name) ~= nk or guid and hit.guid ~= guid then return nil end
   return hit
 end
-local function Index(v, u, now)
-  if sourceIndex and sourceIndex.v == v and sourceIndex.u == u and now >= sourceIndex.at and now - sourceIndex.at < 5 then return sourceIndex end
-  local ix = { v = v, u = u, at = now, guids = {}, names = {}, unverified = {}, ambiguous = #v.members > MAX_MEMBERS or #u.members > MAX_MEMBERS }
+local function Index(v, u, z, now)
+  if sourceIndex and sourceIndex.v == v and sourceIndex.u == u and sourceIndex.z == z and now >= sourceIndex.at and now - sourceIndex.at < 5 then return sourceIndex end
+  local ix = { v = v, u = u, z = z, at = now, guids = {}, names = {}, unverified = {}, review = {},
+    ambiguous = #v.members + #u.members + (z and #z.members or 0) > MAX_MEMBERS }
   for i = 1, math.min(#v.members, MAX_MEMBERS) do
     local r = v.members[i]
     if type(r) == "table" then
@@ -91,8 +92,109 @@ local function Index(v, u, now)
     local rn = type(r) == "table" and WatcherKey(r.name)
     if rn then if ix.unverified[rn] ~= nil then ix.unverified[rn] = false else ix.unverified[rn] = r end end
   end
+  for i = 1, math.min(z and #z.members or 0, MAX_MEMBERS) do
+    local r = z.members[i]
+    local rg = type(r) == "table" and Text(r.guid, 40)
+    if rg then if ix.review[rg] ~= nil then ix.review[rg] = false else ix.review[rg] = r end end
+  end
   sourceIndex = ix
   return ix
+end
+
+local function Dated(at)
+  return date("%d %b %H:%M", at)
+end
+local function OriginalTime(at, now)
+  return type(at) == "number" and at == math.floor(at) and at > 0 and at <= now
+end
+local function ArraySize(rows)
+  if type(rows) ~= "table" or getmetatable(rows) ~= nil then return nil end
+  local n = 0
+  for k in next, rows do
+    n = n + 1
+    if n > MAX_MEMBERS or type(k) ~= "number" or k ~= math.floor(k) or k < 1 or k > MAX_MEMBERS then return nil end
+  end
+  for i = 1, n do if rawget(rows, i) == nil then return nil end end
+  return n
+end
+-- An expired strict list may explain a past link, never establish a current one.
+-- Do not return this source to DisplaySource(), the green path or reminder logic.
+local function HistoricalIndex(now)
+  local q = OlympusVerifyLists
+  local v = type(q) == "table" and q.verified
+  local u = type(q) == "table" and q.unverified
+  local z = type(q) == "table" and q.version == 2 and q.unknown
+  local guild = GetGuildInfo and Text(GetGuildInfo("player"), 128)
+  local realm = GetRealmName and Text(GetRealmName(), 128)
+  local fetched, snapshot = type(v) == "table" and v.fetchedAt, type(v) == "table" and v.snapshotAt
+  local uf, us = type(u) == "table" and u.fetchedAt, type(u) == "table" and u.snapshotAt
+  local vm, um = type(v) == "table" and v.members, type(u) == "table" and u.members
+  local zm, zf, zs = type(z) == "table" and z.members, type(z) == "table" and z.fetchedAt, type(z) == "table" and z.snapshotAt
+  local version, sourceGuild, sourceRealm = type(q) == "table" and q.version, type(q) == "table" and q.guild, type(q) == "table" and q.realm
+  local old = historyIndex
+  if old and old.q == q and old.v == v and old.u == u and old.vm == vm and old.um == um
+    and old.fetched == fetched and old.snapshot == snapshot and old.uf == uf and old.us == us
+    and old.z == z and old.zm == zm and old.zf == zf and old.zs == zs
+    and old.version == version and old.sourceGuild == sourceGuild and old.sourceRealm == sourceRealm
+    and old.guild == guild and old.realm == realm and now >= old.at and now - old.at < 5 then return old end
+  local ix = { q=q, v=v, u=u, vm=vm, um=um, fetched=fetched, snapshot=snapshot, uf=uf, us=us,
+    z=z, zm=zm, zf=zf, zs=zs, version=version, sourceGuild=sourceGuild, sourceRealm=sourceRealm,
+    guild=guild, realm=realm, at=now, guids={}, names={}, unverified={} }
+  historyIndex = ix
+  if type(q) ~= "table" or (version ~= 1 and version ~= 2) or not guild or not realm or q.guild ~= guild or q.realm ~= realm then
+    ix.unknown = true; ix.reason = "No dated Watcher list matches this native guild and realm."; return ix
+  end
+  local vn, un = ArraySize(vm), ArraySize(um)
+  local zn = 0
+  if version == 2 then zn = ArraySize(zm) end
+  if not vn or not un or not zn or vn + un + zn > MAX_MEMBERS or fetched ~= uf or snapshot ~= us
+    or version == 2 and (zf ~= fetched or zs ~= snapshot) then
+    ix.unknown = true; ix.reason = "The dated Watcher lists are incomplete or their original dates disagree."; return ix
+  end
+  if not OriginalTime(fetched, now) or not OriginalTime(snapshot, fetched) then
+    ix.reason = "The Watcher list has a missing, invalid or future original date. No past link is claimed."; return ix
+  end
+  local seen = {}
+  local lists = { {vm, "verified"}, {um, "unverified"} }
+  if version == 2 then lists[#lists + 1] = {zm, "unknown"} end
+  for _, list in ipairs(lists) do
+    for _, row in ipairs(list[1]) do
+      local name = type(row) == "table" and Text(row.name)
+      local guid = type(row) == "table" and Text(row.guid, 40)
+      local nk = name and WatcherKey(name)
+      if not nk or getmetatable(row) ~= nil or not guid or not guid:match("^Player%-%d+%-%x+$") or seen[guid]
+        or list[2] == "verified" and row.status ~= "member" or list[2] == "unverified" and type(row.pending) ~= "boolean"
+        or list[2] == "unknown" and row.reason ~= "linked_before_cutoff" and row.reason ~= "link_review" then
+        ix.unknown = true; ix.reason = "The dated Watcher lists contain ambiguous or unsupported character rows. No past link is claimed."; return ix
+      end
+      seen[guid] = true
+      if list[2] == "verified" then ix.guids[guid] = row; ix.names[nk] = true
+      elseif list[2] == "unverified" then
+        if ix.unverified[nk] ~= nil then ix.unverified[nk] = false else ix.unverified[nk] = row end
+      end
+    end
+  end
+  ix.valid = true
+  return ix
+end
+local function StaleResult(m, now, fallback)
+  local ix = HistoricalIndex(now)
+  if not ix.valid then return { status=ix.unknown and "unknown" or "stale", reason=ix.reason or fallback } end
+  local nk = WatcherKey(m.name)
+  local matched, unverified = ix.guids[m.guid], nk and ix.unverified[nk]
+  if unverified == false or matched and unverified then
+    return { status="unknown", reason="The dated verification lists disagree for this native character. No past or current link is claimed." }
+  end
+  local why = now - ix.fetched > LIST_AGE and "The loaded Watcher fetch and its server roster snapshot are over one hour old."
+    or "The server roster snapshot is over one hour old even though the Watcher fetched the list more recently."
+  why = why .. " List fetched " .. Dated(ix.fetched) .. "; roster observed " .. Dated(ix.snapshot)
+    .. ". Sync, let the Watcher refresh its display file, then reload. This is not proof of being unverified."
+  if matched then
+    return { status="stale", label="Linked (dated)", historicalLinked=true,
+      reason="This exact native GUID was linked in the dated Watcher list; current verification and Discord access are unconfirmed. " .. why,
+      at=ix.fetched, snapshotAt=ix.snapshot, guid=m.guid, name=m.name }
+  end
+  return { status="stale", reason=why, at=ix.fetched, snapshotAt=ix.snapshot }
 end
 
 -- Only exact GUID matches are green. A name-only legacy link remains explicitly unknown;
@@ -110,21 +212,40 @@ function G.Verification(name, guid)
   local m = Live(Text(name), Text(guid, 40))
   if not m then return { status = "unknown", reason = "No unique matching character in the current native guild roster." } end
   local q, displayError, displayStale = API.Roster.DisplaySource()
-  if displayError then return { status = displayStale and "stale" or "unknown", reason = displayError } end
+  if displayError then
+    if displayStale then return StaleResult(m, now, displayError) end
+    return { status = "unknown", reason = displayError }
+  end
   local v, u = q and q.verified, q and q.unverified
+  local z = q == OlympusVerifyLists and q and q.version == 2 and q.unknown or nil
   if type(v) ~= "table" or type(u) ~= "table" or type(v.members) ~= "table" or type(u.members) ~= "table" then
     return { status = "unknown", reason = "No complete watcher verification lists are loaded. Sync and reload first." }
   end
-  if not Fresh(v.fetchedAt, now) or not Fresh(u.fetchedAt, now) or not Fresh(u.snapshotAt, now) then
-    return { status = "stale", reason = "Watcher list or its server roster is over one hour old, missing a date, or from a future clock. Sync and reload." }
+  if q == OlympusVerifyLists and q.version == 2 and (type(z) ~= "table" or type(z.members) ~= "table") then
+    return { status="unknown", reason="The Watcher review list is incomplete. Refresh the display file and reload." }
   end
-  local ix, nk = Index(v, u, now), WatcherKey(m.name)
+  if not Fresh(v.fetchedAt, now) or not Fresh(u.fetchedAt, now) or not Fresh(u.snapshotAt, now) then
+    if q == OlympusVerifyLists then return StaleResult(m, now) end
+    return { status = "stale", reason = "The loaded Watcher fetch or server roster date is expired, missing or in the future. Sync, let the Watcher refresh its display file, then reload. This is not proof of being unverified." }
+  end
+  local ix, nk = Index(v, u, z, now), WatcherKey(m.name)
   local matched, unverified = m.guid and ix.guids[m.guid], nk and ix.unverified[nk]
-  if ix.ambiguous or matched == false or unverified == false or matched and unverified then
+  local review = m.guid and ix.review[m.guid]
+  if ix.ambiguous or matched == false or unverified == false or review == false or matched and (unverified or review) or review and unverified then
     return { status = "unknown", reason = "The loaded verification lists are ambiguous or disagree. Refresh them before contacting anyone." }
   end
   if matched and matched.status == "member" then
-    return { status = "verified", reason = "Exact live GUID matched the watcher's linked-member list; this is a dated display snapshot.", at = v.fetchedAt, guid = m.guid, name = m.name }
+    return { status = "verified", reason = "Exact live GUID matched the watcher's linked-member list; this is a dated display snapshot, not current Discord role authority.", at = v.fetchedAt, snapshotAt = v.snapshotAt, guid = m.guid, name = m.name }
+  end
+  if review then
+    if review.reason == "linked_before_cutoff" then
+      return { status="unknown", label="Linked (prior record)", historicalLinked=true,
+        reason="The server has an earlier link for this exact native GUID, but it predates the current launch proof requirement. Current verification and Discord access need review; this is not an unverified-member finding.",
+        at=z.fetchedAt, snapshotAt=z.snapshotAt, guid=m.guid, name=m.name }
+    end
+    return { status="unknown", label="Link needs review",
+      reason="The server could not confirm a current link for this native roster entry. Its account or identity checks need review; check Discord /verify-status.",
+      at=z.fetchedAt, snapshotAt=z.snapshotAt, guid=m.guid, name=m.name }
   end
   if matched or nk and ix.names[nk] or not m.guid then
     return { status = "unknown", reason = "Only a name/old account state matched, or the native GUID is unavailable. No current GUID verification is claimed." }
@@ -205,6 +326,7 @@ local function Tooltip(button, r)
   GameTooltip:SetText(r.status == "unverified" and "Whisper Unverified" or "Olympus Discord verification")
   GameTooltip:AddLine(r.reason, 0.9, 0.86, 0.75, true)
   if r.at then GameTooltip:AddLine("Watcher fetched " .. date("%d %b %H:%M", r.at), 0.7, 0.7, 0.7) end
+  if r.snapshotAt then GameTooltip:AddLine("Server roster observed " .. date("%d %b %H:%M", r.snapshotAt), 0.7, 0.7, 0.7) end
   if r.status == "unverified" then GameTooltip:AddLine("Online: click to open an editable whisper. Nothing is sent until you press Enter.", 0.9, 0.8, 0.5, true) end
   GameTooltip:Show()
 end
@@ -314,7 +436,7 @@ local function Paint()
           local r = G.Verification(m.name, m.guid)
           b.result, b.nativeRow, b.rowName, b.rowGuid = r, row, Text(m.name), Text(m.guid, 40)
           b.memberList = list
-          b.text:SetText((COLOR[r.status] or COLOR.unknown) .. LABEL[r.status] .. "|r")
+          b.text:SetText((COLOR[r.status] or COLOR.unknown) .. (r.label or LABEL[r.status]) .. "|r")
           b:ClearAllPoints(); b:SetPoint("LEFT", h.column, "LEFT", 8, 0); b:SetPoint("TOP", row, "TOP", 0, 0)
           b:SetHeight(row:GetHeight()); b:Show()
         end)
@@ -334,7 +456,7 @@ events:SetScript("OnEvent", function(_, event, unit)
     if unit ~= nil and unit ~= "player" then return end
     if loadedIdentity and Identity() ~= loadedIdentity then changedGuild = true end
   elseif event == "GUILD_ROSTER_UPDATE" then
-    nativeAt, sourceIndex = nil, nil
+    nativeAt, sourceIndex, historyIndex = nil, nil, nil
     if not loadedIdentity and not changedGuild then loadedIdentity = Identity() end
   end
   if event == "PLAYER_REGEN_DISABLED" then HideAll(); return end

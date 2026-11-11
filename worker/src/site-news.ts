@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".268", date: "2026-11-10", lines: [
+      "Olympus Verify 0.6.29 separates dated linked observations from current verification status and adds filtered, attended Initiate-to-Member promotion tools.",
+      "The Watcher refreshes its display lists after confirmed uploads. Discord replies point to current server status instead of the separate guild-approval screen.",
+    ],
+  },
+  {
     build: ".267", date: "2026-11-10", lines: [
       "Olympus Verify 0.6.28 supports the documented Olympus census checkpoint for an optional local preview. It sends no census automatically.",
       "Verification messages point to Discord /verify-status. Companion displays receive delivery status without codes or proof details; current server checks still decide access.",

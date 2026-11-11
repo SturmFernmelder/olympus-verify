@@ -37,7 +37,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.28" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.29" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -65,13 +65,13 @@ local REPLY_WINDOW = 8                  -- seconds after an invite during which 
 local MAX_INVITE_ATTEMPTS = 5           -- "not found" (the applicant is offline) and "guild is full" are retried on later presses
 local pendingReply                      -- { event = <invite event>, entry = <queue entry>, until = time }
 local REPLY_OK = cfg.replyValid or "Olympus: code confirmed for %s. Your guild invite is queued; watch for it from an officer. Discord access follows once you are on the roster."
-local REPLY_BAD = cfg.replyInvalid or "Olympus: that code is invalid or expired. Get a fresh Discord code, or open Olympus with /oly -> Verify / QR Code tab."
+local REPLY_BAD = cfg.replyInvalid or "Olympus: that code is invalid or expired. Get a fresh code with Get my code in Discord. Use Discord /verify-status for current access."
 local REPLY_MEMBER = cfg.replyMember or "Olympus: code confirmed for %s. You are already on the guild roster, so no invite is needed; your Discord access follows on the next sync."
 local REPLY_RATE = 30            -- seconds between replies to the same sender
 local MAX_ATTEMPTS = 10          -- per sender per session
 -- A request code (7 symbols, 27 Sep) links whichever character whispers it first -- here, in the watcher and in the
 -- Worker alike -- and is refused from anyone else for as long as it could still be valid.
-local REPLY_USED = cfg.replyUsed or "Olympus: that code was used by another character. Get your own Discord code, or open Olympus with /oly -> Verify / QR Code tab."
+local REPLY_USED = cfg.replyUsed or "Olympus: that code was used by another character. Get your own code with Get my code in Discord. Use Discord /verify-status for current access."
 local TICKET_HOLD = 48 * 3600
 local READ_MAIL_BODIES = cfg.readMail ~= false
 local REPLY_JOINED = cfg.replyJoined or "Olympus: you are on the guild roster. Your Discord access follows within a minute."
@@ -1109,7 +1109,7 @@ end
 -- their Discord username and display name. The verified list comes in OlympusQueue.lua like the unverified one, so it
 -- is as fresh as the last /reload. Read-only: OlympusVerifyRoster.lua filters and sorts this and changes nothing.
 local Roster = {}
-Roster.STATUS_ORDER = { verified = 1, pending = 2, unverified = 3, unknown = 4 }
+Roster.STATUS_ORDER = { verified = 1, pending = 2, unverified = 3, unknown = 4, stale = 5 }
 
 -- A strict display snapshot is separate from Unverified.Source(), which feeds
 -- legacy removal eligibility. No fallback to the invitation file in this mode.
@@ -1120,12 +1120,15 @@ function Roster.DisplaySource()
   if not IsInGuild() then return nil, "The current native guild is unavailable." end
   local q = OlympusVerifyLists
   local guild, realm = Presence.NativeRosterScope()
-  if type(q) ~= "table" or q.version ~= 1 or not guild or not realm or q.guild ~= guild or q.realm ~= realm then
+  if type(q) ~= "table" or (q.version ~= 1 and q.version ~= 2) or not guild or not realm or q.guild ~= guild or q.realm ~= realm then
     return nil, "No current Watcher display lists for this native guild and realm. Refresh the Watcher exchange and reload."
   end
   local v, u = q.verified, q.unverified
   if type(v) ~= "table" or type(u) ~= "table" or type(v.members) ~= "table" or type(u.members) ~= "table"
-    or #v.members + #u.members > 1000 or v.fetchedAt ~= u.fetchedAt or v.snapshotAt ~= u.snapshotAt then
+    or #v.members + #u.members > 1000 or v.fetchedAt ~= u.fetchedAt or v.snapshotAt ~= u.snapshotAt
+    or q.version == 2 and (type(q.unknown) ~= "table" or type(q.unknown.members) ~= "table"
+      or q.unknown.fetchedAt ~= v.fetchedAt or q.unknown.snapshotAt ~= v.snapshotAt
+      or #v.members + #u.members + #q.unknown.members > 1000) then
     return nil, "The strict Watcher display lists are incomplete. Refresh the Watcher exchange and reload."
   end
   local fetched, snapshot, now = v.fetchedAt, v.snapshotAt, time()
@@ -1164,7 +1167,7 @@ end
 -- Returns the members and a summary. status: verified (linked), pending (holds an unexpired code), unverified, or
 -- unknown (not in the lists the watcher wrote: joined since, or an older Worker that sends no verified list).
 function Roster.Members()
-  local info = { total = 0, verified = 0, pending = 0, unverified = 0, unknown = 0, online = 0, hasNames = false, listAt = nil, ranks = {}, classes = {} }
+  local info = { total = 0, verified = 0, pending = 0, unverified = 0, unknown = 0, stale = 0, online = 0, hasNames = false, listAt = nil, ranks = {}, classes = {} }
   local out = {}
   if not IsInGuild() then return out, info end
   Unverified.GrabRoster()
@@ -1191,16 +1194,28 @@ function Roster.Members()
       if link or sinceLogin then status = "verified"
       elseif u then status = u.pending and "pending" or "unverified"
       else status = "unknown" end
-      info[status] = info[status] + 1
+      local display
+      if OlympusVerifyGuild and type(OlympusVerifyGuild.Verification) == "function" then
+        local ok, value = pcall(OlympusVerifyGuild.Verification, name, guid)
+        if ok and type(value) == "table" and (value.status == "verified" or value.status == "unverified"
+          or value.status == "pending" or value.status == "unknown" or value.status == "stale") then
+          display, status = value, value.status
+        else status = "unknown" end
+      end
+      info[status] = (info[status] or 0) + 1
       info.total = info.total + 1
       if online then info.online = info.online + 1 end
       if rank and not rankSeen[rank] then rankSeen[rank] = true; info.ranks[#info.ranks + 1] = { rank = rank, rankIndex = rankIndex or 99 } end
       if classFile and not classSeen[classFile] then classSeen[classFile] = true; info.classes[#info.classes + 1] = classFile end
       out[#out + 1] = {
         name = base, full = name, rank = rank or "?", rankIndex = rankIndex or 99, level = level or 0, class = classFile,
+        guid = guid,
         online = online and true or false, days = DaysOffline(i, online), status = status,
-        discord = link and Roster.UIText(link.username) or nil, display = link and Roster.UIText(link.displayName) or nil,
-        discordId = link and nonEmpty(link.discordId) or nil, linkStatus = link and nonEmpty(link.status) or nil,
+        statusLabel = display and display.label, statusReason = display and display.reason,
+        historicalLinked = display and display.historicalLinked, statusAt = display and display.at,
+        snapshotAt = display and display.snapshotAt,
+        discord = status == "verified" and link and Roster.UIText(link.username) or nil, display = status == "verified" and link and Roster.UIText(link.displayName) or nil,
+        discordId = status == "verified" and link and nonEmpty(link.discordId) or nil, linkStatus = status == "verified" and link and nonEmpty(link.status) or nil,
         sinceLogin = (not link and sinceLogin) and true or nil,
       }
     end
@@ -1254,7 +1269,11 @@ function Roster.Sort(list, key, desc)
       if desc then return va > vb end
       return va < vb
     end
-    return string.lower(a.name) < string.lower(b.name)
+    local an, bn = string.lower(a.name), string.lower(b.name)
+    if an ~= bn then return an < bn end
+    local af, bf = a.full or a.name, b.full or b.name
+    if af ~= bf then return af < bf end
+    return (a.guid or "") < (b.guid or "")
   end)
   return list
 end

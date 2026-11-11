@@ -156,7 +156,7 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
     // Ownership is already recorded; the latest roster can update rank immediately.
     // The queue carries no identity authority: the original Native issuer rechecks it.
     await requestRoleReconciliation242(env,user.id,'existing_verified_request');
-    return reply(`**${existing.name}** is already linked to your account. Your current guild role is queued for an immediate guarded refresh. No new code is needed. In game, use **/oly → Verify / QR Code** for your current status.`);
+    return reply(`**${existing.name}** is already linked to your account. A guarded refresh of your current guild role has been requested. No new code is needed to request this refresh. Use **/verify-status** here for current access; the in-game Watcher list is a dated snapshot and can lag behind.`);
   }
   if (captureLaunchVerification(env).mode==='legacy' && existing && existing.discord_id === user.id && existing.status === "member") {
     const note = restoreNote(await restoreMemberRole(env, user.id, roles, "verify",roleDispatch));
@@ -253,7 +253,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
   if (member?.banned) return reply("This account cannot verify. Contact High Council if you think that is a mistake.");
   if(currentNativeVerification242(env)&&!newCharacter){
     const linked=await env.DB.prepare("SELECT name FROM characters WHERE discord_id=?1 AND status IN('member','verified','queued') AND verified_at IS NOT NULL AND guid IS NOT NULL ORDER BY verified_at DESC LIMIT 1").bind(user.id).first<{name:string}>();
-    if(linked){await requestRoleReconciliation242(env,user.id,'existing_verified_button');return reply(`**${linked.name}** is already linked. Your current roster rank is queued for a guarded refresh; no new whisper is needed. Use **/oly → Verify / QR Code** in game, or **My status** here. To link a different character, press **Verify another character**.`);}
+    if(linked){await requestRoleReconciliation242(env,user.id,'existing_verified_button');return reply(`**${linked.name}** is already linked. A guarded refresh of your current roster rank has been requested; no new whisper is needed to request this refresh. Use **My status** here or **/verify-status** for current access. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.`);}
   }
 
   // Until an officer's addon and watcher that understand request codes have checked in (relays.ts), a request code

@@ -9,7 +9,8 @@
   of that file, the lists are as fresh as the last /reload.
 
   Reads OlympusVerifyAPI.Roster. A current unverified member's status opens one editable whisper; it never sends it.
-  Nothing here invites, removes or changes verification. Open it with
+  Promotion buttons use the existing dated launch queue and recheck one exact GUID per hardware click. Nothing here
+  invites, removes or changes verification. Open it with
   /olv members [search], or the Members button on the officer panel. Loads after OlympusVerify.lua (TOC order). Only
   client-shipped textures and fonts, in the palette the panel uses (see OlympusVerifyUI.lua). ]]
 
@@ -30,9 +31,9 @@ local BACKDROP_TEMPLATE = (BackdropTemplateMixin and "BackdropTemplate") or nil
 local PANEL_BACKDROP = { bgFile = WHITE8, edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = false, edgeSize = 24, insets = { left = 6, right = 6, top = 6, bottom = 6 } }
 local CHIP_BACKDROP = { bgFile = WHITE8, edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", tile = false, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } }
 
-local WIDTH, PAD, ROWS, ROW_H = 820, 18, 16, 22
+local WIDTH, PAD, ROWS, ROW_H = 940, 18, 16, 22
 local INNER = WIDTH - 2 * PAD
-local FILTER_Y, COLS_Y = -62, -100
+local FILTER_Y, COLS_Y = -62, -136
 local ROWS_Y = COLS_Y - 20
 local HEIGHT = -ROWS_Y + ROWS * ROW_H + 44
 
@@ -41,10 +42,11 @@ local COLS = {
   { key = "name", text = "Character", x = 10, w = 160 },
   { key = "level", text = "Lvl", x = 174, w = 32 },
   { key = "rank", text = "Rank", x = 210, w = 104 },
-  { key = "status", text = "Status", x = 318, w = 100 },
-  { key = "discord", text = "Discord", x = 422, w = 150 },
-  { key = "display", text = "Display name", x = 576, w = 136 },
+  { key = "status", text = "Status", x = 318, w = 140 },
+  { key = "discord", text = "Discord", x = 462, w = 130 },
+  { key = "display", text = "Display name", x = 596, w = 116 },
   { key = "seen", text = "Last seen", x = 716, w = 60 },
+  { key = "action", text = "Member action", x = 784, w = 108 },
 }
 local STATUS_TEXT = {
   verified = GREEN .. "verified|r",
@@ -53,11 +55,11 @@ local STATUS_TEXT = {
   unknown = GREY .. "unknown|r",
   stale = YELLOW .. "stale list|r",
 }
-local STATUS_FILTERS = { { "all", "All members" }, { "verified", "Verified" }, { "not", "Not verified" }, { "pending", "Verifying now" }, { "unknown", "Unknown" }, { "stale", "Stale list" } }
+local STATUS_FILTERS = { { "all", "All members" }, { "verified", "Verified" }, { "unverified", "Not verified" }, { "pending", "Verifying now" }, { "unknown", "Unknown" }, { "stale", "Stale list" } }
 
-local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, summary, footer, rows, headers
+local frame, search, statusBtn, rankBtn, classBtn, onlineBtn, initiateBtn, readyBtn, nextBtn, actionInfo, summary, footer, rows, headers
 local offset = 0
-local view = { text = "", status = 1, rank = 0, class = 0, online = false, sort = "status", desc = false }
+local view = { text = "", status = 1, rank = 0, class = 0, online = false, sort = "name", desc = false, initiates = false, ready = false }
 local cache = { list = {}, info = nil }
 
 -- ASCII "..." cut on a character boundary, as the panel does.
@@ -150,18 +152,56 @@ local function Reload()
   local list, info = R.Members()
   -- The native Guild column and this fallback window share the same GUID/freshness rules.
   -- Older standalone installations without the optional module retain their existing display.
-  if R.Verification and info then
+  if R.Verification and info and list and list[1] and list[1].statusReason == nil then
     info.verified, info.pending, info.unverified, info.unknown, info.stale = 0, 0, 0, 0, 0
     for _, m in ipairs(list or {}) do
       local ok, r = pcall(R.Verification, m.full, m.guid)
-      m.verification = ok and r or { status = "unknown", reason = "The current native roster could not be read." }
+      m.verification = ok and type(r) == "table" and r or { status = "unknown", reason = "The current native roster could not be read." }
       m.status = m.verification.status
-      m.guid = m.verification.guid
+      -- Preserve the actual native GUID even when a display classification is unknown.
+      m.guid = m.guid or m.verification.guid
       info[m.status] = (info[m.status] or 0) + 1
       if m.status ~= "verified" then m.discord, m.display, m.discordId = nil, nil, nil end
     end
   end
   cache.list, cache.info = list or {}, info
+end
+
+local function Say(text)
+  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("Olympus Verify: " .. text) end
+end
+
+-- Display candidacy is an intersection with the existing launch projection, never a verification-label lookup.
+-- HardwarePromote remains the sole action path and independently rechecks the full native roster at the click.
+local function PromotionCandidates()
+  local q = OlympusLaunch229
+  if type(q) ~= "table" or type(q.Current) ~= "function" or type(q.HardwarePromote) ~= "function" then
+    return {}, "No dated promotion queue is loaded. Sync and reload."
+  end
+  local ok, current, why = pcall(q.Current)
+  if not ok or not current then return {}, ok and why or "The promotion queue could not be checked." end
+  if current.actionHeld then return {}, "Promotion queue stopped or superseded. Recheck it and sync." end
+  local now = time()
+  local ready = {}
+  for _, row in ipairs(current.promotions) do
+    local fresh = current.freshness[row.guid]
+    if row.reason == "verified-initiate" and row.currentSlot == 9 and row.targetSlot == 8 and row.targetName == "Member"
+      and fresh and now < fresh.expiresAt and now < fresh.scanExpiresAt and not q.pending[row.guid] then
+      ready[row.guid] = true
+    end
+  end
+  local seen = {}
+  for _, m in ipairs(cache.list) do
+    if m.guid then
+      if seen[m.guid] then ready[m.guid] = nil end
+      seen[m.guid] = true
+    end
+  end
+  return ready, "Only fresh signed Initiate > Member recommendations are actionable. Recheck the launch queue if none are ready."
+end
+
+local function Eligible(m, candidates)
+  return type(m.guid) == "string" and candidates[m.guid] == true and m.rankIndex == 9
 end
 
 local function CurrentRank()
@@ -182,7 +222,28 @@ local function Visible()
     class = CurrentClass(),
     online = view.online,
   })
-  return R.Sort(list, view.sort, view.desc)
+  local candidates, why = PromotionCandidates()
+  local filtered = {}
+  for _, m in ipairs(list) do
+    if (not view.initiates or m.rankIndex == 9) and (not view.ready or Eligible(m, candidates)) then
+      filtered[#filtered + 1] = m
+    end
+  end
+  return R.Sort(filtered, view.sort, view.desc), candidates, why
+end
+
+local function Promote(guid)
+  -- Rebuild the filtered view at the hardware boundary: recycled/hidden/stale rows cannot supply a target.
+  local list, candidates, why = Visible()
+  for _, m in ipairs(list) do
+    if (not guid or m.guid == guid) and Eligible(m, candidates) then
+      OlympusLaunch229.HardwarePromote(m.guid) -- exactly one attempt, including a held/unknown outcome
+      Reload(); W.Refresh()
+      return
+    end
+  end
+  Say(why or "No fresh promotion is ready in this filtered view.")
+  Reload(); W.Refresh()
 end
 
 -- ---------------------------------------------------------------- drawing
@@ -190,8 +251,8 @@ local function RowTip(r)
   local m = r.member
   if not m then return end
   local lines = { string.format("Level %s %s, %s", tostring(m.level), className(m.class), tostring(m.rank)) }
-  if m.verification then
-    lines[#lines + 1] = m.verification.reason
+  if m.statusReason or m.verification then
+    lines[#lines + 1] = m.statusReason or m.verification.reason
     if m.status == "unverified" then lines[#lines + 1] = "Click Status to open one editable reminder. You send it yourself." end
     Tip(r, m.full or m.name, lines)
     return
@@ -218,7 +279,7 @@ end
 
 function W.Refresh()
   if not frame or not frame:IsShown() then return end
-  local list = Visible()
+  local list, candidates, why = Visible()
   local info = cache.info or {}
   local maxOffset = math.max(0, #list - ROWS)
   if offset > maxOffset then offset = maxOffset end
@@ -230,15 +291,20 @@ function W.Refresh()
       r.cells.name:SetText(classColor(m.class) .. trunc(m.name, 26) .. "|r")
       r.cells.level:SetText(WHITE .. tostring(m.level or "") .. "|r")
       r.cells.rank:SetText(WHITE .. trunc(m.rank, 16) .. "|r")
-      r.cells.status:SetText(STATUS_TEXT[m.status] or m.status)
+      local color = m.historicalLinked == true and YELLOW or m.status == "verified" and GREEN or m.status == "unverified" and RED
+        or (m.status == "stale" or m.status == "pending") and YELLOW or GREY
+      r.cells.status:SetText(m.statusLabel and (color .. m.statusLabel .. "|r") or STATUS_TEXT[m.status] or m.status)
       if r.remind then r.remind.member = m; r.remind:SetShown(m.status == "unverified" and m.online) end
-      r.cells.discord:SetText(m.discord and (WHITE .. trunc("@" .. m.discord, 24) .. "|r") or (m.status == "verified" and (GREY .. "linked|r") or ""))
-      r.cells.display:SetText(m.display and (WHITE .. trunc(m.display, 22) .. "|r") or "")
+      r.cells.discord:SetText(m.discord and (WHITE .. trunc("@" .. m.discord, 20) .. "|r") or (m.status == "verified" and (GREY .. "linked|r") or ""))
+      r.cells.display:SetText(m.display and (WHITE .. trunc(m.display, 18) .. "|r") or "")
       r.cells.seen:SetText(seenText(m))
+      r.promote.member = m
+      r.promote:SetShown(Eligible(m, candidates))
       r:Show()
     else
       r.member = nil
       if r.remind then r.remind.member = nil; r.remind:Hide() end
+      r.promote.member = nil; r.promote:Hide()
       r:Hide()
     end
   end
@@ -253,12 +319,19 @@ function W.Refresh()
     ((info.unknown or 0) > 0 and string.format("  %s%d unknown|r", GREY, info.unknown) or "") .. ((info.stale or 0) > 0 and string.format("  %s%d stale|r", YELLOW, info.stale) or ""),
     GREY, shown ~= (info.total or 0) and string.format("showing %d", shown) or ""))
   local names = info.hasNames and (info.listAt and ("Discord names as of " .. date("%d %b %H:%M", info.listAt)) or "Discord names loaded")
-    or "No Discord names yet: they arrive with Worker build .41 and watcher 0.6.4, then a /reload"
+    or "No current Discord names. Sync & reload to refresh the dated lists."
   footer:SetText(GREY .. names .. (#list > ROWS and string.format(" · %d-%d of %d, scroll", offset + 1, math.min(#list, offset + ROWS), #list) or "") .. "|r")
   SetButtonText(statusBtn, STATUS_FILTERS[view.status][2])
   SetButtonText(rankBtn, CurrentRank() or "All ranks")
   SetButtonText(classBtn, CurrentClass() and className(CurrentClass()) or "All classes")
   SetButtonText(onlineBtn, view.online and (GREEN .. "Online only|r") or "Online and offline")
+  SetButtonText(initiateBtn, (view.initiates and GOLD or WHITE) .. "Initiates|r")
+  SetButtonText(readyBtn, (view.ready and GOLD or WHITE) .. "Ready for Member|r")
+  local readyCount = 0
+  for _, m in ipairs(list) do if Eligible(m, candidates) then readyCount = readyCount + 1 end end
+  SetButtonText(nextBtn, string.format("Promote next (%d)", readyCount))
+  nextBtn:SetEnabled(readyCount > 0)
+  actionInfo:SetText(GREY .. (readyCount > 0 and "One target per click; wait for the native roster to confirm." or why or "No ready targets.") .. "|r")
 end
 
 local function Wheel(_, delta)
@@ -338,7 +411,7 @@ local function Build()
   statusBtn:SetPoint("LEFT", search, "RIGHT", 8, 0)
   rankBtn = Button(frame, "All ranks", 118, 24, function()
     local n = #(cache.info and cache.info.ranks or {})
-    view.rank = (n > 0) and ((view.rank + 1) % (n + 1)) or 0; offset = 0; W.Refresh()
+    view.rank = (n > 0) and ((view.rank + 1) % (n + 1)) or 0; view.initiates = false; offset = 0; W.Refresh()
   end, "Rank", "Click to step through the guild's ranks, highest first.")
   rankBtn:SetPoint("LEFT", statusBtn, "RIGHT", 6, 0)
   classBtn = Button(frame, "All classes", 108, 24, function()
@@ -350,6 +423,24 @@ local function Build()
     view.online = not view.online; offset = 0; W.Refresh()
   end, "Online", "Only members who are online right now, or everyone.")
   onlineBtn:SetPoint("LEFT", classBtn, "RIGHT", 6, 0)
+
+  initiateBtn = Button(frame, "Initiates", 106, 24, function()
+    view.initiates = not view.initiates; view.rank = 0; view.ready = false; offset = 0; W.Refresh()
+  end, "Initiates", "Show native rank-slot 9 Initiates. Other search, status and online filters still apply.")
+  initiateBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD, FILTER_Y - 32)
+  readyBtn = Button(frame, "Ready for Member", 150, 24, function()
+    view.ready = not view.ready; view.initiates = false; view.rank = 0; offset = 0; W.Refresh()
+  end, "Ready for Member", "Only exact native GUIDs with a fresh signed Initiate > Member recommendation. Display verification alone never enables promotion.")
+  readyBtn:SetPoint("LEFT", initiateBtn, "RIGHT", 6, 0)
+  nextBtn = Button(frame, "Promote next (0)", 150, 24, function() Promote() end,
+    "Promote next", "Attempt exactly one ready target in the current filtered, sorted order. No background or bulk promotion; native checks run again at the click.")
+  nextBtn:SetPoint("LEFT", readyBtn, "RIGHT", 6, 0)
+  local clear = Button(frame, "Clear filters", 108, 24, function()
+    view.status, view.rank, view.class, view.online, view.initiates, view.ready, view.text = 1, 0, 0, false, false, false, ""
+    search:SetText(""); offset = 0; W.Refresh()
+  end, "Clear filters", "Show everyone again; keep the chosen sort order.")
+  clear:SetPoint("LEFT", nextBtn, "RIGHT", 6, 0)
+  actionInfo = Label(frame, "GameFontDisableSmall", "", PAD + 540, FILTER_Y - 37, INNER - 540)
 
   -- column headings: click to sort, again to reverse
   local cols = Fill(frame, "BORDER", C.band, 0.96, -1)
@@ -369,6 +460,7 @@ local function Build()
     hdr.label = fs
     hdr.col = col
     hdr:SetScript("OnClick", function()
+      if col.key == "action" then return end
       if view.sort == col.key then view.desc = not view.desc else view.sort = col.key; view.desc = false end
       W.Refresh()
     end)
@@ -399,7 +491,7 @@ local function Build()
     if r.EnableMouse then r:EnableMouse(true) end
     if R.OpenWhisper then
       local b = CreateFrame("Button", nil, r)
-      b:SetSize(100, ROW_H); b:SetPoint("LEFT", r, "LEFT", 318, 0)
+      b:SetSize(140, ROW_H); b:SetPoint("LEFT", r, "LEFT", 318, 0)
       b:SetScript("OnClick", function(self)
         local m = self.member
         if not m then return end
@@ -409,6 +501,12 @@ local function Build()
       b:SetScript("OnEnter", function() RowTip(r) end); b:SetScript("OnLeave", HideTip)
       b:Hide(); r.remind = b
     end
+    r.promote = Button(r, "Promote", 100, ROW_H - 2, function(self)
+      local m = self.member
+      if m and type(m.guid) == "string" then Promote(m.guid) end
+    end, "Initiate > Member", "One hardware promotion for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.")
+    r.promote:SetPoint("LEFT", r, "LEFT", 784, 0)
+    r.promote:Hide()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
     r:SetScript("OnMouseWheel", Wheel)
     r:SetScript("OnEnter", function(self) hoverTex:Show(); RowTip(self) end)
@@ -421,6 +519,9 @@ local function Build()
   footer = Label(frame, "GameFontDisableSmall", "", PAD, -(HEIGHT - 26), INNER)
   W.frame = frame
   W.search = search
+  W.rows, W.headers = rows, headers
+  W.initiateButton, W.readyButton, W.nextButton = initiateBtn, readyBtn, nextBtn
+  W.statusButton, W.rankButton, W.classButton, W.onlineButton, W.clearButton = statusBtn, rankBtn, classBtn, onlineBtn, clear
 end
 
 -- ---------------------------------------------------------------- public

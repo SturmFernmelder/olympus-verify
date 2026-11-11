@@ -74,7 +74,7 @@ export function guideMessage(env: Env, profile: RulesetProfile, freshRoles = fal
           "**1. Get a code** — press **Get my code**. The bot shows the line to use in game. If the current High Council relay needs a character name first, enter it exactly as it appears in game.",
           `**2. Send it from your character** — log in as the character you want linked, paste the shown line into the in-game chat box and press Enter. It whispers the code to an available High Council relay (${officers}); the character that sends it is the one linked. Follow the bot's current instructions if no High Council relay is online; mailing the code to High Council works too.`,
           "",
-          `The High Council relay addon confirms the code from that character.${invite}${access}${nick} In game, use **/oly → Verify / QR Code** for the current server response. Use **/olympus check** here to diagnose access.`,
+          `The High Council relay addon confirms the code from that character.${invite}${access}${nick} Use **/verify-status** here for current server access. In game, **/olv status** shows delivery information; the Watcher roster display is a dated snapshot.`,
           `Already linked? **Get my code** refreshes your current trusted roster rank without another whisper. **My status** shows progress. For a different character, use **Verify another character**. Follow the current instructions, or ask High Council if access is on hold.`,
           "",
           visitorLine(env), // the overflow guilds (Olympus 2 and later) are not verified here; see visitorLine
