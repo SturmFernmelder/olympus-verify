@@ -108,3 +108,10 @@ resource delays.
 
 The [legacy configuration archive](legacy-qualification/README.md) is retained for
 diagnosis and historical attribution; it is not an alternative qualification path.
+
+
+## Client checks and backend releases
+
+The owner's 10 November clarification removes repeated officer Sync handoffs from backend-only rollouts. A Worker deployment does not require an in-game reload or repeat member interactions when addon/Watcher behavior is unchanged. Record server-side health, genuine D1 behavior and existing applicable native evidence separately. Current roster freshness remains mandatory for an operation that consumes native proof; it is never renewed by a deployment or a test receipt.
+
+An addon code update needs one normal client reload/restart before its new Lua can run. Codex Root may handle the already-authorized officer reload/Sync after observing a safe client state. If the client is busy or unavailable, leave that native acceptance pending without holding an unrelated backend repair or repeatedly asking the owner to press Sync. Never claim that persisted files prove the running client loaded them, that a successful deploy flushes SavedVariables, or that a delivery ACK proves a Discord role. Member and branch checks retain the owner's existing pending status.
