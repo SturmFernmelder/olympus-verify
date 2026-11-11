@@ -37,7 +37,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.27" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.28" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there

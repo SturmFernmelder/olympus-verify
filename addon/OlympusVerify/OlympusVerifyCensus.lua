@@ -34,6 +34,72 @@ local function text(s, maximum)
   return true
 end
 local function fold(s) return (s:gsub('[A-Z]',function(c) return string.char(c:byte()+32) end)) end
+local checkpointKeys={schema=true,version=true,capturedAt=true,capturedAtServer=true,timeSource=true,scope=true,guilds=true,seenOnly=true,summary=true,retained=true}
+local scopeKeys={realm=true,realmGroup=true,faction=true}
+local checkpointGuildKeys={key=true,name=true,members=true,online=true,fresh=true,counted=true,observedAt=true,observedAtServer=true,provenance=true}
+local provenanceKeys={source=true,reporters=true,disputed=true,singleSource=true,realm=true,heardOn=true}
+local seenKeys={key=true,name=true,online=true,capped=true,observedAt=true}
+local summaryKeys={members=true,characters=true,linkedAlts=true,online=true,guilds=true,freshGuilds=true,seenOnlyGuilds=true,newestObservedAt=true}
+local retainedKeys={realmGroup=true,faction=true,characters=true,people=true,guilds=true,observedAt=true,source=true,counted=true,witnesses=true}
+local function arrayLength(t,maximum)
+  if not plain(t) then return nil end
+  local n=0
+  for k in next,t do n=n+1;if n>maximum or not integer(k,maximum) or k<1 then return nil end end
+  for i=1,n do if rawget(t,i)==nil then return nil end end
+  return n
+end
+-- Olympus1.5.5's public checkpoint uses local receipt clocks even when it also
+-- supplies server clocks. Never replace one with the other or import its people
+-- estimate, retained/global totals, seen-only rows or provenance as authority.
+local function checkpointSnapshot(s,now,serverNow,addonVersion)
+  if not keys(s,checkpointKeys,10) or s.schema~='olympus-census-checkpoint' or s.version~=1
+    or s.timeSource~='server' or not integer(now,MAX_TIME) or now<1 or not integer(serverNow,MAX_TIME) or serverNow<1
+    or not integer(s.capturedAt,now) or s.capturedAt<1 or not integer(s.capturedAtServer,serverNow) or s.capturedAtServer<1 then
+    return nil,'unsupported_checkpoint_clock_or_schema'
+  end
+  local scope=s.scope
+  if not keys(scope,scopeKeys,3) or not text(scope.realm,80) or not text(scope.realmGroup,128)
+    or (scope.faction~='Alliance' and scope.faction~='Horde') or not text(addonVersion,32) then return nil,'invalid_checkpoint_scope_or_version' end
+  local n,seenCount=arrayLength(s.guilds,256),arrayLength(s.seenOnly,256)
+  if not n or not seenCount then return nil,'invalid_checkpoint_array' end
+  local function guildKey(name) return 'g1:'..fold(scope.faction)..':'..fold(scope.realmGroup)..':'..fold(name) end
+  local rows,seen={},{}
+  for i=1,n do
+    local r=s.guilds[i];local p=plain(r) and r.provenance
+    if not keys(r,checkpointGuildKeys,9) or not text(r.name,96) or r.key~=guildKey(r.name)
+      or not integer(r.members,1000) or not integer(r.online,r.members) or type(r.fresh)~='boolean' or type(r.counted)~='boolean'
+      or not integer(r.observedAt,s.capturedAt) or r.observedAt<1
+      or r.observedAtServer~=nil and (not integer(r.observedAtServer,s.capturedAtServer) or r.observedAtServer<1)
+      or not keys(p,provenanceKeys,6) or (p.source~='roster' and p.source~='relay') or not integer(p.reporters,8)
+      or p.source=='roster' and p.reporters~=1 or type(p.disputed)~='boolean' or type(p.singleSource)~='boolean'
+      or p.realm~=nil and not text(p.realm,80) or p.heardOn~=nil and not text(p.heardOn,80)
+      or not r.fresh and r.online~=0 or seen[r.key] then return nil,'invalid_checkpoint_guild' end
+    seen[r.key]=true
+    rows[i]={name=r.name,reportedCharacters=r.members,receivedAt=r.observedAt,fresh=r.fresh,counted=r.counted,online=r.fresh and r.online or nil}
+  end
+  -- Validate the public shape of discarded metadata too: identity-bearing or
+  -- unknown fields must not be silently treated as an aggregate contract.
+  for i=1,seenCount do
+    local r=s.seenOnly[i]
+    if not keys(r,seenKeys,5) or not text(r.name,96) or r.key~=guildKey(r.name) or seen[r.key]
+      or not integer(r.online,1000) or type(r.capped)~='boolean' or not integer(r.observedAt,s.capturedAt) or r.observedAt<1 then return nil,'invalid_checkpoint_seen' end
+    seen[r.key]=true
+  end
+  if not keys(s.summary,summaryKeys,8) then return nil,'invalid_checkpoint_summary' end
+  for k in next,summaryKeys do if not integer(s.summary[k],k=='newestObservedAt' and s.capturedAt or MAX_TIME) then return nil,'invalid_checkpoint_summary' end end
+  if s.retained~=nil then
+    local r=s.retained
+    if not keys(r,retainedKeys,9) or r.realmGroup~=scope.realmGroup or r.faction~=scope.faction or type(r.counted)~='boolean'
+      or not integer(r.witnesses,8) or r.source~=nil and not text(r.source,16) then return nil,'invalid_checkpoint_retained' end
+    for _,k in ipairs({'characters','people','guilds','observedAt'}) do
+      if not integer(r[k],k=='observedAt' and s.capturedAt or MAX_TIME) then return nil,'invalid_checkpoint_retained' end
+    end
+  end
+  -- The existing validator retains every900/86400/604800-second refusal and
+  -- verifies the producer's booleans; the adapter never fabricates freshness.
+  return C.Validate({format='olympus-census-v1',addonVersion=addonVersion,realmGroup=scope.realmGroup,faction=scope.faction,
+    observedAt=s.capturedAt,source='community-observation',membershipProof=false,guilds=rows},now)
+end
 function C.Validate(s, now)
   if not integer(now,MAX_TIME) then return nil,'clock_unavailable' end
   if not keys(s,topKeys,8) or s.format~='olympus-census-v1' or s.source~='community-observation' or s.membershipProof~=false
@@ -81,7 +147,12 @@ local function clear()
 end
 local function capability()
   local b=rawget(_G,'OlympusBridge')
-  return plain(b) and rawget(b,'API_VERSION')==1 and type(rawget(b,'GetCensusSnapshot'))=='function' and rawget(b,'GetCensusSnapshot')
+  if not plain(b) or rawget(b,'API_VERSION')~=1 then return nil end
+  local old=rawget(b,'GetCensusSnapshot')
+  -- A present legacy method owns its own refusal/masking. Never bypass a nil
+  -- result or error by falling through to the checkpoint contract.
+  if old~=nil then if type(old)=='function' then return old,'legacy' end;return nil end
+  if rawget(b,'CENSUS_CHECKPOINT_API_VERSION')==1 and type(rawget(b,'GetCensusCheckpoint'))=='function' then return rawget(b,'GetCensusCheckpoint'),'checkpoint' end
 end
 local function read()
   if not enabled then return nil,'session_opt_in_required' end
@@ -89,15 +160,26 @@ local function read()
   if OlympusVerifyUI and OlympusVerifyUI.preview~=nil or OlympusVerifyPreview and OlympusVerifyPreview.State and OlympusVerifyPreview.State()~=nil then
     return nil,'addon_preview_unavailable'
   end
-  local method=capability()
+  local method,kind=capability()
   if not method then return nil,'optional_upstream_method_unavailable' end
   local ok,s=pcall(method)
   if not ok or s==nil then return nil,'upstream_unavailable_or_masked' end
-  local clock=GetServerTime or time
+  local clock
+  if kind=='checkpoint' then clock=time else clock=GetServerTime or time end
   if type(clock)~='function' then return nil,'clock_unavailable' end
   local clockOK,now=pcall(clock)
   if not clockOK then return nil,'clock_unavailable' end
-  local copy,why=C.Validate(s,now)
+  local copy,why
+  if kind=='checkpoint' then
+    if type(GetServerTime)~='function' then return nil,'checkpoint_server_clock_unavailable' end
+    local serverOK,serverNow=pcall(GetServerTime)
+    if not serverOK then return nil,'checkpoint_server_clock_unavailable' end
+    local metadata=type(C_AddOns)=='table' and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+    if type(metadata)~='function' then return nil,'upstream_version_unavailable' end
+    local versionOK,version=pcall(metadata,'Olympus','Version')
+    if not versionOK then return nil,'upstream_version_unavailable' end
+    copy,why=checkpointSnapshot(s,now,serverNow,version)
+  else copy,why=C.Validate(s,now) end
   return copy,why,now
 end
 function C.SetEnabled(on)
@@ -146,7 +228,7 @@ local function describe(s)
       ..(r.fresh and number(r.online)..' online (fresh)' or 'online unavailable (stale)')
       ..'; '..(r.counted and 'total counted' or 'history only')..'; received '..number(r.receivedAt)
   end
-  if #s.guilds==0 then lines[#lines+1]='Complete empty aggregate snapshot supplied by the optional bridge.' end
+  if #s.guilds==0 then lines[#lines+1]='No per-guild observations supplied by the bounded bridge; no retained/global total is imported.' end
   return table.concat(lines,'\n')
 end
 local function show(s,wire)

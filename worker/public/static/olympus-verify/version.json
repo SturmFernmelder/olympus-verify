@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.27",
+  "version": "0.6.28",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
-    "bytes": 5950,
-    "sha256": "b66fef0a8092928f18ffc184bd622efc5560abbb9da41cc387634aa42dbc570d"
+    "bytes": 5160,
+    "sha256": "e6edaeb7675059a562b1e80217dc383d905fbd45f092ba0884c377a34cee0fe7"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.27.zip",
-    "bytes": 587424,
-    "sha256": "0c1e8917608c347e22615730b49a7d098464cb23d9b44405cf68c4355418efaa"
+    "path": "/static/olympus-verify/olympus-verify-0.6.28.zip",
+    "bytes": 596694,
+    "sha256": "0ed3f1ef62b7508a0dd99728e79fa982910f700bd6697c4f037c0b6359144b51"
   },
   "files": [
     {
@@ -36,12 +36,12 @@
     {
       "path": "OlympusVerify/OlympusVerify.lua",
       "bytes": 226308,
-      "sha256": "b274d69f44ac254c40ae7df59cdc59221c4735f7ad99e3af794c116545af50d7"
+      "sha256": "803e4006829904644a62c0cc9a923759f1a5980f5cbf3ba31bc337ad7a8e7eb8"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 821,
-      "sha256": "0f0e0856b2d22b3e071b31c6ab58cac8e2b8b44af6de515273e0867c822c5f47"
+      "sha256": "ae0f983d9116c735500ab4722881c03e1eb628b195633ac2baa6004fa06fa69f"
     },
     {
       "path": "OlympusVerify/OlympusVerifyAutoSync.lua",
@@ -55,8 +55,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyCensus.lua",
-      "bytes": 12267,
-      "sha256": "22da143f7ba19b4483555bd1b8a27c391d136e7d7441318e807f8e673dcec94f"
+      "bytes": 18453,
+      "sha256": "23b777d6421a2ae83a5de82388550cc2244fbe8c39657b406934ee4ef76e15f0"
     },
     {
       "path": "OlympusVerify/OlympusVerifyGuild.lua",
@@ -70,8 +70,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
-      "bytes": 65246,
-      "sha256": "a73260a04b8acc85c98de8d119add3d138bdb42e208bdbb8c2239489e465ef27"
+      "bytes": 68330,
+      "sha256": "5238cb6c28e6006539b2e73c580388c890720058e30a799a3af0e302021e10f8"
     },
     {
       "path": "OlympusVerify/OlympusVerifyOfficerInvites233.lua",

@@ -1,7 +1,7 @@
 import type { Env } from './env';
 import { securityHeaders } from './site-core';
 
-const ZIP = '/static/olympus-verify/olympus-verify-0.6.27.zip';
+const ZIP = '/static/olympus-verify/olympus-verify-0.6.28.zip';
 const MANIFEST = '/static/olympus-verify/version.json';
 
 /** Two public code downloads only. No credentials, member reads or generic static bypass. */
@@ -21,7 +21,7 @@ export async function verifyAddonDownload(request: Request, env: Env, site: bool
   const source = await env.ASSETS.fetch(new Request(canonical, { method: 'GET', redirect: 'manual' }));
   if (source.status !== 200) { await source.body?.cancel(); return new Response(null, { status: 404, headers }); }
   headers.set('Content-Type', url.pathname === ZIP ? 'application/zip' : 'application/json; charset=utf-8');
-  if (url.pathname === ZIP) headers.set('Content-Disposition', 'attachment; filename="olympus-verify-0.6.27.zip"');
+  if (url.pathname === ZIP) headers.set('Content-Disposition', 'attachment; filename="olympus-verify-0.6.28.zip"');
   if (request.method === 'HEAD') { await source.body?.cancel(); return new Response(null, { status: 200, headers }); }
   return new Response(source.body, { status: 200, headers });
 }

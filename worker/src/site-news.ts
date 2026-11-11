@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".267", date: "2026-11-10", lines: [
+      "Olympus Verify 0.6.28 supports the documented Olympus census checkpoint for an optional local preview. It sends no census automatically.",
+      "Verification messages point to Discord /verify-status. Companion displays receive delivery status without codes or proof details; current server checks still decide access.",
+    ],
+  },
+  {
     build: ".266", date: "2026-11-10", lines: [
       "Reduced delays in guild rank synchronization and preserved pending work when a separate queue wake fails.",
     ],

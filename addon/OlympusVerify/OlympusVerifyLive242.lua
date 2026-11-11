@@ -47,7 +47,7 @@ function V.Queue(row, key)
   if row.id and d.entries[row.id] then return d.entries[row.id] end
   d.nextId=(tonumber(d.nextId) or 0)+1
   row.id=row.id or H.sha256hex(table.concat({guid(call(UnitGUID,"player")) or ownName() or "unknown",tostring(time()),tostring(d.nextId)},"|")):sub(1,32)
-  row.requestedAt=row.requestedAt or time();row.requestedBy=row.requestedBy or ownName();row.status="pending";row.clientVersion="0.6.27"
+  row.requestedAt=row.requestedAt or time();row.requestedBy=row.requestedBy or ownName();row.status="pending";row.clientVersion="0.6.28"
   row.guild=row.guild or call(GetGuildInfo,"player");row.realm=row.realm or call(GetRealmName)
   d.entries[row.id]=row;if key then d.dedup[key]=row.id end
   if type(OlympusDB)=="table" then
@@ -396,8 +396,8 @@ function V.VerificationReply(sender, senderGuid, fallback)
     end
   end
   state.replies[norm(sender)]=time()
-  if newest then return ("Olympus: already verified. Discord role: "..(text(newest.discordRole,70) or "confirmed; refresh Discord")..". Open Olympus with /oly -> Verify / QR Code tab."):sub(1,255) end
-  return "Olympus: code saved; server verification is queued for Sync. Open Olympus with /oly -> Verify / QR Code tab. No server role is confirmed yet."
+  if newest then return ("Olympus: already verified. Discord role: "..(text(newest.discordRole,70) or "confirmed; refresh Discord")..". Check Discord /verify-status for current access."):sub(1,255) end
+  return "Olympus: code saved; server verification is queued for officer Sync. Check Discord /verify-status for current access. No server role is confirmed yet."
 end
 local function verificationText(s) return text(s,4096) and s:lower():find("^%s*!verify%s+%w+") end
 local function filter(_, event, message, sender)
@@ -485,7 +485,7 @@ end
 local function queueTransfer627(p,row,key)
   local d=db();if not d then return nil end
   local at=p.completedAt or p.observedAt
-  row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm;row.clientVersion="0.6.27"
+  row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm;row.clientVersion="0.6.28"
   local expected=bodyBinding(row)
   if not expected or p.exportBody and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
   if not p.exportBody then p.exportBody=clone(row);saveTransfer627(p) end
@@ -771,13 +771,58 @@ function V.Status()
   if state.collecting and state.collecting.heldReason then held=held+1 end
   return {pending=pending,heldTransfers=held,transferCapacityHeld=state.transferCapacityHeld627==true,unsupportedCallbacks=unsupported,mailGuidAvailable=false,serverDurableDeletionOnly=true}
 end
+local function visibleEntry(row, me, watcher)
+  return type(row)=="table" and (watcher or text(row.character,128) and norm(row.character)==me
+    or text(row.requestedBy,128) and norm(row.requestedBy)==me)
+end
 function V.VisibleEntries()
   local d=db();local out={};local me=norm(ownName());local watcher=V.IsAuthorizedWatcher()
-  for _,row in pairs(d and d.entries or {}) do if watcher or norm(row.character)==me or norm(row.requestedBy)==me then out[#out+1]=clone(row) end end
+  for _,row in pairs(d and d.entries or {}) do if visibleEntry(row,me,watcher) then out[#out+1]=clone(row) end end
   table.sort(out,function(a,b) return a.requestedAt<b.requestedAt end);return out
 end
+-- .267: Dan's generic section copier is not a redactor. Export only a bounded
+-- delivery view; immutable requests/proofs remain in their existing custody.
+function V.BridgeStatus()
+  local d=db();local me=norm(ownName());local watcher=V.IsAuthorizedWatcher()
+  local out={version=243,deliveryOnly=true,membershipProof=false,roleAuthority=false,total=0,requests={}}
+  local kinds={verify=true,role=true,guild=true,donation=true};local selected={}
+  local function order(a,b) return a.requestedAt>b.requestedAt or a.requestedAt==b.requestedAt and a.id<b.id end
+  for _,row in pairs(d and d.entries or {}) do if visibleEntry(row,me,watcher) then
+    out.total=out.total+1
+    local at=row.requestedAt
+    if text(row.id,32) and #row.id==32 and row.id:match("^[a-f0-9]+$") and kinds[row.type]
+      and type(at)=="number" and at==at and at>0 and at<=253402300799 and at==math.floor(at) then
+      selected[#selected+1]={id=row.id,type=row.type,requestedAt=at,row=row}
+      table.sort(selected,order);if #selected>20 then table.remove(selected) end
+    end
+  end end
+  -- At most twenty receipt checks, regardless of the retained intake backlog.
+  for _,item in ipairs(selected) do
+      local row=item.row;local status="unknown"
+      local ack=d.acknowledgements and d.acknowledgements[row.id]
+      local delivery=d.deliveryReceipts242 and d.deliveryReceipts242[row.id]
+      local sent=d.bridgeOutbound242 and d.bridgeOutbound242[row.id]
+      local server=type(ack)=="table" and ack.id==row.id and text(ack.character,128) and text(row.character,128)
+        and norm(ack.character)==norm(row.character) and (not row.guid or row.guid=="" or ack.guid==row.guid)
+        and (ack.status=="done" or ack.status=="rejected") and type(cfg.secret)=="string"
+      if server then local ok,valid=pcall(receiptMAC,ack);server=ok and valid==true end
+      local transport=type(delivery)=="table" and delivery.collectorReportedDeliveryOnly==true
+        and type(delivery.observationSHA256)=="string" and #delivery.observationSHA256==64
+        and type(sent)=="table" and text(sent.collector,128) and text(delivery.collector,128)
+        and norm(sent.collector)==norm(delivery.collector) and sent.collectorGuid==delivery.collectorGuid
+        and bodyBinding(row)==sent.bodySHA256
+      local receipt=server and ack or transport and delivery
+      if receipt and receipt.status==row.status then
+        if receipt.status=="done" then status="delivered" elseif receipt.status=="rejected" then status="rejected" end
+      elseif d.deliveryFailures242 and d.deliveryFailures242[row.id]=="unsupported_callback" then status="unsupported_callback"
+      elseif row.status=="pending" then status="pending" end
+      out.requests[#out.requests+1]={id=item.id,type=item.type,requestedAt=item.requestedAt,deliveryState=status}
+  end
+  out.truncated=out.total>#out.requests
+  return out
+end
 function V.PrintOwnStatus()
-  local rows=V.VisibleEntries();say("Your verification and role requests: "..#rows..". Open Olympus with /oly -> Verify / QR Code tab.")
+  local rows=V.VisibleEntries();say("Your verification and role requests: "..#rows..". These are delivery results; check Discord /verify-status for current access.")
   local d=db()
   if state.transferCapacityHeld627 then say("Transfer intake is held at its retained-context capacity. Existing originals and claims are preserved for review.") end
   for i=math.max(1,#rows-19),#rows do local r=rows[i];local unsupported=d and d.deliveryFailures242 and d.deliveryFailures242[r.id]=="unsupported_callback";say((r.type or "request")..": "..(unsupported and "unsupported_callback" or r.status or "pending")..(r.serverReceipt and r.serverReceipt.discordRole and " / "..r.serverReceipt.discordRole or "")) end
@@ -790,8 +835,8 @@ function V.QueueSelf(code)
   if not observation then return false end
   local row=V.Queue({type="verify",source="self-addon242",character=me,guid=id,guild=guildName,rankName=rankName,rankIndex=rankIndex,
     code=code,requestedBy=me,observationId=observation.id,observedAt=observation.observedAt,guidSource="UnitGUID-player",bridgeUntrusted=true},"self|"..id.."|"..code.."|observation|"..observation.id)
-  if row and row.status=="pending" then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder");say("Your request is saved and silently queued to the Watcher. Open Olympus with /oly -> Verify / QR Code tab.")
-  elseif row then say("Your request delivery is "..tostring(row.status)..". Delivery alone does not confirm current verification or a Discord role. Open Olympus with /oly -> Verify / QR Code tab.") end
+  if row and row.status=="pending" then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder");say("Your request is saved and queued for officer Sync. Use /olv status for delivery; check Discord /verify-status for current access.")
+  elseif row then say("Your request delivery is "..tostring(row.status)..". Delivery alone does not confirm current verification or a Discord role. Check Discord /verify-status for current access.") end
   return row~=nil
 end
 local function nativeDiscord(info)
@@ -815,9 +860,9 @@ local function boot()
       state.donationNote=text(message,512) or "";if state.trade and not state.trade.complete then state.trade.note=state.donationNote;saveTransfer627(state.trade) end;say("Note saved for the current/next completed trade; a note is not payment proof.")
     end)
   end
-  OlympusVerifyBridge242={QueueSelf=V.QueueSelf,VisibleEntries=V.VisibleEntries,IsAuthorizedWatcher=V.IsAuthorizedWatcher}
+  OlympusVerifyBridge242={QueueSelf=V.QueueSelf,Status=V.BridgeStatus,VisibleEntries=V.VisibleEntries,IsAuthorizedWatcher=V.IsAuthorizedWatcher}
   if OlympusBridge and type(OlympusBridge.RegisterSection)=="function" and not state.bridgeSection then
-    state.bridgeSection=call(OlympusBridge.RegisterSection,"verification",242,function() return {version=242,requests=V.VisibleEntries()} end)
+    state.bridgeSection=call(OlympusBridge.RegisterSection,"verification",243,V.BridgeStatus)
   end
   local d=db();if d and not V.IsAuthorizedWatcher() then
     for _,row in pairs(d.entries) do if row.status=="pending" and norm(row.requestedBy)==norm(ownName()) then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder") end end

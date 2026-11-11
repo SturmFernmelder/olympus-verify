@@ -45,7 +45,10 @@ SUITES = {
     "slash_registration234": (TESTS, Path("test_slash_registration234.lua")),
     "officer_invites233": (TESTS, Path("test_officer_invites233.lua")),
     "live242": (TESTS, Path("test_live242.lua")),
+    "dan155_census": (TESTS, Path("test_dan155_census.lua")),
+    "bridge_status267": (TESTS, Path("test_bridge_status267.lua")),
 }
+TARGETED_ONLY = {"dan155_census", "bridge_status267"}
 
 
 def input_hashes() -> dict[str, str]:
@@ -62,7 +65,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", choices=SUITES)
     parser.add_argument("--logdir", type=Path)
+    parser.add_argument("--dan-archive", type=Path, help="Explicit Olympus1.5.5 ZIP for the targeted public-checkpoint runtime test")
     args = parser.parse_args()
+    if args.dan_archive is not None and args.suite != "dan155_census":
+        parser.error("--dan-archive is only for --suite dan155_census")
+    if args.suite == "dan155_census" and args.dan_archive is None:
+        parser.error("--suite dan155_census requires --dan-archive")
     if args.suite:
         import os
         import lupa
@@ -70,6 +78,16 @@ def main() -> int:
 
         lua = runtime.LuaRuntime(unpack_returned_tuples=True)
         assert runtime.LUA_VERSION == (5, 1), runtime.LUA_VERSION
+        if args.suite == "dan155_census":
+            from zipfile import ZipFile
+            with ZipFile(args.dan_archive.resolve(strict=True)) as archive:
+                source = archive.read("Olympus/Bridge.lua").decode("utf-8-sig")
+                toc = archive.read("Olympus/Olympus.toc").decode("utf-8-sig")
+            versions = [line.partition(":")[2].strip() for line in toc.splitlines() if line.startswith("## Version:")]
+            if versions != ["1.5.5"]:
+                parser.error("the targeted test requires the supplied Olympus1.5.5 archive")
+            lua.globals().DAN155_BRIDGE_SOURCE = source
+            lua.globals().DAN155_ADDON_VERSION = versions[0]
         print(f"Lupa {lupa.__version__}; {lua.lua_implementation}; Lua {runtime.LUA_VERSION}", flush=True)
         cwd, script = SUITES[args.suite]
         os.chdir(cwd)
@@ -81,6 +99,8 @@ def main() -> int:
     before = input_hashes()
     results = []
     for name, (cwd, script) in SUITES.items():
+        if name in TARGETED_ONLY:
+            continue
         if not (cwd / script).is_file():
             # O1_OPS-03 (Master QA, 28 Oct 2026): a missing declared suite must never yield a green partial run.
             row = {"suite": name, "exit_code": 1, "error": "missing_suite"}
