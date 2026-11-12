@@ -8450,3 +8450,21 @@ Rollback: restore the prior public addon code and package with its existing
 private state intact. Never delete or reset an unknown-attempt ledger to make an
 older button usable. Restoring Worker .275 does not revert native rank changes
 that were actually confirmed during attended operation.
+
+## Worker .277 — current addon download route (12 November 2026)
+
+The public download allowlist now serves the existing Verify 0.6.35 ZIP, matching
+the version manifest and setup link. The .276 route still selected 0.6.34, so a
+request for the published 0.6.35 package returned 404. No addon, Watcher, package,
+manifest, selected-read or promotion behavior changes in this correction.
+
+Qualify the existing download behavior suite, including its genuine Workerd
+Request and ASSETS integration checks, and TypeScript. Preserve the observed
+pre-fix 404. Use the ordinary exact-head CI, backup and deployment gates. After
+an authorized rollout, GET the manifest and its advertised ZIP on the site host;
+verify their bytes and headers against the reviewed package. This note is not a
+deployment or native-action claim.
+
+Rollback restores the previous Worker, which also restores the known 0.6.35
+download failure. Keep the reviewed package and private client state intact;
+no client reinstall, role change or promotion retry is part of this correction.
