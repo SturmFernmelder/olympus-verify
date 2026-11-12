@@ -108,7 +108,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.30"
+WATCHER_VERSION = "0.6.31"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -363,6 +363,28 @@ class Worker:
                     seconds = max(self.PAUSE_AUTH if code in (401, 403) else self.PAUSE_RATE, self._retry_after(e.headers)) + random.uniform(0, 1)
                     self._pause_for(code, seconds, f"worker {method} {log_path} -> {code} " + ("(check watcher_token); all requests paused for at least 15 minutes" if code in (401, 403) else "rate limited; all requests paused until the Worker's deadline"))
                     return False, {"httpStatus": code, "retryAfterSeconds": math.ceil(float(self._pause_data()["worker_retry_at"]) - time.time())}
+                if method == 'GET' and log_path == '/queue/launch-operations' and 400 <= code < 500:
+                    # Launch projections need a typed refusal, not the legacy
+                    # terminal-ingest (True, None) convention. Only fixed source
+                    # conflict codes survive; arbitrary response text never does.
+                    refusal = {"httpStatus": code}
+                    if code == 409:
+                        try:
+                            raw = e.read(4097)
+                            detail = json.loads(raw) if len(raw) <= 4096 else None
+                            if (isinstance(detail, dict) and set(detail) == {'error'}
+                                    and isinstance(detail.get('error'), str)
+                                    and detail['error'] in launch_operations229.SOURCE_CHANGED_ERRORS):
+                                refusal['error'] = detail['error']
+                        except (ValueError, RecursionError, OSError, http.client.HTTPException):
+                            pass
+                    try:
+                        e.close()
+                    except (OSError, http.client.HTTPException):
+                        pass
+                    log(f"worker {method} {log_path} -> {code}")
+                    self.last_refusal = code
+                    return False, refusal
                 if code == 409 and method == "POST" and path == "/ingest/verify":
                     # .227: a known closed-request refusal is not an unknown
                     # provider effect. Settle this original so it cannot block all

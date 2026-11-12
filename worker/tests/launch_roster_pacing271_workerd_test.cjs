@@ -8,7 +8,7 @@ const root=path.resolve(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir()
 const started=performance.now();
 const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts'];
 const hashes=()=>Object.fromEntries(sourceFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
-const http=[],checks=[],perMode=new Map();let mf,active=0,maxActive=0,sourceChanged=false;
+const http=[],checks=[],perMode=new Map(),inflightMutations=new Set();let mf,active=0,maxActive=0,sourceChanged=false,unrelatedChanged=false;
 const check=(name,value)=>{assert(value,name);checks.push({name,passed:true});};
 const modes={'429-body':{header:'1.1',body:3.2,reset:'2.4',expected:4},
   '429-header':{header:'5.2',body:2.1,reset:'3.1',expected:6},
@@ -23,6 +23,42 @@ async function refused(route,body,code,status){
   const before=http.length,response=await mf.dispatchFetch('http://fixture.invalid/'+route,{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'application/json'}});
   const raw=await response.text();assert.equal(response.status,status,raw);assert.equal(JSON.parse(raw).complete,false);
   assert(raw.includes(code),raw);assert.equal(http.length,before,'a refused cursor cannot dispatch Discord reads');
+}
+async function verificationChurn272(){
+  await fixtureCall('source-state',{kind:'link',index:950});
+  await fixtureCall('source-state',{kind:'link',index:5});
+  const first=(await fixtureCall('page',{mode:'link-churn'})).page;
+  assert.equal(first.entitlements.offset,0);assert.equal(first.promotions.length,19);assert(first.nextCursor);
+  await fixtureCall('source-state',{kind:'link',index:950,restore:true});
+  const next=(await fixtureCall('page',{mode:'link-churn',cursor:first.nextCursor})).page;
+  check('a future-page link becoming verified does not invalidate the original native discovery scan',next.entitlements.offset===20&&next.promotions.length===20&&next.nextCursor&&JSON.stringify(next.scan)===JSON.stringify(first.scan));
+  await fixtureCall('source-state',{kind:'link',index:5,restore:true});
+  const later=(await fixtureCall('page',{mode:'link-churn',cursor:next.nextCursor})).page;
+  check('a past-page link becoming verified does not invalidate later-page discovery',later.entitlements.offset===40&&later.promotions.length===20&&later.nextCursor&&JSON.stringify(later.scan)===JSON.stringify(first.scan));
+  check('unrelated past and future link changes during selected-page Discord awaits do not discard its result',unrelatedChanged&&later.status!=='held'&&later.promotions.length===20);
+  assert.equal((await fixtureCall('source-observe',{index:5})).guid,null);
+  assert.equal((await fixtureCall('source-observe',{index:950})).guid,null);
+  await fixtureCall('source-state',{kind:'link',index:5,restore:true});
+  await fixtureCall('source-state',{kind:'link',index:950,restore:true});
+  check('verification churn preserves original scan and snapshot deadlines without repairing the other links',later.snapshotAt===first.snapshotAt&&later.scan.expiresAt===first.scan.expiresAt&&later.expiresAt<=later.fetchedAt+60);
+
+  const before=http.length,cached=(await fixtureCall('page',{mode:'identity-switch'})).page;
+  assert.equal(http.length-before,6);assert.equal(cached.promotions.length,5);
+  const captured=JSON.parse(Buffer.from(cached.pageCursor.split('.')[0],'base64url').toString('utf8'));
+  await fixtureCall('source-state',{kind:'identity'});
+  const beforeSwitch=http.length,switched=(await fixtureCall('page',{mode:'identity-switch',cursor:cached.pageCursor})).page;
+  const reads=http.slice(beforeSwitch),replacement=reads.filter(row=>row.subject==='800000000000009999');
+  const target=switched.promotions.find(row=>row.guid==='Player-6933-00000001');
+  check('selected-page account change invalidates its cached role and freshly reads the exact replacement account',replacement.length===1&&!reads.some(row=>row.subject==='800000000000001000')&&target?.targetSlot===6&&target.reason==='knight-veteran'&&reads.length===16);
+  check('unchanged cached successes retain their original expiry across an account switch',JSON.stringify(switched.scan)===JSON.stringify(cached.scan)&&switched.snapshotAt===cached.snapshotAt&&switched.expiresAt<=Math.min(...captured.roleReads.slice(1).map(row=>row[2]+60)));
+  assert.equal((await fixtureCall('source-observe')).originalIdentity,false);
+  await fixtureCall('source-state',{kind:'identity',restore:true});
+
+  for(const kind of ['privacy','denial','native','cutoff','credential','secret']){
+    const result=(await fixtureCall('page',{mode:'await-'+kind})).page;
+    check('selected '+kind+' mutation during provider await remains fail-closed',inflightMutations.has(kind)&&result.status==='held'&&result.promotions.length===0&&result.invites.length===0&&result.pageCursor===null&&result.nextCursor===null);
+    await fixtureCall('source-state',{kind,restore:true});
+  }
 }
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
@@ -50,7 +86,7 @@ async function run(){
   const beforePartial=http.length,firstPartial=(await fixtureCall('page',{mode:'partial-recover'})).page;
   assert.equal(http.length-beforePartial,6);assert.equal(firstPartial.promotions.length,5);assert.equal(firstPartial.nextCursor,null);
   const captured=JSON.parse(Buffer.from(firstPartial.pageCursor.split('.')[0],'base64url').toString('utf8'));
-  assert.equal(captured.version,2);assert.equal(captured.roleReads.length,5);
+  assert.equal(captured.version,3);assert.equal(captured.roleReads.length,5);assert(captured.roleReads.every(row=>row.length===4));
   const recovered=(await fixtureCall('page',{mode:'partial-recover',cursor:firstPartial.pageCursor})).page;
   assert.equal(http.length-beforePartial,21);assert.equal(recovered.promotions.length,20);assert.deepEqual(recovered.scan,firstPartial.scan);
   assert.equal(recovered.snapshotAt,firstPartial.snapshotAt);assert(recovered.expiresAt<=Math.min(...captured.roleReads.map(row=>row[2]+60)));
@@ -74,13 +110,19 @@ async function run(){
   await refused('page',{mode:'credential-change',cursor:firstPartial.pageCursor},'invalid_launch_cursor',400);
   check('tampered expired wrong-target and credential-mismatched cache cursors are refused before HTTP',true);
   await refused('cursor-boundary',{cursor:firstPartial.pageCursor,kind:'shared-secret-forgery'},'invalid_launch_cursor',400);
-  await refused('cursor-boundary',{cursor:firstPartial.pageCursor,kind:'legacy-v1-cache-forgery'},'expired_or_invalid_launch_cursor',400);
-  check('the shared addon secret cannot mint v2 cached roles or inject a cache into legacy v1',true);
-  const beforeLegacy=http.length,legacy=await fixtureCall('cursor-boundary',{cursor:firstPartial.pageCursor,kind:'legacy-v1'});
-  check('exact cache-free legacy v1 selection requires fresh genuine role reads',legacy.syntheticSignedInputBoundary&&http.length-beforeLegacy===20&&legacy.page.promotions.length===20);
+  const beforeLegacyMint=http.length,legacyOriginal=(await fixtureCall('legacy-page')).page;
+  const legacyBody=JSON.parse(Buffer.from(legacyOriginal.pageCursor.split('.')[0],'base64url').toString('utf8'));
+  assert.equal(http.length,beforeLegacyMint);assert.equal(legacyBody.version,1);assert.equal(legacyBody.roleReads,undefined);
+  assert.equal(legacyOriginal.promotions.length,0);
+  await refused('cursor-boundary',{cursor:legacyOriginal.pageCursor,kind:'legacy-v1-cache-forgery',injectedReads:captured.roleReads},'expired_or_invalid_launch_cursor',400);
+  const beforeLegacy=http.length,legacy=(await fixtureCall('page',{mode:'partial-recover',cursor:legacyOriginal.pageCursor})).page;
+  check('exact cache-free legacy v1 selection requires fresh genuine role reads',http.length-beforeLegacy===20&&legacy.promotions.length===20&&JSON.stringify(legacy.scan)===JSON.stringify(legacyOriginal.scan));
+  assert.equal(JSON.parse(Buffer.from(legacy.pageCursor.split('.')[0],'base64url').toString('utf8')).version,2);
+  await refused('cursor-boundary',{cursor:legacy.pageCursor,kind:'shared-secret-forgery'},'invalid_launch_cursor',400);
+  check('the shared addon secret cannot mint v2 or v3 cached roles or inject a cache into legacy v1',true);
   for(const kind of ['privacy','link']){
     await fixtureCall('source-state',{kind});
-    await refused('page',{mode:'partial-recover',cursor:firstPartial.pageCursor},'launch_cursor_source_changed',409);
+    await refused('page',{mode:'partial-recover',cursor:firstPartial.pageCursor},'launch_cursor_role_source_changed',409);
     await fixtureCall('source-state',{kind,restore:true});
   }
   check('actual D1 privacy or exact-link source change rejects previously valid cached successes',true);
@@ -89,6 +131,7 @@ async function run(){
     const text=Buffer.from(cursor.split('.')[0],'base64url').toString('utf8');
     return !['800000000000001000','synthetic-roster-pacing','DISCORD_BOT_TOKEN','discordId','discord_id'].some(value=>text.includes(value));
   }));
+  await verificationChurn272();
   for(const [mode,spec] of Object.entries(modes)){
     let samePage=null,sameScan;
     for(let attempt=0;attempt<(mode==='429-persistent'?3:1);attempt++){
@@ -124,16 +167,23 @@ async function run(){
     mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
       const url=new URL(request.url),match=url.pathname.match(/^\/api\/v10\/guilds\/800000000000000001\/members\/(\d{18})$/),mode=(request.headers.get('Authorization')||'').replace('Bot synthetic-roster-pacing-','');
       assert.equal(url.origin,'https://discord.com');assert.equal(url.search,'');assert.equal(request.method,'GET');assert(match);
-      const index=BigInt(match[1])-800000000000001000n;assert(index>=0n&&index<1000n);
+      const index=BigInt(match[1])-800000000000001000n;assert(index>=0n&&index<1000n||match[1]==='800000000000009999');
       const n=(perMode.get(mode)||0)+1;perMode.set(mode,n);
       const row={mode,method:request.method,subject:match[1],started:performance.now(),completed:0,resetMilliseconds:mode==='full'&&n%10===0?30:0};http.push(row);
       active++;maxActive=Math.max(maxActive,active);
       try{
         await new Promise(resolve=>setTimeout(resolve,mode==='slow-read'?1000:2)); // real external latency, never a fake clock
         if(mode==='source-change'&&!sourceChanged){sourceChanged=true;await fixtureCall('source-change');}
-        const limited=mode==='partial-recover'&&n===6?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
+        if(mode==='link-churn'&&index>=40n&&index<60n&&!unrelatedChanged){
+          unrelatedChanged=true;
+          await fixtureCall('source-state',{kind:'link',index:5});await fixtureCall('source-state',{kind:'link',index:950});
+        }
+        if(mode.startsWith('await-')&&!inflightMutations.has(mode.slice(6))){
+          const kind=mode.slice(6);inflightMutations.add(kind);await fixtureCall('source-state',{kind});
+        }
+        const limited=['partial-recover','identity-switch'].includes(mode)&&n===6?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
-        return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
+        return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
     }}));
     const result=await Promise.race([run(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('roster pacing qualification exceeded 170 seconds')),170000);})]);
