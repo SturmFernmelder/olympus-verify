@@ -5,11 +5,37 @@ import { TREASURY_DEFAULTS207, TREASURY_FIELDS207, TREASURY_GOAL207, calculateTr
 const gold207 = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value) + "g";
 const number207 = value => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 
+/**
+ * Evergreen 12 Nov 2026 (CL2-075): the page waits for this stylesheet before the first render. Rendering first and
+ * styling a moment later moved the metrics, the member summary and the calculator by up to 0.365 of the viewport at
+ * 1440 px. Resolves on load, on error (the plan then renders unstyled, as before) or after 4 s, never rejects.
+ */
+const STYLE_ID207 = "treasury-plan-style207";
+let styleReady207 = null;
+export function treasuryPlanStyle207() {
+  const existing = document.getElementById(STYLE_ID207);
+  if (existing && existing.sheet) return Promise.resolve();
+  if (styleReady207 && existing) return styleReady207;
+  const link = existing || document.createElement("link");
+  if (!("sheet" in link)) return Promise.resolve(); // a document without CSSOM cannot wait for a stylesheet
+  styleReady207 = new Promise(resolve => {
+    const done = () => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(done, 4000);
+    link.addEventListener("load", done, { once: true });
+    link.addEventListener("error", done, { once: true });
+  });
+  if (!existing) {
+    link.id = STYLE_ID207; link.rel = "stylesheet"; link.href = "/static/treasury-plan207.css";
+    document.head.append(link);
+  }
+  return styleReady207;
+}
+
 export function renderTreasuryPlan207(main, ui) {
   const { h, clear } = ui;
   if (ui.isCurrent && !ui.isCurrent()) return () => {};
-  if (!document.getElementById("treasury-plan-style207")) {
-    document.head.append(h("link", { id: "treasury-plan-style207", rel: "stylesheet", href: "/static/treasury-plan207.css" }));
+  if (!document.getElementById(STYLE_ID207)) {
+    document.head.append(h("link", { id: STYLE_ID207, rel: "stylesheet", href: "/static/treasury-plan207.css" }));
   }
   clear(main);
   const root = h("article", { class: "treasury-plan207", "aria-labelledby": "treasury-plan-title207" });

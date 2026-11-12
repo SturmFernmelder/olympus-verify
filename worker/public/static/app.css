@@ -58,7 +58,9 @@ b, strong { color: var(--white); font-weight: 400; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
 
-.boot-fallback { max-width: 40rem; margin: 20vh auto; text-align: center; padding: 0 16px; }
+/* Evergreen 12 Nov 2026 (CL2-244): fixed, so its 20vh offset is not a margin that collapses through <body>; replacing
+   it with the shell then moves nothing (it was a 0.126 layout shift on every signed-in load at 1440 px). */
+.boot-fallback { position: fixed; top: 20vh; bottom: 0; left: 0; right: 0; max-width: 40rem; margin: 0 auto; overflow-y: auto; text-align: center; padding: 0 16px; }
 
 /* ---------- layout ---------- */
 .shell { max-width: 1120px; min-height: calc(100vh - 84px); margin: 0 auto; padding: 0 16px 40px; }
