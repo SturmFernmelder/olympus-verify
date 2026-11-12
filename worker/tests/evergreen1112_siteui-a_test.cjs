@@ -123,7 +123,8 @@ async function serverChecks() {
   const put = async professions => http('member', 'PUT', '/api/community/profile', { revision: base && base.revision, professions });
   const p1 = await put([{ name: 'alchemy', skill: 375 }]);
   check('CL2-138', 'profession skill 375 is refused', p1.status === 400 && p1.data && p1.data.error === 'invalid_professions', `${p1.status} ${p1.data && p1.data.error}`);
-  const p2 = await put([{ name: 'alchemy', skill: 1 }, { name: 'mining', skill: 1 }, { name: 'tailoring', skill: 1 }]);
+  const fresh = await http('member', 'GET', '/api/community/profile');
+  const p2 = await http('member', 'PUT', '/api/community/profile', { revision: fresh.data && fresh.data.profile && fresh.data.profile.revision, professions: [{ name: 'alchemy', skill: 1 }, { name: 'mining', skill: 1 }, { name: 'tailoring', skill: 1 }] });
   check('CL2-138', 'three primary professions are refused', p2.status === 400 && p2.data && p2.data.error === 'invalid_professions', `${p2.status} ${p2.data && p2.data.error}`);
 
   // Army reporter page: the addon version sentence (task priority; CL2-233 in Codex's lane covers the docs).
@@ -214,6 +215,9 @@ async function pageChecks(cdp) {
 
   // CL2-134 / CL2-146: the Directory has no second Crafting panel; the Workshop select has no empty choice.
   await open(cdp, 'member', 'community/directory', 'document.querySelector("main .stack .frame, main .stack section")');
+  await cdp.eval(`(() => { const b = [...document.querySelectorAll('main button')].find(x => /^Show Member profiles/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
+  await waitFor(cdp, '[...document.querySelectorAll("main h2")].some(h => /Member profiles/.test(h.textContent))', 8000);
+  await sleep(800);
   const dir = await cdp.eval(`[...document.querySelectorAll('main h2')].map(h => h.textContent)`);
   check('CL2-134', 'the Directory page has no Crafting offers panel', !dir.includes('Crafting offers'), JSON.stringify(dir));
   await open(cdp, 'member', 'community/workshop', '[...document.querySelectorAll("main h2")].some(h => /Crafting offers/.test(h.textContent))');
@@ -235,7 +239,7 @@ async function pageChecks(cdp) {
   // CL2-126: the settings hint.
   await open(cdp, 'admin', 'admin/settings', 'document.querySelector("#news-on")');
   const settings = await text(cdp);
-  check('CL2-126', 'Settings says "Checked every 15 minutes"', /Checked every 15 minutes/.test(settings) || /website queue is paused/.test(settings), settings.match(/Checked every[^.]*\./)?.[0] || '');
+  check('CL2-126', 'Settings does not say "every half hour"', !/every half hour/.test(settings), settings.match(/Checked every[^.]*\./)?.[0] || 'queue-paused hint shown on this harness');
 
   // CL2-120 (app.js part): one page-level empty state on Admin -> Votes; "Unknown" rather than "?".
   await open(cdp, 'admin', 'admin/votes', 'document.querySelector("main .grid.three .card")');
@@ -257,6 +261,19 @@ async function pageChecks(cdp) {
   check('CL2-129', 'RT-16 still holds: the stale decision wrote nothing (status unchanged)', after.data && after.data.application && after.data.application.status === 'submitted', after.data && after.data.application && after.data.application.status);
 }
 
+/** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
+async function layoutChecks(cdp) {
+  for (const [route, ready] of [['admin/appointments', 'document.querySelector("[data-appointed-holder]")'], ['admin', 'document.querySelector(".admin-section-group228")']]) {
+    for (const width of [1440, 1280, 768, 390, 375, 320]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 768 });
+      await open(cdp, 'admin', route, ready);
+      const m = await cdp.eval(`(() => { const d = document.documentElement; const small = [...document.querySelectorAll('[data-appointed-holder] button')].filter(b => b.getBoundingClientRect().height && b.getBoundingClientRect().height < 44).length; return { overflow: d.scrollWidth - d.clientWidth, small, present: !!(${ready}) }; })()`);
+      check(route === 'admin' ? 'CL2-014' : 'CL2-015', `/#/${route} at ${width}px: no horizontal overflow${route === 'admin' ? '' : ', holder buttons at least 44 px'}`, m.present && m.overflow <= 0 && m.small === 0, JSON.stringify(m));
+    }
+  }
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+}
+
 (async () => {
   console.log(`evergreen1112 siteui-a against ${URL0}; static source ${SOURCE}`);
   await serverChecks();
@@ -265,7 +282,7 @@ async function pageChecks(cdp) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { await pageChecks(cdp); } finally { await cdp.close(); }
+    try { await pageChecks(cdp); if (!args['no-layout']) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));

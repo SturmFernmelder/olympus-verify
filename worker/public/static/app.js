@@ -7033,7 +7033,7 @@
     more.addEventListener("click", () => { stopScan(); load(false); }); refresh.addEventListener("click", () => load(true));
     scanAll.addEventListener("click", () => { if (!live()) return; if (continuous) stopScan(); else if (cursor) { continuous = true; scanAll.textContent = "Pause loading remaining members"; load(false); } });
     const profiles = h("div", { class: "stack" });
-    const showProfiles = h("button", { class: "btn small", type: "button", text: "Show Member profiles and crafting offers" });
+    const showProfiles = h("button", { class: "btn small", type: "button", text: "Show Member profiles" }); // CL2-134: crafting offers are in the Workshop
     const ownVisibility = h("div", {class:"stack", "data-directory-visibility":"own"});
     showProfiles.addEventListener("click", async () => { if (!live()) return; showProfiles.disabled = true; try { await communityProfileDirectory(profiles); } finally { if (live()) showProfiles.hidden = true; } });
     add(body, frame("Discord member list", h("a", { class: "btn small", href: "#/community/profile", text: "My profile" }),
