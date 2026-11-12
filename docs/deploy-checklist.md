@@ -8155,3 +8155,46 @@ needed for this Watcher update. Qualification must include actual main-loop
 scheduling regressions, the current launch tests, independent review and CI.
 New native acceptance needs its own explicitly approved fresh bounded scan
 and reloads because the previous one-scan allowance is used.
+
+## Watcher 0.6.33 candidate - account for work before a due scan read
+
+The approved Watcher 0.6.32 run is preserved as failed native acceptance:
+41 contiguous pages, 820/964 inspected, 144 unscanned and 11 auxiliary attempts.
+It expired at 01:00:13Z against its original 01:00:12Z native deadline. Its
+20 dated recommendations include 17 Initiate-to-Member and three
+Knight-to-Veteran rows; no native promotion or selected-page recheck occurred.
+The native client loaded that expired result after reload two. Worker .272 and
+addon 0.6.32 remain unchanged.
+
+The partial diagnostic tail began at 00:55:27Z, covering only the remainder:
+22 launch HTTP-200 events, 49.879 seconds aggregate server wall time and
+21 server-finish-to-next-start gaps with a median of 8.131 seconds. These gaps
+include spacing, network/client processing, ordinary work and unobserved time;
+they do not measure the mandatory prelaunch prefix or establish its live cost.
+
+The loop previously slept until the next GET due time, then ran mandatory
+settlement/custody/native/outbox/chat work before checking that due GET. The
+follow-up uses the current prefix's monotonic duration as an estimate when
+choosing the next sleep. All jobs and their order remain unchanged, with one
+launch step per loop and at least one second of sleep. Scan.step remains the
+authority for actual GET admission, including five seconds after responses,
+explicit rate waits, the 50 discovery/50 shared auxiliary attempts, 100 total
+requests, two retries per page and original native/page expiry. A shorter next
+prefix can wake early without sending an early GET. Slow work can still miss
+the original deadline; there is no automatic restart or proof-date renewal.
+
+Fixed-label diagnostics on charged launch attempts contain measured monotonic
+prefix, launch-phase and tail durations plus planned-sleep. The planned value
+is not observed sleep; non-dispatch loops, logger overhead and OS oversleep are
+outside this partial phase view. No identity, URL, cursor, body or private
+configuration is added to these diagnostics. Synthetic variable-prefix and
+11-retry timing profiles must remain labeled as models, not live measurements
+or full-scan acceptance. Qualification receipts record actual test counts,
+negative controls, exact source/tree, independent review, package parity and CI.
+
+This is another Watcher-only candidate: no Worker deploy, schema, secret,
+dependency, addon update, record repair or live-bridge activation. Installation
+and a new bounded read-only scan/recheck require a new approval because the
+0.6.32 one-full-scan allowance is used. Preserve every failed original. Rollback
+reinstalls the backed-up compatible public modules through the existing task;
+it never rewrites runtime custody or replays an uncertain effect.

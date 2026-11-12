@@ -108,7 +108,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.32"
+WATCHER_VERSION = "0.6.33"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -2389,7 +2389,11 @@ class Watcher:
         self.require_launch_worker()
         log(f"watcher {WATCHER_VERSION}: watching {self.chat_log} and {self.sv_file}")
         while True:
+            prefix_seconds = 0.0
+            launch_seconds = None
+            tail_started = None
             try:
+                prefix_started = time.monotonic()
                 self.recover_local_settlement()
                 self._require_custody_continuation()
                 if self.membership_only:
@@ -2399,7 +2403,13 @@ class Watcher:
                 self.tail_chat_log()
                 if not self.membership_only:
                     self.check_savedvars()
+                prefix_seconds = max(0.0, time.monotonic() - prefix_started)
+                launch_started = time.monotonic()
+                launch_calls = self.launch_scan.calls if self.membership_only else None
                 self.pull_launch_operations()
+                if launch_calls is not None and self.launch_scan.calls > launch_calls:
+                    tail_started = time.monotonic()
+                    launch_seconds = max(0.0, tail_started - launch_started)
                 self.pull_queue()
                 self.scan_diag_logs()
                 if time.time() - self._last_lag_report > 1800 and self.state.d.get("lag"):
@@ -2410,9 +2420,13 @@ class Watcher:
                 log(f"loop error: {type(e).__name__}")
             delay = self.poll
             if self.membership_only and not self._custody_halted and self.launch_scan.phase != 'idle':
-                # Wake for the existing scan deadline without changing its GET
-                # spacing or giving normal jobs a sub-second polling loop.
-                delay = min(delay, max(1.0, self.launch_scan.next_at - time.time()))
+                # Begin the next mandatory prefix before the existing GET due
+                # time, using this pass's measured cost as an estimate. Scan.step
+                # still enforces response spacing if the next prefix is shorter.
+                delay = min(delay, max(1.0, self.launch_scan.next_at - time.time() - prefix_seconds))
+            if launch_seconds is not None:
+                tail_seconds = max(0.0, time.monotonic() - tail_started)
+                log(f"launch timing: prefix={prefix_seconds:.3f}s; launch-phase={launch_seconds:.3f}s; tail={tail_seconds:.3f}s; planned-sleep={delay:.3f}s")
             time.sleep(delay)
 
 
