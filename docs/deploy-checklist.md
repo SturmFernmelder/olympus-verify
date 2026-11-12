@@ -8468,3 +8468,30 @@ deployment or native-action claim.
 Rollback restores the previous Worker, which also restores the known 0.6.35
 download failure. Keep the reviewed package and private client state intact;
 no client reinstall, role change or promotion retry is part of this correction.
+
+## Worker .278 / Verify 0.6.36 — secure promotion buttons (12 November 2026)
+
+Replace direct addon-Lua promotion calls with addon-owned secure action buttons
+executing one literal native guild-promotion command per unmodified left-button
+release. The native secure OnClick remains intact. PreClick rechecks the exact
+GUID, complete native roster, identity, hierarchy, permission and original dated
+recommendation; it reserves an unknown attempt before arming the single command.
+PostClick disarms the button. Only a newer complete native roster confirming the
+expected one-rank change settles the attempt. No timer promotes or retries.
+
+The native Guild column, roster row and filtered next control share this path.
+Slash and generic launch controls open an explicit secure confirmation when
+needed. Protected controls are left inert rather than repainted in combat.
+Existing unknown attempts stay held. Preserve the original Andolf and Waylor
+cases and Lefthy's persisted unknown; do not reset their ledgers for testing.
+
+Rebuild the .36 ZIP/manifest and verify download route parity. Qualify the actual
+secure click order, command disarming, input-edge/refusal cases, one-rank native
+confirmation and 1,000-member benchmark. Install only reviewed public code with
+private configuration, generated files and SavedVariables preserved. Native
+macro execution and actual Member outcomes require attended client evidence;
+offline test success is insufficient. No live bridge or Watcher change is made.
+
+Rollback restores the previous public addon code/package without changing private
+state or reversing confirmed native ranks. Never clear unknown attempts or run a
+fallback promotion command to make rollback or testing appear successful.

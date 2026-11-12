@@ -154,8 +154,9 @@ local function Tip(owner, title, lines)
 end
 local function HideTip() if GameTooltip then GameTooltip:Hide() end end
 
-local function Button(parent, text, w, h, onClick, tipTitle, tipText)
-  local b = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
+local function Button(parent, text, w, h, onClick, tipTitle, tipText, secure)
+  local template=secure and (BACKDROP_TEMPLATE and BACKDROP_TEMPLATE..",SecureActionButtonTemplate" or "SecureActionButtonTemplate") or BACKDROP_TEMPLATE
+  local b = CreateFrame("Button", nil, parent, template)
   b:SetSize(w, h)
   if b.SetBackdrop then
     b:SetBackdrop(CHIP_BACKDROP)
@@ -168,7 +169,8 @@ local function Button(parent, text, w, h, onClick, tipTitle, tipText)
   fs:SetText(text)
   if b.SetFontString then b:SetFontString(fs) end
   b.label = fs
-  b:SetScript("OnClick", onClick)
+  -- SecureActionButtonTemplate owns OnClick; replacing it loses the native macro execution.
+  if not secure then b:SetScript("OnClick", onClick) end
   if tipTitle then
     b:SetScript("OnEnter", function(self) Tip(self, tipTitle, { tipText }) end)
     b:SetScript("OnLeave", HideTip)
@@ -268,7 +270,7 @@ local function Say(text)
 end
 
 -- Display candidacy is an intersection with the existing launch projection, never a verification-label lookup.
--- HardwarePromote remains the sole action path and independently rechecks the full native roster at the click.
+-- The shared secure dispatcher independently rechecks the full native roster at the click.
 local function PromotionCandidates()
   local model=OlympusVerifyRosterModel
   if model and type(model.Promotions)=="function" then
@@ -333,20 +335,21 @@ local function Visible()
   return R.Sort(filtered, view.sort, view.desc), candidates, why
 end
 
-local function Promote(guid)
+local function PromotionTarget(guid)
   -- Rebuild the filtered view at the hardware boundary: recycled/hidden/stale rows cannot supply a target.
   local list, candidates, why = Visible()
   for _, m in ipairs(list) do
     if (not guid or m.guid == guid) and Eligible(m, candidates) then
-      local launch=OlympusLaunch229
-      if type(launch)~="table" or type(launch.HardwarePromote)~="function" then Say("Promotion dispatcher unavailable; no action taken.");return end
-      launch.HardwarePromote(m.guid) -- exactly one attempt, including a held/unknown outcome
-      Reload(); W.Refresh()
-      return
+      return m.guid
     end
   end
   Say(why or "No fresh promotion is ready in this filtered view.")
-  Reload(); W.Refresh()
+end
+local function BindPromotion(button,resolver)
+  local launch=OlympusLaunch229
+  if type(launch)=="table" and type(launch.BindPromotionButton)=="function" then
+    launch.BindPromotionButton(button,resolver,function() Reload();W.Refresh() end)
+  else button:SetEnabled(false) end
 end
 
 -- ---------------------------------------------------------------- drawing
@@ -418,7 +421,7 @@ local function SourceLines()
 end
 
 function W.Refresh()
-  if not frame or not frame:IsShown() then return end
+  if not frame or not frame:IsShown() or InCombatLockdown and InCombatLockdown() then return end
   local q,err,stale,fetched,snapshot=EvidenceStamp()
   if q~=cache.source or err~=cache.error or stale~=cache.stale or fetched~=cache.fetched or snapshot~=cache.snapshot then Reload() end
   local list, candidates, why = Visible()
@@ -640,8 +643,9 @@ local function Build()
     CloseMenu();view.initiates = true; view.rank = 0; view.status = 2; view.action = 4; offset = 0; W.Refresh()
   end, "Verified Initiates", "Show native slot-9 Initiates whose current loaded base status is verified, including those without a signed promotion recommendation. These are potential candidates; promotion readiness is separate. Other search, class and presence filters still apply.")
   readyBtn:SetPoint("LEFT", initiateBtn, "RIGHT", 6, 0)
-  nextBtn = Button(frame, "Promote next (0)", 150, 24, function() Promote() end,
-    "Promote next", "Attempt exactly one ready target in the current filtered, sorted order. No background or bulk promotion; native checks run again at the click.")
+  nextBtn = Button(frame, "Promote next (0)", 150, 24, nil,
+    "Promote next", "Attempt exactly one ready target in the current filtered, sorted order. No background or bulk promotion; native checks run again at the click.",true)
+  BindPromotion(nextBtn,function() return PromotionTarget() end)
   nextBtn:SetPoint("LEFT", readyBtn, "RIGHT", 6, 0)
   local clear = Button(frame, "Clear filters", 108, 24, function()
     CloseMenu();view.status, view.rank, view.class, view.online, view.initiates, view.text, view.presence, view.action = 1, 0, 0, false, false, "", 1, 1
@@ -737,10 +741,12 @@ local function Build()
       b:SetScript("OnEnter", function() RowTip(r) end); b:SetScript("OnLeave", HideTip)
       b:Hide(); r.remind = b
     end
-    r.promote = Button(r, "Promote", 100, Layout.ROW_H - 2, function(self)
+    r.promote = Button(r, "Promote", 100, Layout.ROW_H - 2, nil,
+      "Native promotion", "One hardware promotion to the displayed Member or Veteran target for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.",true)
+    BindPromotion(r.promote,function(self)
       local m = self.member
-      if m and type(m.guid) == "string" then Promote(m.guid) end
-    end, "Native promotion", "One hardware promotion to the displayed Member or Veteran target for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.")
+      if m and type(m.guid) == "string" and self:IsShown() then return PromotionTarget(m.guid) end
+    end)
     r.promote:SetPoint("LEFT", r, "LEFT", 962, 0)
     r.promote:Hide()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
@@ -772,6 +778,7 @@ end
 
 -- ---------------------------------------------------------------- public
 function W.Show(text)
+  if InCombatLockdown and InCombatLockdown() then Say("Leave combat before opening the promotion roster.");return end
   if not frame then Build() end
   Reload()
   if type(text) == "string" and text ~= "" then
@@ -785,6 +792,7 @@ function W.Show(text)
 end
 
 function W.Hide()
+  if InCombatLockdown and InCombatLockdown() then return end
   if frame then frame:Hide() end
   CloseMenu();if copyBox then copyBox:Hide() end
   HideTip()

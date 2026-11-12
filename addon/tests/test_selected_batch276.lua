@@ -44,17 +44,17 @@ do
   local current=f.q.Current()
   check("all seventeen scattered GUIDs get their own fresh selected authority",current and current.selection.completed and #current.promotions==17 and current.freshness[candidate].kind=="selected" and current.freshness[candidate].expiresAt==data.expiresAt)
   check("batch read controls have no promotion side effects",f.promote==0 and f.legacy==0 and f.restricted==0 and f.syncs==1)
-  local requested=f.q.HardwarePromote(candidate)
+  local requested=f.click(candidate)
   local ordinary=requested and f.promote==1 and f.lastName==f.env.GetGuildRosterInfo(2) and f.env.ROSTER[2].rankIndex==8 and f.restricted==0
   if not ordinary then print("DIAG Member request",tostring(requested),f.promote,tostring(f.lastName),f.env.ROSTER[2].rankIndex,f.restricted) end
   check("ordinary verified Initiate uses one supported separate promotion click",ordinary)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed native Member cannot be promoted again by the same batch",not f.q.HardwarePromote(candidate) and f.promote==1)
+  check("confirmed native Member cannot be promoted again by the same batch",not f.click(candidate) and f.promote==1)
 end
 do
   local f,ids=cohort();result(f,ids);f.env.OlympusLaunchSelected=nil
   local current=f.q.Current();local covered=0;for _ in pairs(current.selection.covered) do covered=covered+1 end
-  check("pending batch holds every requested GUID rather than only the first",covered==17 and current.selection.state=="pending" and not f.q.HardwarePromote(candidate) and f.promote==0)
+  check("pending batch holds every requested GUID rather than only the first",covered==17 and current.selection.state=="pending" and not f.click(candidate) and f.promote==0)
 end
 for _,kind in ipairs({"digest","extra-target","missing-target","duplicate","unsorted","coverage","actor","scope","clock","metadata","automatic","outside-positive","unknown-result","mixed-single","invites","risk"}) do
   local f,ids=cohort();local data,c=result(f,ids)
@@ -74,7 +74,7 @@ for _,kind in ipairs({"digest","extra-target","missing-target","duplicate","unso
   elseif kind=="mixed-single" then data.targetGuid=candidate
   elseif kind=="invites" then data.page.invites={{guid=candidate}}
   elseif kind=="risk" then data.page.riskBuffer={{guid=candidate}} end
-  check(kind.." batch cannot borrow a historical positive or dispatch",not f.q.HardwarePromote(candidate) and f.promote==0 and f.restricted==0)
+  check(kind.." batch cannot borrow a historical positive or dispatch",not f.click(candidate) and f.promote==0 and f.restricted==0)
 end
 for _,kind in ipairs({"duplicate","too-many","missing","not-initiate","self","native-stale"}) do
   local f,ids=cohort()
@@ -90,8 +90,8 @@ do
   local f,ids=cohort();local data,c=result(f,ids)
   local original={scopeHash=c.scopeHash,actorGuid=c.guid,targetGuid=candidate,target=8,snapshotId=7,contextId=string.rep("e",32),attemptedAt=f.env.NOW-30,state="unknown"}
   f.env.OlympusVerifyDB.launchPromotionAttempts={[candidate]=original}
-  check("fresh batch never clears or retries a pre-existing unknown attempt",not f.q.HardwarePromote(candidate) and f.env.OlympusVerifyDB.launchPromotionAttempts[candidate]==original and f.promote==0)
+  check("fresh batch never clears or retries a pre-existing unknown attempt",not f.click(candidate) and f.env.OlympusVerifyDB.launchPromotionAttempts[candidate]==original and f.promote==0)
   f.env.NOW=f.env.NOW+601;f.emit("GUILD_ROSTER_UPDATE")
-  check("batch original clocks expire without extending source or action authority",not f.q.HardwarePromote(ids[2]) and data.expiresAt==c.observedAt+600 and f.promote==0)
+  check("batch original clocks expire without extending source or action authority",not f.click(ids[2]) and data.expiresAt==c.observedAt+600 and f.promote==0)
 end
 print(string.format("%d passed, %d failed",passed,failed));if failed>0 then os.exit(1) end

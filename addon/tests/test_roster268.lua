@@ -9,7 +9,7 @@ local function plain(s) return (tostring(s or ""):gsub("|c%x%x%x%x%x%x%x%x", "")
 local function fixture(size)
   local e = setmetatable({}, { __index = _G }); e._G = e
   setfenv(assert(loadfile("wow_mock.lua")), e)()
-  local f = { e = e, promotions = {}, attempts = 0, reads = 0, removals = 0, invites = 0, reloads = 0 }
+  local f = { e = e, promotions = {}, attempts = 0, directCalls = 0, reads = 0, removals = 0, invites = 0, reloads = 0 }
   e.OlympusVerifyConfig = { secret = "synthetic-roster268-only", membershipOnly = true, uiAutoShow = false }
   e.GetGuildInfo = function() return "OLYMPUS PRIME", "High Council", 1, "Native Realm" end
   e.GetRealmName = function() return "Native Realm" end
@@ -37,7 +37,12 @@ local function fixture(size)
   e.GetGuildRosterInfo = function(i) f.reads = f.reads + 1; return native(i) end
   e.C_GuildInfo.IsGuildRankAssignmentAllowed = function() return true end
   e.C_GuildInfo.SetGuildRankOrder = function() error("restricted rank setter must not be called by the addon") end
-  e.C_GuildInfo.Promote = function(name)
+  e.C_GuildInfo.Promote = function() f.directCalls=f.directCalls+1;error("protected Lua promotion must not be called") end
+  e.GuildPromote=e.C_GuildInfo.Promote
+  e.SECURE_MACRO_EXECUTE = function(text)
+    local name=text:match("^/gpromote ([^\r\n]+)$")
+    assert(name,"one native promotion command required")
+    f.attempts=f.attempts+1
     local found
     for i,row in ipairs(e.ROSTER) do if e.GetGuildRosterInfo(i)==name then if found then error("ambiguous native target") end;found=row end end
     if not found then error("unknown native name") end
@@ -82,8 +87,6 @@ local function fixture(size)
   e.OlympusLaunchQueue = { version = 2, controlId = "loaded", scanComplete = true, pages = { f.page } }
   load("OlympusVerifyLaunch229.lua")
   f.q, f.w = e.OlympusLaunch229, e.OlympusVerifyRoster
-  local promote = f.q.HardwarePromote
-  f.q.HardwarePromote = function(guid) f.attempts = f.attempts + 1; return promote(guid) end
   local event = e.OlympusVerifyFrame:GetScript("OnEvent")
   event(e.OlympusVerifyFrame, "ADDON_LOADED", "OlympusVerify")
   for _, frame in ipairs(e.FRAMES) do
@@ -100,6 +103,12 @@ local function fixture(size)
   end
   f.emit("GUILD_ROSTER_UPDATE")
   f.w.Show()
+  f.forceClick=function(button,mouseButton,down)
+    mouseButton=mouseButton or "LeftButton"
+    local pre=button:GetScript("PreClick");if pre then pre(button,mouseButton,down==true) end
+    local click=button:GetScript("OnClick");if click then click(button,mouseButton,down==true) end
+    local post=button:GetScript("PostClick");if post then post(button,mouseButton,down==true) end
+  end
   f.search = function(text) f.w.search:SetText(text); f.w.search:GetScript("OnTextChanged")(f.w.search) end
   f.names = function()
     local out = {}; for _, m in ipairs(f.w.Visible()) do out[#out + 1] = m.name end
@@ -143,7 +152,7 @@ do
   check("Ready intersects supported Member and Veteran recommendations, not all verified labels", f.names() == "Alpha,Knight,Zulu")
   check("ready view and filtering have made no promotion", #f.promotions == 0 and f.attempts == 0)
   f.w.nextButton:Click()
-  check("next click makes exactly one original-dispatcher GUID promotion in visible sort order", #f.promotions == 1 and f.attempts == 1
+  check("next click makes exactly one secure native GUID promotion in visible sort order", #f.promotions == 1 and f.attempts == 1 and f.directCalls==0
     and f.promotions[1].guid == "Player-1-0000B002" and f.promotions[1].order == 9)
   check("refresh removes natively confirmed Member from Ready view", f.names() == "Knight,Zulu")
   f.w.rows[1].promote:Click()
@@ -185,7 +194,7 @@ for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown ou
   elseif kind == "unconfirmed outcome" then f.noAck = true end
   f.w.nextButton:Click()
   local expected = (kind == "unknown outcome" or kind == "unconfirmed outcome") and 1 or 0
-  check(kind .. " retains original native action discipline", #f.promotions == expected and f.attempts == 1)
+  check(kind .. " retains original native action discipline", #f.promotions == expected and f.attempts == expected and f.directCalls==0)
   if expected == 1 then
     f.search("Alpha"); f.w.nextButton:Click()
     check(kind .. " has no automatic or same-generation retry", #f.promotions == 1 and f.attempts == 1)

@@ -19,6 +19,13 @@ FrameMT.__index = function(t, k)
 end
 function FrameMT.SetScript(self, ev, fn) self._scripts = self._scripts or {}; self._scripts[ev] = fn end
 function FrameMT.GetScript(self, ev) return self._scripts and self._scripts[ev] end
+function FrameMT.HookScript(self, ev, fn)
+  local prior=self:GetScript(ev)
+  self:SetScript(ev,function(...) if prior then prior(...) end;return fn(...) end)
+end
+function FrameMT.SetAttribute(self, key, value) self._attributes=self._attributes or {};self._attributes[key]=value end
+function FrameMT.GetAttribute(self, key) return self._attributes and self._attributes[key] end
+function FrameMT.RegisterForClicks(self, ...) self._registeredClicks={...} end
 function FrameMT.RegisterEvent(self, e) self._events = self._events or {}; self._events[e] = true end
 function FrameMT.SetText(self, t) self._text = t; if self._fontString then self._fontString._text = t end end
 function FrameMT.GetText(self) return self._text end
@@ -94,7 +101,15 @@ end
 function FrameMT.SetOwner(self, owner, anchor) self._owner, self._anchor = owner, anchor; self._lines = {} end
 function FrameMT.IsOwned(self, owner) return self._shown == true and self._owner == owner end
 function FrameMT.AddLine(self, text) self._lines = self._lines or {}; self._lines[#self._lines + 1] = text end
-function FrameMT.Click(self, mouseButton) local f = self._scripts and self._scripts.OnClick; if self._enabled ~= false and f then f(self, mouseButton or "LeftButton") end end
+function FrameMT.Click(self, mouseButton, down)
+  if self._enabled==false then return end
+  local button=mouseButton or "LeftButton"
+  local pre=self:GetScript("PreClick");if pre then pre(self,button,down==true) end
+  local click=self:GetScript("OnClick");local result
+  if click then result=click(self,button,down==true) end
+  local post=self:GetScript("PostClick");if post then post(self,button,down==true) end
+  return result
+end
 FONTS, FRAMES, TEXTURES = {}, {}, {}
 function FrameMT.CreateFontString(self, name, layer, template)
   local fs = setmetatable({ _parent = self, _kind = "FontString", _template = template, _shown = true }, FrameMT)
@@ -108,7 +123,21 @@ function FrameMT.CreateTexture(self, name, layer, template, sublevel)
 end
 CreateFrame = function(kind, name, parent, template)
   local f = setmetatable({ _kind = kind, _name = name, _parent = parent, _template = template }, FrameMT)
-  if kind == "Button" and template == "UIPanelButtonTemplate" then f:SetNormalFontObject("GameFontNormal") end
+  if kind == "Button" and type(template)=="string" and template:find("UIPanelButtonTemplate",1,true) then f:SetNormalFontObject("GameFontNormal") end
+  if kind=="Button" and type(template)=="string" and template:find("SecureActionButtonTemplate",1,true) then
+    -- Model the client-owned handler, not a Lua call to the protected promotion
+    -- API. Suites provide only the synthetic native slash-command execution.
+    local function secureClick(self,button,down)
+      if button~="LeftButton" or down or self:GetAttribute("type1")~="macro" then return end
+      local text=self:GetAttribute("macrotext1") or self:GetAttribute("macrotext")
+      if type(text)~="string" or text=="" then return end
+      if type(SECURE_MACRO_EXECUTE)~="function" then error("secure macro executor not supplied by fixture") end
+      local ok,result=pcall(SECURE_MACRO_EXECUTE,text,self)
+      self._secureError=not ok and result or nil
+      return ok and result or false
+    end
+    f._secureHandler=secureClick;f:SetScript("OnClick",secureClick)
+  end
   if name then _G[name] = f end
   table.insert(FRAMES, f)
   return f
@@ -119,6 +148,11 @@ GameTooltip = CreateFrame("GameTooltip", "GameTooltip")
 GetAddOnMetadata = function() return "0.4.0" end
 C_AddOns = { GetAddOnMetadata = function() return "0.4.0" end }
 InCombatLockdown = function() return false end
+IsModifierKeyDown = function() return false end
+IsShiftKeyDown = function() return false end
+IsControlKeyDown = function() return false end
+IsAltKeyDown = function() return false end
+SLASH_GUILD_PROMOTE1,SLASH_GUILD_PROMOTE2 = "/gpromote","/guildpromote"
 LoggingChat = function() return true end
 WHISPERS = {}
 SendChatMessage = function(text, chan, _, to) table.insert(WHISPERS, { text = text, to = to }) end
