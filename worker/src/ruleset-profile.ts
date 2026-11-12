@@ -78,7 +78,8 @@ export function rulesetRealmLabel(profile: RulesetProfile): string {
 export function rulesetLabel(profile: RulesetProfile = currentRulesetProfile()): string {
   const checked = parseRulesetProfile(profile);
   if (!checked) throw new Error("Invalid ruleset profile");
-  if (checked.phase === "public_direction") return `${checked.game} · ${checked.ruleset.toUpperCase()} - ${checked.faction} · public guild direction · ${rulesetRealmLabel(checked)}`;
+  // CL2-176 (12 Nov 2026): Blizzard's realm list calls the PvE ruleset "Normal"; say so wherever the direction is shown.
+  if (checked.phase === "public_direction") return `${checked.game} · ${checked.ruleset.toUpperCase()}${checked.ruleset === "PvE" ? " (Blizzard's Normal ruleset)" : ""} - ${checked.faction} · public guild direction · ${rulesetRealmLabel(checked)}`;
   return `${checked.game} · ${checked.phase === "beta" ? "Beta" : "Full release"} · ${checked.realm} · ${checked.ruleset} · ${checked.faction}`;
 }
 

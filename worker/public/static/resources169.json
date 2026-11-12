@@ -225,7 +225,7 @@
       "sourceKind": "Author project page",
       "limitations": [
         "Requires Deadly Boss Mods Core.",
-        "No modules for Forever's new raids (Barrow Deeps, Hyjal Summit) were found as of 30 Oct 2026; those raids unlock on 9 Dec 2026."
+        "No modules for Forever's new raids (Barrow Deeps, Hyjal Summit) were found on the 30 October 2026 review. Raid unlock date: 9 December 2026."
       ]
     },
     {
@@ -283,19 +283,16 @@
       "category": "Guild tools",
       "rationale": "A shared in-game view of Olympus guilds, leaders and census reports.",
       "status": "Author lists Forever file",
-      "version": "1.3.3",
-      "releasedAt": "2026-10-26",
-      "gameBuild": "Forever 1.60.1",
+      "version": "1.5.7 or later (the project page offers the current file)",
       "url": "https://www.curseforge.com/wow/addons/olympus-guild",
-      "sourceKind": "Publisher release dated 2026-10-26; earlier addon API reviewed 2026-10-21",
+      "sourceKind": "Publisher project page; addon API reviewed 2026-10-21",
       "limitations": [
         "Optional for website readers; no desktop companion is needed.",
-        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Olympus Guild 1.3.3 is published. Website snapshot reporting has separate setup and availability.",
+        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Use Olympus Guild 1.5.7 or later from its CurseForge page. Website snapshot reporting has separate setup and availability.",
         "In-game census coverage depends on reports received by the addon; it is not proof that every guild has a current website report."
       ],
-      "fileUrl": "https://www.curseforge.com/wow/addons/olympus-guild/files/9338970",
       "apiUrl": "https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md",
-      "integrationNote": "The earlier 1.3.2 API review includes permission-gated in-game features and a read-only GetCensusCheckpoint contract; that contract is not this website’s OLCS2 export. The local compatibility patch was prepared against 1.3.2; the later published 1.3.3 package has separate installed-client and website-export qualification. Publishing the addon does not enable website reporting."
+      "integrationNote": "The earlier 1.3.2 API review includes permission-gated in-game features and a read-only GetCensusCheckpoint contract; that contract is not this website’s OLCS2 export. The local compatibility patch was prepared against 1.3.2; later releases have separate installed-client and website-export qualification. Publishing the addon does not enable website reporting."
     },
     {
       "id": "forever-quest-tint",
@@ -681,24 +678,32 @@
       "id": "zygor",
       "name": "Zygor Forever",
       "category": "In-game guide scope",
-      "rationale": "Track the publisher's announced guide availability.",
-      "status": "Listed as coming soon on the review date",
-      "scope": "Publisher warns the launch 1–60 experience may be partially updated",
+      "rationale": "Track the publisher's Forever guide coverage.",
+      "status": "Publisher says Forever guides launched on 3 November 2026",
+      "scope": "Publisher calls the guides a work in progress, with levels 30–60 still being completed (checked 12 November 2026)",
       "url": "https://zygorguides.com/forever",
       "sourceKind": "Guide publisher",
       "limitations": [
-        "Check release status before purchasing; announced features may not yet be available or fully tested."
+        "Check which guides are complete before purchasing; announced features may not yet be available or fully tested."
       ]
     }
   ],
   "newsSources": [
     {
       "id": "blizzard-notes",
-      "name": "Blizzard Forever development notes",
+      "name": "Blizzard Forever posts",
+      "url": "https://us.forums.blizzard.com/en/wow/groups/blizzard-tracker/posts",
+      "sourceKind": "Blizzard official forum posts",
+      "status": "RSS verified",
+      "scope": "Blizzard staff posts in topics that name Forever, including hotfix notes; each post carries its actual date."
+    },
+    {
+      "id": "blizzard-dev-notes-archive",
+      "name": "Forever beta development notes (archive)",
       "url": "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1",
       "sourceKind": "Blizzard official thread",
-      "status": "RSS verified",
-      "scope": "Official development-note thread; individual posts carry their actual dates."
+      "status": "Direct link",
+      "scope": "The pre-launch development-note thread, kept for reference. Hotfix notes since launch are separate topics."
     },
     {
       "id": "blizzard-news",
@@ -1048,9 +1053,9 @@
             ]
           },
           {
-            "heading": "Zygor: announced coverage is not released coverage",
+            "heading": "Zygor: released coverage is still partial",
             "text": [
-              "The public Forever page still advertises the product as coming soon. The October 18 review also recorded a partial-launch-coverage qualification. Judge the actual available edition and entitlement before purchase; plans for Skyborne, zones, dungeons, professions and travel do not establish fully tested 1–60 or all-nine-dungeon walkthroughs."
+              "Zygor says its Forever guides launched on 3 November 2026 and calls them a work in progress, with levels 30–60 still being completed (checked 12 November 2026). Judge the actual available edition and entitlement before purchase; plans for Skyborne, zones, dungeons, professions and travel do not establish fully tested 1–60 or all-nine-dungeon walkthroughs."
             ],
             "links": [
               {
@@ -1063,7 +1068,7 @@
             "heading": "Install deliberately",
             "text": [
               "The preserved addon catalogue below remains a dated selection of general tools and Forever-focused projects. Bag replacements, map helpers and encounter cores can overlap. Check dependencies and client flavor; publisher support is not an in-game compatibility test by Olympus.",
-              "Olympus Guild 1.3.3 is published and includes the optional website aggregate exporter. It is the preferred unified guild package. Website snapshot reporting has separate setup and availability; publication alone does not establish that the installed addon works with this website. The retired standalone Army ZIP is not a replacement recommendation, and publishing the addon does not enable website reporting."
+              "Olympus Guild 1.5.7 or later, from its CurseForge page, includes the optional website aggregate exporter. It is the preferred unified guild package. Website snapshot reporting has separate setup and availability; publication alone does not establish that the installed addon works with this website. The retired standalone Army ZIP is not a replacement recommendation, and publishing the addon does not enable website reporting."
             ],
             "links": [
               {
@@ -1182,7 +1187,7 @@
       },
       {
         "claim": "Zygor already delivers its full announced Forever scope.",
-        "treatment": "The page still marks the Forever product coming soon. The October 18 partial-launch qualification remains historical; check actual released contents.",
+        "treatment": "Zygor says its Forever guides launched on 3 November 2026 but are still a work in progress, with levels 30–60 being completed (checked 12 November 2026). Check actual released contents.",
         "links": [
           {
             "label": "Publisher page",

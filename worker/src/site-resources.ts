@@ -42,9 +42,13 @@ export interface ResourceUpdateOptions {
 interface Source {
   id: ResourceFeedId; publisher: string; url: string; feed: string;
   itemHost: string; scope: string; foreverOnly?: true;
+  /** Keep only items whose title contains this text (the publisher's feed has no category). */
+  titleIncludes?: string;
 }
 const SOURCES: readonly Source[] = Object.freeze(([
-  { id: "blizzard-notes", publisher: "Blizzard", url: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696/1", feed: "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss", itemHost: "us.forums.blizzard.com", scope: "Official Forever development-note thread; open the original post for context and corrections." },
+  // CL2-171 (12 Nov 2026): after launch, Blizzard publishes hotfix notes as new topics, not in the beta development-notes
+  // thread. Read Blizzard's own forum-post feed (same host, same RSS checks) and keep the topics that name Forever.
+  { id: "blizzard-notes", publisher: "Blizzard", url: "https://us.forums.blizzard.com/en/wow/groups/blizzard-tracker/posts", feed: "https://us.forums.blizzard.com/en/wow/groups/blizzard-tracker/posts.rss", itemHost: "us.forums.blizzard.com", scope: "Blizzard's own forum posts in topics that name Forever, such as hotfix notes. Open the original post for context and corrections.", titleIncludes: "Forever" },
   { id: "wowhead-forever", publisher: "Wowhead", url: "https://www.wowhead.com/forever/news", feed: "https://www.wowhead.com/news/rss/all", itemHost: "www.wowhead.com", scope: "Wowhead reporting explicitly categorized Forever in its latest all-WoW feed window.", foreverOnly: true as const },
   // .184: preserve the publisher's raw RSS href; URL tooling had added an unadvertised '='.
   { id: "wowhead-blues", publisher: "Wowhead Forever Blue Tracker", url: "https://www.wowhead.com/forever/blue-tracker", feed: "https://www.wowhead.com/forever/blue-tracker?rss", itemHost: "www.wowhead.com", scope: "The publisher's Forever blue-tracker RSS. Follow the linked Blizzard original for authority; this tracker is not an independent Blizzard publication." },
@@ -146,6 +150,7 @@ function headlines(xml: string, source: Source, at: number): { items: ResourceHe
   let omittedItems = 0;
   for (const row of children(channel, "item")) {
     if (source.foreverOnly && !children(row, "category").some(category => category.text.join("").trim() === "Forever")) continue;
+    if (source.titleIncludes && !plainTitle(field(row, "title")).includes(source.titleIncludes)) continue;
     const title = plainTitle(field(row, "title")), url = itemUrl(field(row, "link"), source), date = publishedAt(field(row, "pubdate"), at);
     if (!title || !url || date === false) { omittedItems++; continue; }
     if (seen.has(url)) continue;
@@ -205,7 +210,7 @@ async function retrieve(source: Source, fetcher: typeof fetch, at: number): Prom
 export function resourcePublicCache(cache: Cache | undefined = typeof caches === "undefined" ? undefined : caches.default): ResourcePublicCache | undefined {
   if (!cache) return undefined;
   // The old all-WoW blue feed must not be projected under the new Forever scope after deployment.
-  const key = (id: ResourceFeedId) => new Request(`https://olympus.roachcouncil.com/__public-publisher-headlines169/${id === "wowhead-blues" ? "wowhead-blues-forever183" : id}`);
+  const key = (id: ResourceFeedId) => new Request(`https://olympus.roachcouncil.com/__public-publisher-headlines169/${id === "wowhead-blues" ? "wowhead-blues-forever183" : id === "blizzard-notes" ? "blizzard-tracker-forever1112" : id}`);
   return {
     async get(id) { const response = await cache.match(key(id)); if (!response) return null; try { return await response.json(); } catch { return null; } },
     async put(id, value) { await cache.put(key(id), new Response(JSON.stringify(value), { headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${RESOURCE_FEED_LIMITS.staleS}` } })); },
