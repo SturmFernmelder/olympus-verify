@@ -8127,3 +8127,31 @@ secret, schema, new dependency or live bridge is part of this follow-up.
 Qualification, exact source/tree/CI and any subsequent rollout must be recorded
 from actual receipts. Build .272 and Watcher0.6.31 are not deployed/installed
 by the prior approval, which named .271/.30 and one already-used full scan.
+
+
+## Watcher0.6.32 candidate - due scan scheduling
+
+Watcher-only follow-up to the preserved .272/.31 live scan:44 pages/880 of963
+members,83 unscanned and18 dated recommendations. At00:30:18Z its next rate
+wait would exceed the original00:30:19Z native deadline. That original stays
+stopped; no counters, proof dates, native origins or expired cursors are reset.
+
+The capture recorded39 launch GETs,139.422 seconds in remote requests and352.576
+seconds between completions and the next request, with a median8.9465-second
+gap despite the existing five-second minimum. This shows avoidable Watcher
+loop scheduling overhead; it does not identify the private poll configuration
+or promise future network behavior.
+
+The same single launch step now runs before the periodic queue-read bundle,
+after the existing native/custody/outbox/chat work. While a scan is active,
+loop sleep can wake at its next existing deadline, retaining a one-second
+minimum and every normal job. There are no new threads, skipped ordinary jobs,
+extra scan requests, automatic restarts, increased budgets or extended expiry.
+The Scan still enforces100 total GETs,50 distinct pages/50 auxiliary attempts,
+two retries per page, five seconds after each response and the original600s.
+
+Worker.272 and addon0.6.32 source remain unchanged; no backend deployment is
+needed for this Watcher update. Qualification must include actual main-loop
+scheduling regressions, the current launch tests, independent review and CI.
+New native acceptance needs its own explicitly approved fresh bounded scan
+and reloads because the previous one-scan allowance is used.
