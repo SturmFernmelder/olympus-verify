@@ -221,9 +221,24 @@ async function budget(genuine, ctx) {
     const found = plans[name + 'Sweep'].scans.map(s => s.detail).sort(), known = [...KNOWN_SWEEP_SCANS[name]].sort();
     own(name + ' Native sweep selector adds no full scan beyond its recorded ones', plans[name + 'Sweep'].explained === 1 && JSON.stringify(found) === JSON.stringify(known));
   }
+  // Sub-second plans (directive Pillar 7): each read statement the page and the display sent is run again, alone, on the
+  // genuine 1,000-member database and timed. Writes are never re-run. One second is a ceiling against a runaway plan on
+  // a shared CI host, not a latency target.
+  const timings = {};
+  for (const [name, r] of Object.entries({page, display})) {
+    let slowest = 0, timed = 0;
+    for (const {sql, values} of r.log) {
+      if (!/^\s*(?:WITH|SELECT)\b/i.test(sql) || /\b(?:INSERT\s+(?:OR\s+\w+\s+)?INTO|REPLACE\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/i.test(sql)) continue;
+      const prepared = genuine.prepare(sql), started = performance.now();
+      await (values.length ? prepared.bind(...values) : prepared).all();
+      slowest = Math.max(slowest, performance.now() - started); timed++;
+    }
+    timings[name] = {timed, slowestMilliseconds: Math.round(slowest)};
+    own(name + ' read statements each run in under one second on the 1,000-member fixture (' + timed + ' timed, slowest ' + Math.round(slowest) + ' ms)', timed > 0 && slowest < 1000);
+  }
   const brief = r => ({status: r.status, statements: r.statements, milliseconds: r.milliseconds});
   return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), display: brief(display), ingest: brief(ingest),
-    ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS}, plans};
+    ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS}, timings, plans};
 }
 
 export default {async fetch(request, bindings, ctx) {
