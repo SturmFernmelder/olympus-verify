@@ -8492,6 +8492,18 @@ private configuration, generated files and SavedVariables preserved. Native
 macro execution and actual Member outcomes require attended client evidence;
 offline test success is insufficient. No live bridge or Watcher change is made.
 
+Keep per-session attempt references through the save boundary, including completed
+steps. A bounded scalar-only logout diagnostic records storage identity without
+repairing or authorizing an attempt; `/olv launch custody` prints it on request.
+Ordinary panel openings stay quiet. Attended tests promoted Ball Destroya with the
+roster row, Hoontar Ded with the Guild column, and Beetail Juicer with filtered
+Promote next. All three native Member ranks were observed. The first two candidate
+attempt receipts were absent after saving and remain failed historical custody
+evidence; their cause is unresolved and no receipts were backfilled. On the current
+retained-session candidate, Beetail's exact confirmed one-step receipt and native
+Member rank both persisted through the actual reload. This is one persisted native
+receipt, not a claim that every member or multi-rank continuation was tested.
+
 Rollback restores the previous public addon code/package without changing private
 state or reversing confirmed native ranks. Never clear unknown attempts or run a
 fallback promotion command to make rollback or testing appear successful.

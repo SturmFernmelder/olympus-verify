@@ -3928,7 +3928,9 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
     local launch = OlympusLaunch229
     local argument = string.match(msg or "", "^%s*%S+%s+(.-)%s*$") or ""
     if not launch then Print("launch module is not loaded; restart after updating the addon.")
-    elseif cmd == "launch" or cmd == "officer" then launch.Show()
+    elseif cmd == "launch" or cmd == "officer" then
+      if argument=="custody" and type(launch.PrintPromotionCustody)=="function" then launch.PrintPromotionCustody() end
+      launch.Show()
     elseif cmd == "next" then launch.NextAction()
     elseif cmd == "promote" then launch.HardwarePromote(argument)
     elseif cmd == "buffer" then launch.RiskBuffer()

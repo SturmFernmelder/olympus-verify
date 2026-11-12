@@ -1,7 +1,7 @@
 -- .229 launch operations. Projections expire; only explicit slash/button hardware paths may act.
 -- No event/timer handler invites, promotes, removes or sets MOTD. Unknown unguilded proof stays held.
 local ADDON = ...
-local Q = { generation = 0, pending = {}, continuations = {} }
+local Q = { generation = 0, pending = {}, continuations = {}, sessionPromotions = {} }
 OlympusLaunch229 = Q
 local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
 local function Say(text) DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: " .. text) end
@@ -389,6 +389,7 @@ local function ActionFresh(current,source)
   return not held and time()<source.expiresAt and time()<source.scanExpiresAt
 end
 function Q.Print()
+  Q.PrintPromotionCustody()
   local current, why = Q.Current()
   if not current then Say(why); return false end
   Say(string.format("Launch projection: %d promotion(s), %d risk review(s), %d held; %s. No automatic actions.",
@@ -412,6 +413,60 @@ local function AttemptLedger(create)
   end
   if type(db.launchPromotionAttempts)~="table" or getmetatable(db.launchPromotionAttempts)~=nil then return nil end
   return db.launchPromotionAttempts
+end
+-- Diagnostic scalars only, never consumed by an action guard or used to recreate
+-- an attempt. The .36 native tests changed two ranks but their rows were absent
+-- after flush (12 November 2026); retain the before/after storage boundary.
+function Q.PromotionCustodyDiagnostics()
+  local db,ledger=OlympusVerifyDB,AttemptLedger()
+  local result={version=1,protocol="secure-promotion278-diag1",capturedAt=time(),ledgerAvailable=ledger~=nil,ledgerCount=0,sessionCount=0,rows={}}
+  local seen={}
+  local function add(id,record,attempt)
+    if not Text(id,40) or #result.rows>=1000 then return end
+    seen[id]=true
+    local stored=ledger and ledger[id]
+    local row={guid=id,ledgerPresent=stored~=nil,sessionPresent=attempt~=nil}
+    if type(record)=="table" then
+      row.name=Text(record.name,100)
+      row.state=(record.state=="unknown" or record.state=="confirmed") and record.state or "invalid"
+      row.completed=type(record.completed)=="boolean" and record.completed or false
+      row.stepCount=type(record.steps)=="table" and math.min(4,#record.steps) or 0
+      if Number(record.observedSlot,0,9) then row.observedSlot=record.observedSlot end
+      for _,key in ipairs({"version","startSlot","target","snapshotId","attemptedAt","observedAt","observedGeneration"}) do
+        if Number(record[key],0,2147483647) then row[key]=record[key] end
+      end
+      row.targetGuid=Text(record.targetGuid,40);row.contextId=Text(record.contextId,40)
+    else row.state=record==nil and "absent" or "invalid" end
+    if attempt then
+      row.databaseSame=db==attempt.database
+      row.ledgerSame=ledger==attempt.ledger
+      row.entrySame=stored==attempt.record
+      row.phase=(attempt.phase=="reserved" or attempt.phase=="post-click" or attempt.phase=="blocked" or attempt.phase=="rank-observed") and attempt.phase or "invalid"
+    end
+    result.rows[#result.rows+1]=row
+  end
+  for id,attempt in pairs(Q.sessionPromotions) do
+    if result.sessionCount>=1000 then result.truncated=true;break end
+    result.sessionCount=result.sessionCount+1
+    add(id,attempt.record,attempt)
+  end
+  if ledger then for id,record in pairs(ledger) do
+    if result.ledgerCount>=1000 then result.truncated=true;break end
+    result.ledgerCount=result.ledgerCount+1
+    if not seen[id] then add(id,record) end
+  end end
+  table.sort(result.rows,function(a,b) return a.guid<b.guid end)
+  return result
+end
+function Q.PrintPromotionCustody()
+  local result=Q.PromotionCustodyDiagnostics()
+  Say(string.format("Promotion custody (runtime only): %d stored row(s), %d session attempt(s); %s. Diagnostic; never promotion authority.",result.ledgerCount,result.sessionCount,result.protocol))
+  for i,row in ipairs(result.rows) do if i<=20 then
+    Say(string.format("%s %s: %s; completed=%s; steps=%d; stored=%s; session=%s; DB/ledger/entry=%s/%s/%s; phase=%s.",
+      row.guid,row.name or "(name unavailable)",row.state,tostring(row.completed),row.stepCount,tostring(row.ledgerPresent),tostring(row.sessionPresent),
+      tostring(row.databaseSame),tostring(row.ledgerSame),tostring(row.entrySame),row.phase or "prior"))
+  end end
+  return result
 end
 local function PromotionRow(current,id)
   for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
@@ -485,6 +540,7 @@ local function ReconcilePromotions()
       and native and native.slot==pending.expected and native.name==record.name then
       record.state,record.observedSlot,record.observedAt,record.observedGeneration="confirmed",native.slot,time(),Q.generation
       record.completed=native.slot==record.target
+      pending.phase="rank-observed"
       pending.step.state,pending.step.observedAt="rank-observed",time()
       Q.pending[id]=nil
       Q.continuations[id]=not record.completed and {record=record,generation=Q.generation} or nil
@@ -555,7 +611,8 @@ local function ReservePromotion(prepared)
   end
   local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown"}
   record.steps[#record.steps+1]=step;record.state="unknown";record.completed=false
-  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected}
+  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected,database=OlympusVerifyDB,ledger=ledger,phase="reserved"}
+  Q.sessionPromotions[row.guid]=attempt
   Q.continuations[row.guid]=nil
   Q.pending[row.guid], Q.activeAttempt, Q.inAction = attempt, attempt, "promote"
   return attempt
@@ -598,6 +655,7 @@ function Q.BindPromotionButton(button,resolver,afterClick)
     ClearPromotionButton(self)
     self.olympusPromotionAttempt=nil
     if attempt then
+      attempt.phase=attempt.blocked and "blocked" or attempt.record.state=="confirmed" and "rank-observed" or "post-click"
       Q.inAction,Q.activeAttempt=nil,nil
       if not attempt.blocked and Read(InCombatLockdown)==false then RequestRoster() end
       if attempt.blocked then Say("The client reported a blocked promotion action. Its original outcome remains held; no fallback or repeat was queued.")
@@ -891,6 +949,7 @@ local events = CreateFrame("Frame")
 events:RegisterEvent("GUILD_ROSTER_UPDATE")
 events:RegisterEvent("PLAYER_GUILD_UPDATE")
 events:RegisterEvent("PLAYER_LEAVING_WORLD")
+events:RegisterEvent("PLAYER_LOGOUT")
 events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 events:RegisterEvent("ADDON_ACTION_BLOCKED")
 events:SetScript("OnEvent", function(_, event, addon, functionName)
@@ -901,6 +960,9 @@ events:SetScript("OnEvent", function(_, event, addon, functionName)
     if raw and baseline and not SameIdentity(raw,baseline) then Q.scopeChanged=true
     elseif raw and not baseline then Q.identityBaseline=raw end
   elseif event == "PLAYER_LEAVING_WORLD" then Q.rosterAt = nil
+  elseif event == "PLAYER_LOGOUT" then
+    local db=OlympusVerifyDB
+    if type(db)=="table" then db.launchPromotionCustodyDiagnostic=Q.PromotionCustodyDiagnostics() end
   elseif (event=="ADDON_ACTION_FORBIDDEN" or event=="ADDON_ACTION_BLOCKED") and addon == ADDON
     and (Q.inAction=="promote" or functionName=="C_GuildInfo.Promote()" or functionName=="GuildPromote()"
       or functionName=="C_GuildInfo.Promote" or functionName=="GuildPromote") then

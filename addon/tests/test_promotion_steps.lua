@@ -186,5 +186,37 @@ do
   b:SetAttribute("macrotext1","/gpromote Old");b:SetAttribute("type1","macro");b:Hide()
   check("hiding an out-of-combat control clears stale target attributes",b:GetAttribute("type1")==nil and b:GetAttribute("macrotext1")==nil and f.promote==0)
 end
+do
+  local f=fixture();f.click(id);local original=record(f)
+  local d=f.q.PromotionCustodyDiagnostics();local row=d.rows[1]
+  check("runtime custody diagnostics compare actual DB ledger and entry references",d.ledgerCount==1 and d.sessionCount==1
+    and row.databaseSame and row.ledgerSame and row.entrySame and row.phase=="post-click" and row.state=="unknown")
+  f.emit("GUILD_ROSTER_UPDATE");d=f.q.PromotionCustodyDiagnostics();row=d.rows[1]
+  check("confirmed diagnostic reports the existing observation without manufacturing another",row.state=="confirmed" and row.completed and row.observedSlot==8
+    and row.phase=="rank-observed" and record(f)==original and f.promote==1)
+  f.emit("PLAYER_LOGOUT");local saved=f.env.OlympusVerifyDB.launchPromotionCustodyDiagnostic
+  check("logout diagnostic snapshot contains only copied scalars and no attempt reference",saved and saved.version==1 and saved.rows[1]~=row
+    and saved.rows[1].entrySame and saved.rows[1].state=="confirmed" and saved.rows[1].record==nil and saved.rows[1].ledger==nil
+    and f.promote==1 and record(f)==original)
+  local old=f.env.OlympusVerifyDB
+  old.launchPromotionAttempts={};d=f.q.PromotionCustodyDiagnostics();row=d.rows[1]
+  check("diagnostics expose replaced ledger without restoring or borrowing its missing receipt",d.ledgerCount==0 and d.sessionCount==1
+    and row.databaseSame and not row.ledgerSame and not row.entrySame and not row.ledgerPresent and original.state=="confirmed"
+    and next(old.launchPromotionAttempts)==nil and f.promote==1)
+  f.env.OlympusVerifyDB={};d=f.q.PromotionCustodyDiagnostics();row=d.rows[1]
+  check("diagnostics expose replaced DB without reattaching prior state",not row.databaseSame and not row.entrySame
+    and f.env.OlympusVerifyDB.launchPromotionAttempts==nil and f.promote==1)
+  f.emit("PLAYER_LOGOUT")
+  check("logout diagnostics never reconstruct missing attempts",f.env.OlympusVerifyDB.launchPromotionAttempts==nil
+    and f.env.OlympusVerifyDB.launchPromotionCustodyDiagnostic.rows[1].entrySame==false and old.launchPromotionAttempts~=nil)
+end
+do
+  local f=fixture();local legacy={state="unknown",target=8}
+  f.env.OlympusVerifyDB.launchPromotionAttempts={[id]=legacy}
+  f.env.NOW=f.env.NOW+1000
+  f.q.Print()
+  check("expired source still prints bounded custody diagnostics without changing old unknowns",record(f)==legacy and legacy.completed==nil
+    and f.env.PRINTS[1]:find("custody (runtime only)",1,true) and f.promote==0 and f.direct==0)
+end
 print(string.format("Promotion steps: %d passed, %d failed",passed,failed))
 if failed>0 then error("promotion steps failed") end
