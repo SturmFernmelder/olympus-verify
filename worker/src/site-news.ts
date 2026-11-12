@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".278", date: "2026-11-12", lines: [
+      "Verify 0.6.36 uses a secure native promotion button for one rank step per click, replacing the blocked direct addon call.",
+      "Current eligibility is checked before each command. A promotion is confirmed only by a newer complete guild roster; uncertain attempts stay held.",
+    ],
+  },
+  {
     build: ".277", date: "2026-11-12", lines: [
       "The public addon download now serves Verify 0.6.35, matching the current version manifest and setup page.",
     ],

@@ -124,7 +124,11 @@ local function guildUI(size)
   e.GuildControlGetRankName=function(order)return order==9 and "Member" or order==7 and "Veteran" or "Other" end
   f.promotions,f.restrictedCalls,f.nativeClicks=0,0,0
   e.C_GuildInfo.SetGuildRankOrder=function()f.restrictedCalls=f.restrictedCalls+1;error("restricted setter must never be used") end
-  e.C_GuildInfo.Promote=function(name)
+  e.C_GuildInfo.Promote=function()f.restrictedCalls=f.restrictedCalls+1;error("protected Lua promotion must never be called") end
+  e.GuildPromote=e.C_GuildInfo.Promote
+  e.SECURE_MACRO_EXECUTE=function(text)
+    local name=text:match("^/gpromote ([^\r\n]+)$")
+    assert(name,"one native promotion command required")
     f.promotions=f.promotions+1;f.promotedName=name
     for _,row in ipairs(e.ROSTER) do if row.name.."-Forever"==name then row.rankIndex=row.rankIndex-1;return end end
     error("unknown synthetic native target")
@@ -169,6 +173,14 @@ local function guildUI(size)
     local result={};for _,frame in ipairs(e.FRAMES)do for i,row in ipairs(f.nativeRows)do if frame.nativeRow==row then result[i]=frame end end end
     return result
   end
+  -- Exercise click-time guards even when a freshly painted native widget would
+  -- already be disabled. Preserve the client-owned secure middle phase.
+  f.forceClick=function(button,mouseButton,down)
+    mouseButton=mouseButton or "LeftButton"
+    local pre=button:GetScript("PreClick");if pre then pre(button,mouseButton,down==true) end
+    local click=button:GetScript("OnClick");if click then click(button,mouseButton,down==true) end
+    local post=button:GetScript("PostClick");if post then post(button,mouseButton,down==true) end
+  end
   f.host,f.list=host,list
   return f
 end
@@ -177,12 +189,17 @@ do
   check("native Guild column renders both dated Discord name fields beside status",f.column:IsShown() and b.username:GetText()=="@user1" and b.displayName:GetText()=="Display 1" and b.text:GetText():find("Verified",1,true))
   check("explicit Promote is beside status and names never overlap its action box",select(2,b.promote:GetPoint())==b and select(3,b.promote:GetPoint())=="RIGHT" and select(4,b.promote:GetPoint())==6 and select(2,b.username:GetPoint())==b.promote and select(4,b.username:GetPoint())==8 and select(2,b.displayName:GetPoint())==b.username and select(4,b.displayName:GetPoint())==8 and 8+b:GetWidth()+6+b.promote:GetWidth()+8+b.username:GetWidth()+8+b.displayName:GetWidth()<=f.column:GetWidth()-8)
   check("ordinary verified non-Knight recommendation enables only the exact eligible row",b.promote:IsVisible() and b.promote:IsEnabled() and not buttons[2].promote:IsEnabled() and not buttons[3].promote:IsEnabled())
+  check("Guild promotion preserves the secure template native click handler",b.promote._template:find("SecureActionButtonTemplate",1,true) and b.promote:GetScript("OnClick")==b.promote._secureHandler)
   check("opening and repainting native Guild UI sends no promotion",f.promotions==0 and f.restrictedCalls==0 and f.nativeClicks==0)
   local current=f.launch.Current;local reads=0
   f.launch.Current=function()reads=reads+1;return current()end;f.tick()
   check("one native column refresh reads the promotion source once for visible rows",reads==1)
   b.promote:Click()
-  check("actual Guild row Promote delegates one exact GUID through the supported one-rank dispatcher",f.promotions==1 and f.promotedName==f.e.ROSTER[1].name.."-Forever" and f.restrictedCalls==0 and f.e.ROSTER[1].rankIndex==8)
+  check("actual Guild row Promote executes one exact native secure command without protected Lua calls",f.promotions==1 and f.promotedName==f.e.ROSTER[1].name.."-Forever" and f.restrictedCalls==0 and f.e.ROSTER[1].rankIndex==8)
+  local receipt=f.e.OlympusVerifyDB.launchPromotionAttempts[f.e.ROSTER[1].guid]
+  check("native command alone remains unknown and is disarmed after the click",receipt and receipt.state=="unknown" and not receipt.completed and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+  f.rosterEvent()
+  check("a newer complete native event confirms Member without a second command",receipt.state=="confirmed" and receipt.completed and receipt.observedSlot==8 and f.promotions==1)
   f.tick();b.promote:Click()
   check("a completed or pending row cannot repeat from a recycled Guild action",f.promotions==1)
 end
@@ -201,9 +218,7 @@ for _,case in ipairs({"expired","rank","scope","unknown-attempt","missing-dispat
   elseif case=="assignment" then f.e.C_GuildInfo.IsGuildRankAssignmentAllowed=function()return false end
   elseif case=="stale-native" then f.now=f.now+16
   elseif case=="partial-native" then f.e.GetGuildRosterShowOffline=function()return false end end
-  -- Invoke the old visible callback directly to test its own click-time fences,
-  -- including cases where WoW would already have hidden/disabled the widget.
-  b.promote:GetScript("OnClick")(b.promote)
+  f.forceClick(b.promote)
   check("native Guild promotion click retains "..case.." refusal",f.promotions==0 and f.restrictedCalls==0)
 end
 do
@@ -236,19 +251,22 @@ do
   check("native guild row handlers and frame dimensions remain untouched",f.host:GetWidth()==900 and f.nativeRows[1]:GetWidth()==600 and handler~=nil)
   f.right=1600;f.tick()
   check("insufficient screen space uses the existing roster fallback without offscreen names or actions",not f.column:IsShown() and f.fallback:IsShown())
-  b.promote:GetScript("OnClick")(b.promote);check("hidden offscreen fallback cannot dispatch a stale row action",f.promotions==0)
+  f.forceClick(b.promote);check("hidden offscreen fallback cannot dispatch a stale row action",f.promotions==0)
   f.right=1100;f.tick();f.e.InCombatLockdown=function()return true end;f.event("PLAYER_REGEN_DISABLED")
-  check("combat hides all addon-owned Guild controls",not f.column:IsShown() and not f.fallback:IsShown())
+  f.forceClick(b.promote)
+  check("combat leaves protected Guild controls inert without insecure hiding or an armed command",f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0 and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
   check("native handlers still have their original identities after refresh and combat",f.nativeRows[1]:GetScript("OnMouseUp")==handler and f.nativeClicks==0)
+  f.e.InCombatLockdown=function()return false end;f.right=1600;f.event("PLAYER_REGEN_ENABLED");f.tick()
+  check("ordinary out-of-combat paint catches up to the native view",not f.column:IsShown() and f.fallback:IsShown() and f.promotions==0)
 end
 do
   local f=guildUI();local b=f.buttons()[1]
   f.host.GuildMemberDetailFrame=f.e.CreateFrame("Frame",nil,f.host);f.host.GuildMemberDetailFrame:Show();f.tick()
-  b.promote:GetScript("OnClick")(b.promote)
+  f.forceClick(b.promote)
   check("native member popup hides the column and rejects its old action callback",not f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0)
   f.host.GuildMemberDetailFrame:Hide();f.tick()
   f.e.Enum={InputDeviceInterfaceType={Gamepad=2}};f.e.C_InputInterfaceStyle={GetCurrentStyle=function()return 2 end};f.tick()
-  b.promote:GetScript("OnClick")(b.promote)
+  f.forceClick(b.promote)
   check("gamepad mode keeps the existing native Guild column fallback policy without acting",not f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0)
 end
 do

@@ -143,5 +143,31 @@ do
   f.e.NOW=f.e.NOW+3601;f.w.batchButton:Click()
   check("stale display cannot request an Initiate batch",requested==nil and f.reloads==0 and f.attempts==0)
 end
+
+do
+  local f=fixture();f.search("Alpha")
+  local b=f.w.nextButton
+  check("roster promotion inherits the client-owned secure OnClick",b._template:find("SecureActionButtonTemplate",1,true) and b:GetScript("OnClick")==b._secureHandler)
+  check("painting a ready button leaves its native command unarmed",not b:GetAttribute("type1") and not b:GetAttribute("macrotext1") and f.attempts==0)
+  f.forceClick(b,"RightButton")
+  f.forceClick(b,"LeftButton",true)
+  f.e.IsShiftKeyDown=function()return true end;f.forceClick(b);f.e.IsShiftKeyDown=function()return false end
+  check("wrong click edge, mouse button and modifiers cannot reserve or execute",f.attempts==0 and not next(f.e.OlympusVerifyDB.launchPromotionAttempts or {}) and not b:GetAttribute("type1"))
+  b:Click()
+  local receipt=f.e.OlympusVerifyDB.launchPromotionAttempts["Player-1-0000B002"]
+  check("one allowed hardware click executes exactly one native command and retains unknown custody",f.attempts==1 and #f.promotions==1 and f.directCalls==0 and receipt and receipt.state=="unknown" and #receipt.steps==1)
+  check("PostClick disarms both action type and exact command",not b:GetAttribute("type1") and not b:GetAttribute("macrotext1"))
+  b:GetScript("OnClick")(b,"LeftButton",false)
+  check("the now-unarmed secure handler cannot replay the previous target",f.attempts==1 and #receipt.steps==1)
+  f.emit("GUILD_ROSTER_UPDATE")
+  check("separate complete native readback confirms the observed Member rank",receipt.state=="confirmed" and receipt.completed and receipt.observedSlot==8 and f.e.ROSTER[3].rankIndex==8 and f.attempts==1)
+end
+
+do
+  local f=fixture();f.search("Alpha");local row=f.w.rows[1]
+  check("row promotion uses its own secure template handler",row.promote._template:find("SecureActionButtonTemplate",1,true) and row.promote:GetScript("OnClick")==row.promote._secureHandler)
+  f.e.NOW=f.page.expiresAt;f.forceClick(row.promote)
+  check("expiry between paint and a forced old row click leaves no command or reservation",f.attempts==0 and not next(f.e.OlympusVerifyDB.launchPromotionAttempts or {}) and not row.promote:GetAttribute("type1") and not row.promote:GetAttribute("macrotext1"))
+end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

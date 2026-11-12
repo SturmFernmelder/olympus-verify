@@ -1,7 +1,7 @@
 -- .229 launch operations. Projections expire; only explicit slash/button hardware paths may act.
 -- No event/timer handler invites, promotes, removes or sets MOTD. Unknown unguilded proof stays held.
 local ADDON = ...
-local Q = { generation = 0, pending = {}, continuations = {} }
+local Q = { generation = 0, pending = {}, continuations = {}, sessionPromotions = {} }
 OlympusLaunch229 = Q
 local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
 local function Say(text) DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: " .. text) end
@@ -389,6 +389,7 @@ local function ActionFresh(current,source)
   return not held and time()<source.expiresAt and time()<source.scanExpiresAt
 end
 function Q.Print()
+  Q.PrintPromotionCustody()
   local current, why = Q.Current()
   if not current then Say(why); return false end
   Say(string.format("Launch projection: %d promotion(s), %d risk review(s), %d held; %s. No automatic actions.",
@@ -412,6 +413,60 @@ local function AttemptLedger(create)
   end
   if type(db.launchPromotionAttempts)~="table" or getmetatable(db.launchPromotionAttempts)~=nil then return nil end
   return db.launchPromotionAttempts
+end
+-- Diagnostic scalars only, never consumed by an action guard or used to recreate
+-- an attempt. The .36 native tests changed two ranks but their rows were absent
+-- after flush (12 November 2026); retain the before/after storage boundary.
+function Q.PromotionCustodyDiagnostics()
+  local db,ledger=OlympusVerifyDB,AttemptLedger()
+  local result={version=1,protocol="secure-promotion278-diag1",capturedAt=time(),ledgerAvailable=ledger~=nil,ledgerCount=0,sessionCount=0,rows={}}
+  local seen={}
+  local function add(id,record,attempt)
+    if not Text(id,40) or #result.rows>=1000 then return end
+    seen[id]=true
+    local stored=ledger and ledger[id]
+    local row={guid=id,ledgerPresent=stored~=nil,sessionPresent=attempt~=nil}
+    if type(record)=="table" then
+      row.name=Text(record.name,100)
+      row.state=(record.state=="unknown" or record.state=="confirmed") and record.state or "invalid"
+      row.completed=type(record.completed)=="boolean" and record.completed or false
+      row.stepCount=type(record.steps)=="table" and math.min(4,#record.steps) or 0
+      if Number(record.observedSlot,0,9) then row.observedSlot=record.observedSlot end
+      for _,key in ipairs({"version","startSlot","target","snapshotId","attemptedAt","observedAt","observedGeneration"}) do
+        if Number(record[key],0,2147483647) then row[key]=record[key] end
+      end
+      row.targetGuid=Text(record.targetGuid,40);row.contextId=Text(record.contextId,40)
+    else row.state=record==nil and "absent" or "invalid" end
+    if attempt then
+      row.databaseSame=db==attempt.database
+      row.ledgerSame=ledger==attempt.ledger
+      row.entrySame=stored==attempt.record
+      row.phase=(attempt.phase=="reserved" or attempt.phase=="post-click" or attempt.phase=="blocked" or attempt.phase=="rank-observed") and attempt.phase or "invalid"
+    end
+    result.rows[#result.rows+1]=row
+  end
+  for id,attempt in pairs(Q.sessionPromotions) do
+    if result.sessionCount>=1000 then result.truncated=true;break end
+    result.sessionCount=result.sessionCount+1
+    add(id,attempt.record,attempt)
+  end
+  if ledger then for id,record in pairs(ledger) do
+    if result.ledgerCount>=1000 then result.truncated=true;break end
+    result.ledgerCount=result.ledgerCount+1
+    if not seen[id] then add(id,record) end
+  end end
+  table.sort(result.rows,function(a,b) return a.guid<b.guid end)
+  return result
+end
+function Q.PrintPromotionCustody()
+  local result=Q.PromotionCustodyDiagnostics()
+  Say(string.format("Promotion custody (runtime only): %d stored row(s), %d session attempt(s); %s. Diagnostic; never promotion authority.",result.ledgerCount,result.sessionCount,result.protocol))
+  for i,row in ipairs(result.rows) do if i<=20 then
+    Say(string.format("%s %s: %s; completed=%s; steps=%d; stored=%s; session=%s; DB/ledger/entry=%s/%s/%s; phase=%s.",
+      row.guid,row.name or "(name unavailable)",row.state,tostring(row.completed),row.stepCount,tostring(row.ledgerPresent),tostring(row.sessionPresent),
+      tostring(row.databaseSame),tostring(row.ledgerSame),tostring(row.entrySame),row.phase or "prior"))
+  end end
+  return result
 end
 local function PromotionRow(current,id)
   for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
@@ -485,13 +540,26 @@ local function ReconcilePromotions()
       and native and native.slot==pending.expected and native.name==record.name then
       record.state,record.observedSlot,record.observedAt,record.observedGeneration="confirmed",native.slot,time(),Q.generation
       record.completed=native.slot==record.target
+      pending.phase="rank-observed"
       pending.step.state,pending.step.observedAt="rank-observed",time()
       Q.pending[id]=nil
       Q.continuations[id]=not record.completed and {record=record,generation=Q.generation} or nil
     end
   end
 end
-function Q.HardwarePromote(target)
+local function PromotionCommand()
+  for _,prefix in ipairs({"SLASH_GUILD_PROMOTE","SLASH_GUILDPROMOTE"}) do
+    for i=1,8 do
+      local value=_G[prefix..i]
+      if value=="/gpromote" or value=="/guildpromote" then return value end
+    end
+  end
+  -- Forever may keep secure command registration private; both independently
+  -- inspected Forever addon packages use this native literal command. Its
+  -- effect still needs an attended newer complete-roster confirmation.
+  return "/gpromote"
+end
+local function PreparePromotion(target)
   local current, roster = ActionContext()
   if not current then Say(roster); return false end
   local row
@@ -501,6 +569,11 @@ function Q.HardwarePromote(target)
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
     or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end
   local native = roster[row.guid]
+  local command=PromotionCommand()
+  if not command then Say("This client has not exposed a supported guild-promotion command; no action taken.");return false end
+  if native and (native.name:find("/",1,true) or native.name:find("\\",1,true)) then
+    Say("The native target name is not safe for one literal promotion command; no action taken.");return false
+  end
   local ledger=AttemptLedger(true)
   if not ledger then Say("Prior native attempt custody is unavailable; no action taken.");return false end
   if not native or H.normalizeCharacter(native.name) ~= H.normalizeCharacter(row.name) or native.guid == current.identity.guid
@@ -513,15 +586,17 @@ function Q.HardwarePromote(target)
   if Read(GuildControlGetRankName, row.targetSlot + 1) ~= row.targetName then
     Say("The client cannot confirm the named target rank. Use the normal guild roster UI; no promotion sent."); return false end
   local cg = type(C_GuildInfo) == "table" and C_GuildInfo or {}
-  -- SetGuildRankOrder is restricted to Blizzard UI on this client. The name-only
-  -- promotion API advances exactly one rank; a later step needs another click.
+  -- Direct promotion API calls were forbidden in the attended .35 client checks
+  -- (12 November 2026). Only the inherited secure button executes the command.
   if type(cg.IsGuildRankAssignmentAllowed)=="function" and Read(cg.IsGuildRankAssignmentAllowed,native.guid,row.targetSlot+1)~=true then
     Say("The client does not allow this named target rank; no promotion sent.");return false
   end
-  local fn = type(cg.Promote)=="function" and cg.Promote or GuildPromote
-  if type(fn) ~= "function" then Say("No native promotion API is available; use the normal guild UI."); return false end
   local count=0;for _ in pairs(ledger) do count=count+1 end
   if ledger[row.guid]==nil and count>=1000 then Say("Native attempt custody is full; no action taken.");return false end
+  return {current=current,row=row,fresh=fresh,native=native,ledger=ledger,status=status,command=command}
+end
+local function ReservePromotion(prepared)
+  local current,row,fresh,native,ledger,status=prepared.current,prepared.row,prepared.fresh,prepared.native,prepared.ledger,prepared.status
   local record=ledger[row.guid]
   if status~="continue" then
     local previous,depth=record,0
@@ -536,17 +611,87 @@ function Q.HardwarePromote(target)
   end
   local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown"}
   record.steps[#record.steps+1]=step;record.state="unknown";record.completed=false
-  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected}
+  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected,database=OlympusVerifyDB,ledger=ledger,phase="reserved"}
+  Q.sessionPromotions[row.guid]=attempt
   Q.continuations[row.guid]=nil
   Q.pending[row.guid], Q.activeAttempt, Q.inAction = attempt, attempt, "promote"
-  local ok=pcall(fn,native.name)
-  Q.inAction, Q.activeAttempt = nil, nil
-  if attempt.blocked then
-    Say("The client reported a blocked promotion action. Its original outcome remains held; no fallback or repeat was queued.")
-    return false
+  return attempt
+end
+local function ClearPromotionButton(button)
+  if Read(InCombatLockdown)~=false then return false end
+  button:SetAttribute("type",nil);button:SetAttribute("type1",nil)
+  button:SetAttribute("macrotext",nil);button:SetAttribute("macrotext1",nil)
+  button:SetAttribute("macro",nil);button:SetAttribute("macro1",nil)
+  return true
+end
+-- Public binding for addon-owned SecureActionButtonTemplate controls. Preserve
+-- the inherited secure OnClick; invoking a Blizzard handler from addon Lua is not
+-- a substitute for a player hardware click. No timer or event arms a command.
+function Q.BindPromotionButton(button,resolver,afterClick)
+  if type(button)~="table" or type(button.SetAttribute)~="function" or type(resolver)~="function"
+    or Read(InCombatLockdown)~=false then return false end
+  ClearPromotionButton(button)
+  button:RegisterForClicks("AnyUp")
+  button:SetAttribute("useOnKeyDown",false)
+  button:SetScript("PreClick",function(self,mouseButton,down)
+    if not ClearPromotionButton(self) then return end
+    self.olympusPromotionAttempt=nil
+    if mouseButton~="LeftButton" or down==true or Read(IsShiftKeyDown)~=false
+      or Read(IsControlKeyDown)~=false or Read(IsAltKeyDown)~=false then return end
+    local ok,target=pcall(resolver,self)
+    if not ok or type(target)~="string" or not self:IsVisible() then return end
+    local prepared=PreparePromotion(target)
+    if not prepared then return end
+    local attempt=ReservePromotion(prepared)
+    if not attempt then return end
+    self.olympusPromotionAttempt=attempt
+    -- One literal native name from the just-read complete roster. Text() already
+    -- refuses control/newline characters, so it cannot add another macro line.
+    self:SetAttribute("macrotext1",prepared.command.." "..prepared.native.name)
+    self:SetAttribute("type1","macro")
+  end)
+  button:SetScript("PostClick",function(self,mouseButton,down)
+    local attempt=self.olympusPromotionAttempt
+    ClearPromotionButton(self)
+    self.olympusPromotionAttempt=nil
+    if attempt then
+      attempt.phase=attempt.blocked and "blocked" or attempt.record.state=="confirmed" and "rank-observed" or "post-click"
+      Q.inAction,Q.activeAttempt=nil,nil
+      if not attempt.blocked and Read(InCombatLockdown)==false then RequestRoster() end
+      if attempt.blocked then Say("The client reported a blocked promotion action. Its original outcome remains held; no fallback or repeat was queued.")
+      else Say("One player promotion command requested. Wait for a fresh roster; another rank needs a separate click.") end
+    end
+    if type(afterClick)=="function" and mouseButton=="LeftButton" and down~=true
+      and Read(InCombatLockdown)==false and Read(IsShiftKeyDown)==false
+      and Read(IsControlKeyDown)==false and Read(IsAltKeyDown)==false then afterClick(self,attempt,mouseButton,down) end
+  end)
+  button:HookScript("OnHide",function(self) ClearPromotionButton(self) end)
+  return true
+end
+function Q.HardwarePromote(target)
+  local prepared=PreparePromotion(target)
+  if not prepared then return false end
+  if not Q.promotionConfirm then
+    local frame=CreateFrame("Frame","OlympusPromotionConfirm",UIParent,"BasicFrameTemplateWithInset")
+    frame:SetSize(420,140);frame:SetPoint("CENTER")
+    local title=frame:CreateFontString(nil,"OVERLAY","GameFontNormalLarge")
+    title:SetPoint("TOP",0,-12);title:SetText("Confirm one guild promotion")
+    local info=frame:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+    info:SetPoint("TOPLEFT",18,-40);info:SetWidth(384);info:SetJustifyH("LEFT")
+    local promote=CreateFrame("Button",nil,frame,"SecureActionButtonTemplate,UIPanelButtonTemplate")
+    promote:SetSize(230,28);promote:SetPoint("BOTTOMLEFT",18,16);promote:SetText("Promote one rank")
+    Q.BindPromotionButton(promote,function() return Q.confirmGuid end,function() frame:Hide() end)
+    local cancel=CreateFrame("Button",nil,frame,"UIPanelButtonTemplate")
+    cancel:SetSize(125,28);cancel:SetPoint("LEFT",promote,"RIGHT",12,0);cancel:SetText("Cancel")
+    local function close() if Read(InCombatLockdown)==false then frame:Hide() end end
+    cancel:SetScript("OnClick",close)
+    if type(frame.CloseButton)=="table" and type(frame.CloseButton.SetScript)=="function" then frame.CloseButton:SetScript("OnClick",close) end
+    Q.promotionConfirm,Q.promotionConfirmInfo,Q.promotionConfirmButton=frame,info,promote
   end
-  if not ok then attempt.failed = true; Say("Native promotion outcome is unknown; no retry was queued."); return false end
-  Say("One native promotion requested. Wait for a fresh roster; another rank needs a separate click.")
+  Q.confirmGuid=prepared.row.guid
+  Q.promotionConfirmInfo:SetText(prepared.native.name.."\n"..tostring(prepared.native.slot).." > "..tostring(prepared.native.slot-1).." (target "..prepared.row.targetName..")")
+  Q.promotionConfirm:Show()
+  Say("Click the visible confirmation button for one player promotion command. No rank action has been sent yet.")
   return true
 end
 function Q.RiskBuffer()
@@ -704,14 +849,15 @@ function Q.NextAction()
       and row.targetSlot>current.identity.rank and Read(CanGuildPromote)==true
       and Read(GuildControlGetRankName,row.targetSlot+1)==row.targetName
       and (type(cg.IsGuildRankAssignmentAllowed)~="function" or Read(cg.IsGuildRankAssignmentAllowed,native.guid,row.targetSlot+1)==true)
-      and (type(cg.Promote)=="function" or type(GuildPromote)=="function") then
-      return Q.HardwarePromote(row.guid) -- exactly one attempted target per hardware action
+      then
+      return Q.HardwarePromote(row.guid) -- display a secure confirmation; never execute addon Lua promotion
     end
   end
   Say("No fresh officer action is ready. Recheck the selected source page and sync; no action taken.")
   return false
 end
 function Q.Show()
+  if Read(InCombatLockdown)~=false then return false end
   if not Q.window then
     local frame=CreateFrame("Frame","OlympusLaunch229Window",UIParent,"BasicFrameTemplateWithInset")
     frame:SetSize(560,550);frame:SetPoint("CENTER");frame:SetMovable(true);frame:EnableMouse(true)
@@ -737,15 +883,23 @@ function Q.Show()
     button("Sync & reload",282,-134,125,function() if OlympusVerify_Sync then OlympusVerify_Sync() elseif OlympusVerifyAPI then OlympusVerifyAPI.Sync() end end)
     button("Close",414,-134,125,function() frame:Hide() end)
     for i=1,8 do local index=i
-      Q.rowButtons[i]=button("",18,-171-(i-1)*28,400,function()
+      local rowButton=CreateFrame("Button",nil,frame,"SecureActionButtonTemplate,UIPanelButtonTemplate")
+      rowButton:SetSize(400,24);rowButton:SetPoint("TOPLEFT",18,-171-(i-1)*28)
+      Q.rowButtons[i]=rowButton
+      Q.BindPromotionButton(rowButton,function()
+        local row=(Q.shownRows or {})[(Q.listPage-1)*8+index]
+        return Q.tab~="buffer" and Q.tab~="invites" and row and row.guid or nil
+      end,function(_,attempt,mouseButton,down)
         local row=(Q.shownRows or {})[(Q.listPage-1)*8+index]
         if row then
-          if Q.tab=="buffer" then
+          local plainClick=mouseButton=="LeftButton" and down~=true and Read(InCombatLockdown)==false
+            and Read(IsShiftKeyDown)==false and Read(IsControlKeyDown)==false and Read(IsAltKeyDown)==false
+          if plainClick and Q.tab=="buffer" then
             local current=Q.Current();local source=current and current.freshness[row.guid]
             if source and not current.actionHeld and time()<source.expiresAt and time()<source.scanExpiresAt then Say("Review "..row.name.." in the normal guild roster. This buffer never calls a removal API.")
             else Say("Unverified status is stale or held. Recheck this source page before native review; no removal sent.") end
-          elseif Q.tab=="invites" then if OlympusOfficerInvites233 then OlympusOfficerInvites233.HardwareInvite(row) end
-          else Q.HardwarePromote(row.guid) end
+          elseif plainClick and Q.tab=="invites" then if OlympusOfficerInvites233 then OlympusOfficerInvites233.HardwareInvite(row) end
+          end
           Q.Show()
         end
       end)
@@ -795,6 +949,7 @@ local events = CreateFrame("Frame")
 events:RegisterEvent("GUILD_ROSTER_UPDATE")
 events:RegisterEvent("PLAYER_GUILD_UPDATE")
 events:RegisterEvent("PLAYER_LEAVING_WORLD")
+events:RegisterEvent("PLAYER_LOGOUT")
 events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 events:RegisterEvent("ADDON_ACTION_BLOCKED")
 events:SetScript("OnEvent", function(_, event, addon, functionName)
@@ -805,6 +960,9 @@ events:SetScript("OnEvent", function(_, event, addon, functionName)
     if raw and baseline and not SameIdentity(raw,baseline) then Q.scopeChanged=true
     elseif raw and not baseline then Q.identityBaseline=raw end
   elseif event == "PLAYER_LEAVING_WORLD" then Q.rosterAt = nil
+  elseif event == "PLAYER_LOGOUT" then
+    local db=OlympusVerifyDB
+    if type(db)=="table" then db.launchPromotionCustodyDiagnostic=Q.PromotionCustodyDiagnostics() end
   elseif (event=="ADDON_ACTION_FORBIDDEN" or event=="ADDON_ACTION_BLOCKED") and addon == ADDON
     and (Q.inAction=="promote" or functionName=="C_GuildInfo.Promote()" or functionName=="GuildPromote()"
       or functionName=="C_GuildInfo.Promote" or functionName=="GuildPromote") then

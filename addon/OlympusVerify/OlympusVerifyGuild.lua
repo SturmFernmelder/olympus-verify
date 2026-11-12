@@ -356,7 +356,8 @@ local function LayerColumn(h)
   local level = f.GetFrameLevel and f:GetFrameLevel()
   if type(level) == "number" then h.column:SetFrameLevel(level) end
 end
-local function HideAll() for _, h in ipairs(hosts) do if h.column then h.column:Hide() end; if h.fallback then h.fallback:Hide() end end end
+-- Secure promotion children cannot be relaid out or hidden by insecure paint in combat.
+local function HideAll() if Combat() then return end;for _, h in ipairs(hosts) do if h.column then h.column:Hide() end; if h.fallback then h.fallback:Hide() end end end
 local function RowCurrent(button)
   local row,list,host=button.nativeRow,button.memberList,button.nativeHost
   if not button:IsShown() or button.IsVisible and not button:IsVisible() or not Text(button.rowGuid,40)
@@ -401,10 +402,11 @@ local function NewButton(parent)
     local called, ok, why = pcall(G.OpenWhisper, self.result.name, self.result.guid)
     if not called then Say("The current native whisper editor could not be opened.") elseif not ok then Say(why) end
   end)
-  b.promote=CreateFrame("Button",nil,b,"UIPanelButtonTemplate")
+  b.promote=CreateFrame("Button",nil,b,"UIPanelButtonTemplate,SecureActionButtonTemplate")
   b.promote:SetSize(PROMOTE_WIDTH,20);b.promote:SetPoint("LEFT",b,"RIGHT",6,0);b.promote:SetText("Promote");b.promote:SetEnabled(false);b.promote:Show()
   b.promote:SetScript("OnEnter",PromotionTooltip);b.promote:SetScript("OnLeave",function()if GameTooltip then GameTooltip:Hide() end end)
-  b.promote:SetScript("OnClick",function(self)
+  local launch=OlympusLaunch229
+  if type(launch)=="table" and type(launch.BindPromotionButton)=="function" then launch.BindPromotionButton(b.promote,function(self)
     if Combat() or Gamepad() or Preview() or not RowCurrent(b) then Say("The current native guild row is unavailable; no promotion was requested.");return end
     nativeAt,sourceIndex=nil,nil -- Click-time identity/rank lookup, never a recycled paint result.
     local result=G.Verification(b.rowName,b.rowGuid)
@@ -413,14 +415,9 @@ local function NewButton(parent)
       local detail=details.byGuid and details.byGuid[b.rowGuid]
       Say(detail and detail.reason or "The current source does not admit this native GUID; no promotion was requested.");return
     end
-    local launch=OlympusLaunch229
-    if type(launch)~="table" or type(launch.HardwarePromote)~="function" then return end
-    -- The shared hardware path owns the supported native API and spent/unknown ledger.
-    -- Never call a protected native setter or a Blizzard handler from this column.
-    self:SetEnabled(false)
-    local ok=pcall(launch.HardwarePromote,b.rowGuid)
-    if not ok then Say("The guarded promotion path is unavailable. Review prior attempt custody before any later click.") end
-  end)
+    -- The shared PreClick reserves the unknown attempt before the secure native command.
+    return b.rowGuid
+  end,function(self) self:SetEnabled(false) end) end
   b.username=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
   b.username:SetWidth(NAME_WIDTH);b.username:SetPoint("LEFT",b.promote,"RIGHT",8,0);b.username:SetJustifyH("LEFT");b.username:SetWordWrap(false)
   b.displayName=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
@@ -455,10 +452,10 @@ local function Discover()
       h.fallback = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
       h.fallback:SetSize(116, 22); h.fallback:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -28); h.fallback:SetText("Verify members")
       h.fallback:SetScript("OnClick", function() if not Combat() and not Preview() and OlympusVerifyRoster then OlympusVerifyRoster.Show() end end)
-      if f.HookScript then f:HookScript("OnHide", function() h.column:Hide(); h.fallback:Hide() end) end
+      if f.HookScript then f:HookScript("OnHide", function() if not Combat() then h.column:Hide(); h.fallback:Hide() end end) end
       local detail = f.GuildMemberDetailFrame
       if detail and detail.HookScript then
-        detail:HookScript("OnShow", function() h.column:Hide(); h.fallback:Hide() end)
+        detail:HookScript("OnShow", function() if not Combat() then h.column:Hide(); h.fallback:Hide() end end)
       end
       h.column:Hide(); h.fallback:Hide()
     end

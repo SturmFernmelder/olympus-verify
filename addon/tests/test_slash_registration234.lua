@@ -62,6 +62,19 @@ for _,mode in ipairs({"nil","false"}) do
 end
 local f=fixture("ready",true);local e=f.e
 check("Blizzard-cached initial dispatcher remains exact after every public wrapper",f.cached==e.SlashCmdList.OLYMPUSVERIFY)
+do
+  local diagnostics=0
+  e.OlympusLaunch229.PrintPromotionCustody=function() diagnostics=diagnostics+1 end
+  f.cached("launch custody")
+  check("explicit public launch custody command prints once and opens the panel without an effect",diagnostics==1 and f.officer==1 and f.effects==0)
+  f.cached("officer custody")
+  check("actual public officer alias reaches the same read-only custody diagnostic",diagnostics==2 and f.officer==2 and f.effects==0)
+  f.cached("launch")
+  check("ordinary launch command stays quiet",diagnostics==2 and f.officer==3 and f.effects==0)
+  e.OlympusLaunch229.Show()
+  check("internal panel refresh does not print another manual custody diagnostic",diagnostics==2 and f.officer==4 and f.effects==0)
+  f.officer=0
+end
 f.cached("officer");f.cached("browser proof");f.cached("census preview");f.cached("olympus status")
 check("cached dispatcher reaches original and all current public extensions once",f.officer==1 and f.browser==1 and f.census==1 and f.guild==1 and f.effects==0)
 local foreign=function(msg) return f.cached(msg) end;e.SlashCmdList.OLYMPUSVERIFY=foreign;f.fire("ADDON_LOADED")
