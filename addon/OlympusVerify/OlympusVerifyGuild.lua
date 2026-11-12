@@ -341,6 +341,8 @@ local function Tooltip(button, r)
   if r.snapshotAt then GameTooltip:AddLine("Server roster observed " .. date("%d %b %H:%M", r.snapshotAt), 0.7, 0.7, 0.7) end
   if r.discordUsername then GameTooltip:AddLine("Discord username: "..r.discordUsername,0.8,0.85,1,true) end
   if r.discordDisplayName then GameTooltip:AddLine("Discord display name: "..r.discordDisplayName,0.8,0.85,1,true) end
+  local promotion=button.promote and button.promote.detail
+  if promotion then GameTooltip:AddLine("Promotion: "..promotion.reason,0.8,0.8,0.7,true) end
   if r.status == "unverified" then GameTooltip:AddLine("Online: click to open an editable whisper. Nothing is sent until you press Enter.", 0.9, 0.8, 0.5, true) end
   GameTooltip:Show()
 end
@@ -370,7 +372,8 @@ local function RowCurrent(button)
   return ok and type(member)=="table" and Text(member.name)==button.rowName and Text(member.guid,40)==button.rowGuid
 end
 local function PromotionInput(name,guid,result)
-  local member=Live(Text(name),Text(guid,40))
+  local id=Text(guid,40)
+  local member=id and Live(Text(name),id) -- A name-only native row cannot bind an action or a selected read.
   return {guid=member and member.guid,rankIndex=member and member.rankIndex,status=result.status,
     verification=result,historicalLinked=result.historicalLinked}
 end
@@ -381,12 +384,43 @@ local function PromotionState(rows)
   if not ok or type(ready)~="table" or type(details)~="table" then return {},{byGuid={}} end
   return ready,details
 end
+-- This only withholds a new read from a row with unresolved native history. It
+-- cannot clear history or make a promotion eligible; the launch dispatcher owns
+-- all action admission and the selected read remains a separate reload workflow.
+local function CheckCustodyClear(launch,id)
+  if type(launch)~="table" or type(launch.AttemptHeld)~="function" then return false end
+  local ok,held=pcall(launch.AttemptHeld,id)
+  return ok and held==false -- Shared journal/save-conflict admission, never a second authority policy.
+end
+local function PromotionControl(input,result,ready,detail,bound)
+  local launch=OlympusLaunch229
+  if ready and bound then return "Promote",true,"promote" end
+  if input.rankIndex==8 then return "Member",false,nil end -- Native rank and attempt history are separate facts.
+  if not bound then return "Unavailable",false,nil end
+  if detail and (detail.state=="pending" or detail.state=="held")
+    or input.guid and not CheckCustodyClear(launch,input.guid) then return "Held",false,nil end
+  if result.status=="verified" and not result.historicalLinked and input.rankIndex==9
+    and Text(input.guid,40) and type(launch.Select)=="function"
+    and (not detail or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
+    return "Check",true,"check"
+  end
+  return "—",false,nil
+end
 local function PromotionTooltip(button)
   if not GameTooltip then return end
-  GameTooltip:SetOwner(button,"ANCHOR_RIGHT");GameTooltip:SetText("Promote this native GUID")
+  GameTooltip:SetOwner(button,"ANCHOR_RIGHT")
+  GameTooltip:SetText(button.mode=="check" and "Check this native GUID" or "Guild promotion status")
   local detail=button.detail
   GameTooltip:AddLine(detail and detail.reason or "No current supported recommendation is available.",0.9,0.86,0.75,true)
-  GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
+  if button.mode=="check" then
+    GameTooltip:AddLine("Check requests this character's current eligibility and reloads to export the native roster. Wait for the Watcher, then Sync and reload again to load its dated result. Check never promotes; a later Promote click is separate.",0.8,0.8,0.7,true)
+  elseif button.mode=="promote" then
+    GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
+  else
+    GameTooltip:AddLine(button:GetText()=="Member" and "The current native rank is Member. This rank observation does not confirm an earlier attempt. Any history or source issue above remains recorded; no repeat is enabled."
+      or button:GetText()=="Held" and "An unresolved attempt or source hold prevents promotion. This view cannot clear it or retry it. Ask staff to review the existing native history."
+      or "No promotion is enabled. Complete normal verification first, or inspect the current native rank and source reason.",0.8,0.8,0.7,true)
+  end
   GameTooltip:Show()
 end
 local function NewButton(parent)
@@ -404,20 +438,38 @@ local function NewButton(parent)
   end)
   b.promote=CreateFrame("Button",nil,b,"UIPanelButtonTemplate,SecureActionButtonTemplate")
   b.promote:SetSize(PROMOTE_WIDTH,20);b.promote:SetPoint("LEFT",b,"RIGHT",6,0);b.promote:SetText("Promote");b.promote:SetEnabled(false);b.promote:Show()
+  if b.promote.SetMotionScriptsWhileDisabled then b.promote:SetMotionScriptsWhileDisabled(true) end
   b.promote:SetScript("OnEnter",PromotionTooltip);b.promote:SetScript("OnLeave",function()if GameTooltip then GameTooltip:Hide() end end)
   local launch=OlympusLaunch229
-  if type(launch)=="table" and type(launch.BindPromotionButton)=="function" then launch.BindPromotionButton(b.promote,function(self)
+  if type(launch)=="table" and type(launch.BindPromotionButton)=="function" then b.promote.bound=launch.BindPromotionButton(b.promote,function(self)
+    self.guildRecheck=nil
     if Combat() or Gamepad() or Preview() or not RowCurrent(b) then Say("The current native guild row is unavailable; no promotion was requested.");return end
     nativeAt,sourceIndex=nil,nil -- Click-time identity/rank lookup, never a recycled paint result.
     local result=G.Verification(b.rowName,b.rowGuid)
-    local ready,details=PromotionState({PromotionInput(b.rowName,b.rowGuid,result)})
-    if not ready[b.rowGuid] then
+    local input=PromotionInput(b.rowName,b.rowGuid,result)
+    local ready,details=PromotionState({input})
+    local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+    if mode=="check" then self.guildRecheck={guid=b.rowGuid,name=b.rowName};return end
+    if mode~="promote" then
       local detail=details.byGuid and details.byGuid[b.rowGuid]
       Say(detail and detail.reason or "The current source does not admit this native GUID; no promotion was requested.");return
     end
     -- The shared PreClick reserves the unknown attempt before the secure native command.
     return b.rowGuid
-  end,function(self) self:SetEnabled(false) end) end
+  end,function(self,attempt,mouseButton,down)
+    local check=self.guildRecheck;self.guildRecheck=nil
+    if Combat() then return end -- Secure children must not be changed while locked.
+    self:SetEnabled(false)
+    if not attempt and check and mouseButton=="LeftButton" and down~=true and not Gamepad() and not Preview()
+      and IsShiftKeyDown and not IsShiftKeyDown() and IsControlKeyDown and not IsControlKeyDown()
+      and IsAltKeyDown and not IsAltKeyDown() and RowCurrent(b) and b.rowGuid==check.guid and b.rowName==check.name then
+      local result=G.Verification(b.rowName,b.rowGuid)
+      local input=PromotionInput(b.rowName,b.rowGuid,result)
+      local ready,details=PromotionState({input})
+      local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+      if mode=="check" then launch.Select(check.guid) end
+    end
+  end) end
   b.username=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
   b.username:SetWidth(NAME_WIDTH);b.username:SetPoint("LEFT",b.promote,"RIGHT",8,0);b.username:SetJustifyH("LEFT");b.username:SetWordWrap(false)
   b.displayName=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
@@ -507,11 +559,15 @@ local function Paint()
           painted[#painted+1]=b;inputs[#inputs+1]=PromotionInput(m.name,m.guid,r)
         end)
         local ready,details=PromotionState(inputs)
-        for _,b in ipairs(painted) do b.promote.detail=details.byGuid and details.byGuid[b.rowGuid];b.promote:SetEnabled(ready[b.rowGuid]==true) end
+        for i,b in ipairs(painted) do
+          b.promote.detail=details.byGuid and details.byGuid[b.rowGuid]
+          local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound)
+          b.promote.mode=mode;b.promote:SetText(text);b.promote:SetEnabled(enabled)
+        end
       else h.column:Hide(); h.fallback:Show() end
     else h.column:Hide(); h.fallback:Hide() end
     for i = used + 1, #h.rows do
-      local b=h.rows[i];b.result=nil;b.rowName=nil;b.rowGuid=nil;b.username:SetText("");b.displayName:SetText("");b.promote.detail=nil;b.promote:SetEnabled(false);b:Hide()
+      local b=h.rows[i];b.result=nil;b.rowName=nil;b.rowGuid=nil;b.username:SetText("");b.displayName:SetText("");b.promote.detail=nil;b.promote.mode=nil;b.promote:SetEnabled(false);b:Hide()
     end
   end
 end

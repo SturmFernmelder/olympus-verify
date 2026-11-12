@@ -73,6 +73,20 @@ do
   check("ordinary launch command stays quiet",diagnostics==2 and f.officer==3 and f.effects==0)
   e.OlympusLaunch229.Show()
   check("internal panel refresh does not print another manual custody diagnostic",diagnostics==2 and f.officer==4 and f.effects==0)
+  local observed={}
+  e.OlympusLaunch229.RecordCurrentPromotionObservation=function(guid) observed[#observed+1]=guid end
+  f.cached("launch history Player-6921-01F8C2D4")
+  check("public history route passes the exact GUID without opening a promotion panel",#observed==1 and observed[1]=="Player-6921-01F8C2D4" and f.officer==4 and f.effects==0)
+  f.cached("officer history Player-6921-004FE909")
+  check("officer history alias records one observation and never invokes a protected action",#observed==2 and observed[2]=="Player-6921-004FE909" and f.officer==4 and f.effects==0)
+  f.cached("launch history")
+  check("missing history GUID cannot record an observation",#observed==2 and f.officer==5 and f.effects==0)
+  local held={}
+  e.OlympusLaunch229.HoldPromotionHistoryReview=function(guid) held[#held+1]=guid end
+  f.cached("launch hold Player-6929-00285AB5")
+  check("explicit missing-history hold route passes one exact GUID without a native action",#held==1 and held[1]=="Player-6929-00285AB5" and f.officer==5 and f.effects==0)
+  f.cached("officer hold")
+  check("missing hold GUID cannot create a history hold",#held==1 and f.officer==6 and f.effects==0)
   f.officer=0
 end
 f.cached("officer");f.cached("browser proof");f.cached("census preview");f.cached("olympus status")

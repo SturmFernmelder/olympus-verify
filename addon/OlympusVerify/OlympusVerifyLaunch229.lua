@@ -403,23 +403,53 @@ end
 -- Called only by the explicit slash/button hardware path. Events merely invalidate/confirm state.
 -- Unknown calls survive reload. Only a newer complete native roster can settle
 -- a step created in this session; observing a rank does not prove who changed it.
+local storageOwner
+local function StorageConflict(db)
+  Q.storageConflict=true
+  if type(db)=="table" and getmetatable(db)==nil then db.launchPromotionCustodyConflict=true end
+end
 local function AttemptLedger(create)
   local db=OlympusVerifyDB
-  if db==nil and not create then return {} end
-  if type(db)~="table" then return nil end
+  if db==nil and not create then
+    if storageOwner then StorageConflict(db);return nil end
+    return {}
+  end
+  if type(db)~="table" or getmetatable(db)~=nil then
+    if storageOwner then StorageConflict(db) end
+    return nil
+  end
+  if Q.storageConflict or storageOwner and storageOwner.database~=db then StorageConflict(db);return nil end
+  local firstRead=storageOwner==nil
+  storageOwner=storageOwner or {database=db,ledger=db.launchPromotionAttempts,entries={}}
   if db.launchPromotionAttempts==nil then
+    if storageOwner and storageOwner.ledger~=nil then StorageConflict(db);return nil end
     if not create then return {} end
     db.launchPromotionAttempts={}
+    storageOwner.ledger=db.launchPromotionAttempts
   end
-  if type(db.launchPromotionAttempts)~="table" or getmetatable(db.launchPromotionAttempts)~=nil then return nil end
+  if type(db.launchPromotionAttempts)~="table" or getmetatable(db.launchPromotionAttempts)~=nil then
+    if storageOwner then StorageConflict(db) end
+    return nil
+  end
+  if storageOwner and storageOwner.ledger~=db.launchPromotionAttempts then StorageConflict(db);return nil end
+  if firstRead then
+    local count=0
+    for id,record in pairs(db.launchPromotionAttempts) do
+      count=count+1;if count>1000 then StorageConflict(db);return nil end
+      storageOwner.entries[id]=record
+    end
+  end
   return db.launchPromotionAttempts
+end
+local function OwnedEntry(ledger,id,record)
+  if storageOwner and storageOwner.ledger==ledger then storageOwner.entries[id]=record end
 end
 -- Diagnostic scalars only, never consumed by an action guard or used to recreate
 -- an attempt. The .36 native tests changed two ranks but their rows were absent
 -- after flush (12 November 2026); retain the before/after storage boundary.
 function Q.PromotionCustodyDiagnostics()
   local db,ledger=OlympusVerifyDB,AttemptLedger()
-  local result={version=1,protocol="secure-promotion278-diag1",capturedAt=time(),ledgerAvailable=ledger~=nil,ledgerCount=0,sessionCount=0,rows={}}
+  local result={version=1,protocol="secure-promotion279-publication1",capturedAt=time(),ledgerAvailable=ledger~=nil,ledgerCount=0,sessionCount=0,rows={}}
   local seen={}
   local function add(id,record,attempt)
     if not Text(id,40) or #result.rows>=1000 then return end
@@ -491,6 +521,98 @@ local function SameAttempt(record,id,current)
     and Number(record.observedAt,record.steps[#record.steps].attemptedAt,time())
     and Number(record.observedGeneration,1,2147483647) and record.completed==(record.observedSlot==record.target))
 end
+local ATTEMPT_KEYS={version=true,scopeHash=true,actorGuid=true,targetGuid=true,name=true,target=true,startSlot=true,
+  snapshotId=true,contextId=true,attemptedAt=true,steps=true,previous=true,state=true,completed=true,
+  observedSlot=true,observedAt=true,observedGeneration=true}
+local function CopySessionAttempt(record,id,depth)
+  if depth>8 or type(record)~="table" or not ExactKeys(record,ATTEMPT_KEYS)
+    or not Text(record.actorGuid,40) or not Text(record.scopeHash,16)
+    or not Number(record.snapshotId,1,2147483647) or not Text(record.contextId,32) or #record.contextId~=32
+    or not SameAttempt(record,id,{identity={guid=record.actorGuid,scopeHash=record.scopeHash}})
+    or (record.state~="unknown" and record.state~="confirmed") or type(record.completed)~="boolean" then return nil end
+  local copy={}
+  for key in pairs(ATTEMPT_KEYS) do
+    if key~="steps" and key~="previous" and record[key]~=nil then
+      local value=record[key]
+      if type(value)~="string" and type(value)~="number" and type(value)~="boolean" then return nil end
+      if type(issecretvalue)=="function" then local ok,secret=pcall(issecretvalue,value);if not ok or secret then return nil end end
+      copy[key]=value
+    end
+  end
+  copy.steps={}
+  for i,step in ipairs(record.steps) do
+    if not ExactKeys(step,{from=true,expected=true,attemptedAt=true,state=true,observedAt=true})
+      or (step.state~="unknown" and step.state~="rank-observed")
+      or step.observedAt~=nil and not Number(step.observedAt,step.attemptedAt,time()) then return nil end
+    copy.steps[i]={from=step.from,expected=step.expected,attemptedAt=step.attemptedAt,state=step.state,observedAt=step.observedAt}
+  end
+  if record.previous~=nil then
+    copy.previous=CopySessionAttempt(record.previous,id,depth+1)
+    if not copy.previous then return nil end
+  end
+  return copy
+end
+local function SaveHolds(create)
+  local db=OlympusVerifyDB
+  if type(db)~="table" or getmetatable(db)~=nil then return nil end
+  local holds=db.launchPromotionSaveHolds
+  if holds==nil and create then holds={};db.launchPromotionSaveHolds=holds end
+  if holds~=nil and (type(holds)~="table" or getmetatable(holds)~=nil) then return nil end
+  return holds
+end
+-- Publish only actual records reserved in this session, through new plain data
+-- tables in the ordinary logout event. Earlier missing receipts are not inferred
+-- from a current rank or diagnostics. A conflicting owner/entry stays untouched.
+function Q.PublishPromotionCustody()
+  local db,ledger=OlympusVerifyDB,AttemptLedger()
+  local result={version=1,protocol="promotion-save-publication279",capturedAt=time(),published=0,recovered=0,held=0}
+  if ledger and storageOwner then
+    for id,record in pairs(storageOwner.entries) do
+      local owned=Q.sessionPromotions[id]
+      local recoverable=ledger[id]==nil and owned and owned.record==record and owned.database==db and owned.ledger==ledger
+      if ledger[id]~=record and not recoverable then StorageConflict(db);break end
+    end
+    for id,record in pairs(ledger) do if storageOwner.entries[id]~=record then StorageConflict(db);break end end
+  end
+  for id,attempt in pairs(Q.sessionPromotions) do
+    local priorRecord=attempt.record
+    local ok,copy=pcall(CopySessionAttempt,priorRecord,id,1)
+    if not ok then copy=nil end
+    local existing=ledger and ledger[id]
+    local sameOwner=db==attempt.database and ledger==attempt.ledger
+    local samePending=Q.pending[id]==nil or Q.pending[id]==attempt
+    local canPublish=copy and sameOwner and samePending and (existing==nil or existing==priorRecord)
+    local published=canPublish and pcall(function() ledger[id]=copy end)
+    if published then
+      OwnedEntry(ledger,id,copy)
+      attempt.record,attempt.step=copy,copy.steps[#copy.steps]
+      if Q.continuations[id] and Q.continuations[id].record==priorRecord then Q.continuations[id].record=copy end
+      if existing==nil then result.recovered=result.recovered+1 end
+      result.published=result.published+1
+    else
+      local holds=SaveHolds(true)
+      local retained=holds and holds[id]~=nil
+      if holds then
+        local prior=holds[id]
+        if prior==nil then
+          local count=0;for _ in pairs(holds) do count=count+1 end
+          if count<1000 then
+            retained=pcall(function() holds[id]={version=1,reason=not copy and "invalid-session-record"
+              or not sameOwner and "storage-owner-changed" or "conflicting-attempt",guid=id,capturedAt=time(),retainedAttempt=copy} end)
+          end
+        end
+      end
+      -- A root/ledger replacement may have lost older unknown entries too. A
+      -- full/unwritable hold store cannot silently restore eligibility on reload.
+      if (not sameOwner or not retained) and type(db)=="table" and getmetatable(db)==nil then
+        db.launchPromotionCustodyConflict=true
+      end
+      result.held=result.held+1
+    end
+  end
+  if type(db)=="table" and getmetatable(db)==nil then db.launchPromotionPublication=result end
+  return result
+end
 local function SamePromotion(record,row,source,current)
   return SameAttempt(record,row.guid,current) and record.snapshotId==source.snapshotId
     and record.contextId==source.contextId and record.target==row.targetSlot
@@ -501,6 +623,13 @@ function Q.PromotionStatus(id,current,nativeSlot)
   if Q.pending[id]~=nil then return "pending" end
   local ledger=AttemptLedger()
   if not ledger then return "pending" end
+  local db=OlympusVerifyDB
+  if db and db.launchPromotionCustodyConflict~=nil then return "pending" end
+  local holds=SaveHolds()
+  if db and db.launchPromotionSaveHolds~=nil and (not holds or holds[id]~=nil) then return "pending" end
+  local owned=Q.sessionPromotions[id]
+  if owned and (db~=owned.database or ledger~=owned.ledger or ledger[id]~=owned.record) then return "pending" end
+  if storageOwner and storageOwner.entries[id]~=ledger[id] then StorageConflict(db);return "pending" end
   local record=ledger[id]
   if record==nil then return "clear" end
   current=current or Q.Current()
@@ -608,6 +737,7 @@ local function ReservePromotion(prepared)
     record={version=2,scopeHash=current.identity.scopeHash,actorGuid=current.identity.guid,targetGuid=row.guid,name=native.name,
       target=row.targetSlot,startSlot=native.slot,snapshotId=fresh.snapshotId,contextId=fresh.contextId,attemptedAt=time(),steps={},previous=record}
     ledger[row.guid]=record
+    OwnedEntry(ledger,row.guid,record)
   end
   local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown"}
   record.steps[#record.steps+1]=step;record.state="unknown";record.completed=false
@@ -693,6 +823,58 @@ function Q.HardwarePromote(target)
   Q.promotionConfirm:Show()
   Say("Click the visible confirmation button for one player promotion command. No rank action has been sent yet.")
   return true
+end
+function Q.RecordCurrentPromotionObservation(target)
+  local function refuse(why) Say(why);return nil,why end
+  if not Text(target,40) or not target:match("^Player%-%d+%-%x+$") then return refuse("Select one exact native GUID for a history observation; no rank action taken.") end
+  local identity=Identity()
+  if not identity or Preview() or Read(InCombatLockdown)~=false or Read(CanGuildPromote)~=true then return refuse("Current native officer identity is unavailable; no history or rank action taken.") end
+  local roster,why=NativeRoster(identity)
+  if not roster then return refuse(why) end
+  local member=roster[target]
+  if not member then return refuse("That exact GUID is absent from the complete native roster; no history or rank action taken.") end
+  local rankName=Text(Read(GuildControlGetRankName,member.slot+1),100)
+  if not rankName then return refuse("The current native rank name is unavailable; no history or rank action taken.") end
+  local db=OlympusVerifyDB
+  if type(db)~="table" or getmetatable(db)~=nil then return refuse("History observation storage is unavailable; no rank action taken.") end
+  local history=db.launchPromotionObservations
+  if history==nil then history={};db.launchPromotionObservations=history end
+  if type(history)~="table" or getmetatable(history)~=nil then return refuse("Prior history observations need review; nothing was replaced.") end
+  local count=0;for _ in pairs(history) do count=count+1 end
+  if history[target]==nil and count>=1000 then return refuse("History observation storage is full; no rank action taken.") end
+  local ledger=AttemptLedger();local receipt=ledger and ledger[target]
+  local status=not ledger and "unavailable" or receipt==nil and "absent"
+    or type(receipt)=="table" and (receipt.state=="unknown" or receipt.state=="confirmed") and receipt.state or "invalid"
+  local observation={version=1,origin="current-native-rank-observation",guid=target,name=member.name,actorGuid=identity.guid,
+    scopeHash=identity.scopeHash,guild=identity.guild,realm=identity.realm,observedAt=time(),nativeGeneration=Q.generation,
+    rankIndex=member.slot,rankName=rankName,receiptStatus=status,commandAttempted=false,historicalOutcomeSettled=false}
+  history[target]=observation
+  Say(string.format("Current native rank: %s is %s (slot%d); stored attempt receipt %s. This dated observation records no command and recreates no missing receipt.",member.name,rankName,member.slot,status))
+  if status=="unknown" then Say("The original unknown attempt remains unchanged and held; a current rank cannot settle its past effect.")
+  else Say("Only a separate fresh recommendation and attended click can request another promotion.") end
+  return observation
+end
+function Q.HoldPromotionHistoryReview(target)
+  local observation,why=Q.RecordCurrentPromotionObservation(target)
+  if not observation then return nil,why end
+  if observation.receiptStatus~="absent" then
+    local reason="A stored attempt already exists or is unreadable; its original state was not replaced."
+    Say(reason);return nil,reason
+  end
+  local holds=SaveHolds(true)
+  if not holds then Say("History hold storage is unavailable; no rank action taken.");return nil,"hold-storage-unavailable" end
+  if holds[target]~=nil then Say("The existing history hold remains unchanged; no rank action taken.");return holds[target] end
+  local count=0;for _ in pairs(holds) do count=count+1 end
+  if count>=1000 then
+    OlympusVerifyDB.launchPromotionCustodyConflict=true
+    Say("History hold storage is full; promotions remain held for custody review.");return nil,"hold-storage-full"
+  end
+  local hold={version=1,origin="operator-history-hold",reason="staff-review-missing-receipt",guid=target,name=observation.name,
+    actorGuid=observation.actorGuid,scopeHash=observation.scopeHash,observedAt=observation.observedAt,
+    rankIndex=observation.rankIndex,rankName=observation.rankName,commandAttempted=false,historicalOutcomeSettled=false}
+  holds[target]=hold
+  Say("Promotion held for staff review of the missing earlier receipt. No command receipt was recreated and no rank action was taken.")
+  return hold
 end
 function Q.RiskBuffer()
   local current, roster = ActionContext()
@@ -962,6 +1144,7 @@ events:SetScript("OnEvent", function(_, event, addon, functionName)
   elseif event == "PLAYER_LEAVING_WORLD" then Q.rosterAt = nil
   elseif event == "PLAYER_LOGOUT" then
     local db=OlympusVerifyDB
+    Q.PublishPromotionCustody()
     if type(db)=="table" then db.launchPromotionCustodyDiagnostic=Q.PromotionCustodyDiagnostics() end
   elseif (event=="ADDON_ACTION_FORBIDDEN" or event=="ADDON_ACTION_BLOCKED") and addon == ADDON
     and (Q.inAction=="promote" or functionName=="C_GuildInfo.Promote()" or functionName=="GuildPromote()"

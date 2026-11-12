@@ -144,6 +144,7 @@ local function guildUI(size)
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
   f.launch=e.OlympusLaunch229
+  f.syncs=0;e.OlympusVerifyAPI.Sync=function()f.syncs=f.syncs+1 end
   f.rosterEvent=function()f.event("GUILD_ROSTER_UPDATE");f.launch.Events:GetScript("OnEvent")(f.launch.Events,"GUILD_ROSTER_UPDATE")end
   f.rosterEvent()
   e.UIParent:Show();e.UIParent.GetRight=function()return 1920 end
@@ -188,7 +189,7 @@ do
   local f=guildUI();local buttons=f.buttons();local b=buttons[1]
   check("native Guild column renders both dated Discord name fields beside status",f.column:IsShown() and b.username:GetText()=="@user1" and b.displayName:GetText()=="Display 1" and b.text:GetText():find("Verified",1,true))
   check("explicit Promote is beside status and names never overlap its action box",select(2,b.promote:GetPoint())==b and select(3,b.promote:GetPoint())=="RIGHT" and select(4,b.promote:GetPoint())==6 and select(2,b.username:GetPoint())==b.promote and select(4,b.username:GetPoint())==8 and select(2,b.displayName:GetPoint())==b.username and select(4,b.displayName:GetPoint())==8 and 8+b:GetWidth()+6+b.promote:GetWidth()+8+b.username:GetWidth()+8+b.displayName:GetWidth()<=f.column:GetWidth()-8)
-  check("ordinary verified non-Knight recommendation enables only the exact eligible row",b.promote:IsVisible() and b.promote:IsEnabled() and not buttons[2].promote:IsEnabled() and not buttons[3].promote:IsEnabled())
+  check("only the exact ready Guild row offers Promote while unsigned verified rows offer a separate Check",b.promote:IsVisible() and b.promote:IsEnabled() and b.promote:GetText()=="Promote" and b.promote.mode=="promote" and buttons[2].promote:GetText()=="Check" and buttons[2].promote.mode=="check" and buttons[3].promote:GetText()=="Check")
   check("Guild promotion preserves the secure template native click handler",b.promote._template:find("SecureActionButtonTemplate",1,true) and b.promote:GetScript("OnClick")==b.promote._secureHandler)
   check("opening and repainting native Guild UI sends no promotion",f.promotions==0 and f.restrictedCalls==0 and f.nativeClicks==0)
   local current=f.launch.Current;local reads=0
@@ -253,8 +254,9 @@ do
   check("insufficient screen space uses the existing roster fallback without offscreen names or actions",not f.column:IsShown() and f.fallback:IsShown())
   f.forceClick(b.promote);check("hidden offscreen fallback cannot dispatch a stale row action",f.promotions==0)
   f.right=1100;f.tick();f.e.InCombatLockdown=function()return true end;f.event("PLAYER_REGEN_DISABLED")
+  local enabled=b.promote:IsEnabled()
   f.forceClick(b.promote)
-  check("combat leaves protected Guild controls inert without insecure hiding or an armed command",f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0 and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+  check("combat leaves protected Guild controls inert without insecure hiding, disabling or an armed command",f.column:IsShown() and not f.fallback:IsShown() and b.promote:IsEnabled()==enabled and f.promotions==0 and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
   check("native handlers still have their original identities after refresh and combat",f.nativeRows[1]:GetScript("OnMouseUp")==handler and f.nativeClicks==0)
   f.e.InCombatLockdown=function()return false end;f.right=1600;f.event("PLAYER_REGEN_ENABLED");f.tick()
   check("ordinary out-of-combat paint catches up to the native view",not f.column:IsShown() and f.fallback:IsShown() and f.promotions==0)
@@ -269,6 +271,71 @@ do
   f.forceClick(b.promote)
   check("gamepad mode keeps the existing native Guild column fallback policy without acting",not f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0)
 end
+do
+  local f=guildUI();local b=f.buttons()[2];local id=f.e.ROSTER[2].guid
+  check("a fresh verified Initiate without a recommendation has an enabled read-only Check",b.promote:GetText()=="Check" and b.promote.mode=="check" and b.promote:IsEnabled())
+  b.promote:GetScript("OnEnter")(b.promote)
+  local tip=table.concat(f.tooltipLines,"\n")
+  check("Check explains export then Watcher then a later Sync reload and separate promotion",tip:find("reloads to export",1,true) and tip:find("Wait for the Watcher",1,true) and tip:find("Sync and reload again",1,true) and tip:find("Check never promotes",1,true))
+  b.promote:Click()
+  local control=f.e.OlympusVerifyDB.launchControl
+  check("Guild Check reuses the actual signed selected-read control for its exact GUID",control and control.version==2 and control.action=="select" and control.targetGuid==id and type(control.mac)=="string" and #control.mac==32 and f.syncs==1)
+  check("a Guild Check neither arms a native command nor creates promotion history",f.promotions==0 and f.restrictedCalls==0 and f.e.ROSTER[2].rankIndex==9 and not next(f.e.OlympusVerifyDB.launchPromotionAttempts or {}) and not b.promote:GetAttribute("type1") and not b.promote:GetAttribute("macrotext1"))
+  f.tick()
+  check("queued Check does not claim immediate promotion readiness",b.promote:GetText()~="Promote" and f.promotions==0)
+end
+do
+  local f=guildUI();local b=f.buttons()[1]
+  f.now=f.page.expiresAt;f.rosterEvent();f.tick()
+  check("an expired recommendation becomes Check rather than an ambiguous disabled Promote",b.promote:GetText()=="Check" and b.promote:IsEnabled())
+  b.promote:Click()
+  check("expired Check requests a new read without renewing the old page or promoting",f.e.OlympusVerifyDB.launchControl.targetGuid==f.e.ROSTER[1].guid and f.page.expiresAt==f.now and f.promotions==0 and f.syncs==1)
+end
+do
+  local f=guildUI();local b=f.buttons()[1];local id=f.e.ROSTER[1].guid
+  local held={state="unknown",target=8};f.e.OlympusVerifyDB.launchPromotionAttempts={[id]=held};f.tick()
+  check("unknown native history is explicitly Held and never offered as a recheck",b.promote:GetText()=="Held" and not b.promote:IsEnabled() and b.promote.mode==nil)
+  f.forceClick(b.promote)
+  check("forcing a held old Guild control cannot clear history or send a read or promotion",f.e.OlympusVerifyDB.launchPromotionAttempts[id]==held and held.state=="unknown" and f.e.OlympusVerifyDB.launchControl==nil and f.promotions==0 and f.syncs==0)
+  f.e.OlympusLaunchQueue=nil;f.tick();f.forceClick(b.promote)
+  check("missing projection cannot disguise an existing unknown as a safe Check",b.promote:GetText()=="Held" and f.e.OlympusVerifyDB.launchPromotionAttempts[id]==held and f.syncs==0)
+end
+do
+  local f=guildUI();local b=f.buttons()[2];local row=table.remove(f.q.verified.members,2)
+  f.q.unverified.members[1]={name=row.name,guid=row.guid,pending=false};f.rosterEvent();f.tick()
+  check("unverified rows show no misleading promotion or Check action",b.promote:GetText()=="—" and not b.promote:IsEnabled())
+  f=guildUI();b=f.buttons()[1];f.e.ROSTER[1].rankIndex=8;f.rosterEvent();f.tick()
+  check("a current native Member is labeled Member with no repeat action",b.promote:GetText()=="Member" and not b.promote:IsEnabled())
+  local legacy={state="unknown",target=8};f.e.OlympusVerifyDB.launchPromotionAttempts={[f.e.ROSTER[1].guid]=legacy};f.tick()
+  b.promote:GetScript("OnEnter")(b.promote)
+  check("native Member label does not hide or resolve retained unknown history",b.promote:GetText()=="Member" and not b.promote:IsEnabled() and f.e.OlympusVerifyDB.launchPromotionAttempts[f.e.ROSTER[1].guid]==legacy
+    and table.concat(f.tooltipLines,"\n"):find("does not confirm an earlier attempt",1,true) and legacy.state=="unknown" and f.promotions==0)
+  f=guildUI();b=f.buttons()[1];b.promote:Click();f.rosterEvent();f.tick()
+  local confirmed=f.e.OlympusVerifyDB.launchPromotionAttempts[f.e.ROSTER[1].guid]
+  check("native Member with a confirmed receipt remains Member rather than Held",b.promote:GetText()=="Member" and not b.promote:IsEnabled() and confirmed.state=="confirmed" and confirmed.completed and f.promotions==1)
+end
+do
+  local f=guildUI();local b=f.buttons()[2]
+  f.forceClick(b.promote,"RightButton");f.forceClick(b.promote,"LeftButton",true)
+  f.e.IsAltKeyDown=function()return true end;f.forceClick(b.promote);f.e.IsAltKeyDown=function()return false end
+  check("Check rejects right-click, down edge and modifiers without a selected read",f.syncs==0 and f.e.OlympusVerifyDB.launchControl==nil and f.promotions==0)
+  b.promote:GetScript("PreClick")(b.promote,"LeftButton",false)
+  f.nativeRows[2].member={name=f.e.ROSTER[3].name.."-Forever",guid=f.e.ROSTER[3].guid}
+  b.promote:GetScript("OnClick")(b.promote,"LeftButton",false)
+  b.promote:GetScript("PostClick")(b.promote,"LeftButton",false)
+  check("recycling a native row between Check phases cannot submit the old or new identity",f.syncs==0 and f.e.OlympusVerifyDB.launchControl==nil and f.promotions==0 and not b.promote:GetAttribute("type1"))
+end
+for _,case in ipairs({"global-save-conflict","per-guid-save-hold","malformed-save-holds"}) do
+  local f=guildUI();local b=f.buttons()[2];local db=f.e.OlympusVerifyDB;local id=f.e.ROSTER[2].guid
+  if case=="global-save-conflict" then db.launchPromotionCustodyConflict=false -- Any nonnil conflict fails closed.
+  elseif case=="per-guid-save-hold" then db.launchPromotionSaveHolds={[id]={reason="conflicting-attempt"}}
+  else db.launchPromotionSaveHolds="unreadable" end
+  f.tick();f.forceClick(b.promote)
+  check("Guild Check follows shared "..case.." custody admission",b.promote:GetText()=="Held" and not b.promote:IsEnabled() and f.syncs==0 and f.promotions==0 and db.launchControl==nil)
+  f.e.OlympusLaunchQueue=nil;f.tick();f.forceClick(b.promote)
+  check("absent projection cannot bypass shared "..case.." read hold",b.promote:GetText()=="Held" and f.syncs==0 and f.promotions==0 and db.launchControl==nil)
+end
+
 do
   local f=guildUI(1000);local nativeReads=f.reads;local current=f.launch.Current;local sourceReads=0
   f.launch.Current=function()sourceReads=sourceReads+1;return current()end
