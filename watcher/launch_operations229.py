@@ -16,6 +16,7 @@ MAX_BYTES = 262144
 MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
 MAX_RATE_RETRIES = 2
+SOURCE_CHANGED_ERRORS = frozenset({'launch_cursor_source_changed', 'launch_cursor_role_source_changed'})
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
 _KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions"}
 
@@ -298,6 +299,9 @@ class Scan:
         if not okay:
             if isinstance(page, dict) and type(page.get('httpStatus')) is int and page['httpStatus'] == 429:
                 self._rate_wait(offset, cursor, page.get('retryAfterSeconds')); return True
+            if (isinstance(page, dict) and type(page.get('httpStatus')) is int and page['httpStatus'] == 409
+                    and isinstance(page.get('error'), str) and page['error'] in SOURCE_CHANGED_ERRORS):
+                self._stop('snapshot-changed'); return True
             self._stop('source-refused'); return True
         if not validate_page(page, int(self.clock())) or page['scopeHash'] != self.scope_hash:
             self._stop('invalid-page'); return True

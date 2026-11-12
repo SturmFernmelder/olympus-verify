@@ -1,6 +1,7 @@
 """Actual scan/watcher rate-limit recovery; synthetic GET responses and local files only."""
 import copy
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import urllib.parse
+import urllib.error
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import launch_operations229 as launch
@@ -306,6 +308,97 @@ class RateRecovery(unittest.TestCase):
         scan.step(unknown, self.clock)
         self.assertEqual((scan.stopped, scan.calls), ('source-unknown', 2))
         self.assertIsNone(scan.rate_retry)
+
+    def test_actual_worker_known_launch409_stops_source_change_without_retry(self):
+        for error in ('launch_cursor_source_changed', 'launch_cursor_role_source_changed'):
+            with self.subTest(error=error), patch.object(watcher, 'log'):
+                self.clock = float(self.at)
+                scan = self.scan(); client = watcher.Worker('https://test.invalid', 'synthetic-token')
+                requests = []
+                def open_request(request, timeout):
+                    requests.append(request.get_method())
+                    if len(requests) == 1:
+                        return io.BytesIO(json.dumps(self.current_page()).encode())
+                    raise urllib.error.HTTPError(request.full_url, 409, 'conflict', {},
+                                                 io.BytesIO(json.dumps({'error': error}).encode()))
+                client.opener.open = open_request
+                self.assertTrue(scan.step(client.call, self.clock))
+                original = copy.deepcopy(scan.pages); self.clock += 5
+                self.assertTrue(scan.step(client.call, self.clock))
+                self.assertEqual((scan.stopped, scan.phase, scan.calls, scan.refreshed), ('snapshot-changed', 'idle', 2, 0))
+                self.assertEqual(scan.pages, original)
+                self.assertIsNone(scan.rate_retry)
+                self.assertFalse(scan.complete)
+                self.assertFalse(scan.step(client.call, self.clock+60))
+                self.assertFalse(scan.request(dict(action='recheck', offset=0, id='no-reset',
+                                                  scopeHash=scan.scope_hash), self.clock+60))
+                self.assertEqual(requests, ['GET', 'GET'])
+
+    def test_actual_worker_unknown_launch409_discards_body_and_stops_refused(self):
+        bodies = [b'{"error":"private arbitrary message"}', b'not-json private body', b'[]', b'{"error":[]}',
+                  b'{"error":"launch_cursor_source_changed","extra":"private body"}', b'x'*4097,
+                  b'['*2048+b']'*2048]
+        for body in bodies:
+            with self.subTest(length=len(body)), patch.object(watcher, 'log') as logged:
+                scan = self.scan(); client = watcher.Worker('https://test.invalid', 'synthetic-token')
+                requests = []
+                def open_request(request, timeout):
+                    requests.append(request.get_method())
+                    raise urllib.error.HTTPError(request.full_url, 409, 'conflict', {}, io.BytesIO(body))
+                client.opener.open = open_request
+                captured = []
+                def call(*args, **kwargs):
+                    value = client.call(*args, **kwargs); captured.append(value); return value
+                self.assertTrue(scan.step(call, self.clock))
+                self.assertEqual(captured, [(False, {'httpStatus': 409})])
+                self.assertEqual((scan.stopped, scan.calls, scan.pages), ('source-refused', 1, {}))
+                self.assertFalse(scan.step(call, self.clock+60))
+                self.assertEqual(requests, ['GET'])
+                self.assertNotIn('private', repr(logged.call_args_list))
+
+    def test_actual_worker_malformed_success_still_stops_invalid_page(self):
+        scan = self.scan(); client = watcher.Worker('https://test.invalid', 'synthetic-token')
+        requests = []
+        def open_request(request, timeout):
+            requests.append(request.get_method()); return io.BytesIO(b'{"error":"not a projection"}')
+        client.opener.open = open_request
+        self.assertTrue(scan.step(client.call, self.clock))
+        self.assertEqual((scan.stopped, scan.calls), ('invalid-page', 1))
+        self.assertFalse(scan.step(client.call, self.clock+60))
+        self.assertEqual(requests, ['GET'])
+
+    def test_actual_worker_nonlaunch_get_and_post409_keep_legacy_semantics(self):
+        for method, path in (('GET', '/other-read'), ('POST', '/queue/launch-operations'), ('POST', '/ingest/verify')):
+            with self.subTest(method=method, path=path), patch.object(watcher, 'log'):
+                client = watcher.Worker('https://test.invalid', 'synthetic-token'); requests = []; errors = []
+                def open_request(request, timeout):
+                    requests.append(request.get_method())
+                    error = urllib.error.HTTPError(request.full_url, 409, 'conflict', {},
+                                                   io.BytesIO(b'{"error":"launch_cursor_source_changed"}'))
+                    errors.append(error); raise error
+                client.opener.open = open_request
+                try:
+                    self.assertEqual(client.call(method, path, retries=1), (True, None))
+                finally:
+                    for error in errors: error.close()
+                self.assertEqual(requests, [method])
+
+    def test_actual_worker_closed_verify409_keeps_original_confirmed_refusal(self):
+        client = watcher.Worker('https://test.invalid', 'synthetic-token')
+        errors = []
+        closed = dict(result='membership_not_confirmed', error='native-source-refused', roleGranted=False,
+                      inviteQueued=False, pendingConsumed=True, requestRefused=True)
+        def open_request(request, timeout):
+            error = urllib.error.HTTPError(request.full_url, 409, 'conflict', {}, io.BytesIO(json.dumps(closed).encode()))
+            errors.append(error); raise error
+        client.opener.open = open_request
+        try:
+            with patch.object(watcher, 'log'):
+                okay, result = client.call('POST', '/ingest/verify', retries=1)
+        finally:
+            for error in errors: error.close()
+        self.assertTrue(okay)
+        self.assertEqual(result, {key: value for key, value in closed.items() if key != 'error'})
 
     def watcher(self, root, scan):
         instance = watcher.Watcher(dict(wow_dir=str(root), account='synthetic', worker_url='https://test.invalid',

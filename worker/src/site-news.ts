@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".272", date: "2026-11-11", lines: [
+      "Normal verification updates elsewhere no longer invalidate an unchanged roster scan. Each selected page still checks current account links and privacy before returning recommendations.",
+      "Watcher 0.6.31 distinguishes a changed scan source from an invalid response. Stopped scans remain held; promotions still require fresh evidence and a deliberate officer action.",
+    ],
+  },
+  {
     build: ".271", date: "2026-11-11", lines: [
       "Promotion discovery follows Discord reset headers and preserves successful page checks during bounded retries. Already-higher native ranks avoid needless role requests.",
       "Watcher 0.6.30 keeps all 50 roster pages available by sharing the existing retry/recheck budget. Discovery and fresh promotion permission remain separate.",

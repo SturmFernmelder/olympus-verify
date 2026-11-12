@@ -8098,3 +8098,32 @@ Rollout, only with the applicable owner authorization: exact-head review and req
 Acceptance: record actual 1,000-or-current-count distinct coverage, recommendations through the last page, unknown/rate-limit holds, old versus action-fresh pages and original source clocks. At five-second spacing, earlier pages necessarily expire before discovery ends. Display all recommendations as dated advice; only a freshly explicitly rechecked selected page plus current native/hardware checks can authorize a promotion. Persistent Discord refusal, an expired source or exhausted budget remains a visible incomplete hold. Full discovery cannot promise that every discovered row is simultaneously action-ready. The reload-free live bridge remains on the user's explicit hold; the 27 historical/unbound records are not repaired by this fix.
 
 Rollback: preserve failed scan files and original attempts first. Root may redeploy the last explicitly approved Worker commit through the same exact-commit route after required gates. Restoring the backed-up Watcher public modules requires stopping/restarting the original task with process identity verified; never delete custody locks or reset state. Do not restore a D1 backup, old ownership, proof dates or role state as a rollback shortcut.
+
+
+## Build .272 candidate - stable discovery, current page authority
+
+Prepared after the owner-approved .271 rollout exposed a second live blocker.
+The preserved scan reached160/961 entries (eight pages), then a launch GET409
+was mislabeled invalid-page. This is not a completed full-roster acceptance.
+The original scan remains stopped and is not resumed by this candidate.
+
+New server-only-MAC v3 cursors bind pagination to the immutable native snapshot
+and its complete stored row facts. Current link/account/standing/privacy facts
+are checked for the selected page before and after all provider waits. Updates
+elsewhere do not invalidate stable native pagination. Cached role observations
+include an opaque exact-account/anchor/privacy identity digest and keep their
+original60-second expiry. Changed eligible identities require fresh Discord
+GETs; privacy/ineligible rows, native changes and original expiry stay held.
+Legacy v1/v2 retain their original digest and signing-key interpretation.
+
+Watcher0.6.31 preserves an allowlisted source-change409 as a terminal changed
+snapshot rather than interpreting it as a malformed successful page. Other
+launch4xx are source-refused; malformed200 stays invalid-page. Existing POST
+and ingest closure behavior,100-request ceiling, two retries/page, five-second
+spacing,600-second scan deadline and explicit controls remain unchanged.
+
+Addon0.6.32 is unchanged. No promotion,27-record repair, feature activation,
+secret, schema, new dependency or live bridge is part of this follow-up.
+Qualification, exact source/tree/CI and any subsequent rollout must be recorded
+from actual receipts. Build .272 and Watcher0.6.31 are not deployed/installed
+by the prior approval, which named .271/.30 and one already-used full scan.
