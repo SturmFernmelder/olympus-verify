@@ -8,6 +8,7 @@ import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName } from './guild-affiliat
 import { readOfficerInvites233 } from './officer-invites233';
 import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
 import { LaunchRolePacer271 } from './launch-discord-reads271';
+import { captureRosterLineage275,rosterVerificationSql275,type RosterLineageCapture275 } from './roster-verification275';
 
 type SourceRow229 = LaunchRosterRow229 & {
   snapshotId: number; snapshotAt: number; memberCount: number; discordId: string | null;
@@ -16,7 +17,7 @@ type SourceRow229 = LaunchRosterRow229 & {
   linkedGuid: string | null; linkStatus: string | null; linkSource: string | null;
   verifiedAt: unknown; boundAt: unknown; guidLinks: number | null;
   banned: number; denied: number; privacyGeneration: string | null;
-  privacyState: string | null; privacyRevision: number | null;
+  privacyState: string | null; privacyRevision: number | null; lineageAnchorId:string|null;
 };
 type RoleRead229 = [guid: string, state: 'knight' | 'non-knight', observedAt: number, identityDigest?: string];
 type Cursor229 = {version: 1 | 2 | 3; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number; roleScope?: string; roleReads?: RoleRead229[]};
@@ -79,37 +80,33 @@ async function readSelectionCursor273(raw:string,secret:string,selection:Promoti
     ||!Array.isArray(v.roleReads)||v.roleReads.length>LAUNCH_ROLE_PAGE229||v.roleReads.some(r=>!Array.isArray(r)||r.length!==4||typeof r[0]!=='string'||!GUID273.test(r[0])||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at||typeof r[3]!=='string'||!/^[a-f0-9]{64}$/.test(r[3]))||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length)throw new LaunchCursor229('invalid_selection_cursor');
   return v;
 }
-async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: number, cutoff: number): Promise<SourceRow229[]> {
+async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: number, cutoff: number,lineage:RosterLineageCapture275): Promise<SourceRow229[]> {
+  const verification=rosterVerificationSql275('?2','?3','?4','?5');
   const rows=await env.DB.prepare(`WITH snapshot AS MATERIALIZED (
     SELECT id,exported_at,member_count,source,content_hash FROM roster_snapshots
     WHERE id=(SELECT MAX(id) FROM roster_snapshots) AND source=?1 AND complete=1 AND trusted=1
       AND member_count BETWEEN 1 AND 1000 AND exported_at BETWEEN MAX(?3,?2-599) AND ?2
       AND member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=roster_snapshots.id)
-  ), linked_guids AS MATERIALIZED (SELECT guid,COUNT(*) AS links FROM characters WHERE guid IS NOT NULL GROUP BY guid)
+  ), linked_guids AS MATERIALIZED (SELECT guid,COUNT(*) AS links FROM characters WHERE guid IS NOT NULL GROUP BY guid),
+  native_guids AS MATERIALIZED (SELECT rm.guid,COUNT(*) AS links FROM roster_members rm JOIN snapshot s ON s.id=rm.snapshot_id
+    WHERE rm.guid IS NOT NULL GROUP BY rm.guid)
   SELECT s.id AS snapshotId,s.exported_at AS snapshotAt,s.member_count AS memberCount,
     rm.name,rm.guid,rm.rank,rm.rank_index AS currentSlot,rm.level,rm.last_online AS lastOnlineSeconds,
-    CASE
-      WHEN c.name_key IS NULL AND g.guid IS NULL THEN CASE WHEN EXISTS(
-        SELECT 1 FROM pending p WHERE p.name_key=rm.name_key AND p.consumed_at IS NULL AND p.expires_at>?2 AND p.created_at>=?3
-          AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=p.discord_id AND ps.state<>'active')) THEN 'pending' ELSE 'unverified' END
-      WHEN c.status='member' AND c.guid=rm.guid AND g.links=1 AND COALESCE(c.verified_at,c.bound_at)>=?3
-        AND typeof(COALESCE(c.verified_at,c.bound_at))='integer'
-        AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2
-        AND COALESCE(m.banned,0)=0 AND COALESCE(u.denied,0)=0
-        AND NOT EXISTS(SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id=c.discord_id AND ps.state<>'active') THEN 'verified'
-      ELSE 'unknown' END AS verification,
+    ${verification.status} AS verification,
     c.discord_id AS discordId,
     s.source AS nativeSource,s.content_hash AS nativeContentHash,rm.name_key AS nativeNameKey,
     rm.class AS nativeClass,rm.public_note AS publicNote,rm.officer_note AS officerNote,
     c.guid AS linkedGuid,c.status AS linkStatus,c.source AS linkSource,
     c.verified_at AS verifiedAt,c.bound_at AS boundAt,g.links AS guidLinks,
     COALESCE(m.banned,0) AS banned,COALESCE(u.denied,0) AS denied,
-    ps.generation AS privacyGeneration,ps.state AS privacyState,ps.revision AS privacyRevision
+    p.generation AS privacyGeneration,p.state AS privacyState,p.revision AS privacyRevision,
+    ${verification.anchorId} AS lineageAnchorId
   FROM snapshot s JOIN roster_members rm ON rm.snapshot_id=s.id
   LEFT JOIN characters c ON c.name_key=rm.name_key LEFT JOIN linked_guids g ON g.guid=rm.guid
+  LEFT JOIN native_guids ng ON ng.guid=rm.guid
   LEFT JOIN members m ON m.discord_id=c.discord_id LEFT JOIN site_users u ON u.discord_id=c.discord_id
-  LEFT JOIN privacy_subjects ps ON ps.subject_id=c.discord_id
-  ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope!.provenance,at,cutoff).all<SourceRow229>();
+  LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id
+  ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope!.provenance,at,cutoff,lineage.nativePolicy,lineage.canonicalPolicy).all<SourceRow229>();
   if(!rows.success)throw Error('launch_source_read_unavailable');return rows.results;
 }
 /** V1/V2 keep their original global authority digest; never reinterpret an old cache. */
@@ -127,7 +124,7 @@ function nativeRows272(rows: readonly SourceRow229[]) {
 function roleIdentity272(row: SourceRow229) {
   return digest229(JSON.stringify(['launch-role-subject',272,row.guid,row.verification,row.discordId,
     row.linkedGuid,row.linkStatus,row.linkSource,row.verifiedAt,row.boundAt,row.guidLinks,row.banned,row.denied,
-    row.privacyGeneration,row.privacyState,row.privacyRevision]));
+    row.privacyGeneration,row.privacyState,row.privacyRevision,row.lineageAnchorId]));
 }
 function roleConfiguration229(env: Env) {
   const keys=['SITE_GUILD_ID','DISCORD_BOT_TOKEN'] as const,values=keys.map(key=>Object.getOwnPropertyDescriptor(env,key));
@@ -144,13 +141,14 @@ export async function readPromotionSelection273(env:Env,input:unknown,cursor:str
 async function readLaunchPage229(env: Env, cursor: string | null = null,selection:PromotionSelection273|null=null,coverage?:(guids:string[])=>void) {
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
+  const lineage=captureRosterLineage275(env,launch);
   if(!secret)return held229(at,'native-secret-unconfigured');
   const configuration=roleConfiguration229(env);
   const roleSecret271=configuration?JSON.stringify(['officer-role-cursor',271,secret,configuration.guild,configuration.token]):null;
   const roleSecret272=configuration?JSON.stringify(['officer-role-cursor',272,secret,configuration.guild,configuration.token]):null;
   const selectionSecret=configuration?JSON.stringify(['promotion-selection-cursor',273,secret,configuration.guild,configuration.token]):null;
   if(selection&&(!selectionSecret||Number(selection.selectionId.split(':')[0])>at))return held229(at,'selection-source-not-current');
-  const captured=cursor?(selection?await readSelectionCursor273(cursor,selectionSecret!,selection,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff),first=rows[0];
+  const captured=cursor?(selection?await readSelectionCursor273(cursor,selectionSecret!,selection,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff,lineage),first=rows[0];
   if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held229(at,'native-snapshot-unavailable');}
   if(selection&&(selection.snapshotId!==first.snapshotId||selection.snapshotAt!==first.snapshotAt))throw new LaunchCursor229('selection_native_source_changed',409);
   const selectedIndices=selection?rows.flatMap((row,index)=>row.guid===selection.targetGuid?[index]:[]):[];
@@ -183,7 +181,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   }
   let retryAfterSeconds: number|null=null,rateLimited=false,roleUnavailable=false,readWindowHeld=false;
   const pacer=new LaunchRolePacer271(roleScope),accountStates=new Map<string,{state:KnightState229;observedAt:number}>();
-  const current=()=>{if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||selection&&now()>=scanExpiresAt)throw Error('launch_source_changed');};
+  const current=()=>{if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||selection&&now()>=scanExpiresAt)throw Error('launch_source_changed');};
   // The Watcher has a 20-second HTTP timeout. Don't hold that request through a
   // long reset; return its signed progress and known cooldown to the same scan.
   const readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
@@ -232,8 +230,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     })):{invites:[],heldReasons:[]};
   // Re-read the exact Native source and linked/denied/privacy state after provider awaits.
   // For the admin route this also consumes the original signed actor session again.
-  const after=await sourceRows229(env,launch,now(),cutoff);
-  if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff
+  const after=await sourceRows229(env,launch,now(),cutoff,lineage);
+  if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff
     ||await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest
     ||legacy&&await digest229(JSON.stringify(legacyRows229(after)))!==rowsDigest)return held229(now(),'native-snapshot-changed');
   // Only this page can consume its current account/privacy facts or cached roles.
@@ -270,7 +268,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     }
   }
   if(dto.status!=='held')dto.status=dto.entitlements.unscanned||dto.held.some(r=>r.reason==='discord-entitlement-unknown')?'partial':'ready';
-  if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
+  if(!launch.current()||!lineage.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
   if(selection)coverage?.(coveredGuids as string[]);
   return dto;
 }

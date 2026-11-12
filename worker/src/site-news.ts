@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".275", date: "2026-11-12", lines: [
+      "Recognized verification records now appear consistently in roster status and promotion checks, without changing original link dates.",
+      "Released character links show as unverified or pending. Uncertain or blocked links stay held, and promotions still require fresh checks and a separate click.",
+    ],
+  },
+  {
     build: ".274", date: "2026-11-11", lines: [
       "Selected-character promotion recommendations remain available for up to ten minutes within their original roster deadline, giving officers time to load and review them.",
       "Promote still requires a separate click and current in-game identity, rank and permission checks. Expired or uncertain results stay held; no promotion is automatic.",

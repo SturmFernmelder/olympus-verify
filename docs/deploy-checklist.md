@@ -8371,3 +8371,36 @@ rollout. Public client installation preserves configuration, generated evidence,
 SavedVariables and unknown-attempt custody. Old clients may hold v274 results;
 install the matching clients before relying on the longer window. No full scan,
 promotion, 27-record repair or live-bridge activation is part of qualification.
+
+## Worker .275 — consistent read-only verification lineage (12 November 2026)
+
+The strict roster display and promotion reader share one verification classifier.
+An exact unique current member/GUID link can retain its original pre-cutoff link
+dates when a source-owned, post-cutoff canonical identity settlement satisfies
+the existing complete lineage predicate. Current canonical configuration, native
+scope, original link fields, subject generation, privacy and standing remain
+required. The routine issuer reuses the extracted predicate without changing its
+operation authority. A historical receipt does not supply a current Discord role
+observation, provider ownership or a promotion acknowledgement.
+
+A terminal unbound row with no GUID and no owner for the current native GUID is
+unverified, or pending when a valid current request exists. Its former owner and
+former GUID are not recovered. Conflicting, denied, blocked, malformed or uncertain
+bindings remain unknown. No stored link, proof date, release record or role is
+changed. Risk rows remain human review only; no automatic removal is enabled.
+
+Launch reads retain a private stable oldest qualifying anchor witness in their
+account/page fingerprint, outside native pagination identity. Configuration and
+source changes across awaits remain held. Existing display and launch snapshot
+age limits, selected observation deadlines, retry limits and action guards do not
+change. The display and launch wire formats and public clients are unchanged
+(Verify 0.6.34 and Watcher 0.6.36).
+
+Qualify actual Workerd/D1 display and promotion behavior for old links with valid
+canonical proof, released/unowned and pending rows, malformed or cross-generation
+proofs, standing/privacy/rename holds, stable anchor selection and expired native
+sources. Preserve original stored timestamps and held/unknown effects. This source
+entry claims no production deployment or fresh native readiness: archived lineage
+does not refresh an expired roster. Root's ordinary exact-head release, backup,
+provider/public/cron and empty-note gates remain required. No relink, provider role
+write, native promotion or live-bridge activation is authorized by this change.

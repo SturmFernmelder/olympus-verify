@@ -6,7 +6,7 @@ const {performance}=require('node:perf_hooks');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.resolve(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'olv-roster-pacing271-'));
 const started=performance.now();
-const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts'];
+const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts','src/roster-verification275.ts','src/unverified.ts','src/routine-membership-authority232.ts'];
 const hashes=()=>Object.fromEntries(sourceFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
 const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs'];
 const testHashes=()=>Object.fromEntries(testFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
@@ -60,6 +60,62 @@ async function verificationChurn272(){
     const result=(await fixtureCall('page',{mode:'await-'+kind})).page;
     check('selected '+kind+' mutation during provider await remains fail-closed',inflightMutations.has(kind)&&result.status==='held'&&result.promotions.length===0&&result.invites.length===0&&result.pageCursor===null&&result.nextCursor===null);
     await fixtureCall('source-state',{kind,restore:true});
+  }
+}
+async function reviewRecords275(){
+  const setup=await fixtureCall('review-records275',{action:'setup'}),guids=setup.guids,target=guids[0];
+  const read=(extra={})=>fixtureCall('review-records275',{action:'read',...extra});
+  const mutate=(kind,restore=false)=>fixtureCall('review-records275',{action:'mutate',kind,restore});
+  const verified=(report,guid)=>report?.verified.some(row=>row.guid===guid&&row.status==='member');
+  const unknown=(report,guid)=>report?.unknown.some(row=>row.guid===guid);
+  const recommendation=(page,guid)=>page.promotions.find(row=>row.guid===guid);
+  try{
+    const base=await read();
+    check('genuine D1 canonical post-cutoff observed-without-dispatch lineage verifies an exact old-proof GUID without changing proof clocks',setup.syntheticSourceFacts&&base.actualLocalWorkerdD1&&verified(base.display,target)&&recommendation(base.page,target)?.targetSlot===8&&base.readOnlySourceUnchanged);
+    const unbound=base.display.unverified.find(row=>row.guid===guids[1]),pending=base.display.unverified.find(row=>row.guid===guids[2]);
+    check('unbound null-GUID history without a current GUID owner is unverified while a fresh active request remains pending',unbound?.pending===false&&pending?.pending===true&&!recommendation(base.page,guids[1])&&!recommendation(base.page,guids[2]));
+    const baselineHTTP=http.filter(row=>row.mode==='review-records');
+    check('unbound and pending histories cause no role read for the historical account and risk stays review-only',![1,2].some(index=>baselineHTTP.some(row=>row.subject===String(800000000000001000n+BigInt(index))))&&base.page.riskBuffer.some(row=>row.guid===guids[1]&&row.reviewOnly===true)&&base.page.actions.automatic===false&&base.page.actions.removals===false);
+    check('malformed missing wrong-generation cross-GUID denied private and rename-held canonical records stay unknown',guids.slice(3,10).every(guid=>unknown(base.display,guid)&&!recommendation(base.page,guid))&&verified(base.display,guids[10]));
+    const selected=await read({mode:'review-records-selected',selection:await selectedInput273(0)});
+    check('actual selected reader shares the corrected classification without exposing lineage or granting invites risk or role writes',selected.selection.protocol==='promotion-selection-v274'&&selected.selection.coveredGuids.includes(target)&&recommendation(selected.page,target)?.targetSlot===8&&selected.page.invites.length===0&&selected.page.riskBuffer.length===0&&selected.readOnlySourceUnchanged&&!JSON.stringify(selected.selection).includes('lineageAnchorId'));
+    const archived=await mutate('anchor-historical'),archivedRead=await read({mode:'review-records-archived',selection:await selectedInput273(0)});
+    check('an archived post-cutoff identity receipt keeps its expired original300s interval while fresh source and role observations admit display and selected readiness',archived.postCutoff&&archived.originalIntervalSeconds===300&&archived.originalCheckWithinInterval&&archived.originalIntervalExpired&&verified(archivedRead.display,target)&&recommendation(archivedRead.page,target)?.targetSlot===8&&archivedRead.readOnlySourceUnchanged);
+    await mutate('anchor-restore');
+    for(const kind of ['anchor-subject','anchor-guid','anchor-role','anchor-rank','anchor-digest','anchor-generation','anchor-precutoff','anchor-future','anchor-interval']){
+      await mutate(kind);const held=await read();
+      check('canonical lineage rejects '+kind+' through real display and promotion readers',unknown(held.display,target)&&!recommendation(held.page,target)&&held.readOnlySourceUnchanged);
+      await mutate('anchor-restore');
+    }
+    for(const kind of ['config','scope','denial','privacy','rename','native-duplicate']){
+      await mutate(kind);const held=await read();
+      check('canonical '+kind+' guard cannot turn an old proof into current display or promotion authority',!verified(held.display,target)&&!recommendation(held.page,target)&&held.readOnlySourceUnchanged);
+      await mutate(kind,true);
+    }
+    await mutate('owner-conflict');const owned=await read();
+    check('an unbound namesake with another active GUID owner stays unknown instead of inheriting unverified or verified status',unknown(owned.display,guids[1])&&!owned.display.unverified.some(row=>row.guid===guids[1])&&!recommendation(owned.page,guids[1]));
+    await mutate('owner-conflict',true);
+    for(const kind of ['anchor','config','native-config']){
+      const held=await read({mode:'review-await-'+kind,selection:await selectedInput273(0)});
+      check('selected canonical '+kind+' change during actual provider await holds the entire overlay',inflightMutations.has('review-'+kind)&&held.page.status==='held'&&held.page.promotions.length===0&&held.selection.coveredGuids.length===0&&held.page.pageCursor===null&&held.page.nextCursor===null);
+      await mutate(kind==='anchor'?'anchor-restore':kind,true);
+    }
+    const cached=await read({mode:'review-records-cache'}),cursor=cached.page.pageCursor,body=JSON.parse(Buffer.from(cursor.split('.')[0],'base64url').toString('utf8'));
+    assert.equal(body.roleReads.length,5);assert(body.roleReads.some(row=>row[0]===target));
+    await mutate('newer-anchor');const beforeNew=http.length,newer=await read({mode:'review-records-cache',cursor});
+    check('a newer qualifying canonical receipt leaves the stable oldest witness and its cached role observations unchanged',http.length-beforeNew===6&&newer.page.promotions.length===11&&JSON.stringify(newer.page.scan)===JSON.stringify(cached.page.scan)&&newer.page.expiresAt<=cached.page.expiresAt&&newer.readOnlySourceUnchanged);
+    await mutate('remove-old-anchor');const beforeRemoved=http.length,removed=await read({mode:'review-records-cache',cursor});
+    check('removing the original canonical witness forces a fresh exact-account role read before using its replacement',http.length-beforeRemoved===7&&http.slice(beforeRemoved).some(row=>row.subject==='800000000000001000')&&recommendation(removed.page,target)?.targetSlot===8&&JSON.stringify(removed.page.scan)===JSON.stringify(cached.page.scan)&&removed.page.expiresAt<=Math.min(...body.roleReads.filter(row=>row[0]!==target).map(row=>row[2]+60))&&removed.readOnlySourceUnchanged);
+    await mutate('generation');
+    await refused('review-records275',{action:'read',mode:'review-records-cache',cursor},'launch_cursor_role_source_changed',409);
+    const invalid=await read();check('a changed privacy generation invalidates cached lineage and holds the current GUID without role authority',unknown(invalid.display,target)&&!recommendation(invalid.page,target)&&invalid.readOnlySourceUnchanged);
+    await mutate('generation',true);
+    await mutate('stale');const stale=await read();
+    check('canonical lineage never renews a stale Native source or its display and promotion deadlines',stale.display===null&&stale.page.status==='held'&&stale.page.promotions.length===0&&stale.readOnlySourceUnchanged);
+    await mutate('stale',true);
+  }finally{
+    const restored=await fixtureCall('review-records275',{action:'restore'});
+    check('isolated canonical classification facts restore all original identity proof and effect rows before the existing audit',restored.originalProofsRestored&&restored.originalEffectsRestored);
   }
 }
 let selectedSerial=300;
@@ -239,6 +295,7 @@ async function run(){
   const beforeSlow=http.length,slowStarted=performance.now(),slow=await fixtureCall('page',{mode:'slow-read'}),slowDuration=performance.now()-slowStarted;
   check('real local read window exhaustion is held separately from an upstream Discord 429',slowDuration>=9000&&slowDuration<16000&&http.length-beforeSlow<=10&&slow.page.status==='held'&&slow.page.promotions.length===0&&slow.page.heldReasons.includes('launch-read-window-exhausted')&&!slow.page.heldReasons.includes('discord-rate-limited')&&slow.page.entitlements.retryAfterSeconds===null);
   await selectedReads273(pages[19]);
+  await reviewRecords275();
   await fixtureCall('ranks');const beforeSkip=http.length,skip=await fixtureCall('page',{mode:'skip-native'});
   const expected=Array.from({length:7},(_,i)=>'Player-6933-'+(i+1).toString(16).padStart(8,'0'));
   check('exact native ranks 0 through 6 need neither Discord reads nor unknown-entitlement holds',http.length-beforeSkip===13&&skip.page.promotions.length===13&&http.slice(beforeSkip).every(row=>BigInt(row.subject)-800000000000001000n>=7n)&&expected.every(id=>!skip.page.held.some(r=>r.guid===id)&&!skip.page.promotions.some(r=>r.guid===id)));
@@ -274,7 +331,10 @@ async function run(){
         if(mode.startsWith('selected-await-')&&!inflightMutations.has('selected-'+mode.slice(15))){
           const kind=mode.slice(15);inflightMutations.add('selected-'+kind);await fixtureCall('source-state',{kind});
         }
-        const limited=(['partial-recover','identity-switch','selected-partial','selected-cache-age'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
+        if(mode.startsWith('review-await-')&&!inflightMutations.has('review-'+mode.slice(13))){
+          const kind=mode.slice(13);inflightMutations.add('review-'+kind);await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-digest':kind});
+        }
+        const limited=(['partial-recover','identity-switch','selected-partial','selected-cache-age','review-records-cache'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
         return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
