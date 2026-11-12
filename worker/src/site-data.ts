@@ -21,7 +21,7 @@ import { ROYAL_WRIT_POLICY, ROYAL_WRITS, STOCKADES_CHECKLIST, ROYAL_WRIT_CATEGOR
 import { TALENT_SNAPSHOT_REVISION } from "./talent-build-contract";
 import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
 import { reservedApplication201 } from './application-track199';
-import { OFFICE_ROLE_GUIDES_201, NATIVE_RANK_GUIDES_201, roleGuides201 } from './site-role-guides201';
+import { OFFICE_ROLE_GUIDES_201, roleGuides201 } from './site-role-guides201';
 import { ROLE_DIRECTORY_203 } from './site-role-directory203';
 
 /**
@@ -812,19 +812,30 @@ export async function loadSettings(env: Env): Promise<SiteSettings> {
   return settingsFrom(env, rows.results);
 }
 
-/** One read for the settings and the resolved game identity (item 7, 14 Oct 2026); the boot and /api/public use it. */
-export async function loadSiteState(env: Env): Promise<{ settings: SiteSettings; ruleset: RulesetSnapshot }> {
-  const rows = await env.DB.prepare("SELECT key, value FROM site_settings WHERE (key < 'newsWebhook:' OR key >= 'newsWebhook;') AND "+NICKNAME_SETTINGS_FILTER233).all<{ key: string; value: string }>();
-  return { settings: settingsFrom(env, rows.results), ruleset: await resolveRulesetSnapshot(rows.results, env) };
+/** The one settings read behind loadSiteState. Exported so the boot can carry it inside its own read batch
+ * (Evergreen 12 Nov 2026, CL2-073) instead of a separate round trip. */
+export const SITE_STATE_SQL = "SELECT key, value FROM site_settings WHERE (key < 'newsWebhook:' OR key >= 'newsWebhook;') AND "+NICKNAME_SETTINGS_FILTER233;
+
+/** The settings and the resolved game identity from the rows SITE_STATE_SQL returned. */
+export async function siteStateFrom(env: Env, rows: Array<{ key: string; value: string }>): Promise<{ settings: SiteSettings; ruleset: RulesetSnapshot }> {
+  return { settings: settingsFrom(env, rows), ruleset: await resolveRulesetSnapshot(rows, env) };
 }
 
-/** Everything the page needs to draw the forms; sent with /api/me and in the page's boot data. */
-export function meta(ruleset?: RulesetSnapshot) {
+/** One read for the settings and the resolved game identity (item 7, 14 Oct 2026); the boot and /api/public use it. */
+export async function loadSiteState(env: Env): Promise<{ settings: SiteSettings; ruleset: RulesetSnapshot }> {
+  const rows = await env.DB.prepare(SITE_STATE_SQL).all<{ key: string; value: string }>();
+  return siteStateFrom(env, rows.results);
+}
+
+/**
+ * The persona-independent part of the catalogue, built once per isolate (Evergreen 12 Nov 2026, CL2-072/CL2-073): it
+ * depends on nothing but this build's source, and rebuilding about 560 KB of it on every page load cost CPU for
+ * nothing. Frozen at the top so no caller can change what the next request sees. nativeRankGuides201 is no longer
+ * sent: no page code reads it (14 KB); NATIVE_RANK_GUIDES_201 stays exported from site-role-guides201.ts.
+ */
+let staticMetaMemo: Readonly<ReturnType<typeof buildStaticMeta>> | null = null;
+function buildStaticMeta() {
   return {
-    // Item 7 (14 Oct 2026): the resolved identity, or null with the hold code; a caller without a snapshot gets no identity.
-    ruleset: ruleset?.profile ?? null,
-    rulesetHeld: ruleset ? ruleset.held : ("ruleset_unresolved" as const),
-    rulesetSwitch: rulesetSwitchReadiness(ruleset ?? "unresolved"),
     positions: POSITIONS.map(position => ({ ...position, reservedSeat201: !!reservedApplication201({position:position.key}) })),
     classes: CLASSES,
     roles: ROLES,
@@ -849,7 +860,6 @@ export function meta(ruleset?: RulesetSnapshot) {
     applicationTracks: APPLICATION_TRACKS_199,
     roleGuides201: roleGuides201(POSITIONS),
     roleDirectory203: ROLE_DIRECTORY_203,
-    nativeRankGuides201: NATIVE_RANK_GUIDES_201,
     applicationPolicy201: { reservedTiers:['leader','high_council','officer_corps'],
       notice:'Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them. An empty listing is not an open vacancy.' },
     royalWritPolicy: ROYAL_WRIT_POLICY,
@@ -859,6 +869,25 @@ export function meta(ruleset?: RulesetSnapshot) {
     limits: LIMITS,
     avail: { reference: AVAIL_REFERENCE, prime: PRIME },
   };
+}
+export function staticMeta(): Readonly<ReturnType<typeof buildStaticMeta>> {
+  return staticMetaMemo ??= Object.freeze(buildStaticMeta());
+}
+
+/** The ruleset-dependent head of the catalogue: the only part that changes between requests. */
+export function rulesetMeta(ruleset?: RulesetSnapshot) {
+  return {
+    // Item 7 (14 Oct 2026): the resolved identity, or null with the hold code; a caller without a snapshot gets no identity.
+    ruleset: ruleset?.profile ?? null,
+    rulesetHeld: ruleset ? ruleset.held : ("ruleset_unresolved" as const),
+    rulesetSwitch: rulesetSwitchReadiness(ruleset ?? "unresolved"),
+  };
+}
+
+/** Everything the page needs to draw the forms. Since Evergreen 12 Nov 2026 (CL2-072) it rides in the page's boot data
+ * only: /api/me and /api/public no longer repeat it, because the page reads it from the boot alone. */
+export function meta(ruleset?: RulesetSnapshot) {
+  return { ...rulesetMeta(ruleset), ...staticMeta() };
 }
 
 // ---------- cleaning what people type ----------

@@ -38,7 +38,6 @@ import {
   LIMITS,
   loadSettings,
   loadSiteState,
-  meta,
   parseCharacterName,
   parseLink,
   parsePick,
@@ -51,6 +50,8 @@ import {
   ROLE_KEYS,
   roleKeyOf,
   roleLabel,
+  SITE_STATE_SQL,
+  siteStateFrom,
   VOICE_KEYS,
   type Pick,
   type SiteSettings,
@@ -65,7 +66,6 @@ import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
 import { admittedRead, admittedReadAs, admittedCommunityRead, communityReadRefusal, communityContext, FENCE_REFUSED, refusal } from "./community-context";
 import { qualifiedLeadershipPage } from "./site-leadership";
-import { openRenameHold } from "./rename-review";
 import { newsPage, handleTownCrierEditor } from "./site-news";
 import { handleTownCrierWebhook } from "./site-news-webhook";
 import { loadResourceUpdates, resourcePublicCache } from "./site-resources";
@@ -128,7 +128,9 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   const m = request.method;
   if (path === '/api/admin/qr/beta-window') return handleAttendedBetaWindow(request, env);
   if (path.startsWith('/api/qr/')) return (await import('./qr-phase1-route')).handleQrApi(request, env,roleDispatch);
-  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: generalSettingsDto(state.settings), meta: meta(state.ruleset), now: now() }); }
+  // Evergreen 12 Nov 2026 (CL2-072/CL2-249): the settings only. The page reads its catalogue from the boot, so repeating
+  // about 570 KB of it here made a settings refresh after a write-in conflict download the whole catalogue again.
+  if (m === "GET" && path === "/api/public") { const state = await loadSiteState(env); return apiJson({ settings: generalSettingsDto(state.settings), now: now() }); }
   // .82: the private request intake needs no session: the requester holds a case id and code (community-privacy-intake.ts)
   if (path === "/api/privacy/config" || path === "/api/privacy/requests" || path.startsWith("/api/privacy/requests/")) return handlePrivacyIntake(request, env, path);
   if(m==='POST' && path==='/api/me/erasure'){
@@ -252,14 +254,14 @@ export function shownReserved(status: string, queueStatus: string | null): "save
   return queueStatus === "joined" ? "in_guild" : "ended";
 }
 type ReservedRow = { id: number; name: string; name_key: string; status: string; queueStatus: string | null };
-const myReserved = (env: Env, id: string) =>
+const myReservedStatement = (env: Env, id: string) =>
   env.DB.prepare(
     `SELECT r.id, r.name, r.name_key, r.status, q.status AS queueStatus
        FROM site_reserved r LEFT JOIN invite_queue q ON q.id = r.queue_id
       WHERE r.owner_id = ?1 AND r.status <> 'released' ORDER BY r.id`,
   )
-    .bind(id)
-    .all<ReservedRow>();
+    .bind(id);
+const myReserved = (env: Env, id: string) => myReservedStatement(env, id).all<ReservedRow>();
 const reservedOut = (rows: ReservedRow[]) => rows.map((r) => ({ id: r.id, name: r.name, status: shownReserved(r.status, r.queueStatus) }));
 
 /** A role members vote on and write people in for: neither appointed nor chosen without a public vote. */
@@ -273,61 +275,82 @@ export async function meSeatsData(env: Env, user: SiteUser) {
     myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [] };
 }
 
+/** The account's own data for the boot and /api/me. The page's catalogue (meta) is no longer part of it: since
+ * Evergreen 12 Nov 2026 (CL2-072) it rides in the page's boot data only (site.ts), because no page code reads it from
+ * /api/me. */
 export async function meData(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
-  const state = settings && ruleset ? { settings, ruleset } : await loadSiteState(env);
-  const s = state.settings;
+  return (await meDataWithState(env, user, settings, ruleset)).dto;
+}
+
+/** The same reading as meData, plus the resolved settings and ruleset it used, so the boot can describe the same state.
+ * Evergreen 12 Nov 2026 (CL2-073): the account's own rows (and the settings, when the caller has none) are read in ONE
+ * batch instead of eight sequential round trips; the seat state, the two office authority reads and the editor proof
+ * run beside it. Every read is unchanged in its SQL and in what it binds; only the waiting is shared. The office
+ * authority reads (site-appointed-identities.ts) keep their own captured predicates and are not merged into the batch. */
+export async function meDataWithState(env: Env, user: SiteUser, settings?: SiteSettings, ruleset?: RulesetSnapshot) {
   const id = user.discord_id;
-  const app = await env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id).first<AppRow>();
-  const votes = await env.DB.prepare(
-    "SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot",
-  )
-    .bind(id)
-    .all<{ ballot: string; slot: number; kind: string; key: string; label: string; reason: string | null }>();
-  const friends = await env.DB.prepare(
-    "SELECT friend_kind AS kind, friend_key AS key, friend_label AS label, note FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label",
-  )
-    .bind(id)
-    .all<{ kind: string; key: string; label: string; note: string | null }>();
-  const reserved = await myReserved(env, id);
-  // The roles other members wrote this account in for (roles only: never who, never how many). The Home page tells
-  // them, so someone put forward for a role can apply for it and be on the voting board.
-  const nominated = await env.DB.prepare(
-    `SELECT DISTINCT v.ballot FROM site_votes v JOIN site_users u ON u.discord_id = v.voter_id AND u.denied = 0
+  const known = settings && ruleset ? { settings, ruleset } : null;
+  const reads = [
+    env.DB.prepare("SELECT * FROM site_applications WHERE discord_id = ?1").bind(id),
+    env.DB.prepare(
+      "SELECT ballot, slot, nominee_kind AS kind, nominee_key AS key, nominee_label AS label, reason FROM site_votes WHERE voter_id = ?1 ORDER BY ballot, slot",
+    ).bind(id),
+    env.DB.prepare(
+      "SELECT friend_kind AS kind, friend_key AS key, friend_label AS label, note FROM site_friends WHERE owner_id = ?1 ORDER BY created_at, friend_label",
+    ).bind(id),
+    myReservedStatement(env, id),
+    // The roles other members wrote this account in for (roles only: never who, never how many). The Home page tells
+    // them, so someone put forward for a role can apply for it and be on the voting board.
+    env.DB.prepare(
+      `SELECT DISTINCT v.ballot FROM site_votes v JOIN site_users u ON u.discord_id = v.voter_id AND u.denied = 0
       WHERE v.nominee_kind = 'discord' AND v.nominee_key = ?1 AND v.voter_id <> ?1`,
-  )
-    .bind(id)
-    .all<{ ballot: string }>();
-  // Votes on an appointed role's board, or on a role now chosen without a public vote, no longer count as "voted on":
-  // that board is closed.
-  const board = await env.DB.prepare(MY_BOARD_VOTES).bind(id).all<{ rk: string; n: number }>();
-  const boardVotes = board.results.filter((r) => boardOpenFor(s, r.rk)).reduce((n, r) => n + r.n, 0);
-  const admin = isSiteAdmin(env, id);
+    ).bind(id),
+    // Votes on an appointed role's board, or on a role now chosen without a public vote, no longer count as "voted on":
+    // that board is closed.
+    env.DB.prepare(MY_BOARD_VOTES).bind(id),
+    // .114: a rename Blizzard required asks the member to apply again; the same read as rename-review.ts openRenameHold.
+    env.DB.prepare("SELECT old_name, new_name, decided_at FROM rename_holds WHERE discord_id = ?1 AND state = 'reapply' ORDER BY decided_at DESC LIMIT 1").bind(id),
+    ...(known ? [] : [env.DB.prepare(SITE_STATE_SQL)]),
+  ];
   // .115 (item B): one guarded batch; the viewer's own rows only; times rounded to the hour (guild-seats.ts memberSeats).
   // A denied account gets neither. The signed-out boot and /api/public carry no seat state.
-  const seatInfo = user.denied ? null : await guildSeats(env, now(), id);
-  return {
+  const [results, seatInfo, streamShield, townCrier, editorProof] = await Promise.all([
+    env.DB.batch(reads),
+    user.denied ? null : guildSeats(env, now(), id),
+    user.denied ? false : canUseStreamShield(env, id),
+    user.denied ? false : canEditTownCrier(env, id),
+    user.denied ? undefined : sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user)),
+  ]);
+  const rows = <T,>(i: number) => (results[i]?.results ?? []) as T[];
+  const state = known ?? await siteStateFrom(env, rows<{ key: string; value: string }>(7));
+  const s = state.settings;
+  const app = rows<AppRow>(0)[0] ?? null;
+  const board = rows<{ rk: string; n: number }>(5);
+  const boardVotes = board.filter((r) => boardOpenFor(s, r.rk)).reduce((n, r) => n + r.n, 0);
+  const hold = rows<{ old_name: string; new_name: string; decided_at: number }>(6)[0] ?? null;
+  const admin = isSiteAdmin(env, id);
+  const dto = {
     signedIn: true,
     inServer: user.in_server === 1,
     now: now(),
     user: { ...publicUser(env, user, admin),
-      canUseStreamShield: !user.denied && await canUseStreamShield(env, id),
-      canEditTownCrier: !user.denied && await canEditTownCrier(env, id) },
+      canUseStreamShield: !user.denied && streamShield,
+      canEditTownCrier: !user.denied && townCrier },
     denied: !!user.denied,
     deniedText: user.denied ? DENIED_TEXT : undefined,
     settings: generalSettingsDto(s),
-    meta: meta(state.ruleset),
-    applicationEditorProof: user.denied ? undefined : await sign(env.COOKIE_SECRET, APPLICATION_EDITOR_PURPOSE, applicationEditorValue(user)),
+    applicationEditorProof: editorProof,
     application: app ? await ownApplicationOut219(app) : null,
-    votes: votes.results,
+    votes: rows<{ ballot: string; slot: number; kind: string; key: string; label: string; reason: string | null }>(1),
     boardVotes,
-    nominatedFor: user.denied ? [] : nominated.results.map((r) => r.ballot).filter((b) => ballotOf(b) && boardOpenFor(s, b)),
-    friends: friends.results,
-    reserved: reservedOut(reserved.results),
-    // .114: a rename Blizzard required asks the member to apply again (rename-review.ts); Home says so and why
-    reapply: await openRenameHold(env, id),
+    nominatedFor: user.denied ? [] : rows<{ ballot: string }>(4).map((r) => r.ballot).filter((b) => ballotOf(b) && boardOpenFor(s, b)),
+    friends: rows<{ kind: string; key: string; label: string; note: string | null }>(2),
+    reserved: reservedOut(rows<ReservedRow>(3)),
+    reapply: hold ? { from: hold.old_name, to: hold.new_name, decidedAt: hold.decided_at } : null,
     seats: seatInfo && memberSeats(env, seatInfo.seats),
     myQueue: seatInfo && seatInfo.seats.full ? seatInfo.places.map(({ name, position }) => ({ name, position })) : [],
   };
+  return { dto, settings: s, ruleset: state.ruleset };
 }
 
 // ---------- the application ----------
@@ -1141,26 +1164,78 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
 
 // ---------- membership, deletion, plumbing ----------
 
+/** Whether this account's hourly Discord membership check is due (or its stored check time is not believable). */
+export function membershipRecheckDue(user: { checked_at: number | null }): boolean {
+  const checked = user.checked_at ?? 0;
+  return !(checked > 0 && checked <= now() && now() - checked < MEMBER_RECHECK);
+}
+
+/**
+ * Single-flight for the hourly check (Evergreen 12 Nov 2026, CL2-077). One page load sends the document, app.js,
+ * app.css and the member-only images and modules, and each of them passes the member gate; when the hour is up every one of them used to ask Discord and
+ * write site_users. Now the requests of one session in this isolate share one Discord read and one write. The outcome
+ * is kept briefly after it settles, for requests that read the account row before the write committed. Fail closed is
+ * unchanged: an unavailable answer is shared for a few seconds only, never turned into access, and a caller that waits
+ * longer than the Discord timeout allows stops waiting and is held (a shared promise can outlive the request that
+ * started it, for example when that client goes away).
+ */
+type MemberCheck = "member" | "not_member" | "unavailable";
+const MEMBER_CHECK_SHARE_S: Record<MemberCheck, number> = { member: 30, not_member: 30, unavailable: 5 };
+const MEMBER_CHECK_WAIT_MS = 10_000; // credentialFetch gives up after 8 s; the D1 write then needs a moment more
+const memberChecks = new Map<string, { at: number; settled: number | null; outcome: Promise<MemberCheck> }>();
+const memberCheckKey = (user: SiteUser) =>
+  JSON.stringify([user.discord_id, user.account_incarnation, user.session_version, user.privacyGeneration ?? null]);
+
 /** At most hourly before protected delivery or a save. A due check fails closed. */
 export async function stillMember(env: Env, user: SiteUser): Promise<Response | null> {
   if (user.in_server !== 1) return notMember();
-  const checked = user.checked_at ?? 0;
-  if (checked > 0 && checked <= now() && now() - checked < MEMBER_RECHECK) return null;
+  if (!membershipRecheckDue(user)) return null;
   if (!env.DISCORD_BOT_TOKEN || !/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "")) {
     return apiJson({ error: 'membership_unavailable', message: 'Discord membership must be confirmed before protected access. Please try again shortly.' }, 503);
   }
+  const key = memberCheckKey(user);
+  let entry = memberChecks.get(key);
+  if (entry && entry.settled !== null) {
+    const outcome = await entry.outcome; // settled: resolves at once
+    if (now() - entry.settled >= MEMBER_CHECK_SHARE_S[outcome] || entry.settled > now()) { memberChecks.delete(key); entry = undefined; }
+  }
+  if (!entry) {
+    if (memberChecks.size > 2000) for (const [k, v] of memberChecks) if (v.settled !== null) memberChecks.delete(k);
+    const created: { at: number; settled: number | null; outcome: Promise<MemberCheck> } = { at: now(), settled: null, outcome: Promise.resolve("unavailable") };
+    created.outcome = checkMembership(env, user).then(
+      (outcome) => { created.settled = now(); return outcome; },
+      (error) => { if (memberChecks.get(key) === created) memberChecks.delete(key); throw error; },
+    );
+    memberChecks.set(key, created);
+    entry = created;
+  }
+  const shared = entry;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    shared.outcome,
+    new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), MEMBER_CHECK_WAIT_MS); }),
+  ]).finally(() => { if (timer !== undefined) clearTimeout(timer); });
+  if (outcome === "timeout") {
+    if (memberChecks.get(key) === shared && shared.settled === null) memberChecks.delete(key);
+    return membershipUnavailable();
+  }
+  return outcome === "member" ? null : outcome === "not_member" ? notMember() : membershipUnavailable();
+}
+
+/** The Discord read and its write, exactly as before the single-flight; the outcome, not a Response, is shared. */
+async function checkMembership(env: Env, user: SiteUser): Promise<MemberCheck> {
   try {
     const m = await rest<{ nick?: string | null; avatar?: string | null; pending?: boolean }>(env, "GET", `/guilds/${env.SITE_GUILD_ID}/members/${user.discord_id}`, undefined, 1);
     if (m.pending) {
       await env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, now()).run();
-      return notMember();
+      return "not_member";
     }
     await env.DB.prepare(
       "UPDATE site_users SET nick = ?2, avatar = CASE WHEN ?3 IS NOT NULL THEN ?3 WHEN avatar LIKE 'g:%' THEN NULL ELSE avatar END, in_server = 1, checked_at = ?4 WHERE discord_id = ?1",
     )
       .bind(user.discord_id, m.nick ?? null, m.avatar ? `g:${m.avatar}` : null, now())
       .run();
-    return null;
+    return "member";
   } catch (e) {
     if (e instanceof DiscordError && e.status === 404) {
       const at = now();
@@ -1168,11 +1243,14 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
         env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,?2,?3,NULL,NULL").bind(at, user.discord_id, "site.left_server"),
         env.DB.prepare("UPDATE site_users SET in_server = 0, checked_at = ?2, session_version = session_version + 1 WHERE discord_id = ?1").bind(user.discord_id, at),
       ]);
-      return notMember();
+      return "not_member";
     }
-    return apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);
+    return "unavailable";
   }
 }
+
+const membershipUnavailable = () =>
+  apiJson({ error: 'membership_unavailable', message: 'Discord membership could not be confirmed. Protected access is held; please try again shortly.' }, 503);
 
 const notMember = () =>
   apiJson({ error: "not_member", message: "Current membership of Asmongold's Discord server is required for protected access. Rejoin and complete screening, then sign in again." }, 403);

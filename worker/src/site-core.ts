@@ -152,6 +152,21 @@ export async function currentUser(env: Env, request: Request): Promise<SiteUser 
 }
 
 /**
+ * The account the member gate admitted for one request (Evergreen 12 Nov 2026, CL2-073). The gate (site-access.ts)
+ * reads the signed-in row before the page is built, and the page used to read the same row again a few milliseconds
+ * later. The gate leaves the row here only when its hourly Discord check did not run (so nothing rewrote the row), and
+ * the page takes it once. Keyed by the Request object itself, so it can never reach another request; nothing outlives
+ * the request.
+ */
+const gateUsers = new WeakMap<Request, SiteUser>();
+export function rememberGateUser(request: Request, user: SiteUser): void { gateUsers.set(request, user); }
+export function gateUser(request: Request): SiteUser | null {
+  const user = gateUsers.get(request) ?? null;
+  gateUsers.delete(request);
+  return user;
+}
+
+/**
  * A state-changing request from this site's own page: the custom header plus a same-origin Origin. The header's value
  * is the page's version: "2" since .43. A page loaded before that still sends "1"; it is ours, but out of date.
  */
