@@ -8198,3 +8198,54 @@ and a new bounded read-only scan/recheck require a new approval because the
 0.6.32 one-full-scan allowance is used. Preserve every failed original. Rollback
 reinstalls the backed-up compatible public modules through the existing task;
 it never rewrites runtime custody or replays an uncertain effect.
+
+## Watcher 0.6.34 candidate - exact near-due admission and consumed input custody
+
+The approved 0.6.33 run expired at 01:29:02Z: 47 contiguous pages, 940/965
+inspected, 25 unscanned and seven auxiliary attempts. Its 23 dated
+recommendations include 19 Initiate-to-Member and four Knight-to-Veteran rows.
+The original raw queue/stdout are preserved. One scan/reload and no recheck or
+native promotion were used. Root observed the user actively using WoW later
+and did not send post-scan input; no loaded terminal acceptance is claimed.
+
+Client diagnostics recorded 54 charged attempts: prefix median 2.448 seconds,
+launch-phase median 2.747 seconds, tail median zero. The partial server tail
+captured fewer requests than client logs, so it cannot reconstruct continuous
+request gaps. Actual local tests exposed a missing polling boundary: supported
+two-second polling plus a roughly 2.4-second prefix can arrive just before the
+five-second gate, then repeat the whole prefix. A proposed predictor still
+expired under small alternating-prefix changes and was held from rollout;
+its dated evidence remains preserved.
+
+Replace prediction with at most one exact wait of up to five seconds inside
+the existing launch step, only toward an established scan's actual next_at.
+Accepted-page and known rate-limited-wait states can align after the initial
+local pause guard clears; bootstrap, unknown, authentication and terminal
+states cannot obtain wait authority. Retry-After and next_at are never reduced.
+After the wait, recheck custody, input identity, original expiry and current
+local pause. The unchanged Scan.step remains the actual admission and retry
+authority. Configured outer polling, normal job order/count and one launch step
+per loop remain. Launch-phase timing includes this wait; it is not pure HTTP.
+
+A process-only SavedVariables metadata witness is published only after normal
+input parsing, control handling and state save finish with unchanged regular
+file identity. Before every launch GET and after any wait, require that same
+consumed identity/stamp. Missing, unknown, replaced or changed input defers to
+the next normal intake pass, without a second ingest call. This metadata check
+does not authenticate native contents or renew server/page proofs. A failed
+control-claim reservation halts custody and clears the consumed witness; never
+unsee, replay or automatically retry an uncertain claim.
+
+All original 600/60-second clocks, 50 discovery/50 shared auxiliary attempts,
+100 total GETs, two retries per page and five-second response spacing remain.
+Qualification must cover actual completed/deferred intake and failed control
+saves, source changes before/during wait, pause/custody/expiry, short polling
+and variable prefixes, real old-code controls and honest slow-work holds.
+Record exact test/CI/package receipts; calibrated models do not establish
+live completion or enough time for an attended selected-page recheck.
+
+Watcher-only: Worker .272, addon 0.6.32, database, secrets and dependencies
+remain unchanged. No 27-record repair, native promotion or live bridge is
+included. A new bounded live scan/recheck needs new approval because the
+0.6.33 full-scan allowance is used. Rollback uses backed-up public modules
+through the existing scheduled task and never resets runtime custody.

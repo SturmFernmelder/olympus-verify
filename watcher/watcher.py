@@ -29,6 +29,7 @@ import math
 import os
 import random
 import re
+import stat
 import statistics
 import subprocess
 import sys
@@ -108,7 +109,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.33"
+WATCHER_VERSION = "0.6.34"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -620,6 +621,7 @@ class Watcher:
         self._independent_originals: dict[int, dict[str, Any]] = {}
         self._verification_waiting = None
         self._verification_sv_stamp = None
+        self._launch_consumed_sv_witness = None  # Process-only, after control handling and durable intake save.
         self._unverified: dict[str, Any] | None = None
         self.max_outbox = int(cfg.get("max_outbox", 500))
         self._custody_halted = False
@@ -1674,17 +1676,37 @@ class Watcher:
         self._treasury_purged_at = current
 
     # ---------- 2. SavedVariables ----------
+    def _launch_savedvars_witness(self) -> tuple[int, ...] | None:
+        try:
+            source = self.sv_file.lstat()
+            if not stat.S_ISREG(source.st_mode):
+                return None
+            witness = (source.st_dev, source.st_ino, source.st_mtime_ns, source.st_ctime_ns, source.st_size)
+            if any(type(value) is not int or value < 0 for value in witness) or source.st_ino == 0:
+                return None
+            return witness
+        except (OSError, ValueError, TypeError, AttributeError):
+            return None
+
     def check_savedvars(self) -> None:
         self.purge_treasury_receipts()
         intake242.collect(self)
+        witness = self._launch_savedvars_witness() if self.membership_only else None
+        if self.membership_only and witness is None:
+            self._launch_consumed_sv_witness = None
+            self._verification_roster = None
+            return
         if not self.sv_file.exists():
             self._verification_roster = None
             return
         initial = self.sv_file.stat()
         mtime = initial.st_mtime
         if mtime <= self.state.d["sv_mtime"]:
+            if getattr(self, '_launch_consumed_sv_witness', None) != witness:
+                self._launch_consumed_sv_witness = None
             intake242.drain(self, collect_inputs=False)
             return
+        self._launch_consumed_sv_witness = None
         time.sleep(1.0)  # WoW writes the file in one go, but give it a moment
         try:
             data = savedvars.parse_file(str(self.sv_file))
@@ -1696,6 +1718,9 @@ class Watcher:
             return
         current = self.sv_file.stat()
         if (current.st_mtime_ns, current.st_size) != (initial.st_mtime_ns, initial.st_size):
+            self._verification_roster = None
+            return
+        if self.membership_only and self._launch_savedvars_witness() != witness:
             self._verification_roster = None
             return
         self._verification_sv_stamp = (current.st_mtime_ns, current.st_size)
@@ -1725,6 +1750,9 @@ class Watcher:
         self.read_launch_control(db)
         self.state.d["sv_mtime"] = mtime
         self.state.save()
+        if (witness is not None and not getattr(self, '_custody_halted', False)
+                and self._launch_savedvars_witness() == witness):
+            self._launch_consumed_sv_witness = witness
 
     def forward_events(self, events: list[dict[str, Any]]) -> None:
         relay: list[dict[str, Any]] = []
@@ -2043,8 +2071,13 @@ class Watcher:
         if self.state.was_seen(key):
             return
         # Spend the explicit local request before its first read. Restart never resumes a role scan.
-        self.state.seen(key)
-        self.state.save()
+        try:
+            self.state.seen(key)
+            self.state.save()
+        except Exception:
+            self._custody_halted = True
+            self._launch_consumed_sv_witness = None
+            raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
         if control['action'] == 'scan':
             roster = db['roster']
             accepted = self._launch_accepted_roster
@@ -2093,8 +2126,40 @@ class Watcher:
             if changed:
                 self.write_launch_operations()
             return
+        witness = self._launch_savedvars_witness()
+        if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
+            return  # A changed or incompletely consumed source needs the next normal intake pass.
+        remaining = self.launch_scan.next_at - at
+        if (0 < remaining <= 5 and self.launch_scan.pages
+                and self.launch_scan.stopped in (None, 'rate-limited-wait')):
+            # One exact admission wait, not a prediction of the next prefix.
+            # Accepted pages and established known cooldowns keep their exact
+            # due time. This wait is launch-phase time, with no GET here.
+            time.sleep(remaining)
+            self._require_custody_continuation()
+            if self._custody_halted:
+                return
+            if (self._launch_savedvars_witness() != witness
+                    or witness != getattr(self, '_launch_consumed_sv_witness', None)):
+                return
+            at = time.time()
+            if self.launch_scan.expire(at):
+                self.write_launch_operations()
+                return
+            if self.launch_scan.phase == 'idle':
+                return
+            paused = self.worker.paused()
+            if paused:
+                if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
+                    changed = self.launch_scan.defer_rate_limit(paused.get('retryAfterSeconds'))
+                else:
+                    self.launch_scan._stop('source-refused')
+                    changed = True
+                if changed:
+                    self.write_launch_operations()
+                return
         # One explicit scan page per >=5 seconds, between the ordinary ingestion passes.
-        if self.launch_scan.step(self.worker.call, at):
+        if self.launch_scan.step(self.worker.call, time.time()):
             self.write_launch_operations()
 
     def pull_strict_display(self) -> None:
@@ -2419,11 +2484,6 @@ class Watcher:
                 self._require_custody_continuation()
                 log(f"loop error: {type(e).__name__}")
             delay = self.poll
-            if self.membership_only and not self._custody_halted and self.launch_scan.phase != 'idle':
-                # Begin the next mandatory prefix before the existing GET due
-                # time, using this pass's measured cost as an estimate. Scan.step
-                # still enforces response spacing if the next prefix is shorter.
-                delay = min(delay, max(1.0, self.launch_scan.next_at - time.time() - prefix_seconds))
             if launch_seconds is not None:
                 tail_seconds = max(0.0, time.monotonic() - tail_started)
                 log(f"launch timing: prefix={prefix_seconds:.3f}s; launch-phase={launch_seconds:.3f}s; tail={tail_seconds:.3f}s; planned-sleep={delay:.3f}s")

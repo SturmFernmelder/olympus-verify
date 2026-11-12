@@ -189,9 +189,12 @@ class LaunchOperations(unittest.TestCase):
             db = dict(lastCharacterGuid=control['guid'], launchControl=control,
                       roster=dict(exportedAt=self.at-10,total=20,nativeGuild='OLYMPUS PRIME',nativeRealm='Native Realm',
                                   members=[dict(guid=control['guid'] if i==0 else f'Player-1-{i:08X}',name='Fern Melder' if i==0 else 'Member '+str(i),rank='Member',rankIndex=7,level=60) for i in range(20)]))
-            instance.forward_roster(db['roster'])
-            instance.read_launch_control(db)
+            instance.sv_file.parent.mkdir(parents=True, exist_ok=True)
+            instance.sv_file.write_text('OlympusVerifyDB = ' + launch._lua(db), encoding='utf-8')
+            with patch.object(watcher.time, 'sleep'):
+                instance.check_savedvars()
             instance.pull_launch_operations()
+            self.assertEqual((len(calls), len(instance.launch_scan.pages)), (1, 1))
             before = instance.launch_operations_file.read_bytes()
             self.assertIn(b'OlympusLaunchQueue=', before)
             self.assertEqual(instance.queue_file.read_text(), 'LEGACY UNCHANGED')
