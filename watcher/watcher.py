@@ -109,7 +109,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.34"
+WATCHER_VERSION = "0.6.35"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -577,6 +577,7 @@ class Watcher:
         self.queue_file = wow / "Interface" / "AddOns" / "OlympusVerify" / "OlympusQueue.lua"
         self.strict_display_file = self.queue_file.with_name("OlympusVerifyLists.lua")
         self.launch_operations_file = self.queue_file.with_name("OlympusLaunchQueue.lua")
+        self.launch_selected_file = self.queue_file.with_name("OlympusLaunchSelected.lua")
         self.worker = Worker(cfg["worker_url"], cfg["watcher_token"])
         self.secret = cfg["verify_secret"]
         self.officer = cfg.get("officer_character", "")
@@ -609,6 +610,9 @@ class Watcher:
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
         self.launch_scan = launch_operations229.Scan(lambda: time.time())
+        self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
+        self._launch_selected_control = None  # A consumed control identity; never read/admission authority.
+        self._next_launch_read_at = 0.0  # Shared across discovery and new-source selected reads.
         self._launch_roster_candidate = None
         self._launch_accepted_roster = None  # same-process positive receipt only; never inferred after restart
         self._verification_roster = None
@@ -1735,12 +1739,21 @@ class Watcher:
         if not self.membership_only:
             self.forward_events(db.get("events") or [])
         control = self.valid_launch_control(db)
-        new_scan = (control is not None and control['action'] == 'scan'
+        new_scan = (control is not None and control['action'] in ('scan', 'select')
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
+        slot = db.get('launchControl')
+        consumed = getattr(self, '_launch_selected_control', None)
+        preserve_discovery = (control is not None and control.get('version') == 2 or consumed is not None
+                              and isinstance(slot, dict) and type(slot.get('version')) is int
+                              and type(slot.get('observedAt')) is int and slot == consumed)
+        # Recognizing the already consumed slot after 60s preserves history only;
+        # it never validates a new request, receipt, clock or role observation.
+        roster_options = {}
         if new_scan:
-            self.forward_roster(db.get("roster") or {}, begin_launch_scan=True)
-        else:
-            self.forward_roster(db.get("roster") or {})
+            roster_options['begin_launch_scan'] = True
+        if preserve_discovery:
+            roster_options['preserve_discovery'] = True
+        self.forward_roster(db.get("roster") or {}, **roster_options)
         intake242.drain(self, collect_inputs=False)
         if self.membership_only:
             try:
@@ -1848,7 +1861,12 @@ class Watcher:
             self._stale_reported = True
             log(f"SavedVariables: {stale} join/departure event(s) older than {SV_EVENT_MAX_AGE // 3600} h not relayed (the roster export has settled them)")
 
-    def forward_roster(self, roster: dict[str, Any], *, begin_launch_scan: bool = False) -> None:
+    def forward_roster(self, roster: dict[str, Any], *, begin_launch_scan: bool = False, preserve_discovery: bool = False) -> None:
+        if preserve_discovery and self.launch_scan.phase != 'idle':
+            self.launch_scan._stop('superseded')  # Cancel active cursors; keep the serialized history intact.
+        selected = getattr(self, 'launch_selected', None)
+        if selected is not None and selected.source_changed(roster):
+            self.write_launch_selected()
         digest = launch_operations229.complete_roster_digest(roster)
         verification = verification_roster_source(roster) if self.membership_only else None
         verified = self._verification_roster
@@ -1871,7 +1889,7 @@ class Watcher:
             # Mandatory PLAYER_LOGOUT exports may change only the timestamp. Keep the accepted
             # original's exact source cutoff; no new source/scan freshness is asserted.
             return
-        if first is not None and self.launch_scan.stopped in (None, 'rate-limited-wait'):
+        if not preserve_discovery and first is not None and self.launch_scan.stopped in (None, 'rate-limited-wait'):
             self.launch_scan._stop('native-roster-changed-or-expired')
             self.write_launch_operations()
         self._launch_accepted_roster = None
@@ -2057,9 +2075,11 @@ class Watcher:
         if not isinstance(roster, dict):
             return None
         own = saved_character(db)
+        validator = (launch_operations229.validate_selected_control
+                     if isinstance(control, dict) and control.get('version') == 2 else launch_operations229.validate_control)
         if (not own or codes.normalize_character(own) != codes.normalize_character(self.officer)
                 or not isinstance(roster.get("exportedAt"), (int, float)) or not 0 <= at-roster["exportedAt"] <= 600
-                or not launch_operations229.validate_control(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm"))):
+                or not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm"))):
             return None
         return control
 
@@ -2078,6 +2098,22 @@ class Watcher:
             self._custody_halted = True
             self._launch_consumed_sv_witness = None
             raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
+        if control['version'] == 2:
+            if self.launch_scan.phase != 'idle':
+                self.launch_scan._stop('superseded')
+            self._launch_selected_control = dict(control)
+            accepted = self._launch_accepted_roster
+            if accepted is not None and accepted['exportedAt'] != self.state.d['roster_sent']:
+                accepted = None
+            self.launch_selected.request(control, accepted, db['roster'], time.time())
+            self.launch_selected.next_at = max(self.launch_selected.next_at,
+                                               getattr(self, '_next_launch_read_at', 0), self.launch_scan.next_at)
+            self.write_launch_selected()
+            return
+        selected = getattr(self, 'launch_selected', None)
+        self._launch_selected_control = None
+        if selected is not None and selected.hold('operator-stopped' if control['action'] == 'stop' else 'superseded'):
+            self.write_launch_selected()
         if control['action'] == 'scan':
             roster = db['roster']
             accepted = self._launch_accepted_roster
@@ -2107,8 +2143,73 @@ class Watcher:
         fresh = sum(int(time.time()) < page['expiresAt'] and int(time.time()) < page['scan']['expiresAt'] for page in result['pages'])
         log(f"launch projection: {result['discoveredPages']}/50 pages; discovery {'complete' if result['scanComplete'] else 'incomplete'}; {fresh} action-fresh page(s); {result['stoppedReason'] or self.launch_scan.phase}; reload to load")
 
+    def write_launch_selected(self) -> None:
+        body = launch_operations229.render_selected(self.launch_selected.record, int(time.time()))
+        if body is None:
+            log("selected promotion projection held; no file written")
+            return
+        path = self.launch_selected_file
+        if not path.parent.is_dir() or path.is_symlink() or path.with_suffix('.tmp').is_symlink():
+            log("selected promotion projection path unavailable; no file written")
+            return
+        atomic_local_text(path, body)
+        r = self.launch_selected.record
+        log(f"selected promotion read: {r['attempts']}/3 attempts; {'complete' if r['completed'] else r['stoppedReason'] or 'pending'}; reload to load")
+
+    def _pull_launch_selected(self) -> None:
+        selected = self.launch_selected
+        at = time.time()
+        if selected.expire_admission(at):
+            self.write_launch_selected()
+            return
+        if not selected.running:
+            return
+        paused = self.worker.paused()
+        if paused:
+            if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
+                selected.defer_rate_limit(paused.get('retryAfterSeconds'))
+            else:
+                selected.hold('source-refused')
+            self.write_launch_selected()
+            return
+        witness = self._launch_savedvars_witness()
+        if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
+            return
+        due = max(selected.next_at, getattr(self, '_next_launch_read_at', 0))
+        if 0 < due-at <= 5:
+            time.sleep(due-at)
+            self._require_custody_continuation()
+            if self._custody_halted or self._launch_savedvars_witness() != witness or witness != self._launch_consumed_sv_witness:
+                return
+            if selected.expire_admission(time.time()):
+                self.write_launch_selected()
+                return
+            if not selected.running:
+                return
+            paused = self.worker.paused()
+            if paused:
+                if isinstance(paused, dict) and type(paused.get('httpStatus')) is int and paused['httpStatus'] == 429:
+                    selected.defer_rate_limit(paused.get('retryAfterSeconds'))
+                else:
+                    selected.hold('source-refused')
+                self.write_launch_selected()
+                return
+        if time.time() < getattr(self, '_next_launch_read_at', 0):
+            return
+        attempts = selected.record['attempts']
+        changed = selected.step(self.worker.call, time.time(), lambda:
+                                not self._custody_halted and self._launch_savedvars_witness() == witness
+                                and witness == getattr(self, '_launch_consumed_sv_witness', None))
+        if selected.record['attempts'] > attempts:
+            self._next_launch_read_at = max(getattr(self, '_next_launch_read_at', 0), selected.next_at)
+        if changed:
+            self.write_launch_selected()
+
     def pull_launch_operations(self) -> None:
         if not self.membership_only or self._custody_halted:
+            return
+        if getattr(self, 'launch_selected', None) is not None and self.launch_selected.running:
+            self._pull_launch_selected()
             return
         at = time.time()
         if self.launch_scan.expire(at):
@@ -2129,7 +2230,7 @@ class Watcher:
         witness = self._launch_savedvars_witness()
         if witness is None or witness != getattr(self, '_launch_consumed_sv_witness', None):
             return  # A changed or incompletely consumed source needs the next normal intake pass.
-        remaining = self.launch_scan.next_at - at
+        remaining = max(self.launch_scan.next_at, getattr(self, '_next_launch_read_at', 0)) - at
         if (0 < remaining <= 5 and self.launch_scan.pages
                 and self.launch_scan.stopped in (None, 'rate-limited-wait')):
             # One exact admission wait, not a prediction of the next prefix.
@@ -2159,7 +2260,13 @@ class Watcher:
                     self.write_launch_operations()
                 return
         # One explicit scan page per >=5 seconds, between the ordinary ingestion passes.
-        if self.launch_scan.step(self.worker.call, time.time()):
+        if time.time() < getattr(self, '_next_launch_read_at', 0):
+            return
+        calls = self.launch_scan.calls
+        changed = self.launch_scan.step(self.worker.call, time.time())
+        if self.launch_scan.calls > calls:
+            self._next_launch_read_at = max(getattr(self, '_next_launch_read_at', 0), self.launch_scan.next_at)
+        if changed:
             self.write_launch_operations()
 
     def pull_strict_display(self) -> None:
@@ -2470,9 +2577,11 @@ class Watcher:
                     self.check_savedvars()
                 prefix_seconds = max(0.0, time.monotonic() - prefix_started)
                 launch_started = time.monotonic()
-                launch_calls = self.launch_scan.calls if self.membership_only else None
+                selected = getattr(self, 'launch_selected', None)
+                launch_calls = (self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)) if self.membership_only else None
                 self.pull_launch_operations()
-                if launch_calls is not None and self.launch_scan.calls > launch_calls:
+                current_calls = self.launch_scan.calls + (selected.record['attempts'] if selected and selected.record else 0)
+                if launch_calls is not None and current_calls > launch_calls:
                     tail_started = time.monotonic()
                     launch_seconds = max(0.0, tail_started - launch_started)
                 self.pull_queue()

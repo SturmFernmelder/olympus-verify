@@ -139,14 +139,16 @@ do
   f.sort("seen"); check("last online sorts online first then offline age", f.names() == "Alpha,Member,Officer,Pending,Unlinked,Knight,Zulu,NameOnly")
   f.sort("name"); check("name sort returns deterministic alphabetic order", f.names() == "Alpha,Knight,Member,NameOnly,Officer,Pending,Unlinked,Zulu")
   f.choose(f.w.actionFilterButton, 2)
-  check("Ready intersects exact signed Initiate recommendations, not all verified labels", f.names() == "Alpha,Zulu")
+  check("Ready intersects supported Member and Veteran recommendations, not all verified labels", f.names() == "Alpha,Knight,Zulu")
   check("ready view and filtering have made no promotion", #f.promotions == 0 and f.attempts == 0)
   f.w.nextButton:Click()
   check("next click makes exactly one original-dispatcher GUID promotion in visible sort order", #f.promotions == 1 and f.attempts == 1
     and f.promotions[1].guid == "Player-1-0000B002" and f.promotions[1].order == 9)
-  check("refresh removes natively confirmed Member from Ready view", f.names() == "Zulu")
+  check("refresh removes natively confirmed Member from Ready view", f.names() == "Knight,Zulu")
   f.w.rows[1].promote:Click()
-  check("row click makes exactly one additional target request", #f.promotions == 2 and f.attempts == 2 and f.promotions[2].guid == "Player-1-0000B001")
+  check("row click makes exactly one Knight Veteran request", #f.promotions == 2 and f.attempts == 2 and f.promotions[2].guid == "Player-1-0000B007" and f.promotions[2].order==7)
+  f.w.rows[1].promote:Click()
+  check("another separate row click requests the remaining Initiate",#f.promotions==3 and f.attempts==3 and f.promotions[3].guid=="Player-1-0000B001")
   check("completion disables next rather than starting unattended work", not f.w.nextButton:IsEnabled() and f.names() == "")
 end
 
@@ -159,6 +161,7 @@ end
 
 for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "name reuse", "duplicate GUID", "native rank" }) do
   local f = fixture(); f.choose(f.w.actionFilterButton, 2)
+  f.choose(f.w.rankButton,"Initiate") -- These mutations target the two native Initiate rows.
   local old = f.w.rows[1].promote
   if kind == "expiry" then f.e.NOW = f.page.expiresAt
   elseif kind == "scan expiry" then f.e.NOW = f.page.scan.expiresAt

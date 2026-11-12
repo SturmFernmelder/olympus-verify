@@ -54,7 +54,7 @@ do
   check("only exact current native Initiate intersects the original supported recommendation", ready[f.rows[1].guid] == true and ready[f.rows[2].guid] == nil)
   check("known verified potential is distinct from loaded recommendations and action readiness", d.nativeInitiates == 3 and d.knownVerifiedInitiates == 2 and d.recommendations == 1 and d.ready == 1 and d.held == 0 and d.knownVerifiedNotReady == 1)
   check("verified without recommendation has an explicit reason instead of an opaque zero", d.byGuid[f.rows[2].guid].state == "no_recommendation" and d.byGuid[f.rows[2].guid].reason:find("Display verification alone", 1, true))
-  check("non-Initiates have a native-rank explanation", d.byGuid[f.rows[4].guid].state == "wrong_rank")
+  check("Member without a source recommendation remains unknown for Veteran rather than wrong-rank", d.byGuid[f.rows[4].guid].state == "no_recommendation")
   check("each row has the same diagnostic object through all lookup forms", d.byRow[f.rows[1]] == d.byGuid[f.rows[1].guid] and d.byIndex[1] == d.byRow[f.rows[1]])
   check("read model calls existing Current once and no hardware, sync or native rescan", f.currentReads == 1 and f.effects == 0 and f.nativeReads == 0)
   f.rows[1].status = "unknown"; ready, d = f.read()

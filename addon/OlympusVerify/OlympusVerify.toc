@@ -2,7 +2,7 @@
 ## Title: Olympus Verify
 ## Notes: Discord verification, native guild roster status and editable member reminders. /olv opens the panel.
 ## Author: Olympus
-## Version: 0.6.32
+## Version: 0.6.33
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 
@@ -24,6 +24,7 @@ OlympusVerifyBrowser.lua
 OlympusVerifyCensus.lua
 OlympusVerifyTreasury.lua
 OlympusLaunchQueue.lua
+OlympusLaunchSelected.lua
 OlympusVerifyLaunch229.lua
 OlympusVerifyOfficerInvites233.lua
 OlympusVerifyLive242.lua

@@ -61,7 +61,7 @@ do
 end
 do
   local f=fixture();f.sort("action")
-  check("readiness heading now sorts ready targets first",f.names():sub(1,10)=="Alpha,Zulu")
+  check("readiness heading now sorts ready targets first",f.names():match("^Alpha,Knight,Zulu")~=nil)
   f.sort("action");check("readiness heading reverses actual state order",f.names():sub(1,6)~="Alpha,")
   f.sort("class");f.sort("sourceAge")
   check("class and source-age headings are actual sortable columns",f.w.view.sort=="sourceAge")

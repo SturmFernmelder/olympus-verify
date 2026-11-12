@@ -1,5 +1,5 @@
 // Genuine Workerd/D1 fixture. Only the runner's external Discord HTTP is synthetic.
-import {readLaunchOperations229} from '../src/site-launch229.ts';
+import {readLaunchOperations229,handleLaunchOperations229} from '../src/site-launch229.ts';
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
 import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
@@ -69,6 +69,82 @@ export default {async fetch(request, bindings) {
     }
     if (!fixture) return new Response(null, {status: 404});
     const {env, db} = fixture;
+    if (url.pathname === '/selection-observe') {
+      const {index=399}=await request.json();
+      if(!Number.isInteger(index)||!fixture.rows[index])return new Response(null,{status:400});
+      const source=await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) at,id AS snapshotId,exported_at AS snapshotAt FROM roster_snapshots WHERE id=(SELECT MAX(id) FROM roster_snapshots)").first();
+      return Response.json({complete:true,...source,targetGuid:fixture.rows[index].guid});
+    }
+    if (url.pathname === '/selection-native') {
+      const {kind}=await request.json(),moved=fixture.rows[950],target=fixture.rows[399];
+      if(kind==='routine')await env.DB.batch([
+        env.DB.prepare('UPDATE roster_members SET level=59,last_online=3600 WHERE snapshot_id=1 AND name_key=?1').bind(fixture.rows[900].key),
+        env.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now') AS INTEGER)-1 WHERE id=1"),
+      ]);
+      else if(kind==='long-guids'){
+        const statements=[];
+        for(let index=0;index<20;index++){
+          const row=fixture.rows[index],guid='Player-999999-'+(index+1).toString(16).padStart(16,'0');
+          statements.push(env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(guid,row.key),env.DB.prepare('UPDATE characters SET guid=?1 WHERE name_key=?2').bind(guid,row.key));
+          row.guid=guid;
+        }
+        await env.DB.batch(statements);
+      }
+      else if(kind==='reorder')await env.DB.batch([
+        env.DB.prepare("UPDATE roster_members SET name_key='aa reordered',name='AA Reordered' WHERE snapshot_id=1 AND name_key=?1").bind(moved.key),
+        env.DB.prepare("UPDATE characters SET name_key='aa reordered',name='AA Reordered' WHERE name_key=?1").bind(moved.key),
+      ]);
+      else if(kind==='missing')await env.DB.prepare('UPDATE roster_members SET guid=NULL WHERE snapshot_id=1 AND name_key=?1').bind(target.key).run();
+      else if(kind==='duplicate')await env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(target.guid,fixture.rows[398].key).run();
+      else if(kind==='rank-complete')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=8 WHERE snapshot_id=1 AND name_key=?1").bind(target.key).run();
+      else if(kind==='mixed')await env.DB.prepare('DELETE FROM characters WHERE name_key=?1').bind(fixture.rows[381].key).run();
+      else if(kind==='drift')await env.DB.prepare('UPDATE roster_members SET level=59 WHERE snapshot_id=1 AND name_key=?1').bind(fixture.rows[901].key).run();
+      else if(kind==='restore')await env.DB.batch([
+        ...Array.from({length:20},(_,index)=>{
+          const row=fixture.rows[index],guid='Player-6933-'+(index+1).toString(16).padStart(8,'0');row.guid=guid;
+          return [env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(guid,row.key),env.DB.prepare('UPDATE characters SET guid=?1 WHERE name_key=?2').bind(guid,row.key)];
+        }).flat(),
+        env.DB.prepare('UPDATE roster_members SET name_key=?1,name=?2 WHERE snapshot_id=1 AND guid=?3').bind(moved.key,moved.name,moved.guid),
+        env.DB.prepare("UPDATE characters SET name_key=?1,name=?2 WHERE name_key='aa reordered'").bind(moved.key,moved.name),
+        ...[398,399].map(index=>env.DB.prepare('UPDATE roster_members SET guid=?1,rank=\'Initiate\',rank_index=9 WHERE snapshot_id=1 AND name_key=?2').bind(fixture.rows[index].guid,fixture.rows[index].key)),
+        env.DB.prepare('UPDATE roster_members SET level=60,last_online=NULL WHERE snapshot_id=1'),
+        env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1,trusted=1 WHERE id=1').bind(fixture.at-120),
+        env.DB.prepare("INSERT OR IGNORE INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) VALUES(?1,?2,?3,'member',?4,?4,'whisper',?5)").bind(fixture.rows[381].key,fixture.rows[381].name,fixture.rows[381].subject,fixture.at-60,fixture.rows[381].guid),
+      ]);
+      else return new Response(null,{status:400});
+      return Response.json({complete:true});
+    }
+    if (url.pathname === '/selection' || url.pathname === '/selection-boundary') {
+      const input=await request.json(),mode=input.mode??'selected',selection=input.selection;
+      if(typeof mode!=='string'||!mode.startsWith('selected')||!selection||typeof selection!=='object')return new Response(null,{status:400});
+      env.DISCORD_BOT_TOKEN='synthetic-roster-pacing-'+mode;
+      let cursor=input.cursor??null;
+      if(url.pathname==='/selection-boundary'){
+        // Fixture-only signed input boundary. Production reader, D1 and clock
+        // remain real; this does not claim a historical server-minted cursor.
+        const value=JSON.parse(atob(cursor.split('.')[0].replace(/-/g,'+').replace(/_/g,'/'))),at=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").first()).n;
+        let shared=false,purpose='promotion-selection-cursor|273|';
+        if(input.kind==='shared-secret'){
+          value.roleReads[0][1]='knight';value.roleReads[0][2]=at;shared=true;
+        }else if(input.kind==='legacy-purpose')purpose='officer-operations-cursor|233|';
+        else if(input.kind==='wrong-guid')value.roleReads[0][0]=fixture.rows[999].guid;
+        else if(input.kind==='wrong-offset')value.offset+=20;
+        else if(input.kind==='expired-role'){
+          selection.selectionId=String(at-90)+':701';value.selectionId=selection.selectionId;value.issuedAt=at-90;
+          value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=value.roleReads.map(row=>row.map((v,i)=>i===2?at-61:v));
+        }else if(input.kind==='expired-read'){
+          selection.selectionId=String(at-700)+':702';value.selectionId=selection.selectionId;value.issuedAt=at-700;value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=[];
+        }else return new Response(null,{status:400});
+        const body=btoa(JSON.stringify(value)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+        const secret=shared?env.VERIFY_SECRET:JSON.stringify(['promotion-selection-cursor',273,env.VERIFY_SECRET,env.SITE_GUILD_ID,env.DISCORD_BOT_TOKEN]);
+        const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+        const mac=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(purpose+body))),n=>n.toString(16).padStart(2,'0')).join('');cursor=body+'.'+mac;
+      }
+      const query=new URLSearchParams({keyVersion:'officer-operations-v233',...Object.fromEntries(Object.entries(selection).map(([key,value])=>[key,String(value)]))});
+      if(cursor!==null)query.set('cursor',cursor);
+      const response=await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true),value=await response.json();
+      return Response.json(response.ok?{complete:true,actualLocalWorkerdD1:true,selection:value,cacheControl:response.headers.get('Cache-Control'),syntheticSignedInputBoundary:url.pathname==='/selection-boundary'}:{complete:false,error:value.error},{status:response.status});
+    }
     if (url.pathname === '/page') {
       const {mode, cursor = null} = await request.json();
       if (!MODES.has(mode) || cursor !== null && typeof cursor !== 'string') return new Response(null, {status: 400});

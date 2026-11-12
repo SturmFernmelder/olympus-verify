@@ -8,6 +8,8 @@ const root=path.resolve(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir()
 const started=performance.now();
 const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts'];
 const hashes=()=>Object.fromEntries(sourceFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
+const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs'];
+const testHashes=()=>Object.fromEntries(testFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
 const http=[],checks=[],perMode=new Map(),inflightMutations=new Set();let mf,active=0,maxActive=0,sourceChanged=false,unrelatedChanged=false;
 const check=(name,value)=>{assert(value,name);checks.push({name,passed:true});};
 const modes={'429-body':{header:'1.1',body:3.2,reset:'2.4',expected:4},
@@ -60,8 +62,87 @@ async function verificationChurn272(){
     await fixtureCall('source-state',{kind,restore:true});
   }
 }
+let selectedSerial=300;
+async function selectedInput273(index=399){
+  const source=await fixtureCall('selection-observe',{index});
+  return {selectionId:source.at+':'+(++selectedSerial),targetGuid:source.targetGuid,snapshotId:source.snapshotId,snapshotAt:source.snapshotAt};
+}
+async function selectedCursorCapacity273(){
+  await fixtureCall('selection-native',{kind:'long-guids'});
+  const selection=await selectedInput273(0),before=http.length,first=(await fixtureCall('selection',{mode:'selected-late-limit',selection})).selection;
+  const cursor=first.page.pageCursor,value=JSON.parse(Buffer.from(cursor.split('.')[0],'base64url').toString('utf8'));
+  fs.writeFileSync(path.join(out,'selected-cursor-capacity.json'),JSON.stringify({actualLocalWorkerdD1:true,cursorCharacters:cursor.length,readerLimit:4096,cachedSuccesses:value.roleReads.length,coveredGuids:first.coveredGuids.length,maximumGuidCharacters:Math.max(...first.coveredGuids.map(g=>g.length)),providerCalls:0},null,2)+'\n',{flag:'wx'});
+  check('actual v4 late429 cursor with20maximum-lengthGUIDs and19cached successes fits its4096byte reader limit',cursor.length<=4096&&first.coveredGuids.length===20&&first.coveredGuids.every(g=>g.length===30)&&value.roleReads.length===19&&http.length-before===20);
+  const next=(await fixtureCall('selection',{mode:'selected-late-limit',selection,cursor})).selection;
+  check('the maximum-size genuine selected cursor retries only the one unknown account without expiry renewal',http.length-before===21&&next.page.promotions.length===20&&JSON.stringify(next.page.scan)===JSON.stringify(first.page.scan)&&next.page.expiresAt<=Math.min(...value.roleReads.map(r=>r[2]+60))&&JSON.stringify(next.coveredGuids)===JSON.stringify(first.coveredGuids));
+  await fixtureCall('selection-native',{kind:'restore'});
+}
+async function selectedReads273(originalDiscovery){
+  const frozen=JSON.stringify(originalDiscovery);
+  await fixtureCall('selection-native',{kind:'routine'});
+  await fixtureCall('selection-native',{kind:'reorder'});
+  const selection=await selectedInput273(),before=http.length,response=await fixtureCall('selection',{mode:'selected-new-source',selection}),fresh=response.selection;
+  fs.writeFileSync(path.join(out,'selected-success.json'),JSON.stringify(fresh,null,2)+'\n',{flag:'wx'});
+  check('new explicit selected read resolves its exact GUID on the freshly accepted reordered native page',fresh.version===1&&fresh.protocol==='promotion-selection-v273'&&fresh.controlId===selection.selectionId&&fresh.targetGuid===selection.targetGuid&&fresh.page.entitlements.offset===400&&fresh.coveredGuids.length===20&&fresh.coveredGuids.includes(selection.targetGuid)&&fresh.page.promotions.some(row=>row.guid===selection.targetGuid)&&http.length-before===20);
+  check('selected read keeps its original control-time600 and native-age600 clocks without changing dated discovery',fresh.page.scan.startedAt===Number(selection.selectionId.split(':')[0])&&fresh.page.scan.expiresAt===Math.min(fresh.page.scan.startedAt+600,selection.snapshotAt+600)&&fresh.page.expiresAt<=fresh.page.fetchedAt+60&&fresh.page.nextCursor===null&&JSON.stringify(originalDiscovery)===frozen);
+  check('selected response is private no-store and supplies no invites or risk-buffer authority',response.cacheControl.includes('no-store')&&fresh.page.invites.length===0&&fresh.page.riskBuffer.length===0);
+  await refused('selection',{mode:'selected-new-source',selection:{...selection,snapshotAt:selection.snapshotAt-1}},'selection_native_source_changed',409);
+  await refused('selection',{mode:'selected-new-source',selection,cursor:originalDiscovery.pageCursor},'invalid_selection_cursor',400);
+  await refused('page',{mode:'full',cursor:fresh.page.pageCursor},'invalid_launch_cursor',400);
+  const query=new URLSearchParams({keyVersion:'officer-operations-v233',...selection});
+  for(const rawQuery of [String(query)+'&targetGuid='+selection.targetGuid,String(query)+'&offset=0',String(query).replace(/&snapshotAt=[^&]+/,''),String(query).replace('keyVersion=officer-operations-v233','keyVersion=old-wire')])await refused('selection',{mode:'selected-new-source',selection,rawQuery},'invalid_launch_query',400);
+  await refused('selection',{mode:'selected-new-source',selection,admin:true},'invalid_launch_query',400);
+  await refused('selection',{mode:'selected-new-source',selection:{...selection,selectionId:(Number(selection.selectionId.split(':')[0])-61)+':999'}},'expired_selection_request',400);
+  const futureInput=await selectedInput273(),beforeFuture=http.length,future=(await fixtureCall('selection',{mode:'selected-future',selection:{...futureInput,selectionId:(Number(futureInput.selectionId.split(':')[0])+4)+':998'}})).selection;
+  check('future-skew selection does not mint a page queried before its original start',http.length===beforeFuture&&future.coveredGuids.length===0&&future.page.status==='held');
+  check('legacy cursors query smuggling wrong ACK and unsupported admin selection are refused before provider reads',true);
+  await fixtureCall('selection-native',{kind:'restore'});
+  for(const kind of ['missing','duplicate']){
+    await fixtureCall('selection-native',{kind});const input=await selectedInput273(),start=http.length,value=(await fixtureCall('selection',{mode:'selected-'+kind,selection:input})).selection;
+    if(kind==='missing')fs.writeFileSync(path.join(out,'selected-held.json'),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
+    check('selected '+kind+' GUID holds without offset fallback or role reads',http.length===start&&value.coveredGuids.length===0&&value.page.status==='held'&&value.page.heldReasons.includes('selected-target-unavailable'));
+    await fixtureCall('selection-native',{kind:'restore'});
+  }
+  await fixtureCall('selection-native',{kind:'mixed'});
+  const mixedInput=await selectedInput273(),mixedStart=http.length,mixed=(await fixtureCall('selection',{mode:'selected-mixed',selection:mixedInput})).selection;
+  check('genuine mixed verified/unverified selected page remains promotion-only with exact20GUID coverage',mixed.coveredGuids.length===20&&mixed.page.entitlements.scanned===20&&mixed.page.promotions.length===19&&mixed.page.riskBuffer.length===0&&mixed.page.invites.length===0&&http.length-mixedStart===19);
+  await fixtureCall('selection-native',{kind:'restore'});
+  await fixtureCall('selection-native',{kind:'rank-complete'});
+  const negativeInput=await selectedInput273(),negative=(await fixtureCall('selection',{mode:'selected-negative',selection:negativeInput})).selection;
+  check('selected current-rank negative covers its exact GUID without refreshing an obsolete promotion',negative.coveredGuids.includes(negativeInput.targetGuid)&&!negative.page.promotions.some(row=>row.guid===negativeInput.targetGuid)&&negative.page.riskBuffer.length===0&&negative.page.invites.length===0);
+  await fixtureCall('selection-native',{kind:'restore'});
+  const partialInput=await selectedInput273(0),partialStart=http.length,partial=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput})).selection;
+  fs.writeFileSync(path.join(out,'selected-partial.json'),JSON.stringify(partial,null,2)+'\n',{flag:'wx'});
+  const cached=JSON.parse(Buffer.from(partial.page.pageCursor.split('.')[0],'base64url').toString('utf8'));
+  assert.equal(http.length-partialStart,6);assert.equal(cached.version,4);assert.equal(cached.roleReads.length,5);assert.equal(partial.page.nextCursor,null);
+  const recovered=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
+  check('v4 selected retry reuses only same-context original successes and retains original observation expiry',http.length-partialStart===21&&recovered.page.promotions.length===20&&JSON.stringify(recovered.page.scan)===JSON.stringify(partial.page.scan)&&recovered.page.expiresAt<=Math.min(...cached.roleReads.map(row=>row[2]+60))&&JSON.stringify(recovered.coveredGuids)===JSON.stringify(partial.coveredGuids));
+  await refused('selection',{mode:'selected-partial',selection:{...partialInput,targetGuid:'Player-6933-00000002'},cursor:partial.page.pageCursor},'invalid_selection_cursor',400);
+  for(const kind of ['shared-secret','legacy-purpose','expired-read'])await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind},'invalid_selection_cursor',400);
+  await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'wrong-guid'},'launch_cursor_role_source_changed',409);
+  await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'wrong-offset'},'launch_cursor_source_changed',409);
+  check('selected retry derives exact coverage from signed Native digest offset and target before using any cached GUID',true);
+  const staleStart=http.length,stale=await fixtureCall('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'expired-role'});
+  check('synthetic signed v4 stale-role boundary requires20real fresh GETs under current D1 clock',stale.syntheticSignedInputBoundary&&http.length-staleStart===20&&stale.selection.page.promotions.length===20);
+  await fixtureCall('source-state',{kind:'identity'});
+  const switchStart=http.length,switched=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
+  check('selected cached GUID cannot transfer role authority to a changed linked account',http.length-switchStart===16&&http.slice(switchStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuid)?.targetSlot===6);
+  await fixtureCall('source-state',{kind:'identity',restore:true});
+  await fixtureCall('selection-native',{kind:'drift'});
+  await refused('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_source_changed',409);
+  await fixtureCall('selection-native',{kind:'restore'});
+  check('selected retry source drift shared-key forgery and cross-purpose contexts stay refused',true);
+  for(const kind of ['privacy','denial','native','cutoff','credential','secret','link']){
+    const input=await selectedInput273(0),result=(await fixtureCall('selection',{mode:'selected-await-'+kind,selection:input})).selection;
+    check('selected original '+kind+' change during provider await yields no overlay authority',inflightMutations.has('selected-'+kind)&&result.coveredGuids.length===0&&result.page.status==='held'&&result.page.promotions.length===0&&result.page.pageCursor===null&&result.page.nextCursor===null);
+    await fixtureCall('source-state',{kind,restore:true});
+  }
+  const text=Buffer.from(partial.page.pageCursor.split('.')[0],'base64url').toString('utf8');
+  check('selected signed context serializes no account IDs credentials or invite traversal',!['800000000000001000','synthetic-roster-pacing','DISCORD_BOT_TOKEN','discordId','discord_id'].some(value=>text.includes(value))&&Object.keys(fresh).sort().join(',')==='controlId,coveredGuids,page,protocol,targetGuid,version');
+}
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
+  await selectedCursorCapacity273();
   let cursor=null,originalScan,offset=0;const recommendations=new Set(),pages=[];
   do{
     const before=http.length,{page}=await fixtureCall('page',{mode:'full',cursor});pages.push(page);
@@ -149,6 +230,7 @@ async function run(){
   check('malformed headers and role bodies cannot invent an entitlement',malformed.page.promotions.length===0&&malformed.page.held.length===20&&malformed.page.entitlements.retryAfterSeconds===null);
   const beforeSlow=http.length,slowStarted=performance.now(),slow=await fixtureCall('page',{mode:'slow-read'}),slowDuration=performance.now()-slowStarted;
   check('real local read window exhaustion is held separately from an upstream Discord 429',slowDuration>=9000&&slowDuration<16000&&http.length-beforeSlow<=10&&slow.page.status==='held'&&slow.page.promotions.length===0&&slow.page.heldReasons.includes('launch-read-window-exhausted')&&!slow.page.heldReasons.includes('discord-rate-limited')&&slow.page.entitlements.retryAfterSeconds===null);
+  await selectedReads273(pages[19]);
   await fixtureCall('ranks');const beforeSkip=http.length,skip=await fixtureCall('page',{mode:'skip-native'});
   const expected=Array.from({length:7},(_,i)=>'Player-6933-'+(i+1).toString(16).padStart(8,'0'));
   check('exact native ranks 0 through 6 need neither Discord reads nor unknown-entitlement holds',http.length-beforeSkip===13&&skip.page.promotions.length===13&&http.slice(beforeSkip).every(row=>BigInt(row.subject)-800000000000001000n>=7n)&&expected.every(id=>!skip.page.held.some(r=>r.guid===id)&&!skip.page.promotions.some(r=>r.guid===id)));
@@ -161,7 +243,7 @@ async function run(){
 (async()=>{
   let timer;
   try{
-    const sourceSHA256=hashes();
+    const sourceSHA256=hashes(),testSHA256=testHashes();
     fs.writeFileSync(path.join(out,'source-sha256.json'),JSON.stringify(sourceSHA256,null,2)+'\n',{flag:'wx'});
     const script=buildSync({entryPoints:[path.join(__dirname,'launch_roster_pacing271_runtime.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
     mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
@@ -181,14 +263,18 @@ async function run(){
         if(mode.startsWith('await-')&&!inflightMutations.has(mode.slice(6))){
           const kind=mode.slice(6);inflightMutations.add(kind);await fixtureCall('source-state',{kind});
         }
-        const limited=['partial-recover','identity-switch'].includes(mode)&&n===6?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
+        if(mode.startsWith('selected-await-')&&!inflightMutations.has('selected-'+mode.slice(15))){
+          const kind=mode.slice(15);inflightMutations.add('selected-'+kind);await fixtureCall('source-state',{kind});
+        }
+        const limited=(['partial-recover','identity-switch','selected-partial'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
         return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
     }}));
     const result=await Promise.race([run(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('roster pacing qualification exceeded 170 seconds')),170000);})]);
     assert.deepEqual(hashes(),sourceSHA256,'source files changed during qualification');
-    result.sourceSHA256=sourceSHA256;result.bundleSHA256=createHash('sha256').update(script).digest('hex');
+    assert.deepEqual(testHashes(),testSHA256,'test files changed during qualification');
+    result.sourceSHA256=sourceSHA256;result.testSHA256=testSHA256;result.bundleSHA256=createHash('sha256').update(script).digest('hex');
     result.elapsedSeconds=(performance.now()-started)/1000;
     fs.writeFileSync(path.join(out,'runtime-result.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
     for(const item of result.checks)console.log('PASS '+item.name);

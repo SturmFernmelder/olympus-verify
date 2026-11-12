@@ -48,10 +48,10 @@ end
 do
   local f=fixture();f.e.OlympusLaunchQueue.stoppedReason="rate-limited-wait";f.e.OlympusLaunchQueue.running=true;f.w.Refresh()
   local original=f.page.expiresAt
-  check("actual supported recommendations remain hidden during a wait",f.w.diagnostics.recommendations==2 and f.w.diagnostics.ready==0 and not f.w.nextButton:IsEnabled())
+  check("actual supported recommendations remain hidden during a wait",f.w.diagnostics.recommendations==3 and f.w.diagnostics.ready==0 and not f.w.nextButton:IsEnabled())
   check("original dispatcher independently refuses a wait without native mutation",not f.q.HardwarePromote("Player-1-0000B002") and #f.promotions==0 and f.page.expiresAt==original)
   f.e.OlympusLaunchQueue.stoppedReason=nil;f.w.Refresh()
-  check("only an actually changed returned source can leave the wait state",f.w.diagnostics.ready==2 and not f.q.Current().actionHeld)
+  check("only an actually changed returned source can leave the wait state",f.w.diagnostics.ready==3 and not f.q.Current().actionHeld)
 end
 do
   local f=partial("rate-limited-wait",true);f.e.OlympusVerifyDB.launchControl={action="stop",id="new-control"};f.w.Refresh()
