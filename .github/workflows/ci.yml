@@ -38,6 +38,8 @@ jobs:
       - name: TypeScript and targeted genuine Workerd D1 behavior
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
+      - name: Watcher launch controls, rate recovery and main-loop scheduling
+        run: python3 -m unittest discover -s watcher/tests -p 'test_launch*.py'
 
   addon:
     name: addon

@@ -108,7 +108,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.31"
+WATCHER_VERSION = "0.6.32"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -2399,8 +2399,8 @@ class Watcher:
                 self.tail_chat_log()
                 if not self.membership_only:
                     self.check_savedvars()
-                self.pull_queue()
                 self.pull_launch_operations()
+                self.pull_queue()
                 self.scan_diag_logs()
                 if time.time() - self._last_lag_report > 1800 and self.state.d.get("lag"):
                     self._last_lag_report = time.time()
@@ -2408,7 +2408,12 @@ class Watcher:
             except Exception as e:  # ordinary loop errors retry; uncertain local custody exits below
                 self._require_custody_continuation()
                 log(f"loop error: {type(e).__name__}")
-            time.sleep(self.poll)
+            delay = self.poll
+            if self.membership_only and not self._custody_halted and self.launch_scan.phase != 'idle':
+                # Wake for the existing scan deadline without changing its GET
+                # spacing or giving normal jobs a sub-second polling loop.
+                delay = min(delay, max(1.0, self.launch_scan.next_at - time.time()))
+            time.sleep(delay)
 
 
 def main() -> int:
