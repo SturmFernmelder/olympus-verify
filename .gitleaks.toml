@@ -169,6 +169,8 @@ paths = [
   '''^watcher/launch_operations229\.py$''',
   '''^watcher/tests/test_launch_operations229\.py$''',
   '''^worker/tests/launch_operations229_native_test\.cjs$''',
+  '''^worker/tests/launch_roster_pacing271_runtime\.mjs$''',
+  '''^worker/tests/launch_roster_pacing271_workerd_test\.cjs$''',
 ]
 regexTarget = "secret"
 regexes = ['''^officer-operations-v233$''']
