@@ -514,8 +514,9 @@
     filter();
     const chooser = frame("Explore Olympus roles, ranks and titles", h("a", {href:"#/roles/rosetta-stone",text:"Role & Rank Rosetta Stone"}),
       h("p", {text:"Find your place in Olympus. Each role brings its duties, expectations and working relationships into one guide. Regional and class assignments keep their own detailed commitments."}),
-      h("p", {class:"role-scope218 small muted",text:"This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process."}),
-      noticeBox("info","pos-officer",h("p",{text:reservedNotice201}),h("p",{text:"Membership, Raider and Artisan applications remain available. A rank, title or unfilled listing never grants access, promotion or an appointment."})),
+      // Evergreen 12 Nov 2026 (CL2-045): the page's scope rule is stated once, in one box.
+      noticeBox("info","pos-officer",h("p",{text:"Member, Raider and Artisan are open for applications. "+reservedNotice201}),
+        h("p",{class:"role-scope218 small",text:"A title, listing or application grants no access, promotion or appointment and changes no game rank, Discord role, bank limit, signing authority or addon permission. Each of those has its own authorized process."})),
       h("label", {class:"field"},h("span", {class:"lab",text:"Find a role"}),search),count,h("div",{class:"role-sections203"},...sections));
     chooser.id = "application-directory201"; chooser.classList.add("application-directory201");
     chooser.setAttribute("data-role-directory-version", "203");
@@ -1880,16 +1881,20 @@
       ["Review an application fairly", "Read the applicant's answers and current role choices. Follow the recorded decision and reasons; a recommendation or board vote is not an invitation or permission grant.", "#/vote", "Open voting board"],
       ["Verify in game", "Use the guild's verification workflow and the current officer-exported roster. A Discord nickname, third-party census or talent plan does not establish character ownership or membership.", "#/roles", "Review role responsibilities"],
       ["Keep information current", "Use source dates on guild figures and roster records. Correct a reported error through the normal officer process. Do not turn a stale export or an unsigned Census preview into a membership decision.", "#/community", "Open community hub"],
-      ["Respect access and privacy", "Only controls your account is actually allowed to use can perform an action. Use normal consent checks for named officeholders; do not publish someone else's private information or assume an appointment changes site access.", "#/guide/member", "Read member guidance"],
+      ["Respect access and privacy", "An action works only through controls your account is allowed to use. Check consent before naming an officeholder, keep other members' private information private, and remember that an appointment does not change site access by itself.", "#/guide/member", "Read member guidance"],
     ] : [
-      ["Enter the guild hall", "Sign in with Discord and complete membership screening in Asmongold's server. If the site cannot confirm membership, follow its explanation and try again after the Discord state is corrected.", "#/", "Go home"],
-      ["Choose how to help", "Read a role's responsibilities, apply with accurate answers and keep your availability current. Applying and voting do not bypass an appointment, eligibility rule or launch gate.", "#/roles", "Explore roles"],
-      ["Verify your character", "Follow the guild's in-game verification instructions. A character label you type is different from a roster-confirmed character. Directory listing is optional.", "#/community", "Open community hub"],
-      ["Prepare for Forever", "Use the talent calculator, source-labelled class guides and addon directory. Check the client build and whether advice is tested beta material, Classic-derived or provisional.", "#/guides", "Browse guides"],
-      ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "/privacy/account", "Open my account"],
+      // Evergreen 12 Nov 2026 (CL2-040): concrete steps, merged with the Member Quick Guide (Royal Codex RC8).
+      ["Sign in with Discord", "Sign in with the Discord account you use in Asmongold's server and complete that server's membership screening. If the site cannot confirm your membership, it says why; fix that in Discord and sign in again.", "#/", "Go to the home page"],
+      ["Read the guild rules", "The Guild Statute sets out your rights and duties and how complaints and appeals work. Dues are one gold a week, and new members are exempt for their first fourteen days. Extra tithes are optional and never buy rank, admission or raid priority.", "#/governance/the-guild-statute-of-olympus", "Read the Guild Statute"],
+      ["Choose a role", "Member, Raider and Artisan are open for applications. Read the role's duties and expectations before you apply.", "#/roles", "Explore roles"],
+      ["Apply", "Answer the questions accurately and give the hours you can really play. Your application, any board vote and the in-game invite are separate steps, and officers send the invite in game. You can withdraw your application from its page, which also removes it from the voting board.", "#/apply", "Open my application"],
+      ["Link your character", "In Discord, open #⚡olympus-verify and choose Get my code, or type /verify. Send the line it shows from the character you want linked: an officer's addon checks it, and the next roster export confirms your membership. Type /verify-status to see your progress, and keep your code private.", "#/verify", "Verify my character"],
+      ["Get ready to play", "Plan your build in the talent calculator and read the class and profession guides. Each guide says whether its advice was tested on Forever, comes from Classic or is still provisional." + (Date.now() / 1000 < FOREVER_SCHEDULE.raidDayEndAt ? ` The first raids open on ${FOREVER_SCHEDULE.firstRaids}.` : ""), "#/resources", "Open the guides"],
+      ["Choose what others see", "The role-holder directory lists eligible members by default, and you can opt out. Extra profile details and Workshop crafting offers appear only if you add them.", "#/community/leadership", "Open the directory"],
+      ["Manage your data", "Download your data or erase your account from My account. Erasure runs automatically; the privacy policy explains which backup copies age out later. If a record about you is wrong, ask the responsible officer to correct it.", "/privacy/account", "Open my account"],
     ];
     add(main, frame(officer ? "Officer Operational Guide" : "Member guide", h("a", { class: "btn small", href: officer ? "#/guide/member" : "#/guide/officer", text: officer ? "Member guide" : "Officer guide" }),
-      h("p", { class: "muted small", text: officer ? "The canonical Officer Operational Guide: practical steps drawn from the current charter and site workflows. Royal Codex RC9 records its underlying mandate and safeguards; current server permissions and decisions govern every action." : "Source: Olympus's current charter and site workflows. This guide explains the process; permissions and current server decisions remain authoritative." }),
+      h("p", { class: "muted small", text: officer ? "The canonical Officer Operational Guide: practical steps drawn from the current charter and site workflows. Royal Codex RC9 records its underlying mandate and safeguards; current server permissions and decisions govern every action." : "These steps follow the current guild rules, including the Member Quick Guide in Royal Codex RC8. Current permissions and server decisions take precedence over this summary." }),
       h("div", { class: "guide-steps" }, steps.map(([title, text, href, label], index) => h("section", { class: "card" }, h("h2", { text: `${index + 1}. ${title}` }), h("p", { text }), h("a", { href, text: label })))),
       officer && S.user && S.user.isAdmin ? h("p", null, h("a", { class: "btn", href: "#/admin", text: "Open Admin" })) : null));
   };
@@ -2235,7 +2240,8 @@
     });
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
       h("h1", { text: "The Governance of Olympus" }), h("p", { text: "The guild code covers sovereign decrees, Council and Court procedure, Treasury stewardship, the Grand Alliance Concordat, and the Artisans' and Heralds' accords." }))), governanceDraftNotice(),
-      noticeBox("info", "pos-officer", h("p", { text: reservedNotice201 }), h("p", null, "The adopted book retains its constitutional and historical procedures. For current eligibility and the individual duties of every office, see the ", h("a", { href: "#/roles", text: "complete role directory" }), ".")),
+      // Evergreen 12 Nov 2026 (CL2-045): the reserved-seat rule is stated once, in the book's reading guide.
+      noticeBox("info", "pos-officer", h("p", null, "The adopted book keeps its constitutional and historical procedures. Current eligibility and the duties of every office are in the ", h("a", { href: "#/roles", text: "complete role directory" }), ".")),
       h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
         h("a", { class: "btn", href: "#/governance/reading-and-adopting-this-book", text: "Start here" }),
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
