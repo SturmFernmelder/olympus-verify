@@ -100,10 +100,24 @@ async function reviewRecords275(){
       check('selected canonical '+kind+' change during actual provider await holds the entire overlay',inflightMutations.has('review-'+kind)&&held.page.status==='held'&&held.page.promotions.length===0&&held.selection.coveredGuids.length===0&&held.page.pageCursor===null&&held.page.nextCursor===null);
       await mutate(kind==='anchor'?'anchor-restore':kind,true);
     }
-    const cached=await read({mode:'review-records-cache'}),cursor=cached.page.pageCursor,body=JSON.parse(Buffer.from(cursor.split('.')[0],'base64url').toString('utf8'));
+    // A real 429 first warms the source's shared pacer. The next query starts
+    // before its bounded cooldown, while role observedAt is captured AFTER the
+    // real wait. Neither D1 nor either clock is replaced to cross the second.
+    const warm=await read({mode:'review-records-cache'});
+    assert.equal(warm.page.promotions.length,0);assert.equal(warm.page.entitlements.retryAfterSeconds,3);
+    const cached=await read({mode:'review-records-cache'}),cursor=cached.page.pageCursor,body=JSON.parse(Buffer.from(cursor.split('.')[0],'base64url').toString('utf8')),originalPage=JSON.stringify(cached.page);
     assert.equal(body.roleReads.length,5);assert(body.roleReads.some(row=>row[0]===target));
-    await mutate('newer-anchor');const beforeNew=http.length,newer=await read({mode:'review-records-cache',cursor});
-    check('a newer qualifying canonical receipt leaves the stable oldest witness and its cached role observations unchanged',http.length-beforeNew===6&&newer.page.promotions.length===11&&JSON.stringify(newer.page.scan)===JSON.stringify(cached.page.scan)&&newer.page.expiresAt<=cached.page.expiresAt&&newer.readOnlySourceUnchanged);
+    await mutate('newer-anchor');const beforeWitness=http.length,witness=await read({mode:'review-records-cache',cursor}),witnessBody=JSON.parse(Buffer.from(witness.page.pageCursor.split('.')[0],'base64url').toString('utf8'));
+    assert.equal(witness.page.entitlements.retryAfterSeconds,1);assert.deepEqual(witnessBody.roleReads,body.roleReads);assert.equal(witnessBody.roleScope,body.roleScope);
+    const beforeNew=http.length,newer=await read({mode:'review-records-cache',cursor:witness.page.pageCursor});
+    const cachedSubjects=new Set(body.roleReads.map(row=>String(800000000000001000n+BigInt(parseInt(row[0].split('-').at(-1),16)-1))));
+    const originalRoleCeiling=Math.min(...body.roleReads.map(row=>row[2]+60)),permittedExpiry=Math.min(originalRoleCeiling,cached.page.scan.expiresAt,newer.page.fetchedAt+60);
+    const operands={newReads:http.length-beforeNew,promotions:newer.page.promotions.length,sameScan:JSON.stringify(newer.page.scan)===JSON.stringify(cached.page.scan),sameOriginalPage:JSON.stringify(cached.page)===originalPage,exactCachedTuplesRetained:JSON.stringify(witnessBody.roleReads)===JSON.stringify(body.roleReads),cachedAccountReads:http.slice(beforeWitness).filter(row=>cachedSubjects.has(row.subject)).length,originalRoleExpiryCap:originalRoleCeiling,permittedExpiry,newExpiryWithinOriginalCaps:newer.page.expiresAt<=permittedExpiry,sourceUnchanged:newer.readOnlySourceUnchanged,oldInitialEnvelopeConjunct:newer.page.expiresAt<=cached.page.expiresAt};
+    const clocks={scope:'Real-clock shared-pacer boundary; synthetic external Discord only',initialPageFetchedAt:cached.page.fetchedAt,initialPageExpiresAt:cached.page.expiresAt,initialQueryAtInferredFromConservative60sCap:cached.page.expiresAt-60,originalRoleReads:body.roleReads,retryRetainedRoleReads:witnessBody.roleReads,retryFetchedAt:newer.page.fetchedAt,retryExpiresAt:newer.page.expiresAt,originalScan:cached.page.scan,operands};
+    fs.writeFileSync(path.join(out,'review-canonical-cache-clocks.json'),JSON.stringify(clocks,null,2)+'\n',{flag:'wx'});console.log('REVIEW275_CACHE_CLOCKS '+JSON.stringify(clocks));
+    assert(originalRoleCeiling>cached.page.expiresAt&&cached.page.expiresAt<cached.page.scan.expiresAt,'real pacer wait must cross a second before recording the first role observation');
+    assert.equal(operands.oldInitialEnvelopeConjunct,false,'the real-clock case must expose the older overstrict envelope assertion');
+    check('a newer qualifying canonical receipt leaves the stable oldest witness and its cached role observations unchanged',operands.newReads===6&&operands.promotions===11&&operands.sameScan&&operands.sameOriginalPage&&operands.exactCachedTuplesRetained&&operands.cachedAccountReads===0&&operands.newExpiryWithinOriginalCaps&&operands.sourceUnchanged);
     await mutate('remove-old-anchor');const beforeRemoved=http.length,removed=await read({mode:'review-records-cache',cursor});
     check('removing the original canonical witness forces a fresh exact-account role read before using its replacement',http.length-beforeRemoved===7&&http.slice(beforeRemoved).some(row=>row.subject==='800000000000001000')&&recommendation(removed.page,target)?.targetSlot===8&&JSON.stringify(removed.page.scan)===JSON.stringify(cached.page.scan)&&removed.page.expiresAt<=Math.min(...body.roleReads.filter(row=>row[0]!==target).map(row=>row[2]+60))&&removed.readOnlySourceUnchanged);
     await mutate('generation');
@@ -334,7 +348,8 @@ async function run(){
         if(mode.startsWith('review-await-')&&!inflightMutations.has('review-'+mode.slice(13))){
           const kind=mode.slice(13);inflightMutations.add('review-'+kind);await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-digest':kind});
         }
-        const limited=(['partial-recover','identity-switch','selected-partial','selected-cache-age','review-records-cache'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
+        const reviewLimit=mode==='review-records-cache'&&[1,7,8].includes(n)?(n===1?{header:'2.2',body:2.2,reset:'2.2'}:{header:'0.03',body:0.03,reset:'0.03'}):null;
+        const limited=reviewLimit??((['partial-recover','identity-switch','selected-partial','selected-cache-age'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode]);
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
         return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
