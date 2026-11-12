@@ -108,7 +108,8 @@ local function LoadedScan(data, current, control, now)
   report.reason=report.reason.." This reports loaded evidence, not whether the Watcher is alive or currently waiting."
   return report
 end
-local function HistoricalCurrent(data, selectedPage)
+local function HistoricalCurrent(data, selectedPage, selectedTTL)
+  local pageTTL = selectedPage and selectedTTL == 600 and 600 or 60
   local identity, now = Identity(), time()
   local function refuse(code, reason) return nil, "[" .. code .. "] " .. reason, code end
   if cfg.membershipOnly ~= true or not identity then return nil, "Current native Prime identity is unavailable; launch actions held." end
@@ -143,7 +144,7 @@ local function HistoricalCurrent(data, selectedPage)
       return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
     if page.status ~= "ready" and page.status ~= "partial" then
       return refuse("page_status", "A launch page is not in a supported ready or partial source state; no action taken.") end
-    if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + 60)
+    if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + pageTTL)
       or page.fetchedAt > now + 5 or not Number(page.snapshotAt, 1, page.fetchedAt)
       or page.fetchedAt - page.snapshotAt >= 600 or not Number(page.snapshotId, 1, 2147483647) then
       return refuse("malformed_page_dates", "A launch page has invalid original source clocks or snapshot identity; no action taken.") end
@@ -233,7 +234,8 @@ local function SelectedCurrent(identity, now, control)
   local data=OlympusLaunchSelected
   if not ValidSelect(control,identity,now) then return nil end
   local held={targetGuid=control.targetGuid,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
-  if not ExactKeys(data,SELECT_KEYS) or data.version~=1 or data.protocol~="promotion-selection-v273"
+  if not ExactKeys(data,SELECT_KEYS) or data.version~=1
+    or data.protocol~="promotion-selection-v273" and data.protocol~="promotion-selection-v274"
     or data.controlId~=control.id or data.actorGuid~=identity.guid or data.targetGuid~=control.targetGuid
     or data.scopeHash~=identity.scopeHash or data.observedAt~=control.observedAt or data.startedAt~=data.observedAt
     or not Number(data.observedAt,1,now+5) or type(data.running)~="boolean" or type(data.completed)~="boolean"
@@ -262,9 +264,12 @@ local function SelectedCurrent(identity, now, control)
     or type(page.riskBuffer)~="table" or next(page.riskBuffer)~=nil then return held end
   if page.snapshotId~=data.snapshotId or page.snapshotAt~=data.snapshotAt or type(page.scan)~="table"
     or page.scan.startedAt~=data.startedAt or page.scan.expiresAt~=data.expiresAt
-    or not Number(page.fetchedAt,data.observedAt,now+5)
+    or not Number(page.fetchedAt,data.observedAt,now+5) or not Number(page.expiresAt,page.fetchedAt,data.expiresAt)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
-  local checked=HistoricalCurrent({version=2,controlId=control.id,scanComplete=false,pages={page}},true)
+  -- The owner's longer window applies only to new selected-promotion observations.
+  -- Legacy selected results and all discovery actions keep their original 60-second cap.
+  local ttl=data.protocol=="promotion-selection-v274" and 600 or 60
+  local checked=HistoricalCurrent({version=2,controlId=control.id,scanComplete=false,pages={page}},true,ttl)
   if not checked then return held end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
@@ -604,7 +609,7 @@ function Q.Show()
   Q.shownRows=TabRows(current)
   Q.listPage=math.min(Q.listPage,math.max(1,math.ceil(#Q.shownRows/8)))
   local used=OlympusLaunchQueue and OlympusLaunchQueue.refreshedPages;used=Number(used,0,50) and used or 0
-  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 recheck attempts (including rate-limit retries). Actions need a fresh 60-second page and native roster.") or why
+  local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 recheck attempts (including rate-limit retries). Discovery actions use 60-second pages; selected promotions keep their own original expiry. Every action rechecks the native roster.") or why
   if Q.tab=="invites" then
     local status=OlympusOfficerInvites233 and OlympusOfficerInvites233.Status()
     details=(details or "").."\nNext checks the original remote whisperer's explicit WHO guild state. Unknown guild stays held. "..(status and status.reason or "Capability unavailable.")

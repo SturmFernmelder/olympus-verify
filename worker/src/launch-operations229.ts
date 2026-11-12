@@ -4,6 +4,9 @@ import type { OfficerInvite233 } from './officer-invites233';
 // The owner's .233 live ladder targets supersede the launch draft's historical slots.
 export const LAUNCH_OPERATIONS_PROTOCOL229 = 'officer-operations-v233' as const;
 export const LAUNCH_ROLE_TTL229 = 60;
+// Owner-authorized .274 policy: only a new selected promotion observation may
+// remain usable for ten minutes. Discovery, invites, risk and MOTD stay at60s.
+export const SELECTED_PROMOTION_TTL274 = 600;
 export const LAUNCH_SCAN_TTL229 = 600;
 export const LAUNCH_ROLE_PAGE229 = 20;
 /** Exact current curated Asmongold ladder; position, administrator and names grant nothing. */
@@ -50,6 +53,12 @@ export function needsLaunchRole229(row: LaunchRosterRow229): boolean {
     && row.currentSlot > 6 && row.currentSlot <= 9 && nativeLabels[row.currentSlot] === row.rank;
 }
 export function projectLaunchOperations229(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number) {
+  return projectOperations229(source, rows, knightByGuid, at, expiresAt, false);
+}
+export function projectSelectedPromotions274(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number) {
+  return projectOperations229(source, rows, knightByGuid, at, expiresAt, true);
+}
+function projectOperations229(source: LaunchRosterSource229 | null, rows: readonly LaunchRosterRow229[], knightByGuid: ReadonlyMap<string, KnightState229>, at: number, expiresAt: number, selectedPromotion: boolean) {
   const heldReasons: string[] = ['native-unguilded-proof-required'];
   const promotions: LaunchPromotion229[] = [], riskBuffer: LaunchRisk229[] = [], held: LaunchHeld229[] = [];
   const envelope = {
@@ -63,7 +72,7 @@ export function projectLaunchOperations229(source: LaunchRosterSource229 | null,
     pageCursor: null as string | null, nextCursor: null as string | null, invites: [] as OfficerInvite233[], promotions, riskBuffer, held, heldReasons, motd: launchMotd229(),
     actions: {automatic: false, roleGrants: false, removals: false, requiresNativeRecheck: true},
   };
-  if (!Number.isSafeInteger(at) || !Number.isSafeInteger(expiresAt) || expiresAt <= at || expiresAt > at + LAUNCH_ROLE_TTL229) heldReasons.push('entitlement-expired');
+  if (!Number.isSafeInteger(at) || !Number.isSafeInteger(expiresAt) || expiresAt <= at || expiresAt > at + (selectedPromotion ? SELECTED_PROMOTION_TTL274 : LAUNCH_ROLE_TTL229)) heldReasons.push('entitlement-expired');
   if (!source || !Number.isSafeInteger(source.snapshotId) || source.snapshotId < 1 || !Number.isSafeInteger(source.snapshotAt) || source.snapshotAt > at || source.snapshotAt <= at - 600
     || !Number.isSafeInteger(source.memberCount) || source.memberCount < 1 || source.memberCount > 1000 || rows.length !== source.memberCount
     || !isApprovedNativeGuildName(source.guild) || canonicalOlympusGuildName(source.guild) !== FLAGSHIP_GUILD_NAME || !source.realm || source.realm.length > 96 || /[\x00-\x1f\x7f]/.test(source.realm) || !/^[a-f0-9]{16}$/.test(source.scopeHash)) heldReasons.push('native-snapshot-unavailable');
@@ -79,7 +88,7 @@ export function projectLaunchOperations229(source: LaunchRosterSource229 | null,
     if (!Number.isInteger(slot) || slot === null || slot < 0 || slot > 9 || nativeLabels[slot] !== row.rank) { held.push({...identity, reason: 'native-rank-unconfirmed'}); continue; }
     if (row.verification === 'pending' || row.verification === 'unknown') { held.push({...identity, reason: row.verification === 'pending' ? 'pending-verification' : 'verification-unknown'}); continue; }
     if (row.verification === 'unverified') {
-      if (slot === 9 && row.rank === 'Initiate') riskBuffer.push({...identity, currentSlot: 9, level: Number.isInteger(row.level) && row.level! >= 1 && row.level! <= 255 ? row.level : null, lastOnlineDays: typeof row.lastOnlineSeconds === 'number' && Number.isFinite(row.lastOnlineSeconds) && row.lastOnlineSeconds > 0 && row.lastOnlineSeconds <= 10 * 366 * 86400 ? row.lastOnlineSeconds / 86400 : null, reason: 'unverified-initiate', reviewOnly: true});
+      if (!selectedPromotion && slot === 9 && row.rank === 'Initiate') riskBuffer.push({...identity, currentSlot: 9, level: Number.isInteger(row.level) && row.level! >= 1 && row.level! <= 255 ? row.level : null, lastOnlineDays: typeof row.lastOnlineSeconds === 'number' && Number.isFinite(row.lastOnlineSeconds) && row.lastOnlineSeconds > 0 && row.lastOnlineSeconds <= 10 * 366 * 86400 ? row.lastOnlineSeconds / 86400 : null, reason: 'unverified-initiate', reviewOnly: true});
       continue;
     }
     if (slot <= 6) continue;

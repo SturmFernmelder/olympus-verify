@@ -29,15 +29,15 @@ class SelectedReads(unittest.TestCase):
         self.selected.request(self.control,self.accepted,self.roster,self.clock)
         self.calls=[]
 
-    def reply(self,offset=20,retry=None):
+    def reply(self,offset=20,retry=None,*,protocol=None,ttl=60):
         p=page(int(self.clock),offset,40,self.at)
         p.update(snapshotAt=self.at,nextCursor=None,pageCursor='opaque-private-v4-context',invites=[],riskBuffer=[])
         p['scan'].update(startedAt=self.at,expiresAt=self.at+600)
-        p['expiresAt']=min(int(self.clock)+60,self.at+600)
+        p['expiresAt']=min(int(self.clock)+ttl,self.at+600)
         p['entitlements']['retryAfterSeconds']=retry
         if retry is not None:p['status']='partial';p['heldReasons'].append('discord-rate-limited')
         covered=[row['guid'] for row in self.roster['members'][offset:offset+20]]
-        return dict(version=1,protocol=launch.SELECTED_PROTOCOL,controlId=self.control['id'],
+        return dict(version=1,protocol=protocol or launch.SELECTED_PROTOCOL,controlId=self.control['id'],
                     targetGuid=self.control['targetGuid'],coveredGuids=covered,page=p)
 
     def call(self,response=None):
@@ -78,6 +78,55 @@ class SelectedReads(unittest.TestCase):
         before=copy.deepcopy(r);later=copy.deepcopy(self.roster);later['exportedAt']+=30;later['online']+=1
         self.assertFalse(self.selected.source_changed(later));self.assertEqual(self.selected.record,before)
         self.clock+=700;self.assertFalse(self.tick(self.call()));self.assertEqual(len(self.calls),1)
+
+    def test_v274_long_selected_observation_never_loosens_generic_or_historical_v273(self):
+        self.assertTrue(self.tick(self.call(lambda:(True,self.reply(ttl=600)))))
+        r=self.selected.record
+        self.assertTrue(r['completed']);self.assertEqual(r['protocol'],launch.SELECTED_PROTOCOL)
+        self.assertEqual(r['page']['expiresAt'],self.at+600)
+        self.assertFalse(launch.validate_page(r['page'],int(self.clock)))
+        self.assertTrue(launch._selected_page(r['page'],r,r['coveredGuids'],self.at+120))
+        self.assertFalse(launch._selected_page(r['page'],r,r['coveredGuids'],self.at+600))
+        original=copy.deepcopy(r)
+        body=launch.render_selected(r,self.at+700)
+        self.assertIsNotNone(body);self.assertEqual(r,original)
+        output=savedvars.parse(body)['OlympusLaunchSelected']
+        self.assertEqual(output['page']['expiresAt'],self.at+600)
+        self.assertNotIn('pageCursor',output['page'])
+        legacy={**r,'protocol':launch.SELECTED_LEGACY_PROTOCOL}
+        self.assertIsNone(launch.render_selected(legacy,int(self.clock)))
+        for protocol,ttl,complete in ((launch.SELECTED_LEGACY_PROTOCOL,60,True),
+                                      (launch.SELECTED_LEGACY_PROTOCOL,600,False)):
+            with self.subTest(protocol=protocol,ttl=ttl):
+                self.clock=float(self.at);self.selected.request(self.control,self.accepted,self.roster,self.clock)
+                self.tick(self.call(lambda:(True,self.reply(protocol=protocol,ttl=ttl))))
+                self.assertEqual(self.selected.record['completed'],complete)
+                if complete:
+                    self.assertEqual(self.selected.record['protocol'],launch.SELECTED_LEGACY_PROTOCOL)
+                    self.assertEqual(self.selected.record['page']['expiresAt'],int(self.clock)+60)
+                    self.assertEqual(savedvars.parse(launch.render_selected(self.selected.record,int(self.clock)))['OlympusLaunchSelected']['protocol'],launch.SELECTED_LEGACY_PROTOCOL)
+
+    def test_extended_selected_deadline_stays_clipped_to_original_native_source_and_promotion_only(self):
+        roster={**self.roster,'exportedAt':self.at-500}
+        receipt={**self.accepted,'exportedAt':self.at-500}
+        self.selected.request(self.control,receipt,roster,self.clock)
+        def response():
+            value=self.reply(ttl=600)
+            value['page'].update(snapshotAt=self.at-500,expiresAt=self.at+100)
+            value['page']['scan']['expiresAt']=self.at+100
+            return True,value
+        self.tick(self.call(response))
+        r=self.selected.record
+        self.assertTrue(r['completed']);self.assertEqual(r['expiresAt'],self.at+100)
+        self.assertEqual(r['page']['expiresAt'],self.at+100)
+        for change in ('invites','riskBuffer','nextCursor','wrong-context','unknown-protocol'):
+            with self.subTest(change=change):
+                altered=copy.deepcopy(r)
+                if change in ('invites','riskBuffer'):altered['page'][change]=[{}]
+                elif change=='nextCursor':altered['page']['nextCursor']='no-traversal'
+                elif change=='wrong-context':altered['page']['expiresAt']=self.at+101
+                else:altered['protocol']='promotion-selection-v999'
+                self.assertIsNone(launch.render_selected(altered,int(self.clock)))
 
     def test_missing_receipt_or_target_is_held_without_borrowed_authority(self):
         for accepted,roster in ((None,self.roster),({**self.accepted,'digest':'0'*64},self.roster),
@@ -241,6 +290,24 @@ class SelectedReads(unittest.TestCase):
                     self.assertEqual(output['stoppedReason'],'selection-admission-expired')
                     self.assertFalse(output['completed'])
                     self.assertEqual(w.launch_operations_file.read_bytes(),original)
+
+    def test_actual_v274_result_survives_delayed_reload_without_renewal_or_discovery_change(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            w,db,original=self.watcher(Path(temporary));normal=w.worker.call
+            def transport(method,path,body=None,retries=3):
+                return normal(method,path,body,retries) if method=='POST' else self.call(lambda:(True,self.reply(ttl=600)))(method,path,retries)
+            w.worker.call=transport
+            with patch.object(watcher.time,'time',lambda:self.clock),patch.object(watcher.time,'sleep'):
+                w.check_savedvars();w.pull_launch_operations()
+                self.assertTrue(w.launch_selected.record['completed'])
+                selected=copy.deepcopy(w.launch_selected.record);body=w.launch_selected_file.read_bytes()
+                self.clock=self.at+120;db['roster']['exportedAt']=int(self.clock);db['roster']['online']=2
+                w.sv_file.write_text('OlympusVerifyDB='+launch._lua(db));w.state.d['sv_mtime']=0
+                w.check_savedvars();w.pull_launch_operations()
+                self.assertEqual(w.launch_selected.record,selected);self.assertEqual(w.launch_selected_file.read_bytes(),body)
+                self.assertEqual(w.launch_operations_file.read_bytes(),original);self.assertEqual(len(self.calls),1)
+                self.assertEqual(selected['page']['expiresAt'],self.at+600)
+                self.assertTrue(launch._selected_page(selected['page'],selected,selected['coveredGuids'],int(self.clock)))
 
     def test_actual_same_second_skipped_or_refused_upload_cannot_borrow_old_ack(self):
         for outcome in ('same-second','refused'):

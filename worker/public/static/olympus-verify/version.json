@@ -1,16 +1,16 @@
 {
   "schema": "olympus-verify-public-download-v1",
   "addon": "OlympusVerify",
-  "version": "0.6.33",
+  "version": "0.6.34",
   "generator": {
     "path": "scripts/build-verify-addon.cjs",
     "bytes": 5585,
     "sha256": "6addeb64149aa01732bd937c7fb38e22a9862821b9eecef3235ec46008a9ec9e"
   },
   "archive": {
-    "path": "/static/olympus-verify/olympus-verify-0.6.33.zip",
-    "bytes": 679538,
-    "sha256": "b3ced23ce2079d551a86b1eda02a368c247d4a40f6b01edbdd680623ec9c3fa4"
+    "path": "/static/olympus-verify/olympus-verify-0.6.34.zip",
+    "bytes": 680309,
+    "sha256": "2d6a46ba9eda7f7bfddfcea1c2d313f4e39b7fc61c0266be8547c28b905fa252"
   },
   "files": [
     {
@@ -36,12 +36,12 @@
     {
       "path": "OlympusVerify/OlympusVerify.lua",
       "bytes": 230188,
-      "sha256": "eba0dec2e1dd45eaf921a6420b2f8bc5c6cbf7631c64e734afb8797f5d8f3053"
+      "sha256": "67ac3c002581dfbe5486bb236243a40d48fea8be595946182aa711fc322ff06e"
     },
     {
       "path": "OlympusVerify/OlympusVerify.toc",
       "bytes": 876,
-      "sha256": "a9577d596e702232fa24b01d71b0b39b97fa9d6e099206ecf1b820474cae760a"
+      "sha256": "718e8fd0b13d2d2943aa9112f41d0042c874da1cf09b302e9fe532d460d33566"
     },
     {
       "path": "OlympusVerify/OlympusVerifyAutoSync.lua",
@@ -65,8 +65,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyLaunch229.lua",
-      "bytes": 53282,
-      "sha256": "b15956af0a769a12924186c73175c12b02dc0c7ac94989424f8a1d2675c98504"
+      "bytes": 53801,
+      "sha256": "6c13c78a311bf2d50e757832b12cc5084dd2723f20d0640b661085ccce75603c"
     },
     {
       "path": "OlympusVerify/OlympusVerifyLive242.lua",
@@ -95,8 +95,8 @@
     },
     {
       "path": "OlympusVerify/OlympusVerifyRosterModel.lua",
-      "bytes": 18776,
-      "sha256": "9daa7a3343b8bd96f0f990cd510639b32dfdd98308bf756193a1aeb9a0e0ce8f"
+      "bytes": 19028,
+      "sha256": "de4b3f38f99dea4d1d4f962a25837439d401701c6b6446926deb27f7220e4e6a"
     },
     {
       "path": "OlympusVerify/OlympusVerifyTreasury.lua",

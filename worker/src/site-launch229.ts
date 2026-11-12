@@ -6,7 +6,7 @@ import { apiJson } from './site-core';
 import { captureLaunchVerification, type LaunchVerificationCapture } from './launch-verification227';
 import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName } from './guild-affiliation229';
 import { readOfficerInvites233 } from './officer-invites233';
-import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
+import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
 import { LaunchRolePacer271 } from './launch-discord-reads271';
 
 type SourceRow229 = LaunchRosterRow229 & {
@@ -22,7 +22,7 @@ type RoleRead229 = [guid: string, state: 'knight' | 'non-knight', observedAt: nu
 type Cursor229 = {version: 1 | 2 | 3; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number; roleScope?: string; roleReads?: RoleRead229[]};
 export type PromotionSelection273 = Readonly<{selectionId:string;targetGuid:string;snapshotId:number;snapshotAt:number}>;
 type SelectionCursor273 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & PromotionSelection273 & {version:4;roleScope:string;roleReads:RoleRead229[]};
-const SELECTION_PROTOCOL273='promotion-selection-v273';
+const SELECTION_PROTOCOL274='promotion-selection-v274';
 const GUID273=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
@@ -139,7 +139,7 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
 export async function readPromotionSelection273(env:Env,input:unknown,cursor:string|null=null){
   const selection=selection273(input,cursor,now());let coveredGuids:string[]=[];
   const page=await readLaunchPage229(env,cursor,selection,guids=>{coveredGuids=guids;});
-  return {version:1 as const,protocol:SELECTION_PROTOCOL273,controlId:selection.selectionId,targetGuid:selection.targetGuid,coveredGuids,page};
+  return {version:1 as const,protocol:SELECTION_PROTOCOL274,controlId:selection.selectionId,targetGuid:selection.targetGuid,coveredGuids,page};
 }
 async function readLaunchPage229(env: Env, cursor: string | null = null,selection:PromotionSelection273|null=null,coverage?:(guids:string[])=>void) {
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
@@ -161,7 +161,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.rowsDigest!==rowsDigest))throw new LaunchCursor229('launch_cursor_source_changed',409);
   const issuedAt=captured?.issuedAt??(selection?Number(selection.selectionId.split(':')[0]):at),scanExpiresAt=captured?.expiresAt??Math.min(issuedAt+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??(selection?Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229:0);
   if(selection&&offset!==Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229)throw new LaunchCursor229('launch_cursor_source_changed',409);
-  let expiresAt=Math.min(at+LAUNCH_ROLE_TTL229,scanExpiresAt);
+  const observationTtl=selection?SELECTED_PROMOTION_TTL274:LAUNCH_ROLE_TTL229;
+  let expiresAt=Math.min(at+observationTtl,scanExpiresAt);
   const scanId=(await digest229(JSON.stringify(selection?['promotion-selection',273,selection.selectionId,selection.targetGuid,scopeHash,rowsDigest,issuedAt,scanExpiresAt]:['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
   const page=rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(needsLaunchRole229),states=new Map<string,KnightState229>();
   const coveredGuids=page.map(row=>row.guid);
@@ -188,7 +189,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   const readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
   for(const row of roleRows){
     const saved=reads.get(row.guid);
-    if(saved){states.set(row.guid,saved[1]);expiresAt=Math.min(expiresAt,saved[2]+LAUNCH_ROLE_TTL229);continue;}
+    if(saved){states.set(row.guid,saved[1]);expiresAt=Math.min(expiresAt,saved[2]+observationTtl);continue;}
     const id=row.discordId??'';
     if(!configuration||!/^\d{17,20}$/.test(id)||rateLimited||readWindowHeld){states.set(row.guid,'unknown');continue;}
     let observation=accountStates.get(id);
@@ -219,7 +220,7 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     if(observation.state!=='unknown'){
       reads.set(row.guid,legacy?[row.guid,observation.state,observation.observedAt]
         :[row.guid,observation.state,observation.observedAt,identities.get(row.guid)!]);
-      expiresAt=Math.min(expiresAt,observation.observedAt+LAUNCH_ROLE_TTL229);
+      expiresAt=Math.min(expiresAt,observation.observedAt+observationTtl);
     }
   }
   // One first-page invite read uses a separate three-request ceiling, so it
@@ -240,7 +241,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(await digest229(JSON.stringify(after.slice(offset,offset+LAUNCH_ROLE_PAGE229)))!==pageDigest)return held229(now(),'launch-page-verification-changed');
   if(selection&&now()>=scanExpiresAt)return held229(now(),'selection-read-expired');
   if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
-  const dto=projectLaunchOperations229({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,states,now(),expiresAt);
+  const project=selection?projectSelectedPromotions274:projectLaunchOperations229;
+  const dto=project({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,states,now(),expiresAt);
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
   const pageGuids=new Set(page.map(row=>row.guid));
   // Page every native row, not just linked accounts: risk/held data stays bounded
