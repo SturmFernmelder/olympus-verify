@@ -1023,7 +1023,9 @@ class IndependentSweep264Tests(unittest.TestCase):
         headers = {key.lower(): value for key, value in request.header_items()}
         self.assertEqual(headers['authorization'], 'Bearer ' + self.cfg['watcher_token'])
         self.assertEqual(headers['content-type'], 'application/json')
-        self.assertEqual(headers['user-agent'], 'olympus-verify-watcher/0.6.27')
+        # Evergreen 12 Nov 2026 (CL2-187): the release number is read from the Watcher, not pinned (0.6.27 went stale).
+        self.assertRegex(watcher.WATCHER_VERSION, r'^\d+\.\d+\.\d+$')
+        self.assertEqual(headers['user-agent'], 'olympus-verify-watcher/' + watcher.WATCHER_VERSION)
         body = json.loads(request.data)
         self.assertEqual(set(body), {'kind', 'at', 'nonce', 'independent'})
         self.assertEqual(body['kind'], 'sweep');self.assertIs(body['independent'], True)

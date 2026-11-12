@@ -7,6 +7,11 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+import sys
+
+# Evergreen 12 Nov 2026 (CL2-023): moved from watcher/ into watcher/tests so `unittest discover -s watcher/tests`
+# (the CI step) finds it with every other Watcher suite.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import intake242
 
 class State:

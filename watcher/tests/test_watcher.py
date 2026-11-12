@@ -1147,6 +1147,10 @@ class GuildSiteTests(unittest.TestCase):
             try:
                 import lupa.luajit21 as runtime
             except ImportError:
+                # Evergreen 12 Nov 2026 (CL2-023): CI installs Lupa and sets OLYMPUS_REQUIRE_LUA=1, so these Lua
+                # round trips fail there instead of silently skipping. A local run without a Lua may still skip.
+                if os.environ.get("OLYMPUS_REQUIRE_LUA") == "1":
+                    self.fail("OLYMPUS_REQUIRE_LUA=1 but no Lua interpreter (lua5.1, lua or lupa) is installed")
                 self.skipTest("no Lua interpreter")
             machine = runtime.LuaRuntime(unpack_returned_tuples=True)
             machine.execute(body)

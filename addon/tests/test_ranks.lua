@@ -60,7 +60,13 @@ check("the complete guide has ten rank lines plus six guidance lines", #guide, 1
 local tocFile = assert(io.open("../OlympusVerify/OlympusVerify.toc", "r"))
 local toc = tocFile:read("*a"); tocFile:close()
 local version = toc:match("## Version:%s*([^\r\n]+)")
-check("TOC version is 0.6.27", version, "0.6.27")
+-- Evergreen 12 Nov 2026 (CL2-187): the release number is read, not pinned. A pinned copy went stale at every release
+-- (0.6.27 against a 0.6.37 TOC) and hid the rest of this suite. The invariant is that the TOC and the source fallback
+-- in OlympusVerify.lua agree, and that status reports the TOC's number.
+local sourceFile = assert(io.open("../OlympusVerify/OlympusVerify.lua", "r"))
+local sourceVersion = sourceFile:read("*a"):match('local SOURCE_VERSION = "([^"]+)"'); sourceFile:close()
+check("TOC version is a release number", type(version) == "string" and version:match("^%d+%.%d+%.%d+$") ~= nil, true)
+check("TOC version matches the OlympusVerify.lua source fallback", version, sourceVersion)
 check("TOC loads the guide before the slash handler", toc:find("OlympusVerifyRanks.lua\nOlympusVerify.lua", 1, true) ~= nil, true)
 C_AddOns.GetAddOnMetadata = function(_, field) if field == "Version" then return version end end
 OlympusVerifyConfig = { uiAutoShow = false, checkBeforeInvite = false }
@@ -109,7 +115,7 @@ check("ranks preserves persisted state identity", OlympusVerifyDB, db)
 check("ranks preserves the full synthetic queue, notes, events and state", same(OlympusVerifyDB, snapshot), true)
 check("ranks sends no whisper", #WHISPERS, beforeWhispers)
 check("ranks prints one complete guide", #messagesSince(beforePrint), #guide)
-check("ordinary status still derives version from the TOC metadata", OlympusVerifyAPI.Status().version, "0.6.27")
+check("ordinary status still derives version from the TOC metadata", OlympusVerifyAPI.Status().version, version)
 beforePrint = #PRINTS
 SlashCmdList.OLYMPUSVERIFY("help")
 check("help makes ranks discoverable", contains(messagesSince(beforePrint), "| ranks |"), true)

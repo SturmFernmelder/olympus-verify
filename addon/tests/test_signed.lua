@@ -11,6 +11,19 @@ local function check(label, got, want)
   print(string.format("%s %-78s %s", ok and "ok  " or "FAIL", label, ok and "" or ("got " .. tostring(got) .. " want " .. tostring(want))))
 end
 local function lastPrint(pat) for i = #PRINTS, 1, -1 do if PRINTS[i]:find(pat, 1, true) then return PRINTS[i] end end end
+-- Evergreen 12 Nov 2026 (CL2-025): the refusals are compared with the addon's own default replies instead of a pinned
+-- copy. .268 replaced the old "/oly -> Verify / QR Code tab" guidance with the Discord button and /verify-status, and
+-- the pinned copy failed from then on. Both defaults must still name those two next steps.
+local DEFAULT_REPLY = (function()
+  local fh = assert(io.open("../OlympusVerify/OlympusVerify.lua", "r")); local src = fh:read("*a"); fh:close()
+  return { bad = src:match('local REPLY_BAD = cfg%.replyInvalid or "([^"]+)"'), used = src:match('local REPLY_USED = cfg%.replyUsed or "([^"]+)"') }
+end)()
+check("the default invalid/expired refusal is readable", type(DEFAULT_REPLY.bad) == "string" and DEFAULT_REPLY.bad:find("invalid or expired", 1, true) ~= nil, true)
+check("the default claimed-code refusal is readable", type(DEFAULT_REPLY.used) == "string" and DEFAULT_REPLY.used:find("was used by another character", 1, true) ~= nil, true)
+for kind, text in pairs(DEFAULT_REPLY) do
+  check("  the " .. kind .. " refusal names Get my code in Discord and /verify-status",
+    tostring(text):find("Get my code in Discord", 1, true) ~= nil and tostring(text):find("/verify-status", 1, true) ~= nil, true)
+end
 
 -- what the client does with chat logging, and with timers (fired by hand)
 TOGGLES, TIMERS = {}, {}
@@ -90,8 +103,7 @@ local w1 = #WHISPERS
 local bad = string.sub(ticket, 1, 3) .. (string.sub(ticket, 4, 4) == "A" and "B" or "A") .. string.sub(ticket, 5)
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. bad, "Guess Work")
 check("a wrong mac is refused", entry("Guess Work"), nil)
-check("  with invalid/expired refusal and exact QR instructions", (whispersTo(w1, "Guess Work")[1] or ""):find("invalid or expired", 1, true) ~= nil
-  and (whispersTo(w1, "Guess Work")[1] or ""):find("/oly -> Verify / QR Code tab",1,true) ~= nil, true)
+check("  with the exact invalid/expired refusal", whispersTo(w1, "Guess Work")[1], DEFAULT_REPLY.bad)
 
 print("\n== no automatic chat-log flush (0.6.3: measured, it never wrote the file early) ==")
 local function toggles() local t = {} for i, v in ipairs(TOGGLES) do t[i] = tostring(v) end return table.concat(t, ",") end
@@ -185,8 +197,7 @@ onEvent(frame, "CHAT_MSG_WHISPER", "!Verify " .. t2 .. ".", "First Finn")
 check("a phone-capitalised !Verify, with a full stop after the code, works", entry("First Finn") and entry("First Finn").status, "queued")
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t2, "Second Sid")
 check("the same request code from another character is refused", entry("Second Sid"), nil)
-check("  and the claimed-code refusal has exact QR instructions", (whispersTo(w9, "Second Sid")[1] or ""):find("was used by another character", 1, true) ~= nil
-  and (whispersTo(w9, "Second Sid")[1] or ""):find("/oly -> Verify / QR Code tab",1,true) ~= nil, true)
+check("  and the exact claimed-code refusal", whispersTo(w9, "Second Sid")[1], DEFAULT_REPLY.used)
 local evSid = OlympusVerifyDB.events[#OlympusVerifyDB.events]
 check("  recorded as not ok, so the watcher relays nothing from it", evSid.name == "Second Sid" and evSid.ok == false and evSid.kind == "ticket", true)
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t2, "First Finn")
@@ -199,8 +210,7 @@ local t3 = L.ticketFor(SECRET, "Q3R", L.utcDay(NOW))
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t3 .. "1", "Extra Digit")
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify 0" .. string.sub(t3, 1, 6), "Leading Zero")
 check("a code with anything added to it is not a code (the watcher agrees)", entry("Extra Digit") == nil and entry("Leading Zero") == nil, true)
-check("  and is answered as invalid/expired with exact QR instructions", (whispersTo(w10, "Extra Digit")[1] or ""):find("invalid or expired", 1, true) ~= nil
-  and (whispersTo(w10, "Extra Digit")[1] or ""):find("/oly -> Verify / QR Code tab",1,true) ~= nil, true)
+check("  and is answered with the exact invalid/expired refusal", whispersTo(w10, "Extra Digit")[1], DEFAULT_REPLY.bad)
 check("the library's rule matches the watcher's", L.strictCode("k7qystg") == "K7QYSTG" and L.strictCode("K7QYSTG1") == nil and L.strictCode("0K7QYST") == nil and L.strictCode("abcde") == nil, true)
 
 print("\n== the character behind a confirmed code is signed with its GUID ==")

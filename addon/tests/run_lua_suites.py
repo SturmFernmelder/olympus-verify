@@ -58,6 +58,8 @@ SUITES = {
     "selected_batch276": (TESTS, Path("test_selected_batch276.lua")),
     "promotion_steps": (TESTS, Path("test_promotion_steps.lua")),
 }
+# Suites that need an input from outside this repository. They run only by name with that input.
+NEEDS_EXTERNAL_ARCHIVE = {"dan155_census"}
 TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps"}
 
 
@@ -76,9 +78,14 @@ def main() -> int:
     parser.add_argument("--suite", choices=SUITES)
     parser.add_argument("--logdir", type=Path)
     parser.add_argument("--dan-archive", type=Path, help="Explicit Olympus1.5.5 ZIP for the targeted public-checkpoint runtime test")
+    # Evergreen 12 Nov 2026 (CL2-022): the release gate runs every suite that needs no external archive, including the
+    # targeted roster, Guild tab and promotion suites the default run leaves out.
+    parser.add_argument("--all-offline", action="store_true", help="Run the default suites plus every targeted suite that needs no external archive")
     args = parser.parse_args()
     if args.dan_archive is not None and args.suite != "dan155_census":
         parser.error("--dan-archive is only for --suite dan155_census")
+    if args.all_offline and args.suite:
+        parser.error("--all-offline runs every offline suite; do not combine it with --suite")
     if args.suite == "dan155_census" and args.dan_archive is None:
         parser.error("--suite dan155_census requires --dan-archive")
     if args.suite:
@@ -109,7 +116,7 @@ def main() -> int:
     before = input_hashes()
     results = []
     for name, (cwd, script) in SUITES.items():
-        if name in TARGETED_ONLY:
+        if name in NEEDS_EXTERNAL_ARCHIVE or (name in TARGETED_ONLY and not args.all_offline):
             continue
         if not (cwd / script).is_file():
             # O1_OPS-03 (Master QA, 28 Oct 2026): a missing declared suite must never yield a green partial run.
