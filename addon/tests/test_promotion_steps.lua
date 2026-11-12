@@ -197,7 +197,7 @@ do
   f.emit("PLAYER_LOGOUT");local saved=f.env.OlympusVerifyDB.launchPromotionCustodyDiagnostic
   check("logout diagnostic snapshot contains only copied scalars and no attempt reference",saved and saved.version==1 and saved.rows[1]~=row
     and saved.rows[1].entrySame and saved.rows[1].state=="confirmed" and saved.rows[1].record==nil and saved.rows[1].ledger==nil
-    and f.promote==1 and record(f)==original)
+    and f.promote==1 and record(f)~=original and record(f).contextId==original.contextId and original.state=="confirmed")
   local old=f.env.OlympusVerifyDB
   old.launchPromotionAttempts={};d=f.q.PromotionCustodyDiagnostics();row=d.rows[1]
   check("diagnostics expose replaced ledger without restoring or borrowing its missing receipt",d.ledgerCount==0 and d.sessionCount==1
@@ -217,6 +217,73 @@ do
   f.q.Print()
   check("expired source still prints bounded custody diagnostics without changing old unknowns",record(f)==legacy and legacy.completed==nil
     and f.env.PRINTS[1]:find("custody (runtime only)",1,true) and f.promote==0 and f.direct==0)
+end
+for _,kind in ipairs({"ledger","entry-delete","entry-replace","root","root-nil"}) do
+  local f=fixture();local old={state="unknown",target=8}
+  f.env.OlympusVerifyDB.launchPromotionAttempts={[id]=old}
+  check("loaded unknown is initially held before "..kind,f.q.AttemptHeld(id))
+  if kind=="ledger" then f.env.OlympusVerifyDB.launchPromotionAttempts={}
+  elseif kind=="entry-delete" then f.env.OlympusVerifyDB.launchPromotionAttempts[id]=nil
+  elseif kind=="entry-replace" then f.env.OlympusVerifyDB.launchPromotionAttempts[id]={state="confirmed"}
+  elseif kind=="root" then f.env.OlympusVerifyDB={launchPromotionAttempts={}}
+  else f.env.OlympusVerifyDB=nil end
+  check("loaded history loss cannot re-enable a native command "..kind,f.q.AttemptHeld(id) and not f.click(id) and f.promote==0 and old.state=="unknown")
+  if kind=="root-nil" then f.env.OlympusVerifyDB={} end
+  f.q.PublishPromotionCustody()
+  check("storage conflict is durably fail-closed "..kind,f.env.OlympusVerifyDB.launchPromotionCustodyConflict==true)
+  reload(f);f.emit("GUILD_ROSTER_UPDATE")
+  check("reload cannot forget a detected history conflict "..kind,f.q.AttemptHeld(id) and not f.click(id) and f.promote==0)
+end
+do
+  local f=fixture();f.click(id);f.emit("GUILD_ROSTER_UPDATE");local old=record(f)
+  f.env.OlympusVerifyDB.launchPromotionAttempts[id]=nil
+  check("confirmed in-session history loss stays held before publication",f.q.AttemptHeld(id) and f.promote==1)
+  local saved=f.q.PublishPromotionCustody();local copy=record(f)
+  check("save boundary recovers only the existing actual session record",saved.recovered==1 and saved.published==1 and copy~=old
+    and copy.state=="confirmed" and copy.completed and copy.steps~=old.steps and copy.steps[1].state=="rank-observed"
+    and copy.attemptedAt==old.attemptedAt and copy.contextId==old.contextId and copy.observedAt==old.observedAt and old.state=="confirmed")
+  local again=f.q.PublishPromotionCustody()
+  check("own repeated publication does not fabricate a foreign conflict",again.published==1 and again.held==0 and f.env.OlympusVerifyDB.launchPromotionCustodyConflict==nil)
+  reload(f);f.emit("GUILD_ROSTER_UPDATE")
+  check("published complete record remains retained and cannot repeat after reload",record(f).completed and not f.click(id) and f.promote==1)
+end
+do
+  local f=fixture();knight(f);f.click(id);f.emit("GUILD_ROSTER_UPDATE")
+  f.env.OlympusVerifyDB.launchPromotionAttempts[id]=nil
+  local saved=f.q.PublishPromotionCustody()
+  check("publication updates the exact intermediate continuation reference",saved.recovered==1 and f.q.PromotionStatus(id,f.q.Current(),8)=="continue")
+  check("a later separate hardware click can take only the next proven rank",f.click(id) and f.promote==2 and f.env.ROSTER[2].rankIndex==7)
+end
+for _,kind in ipairs({"foreign-record","full-holds","malformed-holds"}) do
+  local f=fixture();f.noRankChange=true;f.click(id);local actual=record(f);local foreign={state="unknown",foreign=true}
+  f.env.OlympusVerifyDB.launchPromotionAttempts[id]=foreign
+  if kind=="full-holds" then
+    local holds={};for i=1,1000 do holds["full"..i]={reason="existing"} end;f.env.OlympusVerifyDB.launchPromotionSaveHolds=holds
+  elseif kind=="malformed-holds" then f.env.OlympusVerifyDB.launchPromotionSaveHolds="invalid" end
+  local saved=f.q.PublishPromotionCustody()
+  check("save conflict preserves both prior objects without overwriting "..kind,saved.held==1 and record(f)==foreign and actual.state=="unknown" and f.promote==1)
+  check("unavailable exact hold cannot become permission after reload "..kind,f.env.OlympusVerifyDB.launchPromotionCustodyConflict==true)
+  reload(f);f.emit("GUILD_ROSTER_UPDATE")
+  check("persisted conflict refuses another command "..kind,not f.click(id) and f.promote==1)
+end
+do
+  local f=fixture();f.env.ROSTER[2].rankIndex=8
+  local observation=f.q.RecordCurrentPromotionObservation(id)
+  check("missing old receipt gets a separate truthful current-rank observation",observation and observation.rankIndex==8 and observation.receiptStatus=="absent"
+    and observation.origin=="current-native-rank-observation" and not observation.commandAttempted and not observation.historicalOutcomeSettled
+    and record(f)==nil and f.promote==0)
+  local old={state="unknown",target=8};f=fixture();f.env.OlympusVerifyDB.launchPromotionAttempts={[id]=old}
+  observation=f.q.RecordCurrentPromotionObservation(id)
+  check("current Initiate observation never settles or rewrites a prior unknown",observation and observation.rankIndex==9 and observation.receiptStatus=="unknown"
+    and record(f)==old and f.q.AttemptHeld(id) and not f.click(id) and old.state=="unknown" and f.promote==0)
+end
+do
+  local f=fixture();local hold=f.q.HoldPromotionHistoryReview(id)
+  check("explicit missing-history review creates a hold rather than a fabricated attempt",hold and hold.origin=="operator-history-hold"
+    and hold.reason=="staff-review-missing-receipt" and hold.commandAttempted==false and record(f)==nil and f.q.AttemptHeld(id) and f.promote==0)
+  check("explicit history hold is idempotent and never readmits the target",f.q.HoldPromotionHistoryReview(id)==hold and not f.click(id) and f.promote==0)
+  local f2=fixture();local old={state="unknown"};f2.env.OlympusVerifyDB.launchPromotionAttempts={[id]=old}
+  check("missing-history hold never relabels an existing unknown",not f2.q.HoldPromotionHistoryReview(id) and record(f2)==old and old.state=="unknown" and f2.promote==0)
 end
 print(string.format("Promotion steps: %d passed, %d failed",passed,failed))
 if failed>0 then error("promotion steps failed") end

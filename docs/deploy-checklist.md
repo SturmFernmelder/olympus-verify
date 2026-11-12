@@ -8507,3 +8507,18 @@ receipt, not a claim that every member or multi-rank continuation was tested.
 Rollback restores the previous public addon code/package without changing private
 state or reversing confirmed native ranks. Never clear unknown attempts or run a
 fallback promotion command to make rollback or testing appear successful.
+
+
+## 2026-11-12 .279 — promotion history and contextual Guild controls
+
+Verify0.6.37 closes a demonstrated forward save-boundary gap: only actual records reserved in the current session may be published as bounded plain scalar tables at logout. A missing entry in the same owned database/ledger can be recovered from that actual session record; conflicting ownership or entries remain unchanged and block further actions. This recovery does not establish why the earlier Ball/Hoontar records vanished. Preserve all prior failed evidence and do not manufacture historical command receipts.
+
+The ordinary /olv launch history <GUID> path records a separate current-native-rank observation using a complete offline-inclusive exactGUID roster. It explicitly records no command and settles no historical unknown. Current Member rank and missing command history remain separate facts; current Initiate rank alone cannot clear a past unknown. No observations grant readiness, relink an account, alter proof dates or promote anybody.
+
+The native Guild-tab column distinguishes Promote, Check, Held and Member. Check uses the existing signed selected-read/export/reload workflow, followed by a later Sync/reload to import the response; a promotion still needs a separate secure native click. Recycled-row GUID/name, verification, scope, rank, expiry and unknown-effect guards are rechecked. Combat callbacks do not mutate protected button state. No direct Lua promotion or automatic retry is added.
+
+Qualify the changed history recovery/conflict paths and public slash route, contextual Guild behavior and the1,000member benchmark. Rebuild the0.6.37ZIP/manifest, preserve private Config/generated exchange/SavedVariables on installation and observe the running client after a normal reload. The owner authorized fresh checks and actual promotions for all remaining verified Initiates who are ready, including one attended actual Guild-tab control test. Each target requires current evidence and one click per rank step; confirm newer native rank and persisted attempt history. Older held targets stay held unless their original uncertainty is separately established. Do not count a batch recommendation or clicked command as a completed promotion.
+
+Root performs exactcommit CI/review/backup/deploy and standard postchecks. Watcher0.6.37 and the held live bridge are unchanged. Rollback restores public code/package without reverting native ranks or deleting history, observations or holds. Native results and release receipts belong in the append-only shared log and QA report after the actions.
+
+The explicit /olv launch hold <GUID> action can record a restrictive staff-review hold for a known missing older receipt after reading the exact current native GUID. It records no historical command, creates no confirmed receipt and never clears an existing unknown. Root uses it for the externally preserved Andolf blocked case before requesting remaining promotions; a missing canonical row must not silently remove a known hold.

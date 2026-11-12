@@ -37,7 +37,7 @@ local SECRET = cfg.secret
 -- 0.6.12: the example's placeholder is public, so a Config.lua copied without replacing it must not accept codes made from it.
 if type(SECRET) ~= "string" or SECRET == "" or string.find(SECRET, "^REPLACE_WITH_") then SECRET = nil end
 local secretWarned = false  -- 0.6.12: say once per session, not on every whisper, that codes cannot be checked
-local SOURCE_VERSION = "0.6.36" -- Keep this source fallback and OlympusVerify.toc aligned.
+local SOURCE_VERSION = "0.6.37" -- Keep this source fallback and OlympusVerify.toc aligned.
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version"))
   or (GetAddOnMetadata and GetAddOnMetadata(ADDON, "Version")) or SOURCE_VERSION
 local SET_NOTES = cfg.setNotes == true  -- SetNote is forbidden for addons on the Forever beta; leave false there
@@ -3929,8 +3929,16 @@ OlympusVerifySlash234.Register("OLYMPUSVERIFY", {"/olv"}, function(msg)
     local argument = string.match(msg or "", "^%s*%S+%s+(.-)%s*$") or ""
     if not launch then Print("launch module is not loaded; restart after updating the addon.")
     elseif cmd == "launch" or cmd == "officer" then
-      if argument=="custody" and type(launch.PrintPromotionCustody)=="function" then launch.PrintPromotionCustody() end
-      launch.Show()
+      local historyGuid=argument:match("^history%s+(%S+)$")
+      local holdGuid=argument:match("^hold%s+(%S+)$")
+      if historyGuid and type(launch.RecordCurrentPromotionObservation)=="function" then
+        launch.RecordCurrentPromotionObservation(historyGuid)
+      elseif holdGuid and type(launch.HoldPromotionHistoryReview)=="function" then
+        launch.HoldPromotionHistoryReview(holdGuid)
+      else
+        if argument=="custody" and type(launch.PrintPromotionCustody)=="function" then launch.PrintPromotionCustody() end
+        launch.Show()
+      end
     elseif cmd == "next" then launch.NextAction()
     elseif cmd == "promote" then launch.HardwarePromote(argument)
     elseif cmd == "buffer" then launch.RiskBuffer()

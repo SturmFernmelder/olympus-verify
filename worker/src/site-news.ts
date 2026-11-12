@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".279", date: "2026-11-12", lines: [
+      "Verify 0.6.37 preserves actual session promotion history at the save boundary and records current native rank observations separately from missing older receipts.",
+      "Guild-tab controls distinguish a ready promotion, a needed readiness check and a held prior attempt. Each promotion still needs one deliberate click and a native rank confirmation.",
+    ],
+  },
+  {
     build: ".278", date: "2026-11-12", lines: [
       "Verify 0.6.36 uses a secure native promotion button for one rank step per click, replacing the blocked direct addon call.",
       "Current eligibility is checked before each command. A promotion is confirmed only by a newer complete guild roster; uncertain attempts stay held.",
