@@ -1,8 +1,11 @@
 // Genuine Workerd/D1 fixture. Only the runner's external Discord HTTP is synthetic.
-import {readLaunchOperations229,handleLaunchOperations229} from '../src/site-launch229.ts';
+import {readLaunchOperations229,readPromotionSelection273,handleLaunchOperations229} from '../src/site-launch229.ts';
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
 import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
+import {strictRosterDisplay} from '../src/unverified.ts';
+import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
+import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 
 const EPOCH = 'a'.repeat(32);
 const MODES = new Set(['full', 'partial-recover', 'credential-change', 'slow-read', '429-body', '429-header', '429-reset', '429-persistent',
@@ -13,6 +16,109 @@ const proofSQL = 'SELECT name_key,name,discord_id,status,bound_at,verified_at,so
 const effectSQL = 'SELECT (SELECT COUNT(*) FROM role_settlements) roles,(SELECT COUNT(*) FROM invite_queue) invites,(SELECT COUNT(*) FROM pending) pending';
 const checks = [];
 const check = (name, value) => { if (!value) throw Error(name); checks.push({name, passed: true}); };
+const REVIEW_ANCHOR = index => 'c'.repeat(30) + index.toString(16).padStart(2, '0');
+const REVIEW_NEW_ANCHOR = 'd'.repeat(32);
+
+// Synthetic source facts in physical D1, never production repair authority.
+async function reviewRecords275(action, input) {
+  const {env,db,rows}=fixture,at=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").first()).n;
+  if(action==='setup'){
+    if(fixture.review275)throw Error('review fixture already active');
+    const snapshot=await db.prepare('SELECT source,exported_at,trusted FROM roster_snapshots WHERE id=1').first();
+    fixture.review275={snapshot,env:Object.fromEntries(['GUILD_ID','CANONICAL_RANKS233','NATIVE_RANK_SYNC232','VERIFY_NATIVE_SCOPE'].map(key=>[key,{present:Object.hasOwn(env,key),value:env[key]}]))};
+    env.GUILD_ID=CANONICAL_GUILD233;
+    env.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))});
+    env.VERIFY_NATIVE_SCOPE=JSON.stringify({version:1,...NATIVE_SCOPE232});
+    const launch=captureLaunchVerification(env),statements=[
+      env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(launch.scope.provenance),
+      ...[0,3,4,5,6,7,8,9].map(index=>env.DB.prepare('UPDATE characters SET bound_at=?1,verified_at=?1 WHERE name_key=?2').bind(fixture.at-7200,rows[index].key)),
+      ...[1,2].map(index=>env.DB.prepare("UPDATE characters SET status='unbound',guid=NULL WHERE name_key=?1").bind(rows[index].key)),
+      env.DB.prepare("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at,nonce) VALUES(?1,?2,?3,?4,?5,'review275-pending')").bind(rows[2].subject,rows[2].key,rows[2].name,at-1,at+300),
+      env.DB.prepare('INSERT INTO site_users(discord_id,first_login,last_login,denied) VALUES(?1,?2,?2,1)').bind(rows[6].subject,at),
+      env.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at) VALUES(?1,?2,'retiring',0,?3,?3)").bind(rows[7].subject,'b'.repeat(32),at),
+      env.DB.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,guid,nonce,state,decided_by,decided_at) VALUES(?1,?2,?2,?3,?4,'review275-rename','reapply',?5,?6)").bind(rows[8].subject,rows[8].name,rows[8].key,rows[8].guid,rows[0].subject,at),
+    ];
+    for(const index of [0,3,4,5,6,7,8])statements.push(env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,attempts,created_at,expires_at,checked_at)
+      VALUES(?1,?2,'canonical_routine233',?3,?4,1,'settled','canonical233_observed_without_dispatch',?5,?6,1,?7,?8,9,'Initiate',0,?9,?10,?11)`)
+      .bind(REVIEW_ANCHOR(index),rows[index].subject,CANONICAL_GUILD233,CANONICAL_RANKS233[11].roleId,index===4?'e'.repeat(32):[0,7].includes(index)?'b'.repeat(32):null,index===3?'malformed-digest':'c'.repeat(64),rows[index===5?9:index].guid,CANONICAL_PROFILE233,at-5,at+295,at-4));
+    await env.DB.batch(statements);
+    fixture.review275.originalAnchor=await db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(REVIEW_ANCHOR(0)).first();
+    return {complete:true,actualLocalWorkerdD1:true,syntheticSourceFacts:true,guids:rows.slice(0,11).map(row=>row.guid)};
+  }
+  if(!fixture.review275)throw Error('review fixture not active');
+  if(action==='mutate'){
+    const {kind,restore=false}=input;
+    if(kind==='anchor-restore'){
+      const a=fixture.review275.originalAnchor;
+      await env.DB.prepare('UPDATE role_settlements SET subject=?1,native_guid=?2,role_id=?3,native_rank=?4,native_rank_name=?5,request_digest=?6,subject_generation=?7,created_at=?8,expires_at=?9,checked_at=?10 WHERE id=?11')
+        .bind(a.subject,a.native_guid,a.role_id,a.native_rank,a.native_rank_name,a.request_digest,a.subject_generation,a.created_at,a.expires_at,a.checked_at,a.id).run();
+    }else if(kind.startsWith('anchor-')){
+      const fields={
+        'anchor-subject':['subject',rows[1].subject],'anchor-guid':['native_guid',rows[1].guid],
+        'anchor-role':['role_id','800000000000009998'],'anchor-rank':['native_rank_name','Member'],
+        'anchor-digest':['request_digest','malformed-digest'],'anchor-generation':['subject_generation','e'.repeat(32)],
+      };
+      if(fields[kind]){
+        const [column,value]=fields[kind];await env.DB.prepare('UPDATE role_settlements SET '+column+'=?1 WHERE id=?2').bind(value,REVIEW_ANCHOR(0)).run();
+      }else if(kind==='anchor-precutoff')await env.DB.prepare('UPDATE role_settlements SET created_at=?1,checked_at=?2,expires_at=?3 WHERE id=?4').bind(fixture.at-7200,fixture.at-7199,fixture.at-6900,REVIEW_ANCHOR(0)).run();
+      else if(kind==='anchor-historical'){
+        await env.DB.prepare('UPDATE role_settlements SET created_at=?1,checked_at=?2,expires_at=?3 WHERE id=?4').bind(fixture.at-900,fixture.at-899,fixture.at-600,REVIEW_ANCHOR(0)).run();
+        const anchor=await db.prepare('SELECT created_at,checked_at,expires_at FROM role_settlements WHERE id=?1').bind(REVIEW_ANCHOR(0)).first();
+        return {complete:true,postCutoff:anchor.created_at>=Number(env.LINKS_NOT_BEFORE),originalIntervalSeconds:anchor.expires_at-anchor.created_at,originalCheckWithinInterval:anchor.checked_at>=anchor.created_at&&anchor.checked_at<anchor.expires_at,originalIntervalExpired:anchor.expires_at<at};
+      }
+      else if(kind==='anchor-future')await env.DB.prepare('UPDATE role_settlements SET created_at=?1,checked_at=?2,expires_at=?3 WHERE id=?4').bind(at+30,at+31,at+330,REVIEW_ANCHOR(0)).run();
+      else if(kind==='anchor-interval')await env.DB.prepare('UPDATE role_settlements SET expires_at=created_at WHERE id=?1').bind(REVIEW_ANCHOR(0)).run();
+      else throw Error('unknown anchor mutation');
+    }else if(kind==='newer-anchor')await env.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,claim_nonce,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,attempts,created_at,expires_at,checked_at) SELECT ?1,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,claim_nonce,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,attempts,?2,?3,?4 FROM role_settlements WHERE id=?5`).bind(REVIEW_NEW_ANCHOR,at-1,at+299,at,REVIEW_ANCHOR(0)).run();
+    else if(kind==='remove-old-anchor')await env.DB.prepare('DELETE FROM role_settlements WHERE id=?1').bind(REVIEW_ANCHOR(0)).run();
+    else if(kind==='generation')await env.DB.prepare('UPDATE privacy_subjects SET generation=?1 WHERE subject_id=?2').bind((restore?'b':'e').repeat(32),rows[0].subject).run();
+    else if(kind==='owner-conflict'){
+      if(restore)await env.DB.prepare("DELETE FROM characters WHERE name_key='review275 current owner'").run();
+      else await env.DB.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) VALUES('review275 current owner','Review275 Current Owner',?1,'member',?2,?2,'whisper',?3)").bind(rows[999].subject,at-1,rows[1].guid).run();
+    }else if(kind==='denial')await env.DB.prepare('UPDATE site_users SET denied=?1 WHERE discord_id=?2').bind(restore?0:1,rows[0].subject).run();
+    else if(kind==='privacy')await env.DB.prepare('UPDATE privacy_subjects SET state=?1 WHERE subject_id=?2').bind(restore?'active':'retiring',rows[0].subject).run();
+    else if(kind==='rename'){
+      if(restore)await env.DB.prepare("DELETE FROM rename_holds WHERE nonce='review275-target-rename'").run();
+      else await env.DB.prepare("INSERT INTO rename_holds(discord_id,old_name,new_name,char_key,guid,nonce,state,decided_by,decided_at) VALUES(?1,?2,?2,?3,?4,'review275-target-rename','reapply',?1,?5)").bind(rows[0].subject,rows[0].name,rows[0].key,rows[0].guid,at).run();
+    }else if(kind==='native-duplicate')await env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(restore?rows[11].guid:rows[0].guid,rows[11].key).run();
+    else if(kind==='stale')await env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=1').bind(restore?fixture.review275.snapshot.exported_at:at-3601).run();
+    else if(kind==='scope'){
+      env.VERIFY_NATIVE_SCOPE=restore?JSON.stringify({version:1,...NATIVE_SCOPE232}):fixture.review275.env.VERIFY_NATIVE_SCOPE.value;
+      await env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(captureLaunchVerification(env).scope.provenance).run();
+    }else if(kind==='config')env.CANONICAL_RANKS233=restore?JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))}):'off';
+    else if(kind==='native-config'){
+      if(!restore)env.NATIVE_RANK_SYNC232='off';
+      else {const saved=fixture.review275.env.NATIVE_RANK_SYNC232;if(saved.present)env.NATIVE_RANK_SYNC232=saved.value;else delete env.NATIVE_RANK_SYNC232;}
+    }
+    else throw Error('unknown review mutation');
+    return {complete:true};
+  }
+  if(action==='read'){
+    env.DISCORD_BOT_TOKEN='synthetic-roster-pacing-'+(input.mode??'review-records');
+    const observe=async()=>JSON.stringify({proofs:(await db.prepare(proofSQL).all()).results,effects:await db.prepare(effectSQL).first(),settlements:(await db.prepare('SELECT * FROM role_settlements ORDER BY id').all()).results});
+    const original=await observe(),display=await strictRosterDisplay(env,captureLaunchVerification(env),'launch-roster-display-v2');
+    const selection=input.selection?await readPromotionSelection273(env,input.selection,input.cursor??null):null;
+    const page=selection?selection.page:await readLaunchOperations229(env,input.cursor??null);
+    return {complete:true,actualLocalWorkerdD1:true,display,page,selection,readOnlySourceUnchanged:original===await observe()};
+  }
+  if(action==='restore'){
+    await env.DB.batch([
+      ...rows.slice(0,10).map(row=>env.DB.prepare("UPDATE characters SET status='member',guid=?1,bound_at=?2,verified_at=?2 WHERE name_key=?3").bind(row.guid,fixture.at-60,row.key)),
+      env.DB.prepare("DELETE FROM characters WHERE name_key='review275 current owner'"),
+      env.DB.prepare("DELETE FROM pending WHERE nonce='review275-pending'"),env.DB.prepare("DELETE FROM rename_holds WHERE nonce IN('review275-rename','review275-target-rename')"),
+      env.DB.prepare('DELETE FROM site_users WHERE discord_id=?1').bind(rows[6].subject),env.DB.prepare('DELETE FROM privacy_subjects WHERE subject_id=?1').bind(rows[7].subject),
+      env.DB.prepare("UPDATE privacy_subjects SET generation=?1,state='active' WHERE subject_id=?2").bind('b'.repeat(32),rows[0].subject),
+      env.DB.prepare('DELETE FROM role_settlements WHERE id IN(SELECT value FROM json_each(?1))').bind(JSON.stringify([...Array.from({length:10},(_,i)=>REVIEW_ANCHOR(i)),REVIEW_NEW_ANCHOR])),
+      env.DB.prepare('UPDATE roster_snapshots SET source=?1,exported_at=?2,trusted=?3 WHERE id=1').bind(fixture.review275.snapshot.source,fixture.review275.snapshot.exported_at,fixture.review275.snapshot.trusted),
+      env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(rows[11].guid,rows[11].key),
+      env.DB.prepare('UPDATE site_users SET denied=0 WHERE discord_id=?1').bind(rows[0].subject),
+    ]);
+    for(const [key,value]of Object.entries(fixture.review275.env)){if(value.present)env[key]=value.value;else delete env[key];}
+    fixture.review275=null;
+    return {complete:true,originalProofsRestored:fixture.originalProofs===JSON.stringify((await db.prepare(proofSQL).all()).results),originalEffectsRestored:fixture.originalEffects===JSON.stringify(await db.prepare(effectSQL).first())};
+  }
+  throw Error('unknown review action');
+}
 
 async function seed(db) {
   const catalogue = JSON.parse(ADMISSION_EXPECTED_JSON);
@@ -69,6 +175,9 @@ export default {async fetch(request, bindings) {
     }
     if (!fixture) return new Response(null, {status: 404});
     const {env, db} = fixture;
+    if (url.pathname === '/review-records275') {
+      const input=await request.json();return Response.json(await reviewRecords275(input.action,input));
+    }
     if (url.pathname === '/selection-observe') {
       const {index=399}=await request.json();
       if(!Number.isInteger(index)||!fixture.rows[index])return new Response(null,{status:400});

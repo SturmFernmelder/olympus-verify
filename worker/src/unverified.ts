@@ -16,6 +16,7 @@ import type { Env } from "./env";
 import { intVar } from "./env";
 import { linksNotBefore, now } from "./db";
 import type { LaunchVerificationCapture } from "./launch-verification227";
+import { captureRosterLineage275,rosterVerificationSql275 } from "./roster-verification275";
 
 export const STRICT_ROSTER_DISPLAY_PROTOCOL = "launch-roster-display-v1";
 export const STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = "launch-roster-display-v2";
@@ -27,7 +28,8 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
   protocol: typeof STRICT_ROSTER_DISPLAY_PROTOCOL | typeof STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = STRICT_ROSTER_DISPLAY_PROTOCOL) {
   if (protocol !== STRICT_ROSTER_DISPLAY_PROTOCOL && protocol !== STRICT_ROSTER_DISPLAY_PROTOCOL_V2) return null;
   if (launch.mode !== "members-only" || !launch.scope || !launch.current()) return null;
-  const at = now(), cutoff = linksNotBefore(env);
+  const at = now(), cutoff = linksNotBefore(env), lineage = captureRosterLineage275(env,launch);
+  const verification = rosterVerificationSql275('?2','?3','?5','?6','?4');
   const rows = await env.DB.prepare(`WITH snapshot AS MATERIALIZED (
     SELECT id, exported_at, member_count FROM roster_snapshots
     WHERE id = (SELECT MAX(id) FROM roster_snapshots) AND source = ?1
@@ -36,46 +38,30 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
       AND member_count = (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = roster_snapshots.id)
   ), linked_guids AS MATERIALIZED (
     SELECT guid, COUNT(*) AS links FROM characters WHERE guid IS NOT NULL GROUP BY guid
+  ), native_guids AS MATERIALIZED (
+    SELECT rm.guid,COUNT(*) AS links FROM roster_members rm JOIN snapshot s ON s.id=rm.snapshot_id
+    WHERE rm.guid IS NOT NULL GROUP BY rm.guid
   )
   SELECT s.exported_at AS snapshotAt, s.member_count AS memberCount, rm.name, rm.guid,
-    CASE
-      WHEN c.name_key IS NULL AND g.guid IS NULL THEN COALESCE((
-        SELECT CASE WHEN p.created_at >= ?3
-          AND NOT EXISTS (SELECT 1 FROM privacy_subjects ps WHERE ps.subject_id = p.discord_id AND ps.state <> 'active')
-          THEN 'pending' ELSE 'unknown' END
-        FROM pending p WHERE p.name_key = rm.name_key AND p.consumed_at IS NULL AND p.expires_at > ?2
-        ORDER BY p.id DESC LIMIT 1
-      ), 'unverified')
-      WHEN c.status = 'member' AND c.guid = rm.guid AND g.links = 1 AND COALESCE(c.verified_at,c.bound_at) >= ?3
-        AND (?4 = 0 OR (typeof(COALESCE(c.verified_at,c.bound_at)) = 'integer'
-          AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2))
-        AND COALESCE(m.banned,0) = 0 AND COALESCE(u.denied,0) = 0
-        AND NOT EXISTS (SELECT 1 FROM privacy_subjects p WHERE p.subject_id = c.discord_id AND p.state <> 'active')
-      THEN 'verified'
-      ELSE 'unknown'
-    END AS status,
-    CASE WHEN c.status = 'member' AND c.guid = rm.guid AND g.links = 1
-      AND typeof(COALESCE(c.verified_at,c.bound_at)) = 'integer'
-      AND COALESCE(c.verified_at,c.bound_at) BETWEEN 1 AND ?2
-      AND COALESCE(c.verified_at,c.bound_at) < ?3
-      AND COALESCE(m.banned,0) = 0 AND COALESCE(u.denied,0) = 0
-      AND NOT EXISTS (SELECT 1 FROM privacy_subjects p WHERE p.subject_id = c.discord_id AND p.state <> 'active')
-      THEN 'linked_before_cutoff' ELSE 'link_review' END AS unknownReason,
+    ${verification.status} AS status,
+    ${verification.unknownReason} AS unknownReason,
     NULLIF(COALESCE(m.username,u.username),'') AS username, NULLIF(COALESCE(m.global_name,u.global_name),'') AS displayName
   FROM snapshot s JOIN roster_members rm ON rm.snapshot_id = s.id
   LEFT JOIN characters c ON c.name_key = rm.name_key
   LEFT JOIN linked_guids g ON g.guid = rm.guid
+  LEFT JOIN native_guids ng ON ng.guid = rm.guid
   LEFT JOIN members m ON m.discord_id = c.discord_id
   LEFT JOIN site_users u ON u.discord_id = c.discord_id
+  LEFT JOIN privacy_subjects p ON p.subject_id = c.discord_id
   ORDER BY rm.name_key LIMIT 1000`).bind(launch.scope.provenance, at, cutoff,
-    protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2 ? 1 : 0).all<{
+    protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2 ? 1 : 0, lineage.nativePolicy,lineage.canonicalPolicy).all<{
     snapshotAt: number; memberCount: number; name: string; guid: string | null;
     status: "pending" | "unverified" | "verified" | "unknown";
     unknownReason: "linked_before_cutoff" | "link_review";
     username: string | null; displayName: string | null;
   }>();
   const first = rows.results[0], observedAt = now();
-  if (!launch.current() || cutoff !== linksNotBefore(env) || observedAt < at || !rows.success || !first
+  if (!launch.current() || !lineage.current() || cutoff !== linksNotBefore(env) || observedAt < at || !rows.success || !first
       || first.snapshotAt < observedAt - STRICT_ROSTER_DISPLAY_AGE || rows.results.length !== first.memberCount) return null;
   const verified = [], unverified = [], unknown = [];
   for (const row of rows.results) {
@@ -85,8 +71,8 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
     } else if (row.status === "unverified" || row.status === "pending") {
       unverified.push({ name: row.name, guid: row.guid, pending: row.status === "pending" });
     } else if (protocol === STRICT_ROSTER_DISPLAY_PROTOCOL_V2) {
-      // A display explanation only: old links do not acquire fresh admission,
-      // role authority or a green status by being present on the current roster.
+      // Old clocks without recognized source lineage remain advisory. Current
+      // roster presence alone supplies no verification or role authority.
       unknown.push({ name: row.name, guid: row.guid, reason: row.unknownReason });
     }
   }
