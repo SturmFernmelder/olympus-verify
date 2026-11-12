@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".274", date: "2026-11-11", lines: [
+      "Selected-character promotion recommendations remain available for up to ten minutes within their original roster deadline, giving officers time to load and review them.",
+      "Promote still requires a separate click and current in-game identity, rank and permission checks. Expired or uncertain results stay held; no promotion is automatic.",
+    ],
+  },
+  {
     build: ".273", date: "2026-11-11", lines: [
       "Officers can request fresh promotion evidence for a selected character without repeating the full roster scan. Earlier discovery keeps its original dates.",
       "A fresh result still requires current native identity, rank and permission checks. Checking a character never promotes them automatically.",

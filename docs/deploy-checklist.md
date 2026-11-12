@@ -8336,3 +8336,38 @@ Keep the successor addon while any of its saved native attempts are unresolved;
 an older addon that does not understand that ledger is not a compatible action
 rollback. Backend rollback may hold new selected reads; it must not downgrade
 them into legacy cursors or restore historical action readiness.
+
+## 2026-11-11 .274 — selected promotion review window
+
+The owner requested more time to review and use promotion recommendations after
+the one-minute observations expired during the .273 client checks. New selected
+promotion responses use `promotion-selection-v274` and allow up to 600 seconds,
+clipped to the original selected-request/native-source deadline and the original
+role observation times. The longer window applies only to selected promotion
+evidence. Discovery, invitations, risk review, MOTD and role-cache reuse keep
+their existing 60-second limits. Old v273 selected records retain their original
+60-second interpretation; loading or refreshing never renews an old timestamp.
+
+The signed initial request still has 60-second admission, at most three attempts
+for recognized rate limits and the shared five-second response gate. Server-only
+cursor authorization and the original 600-second context remain unchanged.
+Current account/privacy/standing checks still run before a response is returned.
+Each native promotion remains a separate hardware click with the exact current
+character GUID/name/rank, officer identity/scope, complete recent native roster,
+permission, combat and unresolved-attempt checks. A recommendation does not make
+these checks optional and cannot authorize another action type.
+
+Qualify the selected result after 60 seconds and through its original 600-second
+boundary using genuine Workerd/D1, the real Watcher validation/file round trip
+and Lua action tests. Include earlier source/role clock clipping, old-v273 and
+shared-page refusals, unchanged unknown-effect guards and the existing 1,000-member
+benchmark. Rebuild the public addon package from its current source. Record actual
+results and independent reviews separately from native acceptance.
+
+This is a candidate entry, not a deployment claim. Root merge/main CI, a fresh
+integrity/catalogue-checked D1 backup, exact-commit deployment and existing public,
+original-cron and protected empty-note readbacks remain required for an authorized
+rollout. Public client installation preserves configuration, generated evidence,
+SavedVariables and unknown-attempt custody. Old clients may hold v274 results;
+install the matching clients before relying on the longer window. No full scan,
+promotion, 27-record repair or live-bridge activation is part of qualification.

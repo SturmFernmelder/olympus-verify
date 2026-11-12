@@ -162,4 +162,82 @@ do
  check("dated recommendation filter retains the historical candidates",f.names()=="Alpha,Knight,Zulu")
  check("UI refresh filtering and selected-result arrival never promote automatically",#f.promotions==0 and f.attempts==0 and f.reloads==1)
 end
+-- .274 gives only newly issued selected promotion observations the owner's
+-- longer window. Every test still calls the real validator/model/action path.
+local function selected274(f)
+ local d,c=selected(f)
+ d.protocol="promotion-selection-v274"
+ d.page.expiresAt=math.min(d.page.fetchedAt+600,d.expiresAt)
+ return d,c
+end
+do
+ local f=fixture();local d=selected274(f);local original=copy(d);local history=copy(f.page)
+ f.env.NOW=f.env.NOW+300;f.emit("GUILD_ROSTER_UPDATE")
+ local ready,why=model(f)
+ check("new selected promotion remains actionable at five minutes with a current native roster",ready[id] and why.ready==1 and f.q.HardwarePromote(id) and f.direct==1)
+ check("selected readiness states the remaining original window without renewal",why.byGuid[id].reason:find("298 seconds remaining",1,true) and why.byGuid[id].reason:find("Reloading does not renew",1,true))
+ check("long selected window preserves issued dates and discovery history",d.page.fetchedAt==original.page.fetchedAt and d.page.expiresAt==original.page.expiresAt and d.expiresAt==original.expiresAt and f.page.expiresAt==history.expiresAt and f.page.fetchedAt==history.fetchedAt)
+ check("long selected promotion never freshens shared invites risk or MOTD",#f.q.Current().invites==0 and #f.q.RiskBuffer()==0 and not f.q.Motd("set") and f.invites==0 and f.removals==0 and f.motd==0)
+end
+do
+ local f=fixture();local d=selected274(f);f.env.NOW=d.page.expiresAt;f.emit("GUILD_ROSTER_UPDATE")
+ local ready,why=model(f)
+ check("new selected promotion is held exactly at its original clipped deadline",not ready[id] and why.byGuid[id].state=="expired" and not f.q.HardwarePromote(id) and f.direct==0)
+ check("expired selected result remains dated evidence without changing its expiry",f.q.Current().selection.completed and d.page.expiresAt==d.expiresAt)
+end
+for _,case in ipairs({"over-600","over-context","unknown-protocol","context-clock"}) do
+ local f=fixture();local d=selected274(f)
+ if case=="over-600" then d.page.expiresAt=d.page.fetchedAt+601
+ elseif case=="over-context" then d.page.expiresAt=d.expiresAt+1
+ elseif case=="unknown-protocol" then d.protocol="promotion-selection-v999"
+ elseif case=="context-clock" then d.expiresAt=d.expiresAt+1;d.page.scan.expiresAt=d.expiresAt;d.page.expiresAt=d.expiresAt end
+ check(case.." cannot expand the selected promotion window",not f.q.HardwarePromote(id) and f.direct==0)
+end
+for _,age in ipairs({599,600}) do
+ local f=fixture();local d=selected274(f)
+ d.snapshotAt=d.observedAt;d.page.snapshotAt=d.snapshotAt;d.expiresAt=d.observedAt+600
+ d.page.scan.expiresAt=d.expiresAt;d.page.expiresAt=d.expiresAt
+ f.env.NOW=f.env.NOW+age;f.emit("GUILD_ROSTER_UPDATE")
+ local acted=f.q.HardwarePromote(id)
+ check("exact 600-second selected boundary at age "..age,age==599 and acted and f.direct==1 or age==600 and not acted and f.direct==0)
+end
+do
+ local f=fixture();local d=selected274(f);d.page.expiresAt=d.page.fetchedAt+45
+ f.env.NOW=f.env.NOW+45;f.emit("GUILD_ROSTER_UPDATE")
+ setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify");f.q=f.env.OlympusLaunch229;f.emit("GUILD_ROSTER_UPDATE")
+ check("v274 reload preserves and enforces a shorter original observation expiry",not f.q.HardwarePromote(id) and f.direct==0 and d.page.expiresAt==d.page.fetchedAt+45)
+end
+do
+ local f=fixture();selected(f);f.env.NOW=f.env.NOW+60;f.emit("GUILD_ROSTER_UPDATE")
+ check("legacy v273 selected result keeps its original 60-second expiry",not f.q.HardwarePromote(id) and f.direct==0)
+ f=fixture();local d=selected(f);d.page.expiresAt=d.page.fetchedAt+61
+ check("legacy v273 cannot borrow the v274 longer cap",not f.q.HardwarePromote(id) and f.direct==0)
+ f=fixture();f.page.expiresAt=f.page.fetchedAt+600
+ check("shared discovery cannot borrow selected promotion's longer cap",not f.q.HardwarePromote(id) and f.direct==0 and not f.q.Motd("set"))
+end
+for _,case in ipairs({"stale-native","offline-incomplete","guid","duplicate","name","rank","actor","scope","actor-rank","combat","permission","assignment","named-rank","preview","prior-unknown"}) do
+ local f=fixture();selected274(f);f.env.NOW=f.env.NOW+300
+ if case~="stale-native" then f.emit("GUILD_ROSTER_UPDATE") end
+ if case=="offline-incomplete" then f.env.GetGuildRosterShowOffline=function() return false end
+ elseif case=="guid" then f.env.ROSTER[2].guid=nil
+ elseif case=="duplicate" then f.env.ROSTER[2].guid=f.env.ROSTER[1].guid
+ elseif case=="name" then f.env.ROSTER[2].name="Changed Native Name"
+ elseif case=="rank" then f.env.ROSTER[2].rankIndex=8
+ elseif case=="actor" then f.env.UnitGUID=function() return "Player-1-0000EEEE" end
+ elseif case=="scope" then f.guild="Olympus II"
+ elseif case=="actor-rank" then f.env.GetGuildInfo=function() return f.guild,"Member",8 end
+ elseif case=="combat" then f.env.InCombatLockdown=function() return true end
+ elseif case=="permission" then f.env.CanGuildPromote=function() return false end
+ elseif case=="assignment" then f.env.C_GuildInfo.IsGuildRankAssignmentAllowed=function() return false end
+ elseif case=="named-rank" then f.env.GuildControlGetRankName=function() return "Changed Rank" end
+ elseif case=="preview" then f.env.OlympusVerifyUI={preview={}}
+ elseif case=="prior-unknown" then f.env.OlympusVerifyDB.launchPromotionAttempts={[id]={state="unknown"}} end
+ check("long selected window retains click-time "..case.." hold",not f.q.HardwarePromote(id) and f.direct==0 and f.fallback==0 and f.invites==0 and f.removals==0 and f.motd==0)
+end
+do
+ local f=fixture();local d=selected274(f);f.env.NOW=f.env.NOW+300;f.emit("GUILD_ROSTER_UPDATE");f.unknownDirect=true
+ check("long selected window records unknown native outcome before dispatch",not f.q.HardwarePromote(id) and f.direct==1 and f.q.AttemptHeld(id))
+ setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify");f.q=f.env.OlympusLaunch229;f.emit("GUILD_ROSTER_UPDATE")
+ check("long selected window cannot clear unknown custody by reloading",not f.q.HardwarePromote(id) and f.direct==1 and f.q.AttemptHeld(id) and d.page.expiresAt==d.expiresAt)
+end
 print(string.format("Selected promotion: %d passed, %d failed",passed,failed));if failed>0 then error("selected promotion failed") end

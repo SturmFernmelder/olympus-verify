@@ -222,6 +222,9 @@ function M.Promotions(list, launchAPI, now)
         candidates[id], diagnostics.ready = true, diagnostics.ready + 1
         if initiate(row) then diagnostics.readyInitiates=diagnostics.readyInitiates+1 end
         info = detail("ready", "Ready for "..recommendations[id].targetName, "A fresh dated recommendation matches this unique native GUID and current rank. One hardware click must recheck native identity, rank, permission and prior attempts before acting.")
+        if source.kind=="selected" then
+          info.reason=info.reason.." Original selected recommendation: "..tostring(math.max(0,math.min(source.expiresAt,source.scanExpiresAt)-now)).." seconds remaining. Reloading does not renew it."
+        end
         info.targetName,info.targetSlot=recommendations[id].targetName,recommendations[id].targetSlot
       end
     end

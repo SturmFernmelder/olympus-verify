@@ -17,7 +17,8 @@ MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
 MAX_RATE_RETRIES = 2
 SOURCE_CHANGED_ERRORS = frozenset({'launch_cursor_source_changed', 'launch_cursor_role_source_changed'})
-SELECTED_PROTOCOL = "promotion-selection-v273"
+SELECTED_PROTOCOL = "promotion-selection-v274"
+SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
 _SELECTED_KEYS = {"version", "protocol", "controlId", "actorGuid", "targetGuid", "scopeHash", "observedAt", "snapshotId", "snapshotAt", "startedAt", "expiresAt", "running", "stoppedReason", "attempts", "completed", "page", "coveredGuids"}
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
@@ -50,10 +51,14 @@ def _person(row: Any) -> bool:
 
 
 def validate_page(report: Any, at: int, allow_stale: bool = False) -> bool:
+    return _validate_page(report, at, allow_stale, 60)
+
+
+def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> bool:
     if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != PROTOCOL or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
         return False
     fetched, expires = report["fetchedAt"], report["expiresAt"]
-    if not _integer(fetched, 1) or not _integer(expires, 1) or not fetched < expires <= fetched + 60 or not fetched <= at + 5 or not allow_stale and at >= expires:
+    if not _integer(fetched, 1) or not _integer(expires, 1) or not fetched < expires <= fetched + report_ttl or not fetched <= at + 5 or not allow_stale and at >= expires:
         return False
     scan = report["scan"]
     if not isinstance(scan, dict) or set(scan) != {"id", "startedAt", "expiresAt"}:
@@ -398,8 +403,15 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
 
 
 def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, allow_stale: bool = False) -> bool:
-    if (not validate_page(page, at, allow_stale=allow_stale) or page['nextCursor'] is not None
-            or page['invites'] or page['riskBuffer'] or page['status'] == 'held'
+    # Only the recognized promotion-only envelope can opt into its longer
+    # observation window. The public discovery validator stays fixed at60s.
+    protocol = record.get('protocol')
+    if (protocol not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL) or not isinstance(page, dict)
+            or page.get('nextCursor') is not None or page.get('invites') != [] or page.get('riskBuffer') != []
+            or page.get('status') == 'held'):
+        return False
+    report_ttl = 600 if protocol == SELECTED_PROTOCOL else 60
+    if (not _validate_page(page, at, allow_stale, report_ttl)
             or page['snapshotId'] != record['snapshotId'] or page['snapshotAt'] != record['snapshotAt']
             or page['scopeHash'] != record['scopeHash'] or page['scan']['startedAt'] != record['startedAt']
             or page['scan']['expiresAt'] != record['expiresAt'] or page['expiresAt'] > record['expiresAt']
@@ -475,7 +487,7 @@ class SelectedRead:
 
     def source_changed(self, roster: Any) -> bool:
         if not self.running:
-            return False  # A completed <=60s observation keeps its original source and dates.
+            return False  # A completed observation keeps its protocol-bound original source and dates.
         if (complete_roster_digest(roster) != self.native_digest
                 or roster.get('exportedAt') != self.record['snapshotAt']):
             return self.hold('native-roster-changed-or-expired')
@@ -522,18 +534,21 @@ class SelectedRead:
                 return self.defer_rate_limit(reply.get('retryAfterSeconds'))
             return self.hold('source-refused')
         if (not isinstance(reply, dict) or set(reply) != {'version', 'protocol', 'controlId', 'targetGuid', 'coveredGuids', 'page'}
-                or type(reply['version']) is not int or reply['version'] != 1 or reply['protocol'] != SELECTED_PROTOCOL
+                or type(reply['version']) is not int or reply['version'] != 1
+                or reply['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL)
                 or reply['controlId'] != r['controlId'] or reply['targetGuid'] != r['targetGuid']):
             return self.hold('invalid-selected-page')
         page, covered = reply['page'], reply['coveredGuids']
         if isinstance(page, dict) and validate_page(page, int(self.clock())) and page['status'] == 'held' and covered == []:
             reasons = set(page['heldReasons'])
             return self.hold('selected-target-unavailable' if 'selected-target-unavailable' in reasons else 'source-held')
-        if (not _selected_page(page, r, covered, int(self.clock())) or not set(covered) <= self.native_guids
+        observation = {**r, 'protocol': reply['protocol']}
+        if (not _selected_page(page, observation, covered, int(self.clock())) or not set(covered) <= self.native_guids
                 or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
             return self.hold('invalid-selected-page')
         r['page'] = json.loads(json.dumps(page))
         r['coveredGuids'] = list(covered)
+        r['protocol'] = reply['protocol']
         self.cursor = page['pageCursor']
         if page['entitlements']['retryAfterSeconds'] is not None:
             if r['attempts'] >= 3:
@@ -551,7 +566,7 @@ class SelectedRead:
 
 def render_selected(record: Any, at: int) -> str | None:
     if (not isinstance(record, dict) or set(record) != _SELECTED_KEYS or type(record['version']) is not int or record['version'] != 1
-            or record['protocol'] != SELECTED_PROTOCOL or not _text(record['controlId'], 32)
+            or record['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL) or not _text(record['controlId'], 32)
             or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', record['controlId'])
             or not _integer(record['observedAt'], 1) or record['controlId'].split(':')[0] != str(record['observedAt'])
             or record['startedAt'] != record['observedAt'] or not _integer(record['attempts'], 0, 3)

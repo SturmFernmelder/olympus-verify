@@ -81,6 +81,7 @@ export default {async fetch(request, bindings) {
         env.DB.prepare('UPDATE roster_members SET level=59,last_online=3600 WHERE snapshot_id=1 AND name_key=?1').bind(fixture.rows[900].key),
         env.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now') AS INTEGER)-1 WHERE id=1"),
       ]);
+      else if(kind==='near-expiry')await env.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now') AS INTEGER)-590 WHERE id=1").run();
       else if(kind==='long-guids'){
         const statements=[];
         for(let index=0;index<20;index++){
@@ -129,9 +130,9 @@ export default {async fetch(request, bindings) {
         }else if(input.kind==='legacy-purpose')purpose='officer-operations-cursor|233|';
         else if(input.kind==='wrong-guid')value.roleReads[0][0]=fixture.rows[999].guid;
         else if(input.kind==='wrong-offset')value.offset+=20;
-        else if(input.kind==='expired-role'){
+        else if(input.kind==='expired-role'||input.kind==='aged-cache'){
           selection.selectionId=String(at-90)+':701';value.selectionId=selection.selectionId;value.issuedAt=at-90;
-          value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=value.roleReads.map(row=>row.map((v,i)=>i===2?at-61:v));
+          value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=value.roleReads.map(row=>row.map((v,i)=>i===2?at-(input.kind==='aged-cache'?30:61):v));
         }else if(input.kind==='expired-read'){
           selection.selectionId=String(at-700)+':702';value.selectionId=selection.selectionId;value.issuedAt=at-700;value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=[];
         }else return new Response(null,{status:400});

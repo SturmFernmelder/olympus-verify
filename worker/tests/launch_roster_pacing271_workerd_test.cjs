@@ -74,7 +74,7 @@ async function selectedCursorCapacity273(){
   fs.writeFileSync(path.join(out,'selected-cursor-capacity.json'),JSON.stringify({actualLocalWorkerdD1:true,cursorCharacters:cursor.length,readerLimit:4096,cachedSuccesses:value.roleReads.length,coveredGuids:first.coveredGuids.length,maximumGuidCharacters:Math.max(...first.coveredGuids.map(g=>g.length)),providerCalls:0},null,2)+'\n',{flag:'wx'});
   check('actual v4 late429 cursor with20maximum-lengthGUIDs and19cached successes fits its4096byte reader limit',cursor.length<=4096&&first.coveredGuids.length===20&&first.coveredGuids.every(g=>g.length===30)&&value.roleReads.length===19&&http.length-before===20);
   const next=(await fixtureCall('selection',{mode:'selected-late-limit',selection,cursor})).selection;
-  check('the maximum-size genuine selected cursor retries only the one unknown account without expiry renewal',http.length-before===21&&next.page.promotions.length===20&&JSON.stringify(next.page.scan)===JSON.stringify(first.page.scan)&&next.page.expiresAt<=Math.min(...value.roleReads.map(r=>r[2]+60))&&JSON.stringify(next.coveredGuids)===JSON.stringify(first.coveredGuids));
+  check('the maximum-size genuine selected cursor retries only the one unknown account without expiry renewal',http.length-before===21&&next.page.promotions.length===20&&JSON.stringify(next.page.scan)===JSON.stringify(first.page.scan)&&next.page.expiresAt===first.page.expiresAt&&next.page.expiresAt<=Math.min(...value.roleReads.map(r=>r[2]+600))&&JSON.stringify(next.coveredGuids)===JSON.stringify(first.coveredGuids));
   await fixtureCall('selection-native',{kind:'restore'});
 }
 async function selectedReads273(originalDiscovery){
@@ -83,8 +83,8 @@ async function selectedReads273(originalDiscovery){
   await fixtureCall('selection-native',{kind:'reorder'});
   const selection=await selectedInput273(),before=http.length,response=await fixtureCall('selection',{mode:'selected-new-source',selection}),fresh=response.selection;
   fs.writeFileSync(path.join(out,'selected-success.json'),JSON.stringify(fresh,null,2)+'\n',{flag:'wx'});
-  check('new explicit selected read resolves its exact GUID on the freshly accepted reordered native page',fresh.version===1&&fresh.protocol==='promotion-selection-v273'&&fresh.controlId===selection.selectionId&&fresh.targetGuid===selection.targetGuid&&fresh.page.entitlements.offset===400&&fresh.coveredGuids.length===20&&fresh.coveredGuids.includes(selection.targetGuid)&&fresh.page.promotions.some(row=>row.guid===selection.targetGuid)&&http.length-before===20);
-  check('selected read keeps its original control-time600 and native-age600 clocks without changing dated discovery',fresh.page.scan.startedAt===Number(selection.selectionId.split(':')[0])&&fresh.page.scan.expiresAt===Math.min(fresh.page.scan.startedAt+600,selection.snapshotAt+600)&&fresh.page.expiresAt<=fresh.page.fetchedAt+60&&fresh.page.nextCursor===null&&JSON.stringify(originalDiscovery)===frozen);
+  check('new explicit selected read resolves its exact GUID on the freshly accepted reordered native page',fresh.version===1&&fresh.protocol==='promotion-selection-v274'&&fresh.controlId===selection.selectionId&&fresh.targetGuid===selection.targetGuid&&fresh.page.entitlements.offset===400&&fresh.coveredGuids.length===20&&fresh.coveredGuids.includes(selection.targetGuid)&&fresh.page.promotions.some(row=>row.guid===selection.targetGuid)&&http.length-before===20);
+  check('selected promotion observation exceeds60s but keeps original control-time600 and native-age600 clocks without changing dated discovery',fresh.page.scan.startedAt===Number(selection.selectionId.split(':')[0])&&fresh.page.scan.expiresAt===Math.min(fresh.page.scan.startedAt+600,selection.snapshotAt+600)&&fresh.page.expiresAt===fresh.page.scan.expiresAt&&fresh.page.expiresAt>fresh.page.fetchedAt+60&&fresh.page.expiresAt<=fresh.page.fetchedAt+600&&fresh.page.nextCursor===null&&JSON.stringify(originalDiscovery)===frozen&&originalDiscovery.expiresAt<=originalDiscovery.fetchedAt+60);
   check('selected response is private no-store and supplies no invites or risk-buffer authority',response.cacheControl.includes('no-store')&&fresh.page.invites.length===0&&fresh.page.riskBuffer.length===0);
   await refused('selection',{mode:'selected-new-source',selection:{...selection,snapshotAt:selection.snapshotAt-1}},'selection_native_source_changed',409);
   await refused('selection',{mode:'selected-new-source',selection,cursor:originalDiscovery.pageCursor},'invalid_selection_cursor',400);
@@ -116,14 +116,14 @@ async function selectedReads273(originalDiscovery){
   const cached=JSON.parse(Buffer.from(partial.page.pageCursor.split('.')[0],'base64url').toString('utf8'));
   assert.equal(http.length-partialStart,6);assert.equal(cached.version,4);assert.equal(cached.roleReads.length,5);assert.equal(partial.page.nextCursor,null);
   const recovered=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
-  check('v4 selected retry reuses only same-context original successes and retains original observation expiry',http.length-partialStart===21&&recovered.page.promotions.length===20&&JSON.stringify(recovered.page.scan)===JSON.stringify(partial.page.scan)&&recovered.page.expiresAt<=Math.min(...cached.roleReads.map(row=>row[2]+60))&&JSON.stringify(recovered.coveredGuids)===JSON.stringify(partial.coveredGuids));
+  check('v4 selected retry reuses only same-context original successes and retains original observation expiry',http.length-partialStart===21&&recovered.page.promotions.length===20&&JSON.stringify(recovered.page.scan)===JSON.stringify(partial.page.scan)&&recovered.page.expiresAt===partial.page.expiresAt&&recovered.page.expiresAt<=Math.min(...cached.roleReads.map(row=>row[2]+600))&&JSON.stringify(recovered.coveredGuids)===JSON.stringify(partial.coveredGuids));
   await refused('selection',{mode:'selected-partial',selection:{...partialInput,targetGuid:'Player-6933-00000002'},cursor:partial.page.pageCursor},'invalid_selection_cursor',400);
   for(const kind of ['shared-secret','legacy-purpose','expired-read'])await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind},'invalid_selection_cursor',400);
   await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'wrong-guid'},'launch_cursor_role_source_changed',409);
   await refused('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'wrong-offset'},'launch_cursor_source_changed',409);
   check('selected retry derives exact coverage from signed Native digest offset and target before using any cached GUID',true);
   const staleStart=http.length,stale=await fixtureCall('selection-boundary',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'expired-role'});
-  check('synthetic signed v4 stale-role boundary requires20real fresh GETs under current D1 clock',stale.syntheticSignedInputBoundary&&http.length-staleStart===20&&stale.selection.page.promotions.length===20);
+  check('a selected600s observation does not loosen60s retry-cache reuse: original61s-old roles require20fresh GETs',stale.syntheticSignedInputBoundary&&http.length-staleStart===20&&stale.selection.page.promotions.length===20);
   await fixtureCall('source-state',{kind:'identity'});
   const switchStart=http.length,switched=(await fixtureCall('selection',{mode:'selected-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
   check('selected cached GUID cannot transfer role authority to a changed linked account',http.length-switchStart===16&&http.slice(switchStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuid)?.targetSlot===6);
@@ -137,6 +137,14 @@ async function selectedReads273(originalDiscovery){
     check('selected original '+kind+' change during provider await yields no overlay authority',inflightMutations.has('selected-'+kind)&&result.coveredGuids.length===0&&result.page.status==='held'&&result.page.promotions.length===0&&result.page.pageCursor===null&&result.page.nextCursor===null);
     await fixtureCall('source-state',{kind,restore:true});
   }
+  await fixtureCall('selection-native',{kind:'routine'});
+  const cacheInput=await selectedInput273(0),cacheFirst=(await fixtureCall('selection',{mode:'selected-cache-age',selection:cacheInput})).selection;
+  const cacheStart=http.length,cacheBoundary=await fixtureCall('selection-boundary',{mode:'selected-cache-age',selection:cacheInput,cursor:cacheFirst.page.pageCursor,kind:'aged-cache'}),cachePage=cacheBoundary.selection.page;
+  check('fixture-signed30s-old selected cache retains original90s-old control deadline instead of query-plus600',cacheBoundary.syntheticSignedInputBoundary&&http.length-cacheStart===15&&cachePage.promotions.length===20&&cachePage.fetchedAt-cachePage.scan.startedAt>=90&&cachePage.expiresAt===cachePage.scan.expiresAt&&cachePage.expiresAt===cachePage.scan.startedAt+600&&cachePage.expiresAt<cachePage.fetchedAt+600);
+  await fixtureCall('selection-native',{kind:'near-expiry'});
+  const nearInput=await selectedInput273(0),near=(await fixtureCall('selection',{mode:'selected-near-expiry',selection:nearInput})).selection;
+  check('selected600s policy cannot outlive a native source with only10s remaining',near.page.status!=='held'&&near.page.promotions.length===20&&near.page.expiresAt===nearInput.snapshotAt+600&&near.page.expiresAt===near.page.scan.expiresAt&&near.page.expiresAt-near.page.fetchedAt<=10&&near.page.expiresAt>near.page.fetchedAt);
+  await fixtureCall('selection-native',{kind:'restore'});
   const text=Buffer.from(partial.page.pageCursor.split('.')[0],'base64url').toString('utf8');
   check('selected signed context serializes no account IDs credentials or invite traversal',!['800000000000001000','synthetic-roster-pacing','DISCORD_BOT_TOKEN','discordId','discord_id'].some(value=>text.includes(value))&&Object.keys(fresh).sort().join(',')==='controlId,coveredGuids,page,protocol,targetGuid,version');
 }
@@ -266,7 +274,7 @@ async function run(){
         if(mode.startsWith('selected-await-')&&!inflightMutations.has('selected-'+mode.slice(15))){
           const kind=mode.slice(15);inflightMutations.add('selected-'+kind);await fixtureCall('source-state',{kind});
         }
-        const limited=(['partial-recover','identity-switch','selected-partial'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
+        const limited=(['partial-recover','identity-switch','selected-partial','selected-cache-age'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode];
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
         return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
