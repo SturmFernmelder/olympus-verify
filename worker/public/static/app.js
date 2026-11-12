@@ -217,7 +217,8 @@
   const rankPlannerLink228 = slot => S.user?.isAdmin === true
     ? h("a", { href: "/admin/ranks#current-rank-" + (slot + 1), text: "Rank planner" }) : null;
   function roleReferenceLinks228(office, fallback, ballotKey) {
-    return h("nav", { class: "role-reference-links228", "aria-label": "Role references" },
+    // CL2-100 (12 Nov 2026): per-card link rows are plain groups; navigation landmarks are kept for the site menu and page contents.
+    return h("div", { class: "role-reference-links228" },
       h("a", { href: "#/organization/" + encodeURIComponent(office?.key || fallback), text: "Organization" }),
       ...(office?.codexTitles || ["IV"]).map(titleLink228), office ? rankPlannerLink228(office.nativeSlot) : null,
       ballotKey ? h("a", { href: "#/vote/" + encodeURIComponent(ballotKey), text: "Leadership board" }) : null);
@@ -522,7 +523,7 @@
     if (currentKey) chooser.setAttribute("data-initial-role203", currentKey);
     return chooser;
   }
-  function applicationTrackChooser228(targetOffice = "", showReservedNotice = true) {
+  function applicationTrackChooser228(targetOffice = "", showReservedNotice = true, headingLevel = "h2") {
     const directory = roleDirectory203();
     const closed = S.settings?.applicationsOpen === false && !["submitted","reviewing"].includes(S.application?.status);
     const guide = (key, text) => h("a", {href:"#/roles"+(key ? "/"+encodeURIComponent(key) : ""),target:"_blank",rel:"noopener",text});
@@ -541,7 +542,8 @@
     const patron = directory && royalWritsVisible200() ? h("div", {"data-patron-role-chooser":"true"},
       h("p", null, choice("Review the Patron application",{applicationTrack:"patron"},null,{}), " · ", guide("tithe","Gold Writ guide")),
       h("p", {class:"muted small",text:track199("patron")?.description || "Voluntary charter requests require review."})) : null;
-    const chooser = frame("Application tracks", null,
+    // CL2-099 (12 Nov 2026): inside the application form's "Your first choice" section the chooser's title is an H3.
+    const chooser = frame(h(headingLevel, { text: "Application tracks" }), null,
       showReservedNotice ? h("p", {class:"muted small",text:reservedNotice201}) : null,
       directory && Object.prototype.hasOwnProperty.call(directory.keyToFamily,targetOffice) ? h("p", {class:"small"}, guide(targetOffice,"Guide for the original role (opens in a new tab)")) : null,
       ordinary?.length ? h("ul", null, ordinary) : h("p", {class:"muted",text:"The current application tracks are unavailable."}), patron,
@@ -563,7 +565,7 @@
       || (p.phase === "public_direction" && (p.revision !== "forever-public-pve-alliance-20261023-v1" || !["Realmless (ruleset-based)", "Realm not announced"].includes(p.realm) || p.ruleset !== "PvE" || p.faction !== "Alliance"))
       || (p.phase === "full_release" && !/^forever-release-[a-z0-9][a-z0-9.-]{0,31}$/.test(p.revision))) return "Game identity unavailable";
     // .204: display-only translation of the exact legacy direction; no stored identity or game setup changes.
-    return p.phase === "public_direction" ? `${p.game} · PVE - Alliance · public guild direction · Realmless (ruleset-based)` : `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
+    return p.phase === "public_direction" ? `${p.game} · PVE (Blizzard's Normal ruleset) - Alliance · public guild direction · Realmless (ruleset-based)` : `${p.game} · ${p.phase === "beta" ? "Beta" : "Full release"} · ${p.realm} · ${p.ruleset} · ${p.faction}`;
   }
   function rulesetIdentity() { return M().rulesetHeld ? "Game identity unavailable" : identityOf(M().ruleset); }
   // .93: the community context from the boot (community-context.ts contextDto): flags for everyone, capabilities for the viewer
@@ -1052,20 +1054,95 @@
   // ---------------------------------------------------------------- toasts and dialogs
   const toastBox = h("div", { class: "toasts", role: "status", "aria-live": "polite" });
   document.body.appendChild(toastBox);
+  // CL2-280 (12 Nov 2026): the stack lets taps through around its toasts (CSS), each toast can be dismissed, a message
+  // already showing is renewed instead of repeated, and at most three stay.
   function toast(msg, kind = "") {
-    const t = h("div", { class: "toast " + kind, text: msg });
+    const text = String(msg);
+    for (const old of [...toastBox.children]) if (old.dataset.message === text && old.dataset.kind === kind) { clearTimeout(Number(old.dataset.timer)); old.remove(); }
+    const t = h("div", { class: "toast " + kind, "data-message": text, "data-kind": kind }, h("span", { text }),
+      h("button", { class: "toast-x", type: "button", "aria-label": "Dismiss message", title: "Dismiss", onclick: () => t.remove() }));
     toastBox.appendChild(t);
-    setTimeout(() => t.remove(), kind === "bad" ? 9000 : 4500);
+    while (toastBox.children.length > 3) toastBox.firstElementChild.remove();
+    t.dataset.timer = String(setTimeout(() => t.remove(), kind === "bad" ? 9000 : 4500));
   }
+  // CL2-097 (12 Nov 2026): keyboard focus survives re-renders. When the focused control is replaced (a save re-renders
+  // its panel, a dialog closes over a page that changed), focus moves to the control's re-rendered twin, else to the
+  // page heading, instead of falling to the document body. A deliberate blur (a click on empty page) clears the memory.
+  let lastFocus = null;
+  const focusSignature = new WeakMap();
+  const signatureOf = el => [el.tagName, el.id || "", el.getAttribute("name") || "", el.getAttribute("href") || "", el.getAttribute("aria-label") || "",
+    el.closest?.("[data-field]")?.getAttribute("data-field") || "", (el.textContent || "").trim().slice(0, 80), location.hash];
+  document.addEventListener("focusin", event => {
+    const el = event.target;
+    if (!(el instanceof Element) || el === document.body || !app.contains(el) && !el.closest("dialog")) return;
+    lastFocus = el;
+    focusSignature.set(el, signatureOf(el));
+  });
+  document.addEventListener("focusout", event => {
+    const el = event.target;
+    if (event.relatedTarget) return;
+    setTimeout(() => { if (lastFocus === el && el.isConnected && (!document.activeElement || document.activeElement === document.body)) lastFocus = null; }, 0);
+  });
+  function restoreFocus() {
+    const lost = lastFocus;
+    if (!lost || lost.isConnected || document.activeElement && document.activeElement !== document.body) return;
+    lastFocus = null;
+    const sig = focusSignature.get(lost);
+    const usable = el => el.isConnected && !el.disabled && !el.closest("[hidden], [inert]") && el.getClientRects().length > 0;
+    let twin = null;
+    if (sig) {
+      const [tag, id, name, href, label, field, text, hash] = sig;
+      const pool = hash !== location.hash ? [] : [...app.querySelectorAll(tag.toLowerCase())].filter(usable);
+      twin = (id && pool.find(el => el.id === id))
+        || pool.find(el => (el.getAttribute("name") || "") === name && (el.getAttribute("href") || "") === href && (el.getAttribute("aria-label") || "") === label
+          && (el.closest("[data-field]")?.getAttribute("data-field") || "") === field && (el.textContent || "").trim().slice(0, 80) === text && (name || href || label || field || text));
+    }
+    const page = app.querySelector("main");
+    const target = twin || page?.querySelector("h1") || page;
+    if (!target) return;
+    if (!twin && !target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }
+  // CL2-104 (12 Nov 2026): a data table without a caption or label is named by the heading above it in its section,
+  // and its header cells get a scope. Tables that already carry a name are left as their view made them.
+  let tableSeq = 0;
+  function labelTables() {
+    for (const table of app.querySelectorAll("table:not([data-a11y-table])")) {
+      table.setAttribute("data-a11y-table", "");
+      for (const th of table.querySelectorAll("thead th:not([scope])")) th.setAttribute("scope", "col");
+      for (const th of table.querySelectorAll("tbody th:not([scope])")) th.setAttribute("scope", "row");
+      if (table.querySelector(":scope > caption") || table.hasAttribute("aria-label") || table.hasAttribute("aria-labelledby")) continue;
+      const scope = table.closest("section, .frame, details, dialog") || table.closest("main");
+      if (!scope) continue;
+      const before = [...scope.querySelectorAll("h1, h2, h3, h4, summary")].filter(node => !table.contains(node) && node.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const heading = before.at(-1);
+      if (!heading || !heading.textContent.trim()) continue;
+      if (!heading.id) heading.id = `table-heading-${++tableSeq}`;
+      table.setAttribute("aria-labelledby", heading.id);
+    }
+  }
+  let tablePass = false;
+  if (typeof MutationObserver === "function") new MutationObserver(() => {
+    if (lastFocus && !lastFocus.isConnected) restoreFocus();
+    if (!tablePass) { tablePass = true; Promise.resolve().then(() => { tablePass = false; labelTables(); }); }
+  }).observe(document.body, { childList: true, subtree: true });
+
   let dialogSeq = 0;
   function dialog(content, { wide = false, description = null, initialFocus = null } = {}) {
     const d = h("dialog", { class: wide ? "wide" : "" });
+    const opener = document.activeElement instanceof Element && document.activeElement !== document.body ? document.activeElement : null;
     add(d, [h("button", { class: "x", type: "button", "aria-label": "Close", title: "Close", onclick: () => d.close() }), content]);
     // .109: the dialog is named by its own heading
     const head = content && content.querySelector ? content.querySelector("h2, h3") : null;
     if (head) { if (!head.id) head.id = `dialog-title-${++dialogSeq}`; d.setAttribute("aria-labelledby", head.id); }
     if (description) { if (!description.id) description.id = `dialog-description-${++dialogSeq}`; d.setAttribute("aria-describedby", description.id); }
-    d.addEventListener("close", () => d.remove());
+    // CL2-097: closing returns focus to the opener, or to its twin if the page re-rendered meanwhile.
+    d.addEventListener("close", () => {
+      if (opener && (!lastFocus || d.contains(lastFocus))) lastFocus = opener;
+      d.remove();
+      if (opener?.isConnected && (!document.activeElement || document.activeElement === document.body)) opener.focus({ preventScroll: true });
+      else restoreFocus();
+    });
     if (streamShield) { toast("Stream Shield is on. Turn it off to open private dialogs; no action was confirmed."); setTimeout(() => d.dispatchEvent(new Event("close")), 0); return d; }
     document.body.appendChild(d);
     d.showModal();
@@ -1105,12 +1182,23 @@
   function pageHeading218(main) {
     if (!main || !app.contains(main)) return;
     const headings = [...main.querySelectorAll("h1")];
-    const authored = headings.find(node => !node.classList.contains("page-heading218"));
+    const authored = headings.filter(node => !node.classList.contains("page-heading218"));
     const promoted = headings.filter(node => node.classList.contains("page-heading218"));
-    if (authored) { for (const node of promoted) node.replaceWith(h("h2", {text:node.textContent})); return; }
+    if (authored.length) {
+      for (const node of promoted) node.replaceWith(h("h2", {text:node.textContent,id:node.id || null}));
+      // CL2-099 (12 Nov 2026): one H1 per view. A later authored H1 (an admin tool under the Admin heading) becomes an H2
+      // that keeps its attributes and content.
+      for (const node of authored.slice(1)) {
+        const twin = document.createElement("h2");
+        for (const attribute of [...node.attributes]) twin.setAttribute(attribute.name, attribute.value);
+        while (node.firstChild) twin.appendChild(node.firstChild);
+        node.replaceWith(twin);
+      }
+      return;
+    }
     if (promoted.length) return;
     const first = main.querySelector(".frame .plaque h2");
-    if (first) first.replaceWith(h("h1", {class:"page-heading218",text:first.textContent}));
+    if (first) first.replaceWith(h("h1", {class:"page-heading218",text:first.textContent,id:first.id || null})); // the id may name a table (CL2-104)
   }
   /** A frame with its title on the header plaque. */
   const frame = (title, aside, ...body) => {
@@ -1416,6 +1504,13 @@
     if (open) menu.setAttribute("open", "");
     else menu.removeAttribute("open");
     menu.querySelector("summary").setAttribute("aria-expanded", String(open));
+    // CL2-321 (12 Nov 2026): a long menu on a short screen scrolls inside itself instead of running off the bottom.
+    const list = menu.querySelector(".nav-menu");
+    if (open && list?.style && typeof window.innerHeight === "number") {
+      list.style.maxHeight = "";
+      const top = list.getBoundingClientRect().top;
+      if (top + list.scrollHeight > window.innerHeight - 8) list.style.maxHeight = `${Math.max(160, Math.floor(window.innerHeight - top - 8))}px`;
+    }
   }
   const fineNavMouse = event => event.pointerType === "mouse" && typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   document.addEventListener("click", event => {
@@ -1429,15 +1524,26 @@
     closeNavMenus();
     open.querySelector("summary").focus();
   });
+  /** Whether a header link names the current page. CL2-215 (12 Nov 2026): an Admin menu link stands for its whole admin group. */
+  function navCurrent(href, route) {
+    const [head, sub = ""] = route.split("/");
+    if (href === "#/") return head === "";
+    const admin = /^#\/admin(?:\/([^/]+))?$/.exec(href);
+    if (admin && head === "admin") {
+      const groups = adminGroups();
+      const at = Math.max(0, groups.findIndex(([, rows]) => rows.some(([key]) => key === sub)));
+      return (admin[1] || "") === groups[at][1][0][0];
+    }
+    return href.startsWith("#/") && (route === href.slice(2) || route.startsWith(href.slice(2) + "/"));
+  }
   function topbar(route) {
-    const head = route.split("/")[0];
     const nav = h("nav", { class: "nav", "aria-label": "Sections" });
-    const link = ([href, text]) => h("a", { class: "btn small", href, text, "aria-current": (href === "#/" ? head === "" : route === href.slice(2) || route.startsWith(href.slice(2) + "/")) ? "page" : false });
+    const link = ([href, text]) => h("a", { class: "btn small", href, text, "aria-current": navCurrent(href, route) ? "page" : false });
     const group = (label, links) => {
       const id = "nav-menu-" + label.toLowerCase();
       const summary = h("summary", { class: "btn small", text: label, "aria-expanded": "false", "aria-controls": id });
-      const menu = h("details", { class: "nav-group", name: "olympus-sections" }, summary,
-        h("div", { class: "nav-menu", id }, links.map(link)));
+      const list = h("div", { class: "nav-menu", id }, links.map(link));
+      const menu = h("details", { class: "nav-group", name: "olympus-sections" }, summary, list);
       let pointerInside = false;
       summary.addEventListener("click", event => { event.preventDefault(); openNavMenu(menu, pointerInside && event.detail > 0 ? true : !menu.hasAttribute("open")); });
       summary.addEventListener("keydown", event => {
@@ -1446,6 +1552,18 @@
         const targets = menu.querySelectorAll(".nav-menu a");
         const target = event.key === "ArrowUp" ? targets[targets.length - 1] : targets[0];
         if (target) target.focus();
+      });
+      // CL2-101 (12 Nov 2026): inside an open menu the arrow keys, Home and End move between its links (Escape is handled
+      // for every menu at the document); Tab still leaves the menu in page order.
+      list.addEventListener("keydown", event => {
+        if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
+        const targets = [...list.querySelectorAll("a")];
+        if (!targets.length) return;
+        const at = targets.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? targets.length - 1
+          : event.key === "ArrowDown" ? (at + 1) % targets.length : (at <= 0 ? targets.length : at) - 1;
+        event.preventDefault();
+        targets[next].focus();
       });
       menu.addEventListener("toggle", () => {
         if (menu.hasAttribute("open")) openNavMenu(menu, true);
@@ -1476,7 +1594,8 @@
     };
     if (S.signedIn && !S.denied) {
       add(nav, [["#/", "Home"], ["#/apply", "Apply"], ["#/vote", "Vote"]].map(link));
-      add(nav, group("Guild", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"], ...treasuryNavLinks218()]));
+      // Owner directive, 12 Nov 2026: the top-level menus are Guilds, Community, Resources and Admin.
+      add(nav, group("Guilds", [["#/roles", "Roles"], ["#/governance", "Governance"], ["#/organization", "Organization"], ...treasuryNavLinks218()]));
       if (can("applicantWrite") && (anyCommunity() || can("armyRead"))) {
         add(nav, group("Community", visibleCommunitySections().map(({ href, label }) => [href, label])));
       }
@@ -1485,7 +1604,8 @@
       add(nav, group("Resources", resources));
     }
     // .210: a mid-session 401 signs the page out, and the staff menu and Stream Shield go with it.
-    if (S.signedIn && !S.denied && S.user && S.user.isAdmin) add(nav, group("Staff", [["#/admin", "Admin"]]));
+    // CL2-215: the former one-link Staff menu is the Admin menu, one link per admin group (its first page).
+    if (S.signedIn && !S.denied && S.user && S.user.isAdmin) add(nav, group("Admin", adminGroups().map(([label, rows]) => ["#/admin" + (rows[0][0] ? "/" + rows[0][0] : ""), label])));
     let shield = null;
     if (S.signedIn && !S.denied && S.user && (S.user.isAdmin || S.user.canUseStreamShield === true)) {
       // Owner .198: compact, named icon control; the preference remains presentation-only.
@@ -1635,10 +1755,12 @@
     e.preventDefault();
     jumpToSection(section, true);
   });
+  // CL2-299 (12 Nov 2026): scripted scrolling honours the reduced-motion preference, as the CSS transitions do.
+  const scrollBehavior = () => (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
   /** Scrolls so `el` starts just below the sticky top bar (which would otherwise cover its heading). */
   function scrollToSection(el, smooth = false) {
     const top = el.getBoundingClientRect().top + window.scrollY - pinnedBarHeight() - 12;
-    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+    window.scrollTo({ top: Math.max(0, top), behavior: smooth ? scrollBehavior() : "auto" });
   }
   function jumpToSection(section, smooth = false) {
     if (!section) return;
@@ -1694,19 +1816,25 @@
     const reuseChrome = chromeKey === nextChromeKey && previousMain;
     if (!reuseChrome) {
       clear(app);
+      // CL2-102 (12 Nov 2026): the first stop on every page skips the header. Its target is focused directly: "#main" is
+      // not a route, so the hash router must never see it.
+      app.appendChild(h("a", { class: "skip-link", href: "#main", text: "Skip to content", onclick: event => {
+        event.preventDefault();
+        const page = app.querySelector("main");
+        if (page) { page.setAttribute("tabindex", "-1"); page.focus(); page.scrollIntoView?.({ block: "start" }); }
+      } }));
       app.appendChild(topbar(route));
       app.appendChild(h("div", { class: "stream-shield-curtain", role: "status", text: "Stream Shield is on. Private guild content is hidden in this window. Use the header toggle to show it again." }));
       if (S.settings && S.settings.notice) app.appendChild(h("div", { class: "notice" }, noticeBox("info", "icon-apply", h("p", { text: S.settings.notice }))));
       chromeKey = nextChromeKey;
     } else {
       for (const link of app.querySelectorAll("nav.nav a")) {
-        const target = link.getAttribute("href");
-        if (target === "#/" ? head === "" : target.startsWith("#/") && (route === target.slice(2) || route.startsWith(target.slice(2) + "/"))) link.setAttribute("aria-current", "page");
+        if (navCurrent(link.getAttribute("href") || "", route)) link.setAttribute("aria-current", "page");
         else link.removeAttribute("aria-current");
       }
     }
     const keepBoard = reuseChrome && head === "vote" && previousMain.dataset.routeHead === "vote" && S.signedIn && !S.denied;
-    const main = keepBoard ? previousMain : h("main", { class: "shell", id: "main" });
+    const main = keepBoard ? previousMain : h("main", { class: "shell", id: "main", tabindex: "-1" });
     // Only a ballot switch keeps the board's scroll; entering or leaving an application track page starts at the top.
     const trackSwitch = keepBoard && (route.split("/").length > 2 || !!main.dataset.applicationTrack199);
     main.dataset.routeHead = head;
@@ -1715,8 +1843,13 @@
     let view = own(ROUTES, head) ? ROUTES[head] : ROUTES[""];
     if (!S.signedIn) { if (!PUBLIC_ROUTES.has(head)) view = ROUTES[""]; } // client fallback only; the server requires current membership for this shell and Roles data
     else if (S.denied) view = IDENTITY_ROUTES.has(head) ? ROUTES[head] : deniedView;
-    if (head === "admin" && !(S.user && S.user.isAdmin)) view = ROUTES[""];
-    pageTitle(view === deniedView ? "Access restricted" : view === ROUTES[""] ? "Home" : routeTitle(route));
+    // CL2-271 (12 Nov 2026): a signed-in non-administrator who opens an admin address is told so, instead of getting Home
+    // under the admin URL. The Worker refuses every admin read and write on its own; this is the page's explanation.
+    if (head === "admin" && !(S.user && S.user.isAdmin)) view = S.signedIn && !S.denied ? adminOnlyView : ROUTES[""];
+    // CL2-105: an unknown address says so above the Home page it falls back to.
+    const unknownHead = S.signedIn && !S.denied && head !== "" && !own(ROUTES, head);
+    pageTitle(view === deniedView ? "Access restricted" : view === adminOnlyView ? "Site administrators only" : view === ROUTES[""] ? "Home" : routeTitle(route));
+    if (unknownHead) main.appendChild(addressNotice("There is no page at this address, so Home is shown instead. Check the link, or choose a section from the menu."));
     const viewRequest = String(Number(main.dataset.viewRequest || 0) + 1);
     main.dataset.viewRequest = viewRequest;
     try {
@@ -1870,7 +2003,7 @@
     if (!cls.value || cls.value === "undecided") { cls.value = pending.classId; cls.dispatchEvent(new Event("change")); classNote = ` Your class is now ${wanted.label}.`; }
     const field = pending.level === 30 ? talentRows[0].at30 : talentRows[0].at60;
     field.value = pending.code; touch();
-    say(`Attached "${pending.label}" as your level ${pending.level} beta build.${classNote} Review it against the current in-game talents. Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
+    say(`Attached "${pending.label}" as your level ${pending.level} talent build.${classNote} Review it against the current in-game talents. Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
     field.focus();
   }
   ROUTES.guide = (main, parts) => {
@@ -1885,7 +2018,7 @@
       ["Enter the guild hall", "Sign in with Discord and complete membership screening in Asmongold's server. If the site cannot confirm membership, follow its explanation and try again after the Discord state is corrected.", "#/", "Go home"],
       ["Choose how to help", "Read a role's responsibilities, apply with accurate answers and keep your availability current. Applying and voting do not bypass an appointment, eligibility rule or launch gate.", "#/roles", "Explore roles"],
       ["Verify your character", "Follow the guild's in-game verification instructions. A character label you type is different from a roster-confirmed character. Directory listing is optional.", "#/community", "Open community hub"],
-      ["Prepare for Forever", "Use the talent calculator, source-labelled class guides and addon directory. Check the client build and whether advice is tested beta material, Classic-derived or provisional.", "#/guides", "Browse guides"],
+      ["Prepare for the raids", "Use the talent calculator, source-labelled class guides and addon directory. Check each source's date and whether its advice was tested in Forever, taken from Classic or is still provisional.", "#/guides", "Browse guides"],
       ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "/privacy/account", "Open my account"],
     ];
     add(main, frame(officer ? "Officer Operational Guide" : "Member guide", h("a", { class: "btn small", href: officer ? "#/guide/member" : "#/guide/officer", text: officer ? "Member guide" : "Officer guide" }),
@@ -1981,7 +2114,7 @@
         const key = article ? "article-" + article[1].toLowerCase().replaceAll(".", "-") : "";
         const id = key ? "governance-" + chapter.id + "-" + key : null;
         out.push(h(heading[1].length < 4 ? "h3" : "h4", { id, tabindex: id ? "-1" : null }, governanceInline(heading[2])));
-        if (key) out.push(h("nav", { class: "governance-article-links228", "aria-label": "Article references" },
+        if (key) out.push(h("div", { class: "governance-article-links228" }, // CL2-100: one per article, so not a landmark
           h("a", { href: "#/governance/" + chapter.id + "/" + key, text: "Link to this article" }),
           h("a", { href: "#/governance/" + chapter.id, text: "Chapter references" })));
         i++; continue;
@@ -2076,7 +2209,7 @@
       const directory = roleDirectory203();
       const related = title && directory ? directory.families.filter(family =>
         family.sourceKeys.some(key => office199(key)?.codexTitles.includes(title))).sort(compareCouncilFamilies228(councilFamilyOrder228(directory))) : [];
-      const references = h("nav", { class: "role-reference-links228", "aria-label": "Chapter references" },
+      const references = h("div", { class: "role-reference-links228" }, // CL2-100: one per chapter, so not a landmark
         h("a", { href: "#/organization/" + (referenceNodes[title] || "alliance-overview"), text: "Organization" }),
         h("a", { href: "#/roles/rosetta-stone", text: "Rank crosswalk" }),
         related.length ? h("details", null, h("summary", { text: "Roles referenced by Title " + title }),
@@ -2697,7 +2830,7 @@
         h("div", { class: "btn-row" },
           h("a", { class: "btn", href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Get Olympus Guild" }),
           h("a", { class: "btn small", href: "#/addons", text: "Browse all addons" })),
-        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate." })),
+        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild (version 1.5.7 or later, from its CurseForge page) is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate." })),
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -2726,6 +2859,14 @@
       h("div", { class: "grid two" }, namesPanel(), friendsPanel()),
     ]);
   };
+  /** CL2-105 (12 Nov 2026): an announced note that the address was not understood and what is shown instead. */
+  const addressNotice = text => h("div", { class: "address-notice", role: "status" }, noticeBox("info", "icon-warning", h("p", { text })));
+  /** CL2-271 (12 Nov 2026): the framed refusal for admin addresses opened by an account that is not a site administrator. */
+  function adminOnlyView(main) {
+    add(main, h("section", { class: "frame" }, h("div", { class: "plaque" }, h("h1", { text: "Site administrators only" })),
+      h("p", { text: "This part of the site is for the site's administrators. Your account is signed in but is not a site administrator, so nothing here is shown and nothing can be changed." }),
+      h("p", null, h("a", { class: "btn", href: "#/", text: "Back to Home" }))));
+  }
   function deniedView(main) {
     add(main, frame("Registration denied", null,
       h("p", { text: S.deniedText || "Your registration with Olympus has been permanently denied." }),
@@ -2912,7 +3053,7 @@
       box.classList.add("invalid");
       const e = ownError(box);
       if (e) { e.textContent = message; e.hidden = false; }
-      box.scrollIntoView({ behavior: "smooth", block: "center" });
+      box.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
       const c = box.querySelector("input, select, textarea, button");
       if (c) { c.setAttribute("aria-invalid", "true"); c.focus({ preventScroll: true }); }
     }
@@ -3176,7 +3317,7 @@
       h("div", { class: "options" }, meta.positions.filter((p) => p.group === "membership" && !reservedKey201(p.key)).map(optionFor)),
       h("span", { class: "err", hidden: true }));
     if (intent199) posField.hidden = true;
-    const trackPicker199 = applicationTrackChooser228();
+    const trackPicker199 = applicationTrackChooser228("", true, "h3");
     // Voted leadership roles put the application on the board, and only with the applicant's own tick (an application
     // saved before the board covered one of its roles stays off it until then). The Worker checks the same.
     const boardOk = h("input", { type: "checkbox", checked: !!(a && a.boardAt && (a.status === "submitted" || a.status === "reviewing")) });
@@ -3232,7 +3373,7 @@
     const syncPrimaryBuild = () => {talentRows[0].name.value=character.value;talentRows[0].classPick.value=cls.value;};
     character.addEventListener("input",syncPrimaryBuild);
     const parkedBuildNotice = h("p", {class:"notice", role:"status", hidden:true});
-    const talentBuildBox = h("section", {class:"field", "data-field":"talentBuilds"},h("h3",{text:"Character talent builds (optional)"}),
+    const talentBuildBox = h("section", {class:"field", "data-field":"talentBuilds"},h("h2",{text:"Character talent builds (optional)"}),
       h("p",{class:"muted small",text:"Attach level 30 and level 60 builds from the current talent calculator for your main and up to two declared alts. These names are self-reported application details, not roster verification. Builds remain with the leadership unless you make the separate board-sharing choice below."}),
       h("a",{href:"#/talents",target:"_blank",rel:"noopener",text:"Open the talent calculator"}),parkedBuildNotice,talentList,talentAdd,
       h("div",{class:"field", "data-field":"boardTalentBuilds"},h("label",{class:"check"},talentSharing,h("span",{text:"Also share these declared character names, classes and builds on my voting-board application (optional)."})),h("span",{class:"err",hidden:true})),h("span",{class:"err",hidden:true}));
@@ -3441,7 +3582,7 @@
     }
     add(leaderBlock, [
       h("div", { class: "rule" }),
-      h("div", { class: "section-title" }, icon("pos-officer"), h("h3", { text: "Leading people" })),
+      h("div", { class: "section-title" }, icon("pos-officer"), h("h2", { text: "Leading people" })),
       textFor("leadership"),
       fieldBox("hours", "How many hours a week can you give the role?", hours, { required: true }),
       textFor("scenario"),
@@ -3449,13 +3590,13 @@
     add(form, [
       h("nav", { class: "btn-row application-sections", "aria-label": "Application sections" }, [["application-choices", "Role choices"], ["application-about", "About you"], ["application-availability", "When you play"], ["application-submit", "Review and submit"]].map(([id, text]) =>
         h("button", { class: "btn small", type: "button", text, onclick: () => jumpToSection(document.getElementById(id)) }))),
-      h("div", { class: "section-title", id: "application-choices" }, icon("icon-apply"), h("h3", { text: "Your first choice" })),
+      h("div", { class: "section-title", id: "application-choices" }, icon("icon-apply"), h("h2", { text: "Your first choice" })),
       intent199 ? applicationBadges199(intent199) : h("p", {class:"muted small",text:"This older application has no track recorded. Choose a track below to add one; its existing role choices remain until then."}),
       trackPicker199,
       regionalRole199 ? fieldBox("applicationRaidRegion199", "Choose the specific raid-region seat", regionalRole199, {required:true}) : null,
       posField,
       classLeadBox,
-      h("div", { class: "section-title" }, icon("icon-shield"), h("h3", { text: "Backup choices (optional)" })),
+      h("div", { class: "section-title" }, icon("icon-shield"), h("h2", { text: "Backup choices (optional)" })),
       h("p", { class: "muted small", text: "Other ordinary roles or activities you would take, in order. Leader, High Council and Officer Corps seats cannot be selected as first choices or backups. Historical board records are separate." }),
       h("div", { class: "field", "data-field": "backups" },
         h("div", { class: "backups" },
@@ -3466,7 +3607,7 @@
       boardNote,
       privateNote,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title", id: "application-about" }, icon("icon-heal"), h("h3", { text: "About you" })),
+      h("div", { class: "section-title", id: "application-about" }, icon("icon-heal"), h("h2", { text: "About you" })),
       h("div", { class: "grid two" },
         fieldBox("character", "Main character", character, { hint: "Optional for now. First and last name, like Fern Melder.", hintBelow: true }),
         fieldBox("class", "Class", cls, { required: true }),
@@ -3475,15 +3616,15 @@
         fieldBox("region", "Where you play from", region, { required: true })),
       profField,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title", id: "application-availability" }, icon("icon-clock"), h("h3", { text: "When you play" })),
+      h("div", { class: "section-title", id: "application-availability" }, icon("icon-clock"), h("h2", { text: "When you play" })),
       availField,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title" }, icon("icon-names"), h("h3", { text: "In your own words" })),
+      h("div", { class: "section-title" }, icon("icon-names"), h("h2", { text: "In your own words" })),
       textFor("experience"),
       textFor("why"),
       leaderBlock,
       h("div", { class: "rule" }),
-      h("div", { class: "section-title" }, icon("icon-pvp"), h("h3", { text: "Extras" })),
+      h("div", { class: "section-title" }, icon("icon-pvp"), h("h2", { text: "Extras" })),
       h("div", { class: "grid two" }, textFor("logs", { hintBelow: true }), fieldBox("voice", "Can you use voice chat in raids?", voice, { required: true })),
       legacyBuildField,
       talentBuildBox,
@@ -3738,6 +3879,7 @@
       V.offset = 0;
     }
     const role = V.role; // the role this page shows: everything below uses it, never V.role again
+    const unknownBallot = parts.length === 1 && wanted && !meta.ballots.some((b) => b.key === wanted); // CL2-105
     const ballot = meta.ballots.find((b) => b.key === role);
     // Another role is another address, so "Leave without saving?" can still keep this page as it is; the route sets
     // V.role (and starts at the first page) only once the address has changed.
@@ -3784,6 +3926,7 @@
     const quiet = !holder && noVoteFor(role);
     const guideFamily = roleDirectory203()?.keyToFamily[role];
     const content = h("div", { class: "board-role-content" },
+      unknownBallot ? addressNotice(`No ballot matches this address, so the ${ballot.label} board is shown. Choose a role from the list.`) : null,
       rolePick,
       h("section", { class: "frame" },
         h("div", { class: "plaque" }, h("h2", null, posIcon(role, "s"), " ", ballot.label),
@@ -4137,6 +4280,7 @@
     if (target) {
       const node = document.getElementById(target === "rosetta-stone" ? "role-rosetta-stone" : "role-"+target) || document.getElementById("role-family-"+(M().roleDirectory203?.keyToFamily[target] || target));
       if (node) setTimeout(() => { scrollToSection(node); node.setAttribute("tabindex","-1"); node.focus({preventScroll:true}); },0);
+      else if (!(M().positions || []).some(p => p.key === target) && !offices199().some(row => row.key === target) && !(M().roleDirectory203?.families || []).some(f => f.key === target)) main.prepend(addressNotice("No role matches this address, so the whole Roles page is shown. Search the directory below for the role you want.")); // CL2-105
     }
   };
 
@@ -4178,14 +4322,18 @@
     return bar;
   };
 
-  function adminTabs(sub) {
-    const groups = [
+  /** The five admin groups; the header's Admin menu (CL2-215) and the in-page section links share them. */
+  function adminGroups() {
+    return [
       ["Applications & Roster", [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["launch-operations", "Launch operations & MOTD"], ["friends", "Friends"], ["lookup", "Lookup"], ["renames", "Renames"], ["directory-visibility", "Discord member list preferences"]]],
       ["Governance, Ranks & Appointments", [["ranks", "Rank planner"], ["approved-guilds", "Signed guild list"]]],
       ["Imperial Treasury & Stockades", [["treasury", "Treasury"], ["donation-ledger", "Donation ledger"]]],
       ["News, Calendar & Operations", [["news", "News"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
       ["System Settings & Compliance", [["settings", "Settings"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]]
     ];
+  }
+  function adminTabs(sub) {
+    const groups = adminGroups();
     if (S.user?.id === "472099715253796864") groups.at(-1)[1].push(["/admin/qr/beta-window", "Named beta verification"]);
     const choices = groups.map(([label, rows]) => [label, rows.map(([key, text]) => [key.startsWith("/") ? key : "#/admin" + (key ? "/" + key : ""), text, sub === key])]);
     const select = h("select", { id: "admin-section-select", "aria-label": "Admin section" }, choices.map(([label, rows]) =>
@@ -4198,14 +4346,14 @@
   }
   ROUTES.admin = async function admin(main, parts) {
     const sub = parts[0] || "";
-    add(main, frame("Admin", h("span", { class: "badge warn", text: "Visible to site admins only" }), adminTabs(sub)));
+    add(main, frame(h("h1", { text: "Admin" }), h("span", { class: "badge warn", text: "Visible to site admins only" }), adminTabs(sub))); // CL2-099: the section's H1 comes first
     if (sub === "" || sub === "treasury") add(main, writsPanel199("admin", {checklist:true}));
     if (sub === "" || sub === "treasury") add(main, frame("Treasury programme · officer operating plan", null,
       h("p", { text: "The shared plan contains the 30-day pilot, 90-day stretch target, long-term roadmap and financial assumptions. It is a planning reference, not a live bank balance, payment instruction or authority to change existing controls." }),
       h("a", { class: "btn", href: "#/treasury-plan", text: "Open the treasury programme & financial model" })));
     const body = h("div");
     main.appendChild(body);
-    body.appendChild(h("p", { class: "muted", text: "Loading…" }));
+    body.appendChild(h("p", { class: "muted", role: "status", text: "Loading…" })); // CL2-103: announced
     const views = {
       "": adminOverview,
       applications: parts[1] ? (b) => adminApplication(b, parts[1]) : adminApplications,
@@ -5638,7 +5786,7 @@
     add(body, [
       message ? noticeBox("warn", "icon-warning", h("p", { text: message })) : null,
       frame("News", h("span", { class: "badge " + (d.newsOn ? "green" : "muted"), text: d.newsOn ? "on" : "off" }),
-        h("p", { class: "muted small", text: "The Town Crier is visible to guild members and site administrators. It covers notices, room in Olympus I, guild counts, upcoming events, leadership directory changes and Forever milestones. Site updates are visible only to the owner. Switch it in Admin → Settings." }),
+        h("p", { class: "muted small", text: "The Town Crier is visible to guild members and site administrators. It covers notices, room in OLYMPUS PRIME, guild counts, upcoming events, leadership directory changes and Forever milestones. Site updates are visible only to the owner. Switch it in Admin → Settings." }),
         d.newsOn ? null : noticeBox("info", "icon-clock", h("p", { text: "News is switched off (Admin → Settings); notices cannot be posted while it is off." })),
         kv([["Shown now", `${notices.length} of ${limits.liveMax || 20}`], ["Past their time, awaiting the cleanup", String(d.awaitingCleanup || 0)], ["Operation records kept (120 days each)", String(d.operationRecords || 0)]])),
       frame("Notices shown now", null, list.length ? list : h("p", { class: "muted small", text: "No notice is shown right now." })),
@@ -6322,23 +6470,25 @@
 
   // ---------- the community pages ----------
   const newsOn = () => !!(S.settings && S.settings.newsOn); // .115: SiteSettings.newsOn, off unless an administrator switched it on
+  // CL2-271 (12 Nov 2026): a section is listed only when this account's capabilities can open it (the route's own checks),
+  // not merely when the feature is switched on. My profile stays listed: its page explains how to qualify.
   const COMMUNITY_SECTIONS = [
     { key: "", label: "Overview", href: "#/community", visible: () => anyCommunity() || can("armyRead") },
     { key: "profile", label: "My profile", href: "#/community/profile", visible: () => feat("directory"), icon: "pos-member",
       description: "Choose whether to show your detailed profile in Member profiles and share any Workshop offers you add. The Discord member list has its own visibility control." },
-    { key: "trial", label: "My trial", href: "#/community/trial", visible: () => feat("trials"), icon: "icon-shield",
+    { key: "trial", label: "My trial", href: "#/community/trial", visible: () => feat("trials") && can("applicantWrite"), icon: "icon-shield",
       description: "Your trial period as the officers recorded it: the review date and the outcome." },
-    { key: "dues", label: "My dues", href: "#/community/dues", visible: () => feat("contributions"), icon: "pos-treasurer",
+    { key: "dues", label: "My dues", href: "#/community/dues", visible: () => feat("contributions") && can("applicantWrite"), icon: "pos-treasurer",
       description: "The weeks the policy counts for you, what was applied, and the mail reference for paying." },
-    { key: "directory", label: "Discord member list", href: "#/community/directory", visible: () => feat("directory"), icon: "icon-friends",
+    { key: "directory", label: "Discord member list", href: "#/community/directory", visible: () => feat("directory") && communityReader(), icon: "icon-friends",
       description: "Current holders of an Olympus membership or rank role in Discord. Shows names, portraits and permitted public roles, plus verified characters for eligible website accounts." },
-    { key: "workshop", label: "Crafters & Artisans", href: "#/community/workshop", visible: () => feat("crafting"), icon: "pos-professions",
+    { key: "workshop", label: "Crafters & Artisans", href: "#/community/workshop", visible: () => feat("crafting") && communityReader(), icon: "pos-professions",
       description: "Search members' rare-recipe and profession offers, and list your own crafts through My profile." },
-    { key: "calendar", label: "Calendar", href: "#/community/calendar", visible: () => feat("events"), icon: "icon-clock",
+    { key: "calendar", label: "Calendar", href: "#/community/calendar", visible: () => feat("events") && communityReader(), icon: "icon-clock",
       description: () => `Guild events, your answers${feat("attendance") ? " and what the organizers recorded afterwards" : ""}. For guild members and site administrators.` },
-    { key: "leadership", label: "Leadership", href: "#/community/leadership", visible: anyCommunity, icon: "pos-guild_master",
+    { key: "leadership", label: "Leadership", href: "#/community/leadership", visible: () => anyCommunity() && communityReader(), icon: "pos-guild_master",
       description: "The Guild Master and officers of each Olympus guild, I to X. For guild members and site administrators." },
-    { key: "news", label: "Town Crier", href: "#/news", visible: newsOn, icon: "icon-launch",
+    { key: "news", label: "Town Crier", href: "#/news", visible: () => newsOn() && communityReader(), icon: "icon-launch",
       description: "Notices from the site's administrators, whether OLYMPUS PRIME has room, the guild in figures and what is coming up. For guild members and site administrators." },
     { key: "army", label: "Army", href: "#/community/army", visible: () => can("armyRead"), icon: "icon-friends",
       description: "Read guild snapshots shared for signed-in Olympus members by authorized reporters. These unverified figures count characters, not people." },
@@ -6347,9 +6497,12 @@
   ];
   const visibleCommunitySections = () => COMMUNITY_SECTIONS.filter(section => section.visible());
   const communitySection = key => COMMUNITY_SECTIONS.find(section => section.key === key);
+  // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
   function communityTabs(sub) {
-    return h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
-      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
+    return h("div", { class: "community-tabs" },
+      h("nav", { class: "btn-row", "aria-label": "Community sections", "aria-describedby": "community-scroll-hint" }, visibleCommunitySections().map(({ key, href, label }) =>
+        h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false }))),
+      h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
   }
   const sourceStrip = (source, freshness) => h("div", { class: "source-strip", "data-source-strip": true },
     h("span", { class: "badge", text: source }), h("span", { class: "small muted", text: freshness }));
@@ -6401,7 +6554,7 @@
   };
   ROUTES.army = async function army(main, parts) {
     if (!can("armyRead") || !S.signedIn || S.denied) { add(main, standingNotice()); return; }
-    if (!parts.length) return communityArmyReview(main);
+    if (!parts.length) { add(main, h("h1", { class: "page-title", text: "Army" })); return communityArmyReview(main, true); } // CL2-095 (12 Nov 2026): the page is named Army
     if (parts.length !== 1 || parts[0] !== "report") { add(main, frame("Army", null, h("p", {text:"There is no such Army workspace."}))); return; }
     if (!S.user?.isAdmin) { add(main, frame("Army reporter", null, h("p", {text:"Publishing a snapshot requires current site administrator authority."}))); return; }
     return armyReporterWorkspace(main);
@@ -6576,7 +6729,7 @@
         h("a", { class: "btn small", href: "#/governance", text: "Read the Grand Alliance Concordat" })));
   }
   // .183: read-only snapshots stay in this shell; attended reporting retains its separate capture policy.
-  async function communityArmyReview(body) {
+  async function communityArmyReview(body, standalone = false) {
     add(body, writsPanel199("army"));
     const user = S.user, context = COM(), route = currentRoute(); let instance = null, disposed = false;
     const live = () => !disposed && app.contains(body) && S.user === user && COM() === context && currentRoute() === route && can("armyRead");
@@ -6585,10 +6738,10 @@
     disposeTool = dispose;
     const reader = h("div", { class: "army-reader" }, h("p", { role: "status", class: "muted", text: "Opening Army snapshots…" }));
     add(body, [capacity.element, betaEpochArchiveCard(), h("section", { class: "stack", "data-army-qr-review": "public-reader" },
-      frame("Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
+      frame(standalone ? "Published snapshots" : "Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("a", { class: "btn small", href: "#/organization/alliance-overview", text: "Explore OLYMPUS PRIME / Olympus II–X roles & organization" }),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
-        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Olympus Guild 1.3.3 is published. Website reporting is available only when enabled by site administrators."),
+        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Use version 1.5.7 or later. Website reporting is available only when enabled by site administrators."),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "#/army/report", text: "Report a guild snapshot" }) : null,
         h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting." }), reader))]);
     const load = async (namespace, file) => {
@@ -6947,7 +7100,7 @@
   async function communityProfileDirectory(body) {
     const list = h("div", { class: "stack" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
-    const status = h("p", { class: "muted small", text: "Loading…" });
+    const status = h("p", { class: "muted small", role: "status", text: "Loading…" }); // CL2-103: announced
     let cursor = null;
     const load = async (restart) => {
       if (restart) { clear(list); cursor = null; }
@@ -7254,7 +7407,7 @@
     const DAY = 86400;
     let from = nowSec(), to = from + 31 * DAY;
     const list = h("div", { class: "stack" });
-    const status = h("p", { class: "muted small", text: "Loading…" });
+    const status = h("p", { class: "muted small", role: "status", text: "Loading…" }); // CL2-103: announced
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     const range = h("span", { class: "muted small" });
     let cursor = null, generation = 0; // .102 (F96-1): every load is bound to the window it asked for; a reply to a window the viewer has left is discarded
@@ -7290,7 +7443,7 @@
   function myAttendancePanel() {
     const tbody = h("tbody");
     const table = h("div", { class: "table-wrap", hidden: true }, h("table", { class: "data" }, h("thead", null, h("tr", null, h("th", { text: "Event" }), h("th", { text: "When" }), h("th", { text: "Recorded" }))), tbody));
-    const status = h("p", { class: "muted small", text: "Loading…" });
+    const status = h("p", { class: "muted small", role: "status", text: "Loading…" }); // CL2-103: announced
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     let cursor = null;
     const load = async (restart) => {
@@ -7804,7 +7957,8 @@
    */
   function receiptBar(lead, text) {
     for (const old of document.querySelectorAll(".receipt-bar")) old.remove();
-    const bar = h("div", { class: "notice receipt-bar" }, noticeBox("info", "icon-shield",
+    // CL2-103 (12 Nov 2026): the outcome is announced to screen readers.
+    const bar = h("div", { class: "notice receipt-bar", role: "status", "aria-atomic": "true" }, noticeBox("info", "icon-shield",
       h("p", null, h("strong", { text: lead }), text),
       h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Dismiss", onclick: () => { bar.remove(); stackBars(); } }))));
     document.body.appendChild(bar);
