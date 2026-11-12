@@ -343,6 +343,12 @@ legend { padding: 0; }
 .appointed-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; }
 .appointed-row { margin: 0; }
 .appointed-row .lab { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+/* CL2-015 (Evergreen 12 Nov 2026): who a stored holder value is, beside the field. */
+.appointed-holder { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0; min-width: 0; overflow-wrap: anywhere; }
+.appointed-holder img.av { margin-right: 0; }
+.appointed-holder .btn.small { min-height: 44px; }
+/* CL2-123: the Discord message previews wrap through a class; the CSP (style-src 'self') blocks inline styles. */
+pre.pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ---------- the weekly availability grid ---------- */
 .avail-wrap { overflow-x: auto; }

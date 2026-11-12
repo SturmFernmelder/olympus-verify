@@ -53,7 +53,7 @@ import { handleMembershipRetirement } from './membership-retirement-route';
 import {prepareMembershipDecision,membershipDecisionTargetToken,membershipDecisionDetailKey,applyMembershipDecision,membershipDecisionPartialGuard,membershipDecisionAuthRequest,membershipDecisionBodyRequest,assertMembershipDecisionOrigin,type MembershipDecisionOrigin} from './privacy-rejection-decision';
 import { handleBetaRoleReset } from './beta-reset-route';
 import { APPLICATION_OPENING_ANSWER_KEY, ORDINARY_DECLINE_ANSWER_KEY } from './application-edit219';
-import { appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql, appointmentPublicationTargetFailure, type AppointmentPublicationFailure } from './site-appointed-identities';
+import { appointmentAccountId, appointmentPublicationConfirmation, containsInternalAppointmentProof, prepareAppointmentPublication, appointmentPublicationTargetsCurrentSql, appointmentPublicationTargetFailure, type AppointmentPublicationFailure } from './site-appointed-identities';
 
 const PAGE = 50;
 const STATUSES = new Set(["submitted", "reviewing", "accepted", "declined", "withdrawn"]);
@@ -231,6 +231,7 @@ async function overview(env: Env) {
       WHERE a.status IN ('submitted','reviewing') AND u.denied = 0 AND j.type = 'text'
       GROUP BY j.value`,
   ).all<{ profession: string; n: number }>();
+  const settings = await loadSettings(env);
   return {
     now: now(),
     counts: c ?? {},
@@ -239,9 +240,34 @@ async function overview(env: Env) {
     reserved: reserved.results,
     queue: { waiting: queue?.waiting ?? 0, reserved: queue?.reserved ?? 0 },
     seats: (await guildSeats(env)).seats, // .115 (item B): exact, staff only (guild-seats.ts)
-    settings: await loadSettings(env),
+    settings,
+    appointedAccounts: await appointedAccounts(env, settings.appointed),
     discordIntentOperations: DISCORD_INTENT_OPERATIONS,
   };
+}
+
+/**
+ * CL2-015 (Evergreen 12 Nov 2026): Admin -> Appointed roles showed each holder as the raw <@id> pointer. This staff-only
+ * answer names the website accounts behind the stored pointers, with the same fields (names, avatar) every other admin
+ * list already shows for a site account (userOut). A pointer without a website profile is left out: the page offers the
+ * existing exact-ID appointment search for it. Nothing here changes what members see; their projection stays the
+ * separately consented /api/appointed-identities reader.
+ */
+async function appointedAccounts(env: Env, appointed: Record<string, string>) {
+  const ids = [...new Set(Object.values(appointed).map((v) => appointmentAccountId(v)).filter((id): id is string => id !== null))].slice(0, 250);
+  if (!ids.length) return [];
+  const rows = await env.DB.prepare(
+    "SELECT u.discord_id, u.username, u.global_name, u.nick, u.avatar FROM json_each(?1) wanted JOIN site_users u ON u.discord_id = wanted.value",
+  ).bind(JSON.stringify(ids)).all<{ discord_id: string; username: string | null; global_name: string | null; nick: string | null; avatar: string | null }>();
+  return rows.results.map((r) => ({
+    id: r.discord_id,
+    username: r.username,
+    displayName: r.global_name,
+    nick: r.nick,
+    label: labelOf({ username: r.username, displayName: r.global_name, nick: r.nick }),
+    shown: shownName({ username: r.username, displayName: r.global_name, nick: r.nick }),
+    avatarUrl: avatarUrl(env, r.discord_id, r.avatar),
+  }));
 }
 
 async function saveSettings(env: Env, actor: string, body: Record<string, unknown>): Promise<Response> {
@@ -277,6 +303,7 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   }
   if (body.notice !== undefined) next.notice = cleanText(body.notice, 300);
   let appointedObj: Record<string, string> | null = null; // .115: the cleaned map itself, for the consent check and the audit's role keys
+  let reusedProofsOnly = false; // CL2-122: no publication tick, so every association must keep its original proof
   if (body.appointed !== undefined) {
     if (containsInternalAppointmentProof(body.appointed)) return apiJson({ error: 'internal_appointed_fields', field: 'appointed', message: 'Publication proofs are private server-authored metadata. Select the account and confirm publication instead.' }, 400);
     appointedObj = cleanAppointed(body.appointed);
@@ -299,13 +326,27 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     if (changed.length > 0 && body.namesConfirmed !== true) {
       return apiJson({ error: "confirm_names", field: "appointed", message: "Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial." }, 400);
     }
+    // CL2-122 (Evergreen 12 Nov 2026): the publication tick was demanded for every save of a map that held any Discord
+    // association, so typing or clearing a plain-text holder needed it too. It is now demanded only when this save would
+    // publish something new: an association added or changed here refuses at once (before any provider call), and an
+    // unchanged one passes only if prepareAppointmentPublication below reuses its exact original proof. A legacy or
+    // requalified association that would be signed afresh still needs the tick (checked after prepare, before any write).
     if (!appointmentPublicationConfirmation(appointedObj, body)) {
-      return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies to every office and rank account association; it grants no role or permission.' }, 400);
+      const changedAssociation = Object.entries(appointedObj).some(([key, who]) => appointmentAccountId(who) !== null && !(Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === who));
+      if (changedAssociation) return publicationConsentRefusal();
+      reusedProofsOnly = true;
     }
   }
   const prepared = appointedObj ? await prepareAppointmentPublication(env, appointedObj, storedValues.get('appointed') ?? null) : null;
   if (prepared && !prepared.ok) return appointmentAccountRefusal(prepared);
   const publication = prepared?.ok ? prepared : null;
+  if (reusedProofsOnly && publication && appointedObj) {
+    let original: Record<string, unknown> = {};
+    try { const parsed: unknown = JSON.parse(storedValues.get('appointed') ?? '{}'); if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) original = parsed as Record<string, unknown>; } catch { /* no reusable proof */ }
+    const minted = Object.entries(publication.stored).some(([key, value]) => !Object.prototype.hasOwnProperty.call(appointedObj, key)
+      && !(Object.prototype.hasOwnProperty.call(original, key) && original[key] === value));
+    if (minted) return publicationConsentRefusal();
+  }
   if (publication) next.appointed = JSON.stringify(publication.stored);
   const entries = Object.entries(next) as Array<[string, string]>;
   if (!entries.length) return apiJson({ ok: true, settings: cur });
@@ -336,13 +377,17 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
   return apiJson({ ok: true, settings: await loadSettings(env) });
 }
 
+function publicationConsentRefusal(): Response {
+  return apiJson({ error: 'confirm_appointed_characters', field: 'appointed', message: 'Explicitly confirm publication of the selected Discord account profile to qualified Community readers and, only when a current website identity exists, its current verified characters. A Discord-only association never publishes private characters through a later sign-in. This applies to every office and rank account association; it grants no role or permission.' }, 400);
+}
+
 function appointmentAccountRefusal(failure: AppointmentPublicationFailure): Response {
   const action = failure.status === 'fresh_check_limit'
     ? 'At most 32 new, changed or unqualified Discord members can be checked in one save. Save a smaller reviewed batch; unchanged qualified associations remain intact when included in the full map.'
     : failure.status === 'discord_unavailable'
     ? 'Current Discord server membership could not be confirmed. Try searching and saving again shortly; website sign-in is not required.'
     : failure.status === 'account_changed'
-      ? 'The selected site identity changed. Reload Settings and search for the account again before reviewing publication.'
+      ? 'The selected site identity changed. Reload Appointed roles and search for the account again before reviewing publication.'
       : 'The selected account is not currently eligible for publication. Confirm its current Discord server membership and review its current standing, then search again. Website sign-in is not required.';
   return apiJson({ error: 'appointed_account_unavailable', field: 'appointed', role: failure.role, accountStatus: failure.status, message: `${roleLabel(failure.role)}: ${action} No settings were saved.` }, 409);
 }
@@ -1287,7 +1332,15 @@ function auditRules(actions: string, subject: AuditRule["subject"], fields: Audi
 }
 auditRules("treasury.receipt242", "none", { copper: "count", items: "count" }, "id-or-system");
 auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
-auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
+auditRules("site.application_submitted site.application_updated site.leadership site.beta_closed", "none");
+// CL2-128 (Evergreen 12 Nov 2026): a settings row showed only "details withheld". settingsAuditDetails already stores
+// counts and switches, never a name or the notice text; show those, and keep withholding the role keys, the times and
+// the no-vote list (they stay "withheld").
+{
+  const flag = ["0", "1"];
+  auditRules("site.settings", "none", { appointedNames: "count", namesConfirmed: "boolean", appointedCharactersConfirmed: "boolean", notice: "boolean",
+    namesTimeConfirmed: flag, namesOpen: flag, autoQueue: flag, applicationsOpen: flag, votingOpen: flag, newsOn: flag, loginAnimation: flag, royalWritsOn: flag });
+}
 auditRules("site.ruleset_switch", "none", { mode: ["beta", "full_release"], targets: "count", approver: "boolean" }); // item 7 (14 Oct 2026): the switch, never the identity
 auditRules("site.application_status", "id", { status: ["submitted", "reviewing", "accepted", "declined", "withdrawn"] });
 auditRules("site.denied", "id", { released: "count" });
