@@ -22,8 +22,13 @@ type SourceRow229 = LaunchRosterRow229 & {
 type RoleRead229 = [guid: string, state: 'knight' | 'non-knight', observedAt: number, identityDigest?: string];
 type Cursor229 = {version: 1 | 2 | 3; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number; roleScope?: string; roleReads?: RoleRead229[]};
 export type PromotionSelection273 = Readonly<{selectionId:string;targetGuid:string;snapshotId:number;snapshotAt:number}>;
+export type PromotionSelections276 = Readonly<{selectionId:string;targetGuids:readonly string[];snapshotId:number;snapshotAt:number}>;
+type BatchSelection276 = PromotionSelections276 & Readonly<{targetsDigest:string}>;
+type ReadSelection276 = PromotionSelection273 | BatchSelection276;
 type SelectionCursor273 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & PromotionSelection273 & {version:4;roleScope:string;roleReads:RoleRead229[]};
 const SELECTION_PROTOCOL274='promotion-selection-v274';
+type SelectionCursor276 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & {version:5;selectionId:string;targetsDigest:string;roleScope:string;roleReads:RoleRead229[]};
+const SELECTION_PROTOCOL276='promotion-selection-v276';
 const GUID273=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
@@ -64,6 +69,17 @@ function selection273(input:unknown,cursor:string|null,at:number):PromotionSelec
   if(!Number.isSafeInteger(issued)||issued>at+5||!cursor&&issued<at-60)throw new LaunchCursor229('expired_selection_request');
   return Object.freeze({selectionId:selectionId as string,targetGuid,snapshotId:snapshotId as number,snapshotAt:snapshotAt as number});
 }
+function selections276(input:unknown,cursor:string|null,at:number):PromotionSelections276 {
+  if(!input||typeof input!=='object'||Reflect.ownKeys(input).map(String).sort().join(',')!=='selectionId,snapshotAt,snapshotId,targetGuids')throw new LaunchCursor229('invalid_selection_request');
+  const values:Record<string,unknown>={};
+  for(const key of ['selectionId','targetGuids','snapshotId','snapshotAt']){const d=Object.getOwnPropertyDescriptor(input,key);if(!d||!Object.hasOwn(d,'value'))throw new LaunchCursor229('invalid_selection_request');values[key]=d.value;}
+  const raw=values.targetGuids;
+  if(!Array.isArray(raw)||raw.length<1||raw.length>LAUNCH_ROLE_PAGE229||Reflect.ownKeys(raw).length!==raw.length+1)throw new LaunchCursor229('invalid_selection_request');
+  const targetGuids:string[]=[];
+  for(let i=0;i<raw.length;i++){const d=Object.getOwnPropertyDescriptor(raw,String(i));if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='string'||!GUID273.test(d.value)||i>0&&targetGuids[i-1]!>=d.value)throw new LaunchCursor229('invalid_selection_request');targetGuids.push(d.value);}
+  const single=selection273({selectionId:values.selectionId,targetGuid:targetGuids[0],snapshotId:values.snapshotId,snapshotAt:values.snapshotAt},cursor,at);
+  return Object.freeze({selectionId:single.selectionId,targetGuids:Object.freeze(targetGuids),snapshotId:single.snapshotId,snapshotAt:single.snapshotAt});
+}
 async function writeSelectionCursor273(value:SelectionCursor273,secret:string){
   const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('promotion-selection-cursor|273|'+body)));
   return body+'.'+mac;
@@ -77,6 +93,22 @@ async function readSelectionCursor273(raw:string,secret:string,selection:Promoti
     ||v.selectionId!==selection.selectionId||v.targetGuid!==selection.targetGuid||v.snapshotId!==selection.snapshotId||v.snapshotAt!==selection.snapshotAt
     ||v.issuedAt!==Number(selection.selectionId.split(':')[0])||v.issuedAt>at||!Number.isSafeInteger(v.expiresAt)||v.expiresAt!==Math.min(v.issuedAt+LAUNCH_SCAN_TTL229,v.snapshotAt+LAUNCH_SCAN_TTL229)||v.expiresAt<=at
     ||!Number.isSafeInteger(v.offset)||v.offset<0||v.offset>=1000||v.offset%LAUNCH_ROLE_PAGE229!==0||!/^[a-f0-9]{16}$/.test(v.scopeHash)||!/^[a-f0-9]{64}$/.test(v.rowsDigest)||!/^[a-f0-9]{64}$/.test(v.roleScope)
+    ||!Array.isArray(v.roleReads)||v.roleReads.length>LAUNCH_ROLE_PAGE229||v.roleReads.some(r=>!Array.isArray(r)||r.length!==4||typeof r[0]!=='string'||!GUID273.test(r[0])||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at||typeof r[3]!=='string'||!/^[a-f0-9]{64}$/.test(r[3]))||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length)throw new LaunchCursor229('invalid_selection_cursor');
+  return v;
+}
+async function writeSelectionCursor276(value:SelectionCursor276,secret:string){
+  const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('promotion-selection-cursor|276|'+body)));
+  return body+'.'+mac;
+}
+async function readSelectionCursor276(raw:string,secret:string,selection:BatchSelection276,at:number):Promise<SelectionCursor276>{
+  if(raw.length>4096||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_selection_cursor');
+  const [body,mac]=raw.split('.');let v:SelectionCursor276;
+  try{v=JSON.parse(atob(body.replace(/-/g,'+').replace(/_/g,'/')));if(encoded229(JSON.stringify(v))!==body)throw Error();}catch{throw new LaunchCursor229('invalid_selection_cursor');}
+  if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac),new TextEncoder().encode('promotion-selection-cursor|276|'+body)))throw new LaunchCursor229('invalid_selection_cursor');
+  if(!v||v.version!==5||Object.keys(v).sort().join(',')!=='expiresAt,issuedAt,offset,roleReads,roleScope,rowsDigest,scopeHash,selectionId,snapshotAt,snapshotId,targetsDigest,version'
+    ||v.selectionId!==selection.selectionId||v.targetsDigest!==selection.targetsDigest||v.snapshotId!==selection.snapshotId||v.snapshotAt!==selection.snapshotAt
+    ||v.issuedAt!==Number(selection.selectionId.split(':')[0])||v.issuedAt>at||!Number.isSafeInteger(v.expiresAt)||v.expiresAt!==Math.min(v.issuedAt+LAUNCH_SCAN_TTL229,v.snapshotAt+LAUNCH_SCAN_TTL229)||v.expiresAt<=at
+    ||v.offset!==0||!/^[a-f0-9]{16}$/.test(v.scopeHash)||!/^[a-f0-9]{64}$/.test(v.rowsDigest)||!/^[a-f0-9]{64}$/.test(v.roleScope)
     ||!Array.isArray(v.roleReads)||v.roleReads.length>LAUNCH_ROLE_PAGE229||v.roleReads.some(r=>!Array.isArray(r)||r.length!==4||typeof r[0]!=='string'||!GUID273.test(r[0])||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at||typeof r[3]!=='string'||!/^[a-f0-9]{64}$/.test(r[3]))||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length)throw new LaunchCursor229('invalid_selection_cursor');
   return v;
 }
@@ -138,31 +170,40 @@ export async function readPromotionSelection273(env:Env,input:unknown,cursor:str
   const page=await readLaunchPage229(env,cursor,selection,guids=>{coveredGuids=guids;});
   return {version:1 as const,protocol:SELECTION_PROTOCOL274,controlId:selection.selectionId,targetGuid:selection.targetGuid,coveredGuids,page};
 }
-async function readLaunchPage229(env: Env, cursor: string | null = null,selection:PromotionSelection273|null=null,coverage?:(guids:string[])=>void) {
+export async function readPromotionSelections276(env:Env,input:unknown,cursor:string|null=null){
+  const selected=selections276(input,cursor,now()),targetsDigest=await digest229(JSON.stringify(selected.targetGuids));
+  const selection:BatchSelection276=Object.freeze({...selected,targetsDigest});let coveredGuids:string[]=[];
+  const page=await readLaunchPage229(env,cursor,selection,guids=>{coveredGuids=guids;});
+  return {version:1 as const,protocol:SELECTION_PROTOCOL276,coverageKind:'selected-guids' as const,controlId:selection.selectionId,targetGuids:selection.targetGuids,targetsDigest,coveredGuids,page};
+}
+async function readLaunchPage229(env: Env, cursor: string | null = null,selection:ReadSelection276|null=null,coverage?:(guids:string[])=>void) {
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
+  const batch=selection&&'targetGuids' in selection?selection:null,single=selection&&!('targetGuids' in selection)?selection:null;
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
   const lineage=captureRosterLineage275(env,launch);
   if(!secret)return held229(at,'native-secret-unconfigured');
   const configuration=roleConfiguration229(env);
   const roleSecret271=configuration?JSON.stringify(['officer-role-cursor',271,secret,configuration.guild,configuration.token]):null;
   const roleSecret272=configuration?JSON.stringify(['officer-role-cursor',272,secret,configuration.guild,configuration.token]):null;
-  const selectionSecret=configuration?JSON.stringify(['promotion-selection-cursor',273,secret,configuration.guild,configuration.token]):null;
+  const selectionSecret=configuration?JSON.stringify(['promotion-selection-cursor',batch?276:273,secret,configuration.guild,configuration.token]):null;
   if(selection&&(!selectionSecret||Number(selection.selectionId.split(':')[0])>at))return held229(at,'selection-source-not-current');
-  const captured=cursor?(selection?await readSelectionCursor273(cursor,selectionSecret!,selection,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff,lineage),first=rows[0];
+  const captured=cursor?(batch?await readSelectionCursor276(cursor,selectionSecret!,batch,at):single?await readSelectionCursor273(cursor,selectionSecret!,single,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff,lineage),first=rows[0];
   if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held229(at,'native-snapshot-unavailable');}
   if(selection&&(selection.snapshotId!==first.snapshotId||selection.snapshotAt!==first.snapshotAt))throw new LaunchCursor229('selection_native_source_changed',409);
-  const selectedIndices=selection?rows.flatMap((row,index)=>row.guid===selection.targetGuid?[index]:[]):[];
-  if(selection&&selectedIndices.length!==1)return held229(at,'selected-target-unavailable');
+  const requested=batch?batch.targetGuids:single?[single.targetGuid]:[];
+  const matches=requested.map(guid=>rows.flatMap((row,index)=>row.guid===guid?[index]:[]));
+  if(selection&&matches.some(indices=>indices.length!==1))return held229(at,'selected-target-unavailable');
+  const selectedIndices=matches.map(indices=>indices[0]!);
   const legacy=captured?.version===1||captured?.version===2||!roleSecret272;
   const scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),nativeDigest=await digest229(JSON.stringify(nativeRows272(rows)));
   const rowsDigest=legacy?await digest229(JSON.stringify(legacyRows229(rows))):nativeDigest;
   if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.rowsDigest!==rowsDigest))throw new LaunchCursor229('launch_cursor_source_changed',409);
-  const issuedAt=captured?.issuedAt??(selection?Number(selection.selectionId.split(':')[0]):at),scanExpiresAt=captured?.expiresAt??Math.min(issuedAt+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??(selection?Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229:0);
-  if(selection&&offset!==Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229)throw new LaunchCursor229('launch_cursor_source_changed',409);
+  const issuedAt=captured?.issuedAt??(selection?Number(selection.selectionId.split(':')[0]):at),scanExpiresAt=captured?.expiresAt??Math.min(issuedAt+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??(single?Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229:0);
+  if(single&&offset!==Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229)throw new LaunchCursor229('launch_cursor_source_changed',409);
   const observationTtl=selection?SELECTED_PROMOTION_TTL274:LAUNCH_ROLE_TTL229;
   let expiresAt=Math.min(at+observationTtl,scanExpiresAt);
-  const scanId=(await digest229(JSON.stringify(selection?['promotion-selection',273,selection.selectionId,selection.targetGuid,scopeHash,rowsDigest,issuedAt,scanExpiresAt]:['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
-  const page=rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(needsLaunchRole229),states=new Map<string,KnightState229>();
+  const scanId=(await digest229(JSON.stringify(batch?['promotion-selection',276,batch.selectionId,batch.targetsDigest,scopeHash,rowsDigest,issuedAt,scanExpiresAt]:single?['promotion-selection',273,single.selectionId,single.targetGuid,scopeHash,rowsDigest,issuedAt,scanExpiresAt]:['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
+  const page=batch?selectedIndices.map(index=>rows[index]!):rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(needsLaunchRole229),states=new Map<string,KnightState229>();
   const coveredGuids=page.map(row=>row.guid);
   if(selection&&(coveredGuids.some(g=>typeof g!=='string'||!GUID273.test(g))||new Set(coveredGuids).size!==coveredGuids.length))return held229(at,'selected-native-page-ambiguous');
   // The signed exact Native digest and offset derive this same coverage on
@@ -236,7 +277,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
     ||legacy&&await digest229(JSON.stringify(legacyRows229(after)))!==rowsDigest)return held229(now(),'native-snapshot-changed');
   // Only this page can consume its current account/privacy facts or cached roles.
   // Activity on another page must not invalidate immutable Native pagination.
-  if(await digest229(JSON.stringify(after.slice(offset,offset+LAUNCH_ROLE_PAGE229)))!==pageDigest)return held229(now(),'launch-page-verification-changed');
+  const afterPage=batch?batch.targetGuids.map(guid=>after.find(row=>row.guid===guid)):after.slice(offset,offset+LAUNCH_ROLE_PAGE229);
+  if(await digest229(JSON.stringify(afterPage))!==pageDigest)return held229(now(),'launch-page-verification-changed');
   if(selection&&now()>=scanExpiresAt)return held229(now(),'selection-read-expired');
   if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
   const project=selection?projectSelectedPromotions274:projectLaunchOperations229;
@@ -259,7 +301,8 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   if(rateLimited)dto.heldReasons.push('discord-rate-limited');if(roleUnavailable||!configuration)dto.heldReasons.push('discord-entitlement-unavailable');
   if(dto.status!=='held'){
     const source={snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,rowsDigest,issuedAt,expiresAt:scanExpiresAt};
-    if(selection){dto.pageCursor=await writeSelectionCursor273({version:4,...source,...selection,offset,roleScope,roleReads:rateLimited?[...reads.values()]:[]},selectionSecret!);}
+    if(batch){dto.pageCursor=await writeSelectionCursor276({version:5,...source,selectionId:batch.selectionId,targetsDigest:batch.targetsDigest,offset:0,roleScope,roleReads:rateLimited?[...reads.values()]:[]},selectionSecret!);}
+    else if(single){dto.pageCursor=await writeSelectionCursor273({version:4,...source,...single,offset,roleScope,roleReads:rateLimited?[...reads.values()]:[]},selectionSecret!);}
     else{
       const roleSecret=legacy?roleSecret271:roleSecret272;
       const witness=roleSecret?{version:legacy?2 as const:3 as const,...source,roleScope,roleReads:[] as RoleRead229[]}:{version:1 as const,...source};
@@ -273,9 +316,12 @@ async function readLaunchPage229(env: Env, cursor: string | null = null,selectio
   return dto;
 }
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {
-  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuid','snapshotId','snapshotAt'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
+  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuid','targetGuids','snapshotId','snapshotAt'],hasSelection=selected.some(key=>q.has(key)),many=q.has('targetGuids'),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
   if(request.method!=='GET'||[...q.keys()].some(k=>!allowed.includes(k))||[...new Set(q.keys())].some(k=>q.getAll(k).length!==1)
-    ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')||hasSelection&&(!watcher||selected.some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
-  try{return apiJson(hasSelection?await readPromotionSelection273(env,{selectionId:q.get('selectionId'),targetGuid:q.get('targetGuid'),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
+    ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')
+    ||hasSelection&&(!watcher||q.has('targetGuid')===many||['selectionId','snapshotId','snapshotAt',many?'targetGuids':'targetGuid'].some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
+  let targetGuids:unknown;
+  if(many){try{if(q.get('targetGuids')!.length>1024)throw Error();targetGuids=JSON.parse(q.get('targetGuids')!);}catch{return apiJson({error:'invalid_launch_query'},400);}}
+  try{return apiJson(many?await readPromotionSelections276(env,{selectionId:q.get('selectionId'),targetGuids,snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):hasSelection?await readPromotionSelection273(env,{selectionId:q.get('selectionId'),targetGuid:q.get('targetGuid'),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
   catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);throw error;}
 }

@@ -1,7 +1,7 @@
 -- .229 launch operations. Projections expire; only explicit slash/button hardware paths may act.
 -- No event/timer handler invites, promotes, removes or sets MOTD. Unknown unguilded proof stays held.
 local ADDON = ...
-local Q = { generation = 0, pending = {}, directBlocked = false }
+local Q = { generation = 0, pending = {}, continuations = {} }
 OlympusLaunch229 = Q
 local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
 local function Say(text) DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: " .. text) end
@@ -206,13 +206,38 @@ end
 local SELECT_KEYS={version=true,protocol=true,controlId=true,actorGuid=true,targetGuid=true,scopeHash=true,observedAt=true,
   snapshotId=true,snapshotAt=true,startedAt=true,expiresAt=true,running=true,stoppedReason=true,attempts=true,completed=true,page=true,coveredGuids=true}
 local SELECT_CONTROL={version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,targetGuid=true,mac=true}
+local BATCH_CONTROL={version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,targetGuids=true,mac=true}
+local BATCH_KEYS={version=true,protocol=true,controlId=true,actorGuid=true,targetGuids=true,targetsDigest=true,coverageKind=true,scopeHash=true,observedAt=true,
+  snapshotId=true,snapshotAt=true,startedAt=true,expiresAt=true,running=true,stoppedReason=true,attempts=true,completed=true,page=true,coveredGuids=true}
+-- GUIDs contain only this fixed alphabet, so canonical JSON needs no free-text escaping.
+local function BatchTargets(value, sorted)
+  if type(value)~="table" or getmetatable(value)~=nil or #value<1 or #value>20 then return nil end
+  local copy,seen,count={}, {},0
+  for key,id in pairs(value) do
+    if not Number(key,1,#value) or not Text(id,40) or not id:match("^Player%-%d+%-%x+$") or seen[id] then return nil end
+    seen[id],count=true,count+1;copy[key]=id
+  end
+  if count~=#value then return nil end
+  if sorted then
+    for i=2,#copy do if copy[i-1]>=copy[i] then return nil end end
+  else table.sort(copy) end
+  local encoded={};for i,id in ipairs(copy) do encoded[i]='"'..id..'"' end
+  return copy,"["..table.concat(encoded,",").."]",table.concat(copy,",")
+end
 local function ValidSelect(control,identity,now)
-  if not ExactKeys(control,SELECT_CONTROL) or control.version~=2 or control.action~="select"
+  local batch=type(control)=="table" and control.version==3 and control.action=="select-many"
+  if not ExactKeys(control,batch and BATCH_CONTROL or SELECT_CONTROL)
+    or not batch and (control.version~=2 or control.action~="select")
     or not Text(control.id,32) or not Number(control.observedAt,1,now+5) or control.id:match("^(%d+):%d+$")~=tostring(control.observedAt)
-    or control.scopeHash~=identity.scopeHash or control.guid~=identity.guid or not Text(control.targetGuid,40)
-    or not control.targetGuid:match("^Player%-%d+%-%x+$") or not Text(control.mac,32) or #control.mac~=32
+    or control.scopeHash~=identity.scopeHash or control.guid~=identity.guid or not Text(control.mac,32) or #control.mac~=32
     or not Text(cfg.secret,1024) or not H or type(H.hmacSha256hex)~="function" then return false end
-  return control.mac==H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","2","select",control.id,tostring(control.observedAt),control.scopeHash,control.guid,control.targetGuid},"|")):sub(1,32)
+  local targets,encoded,joined
+  if batch then targets,encoded,joined=BatchTargets(control.targetGuids,true)
+  elseif Text(control.targetGuid,40) and control.targetGuid:match("^Player%-%d+%-%x+$") then targets,joined={control.targetGuid},control.targetGuid end
+  if not targets then return false end
+  local message=table.concat({"launch-selected-read",batch and "3" or "2",batch and "select-many" or "select",control.id,tostring(control.observedAt),control.scopeHash,control.guid,joined},"|")
+  if control.mac~=H.hmacSha256hex(cfg.secret,message):sub(1,32) then return false end
+  return targets,batch,encoded
 end
 local SELECT_HOLDS={
   ["native-roster-receipt-required"]="A fresh native roster ACK is required. Recheck this selected GUID after a complete current native export is accepted; no older ACK is borrowed.",
@@ -232,14 +257,22 @@ local SELECT_HOLDS={
 }
 local function SelectedCurrent(identity, now, control)
   local data=OlympusLaunchSelected
-  if not ValidSelect(control,identity,now) then return nil end
-  local held={targetGuid=control.targetGuid,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
-  if not ExactKeys(data,SELECT_KEYS) or data.version~=1
-    or data.protocol~="promotion-selection-v273" and data.protocol~="promotion-selection-v274"
-    or data.controlId~=control.id or data.actorGuid~=identity.guid or data.targetGuid~=control.targetGuid
+  local targets,batch,encoded=ValidSelect(control,identity,now)
+  if not targets then return nil end
+  local requested={};for _,id in ipairs(targets) do requested[id]=true end
+  local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
+  if not ExactKeys(data,batch and BATCH_KEYS or SELECT_KEYS) or data.version~=1
+    or batch and data.protocol~="promotion-selection-v276"
+    or not batch and data.protocol~="promotion-selection-v273" and data.protocol~="promotion-selection-v274"
+    or data.controlId~=control.id or data.actorGuid~=identity.guid or not batch and data.targetGuid~=control.targetGuid
     or data.scopeHash~=identity.scopeHash or data.observedAt~=control.observedAt or data.startedAt~=data.observedAt
     or not Number(data.observedAt,1,now+5) or type(data.running)~="boolean" or type(data.completed)~="boolean"
     or not Number(data.attempts,0,3) or data.stoppedReason~=nil and not Text(data.stoppedReason,64) then return held end
+  if batch then
+    local returned,returnedJSON=BatchTargets(data.targetGuids,true)
+    if not returned or returnedJSON~=encoded or data.coverageKind~="selected-guids" or type(H.sha256hex)~="function"
+      or data.targetsDigest~=H.sha256hex(encoded) then return held end
+  end
   held.state=data.running and "pending" or "held"
   held.reason=SELECT_HOLDS[data.stoppedReason] or (data.running
     and "The last loaded selected read is pending. Load its later dated result; this view cannot observe the Watcher process."
@@ -253,12 +286,16 @@ local function SelectedCurrent(identity, now, control)
     if not Number(key,1,#data.coveredGuids) or not Text(value,40) or not value:match("^Player%-%d+%-%x+$") or covered[value] then return held end
     covered[value]=true
   end
-  if not covered[data.targetGuid] then return held end
+  if batch then
+    if #data.coveredGuids~=#targets then return held end
+    for i,id in ipairs(targets) do if data.coveredGuids[i]~=id then return held end end
+  elseif not covered[data.targetGuid] then return held end
   local page=data.page
   if type(page.entitlements)~="table" or page.entitlements.scanned~=#data.coveredGuids or page.entitlements.pageSize~=20
     or not Number(page.entitlements.total,1,1000) or page.memberCount~=page.entitlements.total
     or not Number(page.entitlements.offset,0,980) or page.entitlements.offset%20~=0
-    or page.entitlements.scanned~=math.min(20,page.entitlements.total-page.entitlements.offset)
+    or batch and (page.entitlements.offset~=0 or page.entitlements.scanned~=#targets or #targets>page.entitlements.total)
+    or not batch and page.entitlements.scanned~=math.min(20,page.entitlements.total-page.entitlements.offset)
     or page.entitlements.unscanned~=math.max(0,page.entitlements.total-page.entitlements.offset-page.entitlements.scanned)
     or page.entitlements.retryAfterSeconds~=nil or type(page.invites)~="table" or next(page.invites)~=nil
     or type(page.riskBuffer)~="table" or next(page.riskBuffer)~=nil then return held end
@@ -268,13 +305,15 @@ local function SelectedCurrent(identity, now, control)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
   -- The owner's longer window applies only to new selected-promotion observations.
   -- Legacy selected results and all discovery actions keep their original 60-second cap.
-  local ttl=data.protocol=="promotion-selection-v274" and 600 or 60
+  local ttl=(batch or data.protocol=="promotion-selection-v274") and 600 or 60
   local checked=HistoricalCurrent({version=2,controlId=control.id,scanComplete=false,pages={page}},true,ttl)
   if not checked then return held end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
   end
-  held={targetGuid=data.targetGuid,state="complete",reason="The selected page is loaded with its original observation dates. A separate hardware click must recheck the current native target.",
+  held={targetGuid=targets[1],targetGuids=batch and targets or nil,state="complete",reason=batch
+      and ("The explicit "..#targets.."-GUID check is loaded with its original dates. Each promotion requires a separate hardware click and current native checks.")
+      or "The selected page is loaded with its original observation dates. A separate hardware click must recheck the current native target.",
     completed=true,page=page,covered=covered,checked=checked,controlId=data.controlId}
   return held
 end
@@ -290,7 +329,7 @@ function Q.Current()
     current={identity=identity,invites={},promotions={},riskBuffer={},held={},pages={},actionHeld=true,freshness={},scanComplete=false,partial=true,stalePages=0}
   end
   current.selection=selection
-  local covered=selection.completed and selection.covered or {[selection.targetGuid or ""]=true}
+  local covered=selection.covered or {[selection.targetGuid or ""]=true}
   -- Supersede positive AND negative display rows, even if this result has no recommendation.
   if selection.completed then
     for _,kind in ipairs({"promotions","held","riskBuffer"}) do
@@ -361,8 +400,8 @@ function Q.Print()
   return true
 end
 -- Called only by the explicit slash/button hardware path. Events merely invalidate/confirm state.
--- SavedVariables retain only spent/unknown native-attempt metadata. A reload
--- cannot turn an unconfirmed call into a new unattempted target.
+-- Unknown calls survive reload. Only a newer complete native roster can settle
+-- a step created in this session; observing a rank does not prove who changed it.
 local function AttemptLedger(create)
   local db=OlympusVerifyDB
   if db==nil and not create then return {} end
@@ -374,9 +413,83 @@ local function AttemptLedger(create)
   if type(db.launchPromotionAttempts)~="table" or getmetatable(db.launchPromotionAttempts)~=nil then return nil end
   return db.launchPromotionAttempts
 end
-function Q.AttemptHeld(id)
+local function PromotionRow(current,id)
+  for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
+end
+local function SameAttempt(record,id,current)
+  if not (type(record)=="table" and getmetatable(record)==nil and record.version==2
+    and record.scopeHash==current.identity.scopeHash and record.actorGuid==current.identity.guid
+    and record.targetGuid==id and Text(record.name,100) and Number(record.startSlot,7,9)
+    and Number(record.target,6,8) and Number(record.attemptedAt,1,time())
+    and type(record.steps)=="table" and getmetatable(record.steps)==nil
+    and Number(#record.steps,1,3) and #record.steps<=record.startSlot-record.target) then return false end
+  local count=0
+  for key,step in pairs(record.steps) do
+    count=count+1
+    if not Number(key,1,#record.steps) or type(step)~="table" or getmetatable(step)~=nil
+      or step.from~=record.startSlot-key+1 or step.expected~=step.from-1
+      or not Number(step.attemptedAt,record.attemptedAt,time()) then return false end
+    if record.state=="confirmed" and (step.state~="rank-observed" or not Number(step.observedAt,step.attemptedAt,time())) then return false end
+  end
+  if count~=#record.steps then return false end
+  return record.state~="confirmed" or (record.observedSlot==record.startSlot-#record.steps
+    and Number(record.observedAt,record.steps[#record.steps].attemptedAt,time())
+    and Number(record.observedGeneration,1,2147483647) and record.completed==(record.observedSlot==record.target))
+end
+local function SamePromotion(record,row,source,current)
+  return SameAttempt(record,row.guid,current) and record.snapshotId==source.snapshotId
+    and record.contextId==source.contextId and record.target==row.targetSlot
+    and record.startSlot==row.currentSlot and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
+end
+function Q.PromotionStatus(id,current,nativeSlot)
+  if Q.promotionBlocked then return "blocked" end
+  if Q.pending[id]~=nil then return "pending" end
   local ledger=AttemptLedger()
-  return not ledger or ledger[id]~=nil
+  if not ledger then return "pending" end
+  local record=ledger[id]
+  if record==nil then return "clear" end
+  current=current or Q.Current()
+  if not current or not SameAttempt(record,id,current) or record.state~="confirmed" then return "pending" end
+  local row,source=PromotionRow(current,id)
+  if not row or not source or not ActionFresh(current,source) then return "pending" end
+  if nativeSlot~=nil and nativeSlot~=record.observedSlot then return "pending" end
+  if SamePromotion(record,row,source,current) then
+    if record.completed then return "confirmed" end
+    local continuation=Q.continuations[id]
+    if continuation and continuation.record==record and continuation.generation==record.observedGeneration
+      and Q.generation>=continuation.generation and record.observedSlot>record.target
+      and record.observedSlot<record.startSlot and #record.steps<record.startSlot-record.target then return "continue" end
+  elseif record.completed and record.contextId~=source.contextId and row.currentSlot==record.observedSlot
+    and row.targetSlot<record.observedSlot and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
+    and source.page and source.page.scan and source.page.scan.startedAt>=record.observedAt and source.page.fetchedAt>=record.observedAt then
+    return "clear" -- a different fresh recommendation, retaining the completed history below
+  end
+  return "pending"
+end
+function Q.AttemptHeld(id,current,nativeSlot)
+  local status=Q.PromotionStatus(id,current,nativeSlot)
+  return status=="pending" or status=="blocked"
+end
+local function ReconcilePromotions()
+  if next(Q.pending)==nil then return end
+  local current=Q.Current()
+  if not current then return end
+  local roster=NativeRoster(current.identity)
+  local ledger=AttemptLedger()
+  if not roster or not ledger then return end
+  for id,pending in pairs(Q.pending) do
+    local record,native=ledger[id],roster[id]
+    local row,source=PromotionRow(current,id)
+    if row and source and record==pending.record and SamePromotion(record,row,source,current) and pending.step==record.steps[#record.steps]
+      and ActionFresh(current,source) and Q.generation>pending.generation
+      and native and native.slot==pending.expected and native.name==record.name then
+      record.state,record.observedSlot,record.observedAt,record.observedGeneration="confirmed",native.slot,time(),Q.generation
+      record.completed=native.slot==record.target
+      pending.step.state,pending.step.observedAt="rank-observed",time()
+      Q.pending[id]=nil
+      Q.continuations[id]=not record.completed and {record=record,generation=Q.generation} or nil
+    end
+  end
 end
 function Q.HardwarePromote(target)
   local current, roster = ActionContext()
@@ -387,41 +500,49 @@ function Q.HardwarePromote(target)
   local fresh = current.freshness[row.guid]
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
     or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end
-  local native, pending = roster[row.guid], Q.pending[row.guid]
+  local native = roster[row.guid]
   local ledger=AttemptLedger(true)
   if not ledger then Say("Prior native attempt custody is unavailable; no action taken.");return false end
   if not native or H.normalizeCharacter(native.name) ~= H.normalizeCharacter(row.name) or native.guid == current.identity.guid
     or row.targetSlot <= current.identity.rank or Read(CanGuildPromote) ~= true then Say("Current native identity/rank/permission does not admit this promotion."); return false end
   if native.slot <= row.targetSlot then Say("Native target rank already reached; no action taken. Any prior unknown attempt remains retained for review."); return false end
-  if not pending and ledger[row.guid]~=nil then Say("A prior native attempt survives reload and is unconfirmed. Review the current native rank; no repeat was sent.");return false end
-  if pending then
-    if pending.failed or pending.scopeHash ~= current.identity.scopeHash or pending.snapshotId ~= fresh.snapshotId
-      or pending.contextId~=fresh.contextId
-      or pending.target ~= row.targetSlot or Q.generation <= pending.generation or native.slot ~= pending.expected
-      or pending.attempts >= pending.maximum then Say("Prior attempt is unconfirmed or changed; no automatic retry. Refresh and review the native roster."); return false end
-  elseif native.slot ~= row.currentSlot then Say("The native rank changed since this projection; refresh it."); return false end
-  if Q.directBlockedGeneration and Q.generation <= Q.directBlockedGeneration then Say("Refresh the native roster before using the hardware fallback."); return false end
+  local status=Q.PromotionStatus(row.guid,current,native.slot)
+  if Q.promotionBlocked or status=="pending" then Say("A prior native attempt or client block is unconfirmed. No repeat was sent; review the native roster.");return false end
+  if status=="continue" and native.name~=ledger[row.guid].name then Say("The exact native name changed after the prior step; no action taken.");return false end
+  if status~="continue" and native.slot~=row.currentSlot then Say("The native rank changed since this projection; refresh it."); return false end
   if Read(GuildControlGetRankName, row.targetSlot + 1) ~= row.targetName then
     Say("The client cannot confirm the named target rank. Use the normal guild roster UI; no promotion sent."); return false end
   local cg = type(C_GuildInfo) == "table" and C_GuildInfo or {}
-  local direct = not Q.directBlocked and type(cg.SetGuildRankOrder) == "function"
-  if direct and Read(cg.IsGuildRankAssignmentAllowed, native.guid, row.targetSlot + 1) ~= true then Say("The client does not allow assigning this native rank."); return false end
-  local fn = direct and cg.SetGuildRankOrder or (type(cg.Promote) == "function" and cg.Promote or GuildPromote)
+  -- SetGuildRankOrder is restricted to Blizzard UI on this client. The name-only
+  -- promotion API advances exactly one rank; a later step needs another click.
+  if type(cg.IsGuildRankAssignmentAllowed)=="function" and Read(cg.IsGuildRankAssignmentAllowed,native.guid,row.targetSlot+1)~=true then
+    Say("The client does not allow this named target rank; no promotion sent.");return false
+  end
+  local fn = type(cg.Promote)=="function" and cg.Promote or GuildPromote
   if type(fn) ~= "function" then Say("No native promotion API is available; use the normal guild UI."); return false end
-  local attempt = { scopeHash = current.identity.scopeHash, snapshotId = fresh.snapshotId, contextId=fresh.contextId, target = row.targetSlot,
-    generation = Q.generation, expected = direct and row.targetSlot or native.slot - 1,
-    attempts = (pending and pending.attempts or 0) + 1, maximum = pending and pending.maximum or native.slot - row.targetSlot }
   local count=0;for _ in pairs(ledger) do count=count+1 end
   if ledger[row.guid]==nil and count>=1000 then Say("Native attempt custody is full; no action taken.");return false end
-  ledger[row.guid]={scopeHash=attempt.scopeHash,actorGuid=current.identity.guid,targetGuid=row.guid,target=attempt.target,
-    snapshotId=attempt.snapshotId,contextId=attempt.contextId,attemptedAt=time(),state="unknown"}
-  Q.pending[row.guid], Q.activeAttempt, Q.inAction = attempt, attempt, direct and "direct" or "fallback"
-  local ok
-  if direct then ok = pcall(fn, native.guid, row.targetSlot + 1) else ok = pcall(fn, native.name) end
+  local record=ledger[row.guid]
+  if status~="continue" then
+    local previous,depth=record,0
+    while previous~=nil do
+      depth=depth+1
+      if depth>=8 or type(previous)~="table" then Say("Native attempt history needs review; no action taken.");return false end
+      previous=previous.previous
+    end
+    record={version=2,scopeHash=current.identity.scopeHash,actorGuid=current.identity.guid,targetGuid=row.guid,name=native.name,
+      target=row.targetSlot,startSlot=native.slot,snapshotId=fresh.snapshotId,contextId=fresh.contextId,attemptedAt=time(),steps={},previous=record}
+    ledger[row.guid]=record
+  end
+  local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown"}
+  record.steps[#record.steps+1]=step;record.state="unknown";record.completed=false
+  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected}
+  Q.continuations[row.guid]=nil
+  Q.pending[row.guid], Q.activeAttempt, Q.inAction = attempt, attempt, "promote"
+  local ok=pcall(fn,native.name)
   Q.inAction, Q.activeAttempt = nil, nil
   if attempt.blocked then
-    Q.pending[row.guid] = nil;ledger[row.guid]=nil
-    Say("This client blocked the direct API. Refresh the roster; a later click may use one-rank hardware fallback.")
+    Say("The client reported a blocked promotion action. Its original outcome remains held; no fallback or repeat was queued.")
     return false
   end
   if not ok then attempt.failed = true; Say("Native promotion outcome is unknown; no retry was queued."); return false end
@@ -514,6 +635,32 @@ function Q.Select(targetGuid)
   Say("Selected GUID read requested. This reload saves its fresh native source; sync later to load the dated result. Promotion needs a separate hardware click.")
   OlympusVerifyAPI.Sync();return true
 end
+function Q.SelectMany(targetGuids)
+  local identity=Identity()
+  if cfg.membershipOnly~=true or not identity or Q.scopeChanged or Preview() or Read(InCombatLockdown)~=false
+    or Q.identityBaseline and not SameIdentity(Q.identityBaseline,identity)
+    or not Text(cfg.secret,1024) or #cfg.secret<16 or cfg.secret:find("REPLACE",1,true)
+    or not H or type(H.hmacSha256hex)~="function" or type(H.sha256hex)~="function"
+    or not OlympusVerifyAPI or type(OlympusVerifyAPI.Sync)~="function" then
+    Say("Current native identity, signing or sync is unavailable; Initiate check held.");return false end
+  local targets,_,joined=BatchTargets(targetGuids,false)
+  if not targets then Say("Choose between one and twenty unique native Initiate GUIDs; no check requested.");return false end
+  local roster,why=NativeRoster(identity)
+  if not roster then Say(why);return false end
+  for _,id in ipairs(targets) do
+    if id==identity.guid or not roster[id] or roster[id].slot~=9 then
+      Say("A selected GUID is absent, ambiguous or no longer a native Initiate. Refresh the roster before checking.");return false end
+  end
+  OlympusVerifyDB=OlympusVerifyDB or {}
+  local db,now=OlympusVerifyDB,time()
+  db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
+  local control={version=3,action="select-many",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+    scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=targets}
+  control.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","3","select-many",control.id,tostring(now),identity.scopeHash,identity.guid,joined},"|")):sub(1,32)
+  db.launchControl=control
+  Say("Requested a fresh check of "..#targets.." verified native Initiates. This reload exports the request; load its completed result before promoting. No promotion was sent.")
+  OlympusVerifyAPI.Sync();return true
+end
 local function TabRows(current)
   local rows={}
   if not current then return rows end
@@ -544,9 +691,20 @@ function Q.NextAction()
   if not action then Say(roster); return false end
   local rows=TabRows(current)
   if not Q.tab then rows=current.promotions end
+  local cg=type(C_GuildInfo)=="table" and C_GuildInfo or {}
+  local ledger=AttemptLedger()
   for _,row in ipairs(rows) do
     local source=current.freshness[row.guid]
-    if ActionFresh(current,source) and roster[row.guid] and roster[row.guid].slot>row.targetSlot then
+    local native=roster[row.guid]
+    local status=native and Q.PromotionStatus(row.guid,current,native.slot)
+    local rankReady=native and (status=="clear" and native.slot==row.currentSlot
+      or status=="continue" and ledger and ledger[row.guid] and native.name==ledger[row.guid].name)
+    if ActionFresh(current,source) and rankReady and native.slot>row.targetSlot
+      and native.guid~=current.identity.guid and H.normalizeCharacter(native.name)==H.normalizeCharacter(row.name)
+      and row.targetSlot>current.identity.rank and Read(CanGuildPromote)==true
+      and Read(GuildControlGetRankName,row.targetSlot+1)==row.targetName
+      and (type(cg.IsGuildRankAssignmentAllowed)~="function" or Read(cg.IsGuildRankAssignmentAllowed,native.guid,row.targetSlot+1)==true)
+      and (type(cg.Promote)=="function" or type(GuildPromote)=="function") then
       return Q.HardwarePromote(row.guid) -- exactly one attempted target per hardware action
     end
   end
@@ -639,16 +797,20 @@ events:RegisterEvent("PLAYER_GUILD_UPDATE")
 events:RegisterEvent("PLAYER_LEAVING_WORLD")
 events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 events:RegisterEvent("ADDON_ACTION_BLOCKED")
-events:SetScript("OnEvent", function(_, event, addon)
-  if event == "GUILD_ROSTER_UPDATE" then Q.generation = Q.generation + 1; Q.rosterAt = time()
+events:SetScript("OnEvent", function(_, event, addon, functionName)
+  if event == "GUILD_ROSTER_UPDATE" then Q.generation = Q.generation + 1; Q.rosterAt = time(); ReconcilePromotions()
   elseif event == "PLAYER_GUILD_UPDATE" and addon == "player" then
     Q.rosterAt=nil
     local raw=RawIdentity();local baseline=Q.loadedIdentity or Q.identityBaseline
     if raw and baseline and not SameIdentity(raw,baseline) then Q.scopeChanged=true
     elseif raw and not baseline then Q.identityBaseline=raw end
   elseif event == "PLAYER_LEAVING_WORLD" then Q.rosterAt = nil
-  elseif addon == ADDON and Q.inAction == "direct" then
-    Q.directBlocked = true; Q.directBlockedGeneration = Q.generation
+  elseif (event=="ADDON_ACTION_FORBIDDEN" or event=="ADDON_ACTION_BLOCKED") and addon == ADDON
+    and (Q.inAction=="promote" or functionName=="C_GuildInfo.Promote()" or functionName=="GuildPromote()"
+      or functionName=="C_GuildInfo.Promote" or functionName=="GuildPromote") then
+    -- A delayed event identifies the blocked API, not the member or outcome.
+    -- Keep every unknown record; never use the event to clear or retry a call.
+    Q.promotionBlocked = true
     if Q.activeAttempt then Q.activeAttempt.blocked = true end
   end
 end)

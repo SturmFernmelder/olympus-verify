@@ -8404,3 +8404,49 @@ entry claims no production deployment or fresh native readiness: archived lineag
 does not refresh an expired roster. Root's ordinary exact-head release, backup,
 provider/public/cron and empty-note gates remain required. No relink, provider role
 write, native promotion or live-bridge activation is authorized by this change.
+
+## Worker .276 / Verify 0.6.35 / Watcher 0.6.37 — guild promotion controls (12 November 2026)
+
+The owner's request covers fresh checks of the verified native Initiates, attended
+promotion-button qualification, and promotion controls plus known Discord names
+beside verification in the native guild tab. The addon must use the supported
+one-rank promotion API, never the restricted rank-setting API from addon code.
+Each step requires its own hardware click, current exact GUID/name/rank/scope and
+permission checks, and an observed native result. Existing unknown attempts stay
+held; a reload or a different button cannot retry an unconfirmed effect.
+
+Guild-row controls share the same promotion model and dispatcher as the roster
+window. Names come from the dated, unique GUID-bound Watcher display; username
+and global display name are distinguished from server nicknames. No inferred old
+account name is displayed as a current link. Native handlers and guild permissions
+are not modified, and unsupported or cramped layouts retain the roster fallback.
+
+The explicit Initiate checker signs one sorted, unique set of at most twenty
+native GUIDs in the v3/select-many control domain. The v276 result and private v5
+retry cursor bind that exact target set, current actor/scope, original accepted
+native snapshot, current account/privacy/standing facts and identity-bound role
+observations. It retains the existing initial 60-second admission, three-attempt
+limit, shared pacing and original 600-second selected/source deadline. Pending,
+incomplete or unknown results hold every requested GUID. The returned coverage
+is the selected GUID set, not a consecutive roster page or a full-roster scan.
+Existing v2 single-character reads and discovery bytes remain compatible.
+
+Deploy .276 before requesting a batch with the reviewed .35/.37 clients. The
+Watcher change is confined to read-only selected-check intake/results; no process
+can operate the game or promote members. A newly completed file still needs a
+normal reload to enter the running game. Guild actions share the same custody
+checks, so switching views cannot bypass an earlier unknown attempt.
+
+Qualify genuine Lua promotion, unknown-custody and recycled-row behavior as well
+as the 1,000-member benchmark. Rebuild the public addon ZIP/manifest. Before live
+publication use the ordinary exact-head CI, fresh backup and provider/public/cron/
+empty-note gates. Install only reviewed public code, preserving private Config,
+generated exchange and SavedVariables files, then verify the running native UI.
+Actual promotion outcomes require exact native-rank evidence; a requested call or
+green readiness label is not an acknowledgement. No automatic promotion, removal,
+manual relink, proof-date repair or live-bridge activation is included.
+
+Rollback: restore the prior public addon code and package with its existing
+private state intact. Never delete or reset an unknown-attempt ledger to make an
+older button usable. Restoring Worker .275 does not revert native rank changes
+that were actually confirmed during attended operation.

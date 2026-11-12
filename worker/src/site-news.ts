@@ -78,6 +78,13 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".276", date: "2026-11-12", lines: [
+      "The guild roster shows known Discord names beside verification status, with a promotion control for current supported recommendations.",
+      "Officers can request one bounded check of up to twenty verified Initiates, then load the dated result. A check never promotes anyone.",
+      "Promotion uses one deliberate rank step at a time and checks the resulting native rank. Unconfirmed attempts remain held; no promotion is automatic.",
+    ],
+  },
+  {
     build: ".275", date: "2026-11-12", lines: [
       "Recognized verification records now appear consistently in roster status and promotion checks, without changing original link dates.",
       "Released character links show as unverified or pending. Uncertain or blocked links stay held, and promotions still require fresh checks and a separate click.",

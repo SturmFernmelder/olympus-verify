@@ -36,14 +36,15 @@ local function fixture(size)
   local native = e.GetGuildRosterInfo
   e.GetGuildRosterInfo = function(i) f.reads = f.reads + 1; return native(i) end
   e.C_GuildInfo.IsGuildRankAssignmentAllowed = function() return true end
-  e.C_GuildInfo.SetGuildRankOrder = function(guid, order)
-    f.promotions[#f.promotions + 1] = { guid = guid, order = order }
+  e.C_GuildInfo.SetGuildRankOrder = function() error("restricted rank setter must not be called by the addon") end
+  e.C_GuildInfo.Promote = function(name)
+    local found
+    for i,row in ipairs(e.ROSTER) do if e.GetGuildRosterInfo(i)==name then if found then error("ambiguous native target") end;found=row end end
+    if not found then error("unknown native name") end
+    local order=found.rankIndex
+    f.promotions[#f.promotions + 1] = { guid = found.guid, order = order, nativeName = name }
     if f.unknown then error("synthetic unknown native outcome") end
-    if not f.noAck then
-      for _, row in ipairs(e.ROSTER) do
-        if row.guid == guid then row.rankIndex, row.rank = order - 1, e.GuildControlGetRankName(order) end
-      end
-    end
+    if not f.noAck then found.rankIndex,found.rank=order-1,e.GuildControlGetRankName(order) end
   end
   e.C_GuildInfo.Invite = function() f.invites = f.invites + 1 end
   e.C_GuildInfo.Uninvite = function() f.removals = f.removals + 1 end

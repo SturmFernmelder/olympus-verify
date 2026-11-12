@@ -178,6 +178,48 @@ export default {async fetch(request, bindings) {
     if (url.pathname === '/review-records275') {
       const input=await request.json();return Response.json(await reviewRecords275(input.action,input));
     }
+    if (url.pathname === '/batch-observe') {
+      const {indices}=await request.json();
+      if(!Array.isArray(indices)||indices.length<1||indices.length>21||indices.some(index=>!Number.isInteger(index)||!fixture.rows[index]))return new Response(null,{status:400});
+      const source=await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) at,id AS snapshotId,exported_at AS snapshotAt FROM roster_snapshots WHERE id=(SELECT MAX(id) FROM roster_snapshots)").first();
+      return Response.json({complete:true,...source,targetGuids:indices.map(index=>fixture.rows[index].guid).sort()});
+    }
+    if (url.pathname === '/batch-scope') {
+      const {restore=false}=await request.json();
+      if(restore){env.VERIFY_NATIVE_SCOPE=fixture.batchScope;delete fixture.batchScope;}
+      else {fixture.batchScope=env.VERIFY_NATIVE_SCOPE;env.VERIFY_NATIVE_SCOPE=JSON.stringify({version:1,guild:'OLYMPUS PRIME',realm:'Other Batch Realm'});}
+      return Response.json({complete:true});
+    }
+    if (url.pathname === '/batch-selection' || url.pathname === '/batch-boundary') {
+      const input=await request.json(),mode=input.mode??'batch-full',selection=input.selection;
+      if(typeof mode!=='string'||!mode.startsWith('batch-')||!selection||typeof selection!=='object')return new Response(null,{status:400});
+      env.DISCORD_BOT_TOKEN='synthetic-roster-pacing-'+mode;
+      let cursor=input.cursor??null;
+      if(url.pathname==='/batch-boundary'){
+        // Fixture-only private-MAC boundary; production clock, D1, reader and
+        // validation stay real. This is not a historical server-minted cursor.
+        const value=JSON.parse(atob(cursor.split('.')[0].replace(/-/g,'+').replace(/_/g,'/'))),at=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").first()).n;
+        let shared=false,purpose='promotion-selection-cursor|276|';
+        if(input.kind==='shared-secret'){value.roleReads[0][1]='knight';value.roleReads[0][2]=at;shared=true;}
+        else if(input.kind==='legacy-purpose')purpose='promotion-selection-cursor|273|';
+        else if(input.kind==='wrong-digest')value.targetsDigest='f'.repeat(64);
+        else if(input.kind==='wrong-guid')value.roleReads[0][0]=fixture.rows[999].guid;
+        else if(input.kind==='expired-role'){
+          selection.selectionId=String(at-90)+':901';value.selectionId=selection.selectionId;value.issuedAt=at-90;
+          value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=value.roleReads.map(row=>row.map((v,i)=>i===2?at-61:v));
+        }else if(input.kind==='expired-read'){
+          selection.selectionId=String(at-700)+':902';value.selectionId=selection.selectionId;value.issuedAt=at-700;value.expiresAt=Math.min(value.issuedAt+600,value.snapshotAt+600);value.roleReads=[];
+        }else return new Response(null,{status:400});
+        const body=btoa(JSON.stringify(value)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+        const secret=shared?env.VERIFY_SECRET:JSON.stringify(['promotion-selection-cursor',276,env.VERIFY_SECRET,env.SITE_GUILD_ID,env.DISCORD_BOT_TOKEN]);
+        const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+        const mac=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(purpose+body))),n=>n.toString(16).padStart(2,'0')).join('');cursor=body+'.'+mac;
+      }
+      const query=new URLSearchParams({keyVersion:'officer-operations-v233',...Object.fromEntries(Object.entries(selection).map(([key,value])=>[key,key==='targetGuids'?JSON.stringify(value):String(value)]))});
+      if(cursor!==null)query.set('cursor',cursor);
+      const response=await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true),value=await response.json();
+      return Response.json(response.ok?{complete:true,actualLocalWorkerdD1:true,selection:value,cacheControl:response.headers.get('Cache-Control'),syntheticSignedInputBoundary:url.pathname==='/batch-boundary'}:{complete:false,error:value.error},{status:response.status});
+    }
     if (url.pathname === '/selection-observe') {
       const {index=399}=await request.json();
       if(!Number.isInteger(index)||!fixture.rows[index])return new Response(null,{status:400});

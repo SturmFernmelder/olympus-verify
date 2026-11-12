@@ -183,6 +183,8 @@ function M.Promotions(list, launchAPI, now)
   for index = 1, size do
     local row, info = list[index], nil
     local id = guid(row.guid) and row.guid or nil
+    local attemptStatus=id and current and type(launchAPI.PromotionStatus)=="function"
+      and launchAPI.PromotionStatus(id,current,row.rankIndex) or nil
     if initiate(row) and id and seen[id] == 1 and verified(row) then
       diagnostics.knownVerifiedInitiates = diagnostics.knownVerifiedInitiates + 1
     end
@@ -191,7 +193,10 @@ function M.Promotions(list, launchAPI, now)
     elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
     elseif not whole(row.rankIndex,7,9) then info = detail("wrong_rank", "Native rank needs no supported promotion", "Only current native slots 7 through 9 can match a supported Member or Veteran recommendation.")
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
-    elseif launchAPI.pending[id] ~= nil or type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
+    elseif attemptStatus=="blocked" then info=detail("held","Client promotion action blocked","The client reported a blocked promotion API. Original attempt history is retained; this view cannot clear the block or send a fallback.")
+    elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
+      or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
+    elseif attemptStatus=="confirmed" then info=detail("wrong_rank","Target rank observed","A newer complete native roster confirmed the target rank. The original attempt history is retained; no repeat is ready.")
     elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
       diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
         or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")
@@ -215,13 +220,14 @@ function M.Promotions(list, launchAPI, now)
         or source.offset ~= page.entitlements.offset or source.row~=original.row or source.page~=page then
         info = detail("unavailable", "Original source unavailable", "The recommendation is not bound to its original page and scan expiry; no promotion is ready.")
       elseif source.actionHeld then info=detail("held","Selected read held","The selected result is pending or held; no historical recommendation can supply its action authority.")
-      elseif row.rankIndex~=recommendations[id].currentSlot then info=detail("wrong_rank","Native rank changed","The current native rank differs from this recommendation. Recheck the selected GUID; no action is ready.")
+      elseif row.rankIndex~=recommendations[id].currentSlot and attemptStatus~="continue" then info=detail("wrong_rank","Native rank changed","The current native rank differs from this recommendation. Recheck the selected GUID; no action is ready.")
       elseif now >= source.scanExpiresAt then info = detail("expired", "Original scan expired", "The original scan has expired. Its recommendation is advisory until an explicit source recheck.")
       elseif now >= source.expiresAt then info = detail("expired", "Recommendation page expired", "The original recommendation page has expired. A verified display does not renew its action window.")
       else
         candidates[id], diagnostics.ready = true, diagnostics.ready + 1
         if initiate(row) then diagnostics.readyInitiates=diagnostics.readyInitiates+1 end
         info = detail("ready", "Ready for "..recommendations[id].targetName, "A fresh dated recommendation matches this unique native GUID and current rank. One hardware click must recheck native identity, rank, permission and prior attempts before acting.")
+        if attemptStatus=="continue" then info.reason="A newer complete native roster confirmed the previous one-rank step in this original context. One separate hardware click may request the next rank; the named target and original expiry remain unchanged." end
         if source.kind=="selected" then
           info.reason=info.reason.." Original selected recommendation: "..tostring(math.max(0,math.min(source.expiresAt,source.scanExpiresAt)-now)).." seconds remaining. Reloading does not renew it."
         end

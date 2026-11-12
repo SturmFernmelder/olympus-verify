@@ -112,4 +112,149 @@ do
   f.now=f.now+6;f.status()
   check("native and historical caches expire after five seconds",f.reads==2000 and normalizations-firstNormalizations>1000)
 end
+-- Real Guild column, model and hardware dispatcher. Native rows/buttons are
+-- synthetic; no installed data, native UI or provider is touched.
+local function guildUI(size)
+  local f=fixture(size or 3);local e=f.e
+  for _,row in ipairs(e.ROSTER) do row.rank,row.rankIndex="Initiate",9 end
+  local q=f.install(2,0)
+  for i,row in ipairs(q.verified.members) do row.username="user"..i;row.displayName="Display "..i end
+  e.GetGuildRosterShowOffline=function()return true end
+  e.CanGuildPromote=function()return true end
+  e.GuildControlGetRankName=function(order)return order==9 and "Member" or order==7 and "Veteran" or "Other" end
+  f.promotions,f.restrictedCalls,f.nativeClicks=0,0,0
+  e.C_GuildInfo.SetGuildRankOrder=function()f.restrictedCalls=f.restrictedCalls+1;error("restricted setter must never be used") end
+  e.C_GuildInfo.Promote=function(name)
+    f.promotions=f.promotions+1;f.promotedName=name
+    for _,row in ipairs(e.ROSTER) do if row.name.."-Forever"==name then row.rankIndex=row.rankIndex-1;return end end
+    error("unknown synthetic native target")
+  end
+  e.C_GuildInfo.IsGuildRankAssignmentAllowed=function()return true end
+  local h=e.OlympusHmac
+  f.page={protocol="officer-operations-v233",fetchedAt=f.now,expiresAt=f.now+60,status="ready",snapshotId=1,snapshotAt=f.now,
+    memberCount=#e.ROSTER,guild=f.guild,realm=f.realm,canonicalGuild="OLYMPUS PRIME",scopeHash=h.sha256hex("native-scope|1|"..f.guild.."|"..f.realm):sub(1,16),
+    entitlements={offset=0,total=#e.ROSTER},scan={id=string.rep("a",32),startedAt=f.now,expiresAt=f.now+600},
+    promotions={{name=e.ROSTER[1].name,guid=e.ROSTER[1].guid,currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}},
+    invites={},riskBuffer={},held={},actions={automatic=false,roleGrants=false,removals=false,requiresNativeRecheck=true}}
+  e.OlympusLaunchQueue={version=2,controlId="loaded",scanComplete=true,pages={f.page}}
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyRosterModel.lua")),e)("OlympusVerify")
+  f.launch=e.OlympusLaunch229
+  f.rosterEvent=function()f.event("GUILD_ROSTER_UPDATE");f.launch.Events:GetScript("OnEvent")(f.launch.Events,"GUILD_ROSTER_UPDATE")end
+  f.rosterEvent()
+  e.UIParent:Show();e.UIParent.GetRight=function()return 1920 end
+  f.tooltipLines={}
+  e.GameTooltip.SetText=function(_,text)f.tooltipLines={text}end
+  e.GameTooltip.AddLine=function(_,text)f.tooltipLines[#f.tooltipLines+1]=text end
+  local host=e.CreateFrame("Frame",nil,e.UIParent);host:Show();host:SetSize(900,700)
+  host.GetRight=function()return f.right or 1100 end;host.GetAlpha=function()return 1 end;host.GuildMemberDetailFrame=false
+  local list=e.CreateFrame("Frame",nil,host);list:Show();list.expandedDisplay=true;list.GetSelectedClubId=function()return f.club or 77 end
+  e.C_Club={GetGuildClubId=function()return 77 end};host.MemberList=list;e.CommunitiesFrame=host
+  f.nativeRows={}
+  for i=1,math.min(size or 3,3) do
+    local row=e.CreateFrame("Button",nil,list);row:Show();row:SetSize(600,20)
+    row.member={name=e.ROSTER[i].name.."-Forever",guid=e.ROSTER[i].guid}
+    row.GetMemberInfo=function(self)return self.member end
+    row:SetScript("OnMouseUp",function()f.nativeClicks=f.nativeClicks+1 end)
+    f.nativeRows[i]=row
+  end
+  list.ScrollBox={ForEachFrame=function(_,callback)for _,row in ipairs(f.nativeRows)do callback(row)end end}
+  f.tick=function()f.frame:GetScript("OnUpdate")(f.frame,0.3)end
+  f.event("ADDON_LOADED","Blizzard_Communities");f.tick()
+  for _,frame in ipairs(e.FRAMES) do
+    if frame._parent==e.UIParent and frame:GetWidth()==436 then f.column=frame end
+    if frame:GetText()=="Verify members" then f.fallback=frame end
+  end
+  f.buttons=function()
+    local result={};for _,frame in ipairs(e.FRAMES)do for i,row in ipairs(f.nativeRows)do if frame.nativeRow==row then result[i]=frame end end end
+    return result
+  end
+  f.host,f.list=host,list
+  return f
+end
+do
+  local f=guildUI();local buttons=f.buttons();local b=buttons[1]
+  check("native Guild column renders both dated Discord name fields beside status",f.column:IsShown() and b.username:GetText()=="@user1" and b.displayName:GetText()=="Display 1" and b.text:GetText():find("Verified",1,true))
+  check("explicit Promote is beside status and names never overlap its action box",select(2,b.promote:GetPoint())==b and select(3,b.promote:GetPoint())=="RIGHT" and select(4,b.promote:GetPoint())==6 and select(2,b.username:GetPoint())==b.promote and select(4,b.username:GetPoint())==8 and select(2,b.displayName:GetPoint())==b.username and select(4,b.displayName:GetPoint())==8 and 8+b:GetWidth()+6+b.promote:GetWidth()+8+b.username:GetWidth()+8+b.displayName:GetWidth()<=f.column:GetWidth()-8)
+  check("ordinary verified non-Knight recommendation enables only the exact eligible row",b.promote:IsVisible() and b.promote:IsEnabled() and not buttons[2].promote:IsEnabled() and not buttons[3].promote:IsEnabled())
+  check("opening and repainting native Guild UI sends no promotion",f.promotions==0 and f.restrictedCalls==0 and f.nativeClicks==0)
+  local current=f.launch.Current;local reads=0
+  f.launch.Current=function()reads=reads+1;return current()end;f.tick()
+  check("one native column refresh reads the promotion source once for visible rows",reads==1)
+  b.promote:Click()
+  check("actual Guild row Promote delegates one exact GUID through the supported one-rank dispatcher",f.promotions==1 and f.promotedName==f.e.ROSTER[1].name.."-Forever" and f.restrictedCalls==0 and f.e.ROSTER[1].rankIndex==8)
+  f.tick();b.promote:Click()
+  check("a completed or pending row cannot repeat from a recycled Guild action",f.promotions==1)
+end
+for _,case in ipairs({"expired","rank","scope","unknown-attempt","missing-dispatcher","row-recycled","wrong-club","combat","preview","permission","assignment","stale-native","partial-native"})do
+  local f=guildUI();local b=f.buttons()[1]
+  if case=="expired" then f.now=f.now+60;f.rosterEvent()
+  elseif case=="rank" then f.e.ROSTER[1].rankIndex=8;f.rosterEvent()
+  elseif case=="scope" then f.guild="Another Guild";f.event("PLAYER_GUILD_UPDATE","player")
+  elseif case=="unknown-attempt" then f.e.OlympusVerifyDB.launchPromotionAttempts={[f.e.ROSTER[1].guid]={state="unknown"}}
+  elseif case=="missing-dispatcher" then f.launch.HardwarePromote=nil
+  elseif case=="row-recycled" then f.nativeRows[1].member={name=f.e.ROSTER[2].name.."-Forever",guid=f.e.ROSTER[2].guid}
+  elseif case=="wrong-club" then f.club=88
+  elseif case=="combat" then f.e.InCombatLockdown=function()return true end
+  elseif case=="preview" then f.e.OlympusVerifyUI={preview={}}
+  elseif case=="permission" then f.e.CanGuildPromote=function()return false end
+  elseif case=="assignment" then f.e.C_GuildInfo.IsGuildRankAssignmentAllowed=function()return false end
+  elseif case=="stale-native" then f.now=f.now+16
+  elseif case=="partial-native" then f.e.GetGuildRosterShowOffline=function()return false end end
+  -- Invoke the old visible callback directly to test its own click-time fences,
+  -- including cases where WoW would already have hidden/disabled the widget.
+  b.promote:GetScript("OnClick")(b.promote)
+  check("native Guild promotion click retains "..case.." refusal",f.promotions==0 and f.restrictedCalls==0)
+end
+do
+  local f=guildUI();local b=f.buttons()[1];local q=f.q
+  q.verified.members[1].displayName="Visible |cffff0000 Name\nLine";f.rosterEvent();f.tick()
+  check("Discord display names escape WoW markup and controls without interpreting them",b.displayName:GetText()=="Visible ||cffff0000 Name Line")
+  b:GetScript("OnEnter")(b)
+  check("Guild status tooltip retains both complete safe Discord name fields",table.concat(f.tooltipLines,"\n"):find("Discord username: user1",1,true) and table.concat(f.tooltipLines,"\n"):find("Discord display name: Visible ||cffff0000 Name Line",1,true))
+  q.verified.members[1].username="secret-name";q.verified.members[1].displayName="Visible Display"
+  f.e.issecretvalue=function(value)return value=="secret-name" end;f.rosterEvent();f.tick()
+  check("restricted Discord values are never rendered as native Guild names",b.username:GetText()=="—" and b.displayName:GetText()=="Visible Display")
+  q.verified.members[1].username=nil;q.verified.members[1].displayName=nil;f.rosterEvent();f.tick()
+  check("missing Discord fields never fall back to guessed character or account names",b.username:GetText()=="—" and b.displayName:GetText()=="—")
+  q.verified.members[1].username="private-user";q.verified.members[1].displayName="private-display";q.verified.fetchedAt=f.now-3601;q.unverified.fetchedAt=f.now-3601;q.unknown.fetchedAt=f.now-3601
+  q.verified.snapshotAt=f.now-3601;q.unverified.snapshotAt=f.now-3601;q.unknown.snapshotAt=f.now-3601;f.rosterEvent();f.tick()
+  check("expired or unknown Guild status clears previously visible Discord fields",b.username:GetText()=="—" and b.displayName:GetText()=="—")
+  q=f.install(2,0);q.verified.members[1].username="current-user";q.verified.members[1].displayName="Current Display";f.tick()
+  q.verified.members[1].guid="Player-1-FFFF0001";f.rosterEvent();f.tick()
+  check("a same-name different-GUID link cannot expose Discord names in the native Guild column",b.username:GetText()=="—" and b.displayName:GetText()=="—")
+  q.verified.members[1].guid=f.e.ROSTER[1].guid;f.rosterEvent();f.tick()
+  f.nativeRows[1].member.guid=nil;f.tick()
+  check("native row without its exact GUID never exposes Discord fields or promotion",b.username:GetText()=="—" and b.displayName:GetText()=="—" and not b.promote:IsEnabled())
+  f.nativeRows[1].member={name=f.e.ROSTER[2].name.."-Forever",guid=f.e.ROSTER[2].guid};f.tick()
+  check("recycled native row clears the previous identity's Discord text",b.username:GetText()=="—" and b.displayName:GetText()=="—" and b.rowGuid==f.e.ROSTER[2].guid)
+  for _,row in ipairs(f.nativeRows)do row:Hide()end;f.tick()
+  check("removed native rows clear text and stale action bindings",b.result==nil and b.rowGuid==nil and b.username:GetText()=="" and b.displayName:GetText()=="" and not b.promote:IsEnabled())
+end
+do
+  local f=guildUI();local b=f.buttons()[1];local handler=f.nativeRows[1]:GetScript("OnMouseUp")
+  check("native guild row handlers and frame dimensions remain untouched",f.host:GetWidth()==900 and f.nativeRows[1]:GetWidth()==600 and handler~=nil)
+  f.right=1600;f.tick()
+  check("insufficient screen space uses the existing roster fallback without offscreen names or actions",not f.column:IsShown() and f.fallback:IsShown())
+  b.promote:GetScript("OnClick")(b.promote);check("hidden offscreen fallback cannot dispatch a stale row action",f.promotions==0)
+  f.right=1100;f.tick();f.e.InCombatLockdown=function()return true end;f.event("PLAYER_REGEN_DISABLED")
+  check("combat hides all addon-owned Guild controls",not f.column:IsShown() and not f.fallback:IsShown())
+  check("native handlers still have their original identities after refresh and combat",f.nativeRows[1]:GetScript("OnMouseUp")==handler and f.nativeClicks==0)
+end
+do
+  local f=guildUI();local b=f.buttons()[1]
+  f.host.GuildMemberDetailFrame=f.e.CreateFrame("Frame",nil,f.host);f.host.GuildMemberDetailFrame:Show();f.tick()
+  b.promote:GetScript("OnClick")(b.promote)
+  check("native member popup hides the column and rejects its old action callback",not f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0)
+  f.host.GuildMemberDetailFrame:Hide();f.tick()
+  f.e.Enum={InputDeviceInterfaceType={Gamepad=2}};f.e.C_InputInterfaceStyle={GetCurrentStyle=function()return 2 end};f.tick()
+  b.promote:GetScript("OnClick")(b.promote)
+  check("gamepad mode keeps the existing native Guild column fallback policy without acting",not f.column:IsShown() and not f.fallback:IsShown() and f.promotions==0)
+end
+do
+  local f=guildUI(1000);local nativeReads=f.reads;local current=f.launch.Current;local sourceReads=0
+  f.launch.Current=function()sourceReads=sourceReads+1;return current()end
+  for _=1,5 do f.tick()end
+  check("thousand-member native Guild paint shares native indexes and one source read per visible batch",f.reads==nativeReads and sourceReads==5 and f.promotions==0 and f.restrictedCalls==0)
+end
 print("guild_status268: "..passed.." passed, 0 failed")
