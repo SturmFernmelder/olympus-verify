@@ -4,7 +4,7 @@
 //   node scripts/build-link-core.mjs           regenerate src/link-core.ts
 //   node scripts/build-link-core.mjs --check   fail when a vendored file's SHA-256 or the generated file drifts
 //
-// The three vendored files are byte-pinned to dnl-gentile/olympus-addon at the commit below (MIT). The generated module
+// The four vendored files (link-core.mjs, schema.sql, LICENSE and the guid-vectors.json test pack) are byte-pinned to UPSTREAM below (MIT). The generated module
 // is upstream's body plus six reviewed patch groups, each expressed as exact replacements that must match a fixed number of
 // times or the build fails, so an upstream change can never be patched silently:
 //   P1 database(): LINK_DB only. Upstream falls back to env.DB, and both schemas have a `members` table that
@@ -24,12 +24,16 @@ import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const UPSTREAM = Object.freeze({ repository: "dnl-gentile/olympus-addon", commit: "d03ea8a9ce8d6d933dde9ce0f0ec7faa866a2df2" });
+// Live Link membership: link-core.mjs and guid-vectors.json now come from dnl-gentile/olympus-network (the OLB6 GUID version of
+// Olympus Link), branch konig/link-guid-proof, at the commit below (parent ae27323abad8dbaf27a87390b06ec60ca8cb92e3). Refresh it to
+// the merged network commit if the PR is squashed (the SHA-256 pins below do not change if the merged bytes are the same).
+export const UPSTREAM = Object.freeze({ repository: "dnl-gentile/olympus-network", commit: "dc922445e8824a75917746e9de3231aab0421846" });
 /** Vendored file -> its upstream path and SHA-256 at UPSTREAM.commit. */
 export const VENDOR_PINS = Object.freeze({
-  "link-core.mjs": Object.freeze({ upstream: "web/worker/link-core.mjs", bytes: 81304, sha256: "53f05c183f96363f696dc6040fd3fb27fd11406f09b7bd908a7f579e72cb0e11" }),
+  "link-core.mjs": Object.freeze({ upstream: "web/worker/link-core.mjs", bytes: 83980, sha256: "4eba1bd8984d67b8fcf50cc68bc922653093776e6ff91f1c6fd1ac3bdb4492a6" }),
   "schema.sql": Object.freeze({ upstream: "web/worker/schema.sql", bytes: 7325, sha256: "a141dc14987bb834004473694e09c363f6a58cebd01952775e0d0099901657c9" }),
-  "LICENSE": Object.freeze({ upstream: "LICENSE", bytes: 1083, sha256: "a78bf4300e7768b9cc6d047816efe6a726f64c400e7e1a30d5a559757b892328" }),
+  "LICENSE": Object.freeze({ upstream: "LICENSES/MIT.txt", bytes: 1083, sha256: "a78bf4300e7768b9cc6d047816efe6a726f64c400e7e1a30d5a559757b892328" }),
+  "guid-vectors.json": Object.freeze({ upstream: "web/test/fixtures/guid-vectors.json", bytes: 21580, sha256: "95bbec9132aee3788f197a24527ca955b41f6ce832857c7db6a2e327fdd8aa4c" }),
 });
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");

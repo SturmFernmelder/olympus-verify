@@ -40,10 +40,14 @@ interface LinkCore {
 }
 /** The only way this Worker loads link-core: on demand, behind the gate. */
 const loadCore = async (): Promise<LinkCore> => (await import('./link-core')) as unknown as LinkCore;
+/** The same loader for live-link-membership.ts, so that only this file names link-core. */
+export const loadLinkCore = loadCore;
 
 /** Discord caps a message at 2000 characters; the whisper reply keeps a margin, and the Link block is dropped (never
  * split or cut) when the two together would pass this. */
 export const LINK_REPLY_MAX = 1990;
+/** The line between the Link block and the whisper reply when Live Link membership is on (also in live-link-membership.ts). */
+const LIVE_LINK_FALLBACK = "Can't use Olympus Link right now? Whisper instead:";
 /** How long /verify waits for the Link code (link-core's issueCode: up to four LINK_DB round trips) before it answers
  * without the block. Discord wants the reply within 3 s, and the whisper reply must never miss that for Link. */
 export const LINK_CODE_DEADLINE_MS = 1200;
@@ -216,6 +220,11 @@ export async function appendLinkBlock(env: Env, user: { id: string; username?: s
     // ok: the code and how to paste it; 'limit' and 'username': upstream's own one-line reasons. 'login' cannot happen
     // for a Discord interaction's own id, and a sign-in prompt would make no sense here.
     if (!code || typeof code.reply !== 'string' || !code.ok && code.reason !== 'limit' && code.reason !== 'username') return reply;
+    // Membership on (live-link-membership.ts): the Link block first, then the fallback line, then the whisper reply.
+    if ((await import('./live-link-membership')).liveLinkMembershipOn(env)) {
+      const first = `${code.reply}\n\n${LIVE_LINK_FALLBACK}\n${reply}`;
+      return first.length <= LINK_REPLY_MAX ? first : reply;
+    }
     const out = `${reply}\n\n${code.reply}`;
     return out.length <= LINK_REPLY_MAX ? out : reply;
   } catch (e) {
@@ -350,6 +359,11 @@ async function routeProof(request: Request, env: Env, cors: Record<string, strin
   const { readInteractionBody, credentialFetch } = await import('./discord');
   const body = await readInteractionBody(request, PROOF_BODY_MAX);
   if (body === null) return answer('format', 'This request is too large.', 413, cors);
+  // Live Link membership: an OLB6 link (a GUID-version Olympus_Link) never takes the cosmetic LINK_ROLE_ID path below,
+  // whatever the flag says; the membership route answers it (membership-off when the switch is off). An OLB5 link is
+  // unchanged while membership is not on; with it on, the route refuses it as name-only and writes nothing.
+  const live = await import('./live-link-membership');
+  if (live.isLiveLinkBody(core as never, body, live.liveLinkMembershipOn(env))) return live.routeLiveLinkMembership(request, env, cors, body);
   const { linkRole } = await import('./link-role');
   return core.handleProof(bodyShim(request, body), lenv, {
     promote: (discordId: string) => linkRole(env, 'PUT', discordId),

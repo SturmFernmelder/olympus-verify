@@ -18,7 +18,7 @@ const ID=/^[1-9][0-9]{16,19}$/,HEX=/^[0-9a-f]{32}$/;
 const COUNCIL=Object.freeze([Object.freeze(['Olympus Council GM','Olympus Branch GM']),Object.freeze(['Olympus Council Officer','Olympus Branch Officer'])]);
 const ATTRIBUTED=Object.freeze(['roster_membership','verified_native_rank','roster_native_rank','verified_privileged_rank','roster_privileged_rank',
   'fresh_roster_membership','fresh_roster_rank','staff_roster_rank','guild_departure','ban','rename_hold','blocking_role','account_erasure','treasury_cosmetic','treasury_cosmetic_expiry',
-  'launch_membership230','launch_membership_compensation230','launch_membership_removal230','launch_membership_erasure230',
+  'launch_membership230','launch_membership_compensation230','launch_membership_removal230','launch_membership_erasure230','live_link_membership',
   'launch_routine_membership232','native_rank_compensation232','canonical_identity233','canonical_entitlement233','canonical_consumed233','canonical_routine233','canonical_compensation233','canonical_migration233','canonical_migration_remove233','canonical_migration_compensation233']);
 const KEYS=['DB','GUILD_ID','DISCORD_APP_ID','DISCORD_BOT_TOKEN','PRIVACY_NATIVE_ERASURE_ENABLED','PRIVACY_ERASURE_ENABLED',
   'ROLE_GUILD_MEMBER','MEMBERSHIP_RETIRED_ROLE_ID','ROLE_OFFICER','ROLE_GUILD_LEADER','ROLE_GUILD_MASTER','ROLE_RAID_LEADER','ROLE_MODERATOR',

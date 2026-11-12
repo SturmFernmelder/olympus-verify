@@ -1,0 +1,624 @@
+{
+  "about": "Olympus_Link 1.6.0 GUID-version test vectors. Made by web/test/fixtures/make-guid-vectors.mjs from public labels; holds no seed and no code signature. Test keys only.",
+  "version": 1,
+  "clock": 1799990400,
+  "backend": {
+    "public_hex": "44f6987c1d8fcc6ba357b59926700665505a032428d2de68e87ee8ae82a11de2"
+  },
+  "rogue_backend": {
+    "public_hex": "a24878a174e717224fb5304fc119eb73068740c2fdc9f8c1e30bd1be7adf0b42"
+  },
+  "codes": [
+    {
+      "R": "7K3M9QX2TB",
+      "username": "guid.player",
+      "discord_id": "200000000000000001",
+      "mode": "c",
+      "T": "00000000",
+      "created": 1799913600,
+      "exp": 1800000000,
+      "codeTail": "9ysrduxi2ikWAbtpKlq3UmHEkh8qq2XwvfiP4gdsmyHEKIDXISFpEN5Koc89EAlmK8UJA_FLv-CQO84pZwYBGg"
+    },
+    {
+      "R": "H4N8PZ6R1B",
+      "username": "sister.player",
+      "discord_id": "200000000000000002",
+      "mode": "c",
+      "T": "00000000",
+      "created": 1799913600,
+      "exp": 1800000000,
+      "codeTail": "RbiJq106EgetgmgUwqPfi6Yg--LIc-m6cpjscaXXDr5wKT29LW6wWqvoKlfKmq1T_HCHF7C-ZcaeJR20IbYg1Q"
+    },
+    {
+      "R": "A1B2C3D4E5",
+      "username": "unseen.player",
+      "discord_id": "200000000000000003",
+      "mode": "c",
+      "T": "00000000",
+      "created": 1799913600,
+      "exp": 1800000000,
+      "codeTail": "McDLZE_Cx9LaeQ_D5IBICkJUGVs5H1xEga7sENhc3BZWtWe-DB8_vMLJ9IFo5aR7sQ392LocxxD36pDuEhqFAg"
+    },
+    {
+      "R": "J6K7M8N9P0",
+      "username": "older.player",
+      "discord_id": "200000000000000004",
+      "mode": "c",
+      "T": "00000000",
+      "created": 1799913600,
+      "exp": 1800000000,
+      "codeTail": "kO0OWD-IKt4-Z9zFFgv_18Ab3EvQSgaa1MMvbVyYD_c_-bpyYlRvo549f_FvDk2cdyhSvxaEfAGscFtdzXv0HA"
+    }
+  ],
+  "keys": [
+    {
+      "key_id": "council01",
+      "kind": "c",
+      "bootstrap": 1,
+      "owner_discord_id": "100000000000000001",
+      "owner_username": "test_councillor",
+      "character": "Test Councillor-ClassicBetaPvP",
+      "created": 1780000000,
+      "public_hex": "f942e202598087d5cbc3e92a4992975fc2388e8898891513c0e19431e946df85",
+      "public_b64url": "-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U",
+      "cert_exp": 1830000000,
+      "cert": "OLK2.council01.-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U.c.1830000000.Test Councillor-ClassicBetaPvP.gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg"
+    },
+    {
+      "key_id": "council02",
+      "kind": "c",
+      "bootstrap": 1,
+      "owner_discord_id": "100000000000000002",
+      "owner_username": "other_councillor",
+      "character": "Other Councillor-ClassicBetaPvP",
+      "created": 1780000000,
+      "public_hex": "36be6e7e8fbc393b28e275603d5283461665ca918e1d0a324fbcc85f6c1f171a",
+      "public_b64url": "Nr5ufo-8OTso4nVgPVKDRhZlypGOHQoyT7zIX2wfFxo",
+      "cert_exp": 1830000000,
+      "cert": "OLK2.council02.Nr5ufo-8OTso4nVgPVKDRhZlypGOHQoyT7zIX2wfFxo.c.1830000000.Other Councillor-ClassicBetaPvP.GrmRXy9PX4OiTKHFcjByNnihTl41y36IULz5VikCCfoegfqqSOHOjp0mt1_DdnWFA4qsDhCkRw7J0swvRKJkCg"
+    }
+  ],
+  "players": [
+    {
+      "character": "Guid Player-ClassicBetaPvP",
+      "guid": "Player-4613-005A70D8",
+      "R": "7K3M9QX2TB",
+      "discord_id": "200000000000000001",
+      "username": "guid.player"
+    },
+    {
+      "character": "Sister Player-ClassicBetaPvP",
+      "guid": "Player-4613-0A1B2C3D",
+      "R": "H4N8PZ6R1B",
+      "discord_id": "200000000000000002",
+      "username": "sister.player"
+    },
+    {
+      "character": "Unseen Player-ClassicBetaPvP",
+      "guid": "Player-4613-0000BEEF",
+      "R": "A1B2C3D4E5",
+      "discord_id": "200000000000000003",
+      "username": "unseen.player"
+    },
+    {
+      "character": "Older Player-ClassicBetaPvP",
+      "guid": "Player-4613-00C0FFEE",
+      "R": "J6K7M8N9P0",
+      "discord_id": "200000000000000004",
+      "username": "older.player"
+    }
+  ],
+  "cases": [
+    {
+      "name": "valid-one",
+      "note": "one High Councillor of the main guild saw this GUID in its roster",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": true
+        }
+      },
+      "fern": {
+        "sequence": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "valid-two-councillors",
+      "note": "two High Councillors, both observed the GUID",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~fedcba9876543210~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,d4ZkVMdhicP1qGqo6ySUsJl87-ChtS-xjbVh-linMS-HHjMp9taJ0HWgdP2U7UhO09qwDpTxacWri-SabVjFAQ,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg;1799990100,council02,Other Councillor-ClassicBetaPvP,r,o,x2VJakaXKOxGd1R02-q218oJlD3ZEj5YVcCTsO4OFHZry3CdfxFbKcjKFFvGdUU1mq82IDhWTkYivwupZyKvAw,Nr5ufo-8OTso4nVgPVKDRhZlypGOHQoyT7zIX2wfFxo,c,1830000000,GrmRXy9PX4OiTKHFcjByNnihTl41y36IULz5VikCCfoegfqqSOHOjp0mt1_DdnWFA4qsDhCkRw7J0swvRKJkCg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true,
+          true
+        ],
+        "certificates": [
+          true,
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": true
+        }
+      },
+      "fern": {
+        "sequence": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "prefers-observed",
+      "note": "two councillors, the first only saw the player by /who and the second observed the GUID: the second one counts",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~00ff00ff00ff00ff~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,w,c,vIbk1v8RC1Vi47fNEwujRdlboa_PhYsVcN7QADr-AfcfsL_mvqxlf5q6RMzASLOdbWU7O7IpyyPugj9eHFqpDQ,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg;1799990100,council02,Other Councillor-ClassicBetaPvP,r,o,PZCPwpzzI_DrfKCe165XroZewxQ2-UZf4wwg9UgAWpcV8E1rIIaH4lkkFSNlwHMc0k4EAHyR6UU9W7gRrC1mDA,Nr5ufo-8OTso4nVgPVKDRhZlypGOHQoyT7zIX2wfFxo,c,1830000000,GrmRXy9PX4OiTKHFcjByNnihTl41y36IULz5VikCCfoegfqqSOHOjp0mt1_DdnWFA4qsDhCkRw7J0swvRKJkCg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true,
+          true
+        ],
+        "certificates": [
+          true,
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": true,
+          "confirmers": [
+            "Other Councillor-ClassicBetaPvP"
+          ]
+        }
+      },
+      "fern": {
+        "sequence": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "tampered-guid",
+      "note": "the GUID of a good link changed after signing",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-0000FFFF~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-0000FFFF",
+        "signatures": [
+          false
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "not-enough"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "not-enough"
+        ]
+      }
+    },
+    {
+      "name": "tampered-name",
+      "note": "the character name of a good link changed after signing",
+      "text": "OLB6~Other Name-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          false
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "tag"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "tag"
+        ]
+      }
+    },
+    {
+      "name": "tampered-guild",
+      "note": "the guild of a good link changed after signing",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~Olympus III~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          false
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "not-enough"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "not-enough"
+        ]
+      }
+    },
+    {
+      "name": "sister-guild",
+      "note": "a character of the sister guild: its confirmer could not observe it (gv c, obs c)",
+      "text": "OLB6~Sister Player-ClassicBetaPvP~Player-4613-0A1B2C3D~Olympus Zeus~Alliance~0123456789abcdef~H4N8PZ6R1B~bf07904792adb325~1799990100,council01,Test Councillor-ClassicBetaPvP,c,c,5jHXAcWHPN2Hb4JkFsH8eQX-Nai9qlUeDHFduIhdeJvvEgHpZ6ytpZXU3rfcTjG1JPD-1t4QHXG7pgDEUd0JAg,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "H4N8PZ6R1B",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": false,
+        "guid": "Player-4613-0A1B2C3D",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "guild-unverified"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "guid-unobserved"
+        ]
+      }
+    },
+    {
+      "name": "unobserved",
+      "note": "the guild was checked in the roster, but the roster was not fresh: the GUID was not observed (gv r, obs c)",
+      "text": "OLB6~Unseen Player-ClassicBetaPvP~Player-4613-0000BEEF~OLYMPUS PRIME~Alliance~0123456789abcdef~A1B2C3D4E5~cefeb9794bd38784~1799990100,council01,Test Councillor-ClassicBetaPvP,r,c,1FOLNo2Iobuubrs0cb9E2AsWBcFd2wMHqW6kMi4fPFjc26RhAdNZyfIZKjwV3n-qafT4LATc-S4sryt6doBiCg,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "A1B2C3D4E5",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": false,
+        "guid": "Player-4613-0000BEEF",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": false
+        }
+      },
+      "fern": {
+        "sequence": [
+          "guid-unobserved"
+        ]
+      }
+    },
+    {
+      "name": "replay",
+      "note": "the same good link sent again: the bot answers the stored outcome and writes nothing",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": true
+        }
+      },
+      "fern": {
+        "sequence": [
+          "member",
+          "member-already"
+        ]
+      }
+    },
+    {
+      "name": "second-consume",
+      "note": "a new link (another nonce) for the same code and character after the first one counted: nothing new",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~fedcba9876543210~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council02,Other Councillor-ClassicBetaPvP,r,o,x2VJakaXKOxGd1R02-q218oJlD3ZEj5YVcCTsO4OFHZry3CdfxFbKcjKFFvGdUU1mq82IDhWTkYivwupZyKvAw,Nr5ufo-8OTso4nVgPVKDRhZlypGOHQoyT7zIX2wfFxo,c,1830000000,GrmRXy9PX4OiTKHFcjByNnihTl41y36IULz5VikCCfoegfqqSOHOjp0mt1_DdnWFA4qsDhCkRw7J0swvRKJkCg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 6,
+          "guidObserved": true
+        }
+      },
+      "fern": {
+        "after": "valid-one",
+        "sequence": [
+          "member-already"
+        ]
+      }
+    },
+    {
+      "name": "expired",
+      "note": "a good link sent more than 7 days after its code expired",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "now": 1800691200,
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-005A70D8",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "expired"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "expired"
+        ]
+      }
+    },
+    {
+      "name": "wrong-signer",
+      "note": "a proof from a key whose certificate a backend nobody trusts signed",
+      "text": "OLB6~Older Player-ClassicBetaPvP~Player-4613-00C0FFEE~OLYMPUS PRIME~Alliance~0123456789abcdef~J6K7M8N9P0~62d5326cdbd80c5c~1799990100,rogue01,Rogue Councillor-ClassicBetaPvP,r,o,7lBC_l2YAb2cn4I0rOIgQu07N-Pm9-GRHBW-4LKVbkLLHEowV-zVqxwa9dIES3eOMedqqkN2rQlrTC7s0l69DA,aNr5KocBaPqEWapkWL61n8Lle30q8-sl7xypqZK2zWk,c,1830000000,-zAtl3VJp9PTdaM-9Q8qDvJVkUpX-nCb4XvrkaPVnV8sYyoj9982Fi92nGzfwzIsGDYQg-Ljep7_XsB9QOXXCw",
+      "code": "J6K7M8N9P0",
+      "page": {
+        "parse": "ok",
+        "version": 6,
+        "membership": true,
+        "guid": "Player-4613-00C0FFEE",
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          false
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": false,
+          "reason": "not-enough"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "not-enough"
+        ]
+      }
+    },
+    {
+      "name": "olb5",
+      "note": "an older Olympus_Link: links the name, cannot give Guild Member",
+      "text": "OLB5~Guid Player-ClassicBetaPvP~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,pLh8ULXVRRB2aZdOJbEz7hoW2i6_K3xnmCFXR-jECOedRwIX1C9eap_yZ8ZQgfHajkdK9OSQo_uODDAyqsvdCA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "ok",
+        "version": 5,
+        "membership": false,
+        "guid": null,
+        "signatures": [
+          true
+        ],
+        "certificates": [
+          true
+        ]
+      },
+      "core": {
+        "parse": "ok",
+        "check": {
+          "ok": true,
+          "version": 5,
+          "guidObserved": false
+        }
+      },
+      "fern": {
+        "sequence": [
+          "name-only"
+        ]
+      }
+    },
+    {
+      "name": "malformed",
+      "note": "a link cut short, in its head",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "fields",
+        "version": null,
+        "membership": null,
+        "guid": null,
+        "signatures": [],
+        "certificates": []
+      },
+      "core": {
+        "parse": "fields",
+        "check": {
+          "ok": false,
+          "reason": "format"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "format"
+        ]
+      }
+    },
+    {
+      "name": "truncated-proof",
+      "note": "a link whose last proof is cut short",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0X",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "cert",
+        "version": null,
+        "membership": null,
+        "guid": null,
+        "signatures": [],
+        "certificates": []
+      },
+      "core": {
+        "parse": "cert",
+        "check": {
+          "ok": false,
+          "reason": "format"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "format"
+        ]
+      }
+    },
+    {
+      "name": "missing-guid",
+      "note": "an OLB6 link without its GUID field",
+      "text": "OLB6~Guid Player-ClassicBetaPvP~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "fields",
+        "version": null,
+        "membership": null,
+        "guid": null,
+        "signatures": [],
+        "certificates": []
+      },
+      "core": {
+        "parse": "fields",
+        "check": {
+          "ok": false,
+          "reason": "format"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "format"
+        ]
+      }
+    },
+    {
+      "name": "unknown-version",
+      "note": "a link version nobody reads",
+      "text": "OLB7~Guid Player-ClassicBetaPvP~Player-4613-005A70D8~OLYMPUS PRIME~Alliance~0123456789abcdef~7K3M9QX2TB~88a2dc70a3174ebc~1799990100,council01,Test Councillor-ClassicBetaPvP,r,o,cK4GnkVfrF6xI7vLco8B0DbvWHmoym7pXTiB3NaFsHN3X4mEUS7l9B0MFEgZg7rEtRLnOGJpuvKIL0f7FXRYAA,-ULiAlmAh9XLw-kqSZKXX8I4joiYiRUTwOGUMelG34U,c,1830000000,gsOOKPVaernN85KwTwKWYjry_JJbxgAR0JW33HOSJCgY0Xw0a9YXIEl26leOrUtPQBTGQrGjSwJuO7IxYqLuDg",
+      "code": "7K3M9QX2TB",
+      "page": {
+        "parse": "prefix",
+        "version": null,
+        "membership": null,
+        "guid": null,
+        "signatures": [],
+        "certificates": []
+      },
+      "core": {
+        "parse": "prefix",
+        "check": {
+          "ok": false,
+          "reason": "format"
+        }
+      },
+      "fern": {
+        "sequence": [
+          "format"
+        ]
+      }
+    }
+  ]
+}

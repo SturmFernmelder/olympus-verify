@@ -128,6 +128,8 @@ export interface Env {
   // is unrelated to LINKS_NOT_BEFORE* above and to the Discord Linked Role route (/linked-role, oauth.ts). The Link role
   // lives in GUILD_ID (the owner's ruling of 21 Oct 2026: Asmongold's server; there is no separate Link guild). ---
   LINK_ENABLED?: string;            // exactly "true" with the complete config = on; absent, "" or "false" = off (today's behaviour); anything else = held
+  LINK_MEMBERSHIP_ENABLED?: string; // Live Link membership (live-link-membership.ts): exactly "true" with LINK_ENABLED on and a valid scope; absent, "" or "false" = off; anything else = held
+  LINK_MEMBERSHIP_SCOPE?: string;   // canonical JSON {"version":1,"guild":"OLYMPUS PRIME","faction":"Alliance|Horde","servers":["<server id>",...]}: the flagship guild only
   LINK_DB?: D1Database;             // the separate olympus-link database (vendor/olympus-link/schema.sql); never the bot's DB
   LINK_ROLE_ID?: string;            // the zero-permission "Olympus Link" role in GUILD_ID, below the bot's role
   LINK_ORIGIN?: string;             // the Link page's origin, exactly "https://dnl-gentile.github.io" (CORS of POST /proof); any other value holds Link

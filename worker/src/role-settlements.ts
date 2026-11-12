@@ -20,6 +20,7 @@ import { type LaneCapture,type LaneKind,type LaneRemovalPurpose,type LaneTupleRo
 import { captureLaunchVerification,assertLaunchMembershipMode,launchMembershipPredicate,type LaunchMembershipSource } from './launch-verification227';
 import {assertRuntimeVenue230,runtimeVenue230Facts,runtimeVenue230Predicate,oldSharedMemberProducerHeld230,type RuntimeVenue230} from './shared-membership-cutover230';
 import type {OriginalConsumedMembership230} from './ingest';
+import type {OriginalLiveLinkConsumption} from './live-link-membership';
 import {captureNativeRankConfig232,historicalNativeRankPolicy232,nativeRankProducerHeld232,NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,SHARED_MEMBER232,NATIVE_STAFF232} from './native-rank-reconciliation232';
 import type {RoutineMembership232} from './routine-membership-authority232';
 import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233} from './canonical-ranks233';
@@ -328,7 +329,7 @@ export async function settleRoleIntent(env:QrEnv,id:string,reconcileOnly=false,a
  try{original=captureOriginalSettlementFacts(facts,env);owner?.check();}catch(error){if(error instanceof OriginalSettlementFactsHeld)return result('held','original_role_facts_changed',id);throw error;}
  const i=original.intent,compensation=original.compensation;
  if(!i||i.guild_id!==env.GUILD_ID)return result('held','operation_not_current',id);
- if(/^launch_membership(?:230|_(?:compensation|removal|erasure)230)$/.test(i.purpose))return observeLaunchMembershipDebt230(env,id,b);
+ if(/^(?:launch_membership(?:230|_(?:compensation|removal|erasure)230)|live_link_membership)$/.test(i.purpose))return observeLaunchMembershipDebt230(env,id,b);
  if(i.attempts===0&&oldSharedMemberProducerHeld230(env,i.guild_id,i.role_id))return result('held','shared_member230_old_producer_held',id);
  if(!reconcileOnly&&i.attempts===0&&nativeRankProducerHeld232(env,i.guild_id,i.role_id))return result('held','native232_old_producer_held',id);
  const betaScoped=i.guild_id===BETA_RESET_GUILD_ID&&BETA_RESET_ROLE_IDS.includes(i.role_id);
@@ -910,7 +911,7 @@ export async function reconcileAccountErasureRoleDebt(env:Env,proof:ErasureProof
  if((facts[0]!.results[0] as {current:number}|undefined)?.current!==1)return {state:'held' as const,outcomes,attempts:0};
  for(const row of facts[1]!.results as Intent[]){if(!await authority.currentAccountErasureProof(env,proof))return {state:'held' as const,outcomes,attempts:b.attempts};
  const original=JSON.stringify(Object.fromEntries(RETIREMENT_PARENT_FIELDS.map(k=>[k,row[k]])));
- const r=/^launch_membership(?:230|_(?:compensation|removal|erasure)230)$/.test(row.purpose)?await observeLaunchMembershipDebt230(env,row.id,b):row.desired===0?await reconcileRemovalReceipt(env,row.id,b):await settleRoleIntent(env,row.id,true,undefined,b);outcomes.push(r);
+ const r=/^(?:launch_membership(?:230|_(?:compensation|removal|erasure)230)|live_link_membership)$/.test(row.purpose)?await observeLaunchMembershipDebt230(env,row.id,b):row.desired===0?await reconcileRemovalReceipt(env,row.id,b):await settleRoleIntent(env,row.id,true,undefined,b);outcomes.push(r);
  if(!await authority.currentAccountErasureProof(env,proof))return {state:'held' as const,outcomes,attempts:b.attempts};
  // Only an unchanged original spent tuple can record a visit. No state/reason/nonce/clock is rewritten.
  // A lost reply never retries this write; committed visits rotate the next turn, uncommitted visits stay owed.
@@ -1501,15 +1502,15 @@ const canonical233RoleOnly=Object.freeze({}); // Fixed canonical ladder, origina
 const canonical233MigrationRoleOnly=Object.freeze({}); // Root-only reviewed29 migration; no public route or identity admission.
 const native232OriginalDrain=Object.freeze({}); // Only an original successful legacy PUT may finish its owned compensation.
 const launch230OriginalCompensation=Object.freeze({}); // Only an already-owned old callback may drain its child.
-const launch230Purposes=Object.freeze(Object.values(LAUNCH_MEMBERSHIP230_PURPOSES));
+const launch230Purposes=Object.freeze([...Object.values(LAUNCH_MEMBERSHIP230_PURPOSES),'live_link_membership']);
 const consumed230Spent=new WeakSet<object>();
-type Launch230Parent=Readonly<{id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string;createdAt:number;expiresAt:number;fingerprint:string;snapshotId:number;guid:string;canonical?:boolean;grantPurpose?:string;profile?:string;providerCheck:()=>void}>;
+type Launch230Parent=Readonly<{id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string;createdAt:number;expiresAt:number;fingerprint:string;snapshotId:number|null;guid:string;canonical?:boolean;grantPurpose?:string;profile?:string;providerCheck:()=>void}>;
 const launch230PurposeSql=launch230Purposes.map(p=>`'${p}'`).join(',');
 const launch230KnownReceipt=(a:string)=>`(${a}.state='settled' AND ${a}.attempts=1 AND ${a}.claim_nonce IS NOT NULL AND (
- (${a}.purpose='${LAUNCH_MEMBERSHIP230_PURPOSES.grant}' AND ${a}.desired=1 AND ${a}.reason='launch230_put_acknowledged_and_confirmed') OR
+ (${a}.purpose IN('${LAUNCH_MEMBERSHIP230_PURPOSES.grant}','live_link_membership') AND ${a}.desired=1 AND ${a}.reason='launch230_put_acknowledged_and_confirmed') OR
  (${a}.purpose IN('${LAUNCH_MEMBERSHIP230_PURPOSES.compensation}','${LAUNCH_MEMBERSHIP230_PURPOSES.removal}','${LAUNCH_MEMBERSHIP230_PURPOSES.erasure}') AND ${a}.desired=0 AND ${a}.reason='launch230_delete_acknowledged_and_confirmed')))
  OR (${a}.purpose IN(${launch230PurposeSql}) AND ${a}.state='held' AND ${a}.attempts=1 AND ${a}.reason='launch230_never_dispatched' AND ${a}.claim_nonce IS NOT NULL AND ${a}.checked_at>=${a}.created_at)
- OR (${a}.purpose='${LAUNCH_MEMBERSHIP230_PURPOSES.grant}' AND ${a}.desired=1 AND ${a}.attempts=1 AND ${a}.state='held' AND ${a}.reason='launch230_compensated'
+ OR (${a}.purpose IN('${LAUNCH_MEMBERSHIP230_PURPOSES.grant}','live_link_membership') AND ${a}.desired=1 AND ${a}.attempts=1 AND ${a}.state='held' AND ${a}.reason='launch230_compensated'
   AND EXISTS(SELECT 1 FROM role_settlements child WHERE child.request_digest=${a}.id AND child.subject=${a}.subject AND child.guild_id=${a}.guild_id AND child.role_id=${a}.role_id
    AND child.purpose='${LAUNCH_MEMBERSHIP230_PURPOSES.compensation}' AND child.desired=0 AND child.attempts=1 AND child.state='settled' AND child.reason='launch230_delete_acknowledged_and_confirmed'))`;
 function launch230Blocker(env:Env,target:Member|null):boolean{return !!target&&(env.BLOCKING_ROLE_IDS??'').split(',').some(id=>id.trim()&&target.roles.includes(id.trim()));}
@@ -1551,6 +1552,16 @@ async function launch230NativeIntent(env:Env,statement:D1PreparedStatement,check
 }
 /** No purpose/subject supplied by a request is sufficient to create a grant. */
 export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalConsumedMembership230,venue:RuntimeVenue230,b:AttemptBudget=budget()):Promise<Settlement>{
+ return launch230Lane(env,cap,venue,b,null);
+}
+/** Live Link membership: the same lane for a Link-sourced original consumption (live-link-membership.ts). It derives no
+ * rank (identity only, OQ-4), keeps the 230 reasons so every 230 observer reads its rows, and never uses the roster predicate. */
+export async function queueAndSettleLiveLinkMembership(env:Env,cap:OriginalLiveLinkConsumption,venue:RuntimeVenue230,b:AttemptBudget=budget()):Promise<Settlement>{
+ const L=await import('./live-link-membership');
+ return launch230Lane(env,cap,venue,b,Object.freeze({purpose:L.LIVE_LINK_PURPOSE,profile:L.LIVE_LINK_PROFILE,assertConsumed230Original:L.assertLiveLinkOriginal,consumed230Facts:L.liveLinkFacts,consumed230Predicate:L.liveLinkPredicate}));
+}
+type Launch230Live=Readonly<{purpose:string;profile:string;assertConsumed230Original:(env:Env,cap:never)=>void;consumed230Facts:(cap:never)=>{subject:string;subjectGeneration:string|null;fingerprint:string;deadline:number;source:{snapshotId:number|null;guid:string}};consumed230Predicate:(env:Env,cap:never,start:number)=>Readonly<{sql:string;values:readonly (string|number|null)[];next:number}>}>;
+async function launch230Lane(env:Env,cap:object,venue:RuntimeVenue230,b:AttemptBudget,live:Launch230Live|null):Promise<Settlement>{
  let id:string|null=null,parent:Launch230Parent|null=null,effectStarted=false,putAcknowledged=false;
  try{
   const canonical=captureCanonicalRankConfig233(env),entitlements=captureCanonicalEntitlements233(env);
@@ -1561,10 +1572,11 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   const providerCheck=launch230ProviderWitness(env);
   consumed230Spent.add(cap); // Spend before even loading the issuer; a parallel call cannot acquire another turn.
   // The issuer stays private to ingest. Loading its readonly observers does not mint authority.
-  const issuer=await import('./ingest');issuer.assertConsumed230Original(env,cap);
+  const issuer:any=live??await import('./ingest');issuer.assertConsumed230Original(env,cap);
+  const derive=canonical.present&&!live,rosterEq=live?'roster_id IS ?7':'roster_id=?7';
   const f=issuer.consumed230Facts(cap),v=runtimeVenue230Facts(venue);
   let role:string=v.roleId,nativeRank:number|null=null,nativeName:string|null=null,sourceRankGuard='1=1',sourceIdentityGuard='1=1',rankGraph=()=>{};
-  if(canonical.present){
+  if(derive){
    if(!canonical.policy||!canonical.current())return result('held','canonical233_configuration_held');
    const native=await env.DB.prepare('SELECT rank,rank_index FROM roster_members WHERE snapshot_id=?1 AND name_key=?2 AND guid=?3').bind(f.source.snapshotId,f.source.nameKey,f.source.guid).first<{rank:string;rank_index:number}>();
    issuer.assertConsumed230Original(env,cap);rankGraph=launch230GraphWitness(native);rankGraph();
@@ -1575,7 +1587,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    sourceIdentityGuard=`EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
    sourceRankGuard=`${sourceIdentityGuard} AND NOT EXISTS(SELECT 1 FROM characters cc JOIN roster_members cr ON cr.guid=cc.guid AND cr.name_key=cc.name_key WHERE cc.discord_id=?2 AND cc.status='member' AND cr.snapshot_id=?7 AND cr.rank_index<${nativeRank})`;
   }
-  const grantPurpose=canonical.present?'canonical_consumed233':LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=canonical.present?CANONICAL_PROFILE233:'prime-native-230',roleAdmission=canonical.present?canonical233RoleOnly:launch230RoleOnly;
+  const grantPurpose=derive?'canonical_consumed233':live?live.purpose:LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=derive?CANONICAL_PROFILE233:live?live.profile:'prime-native-230',roleAdmission=derive?canonical233RoleOnly:launch230RoleOnly;
   let queueCheck=()=>{},claimCheck=()=>{};
   const check=()=>{providerCheck();assertRuntimeVenue230(env,venue);issuer.assertConsumed230Original(env,cap);if(!canonical.current()||!entitlements.current())throw Error('canonical233_configuration_changed');rankGraph();queueCheck();claimCheck();};check();
   if(!ID.test(f.subject)||f.subjectGeneration!==null&&!TOKEN.test(f.subjectGeneration)||!/^[0-9a-f]{64}$/.test(f.fingerprint)
@@ -1595,11 +1607,11 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   const {facts,guard,clauses}=canonical.present?canonical239GuardFacts(canonical239GroupedFacts('?2','?3','?5'),[p.sql,venueGuard.sql,sourceRankGuard,clear,canonical239NoAmbiguousOwnership('?2','?3','?5'),
    `NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?2 AND banned=1) AND NOT EXISTS(SELECT 1 FROM site_users WHERE discord_id=?2 AND denied=1) AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?2 AND state='reapply')`]):{facts:'',guard:originalGuard,clauses:[]};
   const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND purpose='${grantPurpose}' AND desired=1
-   AND subject_generation IS ?5 AND request_digest=?6 AND roster_id=?7 AND native_guid=?8 AND expires_at=?9`;
-  const rowClauses=['id=?1','subject=?2','guild_id=?3','role_id=?4',`purpose='${grantPurpose}'`,'desired=1','subject_generation IS ?5','request_digest=?6','roster_id=?7','native_guid=?8','expires_at=?9'];
+   AND subject_generation IS ?5 AND request_digest=?6 AND ${rosterEq} AND native_guid=?8 AND expires_at=?9`;
+  const rowClauses=['id=?1','subject=?2','guild_id=?3','role_id=?4',`purpose='${grantPurpose}'`,'desired=1','subject_generation IS ?5','request_digest=?6',rosterEq,'native_guid=?8','expires_at=?9'];
   const grouped=(original:string,extra:readonly string[])=>canonical.present?canonical239And([...extra,...clauses]):original;
   const current=async()=>{check();const r=await env.DB.prepare(`${facts}SELECT 1 AS current WHERE ${guard}`).bind(...values).first();check();return !!r;};
-  if(canonical.present){
+  if(derive){
    // A durable control receipt is issued only by this same active original
    // pending-consumption capability. It records no HTTP attempt or role fact.
    // This lets a later original routine visit recover after a reviewed manual
@@ -1614,8 +1626,8 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    const wanted=highestCanonicalRank233(canonical.policy!,{index:nativeRank!,name:nativeName!},extra);
    if(wanted?.roleId!==role)return result('held','canonical233_retained_entitlement_requires_routine');
   }
-  const queuedFacts=await launch230NativeIntent(env,env.DB.prepare(`${facts}INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,request_digest,created_at,expires_at,roster_id,native_guid,native_profile${canonical.present?',native_rank,native_rank_name':''})
-   SELECT ?1,?2,'${grantPurpose}',?3,?4,1,'pending','launch230_awaiting_dispatch',?5,?6,${DB_NOW},?9,?7,?8,'${profile}'${canonical.present?`,${nativeRank},'${nativeName!.replace(/'/g,"''")}'`:''}
+  const queuedFacts=await launch230NativeIntent(env,env.DB.prepare(`${facts}INSERT INTO role_settlements(id,subject,purpose,guild_id,role_id,desired,state,reason,subject_generation,request_digest,created_at,expires_at,roster_id,native_guid,native_profile${derive?',native_rank,native_rank_name':''})
+   SELECT ?1,?2,'${grantPurpose}',?3,?4,1,'pending','launch230_awaiting_dispatch',?5,?6,${DB_NOW},?9,?7,?8,'${profile}'${derive?`,${nativeRank},'${nativeName!.replace(/'/g,"''")}'`:''}
    WHERE ${canonical.present?canonical239And([...clauses,`NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${grantPurpose}' AND request_digest=?6)`]):`${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE purpose='${grantPurpose}' AND request_digest=?6)`}
    RETURNING *,NULL AS beta_window_id`).bind(...values),check);queueCheck=queuedFacts.check;check();const queued=queuedFacts.intent;
   if(!queued||queued.id!==id||!Number.isSafeInteger(queued.created_at))return result('held','launch230_queue_held',id);
@@ -1624,7 +1636,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   try{target=await qualify(env,b,f.subject,role,true,false,[],false,current,false,roleAdmission);check();if(!launch230Member(target,f.subject))throw Error();}
   catch{return result('held','inventory_hierarchy_or_server_hold',id);}
   if(!await current())return result('held','launch230_admission_changed',id);
-  if(canonical.present&&target?.roles.some(r=>r!==role&&CANONICAL_MIGRATION_ROLE_IDS233.includes(r))){
+  if(derive&&target?.roles.some(r=>r!==role&&CANONICAL_MIGRATION_ROLE_IDS233.includes(r))){
    // This original invocation has made no role request. Retire only its own
    // unattempted intent so the separately issued current routine mandate can
    // perform an owned replacement; no spent claim is unspent or retried.
@@ -1632,7 +1644,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    return result('held','canonical233_existing_rank_requires_reconciliation',id);
   }
   if(target?.roles.includes(role)){
-   const r=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${canonical.present?'canonical233_observed_without_dispatch':'launch230_current_role_observed'}',checked_at=${DB_NOW}
+   const r=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${derive?'canonical233_observed_without_dispatch':'launch230_current_role_observed'}',checked_at=${DB_NOW}
     WHERE ${grouped(`${row} AND state='pending' AND attempts=0 AND ${guard}`,[...rowClauses,"state='pending'",'attempts=0'])} RETURNING id`).bind(...values).first();check();
    return r?result('settled','fresh_server_confirmed',id,now()):result('held','launch230_receipt_held',id);
   }
@@ -1640,7 +1652,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   const claimFacts=await launch230NativeIntent(env,env.DB.prepare(`${facts}UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?${n},reason='launch230_dispatching'
    WHERE ${grouped(`${row} AND state='pending' AND attempts=0 AND expires_at>${DB_NOW} AND ${guard}`,[...rowClauses,"state='pending'",'attempts=0',`expires_at>${DB_NOW}`])} RETURNING *,NULL AS beta_window_id`).bind(...withNonce),check);claimCheck=claimFacts.check;check();const claim=claimFacts.intent;
   if(!claim||claim.id!==id||claim.claim_nonce!==nonce||claim.attempts!==1||claim.state!=='dispatching'||claim.expires_at!==f.deadline)return result('held','launch230_claim_changed',id);
-  parent=Object.freeze({id,nonce,subject:f.subject,generation:f.subjectGeneration,guild:v.guildId,role:role,createdAt:queued.created_at,expiresAt:f.deadline,fingerprint:f.fingerprint,snapshotId:f.source.snapshotId,guid:f.source.guid,canonical:canonical.present,grantPurpose,profile,providerCheck:()=>{providerCheck();if(!canonical.current())throw Error('canonical233_configuration_changed');rankGraph();queueCheck();claimCheck();}});
+  parent=Object.freeze({id,nonce,subject:f.subject,generation:f.subjectGeneration,guild:v.guildId,role:role,createdAt:queued.created_at,expiresAt:f.deadline,fingerprint:f.fingerprint,snapshotId:f.source.snapshotId,guid:f.source.guid,canonical:derive,grantPurpose,profile,providerCheck:()=>{providerCheck();if(!canonical.current())throw Error('canonical233_configuration_changed');rankGraph();queueCheck();claimCheck();}});
   const owned=`${row} AND attempts=1 AND claim_nonce=?${n}`,ownedClauses=[...rowClauses,'attempts=1',`claim_nonce=?${n}`];
   const finalAdmission=async()=>{check();const r=await env.DB.prepare(`${facts}SELECT 1 AS admitted FROM role_settlements WHERE ${canonical.present?canonical239And([...ownedClauses,"state='dispatching'",`expires_at>${DB_NOW}`,...clauses]):`${owned}
    AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`}`).bind(...withNonce).first();check();return !!r;};
@@ -1648,7 +1660,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    await request(env,b,'PUT',`/guilds/${v.guildId}/members/${f.subject}/roles/${role}`,finalAdmission,()=>{check();if(now()>=f.deadline)throw Error('launch230_expired');effectStarted=true;},roleAdmission);
    putAcknowledged=true;
   }catch{
-   const reason=effectStarted?'launch230_provider_outcome_unknown':canonical.present?'canonical233_never_dispatched':'launch230_never_dispatched';
+   const reason=effectStarted?'launch230_provider_outcome_unknown':derive?'canonical233_never_dispatched':'launch230_never_dispatched';
    try{await env.DB.prepare(`UPDATE role_settlements SET state=?${n+1},reason=?${n+2},checked_at=${DB_NOW}
     WHERE ${owned} AND state='dispatching' RETURNING id`).bind(...withNonce,effectStarted?'unknown':'held',reason).first();}catch{/* Keep the original attempted claim; no replay. */}
    return result(effectStarted?'unknown':'held',reason,id);
@@ -1663,7 +1675,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
    return result('unknown','launch230_effect_not_confirmed',id);
   }
   try{
-   const r=await launch230NativeIntent(env,env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${canonical.present?'canonical233_put_acknowledged_and_confirmed':'launch230_put_acknowledged_and_confirmed'}',checked_at=${DB_NOW}
+   const r=await launch230NativeIntent(env,env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${derive?'canonical233_put_acknowledged_and_confirmed':'launch230_put_acknowledged_and_confirmed'}',checked_at=${DB_NOW}
     WHERE ${grouped(`${owned} AND state='dispatching' AND ${guard}`,[...ownedClauses,"state='dispatching'"])} RETURNING *,NULL AS beta_window_id`).bind(...withNonce),check);check();r.check();
    if(r.intent?.id===id&&r.intent.claim_nonce===nonce&&r.intent.state==='settled')return result('settled','effect_and_current_server_confirmed',id,now());
   }catch{/* A lost receipt is unknown; a later SELECT cannot recreate its ACK. */}
@@ -1686,7 +1698,7 @@ async function compensateLaunchMembership230(env:Env,p:Launch230Parent,venue:Run
   const g=runtimeVenue230Predicate(env,venue,values.length+1);values.push(...g.values);
   const parent=`EXISTS(SELECT 1 FROM role_settlements own WHERE own.id=?2 AND own.subject=?3 AND own.guild_id=?4 AND own.role_id=?5
    AND own.purpose='${grantPurpose}' AND own.desired=1 AND own.attempts=1 AND own.claim_nonce=?6
-   AND own.subject_generation IS ?8 AND own.created_at=?9 AND own.expires_at=?10 AND own.request_digest=?11 AND own.roster_id=?12 AND own.native_guid=?13 AND own.state IN('dispatching','unknown'))`;
+   AND own.subject_generation IS ?8 AND own.created_at=?9 AND own.expires_at=?10 AND own.request_digest=?11 AND ${p.snapshotId===null?'own.roster_id IS ?12':'own.roster_id=?12'} AND own.native_guid=?13 AND own.state IN('dispatching','unknown'))`;
   const noNewer=`NOT EXISTS(SELECT 1 FROM role_settlements newer WHERE newer.subject=?3 AND newer.guild_id=?4 AND newer.role_id=?5 AND newer.id<>?2
    AND newer.desired=1 AND newer.attempts=1 AND newer.created_at>=?9)
    AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=?3 AND other.guild_id=?4 AND other.role_id=?5 AND other.id NOT IN(?1,?2)
