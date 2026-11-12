@@ -6,6 +6,10 @@ import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admissio
 import {strictRosterDisplay} from '../src/unverified.ts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
 import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
+import worker from '../src/index.ts';
+import {countingD1, fullScans} from './d1_statement_budget.mjs';
+import {CANONICAL233_SWEEP249_SELECT, NATIVE232_SWEEP249_SELECT} from '../src/full-release-roles.ts';
+import {ROSTER_INGEST_STATEMENTS} from '../src/scheduled-budget.ts';
 
 const EPOCH = 'a'.repeat(32);
 const MODES = new Set(['full', 'partial-recover', 'credential-change', 'slow-read', '429-body', '429-header', '429-reset', '429-persistent',
@@ -165,7 +169,64 @@ async function seed(db) {
   return {env, db, at, rows, originalProofs, originalEffects};
 }
 
-export default {async fetch(request, bindings) {
+// Evergreen 12 Nov 2026 (CL2-024): per-request physical D1 statement ceilings and query plans on a separate 1,000-member
+// genuine D1 database, so the measurement cannot disturb the paced promotion fixture above. Each measured request goes
+// through the actual Worker entry (host routing, watcher bearer, members-only protocol, ensureSchema and the admission
+// layer) with the counter in the place of the genuine binding, so every physical statement that reaches D1 is counted.
+// Ceilings: the directive's "<100 statements" for the officer launch-operations page and the strict roster display; the
+// shipped per-invocation admission model (scheduled-budget.ts ROSTER_INGEST_STATEMENTS) for a 1,000-member roster ingest,
+// whose "<100" reading is an open owner question (CL2-030). Plans: no measured statement and neither Native sweep selector
+// may read roster_members or role_settlements in full, except the two sweep scans listed in KNOWN_SWEEP_SCANS.
+const DIRECTIVE_STATEMENT_LIMIT = 100;
+// Recorded 12 Nov 2026 on dfca7a2 (CL2-024, handed to Codex): both sweep selectors walk role_settlements through its
+// subject index. Listed exactly so the gate stays green on the shipped plan and turns red on any new full scan.
+const KNOWN_SWEEP_SCANS = Object.freeze({
+  canonical: ['SCAN role_settlements USING INDEX role_settlement_subject', 'SCAN r USING INDEX role_settlement_subject'],
+  native: ['SCAN role_settlements USING INDEX role_settlement_subject'],
+});
+const BUDGET_WATCHER_TOKEN = 'synthetic-budget-watcher-only-' + 'b'.repeat(40);
+let budgeted = false;
+async function budget(genuine, ctx) {
+  const local = [], own = (name, value) => { if (!value) throw Error(name); local.push({name, passed: true}); };
+  const seeded = await seed(genuine), counter = countingD1(genuine);
+  const env = {...seeded.env, DB: counter.native, PUBLIC_BASE_URL: 'https://verify.example', WATCHER_TOKEN: BUDGET_WATCHER_TOKEN,
+    DISCORD_BOT_TOKEN: 'synthetic-roster-pacing-budget'};
+  const call = async (method, path, body) => {
+    const request = new Request('https://verify.example' + path, {method, body: body ? JSON.stringify(body) : undefined,
+      headers: {Authorization: 'Bearer ' + BUDGET_WATCHER_TOKEN, ...(body ? {'Content-Type': 'application/json'} : {})}});
+    const started = performance.now();
+    counter.start();
+    let response, text, log;
+    try { response = await worker.fetch(request, env, ctx); text = await response.text(); } finally { log = counter.stop(); }
+    return {status: response.status, json: JSON.parse(text), statements: log.length, milliseconds: Math.round(performance.now() - started), log};
+  };
+  const page = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v233');
+  own('launch-operations page answers for the 1,000-member roster through the actual Worker', page.status === 200 && page.json.memberCount === 1000 && page.json.entitlements?.total === 1000);
+  own('launch-operations page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements (' + page.statements + ')', page.statements > 0 && page.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const display = await call('GET', '/queue/unverified?keyVersion=launch-roster-display-v2');
+  own('strict roster display answers for the 1,000-member roster through the actual Worker', display.status === 200 && display.json.verified?.length + display.json.unverified?.length + display.json.unknown?.length === 1000);
+  own('strict roster display stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements (' + display.statements + ')', display.statements > 0 && display.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const members = seeded.rows.map((row, i) => ({name: row.name, guid: row.guid, rank: i === 0 ? 'Leader' : 'Initiate', rankIndex: i === 0 ? 0 : 9, level: 60, class: 'WARRIOR', online: i % 7 === 0}));
+  const exportedAt = (await genuine.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").first()).n - 5;
+  const ingest = await call('POST', '/ingest/roster?keyVersion=launch-membership-v1', {exportedAt, members, nativeGuild: 'OLYMPUS PRIME', nativeRealm: 'Fixture Realm'});
+  own('a changed 1,000-member roster export is stored whole through the actual Worker', ingest.status === 200 && ingest.json.members === 1000 && ingest.json.trusted === true && ingest.json.unchanged === false);
+  own('the 1,000-member roster ingest stays within the shipped per-invocation admission model of ' + ROSTER_INGEST_STATEMENTS + ' physical D1 statements (' + ingest.statements + ')', ingest.statements > 0 && ingest.statements <= ROSTER_INGEST_STATEMENTS);
+  const plans = {};
+  for (const [name, r] of Object.entries({page, display, ingest})) {
+    plans[name] = await fullScans(genuine, r.log, ['roster_members', 'role_settlements']);
+    own(name + ' query plans read neither roster_members nor role_settlements in full (' + plans[name].explained + ' statements explained)', plans[name].explained > 0 && plans[name].scans.length === 0);
+  }
+  for (const [name, sql] of Object.entries({canonical: CANONICAL233_SWEEP249_SELECT, native: NATIVE232_SWEEP249_SELECT})) {
+    plans[name + 'Sweep'] = await fullScans(genuine, [{sql, values: ['800000000000000001', '', 50, 0, 'f'.repeat(32)]}], ['roster_members', 'role_settlements']);
+    const found = plans[name + 'Sweep'].scans.map(s => s.detail).sort(), known = [...KNOWN_SWEEP_SCANS[name]].sort();
+    own(name + ' Native sweep selector adds no full scan beyond its recorded ones', plans[name + 'Sweep'].explained === 1 && JSON.stringify(found) === JSON.stringify(known));
+  }
+  const brief = r => ({status: r.status, statements: r.statements, milliseconds: r.milliseconds});
+  return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), display: brief(display), ingest: brief(ingest),
+    ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS}, plans};
+}
+
+export default {async fetch(request, bindings, ctx) {
   const url = new URL(request.url);
   if (request.method !== 'POST') return new Response(null, {status: 404});
   try {
@@ -173,6 +234,7 @@ export default {async fetch(request, bindings) {
       fixture = await seed(bindings.DB);
       return Response.json({complete: true, actualLocalWorkerdD1: true, at: fixture.at, checks});
     }
+    if (url.pathname === '/budget' && !budgeted) { budgeted = true; return Response.json(await budget(bindings.DB_BUDGET, ctx)); }
     if (!fixture) return new Response(null, {status: 404});
     const {env, db} = fixture;
     if (url.pathname === '/review-records275') {
