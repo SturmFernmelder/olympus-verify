@@ -406,6 +406,11 @@ class RateRecovery(unittest.TestCase):
                                        officer_character='Fern Melder', membership_only=True, state_file=str(root/'state.json')))
         instance.queue_file.parent.mkdir(parents=True)
         instance.queue_file.write_text('LEGACY UNCHANGED')
+        instance.sv_file.parent.mkdir(parents=True, exist_ok=True)
+        instance.sv_file.write_text('synthetic completed intake')
+        # This standalone recovery fixture assumes an already completed intake;
+        # the separate actual check_savedvars tests qualify witness issuance.
+        instance._launch_consumed_sv_witness = instance._launch_savedvars_witness()
         instance.launch_scan = scan
         return instance
 
