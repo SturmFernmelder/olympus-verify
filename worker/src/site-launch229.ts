@@ -20,6 +20,10 @@ type SourceRow229 = LaunchRosterRow229 & {
 };
 type RoleRead229 = [guid: string, state: 'knight' | 'non-knight', observedAt: number, identityDigest?: string];
 type Cursor229 = {version: 1 | 2 | 3; snapshotId: number; snapshotAt: number; scopeHash: string; rowsDigest: string; offset: number; issuedAt: number; expiresAt: number; roleScope?: string; roleReads?: RoleRead229[]};
+export type PromotionSelection273 = Readonly<{selectionId:string;targetGuid:string;snapshotId:number;snapshotAt:number}>;
+type SelectionCursor273 = Omit<Cursor229,'version'|'roleReads'|'roleScope'> & PromotionSelection273 & {version:4;roleScope:string;roleReads:RoleRead229[]};
+const SELECTION_PROTOCOL273='promotion-selection-v273';
+const GUID273=/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
 class LaunchCursor229 extends Error { constructor(readonly code: string, readonly status = 400) { super(code); } }
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), n => n.toString(16).padStart(2, '0')).join('');
 const digest229 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
@@ -47,6 +51,32 @@ async function readCursor229(raw: string, secret: string, at: number, roleSecret
       ||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at
       ||v.version===3&&!/^[a-f0-9]{64}$/.test(r[3]??''))
     ||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length))throw new LaunchCursor229('invalid_launch_cursor');
+  return v;
+}
+function selection273(input:unknown,cursor:string|null,at:number):PromotionSelection273 {
+  if(!input||typeof input!=='object'||Reflect.ownKeys(input).map(String).sort().join(',')!=='selectionId,snapshotAt,snapshotId,targetGuid')throw new LaunchCursor229('invalid_selection_request');
+  const values:Record<string,unknown>={};
+  for(const name of ['selectionId','targetGuid','snapshotId','snapshotAt']){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))throw new LaunchCursor229('invalid_selection_request');values[name]=d.value;}
+  const {selectionId,targetGuid,snapshotId,snapshotAt}=values,match=typeof selectionId==='string'&&/^([0-9]{9,11}):[0-9]{1,10}$/.exec(selectionId);
+  if(!match||typeof targetGuid!=='string'||!GUID273.test(targetGuid)||!Number.isSafeInteger(snapshotId)||(snapshotId as number)<1||!Number.isSafeInteger(snapshotAt)||(snapshotAt as number)<1)throw new LaunchCursor229('invalid_selection_request');
+  const issued=Number(match[1]);
+  if(!Number.isSafeInteger(issued)||issued>at+5||!cursor&&issued<at-60)throw new LaunchCursor229('expired_selection_request');
+  return Object.freeze({selectionId:selectionId as string,targetGuid,snapshotId:snapshotId as number,snapshotAt:snapshotAt as number});
+}
+async function writeSelectionCursor273(value:SelectionCursor273,secret:string){
+  const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('promotion-selection-cursor|273|'+body)));
+  return body+'.'+mac;
+}
+async function readSelectionCursor273(raw:string,secret:string,selection:PromotionSelection273,at:number):Promise<SelectionCursor273>{
+  if(raw.length>4096||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_selection_cursor');
+  const [body,mac]=raw.split('.');let v:SelectionCursor273;
+  try{v=JSON.parse(atob(body.replace(/-/g,'+').replace(/_/g,'/')));if(encoded229(JSON.stringify(v))!==body)throw Error();}catch{throw new LaunchCursor229('invalid_selection_cursor');}
+  if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac),new TextEncoder().encode('promotion-selection-cursor|273|'+body)))throw new LaunchCursor229('invalid_selection_cursor');
+  if(!v||v.version!==4||Object.keys(v).sort().join(',')!=='expiresAt,issuedAt,offset,roleReads,roleScope,rowsDigest,scopeHash,selectionId,snapshotAt,snapshotId,targetGuid,version'
+    ||v.selectionId!==selection.selectionId||v.targetGuid!==selection.targetGuid||v.snapshotId!==selection.snapshotId||v.snapshotAt!==selection.snapshotAt
+    ||v.issuedAt!==Number(selection.selectionId.split(':')[0])||v.issuedAt>at||!Number.isSafeInteger(v.expiresAt)||v.expiresAt!==Math.min(v.issuedAt+LAUNCH_SCAN_TTL229,v.snapshotAt+LAUNCH_SCAN_TTL229)||v.expiresAt<=at
+    ||!Number.isSafeInteger(v.offset)||v.offset<0||v.offset>=1000||v.offset%LAUNCH_ROLE_PAGE229!==0||!/^[a-f0-9]{16}$/.test(v.scopeHash)||!/^[a-f0-9]{64}$/.test(v.rowsDigest)||!/^[a-f0-9]{64}$/.test(v.roleScope)
+    ||!Array.isArray(v.roleReads)||v.roleReads.length>LAUNCH_ROLE_PAGE229||v.roleReads.some(r=>!Array.isArray(r)||r.length!==4||typeof r[0]!=='string'||!GUID273.test(r[0])||!['knight','non-knight'].includes(r[1])||!Number.isSafeInteger(r[2])||r[2]<v.issuedAt||r[2]>at||typeof r[3]!=='string'||!/^[a-f0-9]{64}$/.test(r[3]))||new Set(v.roleReads.map(r=>r[0])).size!==v.roleReads.length)throw new LaunchCursor229('invalid_selection_cursor');
   return v;
 }
 async function sourceRows229(env: Env, launch: LaunchVerificationCapture, at: number, cutoff: number): Promise<SourceRow229[]> {
@@ -105,23 +135,40 @@ function roleConfiguration229(env: Env) {
   const guild=values[0]!.value as string,token=values[1]!.value as string;if(!/^\d{17,20}$/.test(guild))return null;
   return {guild,token,current:()=>keys.every((key,i)=>{const d=Object.getOwnPropertyDescriptor(env,key);return !!d&&Object.hasOwn(d,'value')&&d.value===values[i]!.value;})};
 }
-export async function readLaunchOperations229(env: Env, cursor: string | null = null) {
+export async function readLaunchOperations229(env: Env, cursor: string | null = null) {return readLaunchPage229(env,cursor);}
+export async function readPromotionSelection273(env:Env,input:unknown,cursor:string|null=null){
+  const selection=selection273(input,cursor,now());let coveredGuids:string[]=[];
+  const page=await readLaunchPage229(env,cursor,selection,guids=>{coveredGuids=guids;});
+  return {version:1 as const,protocol:SELECTION_PROTOCOL273,controlId:selection.selectionId,targetGuid:selection.targetGuid,coveredGuids,page};
+}
+async function readLaunchPage229(env: Env, cursor: string | null = null,selection:PromotionSelection273|null=null,coverage?:(guids:string[])=>void) {
   const at=now(),launch=captureLaunchVerification(env),secret=secret229(env);
   if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held229(at,'flagship-native-scope-unconfirmed');
   if(!secret)return held229(at,'native-secret-unconfigured');
   const configuration=roleConfiguration229(env);
   const roleSecret271=configuration?JSON.stringify(['officer-role-cursor',271,secret,configuration.guild,configuration.token]):null;
   const roleSecret272=configuration?JSON.stringify(['officer-role-cursor',272,secret,configuration.guild,configuration.token]):null;
-  const captured=cursor?await readCursor229(cursor,secret,at,roleSecret271,roleSecret272):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff),first=rows[0];
+  const selectionSecret=configuration?JSON.stringify(['promotion-selection-cursor',273,secret,configuration.guild,configuration.token]):null;
+  if(selection&&(!selectionSecret||Number(selection.selectionId.split(':')[0])>at))return held229(at,'selection-source-not-current');
+  const captured=cursor?(selection?await readSelectionCursor273(cursor,selectionSecret!,selection,at):await readCursor229(cursor,secret,at,roleSecret271,roleSecret272)):null,cutoff=linksNotBefore(env),rows=await sourceRows229(env,launch,at,cutoff),first=rows[0];
   if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held229(at,'native-snapshot-unavailable');}
+  if(selection&&(selection.snapshotId!==first.snapshotId||selection.snapshotAt!==first.snapshotAt))throw new LaunchCursor229('selection_native_source_changed',409);
+  const selectedIndices=selection?rows.flatMap((row,index)=>row.guid===selection.targetGuid?[index]:[]):[];
+  if(selection&&selectedIndices.length!==1)return held229(at,'selected-target-unavailable');
   const legacy=captured?.version===1||captured?.version===2||!roleSecret272;
   const scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),nativeDigest=await digest229(JSON.stringify(nativeRows272(rows)));
   const rowsDigest=legacy?await digest229(JSON.stringify(legacyRows229(rows))):nativeDigest;
   if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.rowsDigest!==rowsDigest))throw new LaunchCursor229('launch_cursor_source_changed',409);
-  const issuedAt=captured?.issuedAt??at,scanExpiresAt=captured?.expiresAt??Math.min(at+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??0;
+  const issuedAt=captured?.issuedAt??(selection?Number(selection.selectionId.split(':')[0]):at),scanExpiresAt=captured?.expiresAt??Math.min(issuedAt+LAUNCH_SCAN_TTL229,first.snapshotAt+LAUNCH_SCAN_TTL229),offset=captured?.offset??(selection?Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229:0);
+  if(selection&&offset!==Math.floor(selectedIndices[0]!/LAUNCH_ROLE_PAGE229)*LAUNCH_ROLE_PAGE229)throw new LaunchCursor229('launch_cursor_source_changed',409);
   let expiresAt=Math.min(at+LAUNCH_ROLE_TTL229,scanExpiresAt);
-  const scanId=(await digest229(JSON.stringify(['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
+  const scanId=(await digest229(JSON.stringify(selection?['promotion-selection',273,selection.selectionId,selection.targetGuid,scopeHash,rowsDigest,issuedAt,scanExpiresAt]:['officer-operations-scan',233,scopeHash,rowsDigest,issuedAt,scanExpiresAt]))).slice(0,32);
   const page=rows.slice(offset,offset+LAUNCH_ROLE_PAGE229),roleRows=page.filter(needsLaunchRole229),states=new Map<string,KnightState229>();
+  const coveredGuids=page.map(row=>row.guid);
+  if(selection&&(coveredGuids.some(g=>typeof g!=='string'||!GUID273.test(g))||new Set(coveredGuids).size!==coveredGuids.length))return held229(at,'selected-native-page-ambiguous');
+  // The signed exact Native digest and offset derive this same coverage on
+  // every retry. Repeating20GUIDs in the cursor would exceed4096bytes when a
+  // late429 preserves19maximum-length identity-bound role observations.
   const pageDigest=await digest229(JSON.stringify(page));
   const identities=new Map(await Promise.all(roleRows.map(async row=>[row.guid,await roleIdentity272(row)] as const)));
   // The signed retry cursor carries only this page's exact prior successes, with
@@ -135,7 +182,7 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   }
   let retryAfterSeconds: number|null=null,rateLimited=false,roleUnavailable=false,readWindowHeld=false;
   const pacer=new LaunchRolePacer271(roleScope),accountStates=new Map<string,{state:KnightState229;observedAt:number}>();
-  const current=()=>{if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)throw Error('launch_source_changed');};
+  const current=()=>{if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||selection&&now()>=scanExpiresAt)throw Error('launch_source_changed');};
   // The Watcher has a 20-second HTTP timeout. Don't hold that request through a
   // long reset; return its signed progress and known cooldown to the same scan.
   const readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
@@ -177,7 +224,7 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   }
   // One first-page invite read uses a separate three-request ceiling, so it
   // cannot starve any of the twenty roster evidence rows on that page.
-  const invitePage=offset===0?(rateLimited||readWindowHeld?{invites:[],heldReasons:['officer-invite-read-deferred']}:
+  const invitePage=!selection&&offset===0?(rateLimited||readWindowHeld?{invites:[],heldReasons:['officer-invite-read-deferred']}:
     await readOfficerInvites233(env,{limit:3,attempts:0,retries:0},3,at,{
       before:()=>pacer.wait(readDeadline,current),
       observe:async response=>{if(response.status===429)await pacer.limited(response);else if(response.ok)pacer.success(response);current();},
@@ -191,6 +238,7 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   // Only this page can consume its current account/privacy facts or cached roles.
   // Activity on another page must not invalidate immutable Native pagination.
   if(await digest229(JSON.stringify(after.slice(offset,offset+LAUNCH_ROLE_PAGE229)))!==pageDigest)return held229(now(),'launch-page-verification-changed');
+  if(selection&&now()>=scanExpiresAt)return held229(now(),'selection-read-expired');
   if(readWindowHeld)return held229(now(),'launch-read-window-exhausted');
   const dto=projectLaunchOperations229({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,states,now(),expiresAt);
   dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};
@@ -203,23 +251,31 @@ export async function readLaunchOperations229(env: Env, cursor: string | null = 
   if(dto.status!=='held')dto.invites.push(...invitePage.invites.filter(row=>row.expiresAt>now()&&row.observedAt<=at+5));
   if(dto.invites.length){const i=dto.heldReasons.indexOf('native-unguilded-proof-required');if(i>=0)dto.heldReasons.splice(i,1);}
   dto.heldReasons.push(...invitePage.heldReasons);
+  if(selection){
+    dto.riskBuffer.splice(0); // A selected promotion read supplies no purge-review authority.
+    const i=dto.heldReasons.indexOf('native-unguilded-proof-required');if(i>=0)dto.heldReasons.splice(i,1);
+  }
   dto.entitlements={offset,pageSize:LAUNCH_ROLE_PAGE229,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds};
   if(rateLimited)dto.heldReasons.push('discord-rate-limited');if(roleUnavailable||!configuration)dto.heldReasons.push('discord-entitlement-unavailable');
   if(dto.status!=='held'){
     const source={snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,rowsDigest,issuedAt,expiresAt:scanExpiresAt};
-    const roleSecret=legacy?roleSecret271:roleSecret272;
-    const witness=roleSecret?{version:legacy?2 as const:3 as const,...source,roleScope,roleReads:[] as RoleRead229[]}:{version:1 as const,...source};
-    dto.pageCursor=await writeCursor229({...witness,offset,...(roleSecret?{roleReads:rateLimited?[...reads.values()]:[]}:{})},roleSecret??secret);
-    if(offset+page.length<rows.length&&!rateLimited)dto.nextCursor=await writeCursor229({...witness,offset:offset+page.length},roleSecret??secret);
+    if(selection){dto.pageCursor=await writeSelectionCursor273({version:4,...source,...selection,offset,roleScope,roleReads:rateLimited?[...reads.values()]:[]},selectionSecret!);}
+    else{
+      const roleSecret=legacy?roleSecret271:roleSecret272;
+      const witness=roleSecret?{version:legacy?2 as const:3 as const,...source,roleScope,roleReads:[] as RoleRead229[]}:{version:1 as const,...source};
+      dto.pageCursor=await writeCursor229({...witness,offset,...(roleSecret?{roleReads:rateLimited?[...reads.values()]:[]}:{})},roleSecret??secret);
+      if(offset+page.length<rows.length&&!rateLimited)dto.nextCursor=await writeCursor229({...witness,offset:offset+page.length},roleSecret??secret);
+    }
   }
   if(dto.status!=='held')dto.status=dto.entitlements.unscanned||dto.held.some(r=>r.reason==='discord-entitlement-unknown')?'partial':'ready';
   if(!launch.current()||configuration&&!configuration.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff)return held229(now(),'native-snapshot-changed');
+  if(selection)coverage?.(coveredGuids as string[]);
   return dto;
 }
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {
-  const q=new URL(request.url).searchParams,allowed=watcher?['keyVersion','cursor']:['cursor'];
+  const q=new URL(request.url).searchParams,selected=['selectionId','targetGuid','snapshotId','snapshotAt'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
   if(request.method!=='GET'||[...q.keys()].some(k=>!allowed.includes(k))||[...new Set(q.keys())].some(k=>q.getAll(k).length!==1)
-    ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor'))return apiJson({error:'invalid_launch_query'},400);
-  try{return apiJson(await readLaunchOperations229(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
+    ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')||hasSelection&&(!watcher||selected.some(key=>!q.get(key))||!/^\d{1,16}$/.test(q.get('snapshotId')!)||!/^\d{1,16}$/.test(q.get('snapshotAt')!)))return apiJson({error:'invalid_launch_query'},400);
+  try{return apiJson(hasSelection?await readPromotionSelection273(env,{selectionId:q.get('selectionId'),targetGuid:q.get('targetGuid'),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt'))},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
   catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);throw error;}
 }

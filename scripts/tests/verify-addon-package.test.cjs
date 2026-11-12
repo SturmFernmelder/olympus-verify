@@ -50,7 +50,8 @@ check('local and central records consume the entire archive exactly once', () =>
 check('packager never requests configuration, SavedVariables or exchange inputs', () => {
   const seen = []; pack.prepare(file => { seen.push(file); return get(file); });
   assert.deepEqual(seen, [...expected.map(file => pack.SOURCE + file), 'scripts/build-verify-addon.cjs']);
-  assert(!manifest.files.some(row => /(?:^|\/)(?:Config\.lua|OlympusQueue\.lua|OlympusLaunchQueue\.lua|OlympusVerifyLists\.lua|SavedVariables)$/.test(row.path)));
+  assert(!manifest.files.some(row => /(?:^|\/)(?:Config\.lua|OlympusQueue\.lua|OlympusLaunchQueue\.lua|OlympusLaunchSelected\.lua|OlympusVerifyLists\.lua|SavedVariables)$/.test(row.path)));
+  assert(manifest.localFilesExcluded.includes('OlympusLaunchSelected.lua'));
 });
 check('changed public bytes update the actual archive and manifest digest', () => {
   const file = pack.SOURCE + 'Bindings.xml', changed = Buffer.concat([get(file), Buffer.from('\n')]);

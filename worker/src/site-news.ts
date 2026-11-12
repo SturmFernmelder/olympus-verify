@@ -78,6 +78,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".273", date: "2026-11-11", lines: [
+      "Officers can request fresh promotion evidence for a selected character without repeating the full roster scan. Earlier discovery keeps its original dates.",
+      "A fresh result still requires current native identity, rank and permission checks. Checking a character never promotes them automatically.",
+    ],
+  },
+  {
     build: ".272", date: "2026-11-11", lines: [
       "Normal verification updates elsewhere no longer invalidate an unchanged roster scan. Each selected page still checks current account links and privacy before returning recommendations.",
       "Watcher 0.6.31 distinguishes a changed scan source from an invalid response. Stopped scans remain held; promotions still require fresh evidence and a deliberate officer action.",

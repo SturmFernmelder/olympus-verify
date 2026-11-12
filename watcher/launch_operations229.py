@@ -17,6 +17,9 @@ MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
 MAX_RATE_RETRIES = 2
 SOURCE_CHANGED_ERRORS = frozenset({'launch_cursor_source_changed', 'launch_cursor_role_source_changed'})
+SELECTED_PROTOCOL = "promotion-selection-v273"
+_SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
+_SELECTED_KEYS = {"version", "protocol", "controlId", "actorGuid", "targetGuid", "scopeHash", "observedAt", "snapshotId", "snapshotAt", "startedAt", "expiresAt", "running", "stoppedReason", "attempts", "completed", "page", "coveredGuids"}
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
 _KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions"}
 
@@ -369,3 +372,211 @@ def render_pages(result: Any, at: int) -> str | None:
     safe_pages = [{key: value for key, value in page.items() if key not in {'nextCursor', 'pageCursor'}} for page in pages]
     safe = {**result, 'pages': safe_pages}
     return "-- Dated launch projection only; old pages are advisory, never action-fresh.\nOlympusLaunchQueue=" + _lua(safe) + "\n"
+
+
+def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
+    message = '|'.join(['launch-selected-read', '2', 'select', value['id'], str(value['observedAt']),
+                        value['scopeHash'], value['guid'], value['targetGuid']])
+    return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
+    if not isinstance(value, dict) or set(value) != _SELECTED_CONTROL_KEYS:
+        return False
+    if (type(value['version']) is not int or value['version'] != 2 or value['action'] != 'select'
+            or not isinstance(value['id'], str) or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id'])
+            or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
+            or not at-60 <= value['observedAt'] <= at+5 or value['guid'] != guid
+            or not isinstance(guid, str) or _GUID.fullmatch(guid) is None
+            or not isinstance(value['targetGuid'], str) or _GUID.fullmatch(value['targetGuid']) is None
+            or not _text(guild) or guild != guild.strip() or canonical_guild(guild) != 'OLYMPUS PRIME'
+            or not _text(realm) or not realm
+            or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
+            or not isinstance(value['mac'], str) or re.fullmatch(r'[0-9a-f]{32}', value['mac']) is None):
+        return False
+    return hmac.compare_digest(value['mac'], selected_control_mac(secret, value))
+
+
+def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, allow_stale: bool = False) -> bool:
+    if (not validate_page(page, at, allow_stale=allow_stale) or page['nextCursor'] is not None
+            or page['invites'] or page['riskBuffer'] or page['status'] == 'held'
+            or page['snapshotId'] != record['snapshotId'] or page['snapshotAt'] != record['snapshotAt']
+            or page['scopeHash'] != record['scopeHash'] or page['scan']['startedAt'] != record['startedAt']
+            or page['scan']['expiresAt'] != record['expiresAt'] or page['expiresAt'] > record['expiresAt']
+            or not isinstance(covered, list) or not 1 <= len(covered) <= 20
+            or any(not isinstance(guid, str) or _GUID.fullmatch(guid) is None for guid in covered)
+            or len(set(covered)) != len(covered) or record['targetGuid'] not in covered
+            or len(covered) != page['entitlements']['scanned']):
+        return False
+    e = page['entitlements']
+    if (e['offset'] % 20 or e['scanned'] != min(20, e['total']-e['offset'])
+            or e['total'] != page['memberCount'] or e['unscanned'] != max(0, e['total']-e['offset']-e['scanned'])):
+        return False
+    return all(row['guid'] in covered for key in ('promotions', 'held') for row in page[key])
+
+
+class SelectedRead:
+    """One explicit new-source read. Never resets or resumes the discovery Scan."""
+    def __init__(self, clock: Callable[[], float] = time.time):
+        self.clock = clock
+        self.record: dict[str, Any] | None = None
+        self.cursor: str | None = None
+        self.next_at = 0.0
+        self.native_digest: str | None = None
+        self.native_guids: set[str] = set()
+
+    @property
+    def running(self) -> bool:
+        return self.record is not None and self.record['running']
+
+    def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float) -> None:
+        self.record = dict(version=1, protocol=SELECTED_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
+                           targetGuid=control['targetGuid'], scopeHash=control['scopeHash'], observedAt=control['observedAt'],
+                           snapshotId=None, snapshotAt=None, startedAt=control['observedAt'], expiresAt=None,
+                           running=False, stoppedReason='native-roster-receipt-required', attempts=0, completed=False,
+                           page=None, coveredGuids=[])
+        self.cursor = None
+        self.native_digest = None
+        self.native_guids = set()
+        digest = complete_roster_digest(roster)
+        if (not isinstance(accepted, dict) or digest is None or accepted.get('digest') != digest
+                or accepted.get('exportedAt') != roster['exportedAt'] or not _integer(accepted.get('snapshot'), 1)
+                or not 0 <= at-roster['exportedAt'] < 600):
+            return
+        r = self.record
+        r.update(snapshotId=accepted['snapshot'], snapshotAt=accepted['exportedAt'],
+                 expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
+        self.native_guids = {row['guid'] for row in roster['members']}
+        self.native_digest = digest
+        if control['targetGuid'] not in self.native_guids:
+            r['stoppedReason'] = 'selected-target-unavailable'
+            return
+        if at >= r['expiresAt']:
+            r['stoppedReason'] = 'scan-expired'
+            return
+        r.update(running=True, stoppedReason=None)
+        self.next_at = max(self.next_at, at)
+
+    def hold(self, reason: str) -> bool:
+        if not self.running:
+            return False
+        self.record.update(running=False, completed=False, stoppedReason=reason, page=None, coveredGuids=[])
+        return True
+
+    def expire(self, at: float) -> bool:
+        return self.hold('scan-expired') if self.running and at >= self.record['expiresAt'] else False
+
+    def expire_admission(self, at: float) -> bool:
+        if self.expire(at):
+            return True
+        if self.running and not self.cursor and at >= self.record['observedAt']+60:
+            return self.hold('selection-admission-expired')
+        return False
+
+    def source_changed(self, roster: Any) -> bool:
+        if not self.running:
+            return False  # A completed <=60s observation keeps its original source and dates.
+        if (complete_roster_digest(roster) != self.native_digest
+                or roster.get('exportedAt') != self.record['snapshotAt']):
+            return self.hold('native-roster-changed-or-expired')
+        return False
+
+    def defer_rate_limit(self, delay: Any) -> bool:
+        if not self.running:
+            return False
+        if not _integer(delay, 1, 86400):
+            return self.hold('source-refused')
+        self.next_at = max(self.next_at, self.clock()+max(5, delay))
+        limit = self.record['expiresAt'] if self.cursor else min(self.record['expiresAt'], self.record['observedAt']+60)
+        if self.next_at >= limit:
+            return self.hold('rate-limit-exceeds-scan')
+        self.record['stoppedReason'] = 'rate-limited-wait'
+        return True
+
+    def step(self, call: Callable[..., tuple[bool, Any]], at: float, source_current: Callable[[], bool] | None = None) -> bool:
+        if not self.running:
+            return False
+        if self.expire_admission(at):
+            return True
+        r = self.record
+        if at < self.next_at:
+            return False
+        if r['attempts'] >= 3:
+            return self.hold('rate-limit-retries-exhausted')
+        query = dict(selectionId=r['controlId'], targetGuid=r['targetGuid'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'])
+        if self.cursor:
+            query['cursor'] = self.cursor
+        r['attempts'] += 1  # Spend before transport; no unknown outcome is automatically retried.
+        try:
+            okay, reply = call('GET', PATH+'&'+urllib.parse.urlencode(query), retries=1)
+        except Exception:
+            self.next_at = self.clock()+5
+            return self.hold('source-unknown')
+        self.next_at = self.clock()+5
+        if self.expire(self.clock()):
+            return True
+        if not okay:
+            if isinstance(reply, dict) and type(reply.get('httpStatus')) is int and reply['httpStatus'] == 429:
+                if r['attempts'] >= 3:
+                    return self.hold('rate-limit-retries-exhausted')
+                return self.defer_rate_limit(reply.get('retryAfterSeconds'))
+            return self.hold('source-refused')
+        if (not isinstance(reply, dict) or set(reply) != {'version', 'protocol', 'controlId', 'targetGuid', 'coveredGuids', 'page'}
+                or type(reply['version']) is not int or reply['version'] != 1 or reply['protocol'] != SELECTED_PROTOCOL
+                or reply['controlId'] != r['controlId'] or reply['targetGuid'] != r['targetGuid']):
+            return self.hold('invalid-selected-page')
+        page, covered = reply['page'], reply['coveredGuids']
+        if isinstance(page, dict) and validate_page(page, int(self.clock())) and page['status'] == 'held' and covered == []:
+            reasons = set(page['heldReasons'])
+            return self.hold('selected-target-unavailable' if 'selected-target-unavailable' in reasons else 'source-held')
+        if (not _selected_page(page, r, covered, int(self.clock())) or not set(covered) <= self.native_guids
+                or r['page'] is not None and page['scan']['id'] != r['page']['scan']['id']):
+            return self.hold('invalid-selected-page')
+        r['page'] = json.loads(json.dumps(page))
+        r['coveredGuids'] = list(covered)
+        self.cursor = page['pageCursor']
+        if page['entitlements']['retryAfterSeconds'] is not None:
+            if r['attempts'] >= 3:
+                return self.hold('rate-limit-retries-exhausted')
+            return self.defer_rate_limit(page['entitlements']['retryAfterSeconds'])
+        if source_current is not None:
+            try:
+                if not source_current():
+                    return self.hold('native-roster-changed-or-expired')
+            except Exception:
+                return self.hold('source-unknown')
+        r.update(running=False, completed=True, stoppedReason=None)
+        return True
+
+
+def render_selected(record: Any, at: int) -> str | None:
+    if (not isinstance(record, dict) or set(record) != _SELECTED_KEYS or type(record['version']) is not int or record['version'] != 1
+            or record['protocol'] != SELECTED_PROTOCOL or not _text(record['controlId'], 32)
+            or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', record['controlId'])
+            or not _integer(record['observedAt'], 1) or record['controlId'].split(':')[0] != str(record['observedAt'])
+            or record['startedAt'] != record['observedAt'] or not _integer(record['attempts'], 0, 3)
+            or any(type(record[key]) is not bool for key in ('running', 'completed'))
+            or not isinstance(record['coveredGuids'], list)
+            or any(not isinstance(record[key], str) or _GUID.fullmatch(record[key]) is None for key in ('actorGuid', 'targetGuid'))
+            or not isinstance(record['scopeHash'], str) or not re.fullmatch(r'[0-9a-f]{16}', record['scopeHash'])
+            or record['stoppedReason'] is not None and (not _text(record['stoppedReason'], 64) or not record['stoppedReason'])):
+        return None
+    if record['running'] and record['completed'] or not record['running'] and not record['completed'] and not record['stoppedReason']:
+        return None
+    known = record['snapshotId'] is not None or record['snapshotAt'] is not None or record['expiresAt'] is not None
+    if known:
+        if (not _integer(record['snapshotId'], 1) or not _integer(record['snapshotAt'], 1)
+                or record['expiresAt'] != min(record['observedAt']+600, record['snapshotAt']+600)):
+            return None
+    elif (record['running'] or record['completed'] or record['attempts'] or record['page'] is not None
+          or record['coveredGuids'] or not record['stoppedReason']):
+        return None
+    if record['completed'] and (record['running'] or record['stoppedReason'] is not None or record['page'] is None):
+        return None
+    if record['page'] is not None and not _selected_page(record['page'], record, record['coveredGuids'], at, allow_stale=True):
+        return None
+    if record['page'] is None and record['coveredGuids']:
+        return None
+    safe = {**record, 'page': None if record['page'] is None else
+            {key: value for key, value in record['page'].items() if key not in {'pageCursor', 'nextCursor'}}}
+    return "-- Independent dated promotion observation; never renews discovery or native authority.\nOlympusLaunchSelected=" + _lua(safe) + "\n"

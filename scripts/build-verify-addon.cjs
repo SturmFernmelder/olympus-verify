@@ -45,7 +45,7 @@ function prepare(get) {
   const manifest = Buffer.from(JSON.stringify({ schema: 'olympus-verify-public-download-v1', addon: 'OlympusVerify', version: VERSION,
     generator: { path: 'scripts/build-verify-addon.cjs', bytes: generator.length, sha256: sha(generator) },
     archive: { path: ZIP.slice('worker/public'.length), bytes: zip.length, sha256: sha(zip) },
-    files, localFilesExcluded: ['Config.lua', 'OlympusQueue.lua', 'OlympusLaunchQueue.lua', 'OlympusVerifyLists.lua', 'SavedVariables'],
+    files, localFilesExcluded: ['Config.lua', 'OlympusQueue.lua', 'OlympusLaunchQueue.lua', 'OlympusLaunchSelected.lua', 'OlympusVerifyLists.lua', 'SavedVariables'],
     installation: 'Preserve existing private Config.lua, generated exchange files and SavedVariables. This package contains public addon code and Config.example.lua only.'
   }, null, 2) + '\n');
   return { zip, manifest };

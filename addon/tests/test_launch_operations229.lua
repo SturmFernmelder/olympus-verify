@@ -52,6 +52,8 @@ local function fixture(fallback)
   f.emit("GUILD_ROSTER_UPDATE")
   return f
 end
+if LAUNCH_FIXTURE_ONLY then return fixture end
+
 do
   local f, pages = fixture(), {}
   local start = f.env.NOW
@@ -176,7 +178,7 @@ do
 end
 do
   local f = fixture(); f.q.Current(); f.emit("PLAYER_GUILD_UPDATE", "player")
-  check("a native identity lifecycle change holds the old projection", f.q.Current() == nil and not f.q.HardwarePromote("1") and f.direct == 0)
+  check("same native identity event invalidates roster freshness without a false scope latch", f.q.Current() ~= nil and not f.q.scopeChanged and not f.q.HardwarePromote("1") and f.direct == 0)
   f = fixture(); f.env.NOW = f.env.NOW + 16
   check("stale native roster refreshes without promoting", not f.q.HardwarePromote("1") and f.env.ROSTER_ASKS == 1 and f.direct == 0)
 end

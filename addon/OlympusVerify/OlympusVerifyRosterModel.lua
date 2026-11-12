@@ -46,8 +46,8 @@ local function verified(row)
     and (type(base) ~= "table" or base.status == "verified" and base.historicalLinked ~= true)
 end
 local function recommendation(row)
-  return type(row) == "table" and guid(row.guid) and row.reason == "verified-initiate"
-    and row.currentSlot == 9 and row.targetSlot == 8 and row.targetName == "Member"
+  return type(row)=="table" and guid(row.guid) and ((row.reason=="verified-initiate" and row.currentSlot==9 and row.targetSlot==8 and row.targetName=="Member")
+    or (row.reason=="knight-veteran" and whole(row.currentSlot,7,9) and row.targetSlot==6 and row.targetName=="Veteran"))
 end
 local heldLabels = {
   ["native-rank-unconfirmed"] = "The source could not confirm the native rank; no promotion was recommended.",
@@ -79,7 +79,7 @@ end
 function M.Promotions(list, launchAPI, now)
   local candidates = {}
   local diagnostics = { nativeInitiates = 0, knownVerifiedInitiates = 0,
-    recommendations = 0, ready = 0, held = 0, notReadyInitiates = 0,
+    recommendations = 0, ready = 0, readyInitiates = 0, held = 0, notReadyInitiates = 0,
     knownVerifiedNotReady = 0, duplicateGuids = 0, partial = false,
     stalePages = 0, pageCount = 0, queueAvailable = false, legacyUnsupported = false,
     sourceHeld = 0, riskReview = 0, heldReasonCounts = {}, riskReasonCounts = {},
@@ -106,6 +106,7 @@ function M.Promotions(list, launchAPI, now)
 
   if now == nil and type(time) == "function" then local ok, value = pcall(time); if ok then now = value end end
   local current, unavailable, originalPages, sourceHeld, riskReview = nil, nil, {}, {}, {}
+  local historicalPages={}
   if not whole(now, 1, 2147483647) then unavailable = "The current clock is unavailable; source expiry cannot be checked."
   elseif type(launchAPI) ~= "table" or type(launchAPI.Current) ~= "function" then
     diagnostics.legacyUnsupported = true
@@ -125,7 +126,7 @@ function M.Promotions(list, launchAPI, now)
   end
   if current then
     local pages, promotions = array(current.pages, 50), array(current.promotions, 1000)
-    if not pages or pages == 0 or not promotions or type(current.freshness) ~= "table" then
+    if not pages or pages==0 and not current.selection or not promotions or type(current.freshness) ~= "table" then
       unavailable, current = "The validated projection is incomplete; original page freshness is unavailable.", nil
     else
       diagnostics.queueAvailable, diagnostics.pageCount = true, pages
@@ -144,9 +145,17 @@ function M.Promotions(list, launchAPI, now)
         for index = 1, rows do
           local row = page.promotions[index]
           if recommendation(row) then
+            historicalPages[row.guid]=row
             if originalPages[row.guid] ~= nil then originalPages[row.guid] = false
             else originalPages[row.guid] = { row = row, page = page } end
           end
+        end
+      end
+      if current and current.selection and current.selection.completed then
+        local chosen=current.selection
+        for id in pairs(chosen.covered) do originalPages[id]=nil end
+        for _,row in ipairs(chosen.page.promotions) do
+          if recommendation(row) then originalPages[row.guid]={row=row,page=chosen.page} end
         end
       end
       if current then
@@ -169,6 +178,7 @@ function M.Promotions(list, launchAPI, now)
   end
   diagnostics.queueAvailable = current ~= nil
   diagnostics.loadedScan=current and current.loadedScan or nil
+  diagnostics.selection=current and current.selection or nil
 
   for index = 1, size do
     local row, info = list[index], nil
@@ -179,10 +189,10 @@ function M.Promotions(list, launchAPI, now)
     if not id then info = detail("missing_guid", "Native GUID unavailable", "No unique native character GUID is available; a name match cannot enable promotion.")
     elseif seen[id] ~= 1 then info = detail("duplicate_guid", "Duplicate native GUID", "This GUID occurs more than once in the native list; no promotion is ready.")
     elseif not whole(row.rankIndex, 0, 9) then info = detail("unavailable", "Native rank unavailable", "The current native rank slot is unreadable; promotion readiness is unknown.")
-    elseif not initiate(row) then info = detail("wrong_rank", "Not a native Initiate", "The current native rank is not Initiate slot 9; a loaded recommendation cannot override it.")
+    elseif not whole(row.rankIndex,7,9) then info = detail("wrong_rank", "Native rank needs no supported promotion", "Only current native slots 7 through 9 can match a supported Member or Veteran recommendation.")
     elseif not current then info = detail("unavailable", "Promotion source unavailable", unavailable)
-    elseif launchAPI.pending[id] ~= nil then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
-    elseif current.actionHeld then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
+    elseif launchAPI.pending[id] ~= nil or type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
+    elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
       diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
         or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")
     elseif not recommendations[id] then
@@ -194,7 +204,7 @@ function M.Promotions(list, launchAPI, now)
       else
         info = detail("no_recommendation", "No loaded recommendation", verified(row)
           and "The base display is verified, but no supported Initiate-to-Member recommendation is loaded for this GUID. Display verification alone is not promotion authority."
-          or "No supported Initiate-to-Member recommendation is loaded for this GUID. Verification or other admission checks may still be needed.")
+          or "No supported Member or Veteran recommendation is loaded for this GUID. Verification or other admission checks may still be needed.")
       end
     else
       local source, original = current.freshness[id], originalPages[id]
@@ -202,15 +212,21 @@ function M.Promotions(list, launchAPI, now)
       if not original or original.row ~= recommendations[id] or type(source) ~= "table"
         or not whole(source.expiresAt, 1, 2147483647) or not whole(source.scanExpiresAt, 1, 2147483647)
         or source.expiresAt ~= page.expiresAt or source.scanExpiresAt ~= page.scan.expiresAt
-        or source.offset ~= page.entitlements.offset then
+        or source.offset ~= page.entitlements.offset or source.row~=original.row or source.page~=page then
         info = detail("unavailable", "Original source unavailable", "The recommendation is not bound to its original page and scan expiry; no promotion is ready.")
+      elseif source.actionHeld then info=detail("held","Selected read held","The selected result is pending or held; no historical recommendation can supply its action authority.")
+      elseif row.rankIndex~=recommendations[id].currentSlot then info=detail("wrong_rank","Native rank changed","The current native rank differs from this recommendation. Recheck the selected GUID; no action is ready.")
       elseif now >= source.scanExpiresAt then info = detail("expired", "Original scan expired", "The original scan has expired. Its recommendation is advisory until an explicit source recheck.")
       elseif now >= source.expiresAt then info = detail("expired", "Recommendation page expired", "The original recommendation page has expired. A verified display does not renew its action window.")
       else
         candidates[id], diagnostics.ready = true, diagnostics.ready + 1
-        info = detail("ready", "Ready for Member", "A fresh original Initiate-to-Member recommendation matches this unique native slot-9 GUID. One hardware click must recheck native identity, rank and permission before acting.")
+        if initiate(row) then diagnostics.readyInitiates=diagnostics.readyInitiates+1 end
+        info = detail("ready", "Ready for "..recommendations[id].targetName, "A fresh dated recommendation matches this unique native GUID and current rank. One hardware click must recheck native identity, rank, permission and prior attempts before acting.")
+        info.targetName,info.targetSlot=recommendations[id].targetName,recommendations[id].targetSlot
       end
     end
+    info.historical=historicalPages[id]~=nil
+    info.historicalTargetName=historicalPages[id] and historicalPages[id].targetName or nil
     diagnostics.byRow[row], diagnostics.byIndex[index] = info, info
     if id then diagnostics.byGuid[id] = info end
     diagnostics.counts[info.state] = (diagnostics.counts[info.state] or 0) + 1
@@ -218,9 +234,13 @@ function M.Promotions(list, launchAPI, now)
       diagnostics.knownVerifiedNotReady = diagnostics.knownVerifiedNotReady + 1
     end
   end
+  diagnostics.historicalRecommendations=0;for _ in pairs(historicalPages) do diagnostics.historicalRecommendations=diagnostics.historicalRecommendations+1 end
   diagnostics.held = math.max(0, diagnostics.recommendations - diagnostics.ready)
-  diagnostics.notReadyInitiates = math.max(0, diagnostics.nativeInitiates - diagnostics.ready)
+  diagnostics.notReadyInitiates = math.max(0, diagnostics.nativeInitiates - diagnostics.readyInitiates)
   if not current then diagnostics.state, diagnostics.reason = "unavailable", unavailable
+  elseif diagnostics.ready>0 then diagnostics.state,diagnostics.reason="ready",tostring(diagnostics.ready).." fresh supported recommendation(s); each hardware click rechecks the exact native target."
+  elseif current.selection and current.selection.completed and (diagnostics.counts.expired or 0)>0 then diagnostics.state,diagnostics.reason="expired","The selected recommendation has expired; its original clocks remain unchanged. Recheck the selected GUID for a new read."
+  elseif current.selection then diagnostics.state,diagnostics.reason=current.selection.state=="pending" and "pending" or "held",current.selection.reason
   elseif current.actionHeld then diagnostics.state, diagnostics.reason = "held", diagnostics.loadedScan
     and (diagnostics.loadedScan.reason.." No recommendations are actionable. Next step: "..diagnostics.loadedScan.nextStep)
     or "The promotion projection is stopped or superseded. No recommendations are actionable."
@@ -228,7 +248,7 @@ function M.Promotions(list, launchAPI, now)
   elseif diagnostics.recommendations == 0 then
     diagnostics.state, diagnostics.reason = "no_recommendation", diagnostics.nativeInitiates == 0
       and "No native Initiates (slot 9) are present in the current roster; no promotion is ready."
-      or "No Initiate-to-Member recommendations are loaded. Known verified Initiates are potential candidates only."
+      or "No supported Member or Veteran recommendations are loaded. Known verified Initiates are potential candidates only."
   elseif (diagnostics.counts.expired or 0) > 0 then diagnostics.state, diagnostics.reason = "expired", "Loaded recommendation pages or their original scan have expired; no promotion is ready."
   elseif (diagnostics.counts.pending or 0) > 0 then diagnostics.state, diagnostics.reason = "pending", "Original promotion attempts remain pending or unconfirmed; no automatic retry is permitted."
   else diagnostics.state, diagnostics.reason = "held", "Loaded recommendations do not match an actionable unique native Initiate. Inspect each row's reason." end
@@ -244,8 +264,9 @@ function M.Promotions(list, launchAPI, now)
   if diagnostics.stalePages > 0 then
     diagnostics.reason = diagnostics.reason .. " " .. diagnostics.stalePages .. " stale source page(s) are advisory only."
   end
-  if diagnostics.loadedScan and not current.actionHeld then
+  if diagnostics.loadedScan and not current.actionHeld and not current.selection then
     diagnostics.reason=diagnostics.reason.." "..diagnostics.loadedScan.reason.." Next step: "..diagnostics.loadedScan.nextStep
   end
+  if diagnostics.selection then diagnostics.reason=diagnostics.reason.." Selected read: "..diagnostics.selection.reason.." Original discovery retains "..tostring(diagnostics.historicalRecommendations or 0).." dated recommendation(s)." end
   return candidates, diagnostics
 end

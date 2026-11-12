@@ -72,6 +72,7 @@ local ACTION_FILTERS = {
   { "pending", "Promotion awaiting readback" }, { "held", "Queue held" },
   { "unavailable", "Queue unavailable" }, { "duplicate_guid", "Ambiguous native GUID" },
   { "missing_guid", "Native GUID unavailable" }, { "wrong_rank", "Other native rank" },
+  { "recommended", "Dated or current recommendations" },
 }
 local NEXT_STEP = {
   verified="Use Discord /verify-status to confirm current access; this is a dated display result.",
@@ -281,7 +282,7 @@ local function PromotionCandidates()
 end
 
 local function Eligible(m, candidates)
-  return type(m.guid) == "string" and candidates[m.guid] == true and m.rankIndex == 9
+  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=7 and m.rankIndex<=9
 end
 
 local function CurrentRank()
@@ -312,6 +313,7 @@ local function Visible()
     local action=ActionFor(m)
     local matches=kind=="all" or kind=="ready" and Eligible(m,candidates)
       or kind=="not_ready" and not Eligible(m,candidates)
+      or kind=="recommended" and action.historical==true
       or kind=="known_verified_initiate" and m.rankIndex==9 and m.status=="verified" and not m.historicalLinked
       or kind==action.state
     if (not view.initiates or m.rankIndex == 9) and matches then
@@ -356,7 +358,8 @@ local function DetailLines(m)
     Clean(m.statusReason or m.verification and m.verification.reason or "No current verification evidence is available."),
     "Server list queried: "..Stamp(m.statusAt).." ("..Age(m.statusAt).."); native roster observed: "..Stamp(m.snapshotAt).." ("..Age(m.snapshotAt)..")",
     "Native GUID: "..Clean(m.guid or "unavailable")..(m.discord and " | Known Discord: @"..Clean(m.discord) or " | No current Discord name supplied"),
-    "Member readiness: "..Clean(action.label or action.state)..". "..Clean(action.reason or diagnostics.reason),
+    "Promotion readiness: "..Clean(action.label or action.state)..". "..Clean(action.reason or diagnostics.reason),
+    action.historical and ("Dated discovery target: "..Clean(action.historicalTargetName)..". This historical row does not renew action freshness.") or "No supported promotion was recorded in the dated discovery for this GUID.",
     "Next step: "..(NEXT_STEP[m.statusDetail or m.status] or NEXT_STEP.unknown),
   }
 end
@@ -442,6 +445,7 @@ function W.Refresh()
       local action=ActionFor(m)
       r.cells.action:SetText(Eligible(m,candidates) and "" or GREY..trunc(action.label or action.state,28).."|r")
       r.promote.member = m
+      SetButtonText(r.promote,action.targetName and ("To "..action.targetName) or "Promote")
       r.promote:SetShown(Eligible(m, candidates))
       r:Show()
     else
@@ -478,9 +482,12 @@ function W.Refresh()
   local readyCount=0
   for _,m in ipairs(list) do if Eligible(m,candidates) then readyCount=readyCount+1 end end
   local actionTitle=not diagnostics.queueAvailable and "Promote: unavailable"
-    or readyCount==0 and (diagnostics.stalePages or 0)>0 and "Promote: stale"
-    or readyCount==0 and diagnostics.state=="held" and "Promote: held"
-    or string.format("Promote next (%d)",readyCount)
+    or readyCount>0 and string.format("Promote next (%d)",readyCount)
+    or (diagnostics.ready or 0)>0 and "Ready outside filters"
+    or diagnostics.state=="pending" and "Promote: awaiting read"
+    or diagnostics.state=="held" and "Promote: held"
+    or diagnostics.state=="expired" and "Promote: stale"
+    or "Promote: none ready"
   SetButtonText(nextBtn,actionTitle);nextBtn:SetEnabled(readyCount>0)
   local loaded=diagnostics.queueAvailable and tostring(diagnostics.recommendations or 0) or "unavailable"
   queueSummary:SetText(WHITE..string.format("Native Initiates: %d | Verified Initiates: %d potential | Signed recommendations: %s | Actionable: %d total / %d shown | Source holds: %d | Risk review: %d",
@@ -511,6 +518,7 @@ function W.Refresh()
     if selected.guid and m.guid==selected.guid or not selected.guid and m.full==selected.full then match=m;break end
   end end
   ShowDetail(match)
+  if W.selectButton then W.selectButton:SetEnabled(match~=nil and type(match.guid)=="string" and type(OlympusLaunch229)=="table" and type(OlympusLaunch229.Select)=="function") end
   W.diagnostics,W.summary,W.queueSummary,W.snapshotText,W.actionInfo,W.detailText,W.sortText=diagnostics,summary,queueSummary,snapshotText,actionInfo,detailText,sortText
 
 end
@@ -620,7 +628,7 @@ local function Build()
   onlineBtn:SetPoint("LEFT",classBtn,"RIGHT",6,0)
   actionFilterBtn=Button(frame,"All readiness states v",220,24,function(self)
     local options={};for i,item in ipairs(ACTION_FILTERS) do options[#options+1]={value=i,label=item[2]} end
-    OpenMenu(self,"Member readiness",options,view.action,function(value) view.action=value;offset=0;W.Refresh() end)
+    OpenMenu(self,"Promotion readiness",options,view.action,function(value) view.action=value;offset=0;W.Refresh() end)
   end,"Readiness","Filter signed action readiness separately from display verification.")
   actionFilterBtn:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD,Layout.FILTER_Y-64)
 
@@ -640,6 +648,9 @@ local function Build()
     search:SetText(""); offset = 0; W.Refresh()
   end, "Clear filters", "Show everyone again; keep the chosen sort order.")
   clear:SetPoint("LEFT", nextBtn, "RIGHT", 6, 0)
+  W.selectButton=Button(frame,"Recheck selected + reload",216,24,function() W.RequestSelected() end,
+    "Recheck selected GUID", "Request one current selected-page read for the highlighted native GUID. This never promotes; use a separate hardware click after loading its dated result.")
+  W.selectButton:SetEnabled(false)
   actionInfo=Label(frame,"GameFontDisableSmall","",Layout.PAD+230,Layout.FILTER_Y-69,Layout.INNER-230)
   actionInfo:SetWordWrap(true);actionInfo:SetHeight(26)
   snapshotText=Label(frame,"GameFontDisableSmall","",Layout.PAD,-49,Layout.INNER)
@@ -652,6 +663,7 @@ local function Build()
   refresh:SetPoint("LEFT",clear,"RIGHT",6,0)
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
+  W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
@@ -725,7 +737,7 @@ local function Build()
     r.promote = Button(r, "Promote", 100, Layout.ROW_H - 2, function(self)
       local m = self.member
       if m and type(m.guid) == "string" then Promote(m.guid) end
-    end, "Initiate > Member", "One hardware promotion for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.")
+    end, "Native promotion", "One hardware promotion to the displayed Member or Veteran target for this exact GUID. The signed queue, freshness, native rank and permission are rechecked; no automatic retry.")
     r.promote:SetPoint("LEFT", r, "LEFT", 962, 0)
     r.promote:Hide()
     if r.EnableMouseWheel then r:EnableMouseWheel(true) end
@@ -794,5 +806,14 @@ watcher:SetScript("OnEvent", function()
 end)
 
 -- For the tests: what the window would show right now.
+W.RequestSelected=function()
+  Reload()
+  local id=selected and selected.guid
+  if type(id)~="string" then Say("Select one native character row before requesting a current read.");return false end
+  local count=0;for _,row in ipairs(cache.list) do if row.guid==id then count=count+1 end end
+  local launch=OlympusLaunch229
+  if count~=1 or type(launch)~="table" or type(launch.Select)~="function" then Say("The selected native GUID is missing or ambiguous; no read requested.");return false end
+  return launch.Select(id)
+end
 W.Visible = function() Reload(); return Visible() end
 W.view = view

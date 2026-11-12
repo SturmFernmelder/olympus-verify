@@ -8249,3 +8249,90 @@ remain unchanged. No 27-record repair, native promotion or live bridge is
 included. A new bounded live scan/recheck needs new approval because the
 0.6.33 full-scan allowance is used. Rollback uses backed-up public modules
 through the existing scheduled task and never resets runtime custody.
+
+## Worker .273 / Watcher 0.6.35 / Verify 0.6.33 candidate — selected promotion reads
+
+The 0.6.34 live run completed all 963 members across 49 pages, preserving its
+original source and deadline. It found 20 Member and four Veteran promotion
+recommendations. A later reload exported a changed native roster, which held
+the old scan before its selected-page recheck could run. Full discovery passed;
+fresh selected-page acceptance did not. Keep both original receipts intact.
+
+An eight-minute discovery cannot make every original 60-second page actionable
+at once. The successor separates that dated discovery from a new, deliberate
+promotion-only read. Select a native character, use **Recheck selected + reload**,
+inspect the returned result, and load it through the existing file exchange.
+Promoting remains a separate hardware action with current native checks.
+
+The new version-2 `select` control signs its original request ID/time, raw scope,
+officer GUID and target GUID under a separate MAC domain. Version-1 Scan, Stop
+and Recheck retain their old meaning; an expired or stopped original is never
+reopened. Only an unseen valid control plus a fresh complete same-process native
+ACK and completed SavedVariables intake may start the new read. Reserving a
+control still happens durably before a GET; uncertain reservation halts custody.
+
+The Worker resolves the unique target GUID in that exact newly accepted native
+snapshot, derives its current bounded 20-member page, and returns a separate
+`promotion-selection-v273` result. A historical page number is not identity.
+The new server-only cursor purpose binds the request, target, exact source digest,
+resolved offset and original new context clocks. The covered GUIDs are derived
+again from that bound source and offset, and included in the response. Omitting
+their redundant cursor copy keeps a late-429 checkpoint below the existing
+4,096-character limit, including maximum-length GUIDs. Legacy or mixed cursors cannot
+continue it. It has no next-page traversal and performs no invitation reads.
+Current account links, privacy, standing and role observations are revalidated
+after provider waits as in the existing page reader.
+
+The selected read permits one original page request and at most two recognized
+rate-limit retries, sharing the cross-operation five-second response gate. It
+retains its original at-most-600-second context, clipped to the accepted native
+source, and at-most-60-second returned observation. Unknown/refused outcomes do
+not automatically retry; process restart does not resume a read. While pending,
+a changed source holds it. A completed observation retains its exact original
+source and expiry after a later result-loading export: it is not rebound to the
+new snapshot, redated or fetched again. This bounded retained observation is
+usable only with the exact current native target name/GUID/rank, officer identity,
+permission, combat and pending-attempt checks at the later hardware action.
+
+The existing discovery exchange stays unchanged. The separate generated local
+`OlympusLaunchSelected.lua` supplies only selected promotion observations. A
+pending, held or negative selection never borrows a historical positive's clock.
+Neither invitation, MOTD nor purge actions gain authority from this file. The
+addon presents Member and Veteran targets distinctly, separates filter-specific
+readiness from expired historical pages, and preserves spent/unknown native
+attempt holds across the required reload. Routine same-identity guild updates
+invalidate native roster freshness instead of manufacturing a guild change;
+actual or unknown identity changes still hold actions.
+
+Qualification must include genuine local Workerd/D1 selected-page behavior,
+Python custody/source/retry cases, Lua overlay/negative/pending/hardware guards,
+the existing 1,000-member benchmark, exact public package/download checks and
+independently attributable reviews. Record actual counts and failures; do not
+claim that source or offline tests prove a live selected result or promotion.
+The public package contains code only and excludes the new generated selected
+file alongside existing configuration, exchange files and SavedVariables.
+
+The final local candidate passed TypeScript and the bounded full Worker run in
+56.181 seconds (54 core and 64 promotion checks), 82 Python launch checks, 514
+focused Lua checks including the existing performance benchmark, 28 public
+package checks and 50 route/real-ASSETS checks. Actual Workerd success, partial
+and held samples also passed the real Watcher validator/renderer and literal
+round trip without renewing clocks or exporting opaque cursors. Independent
+reviews reproduced and closed completed-history, changed-target unknown-attempt,
+late-429 cursor-capacity and inherited-cooldown display findings. Earlier failed
+fixtures and candidate receipts remain preserved. Hosted CI, shipping identity
+and native acceptance are recorded separately in the canonical QA report.
+
+This entry describes a candidate, not deployment or native acceptance. Merge,
+backend deployment and client installation follow the owner gates, with a fresh
+integrity-checked D1 backup immediately before an authorized deployment. A later
+bounded selected read and client reloads need their own remaining authorization;
+the prior four-reload allowance is used. No new full scan, native promotion,
+27-record repair, live bridge, secret, dependency, schema or role-policy change
+is included. Rollback restores compatible public code through the existing
+launcher, preserving generated evidence, saved native attempts and runtime
+custody; it never retries an uncertain effect or clears a failed original.
+Keep the successor addon while any of its saved native attempts are unresolved;
+an older addon that does not understand that ledger is not a compatible action
+rollback. Backend rollback may hold new selected reads; it must not downgrade
+them into legacy cursors or restore historical action readiness.
