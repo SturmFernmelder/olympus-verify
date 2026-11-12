@@ -78,6 +78,11 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".277", date: "2026-11-12", lines: [
+      "The public addon download now serves Verify 0.6.35, matching the current version manifest and setup page.",
+    ],
+  },
+  {
     build: ".276", date: "2026-11-12", lines: [
       "The guild roster shows known Discord names beside verification status, with a promotion control for current supported recommendations.",
       "Officers can request one bounded check of up to twenty verified Initiates, then load the dated result. A check never promotes anyone.",
