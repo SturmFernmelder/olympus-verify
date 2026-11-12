@@ -128,5 +128,20 @@ do
   check("expired display evidence never becomes verified potential",f.names()=="" and plain(f.w.queueSummary:GetText()):find("Verified Initiates: 0 potential",1,true) and not f.w.nextButton:IsEnabled())
   check("empty verified shortcut explains the current filter and source state",plain(f.w.actionInfo:GetText()):find("No current verified Initiates match these filters.",1,true) and plain(f.w.actionInfo:GetText()):find("expired",1,true) and f.reloads==0 and f.attempts==0)
 end
+do
+  local f=fixture();local requested
+  f.q.SelectMany=function(ids) requested=ids;return true end
+  f.search("Zulu");f.choose(f.w.onlineButton,3)
+  f.w.batchButton:Click()
+  local seen={};for _,id in ipairs(requested or {}) do seen[id]=true end
+  check("batch button checks all three current verified Initiates including unsigned candidates",requested and #requested==3 and seen["Player-1-0000B001"] and seen["Player-1-0000B002"] and seen["Player-1-0000B003"])
+  check("batch button clears display filters and never directly promotes",f.names()=="Alpha,NameOnly,Zulu" and f.attempts==0 and #f.promotions==0 and f.removals==0 and f.invites==0)
+  f=reviewFixture();requested=nil;f.q.SelectMany=function(ids) requested=ids;return true end
+  f.w.batchButton:Click()
+  check("batch button excludes prior-record and review identities",requested and #requested==1 and requested[1]=="Player-1-0000B003")
+  f=fixture();requested=nil;f.q.SelectMany=function(ids) requested=ids;return true end
+  f.e.NOW=f.e.NOW+3601;f.w.batchButton:Click()
+  check("stale display cannot request an Initiate batch",requested==nil and f.reloads==0 and f.attempts==0)
+end
 print(string.format("%d passed, %d failed",passed,failed))
 if failed>0 then error("roster controls failed") end

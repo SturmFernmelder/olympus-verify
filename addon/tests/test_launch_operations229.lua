@@ -6,7 +6,7 @@ end
 local function fixture(fallback)
   local e = setmetatable({}, { __index = _G }); e._G = e
   setfenv(assert(loadfile("wow_mock.lua")), e)()
-  local f = { env = e, guild = "OLYMPUS PRIME", realm = "Native Realm", direct = 0, fallback = 0, motd = 0, invites = 0, removals = 0 }
+  local f = { env = e, guild = "OLYMPUS PRIME", realm = "Native Realm", promote = 0, legacy = 0, restricted = 0, motd = 0, invites = 0, removals = 0 }
   e.OlympusVerifyConfig = { membershipOnly = true, holdNote = "hold", secret = "synthetic-never-print-secret" }
   e.GetGuildInfo = function() return f.guild, "High Council", 1 end
   e.GetRealmName = function() return f.realm end
@@ -21,14 +21,16 @@ local function fixture(fallback)
     { name = "Candidate", rank = "Initiate", rankIndex = 9, level = 1, online = false, away = 2, guid = "Player-1-0000BBBB" },
   }
   e.C_GuildInfo.IsGuildRankAssignmentAllowed = function() return true end
-  e.C_GuildInfo.SetGuildRankOrder = function(guid, order)
-    f.direct = f.direct + 1; f.lastGuid, f.lastOrder = guid, order
-    if f.blockDirect then f.emit("ADDON_ACTION_FORBIDDEN", "OlympusVerify"); return end
-    if f.unknownDirect then error("synthetic outcome unknown") end
-    e.ROSTER[2].rankIndex = order - 1
+  e.C_GuildInfo.SetGuildRankOrder = function() f.restricted=f.restricted+1;error("restricted API must never be called") end
+  local function promote(name)
+    f.lastName=name
+    if f.blockPromote then f.emit("ADDON_ACTION_FORBIDDEN", "OlympusVerify", "C_GuildInfo.Promote()");return end
+    if f.unknownPromote then error("synthetic outcome unknown") end
+    if not f.noRankChange then e.ROSTER[2].rankIndex=e.ROSTER[2].rankIndex-1 end
   end
-  if fallback then e.C_GuildInfo.SetGuildRankOrder = nil end
-  e.C_GuildInfo.Promote = function(name) f.fallback = f.fallback + 1; f.lastName = name; e.ROSTER[2].rankIndex = e.ROSTER[2].rankIndex - 1 end
+  e.C_GuildInfo.Promote=function(name) f.promote=f.promote+1;promote(name) end
+  e.GuildPromote=function(name) f.legacy=f.legacy+1;promote(name) end
+  if fallback then e.C_GuildInfo.Promote=nil end
   e.C_GuildInfo.SetMOTD = function(text) f.motd = f.motd + 1; f.lastMotd = text; if f.failMotd then error("unknown") end end
   e.C_GuildInfo.Invite = function() f.invites = f.invites + 1 end
   e.C_GuildInfo.Uninvite = function() f.removals = f.removals + 1 end
@@ -75,7 +77,7 @@ do
     check("stale later recommendation rechecks its source offset60 rather than first offset0", c and c.action == "recheck" and c.offset == 60 and f.syncs == 1)
     local message = c and table.concat({"launch-control","1",c.action,c.id,tostring(c.observedAt),c.scopeHash,c.guid,tostring(c.offset)},"|")
     check("per-row recheck signs the exact own native GUID scope and selected offset", c and c.guid == "Player-1-0000AAAA" and c.mac == h.hmacSha256hex(f.env.OlympusVerifyConfig.secret,message):sub(1,32))
-    check("later-page recheck never promotes invites removes or sets MOTD", f.direct == 0 and f.fallback == 0 and f.invites == 0 and f.removals == 0 and f.motd == 0)
+    check("later-page recheck never promotes invites removes or sets MOTD", f.promote == 0 and f.legacy == 0 and f.invites == 0 and f.removals == 0 and f.motd == 0)
   end
 end
 do
@@ -85,9 +87,9 @@ do
   f.env.OlympusLaunchQueue.pages[2] = p2
   check("page2 one second later does not require shared action expiry", f.q.Current() ~= nil)
   f.env.NOW = f.env.NOW + 60; f.emit("GUILD_ROSTER_UPDATE")
-  check("expired candidate stays visible advisory without protected action", #f.q.Current().promotions == 1 and not f.q.HardwarePromote("1") and f.direct == 0)
+  check("expired candidate stays visible advisory without protected action", #f.q.Current().promotions == 1 and not f.q.HardwarePromote("1") and f.promote == 0)
   f.page.fetchedAt, f.page.expiresAt = f.env.NOW, f.env.NOW + 60
-  check("fresh candidate page admits hardware action while other page is stale", f.q.HardwarePromote("1") and f.direct == 1)
+  check("fresh candidate page admits hardware action while other page is stale", f.q.HardwarePromote("1") and f.promote == 1)
 end
 do
   local f = fixture(); local original, start = f.page, f.env.NOW
@@ -102,43 +104,43 @@ do
   end
   pages[3].promotions = {{name="Candidate",guid="Player-1-0000BBBB",currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}}
   f.env.OlympusLaunchQueue.pages = pages; f.env.NOW = start+260; f.emit("GUILD_ROSTER_UPDATE")
-  check("full 50-page discovery retains expired pages as advisory", f.q.Current() and #f.q.Current().pages == 50 and not f.q.HardwarePromote("1") and f.direct == 0)
+  check("full 50-page discovery retains expired pages as advisory", f.q.Current() and #f.q.Current().pages == 50 and not f.q.HardwarePromote("1") and f.promote == 0)
   check("naturally partial early pages do not contradict completed discovery", f.q.Current().scanComplete and not f.q.Current().partial and f.q.Current().stalePages > 0)
   pages[3].fetchedAt, pages[3].expiresAt = start+260, start+320
-  check("50-page scan recheck renews only selected page eligibility", f.q.HardwarePromote("1") and f.direct == 1 and pages[1].expiresAt == start+60)
+  check("50-page scan recheck renews only selected page eligibility", f.q.HardwarePromote("1") and f.promote == 1 and pages[1].expiresAt == start+60)
 end
 do
   local f = fixture(); f.q.Show(); f.q.tab="initiates"; f.q.Show()
-  check("opening actual native queue frame is read only", f.q.window:IsShown() and f.direct == 0 and f.invites == 0)
+  check("opening actual native queue frame is read only", f.q.window:IsShown() and f.promote == 0 and f.invites == 0)
   f.q.rowButtons[1]:GetScript("OnClick")()
-  check("native queue button makes exactly one hardware request", f.direct == 1 and f.fallback == 0)
+  check("native queue button makes exactly one hardware request", f.promote == 1 and f.legacy == 0)
   f = fixture()
-  check("explicit scan writes domain separated local control and reloads once", f.q.Control("scan") and f.syncs == 1 and f.direct == 0 and f.invites == 0)
+  check("explicit scan writes domain separated local control and reloads once", f.q.Control("scan") and f.syncs == 1 and f.promote == 0 and f.invites == 0)
   local c, h = f.env.OlympusVerifyDB.launchControl, f.env.OlympusHmac
   local message = table.concat({"launch-control","1",c.action,c.id,tostring(c.observedAt),c.scopeHash,c.guid,tostring(c.offset)},"|")
   check("control MAC binds exact current native GUID scope action and offset", c.mac == h.hmacSha256hex(f.env.OlympusVerifyConfig.secret,message):sub(1,32))
-  check("pending scan invalidates old loaded action data", not f.q.HardwarePromote("1") and f.direct == 0)
+  check("pending scan invalidates old loaded action data", not f.q.HardwarePromote("1") and f.promote == 0)
   check("stop is explicit and immediately holds old actions", f.q.Control("stop") and f.env.OlympusVerifyDB.launchControl.action == "stop" and not f.q.HardwarePromote("1"))
 end
 do
   local f = fixture()
-  check("dated raw-scope Prime projection is admitted without any action", f.q.Current() ~= nil and f.direct == 0 and f.fallback == 0 and f.invites == 0 and f.removals == 0)
-  check("direct hardware promotion uses exact GUID and one-based target order", f.q.HardwarePromote("Player-1-0000BBBB") and f.direct == 1 and f.lastGuid == "Player-1-0000BBBB" and f.lastOrder == 9)
+  check("dated raw-scope Prime projection is admitted without any action", f.q.Current() ~= nil and f.promote == 0 and f.legacy == 0 and f.invites == 0 and f.removals == 0)
+  check("GUID hardware selection uses name-only one-rank API without restricted assignment", f.q.HardwarePromote("Player-1-0000BBBB") and f.promote == 1 and f.lastName == "Candidate-Forever" and f.env.ROSTER[2].rankIndex==8 and f.restricted==0)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed target rank cannot promote again", not f.q.HardwarePromote("Player-1-0000BBBB") and f.direct == 1)
+  check("confirmed target rank cannot promote again", not f.q.HardwarePromote("Player-1-0000BBBB") and f.promote == 1)
 end
 do
   local f = fixture(); f.page.promotions[1].targetSlot, f.page.promotions[1].targetName, f.page.promotions[1].reason = 6, "Veteran", "knight-veteran"
-  check("Knight Veteran projection requests native slot6 as rankOrder7", f.q.HardwarePromote("1") and f.direct == 1 and f.lastOrder == 7)
+  check("Knight Veteran projection requests only the first rank on its named target path", f.q.HardwarePromote("1") and f.promote == 1 and f.env.ROSTER[2].rankIndex==8 and f.restricted==0)
 end
 do
   local f = fixture(true)
-  check("missing direct capability falls back to exactly one rank per click", f.q.HardwarePromote("1") and f.fallback == 1 and f.env.ROSTER[2].rankIndex == 8)
-  check("fallback waits for a newer native roster before another click", not f.q.HardwarePromote("1") and f.fallback == 1)
+  check("missing namespaced Promote uses exactly one legacy name-only step", f.q.HardwarePromote("1") and f.legacy == 1 and f.env.ROSTER[2].rankIndex == 8)
+  check("fallback waits for a newer native roster before another click", not f.q.HardwarePromote("1") and f.legacy == 1)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed Member target does not send another fallback", not f.q.HardwarePromote("1") and f.fallback == 1 and f.env.ROSTER[2].rankIndex == 8)
+  check("confirmed Member target does not send another fallback", not f.q.HardwarePromote("1") and f.legacy == 1 and f.env.ROSTER[2].rankIndex == 8)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("bounded fallback stops at Member and never skips further", not f.q.HardwarePromote("1") and f.fallback == 1)
+  check("bounded fallback stops at Member and never skips further", not f.q.HardwarePromote("1") and f.legacy == 1)
 end
 for _, case in ipairs({ "expiry", "future", "scope", "rank", "permission", "assignment", "guid", "duplicate", "preview", "combat", "invite" }) do
   local f = fixture()
@@ -153,20 +155,20 @@ for _, case in ipairs({ "expiry", "future", "scope", "rank", "permission", "assi
   elseif case == "preview" then f.env.OlympusVerifyUI = { preview = {} }
   elseif case == "combat" then f.env.InCombatLockdown = function() return true end
   elseif case == "invite" then f.page.invites = {{name="Unknown Guild"}} end
-  check(case .. " holds all protected actions", not f.q.HardwarePromote("1") and f.direct == 0 and f.fallback == 0 and f.invites == 0 and f.removals == 0)
+  check(case .. " holds all protected actions", not f.q.HardwarePromote("1") and f.promote == 0 and f.legacy == 0 and f.invites == 0 and f.removals == 0)
 end
 do
-  local f = fixture(); f.blockDirect = true
-  check("known blocked direct API never calls fallback in the same hardware event", not f.q.HardwarePromote("1") and f.direct == 1 and f.fallback == 0)
-  check("blocked API fallback waits for fresh native roster", not f.q.HardwarePromote("1") and f.fallback == 0)
+  local f = fixture(); f.blockPromote = true
+  check("known blocked name API retains unknown custody without fallback", not f.q.HardwarePromote("1") and f.promote == 1 and f.legacy == 0 and f.env.OlympusVerifyDB.launchPromotionAttempts["Player-1-0000BBBB"].state=="unknown")
+  check("blocked API cannot repeat in the same native generation", not f.q.HardwarePromote("1") and f.legacy == 0)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("a later hardware click may use one-rank fallback after known block", f.q.HardwarePromote("1") and f.direct == 1 and f.fallback == 1)
+  check("a newer roster cannot clear an unobserved blocked attempt", not f.q.HardwarePromote("1") and f.promote == 1 and f.legacy == 0)
 end
 do
-  local f = fixture(); f.unknownDirect = true
-  check("unknown native action outcome is held", not f.q.HardwarePromote("1") and f.direct == 1)
+  local f = fixture(); f.unknownPromote = true
+  check("unknown native action outcome is held", not f.q.HardwarePromote("1") and f.promote == 1)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("a fresh roster does not silently retry an unknown action", not f.q.HardwarePromote("1") and f.direct == 1 and f.fallback == 0)
+  check("a fresh roster does not silently retry an unknown action", not f.q.HardwarePromote("1") and f.promote == 1 and f.legacy == 0)
 end
 do
   local f = fixture()
@@ -178,9 +180,9 @@ do
 end
 do
   local f = fixture(); f.q.Current(); f.emit("PLAYER_GUILD_UPDATE", "player")
-  check("same native identity event invalidates roster freshness without a false scope latch", f.q.Current() ~= nil and not f.q.scopeChanged and not f.q.HardwarePromote("1") and f.direct == 0)
+  check("same native identity event invalidates roster freshness without a false scope latch", f.q.Current() ~= nil and not f.q.scopeChanged and not f.q.HardwarePromote("1") and f.promote == 0)
   f = fixture(); f.env.NOW = f.env.NOW + 16
-  check("stale native roster refreshes without promoting", not f.q.HardwarePromote("1") and f.env.ROSTER_ASKS == 1 and f.direct == 0)
+  check("stale native roster refreshes without promoting", not f.q.HardwarePromote("1") and f.env.ROSTER_ASKS == 1 and f.promote == 0)
 end
 do
   local f = fixture(); f.page.promotions = {}; f.page.riskBuffer = {}
@@ -195,15 +197,15 @@ do
   risk("Protected", "0000CCC4", 1, 40, "HOLD")
   local rows = f.q.RiskBuffer()
   check("risk buffer uses longest measured offline then lowest native level", #rows == 3 and rows[1].name:find("High Long",1,true) and rows[2].name:find("Small Long",1,true) and rows[3].name:find("Small%-Forever"))
-  check("risk buffer preserves hold notes and never removes anyone", f.removals == 0 and f.direct == 0 and f.invites == 0)
+  check("risk buffer preserves hold notes and never removes anyone", f.removals == 0 and f.promote == 0 and f.invites == 0)
 end
 do
   local f=fixture();f.q.Show()
-  check("four officer tabs are present and opening them is read only",f.q.tabButtons.invites and f.q.tabButtons.knights and f.q.tabButtons.initiates and f.q.tabButtons.buffer and f.direct==0 and f.invites==0 and f.removals==0)
+  check("four officer tabs are present and opening them is read only",f.q.tabButtons.invites and f.q.tabButtons.knights and f.q.tabButtons.initiates and f.q.tabButtons.buffer and f.promote==0 and f.invites==0 and f.removals==0)
   f.q.tab="invites";check("unknown unguilded invite queue never dispatches",not f.q.NextAction() and f.invites==0)
   f.q.tab="buffer";check("purge Next action is native review only",not f.q.NextAction() and f.removals==0)
-  f.q.tab="initiates";check("Next officer action requests one fresh verified Initiate promotion",f.q.NextAction() and f.direct==1 and f.lastOrder==9)
-  f.emit("GUILD_ROSTER_UPDATE");check("Next action skips confirmed completed native target",not f.q.NextAction() and f.direct==1)
+  f.q.tab="initiates";check("Next officer action requests one fresh verified Initiate promotion",f.q.NextAction() and f.promote==1 and f.lastName=="Candidate-Forever" and f.restricted==0)
+  f.emit("GUILD_ROSTER_UPDATE");check("Next action skips confirmed completed native target",not f.q.NextAction() and f.promote==1)
 end
 for _,case in ipairs({"protocol","targetName","oldSlot7","oldSlot5","wrongCurrent","nativeTargetName","missingNativeTargetName"}) do
   local f=fixture()
@@ -214,7 +216,7 @@ for _,case in ipairs({"protocol","targetName","oldSlot7","oldSlot5","wrongCurren
   elseif case=="wrongCurrent" then f.page.promotions[1].currentSlot=8
   elseif case=="nativeTargetName" then f.env.GuildControlGetRankName=function() return "Officer" end
   else f.env.GuildControlGetRankName=nil end
-  check(case.." holds without a protected request",not f.q.HardwarePromote("1") and f.direct==0 and f.fallback==0)
+  check(case.." holds without a protected request",not f.q.HardwarePromote("1") and f.promote==0 and f.legacy==0)
 end
 do
   local f=fixture();f.page.promotions={};f.page.riskBuffer={{name="Candidate",guid="Player-1-0000BBBB",currentSlot=9,level=1,lastOnlineDays=2,reason="unverified-initiate",reviewOnly=true}}
@@ -226,7 +228,7 @@ do
   f.page.invites={row};local current=f.q.Current()
   check("exact remote v242 officer proof is projected with the shorter native expiry",current and #current.invites==1 and current.freshness[row.guid].expiresAt==row.expiresAt)
   local calls=0;f.env.OlympusOfficerInvites233={Next=function(rows) calls=calls+1;return rows and rows[1]==row end,Status=function() return {reason="test status"} end}
-  f.q.Show();f.q.tab="invites";f.q.Show();check("invite tab routes only its approved source row to the hardware dispatcher",f.q.NextAction() and calls==1 and f.invites==0 and f.direct==0)
+  f.q.Show();f.q.tab="invites";f.q.Show();check("invite tab routes only its approved source row to the hardware dispatcher",f.q.NextAction() and calls==1 and f.invites==0 and f.promote==0)
   row.scopeHash=string.rep("0",16);check("mismatched invitation scope holds the entire projection",f.q.Current()==nil)
 end
 do

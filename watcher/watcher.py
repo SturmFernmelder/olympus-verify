@@ -109,7 +109,7 @@ LINE_TS_RE = re.compile(r"^(?P<mo>\d{1,2})/(?P<d>\d{1,2})\s+(?P<h>\d{1,2}):(?P<m
 CLIENT_IN = "Active Player Created"
 CLIENT_OUT = ("Client Object Manager Destroyed", "Client Destroy")
 
-WATCHER_VERSION = "0.6.36"
+WATCHER_VERSION = "0.6.37"
 STRICT_DISPLAY_PROTOCOL = "launch-roster-display-v2"
 STRICT_DISPLAY_PATH = "/queue/unverified?keyVersion=" + STRICT_DISPLAY_PROTOCOL
 STRICT_DISPLAY_MAX_BYTES = 512 * 1024
@@ -1739,11 +1739,11 @@ class Watcher:
         if not self.membership_only:
             self.forward_events(db.get("events") or [])
         control = self.valid_launch_control(db)
-        new_scan = (control is not None and control['action'] in ('scan', 'select')
+        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many')
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
-        preserve_discovery = (control is not None and control.get('version') == 2 or consumed is not None
+        preserve_discovery = (control is not None and control.get('version') in (2, 3) or consumed is not None
                               and isinstance(slot, dict) and type(slot.get('version')) is int
                               and type(slot.get('observedAt')) is int and slot == consumed)
         # Recognizing the already consumed slot after 60s preserves history only;
@@ -2076,7 +2076,7 @@ class Watcher:
             return None
         own = saved_character(db)
         validator = (launch_operations229.validate_selected_control
-                     if isinstance(control, dict) and control.get('version') == 2 else launch_operations229.validate_control)
+                      if isinstance(control, dict) and control.get('version') in (2, 3) else launch_operations229.validate_control)
         if (not own or codes.normalize_character(own) != codes.normalize_character(self.officer)
                 or not isinstance(roster.get("exportedAt"), (int, float)) or not 0 <= at-roster["exportedAt"] <= 600
                 or not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm"))):
@@ -2098,10 +2098,10 @@ class Watcher:
             self._custody_halted = True
             self._launch_consumed_sv_witness = None
             raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
-        if control['version'] == 2:
+        if control['version'] in (2, 3):
             if self.launch_scan.phase != 'idle':
                 self.launch_scan._stop('superseded')
-            self._launch_selected_control = dict(control)
+            self._launch_selected_control = json.loads(json.dumps(control))
             accepted = self._launch_accepted_roster
             if accepted is not None and accepted['exportedAt'] != self.state.d['roster_sent']:
                 accepted = None

@@ -35,18 +35,18 @@ do
  check("fresh selected context survives expired independent discovery",q and q.selection.completed and q.freshness[id].kind=="selected" and ready[id] and why.ready==1)
  check("new GUID selection uses current page20 without rewriting original page0",q.pages[1]==f.page and f.page.snapshotId==old.snapshotId and f.page.fetchedAt==old.fetchedAt and q.freshness[id].offset==20)
  check("selected context does not freshen MOTD or invites",q.actionHeld and #q.invites==0 and not f.q.Motd("set") and f.motd==0)
- check("read controls and model never invoke a native action",f.direct==0 and f.fallback==0 and f.invites==0 and f.removals==0 and f.syncs==1)
- check("separate hardware click uses fresh selected GUID",f.q.HardwarePromote(id) and f.direct==1 and f.lastGuid==id)
+ check("read controls and model never invoke a native action",f.promote==0 and f.legacy==0 and f.invites==0 and f.removals==0 and f.syncs==1)
+ check("separate GUID hardware click uses its exact native name",f.q.HardwarePromote(id) and f.promote==1 and f.lastName=="Candidate-Forever" and f.restricted==0)
 end
 do
  local f=fixture();f.env.OlympusLaunchQueue=nil;selected(f)
  check("selected-only result cannot show or set MOTD",not f.q.Motd("show") and not f.q.Motd("set") and f.motd==0)
- check("selected result works without a discovery projection",f.q.Current() and f.q.HardwarePromote(id) and f.direct==1)
+ check("selected result works without a discovery projection",f.q.Current() and f.q.HardwarePromote(id) and f.promote==1)
 end
 do
  local f=fixture();local d=selected(f,true);local q=f.q.Current();local ready,why=model(f)
  check("fresh negative supersedes historical positive for the same GUID",q and #q.promotions==0 and #q.held==1 and not ready[id] and why.byGuid[id].historical)
- check("negative result never falls back to a fresh historical promotion",not f.q.HardwarePromote(id) and f.direct==0)
+ check("negative result never falls back to a fresh historical promotion",not f.q.HardwarePromote(id) and f.promote==0)
 end
 do
  local f=fixture();f.page.promotions[2]={name="Unrelated",guid="Player-1-0000DDDD",currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}
@@ -56,7 +56,7 @@ do
 end
 do
  local f=fixture();f.q.Select(id);local q=f.q.Current()
- check("pending request immediately holds the historical target",q and q.selection.state=="pending" and not f.q.HardwarePromote(id) and f.direct==0)
+ check("pending request immediately holds the historical target",q and q.selection.state=="pending" and not f.q.HardwarePromote(id) and f.promote==0)
 end
 for _,kind in ipairs({"scope","actor","control","duplicate","uncovered","expiry","page-clock","policy","cursor","scanned","scan-start","scan-deadline","invites","risk","unscanned","ack-missing"}) do
  local f=fixture();local d=selected(f)
@@ -76,14 +76,14 @@ for _,kind in ipairs({"scope","actor","control","duplicate","uncovered","expiry"
  elseif kind=="risk" then d.page.riskBuffer={{guid=id}}
  elseif kind=="unscanned" then d.page.entitlements.unscanned=1
  elseif kind=="ack-missing" then d.completed=false;d.page=nil;d.snapshotId=nil;d.snapshotAt=nil;d.expiresAt=nil;d.coveredGuids={} end
- check(kind.." cannot enable a selected native request",not f.q.HardwarePromote(id) and f.direct==0)
+ check(kind.." cannot enable a selected native request",not f.q.HardwarePromote(id) and f.promote==0)
 end
 do
- local f=fixture();selected(f);f.unknownDirect=true
- check("unknown selected native outcome records spent custody before dispatch",not f.q.HardwarePromote(id) and f.direct==1 and f.env.OlympusVerifyDB.launchPromotionAttempts[id].state=="unknown")
+ local f=fixture();selected(f);f.unknownPromote=true
+ check("unknown selected native outcome records spent custody before dispatch",not f.q.HardwarePromote(id) and f.promote==1 and f.env.OlympusVerifyDB.launchPromotionAttempts[id].state=="unknown")
  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify")
  f.q=f.env.OlympusLaunch229;f.q.Events:GetScript("OnEvent")(nil,"GUILD_ROSTER_UPDATE")
- check("reload cannot erase spent unknown attempt custody",not f.q.HardwarePromote(id) and f.direct==1 and f.q.AttemptHeld(id))
+ check("reload cannot erase spent unknown attempt custody",not f.q.HardwarePromote(id) and f.promote==1 and f.q.AttemptHeld(id))
 end
 do
  local f=fixture();f.q.Current();f.emit("PLAYER_GUILD_UPDATE","player")
@@ -98,19 +98,19 @@ do
  f.env.ROSTER[2].rankIndex=8
  local ready,why=model(f)
  check("Knight to Veteran is a separate supported visible native target",ready[id] and why.byGuid[id].targetName=="Veteran")
- check("Knight hardware action retains exact named native target checks",f.q.HardwarePromote(id) and f.lastOrder==7)
+ check("Knight hardware action takes only one rank toward the exact named target",f.q.HardwarePromote(id) and f.lastName=="Candidate-Forever" and f.env.ROSTER[2].rankIndex==7 and f.restricted==0)
 end
 do
  local f=fixture();selected(f);f.env.ROSTER[2].rankIndex=8
  local original={scopeHash=f.page.scopeHash,actorGuid="Player-1-0000AAAA",targetGuid=id,target=6,snapshotId=9,contextId=string.rep("a",32),attemptedAt=f.env.NOW-5,state="unknown"}
  f.env.OlympusVerifyDB.launchPromotionAttempts={[id]=original}
- check("reaching a weaker new Member target cannot erase original unknown Veteran custody",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==original and f.direct==0)
+ check("reaching a weaker new Member target cannot erase original unknown Veteran custody",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==original and f.promote==0)
  local d=selected(f);d.page.promotions[1].currentSlot=8;d.page.promotions[1].targetSlot=6;d.page.promotions[1].targetName="Veteran";d.page.promotions[1].reason="knight-veteran"
- check("later fresh Veteran evidence still cannot repeat the retained unknown original",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==original and f.direct==0)
+ check("later fresh Veteran evidence still cannot repeat the retained unknown original",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==original and f.promote==0)
  for _,record in ipairs({"malformed",{actorGuid="Player-1-0000EEEE",target=6},{scopeHash=string.rep("f",16),target=6}}) do
   f.env.OlympusVerifyDB.launchPromotionAttempts[id]=record
   d.page.promotions[1].currentSlot=9;d.page.promotions[1].targetSlot=8;d.page.promotions[1].targetName="Member";d.page.promotions[1].reason="verified-initiate"
-  check("no-op preserves foreign or malformed original custody",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==record and f.direct==0)
+  check("no-op preserves foreign or malformed original custody",not f.q.HardwarePromote(id) and f.env.OlympusVerifyDB.launchPromotionAttempts[id]==record and f.promote==0)
  end
 end
 do
@@ -128,7 +128,7 @@ do
  for code,phrase in pairs(reasons) do
   local f=fixture();local d=selected(f);d.completed=false;d.running=code=="rate-limited-wait";d.stoppedReason=code;d.page=nil;d.coveredGuids={}
   local q=f.q.Current()
-  check("fixed selected guidance for "..code,q and q.selection.reason:find(phrase,1,true) and not f.q.HardwarePromote(id) and f.direct==0)
+  check("fixed selected guidance for "..code,q and q.selection.reason:find(phrase,1,true) and not f.q.HardwarePromote(id) and f.promote==0)
  end
  local f=fixture();local d=selected(f);d.completed=false;d.stoppedReason="PRIVATE_CANARY";d.page=nil;d.coveredGuids={}
  check("unknown selected hold never echoes source text",not f.q.Current().selection.reason:find("PRIVATE_CANARY",1,true))
@@ -174,7 +174,7 @@ do
  local f=fixture();local d=selected274(f);local original=copy(d);local history=copy(f.page)
  f.env.NOW=f.env.NOW+300;f.emit("GUILD_ROSTER_UPDATE")
  local ready,why=model(f)
- check("new selected promotion remains actionable at five minutes with a current native roster",ready[id] and why.ready==1 and f.q.HardwarePromote(id) and f.direct==1)
+ check("new selected promotion remains actionable at five minutes with a current native roster",ready[id] and why.ready==1 and f.q.HardwarePromote(id) and f.promote==1)
  check("selected readiness states the remaining original window without renewal",why.byGuid[id].reason:find("298 seconds remaining",1,true) and why.byGuid[id].reason:find("Reloading does not renew",1,true))
  check("long selected window preserves issued dates and discovery history",d.page.fetchedAt==original.page.fetchedAt and d.page.expiresAt==original.page.expiresAt and d.expiresAt==original.expiresAt and f.page.expiresAt==history.expiresAt and f.page.fetchedAt==history.fetchedAt)
  check("long selected promotion never freshens shared invites risk or MOTD",#f.q.Current().invites==0 and #f.q.RiskBuffer()==0 and not f.q.Motd("set") and f.invites==0 and f.removals==0 and f.motd==0)
@@ -182,7 +182,7 @@ end
 do
  local f=fixture();local d=selected274(f);f.env.NOW=d.page.expiresAt;f.emit("GUILD_ROSTER_UPDATE")
  local ready,why=model(f)
- check("new selected promotion is held exactly at its original clipped deadline",not ready[id] and why.byGuid[id].state=="expired" and not f.q.HardwarePromote(id) and f.direct==0)
+ check("new selected promotion is held exactly at its original clipped deadline",not ready[id] and why.byGuid[id].state=="expired" and not f.q.HardwarePromote(id) and f.promote==0)
  check("expired selected result remains dated evidence without changing its expiry",f.q.Current().selection.completed and d.page.expiresAt==d.expiresAt)
 end
 for _,case in ipairs({"over-600","over-context","unknown-protocol","context-clock"}) do
@@ -191,7 +191,7 @@ for _,case in ipairs({"over-600","over-context","unknown-protocol","context-cloc
  elseif case=="over-context" then d.page.expiresAt=d.expiresAt+1
  elseif case=="unknown-protocol" then d.protocol="promotion-selection-v999"
  elseif case=="context-clock" then d.expiresAt=d.expiresAt+1;d.page.scan.expiresAt=d.expiresAt;d.page.expiresAt=d.expiresAt end
- check(case.." cannot expand the selected promotion window",not f.q.HardwarePromote(id) and f.direct==0)
+ check(case.." cannot expand the selected promotion window",not f.q.HardwarePromote(id) and f.promote==0)
 end
 for _,age in ipairs({599,600}) do
  local f=fixture();local d=selected274(f)
@@ -199,21 +199,21 @@ for _,age in ipairs({599,600}) do
  d.page.scan.expiresAt=d.expiresAt;d.page.expiresAt=d.expiresAt
  f.env.NOW=f.env.NOW+age;f.emit("GUILD_ROSTER_UPDATE")
  local acted=f.q.HardwarePromote(id)
- check("exact 600-second selected boundary at age "..age,age==599 and acted and f.direct==1 or age==600 and not acted and f.direct==0)
+ check("exact 600-second selected boundary at age "..age,age==599 and acted and f.promote==1 or age==600 and not acted and f.promote==0)
 end
 do
  local f=fixture();local d=selected274(f);d.page.expiresAt=d.page.fetchedAt+45
  f.env.NOW=f.env.NOW+45;f.emit("GUILD_ROSTER_UPDATE")
  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify");f.q=f.env.OlympusLaunch229;f.emit("GUILD_ROSTER_UPDATE")
- check("v274 reload preserves and enforces a shorter original observation expiry",not f.q.HardwarePromote(id) and f.direct==0 and d.page.expiresAt==d.page.fetchedAt+45)
+ check("v274 reload preserves and enforces a shorter original observation expiry",not f.q.HardwarePromote(id) and f.promote==0 and d.page.expiresAt==d.page.fetchedAt+45)
 end
 do
  local f=fixture();selected(f);f.env.NOW=f.env.NOW+60;f.emit("GUILD_ROSTER_UPDATE")
- check("legacy v273 selected result keeps its original 60-second expiry",not f.q.HardwarePromote(id) and f.direct==0)
+ check("legacy v273 selected result keeps its original 60-second expiry",not f.q.HardwarePromote(id) and f.promote==0)
  f=fixture();local d=selected(f);d.page.expiresAt=d.page.fetchedAt+61
- check("legacy v273 cannot borrow the v274 longer cap",not f.q.HardwarePromote(id) and f.direct==0)
+ check("legacy v273 cannot borrow the v274 longer cap",not f.q.HardwarePromote(id) and f.promote==0)
  f=fixture();f.page.expiresAt=f.page.fetchedAt+600
- check("shared discovery cannot borrow selected promotion's longer cap",not f.q.HardwarePromote(id) and f.direct==0 and not f.q.Motd("set"))
+ check("shared discovery cannot borrow selected promotion's longer cap",not f.q.HardwarePromote(id) and f.promote==0 and not f.q.Motd("set"))
 end
 for _,case in ipairs({"stale-native","offline-incomplete","guid","duplicate","name","rank","actor","scope","actor-rank","combat","permission","assignment","named-rank","preview","prior-unknown"}) do
  local f=fixture();selected274(f);f.env.NOW=f.env.NOW+300
@@ -232,12 +232,12 @@ for _,case in ipairs({"stale-native","offline-incomplete","guid","duplicate","na
  elseif case=="named-rank" then f.env.GuildControlGetRankName=function() return "Changed Rank" end
  elseif case=="preview" then f.env.OlympusVerifyUI={preview={}}
  elseif case=="prior-unknown" then f.env.OlympusVerifyDB.launchPromotionAttempts={[id]={state="unknown"}} end
- check("long selected window retains click-time "..case.." hold",not f.q.HardwarePromote(id) and f.direct==0 and f.fallback==0 and f.invites==0 and f.removals==0 and f.motd==0)
+ check("long selected window retains click-time "..case.." hold",not f.q.HardwarePromote(id) and f.promote==0 and f.legacy==0 and f.invites==0 and f.removals==0 and f.motd==0)
 end
 do
- local f=fixture();local d=selected274(f);f.env.NOW=f.env.NOW+300;f.emit("GUILD_ROSTER_UPDATE");f.unknownDirect=true
- check("long selected window records unknown native outcome before dispatch",not f.q.HardwarePromote(id) and f.direct==1 and f.q.AttemptHeld(id))
+ local f=fixture();local d=selected274(f);f.env.NOW=f.env.NOW+300;f.emit("GUILD_ROSTER_UPDATE");f.unknownPromote=true
+ check("long selected window records unknown native outcome before dispatch",not f.q.HardwarePromote(id) and f.promote==1 and f.q.AttemptHeld(id))
  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),f.env)("OlympusVerify");f.q=f.env.OlympusLaunch229;f.emit("GUILD_ROSTER_UPDATE")
- check("long selected window cannot clear unknown custody by reloading",not f.q.HardwarePromote(id) and f.direct==1 and f.q.AttemptHeld(id) and d.page.expiresAt==d.expiresAt)
+ check("long selected window cannot clear unknown custody by reloading",not f.q.HardwarePromote(id) and f.promote==1 and f.q.AttemptHeld(id) and d.page.expiresAt==d.expiresAt)
 end
 print(string.format("Selected promotion: %d passed, %d failed",passed,failed));if failed>0 then error("selected promotion failed") end

@@ -664,6 +664,9 @@ local function Build()
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
   W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
+  W.batchButton=Button(frame,"Check verified Initiates",176,24,function() W.RequestVerifiedInitiates() end,
+    "Check verified Initiates", "Request fresh promotion checks for all currently verified native Initiates, up to twenty exact GUIDs, then reload. This clears display filters and never promotes anyone.")
+  W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
   sourceTip:SetSize(Layout.INNER-230,24);sourceTip:SetPoint("TOPLEFT",frame,"TOPLEFT",Layout.PAD+230,Layout.FILTER_Y-64);sourceTip:EnableMouse(true)
@@ -814,6 +817,24 @@ W.RequestSelected=function()
   local launch=OlympusLaunch229
   if count~=1 or type(launch)~="table" or type(launch.Select)~="function" then Say("The selected native GUID is missing or ambiguous; no read requested.");return false end
   return launch.Select(id)
+end
+W.RequestVerifiedInitiates=function()
+  Reload()
+  local targets,seen={},{}
+  for _,row in ipairs(cache.list) do
+    if row.rankIndex==9 and row.status=="verified" and not row.historicalLinked then
+      if type(row.guid)~="string" or seen[row.guid] then Say("A verified Initiate GUID is missing or ambiguous; no check requested.");return false end
+      seen[row.guid]=true;targets[#targets+1]=row.guid
+    end
+  end
+  if #targets<1 then Say("No verified native Initiates are present in the current loaded display. Refresh verification data first.");return false end
+  if #targets>20 then Say("More than twenty verified Initiates are present. Use individual selected checks; no partial batch was requested.");return false end
+  local launch=OlympusLaunch229
+  if type(launch)~="table" or type(launch.SelectMany)~="function" then Say("The bounded Initiate checker is unavailable; no check requested.");return false end
+  view.initiates,view.rank,view.status,view.action,view.class,view.online,view.presence,view.text=true,0,2,4,0,false,1,""
+  if search then search:SetText("") end
+  offset=0;W.Refresh()
+  return launch.SelectMany(targets)
 end
 W.Visible = function() Reload(); return Visible() end
 W.view = view

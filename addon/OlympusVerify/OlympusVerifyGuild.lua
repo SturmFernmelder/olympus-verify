@@ -1,4 +1,4 @@
--- Guild roster display and one-click editable reminders. No message is sent by this module.
+-- Guild roster display, editable reminders and explicit guarded promotion clicks.
 -- Lists are watcher snapshots, not live Discord authority. Olympus Guild's optional public
 -- bridge supplies display hints only; it can never mark a character verified here.
 local API = OlympusVerifyAPI
@@ -6,7 +6,8 @@ if type(API) ~= "table" or type(API.Roster) ~= "table" then return end
 local G = {}
 OlympusVerifyGuild = G
 local MAX_MEMBERS, LIST_AGE, MAX_ROWS = 1000, 3600, 60
-local COLUMN_WIDTH, NAV_GUTTER, SCREEN_MARGIN = 116, 48, 8
+local COLUMN_WIDTH, NAV_GUTTER, SCREEN_MARGIN = 436, 48, 8
+local STATUS_WIDTH, PROMOTE_WIDTH, NAME_WIDTH = 100, 72, 112
 local REMINDER = "Hi! In Asmongold's Discord, use Get my code in #⚡olympus-verify. Follow the bot's instructions to whisper the code from this character in game."
 local LABEL = { verified = "Verified", unverified = "Not verified", pending = "Verifying", unknown = "Unknown", stale = "Stale list" }
 local COLOR = { verified = "|cff8ac69a", unverified = "|cffe57572", pending = "|cffe8be65", unknown = "|cff9ea3ad", stale = "|cffe8be65" }
@@ -23,6 +24,11 @@ local function Text(v, limit)
   return v
 end
 local function Key(v) local s = Text(v); return s and string.lower(s) end
+local function DiscordText(value)
+  if type(issecretvalue)=="function" then local ok,secret=pcall(issecretvalue,value);if not ok or secret then return nil end end
+  if type(value)~="string" or value=="" or #value>256 then return nil end
+  return (value:gsub("%c"," "):gsub("|","||"))
+end
 -- The watcher uses the existing shared character-name codec (plain name, no realm).
 -- Resolve that alias only inside this client's unique current guild roster; never use it for green/GUID proof.
 local function WatcherKey(v)
@@ -54,10 +60,10 @@ local function Scan()
   local names, guids, aliases, count = {}, {}, {}, GetNumGuildMembers and GetNumGuildMembers() or 0
   if type(count) ~= "number" or count ~= math.floor(count) or count < 0 or count > MAX_MEMBERS then nativeNames, nativeGuids, nativeAliases, nativeAt = {}, {}, {}, nil; return end
   for i = 1, count do
-    local name, _, _, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+    local name, _, rankIndex, _, _, _, _, _, online, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
     name, guid = Text(name), Text(guid, 40)
     if name then
-      local m = { name = name, guid = guid, online = online and true or false }
+      local m = { name = name, guid = guid, rankIndex = rankIndex, online = online and true or false }
       local nk = Key(name)
       if names[nk] ~= nil then names[nk] = false else names[nk] = m end
       if guid then if guids[guid] ~= nil then guids[guid] = false else guids[guid] = m end end
@@ -235,7 +241,8 @@ local function Verification(name, guid)
     return { status = "unknown", reason = "The loaded verification lists are ambiguous or disagree. Refresh them before contacting anyone.", at=v.fetchedAt, snapshotAt=v.snapshotAt }
   end
   if matched and matched.status == "member" then
-    return { status = "verified", reason = "Exact live GUID matched the watcher's linked-member list; this is a dated display snapshot, not current Discord role authority.", at = v.fetchedAt, snapshotAt = v.snapshotAt, guid = m.guid, name = m.name }
+    return { status = "verified", reason = "Exact live GUID matched the watcher's linked-member list; this is a dated display snapshot, not current Discord role authority.", at = v.fetchedAt, snapshotAt = v.snapshotAt, guid = m.guid, name = m.name,
+      discordUsername=DiscordText(matched.username),discordDisplayName=DiscordText(matched.displayName) }
   end
   if review then
     if review.reason == "linked_before_cutoff" then
@@ -332,6 +339,8 @@ local function Tooltip(button, r)
   GameTooltip:AddLine(r.reason, 0.9, 0.86, 0.75, true)
   if r.at then GameTooltip:AddLine("Server list queried " .. date("%d %b %H:%M", r.at), 0.7, 0.7, 0.7) end
   if r.snapshotAt then GameTooltip:AddLine("Server roster observed " .. date("%d %b %H:%M", r.snapshotAt), 0.7, 0.7, 0.7) end
+  if r.discordUsername then GameTooltip:AddLine("Discord username: "..r.discordUsername,0.8,0.85,1,true) end
+  if r.discordDisplayName then GameTooltip:AddLine("Discord display name: "..r.discordDisplayName,0.8,0.85,1,true) end
   if r.status == "unverified" then GameTooltip:AddLine("Online: click to open an editable whisper. Nothing is sent until you press Enter.", 0.9, 0.8, 0.5, true) end
   GameTooltip:Show()
 end
@@ -348,29 +357,74 @@ local function LayerColumn(h)
   if type(level) == "number" then h.column:SetFrameLevel(level) end
 end
 local function HideAll() for _, h in ipairs(hosts) do if h.column then h.column:Hide() end; if h.fallback then h.fallback:Hide() end end end
+local function RowCurrent(button)
+  local row,list,host=button.nativeRow,button.memberList,button.nativeHost
+  if not button:IsShown() or button.IsVisible and not button:IsVisible() or not Text(button.rowGuid,40)
+    or not button.rowGuid:match("^Player%-%d+%-%x+$")
+    or not row or not host or not host:IsShown() or host.IsVisible and not host:IsVisible() or MemberDetailsShown(host)
+    or not row:IsShown() or row.IsVisible and not row:IsVisible() or not list or not list:IsShown()
+    or list.IsVisible and not list:IsVisible() or list.expandedDisplay~=true or type(list.GetSelectedClubId)~="function"
+    or not C_Club or type(C_Club.GetGuildClubId)~="function" or list:GetSelectedClubId()~=C_Club.GetGuildClubId() then return false end
+  local ok,member=pcall(row.GetMemberInfo,row)
+  return ok and type(member)=="table" and Text(member.name)==button.rowName and Text(member.guid,40)==button.rowGuid
+end
+local function PromotionInput(name,guid,result)
+  local member=Live(Text(name),Text(guid,40))
+  return {guid=member and member.guid,rankIndex=member and member.rankIndex,status=result.status,
+    verification=result,historicalLinked=result.historicalLinked}
+end
+local function PromotionState(rows)
+  local model=OlympusVerifyRosterModel
+  if type(model)~="table" or type(model.Promotions)~="function" then return {},{byGuid={}} end
+  local ok,ready,details=pcall(model.Promotions,rows,OlympusLaunch229,time())
+  if not ok or type(ready)~="table" or type(details)~="table" then return {},{byGuid={}} end
+  return ready,details
+end
+local function PromotionTooltip(button)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(button,"ANCHOR_RIGHT");GameTooltip:SetText("Promote this native GUID")
+  local detail=button.detail
+  GameTooltip:AddLine(detail and detail.reason or "No current supported recommendation is available.",0.9,0.86,0.75,true)
+  GameTooltip:AddLine("One click requests one native rank step. Another step needs a new click and observed native confirmation; unknown attempts stay held.",0.8,0.8,0.7,true)
+  GameTooltip:Show()
+end
 local function NewButton(parent)
   local b = CreateFrame("Button", nil, parent)
-  b:SetSize(100, 20)
+  b:SetSize(STATUS_WIDTH, 20)
   local text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   text:SetAllPoints(b); text:SetJustifyH("LEFT"); b.text = text
   b:SetScript("OnEnter", function(self) if self.result then Tooltip(self, self.result) end end)
   b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
   b:SetScript("OnClick", function(self)
     if not self.result then return end
-    local row = self.nativeRow
-    if row then
-      local list = self.memberList
-      if not row:IsShown() or row.IsVisible and not row:IsVisible() or not list or not list:IsShown()
-        or list.IsVisible and not list:IsVisible() or list.expandedDisplay ~= true
-        or list:GetSelectedClubId() ~= C_Club.GetGuildClubId() then Say("The native guild view changed. Read the current row before clicking again."); return end
-      local ok, m = pcall(row.GetMemberInfo, row)
-      if not ok or type(m) ~= "table" or Text(m.name) ~= self.rowName or Text(m.guid, 40) ~= self.rowGuid then
-        Say("The native row changed while scrolling. Read the refreshed row before clicking again."); return
-      end
-    end
+    if not RowCurrent(self) then Say("The native guild row or view changed. Read the refreshed row before clicking again.");return end
     local called, ok, why = pcall(G.OpenWhisper, self.result.name, self.result.guid)
     if not called then Say("The current native whisper editor could not be opened.") elseif not ok then Say(why) end
   end)
+  b.promote=CreateFrame("Button",nil,b,"UIPanelButtonTemplate")
+  b.promote:SetSize(PROMOTE_WIDTH,20);b.promote:SetPoint("LEFT",b,"RIGHT",6,0);b.promote:SetText("Promote");b.promote:SetEnabled(false);b.promote:Show()
+  b.promote:SetScript("OnEnter",PromotionTooltip);b.promote:SetScript("OnLeave",function()if GameTooltip then GameTooltip:Hide() end end)
+  b.promote:SetScript("OnClick",function(self)
+    if Combat() or Gamepad() or Preview() or not RowCurrent(b) then Say("The current native guild row is unavailable; no promotion was requested.");return end
+    nativeAt,sourceIndex=nil,nil -- Click-time identity/rank lookup, never a recycled paint result.
+    local result=G.Verification(b.rowName,b.rowGuid)
+    local ready,details=PromotionState({PromotionInput(b.rowName,b.rowGuid,result)})
+    if not ready[b.rowGuid] then
+      local detail=details.byGuid and details.byGuid[b.rowGuid]
+      Say(detail and detail.reason or "The current source does not admit this native GUID; no promotion was requested.");return
+    end
+    local launch=OlympusLaunch229
+    if type(launch)~="table" or type(launch.HardwarePromote)~="function" then return end
+    -- The shared hardware path owns the supported native API and spent/unknown ledger.
+    -- Never call a protected native setter or a Blizzard handler from this column.
+    self:SetEnabled(false)
+    local ok=pcall(launch.HardwarePromote,b.rowGuid)
+    if not ok then Say("The guarded promotion path is unavailable. Review prior attempt custody before any later click.") end
+  end)
+  b.username=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+  b.username:SetWidth(NAME_WIDTH);b.username:SetPoint("LEFT",b.promote,"RIGHT",8,0);b.username:SetJustifyH("LEFT");b.username:SetWordWrap(false)
+  b.displayName=b:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+  b.displayName:SetWidth(NAME_WIDTH);b.displayName:SetPoint("LEFT",b.username,"RIGHT",8,0);b.displayName:SetJustifyH("LEFT");b.displayName:SetWordWrap(false)
   return b
 end
 local function Discover()
@@ -393,6 +447,11 @@ local function Discover()
       h.header = h.column:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
       h.header:SetPoint("TOPLEFT", h.column, "TOPLEFT", 8, -14); h.header:SetWidth(100)
       h.header:SetJustifyH("LEFT"); h.header:SetText("Discord\nverification")
+      local previous=h.header
+      for _,spec in ipairs({{"Promotion",PROMOTE_WIDTH,6},{"Discord\nusername",NAME_WIDTH,8},{"Discord\ndisplay name",NAME_WIDTH,8}}) do
+        local header=h.column:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+        header:SetWidth(spec[2]);header:SetPoint("LEFT",previous,"RIGHT",spec[3],0);header:SetJustifyH("LEFT");header:SetText(spec[1]);previous=header
+      end
       h.fallback = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
       h.fallback:SetSize(116, 22); h.fallback:SetPoint("TOPRIGHT", f, "TOPRIGHT", -44, -28); h.fallback:SetText("Verify members")
       h.fallback:SetScript("OnClick", function() if not Combat() and not Preview() and OlympusVerifyRoster then OlympusVerifyRoster.Show() end end)
@@ -431,6 +490,7 @@ local function Paint()
         h.fallback:Hide(); LayerColumn(h); h.column:ClearAllPoints()
         h.column:SetPoint("TOPLEFT", f, "TOPRIGHT", NAV_GUTTER, 0)
         h.column:SetPoint("BOTTOMLEFT", f, "BOTTOMRIGHT", NAV_GUTTER, 0); h.column:Show()
+        local painted,inputs={},{}
         list.ScrollBox:ForEachFrame(function(row)
           if used >= MAX_ROWS or not row:IsShown() or type(row.GetMemberInfo) ~= "function" or row.isInvitation then return end
           local m = row:GetMemberInfo()
@@ -440,14 +500,22 @@ local function Paint()
           if not b then b = NewButton(h.column); h.rows[used] = b end
           local r = G.Verification(m.name, m.guid)
           b.result, b.nativeRow, b.rowName, b.rowGuid = r, row, Text(m.name), Text(m.guid, 40)
-          b.memberList = list
+          if not b.rowGuid or r.guid~=b.rowGuid then r.discordUsername,r.discordDisplayName=nil,nil end
+          b.memberList,b.nativeHost = list,f
           b.text:SetText((COLOR[r.status] or COLOR.unknown) .. (r.label or LABEL[r.status]) .. "|r")
+          b.username:SetText(r.discordUsername and (r.discordUsername:sub(1,1)=="@" and r.discordUsername or "@"..r.discordUsername) or "—")
+          b.displayName:SetText(r.discordDisplayName or "—")
           b:ClearAllPoints(); b:SetPoint("LEFT", h.column, "LEFT", 8, 0); b:SetPoint("TOP", row, "TOP", 0, 0)
-          b:SetHeight(row:GetHeight()); b:Show()
+          b:SetHeight(row:GetHeight());b.promote:SetHeight(row:GetHeight());b.username:SetHeight(row:GetHeight());b.displayName:SetHeight(row:GetHeight());b:Show()
+          painted[#painted+1]=b;inputs[#inputs+1]=PromotionInput(m.name,m.guid,r)
         end)
+        local ready,details=PromotionState(inputs)
+        for _,b in ipairs(painted) do b.promote.detail=details.byGuid and details.byGuid[b.rowGuid];b.promote:SetEnabled(ready[b.rowGuid]==true) end
       else h.column:Hide(); h.fallback:Show() end
     else h.column:Hide(); h.fallback:Hide() end
-    for i = used + 1, #h.rows do h.rows[i].result = nil; h.rows[i]:Hide() end
+    for i = used + 1, #h.rows do
+      local b=h.rows[i];b.result=nil;b.rowName=nil;b.rowGuid=nil;b.username:SetText("");b.displayName:SetText("");b.promote.detail=nil;b.promote:SetEnabled(false);b:Hide()
+    end
   end
 end
 

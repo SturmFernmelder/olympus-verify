@@ -132,6 +132,94 @@ async function reviewRecords275(){
     check('isolated canonical classification facts restore all original identity proof and effect rows before the existing audit',restored.originalProofsRestored&&restored.originalEffectsRestored);
   }
 }
+let batchSerial=600;
+const batchIndices=Array.from({length:17},(_,i)=>i*61);
+async function batchInput276(indices=batchIndices){
+  const source=await fixtureCall('batch-observe',{indices});
+  return {selectionId:source.at+':'+(++batchSerial),targetGuids:source.targetGuids,snapshotId:source.snapshotId,snapshotAt:source.snapshotAt};
+}
+async function batchSelections276(discovery){
+  const history=JSON.stringify(discovery),selection=await batchInput276(),start=http.length;
+  const first=(await fixtureCall('batch-selection',{mode:'batch-full',selection})).selection;
+  fs.writeFileSync(path.join(out,'batch-selected-success.json'),JSON.stringify(first,null,2)+'\n',{flag:'wx'});
+  const digest=createHash('sha256').update(JSON.stringify(selection.targetGuids)).digest('hex');
+  check('one genuine sparse selected batch covers17 noncontiguous exact GUIDs without pretending to scan the other983 members',first.version===1&&first.protocol==='promotion-selection-v276'&&first.coverageKind==='selected-guids'&&first.controlId===selection.selectionId&&first.targetsDigest===digest&&JSON.stringify(first.targetGuids)===JSON.stringify(selection.targetGuids)&&JSON.stringify(first.coveredGuids)===JSON.stringify(selection.targetGuids)&&first.page.entitlements.offset===0&&first.page.entitlements.pageSize===20&&first.page.entitlements.scanned===17&&first.page.entitlements.total===1000&&first.page.entitlements.unscanned===983&&first.page.memberCount===1000&&http.length-start===17);
+  check('ordinary verified non-Knights and Knights retain their distinct Member and Veteran recommendations in the same batch',first.page.promotions.length===17&&first.page.promotions.filter(row=>row.targetSlot===8&&row.reason==='verified-initiate').length===16&&first.page.promotions.filter(row=>row.targetSlot===6&&row.reason==='knight-veteran').length===1&&first.page.promotions.every(row=>selection.targetGuids.includes(row.guid)));
+  check('batch evidence keeps original600s control/native deadlines and no invite risk traversal or automatic authority',first.page.expiresAt<=first.page.fetchedAt+600&&first.page.scan.startedAt===Number(selection.selectionId.split(':')[0])&&first.page.scan.expiresAt===Math.min(first.page.scan.startedAt+600,selection.snapshotAt+600)&&first.page.nextCursor===null&&first.page.invites.length===0&&first.page.riskBuffer.length===0&&first.page.actions.automatic===false&&first.page.actions.roleGrants===false&&first.page.actions.removals===false&&JSON.stringify(discovery)===history);
+  check('batch wrapper has only the agreed public projection fields and exact digest coverage',Object.keys(first).sort().join(',')==='controlId,coverageKind,coveredGuids,page,protocol,targetGuids,targetsDigest,version');
+  for(const targetGuids of [[],[...selection.targetGuids].reverse(),[...selection.targetGuids,selection.targetGuids.at(-1)]])await refused('batch-selection',{mode:'batch-full',selection:{...selection,targetGuids}},'invalid_selection_request',400);
+  await refused('batch-selection',{mode:'batch-full',selection:await batchInput276(Array.from({length:21},(_,i)=>i))},'invalid_selection_request',400);
+  const query=new URLSearchParams({keyVersion:'officer-operations-v233',selectionId:selection.selectionId,targetGuids:JSON.stringify(selection.targetGuids),snapshotId:String(selection.snapshotId),snapshotAt:String(selection.snapshotAt)});
+  for(const rawQuery of [String(query)+'&targetGuid='+selection.targetGuids[0],String(query)+'&targetGuids='+encodeURIComponent(JSON.stringify(selection.targetGuids)),String(query)+'&offset=0',String(query).replace(/targetGuids=[^&]+/,'targetGuids=not-json')])await refused('batch-selection',{mode:'batch-full',selection,rawQuery},'invalid_launch_query',400);
+  await refused('batch-selection',{mode:'batch-full',selection,admin:true},'invalid_launch_query',400);
+  await refused('batch-selection',{mode:'batch-full',selection:{...selection,snapshotAt:selection.snapshotAt-1}},'selection_native_source_changed',409);
+  check('empty duplicate reordered oversized malformed mixed and wrong-source batch requests refuse before any role read',true);
+  const singleInput=await selectedInput273(0),single=(await fixtureCall('selection',{mode:'selected-batch-cross-purpose',selection:singleInput})).selection;
+  await refused('batch-selection',{mode:'batch-full',selection,cursor:single.page.pageCursor},'invalid_selection_cursor',400);
+  await refused('selection',{mode:'selected-batch-cross-purpose',selection:singleInput,cursor:first.page.pageCursor},'invalid_selection_cursor',400);
+  await refused('batch-selection',{mode:'batch-full',selection,cursor:discovery.pageCursor},'invalid_selection_cursor',400);
+  check('single-target discovery and sparse batch cursor purposes cannot be exchanged',true);
+
+  for(const kind of ['missing','duplicate']){
+    await fixtureCall('selection-native',{kind});const current=await batchInput276([0,399,976]),before=http.length,result=(await fixtureCall('batch-selection',{mode:'batch-'+kind,selection:current})).selection;
+    if(kind==='missing')fs.writeFileSync(path.join(out,'batch-selected-held.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+    check('batch '+kind+' requested native identity holds the entire coverage without fallback or provider reads',http.length===before&&result.coveredGuids.length===0&&result.page.status==='held'&&result.page.promotions.length===0);
+    await fixtureCall('selection-native',{kind:'restore'});
+  }
+  await fixtureCall('selection-native',{kind:'rank-complete'});
+  const negativeInput=await batchInput276([0,399]),negative=(await fixtureCall('batch-selection',{mode:'batch-negative',selection:negativeInput})).selection;
+  check('a sparse batch retains fresh negative coverage for an already-Member target without promoting it again',JSON.stringify(negative.coveredGuids)===JSON.stringify(negativeInput.targetGuids)&&!negative.page.promotions.some(row=>row.guid==='Player-6933-00000190')&&negative.page.promotions.length===1);
+  await fixtureCall('selection-native',{kind:'restore'});
+
+  const partialInput=await batchInput276(),partialStart=http.length,partial=(await fixtureCall('batch-selection',{mode:'batch-partial',selection:partialInput})).selection;
+  fs.writeFileSync(path.join(out,'batch-selected-partial.json'),JSON.stringify(partial,null,2)+'\n',{flag:'wx'});
+  const cached=JSON.parse(Buffer.from(partial.page.pageCursor.split('.')[0],'base64url').toString('utf8'));
+  assert.equal(cached.version,5);assert.equal(cached.roleReads.length,5);assert.equal(cached.targetsDigest,digest);assert.equal(cached.targetGuids,undefined);assert.equal(http.length-partialStart,6);
+  const recovered=(await fixtureCall('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
+  check('genuine v5 retry reuses only the five original exact batch observations without renewing role or scan dates',http.length-partialStart===18&&recovered.page.promotions.length===17&&JSON.stringify(recovered.page.scan)===JSON.stringify(partial.page.scan)&&recovered.page.expiresAt<=Math.min(recovered.page.scan.expiresAt,...cached.roleReads.map(row=>row[2]+600))&&JSON.stringify(recovered.coveredGuids)===JSON.stringify(partial.coveredGuids));
+  const recheckStart=http.length,recheck=(await fixtureCall('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:recovered.page.pageCursor})).selection;
+  check('a successful v5 batch cursor contains no reusable roles and an explicit recheck reads all17 accounts afresh',JSON.parse(Buffer.from(recovered.page.pageCursor.split('.')[0],'base64url').toString('utf8')).roleReads.length===0&&http.length-recheckStart===17&&recheck.page.promotions.length===17);
+  const altered=[...partialInput.targetGuids];altered[altered.length-1]='Player-6933-000003d2';altered.sort();
+  await refused('batch-selection',{mode:'batch-partial',selection:{...partialInput,targetGuids:altered},cursor:partial.page.pageCursor},'invalid_selection_cursor',400);
+  await refused('batch-selection',{mode:'batch-other-credential',selection:partialInput,cursor:partial.page.pageCursor},'invalid_selection_cursor',400);
+  for(const kind of ['shared-secret','legacy-purpose','wrong-digest','expired-read'])await refused('batch-boundary',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor,kind},'invalid_selection_cursor',400);
+  await refused('batch-boundary',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'wrong-guid'},'launch_cursor_role_source_changed',409);
+  check('private v5 purpose digest original request credential and cached-GUID fences reject altered batch authority',true);
+  const [body,mac]=partial.page.pageCursor.split('.'),tamper=JSON.parse(Buffer.from(body,'base64url').toString('utf8'));tamper.roleReads[0][1]='knight';
+  await refused('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:Buffer.from(JSON.stringify(tamper)).toString('base64url')+'.'+mac},'invalid_selection_cursor',400);
+  const staleStart=http.length,stale=await fixtureCall('batch-boundary',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor,kind:'expired-role'});
+  check('600s sparse observations still require fresh roles when synthetic-boundary cached observations are61s old',stale.syntheticSignedInputBoundary&&http.length-staleStart===17&&stale.selection.page.promotions.length===17);
+  await fixtureCall('source-state',{kind:'identity'});const identityStart=http.length,switched=(await fixtureCall('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor})).selection;
+  check('batch cached authority cannot transfer to a changed account and the exact replacement is freshly read',http.length-identityStart===13&&http.slice(identityStart).some(row=>row.subject==='800000000000009999')&&switched.page.promotions.find(row=>row.guid===partialInput.targetGuids[0])?.targetSlot===6);
+  await fixtureCall('source-state',{kind:'identity',restore:true});
+  await fixtureCall('source-state',{kind:'privacy'});await refused('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_role_source_changed',409);await fixtureCall('source-state',{kind:'privacy',restore:true});
+  await fixtureCall('source-state',{kind:'native'});await refused('batch-selection',{mode:'batch-partial',selection:partialInput,cursor:partial.page.pageCursor},'launch_cursor_source_changed',409);await fixtureCall('source-state',{kind:'native',restore:true});
+  check('current privacy and immutable Native-source changes invalidate previously valid v5 cached successes',true);
+
+  for(const kind of ['privacy','denial','native','cutoff','credential','secret','link','scope']){
+    const input=await batchInput276(),result=(await fixtureCall('batch-selection',{mode:'batch-await-'+kind,selection:input})).selection;
+    check('batch '+kind+' change during provider await yields no partial overlay authority',inflightMutations.has('batch-'+kind)&&result.coveredGuids.length===0&&result.page.status==='held'&&result.page.promotions.length===0&&result.page.pageCursor===null&&result.page.nextCursor===null);
+    await fixtureCall(kind==='scope'?'batch-scope':'source-state',kind==='scope'?{restore:true}:{kind,restore:true});
+  }
+  await fixtureCall('review-records275',{action:'setup'});
+  try{
+    for(const kind of ['anchor','config','native-config']){
+      const input=await batchInput276(),result=(await fixtureCall('batch-selection',{mode:'batch-await-'+kind,selection:input})).selection;
+      check('batch canonical '+kind+' drift during provider await remains held for every requested GUID',inflightMutations.has('batch-'+kind)&&result.coveredGuids.length===0&&result.page.status==='held'&&result.page.promotions.length===0);
+      await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-restore':kind,restore:true});
+    }
+  }finally{const restored=await fixtureCall('review-records275',{action:'restore'});assert(restored.originalProofsRestored&&restored.originalEffectsRestored);}
+  await fixtureCall('selection-native',{kind:'long-guids'});
+  const capacityInput=await batchInput276(Array.from({length:20},(_,i)=>i)),capacityStart=http.length,capacity=(await fixtureCall('batch-selection',{mode:'batch-late-limit',selection:capacityInput})).selection;
+  const packet=capacity.page.pageCursor,decoded=JSON.parse(Buffer.from(packet.split('.')[0],'base64url').toString('utf8'));
+  fs.writeFileSync(path.join(out,'batch-selected-cursor-capacity.json'),JSON.stringify({actualLocalWorkerdD1:true,cursorCharacters:packet.length,readerLimit:4096,targets:20,cachedSuccesses:decoded.roleReads.length,providerCalls:0},null,2)+'\n',{flag:'wx'});
+  check('maximum20long-GUID batch late429 keeps19 original successes inside the4096byte private cursor budget',packet.length<=4096&&decoded.version===5&&decoded.roleReads.length===19&&decoded.targetGuids===undefined&&capacity.targetGuids.every(guid=>guid.length===30)&&http.length-capacityStart===20);
+  const capacityRetry=(await fixtureCall('batch-selection',{mode:'batch-late-limit',selection:capacityInput,cursor:packet})).selection;
+  check('maximum-size genuine v5 batch retries only its one unknown account with exact original coverage and deadlines',http.length-capacityStart===21&&capacityRetry.page.promotions.length===20&&JSON.stringify(capacityRetry.page.scan)===JSON.stringify(capacity.page.scan)&&capacityRetry.page.expiresAt<=Math.min(capacity.page.scan.expiresAt,...decoded.roleReads.map(row=>row[2]+600))&&JSON.stringify(capacityRetry.coveredGuids)===JSON.stringify(capacity.coveredGuids));
+  await fixtureCall('selection-native',{kind:'restore'});
+  const text=Buffer.from(packet.split('.')[0],'base64url').toString('utf8');
+  check('batch private cursor serializes only the request digest and no account IDs credentials or duplicate target list',!['800000000000001000','synthetic-roster-pacing','DISCORD_BOT_TOKEN','discord_id','discordId','targetGuids'].some(value=>text.includes(value)));
+}
 let selectedSerial=300;
 async function selectedInput273(index=399){
   const source=await fixtureCall('selection-observe',{index});
@@ -310,6 +398,7 @@ async function run(){
   check('real local read window exhaustion is held separately from an upstream Discord 429',slowDuration>=9000&&slowDuration<16000&&http.length-beforeSlow<=10&&slow.page.status==='held'&&slow.page.promotions.length===0&&slow.page.heldReasons.includes('launch-read-window-exhausted')&&!slow.page.heldReasons.includes('discord-rate-limited')&&slow.page.entitlements.retryAfterSeconds===null);
   await selectedReads273(pages[19]);
   await reviewRecords275();
+  await batchSelections276(pages[0]);
   await fixtureCall('ranks');const beforeSkip=http.length,skip=await fixtureCall('page',{mode:'skip-native'});
   const expected=Array.from({length:7},(_,i)=>'Player-6933-'+(i+1).toString(16).padStart(8,'0'));
   check('exact native ranks 0 through 6 need neither Discord reads nor unknown-entitlement holds',http.length-beforeSkip===13&&skip.page.promotions.length===13&&http.slice(beforeSkip).every(row=>BigInt(row.subject)-800000000000001000n>=7n)&&expected.every(id=>!skip.page.held.some(r=>r.guid===id)&&!skip.page.promotions.some(r=>r.guid===id)));
@@ -348,10 +437,15 @@ async function run(){
         if(mode.startsWith('review-await-')&&!inflightMutations.has('review-'+mode.slice(13))){
           const kind=mode.slice(13);inflightMutations.add('review-'+kind);await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-digest':kind});
         }
+        if(mode.startsWith('batch-await-')&&!inflightMutations.has('batch-'+mode.slice(12))){
+          const kind=mode.slice(12);inflightMutations.add('batch-'+kind);
+          if(['anchor','config','native-config'].includes(kind))await fixtureCall('review-records275',{action:'mutate',kind:kind==='anchor'?'anchor-digest':kind});
+          else await fixtureCall(kind==='scope'?'batch-scope':'source-state',kind==='scope'?{}:{kind});
+        }
         const reviewLimit=mode==='review-records-cache'&&[1,7,8].includes(n)?(n===1?{header:'2.2',body:2.2,reset:'2.2'}:{header:'0.03',body:0.03,reset:'0.03'}):null;
-        const limited=reviewLimit??((['partial-recover','identity-switch','selected-partial','selected-cache-age'].includes(mode)&&n===6||mode==='selected-late-limit'&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode]);
+        const limited=reviewLimit??((['partial-recover','identity-switch','selected-partial','selected-cache-age','batch-partial'].includes(mode)&&n===6||['selected-late-limit','batch-late-limit'].includes(mode)&&n===20)?{header:'0.03',body:0.03,reset:'0.03'}:modes[mode]);
         if(limited)return Response.json({retry_after:limited.body,global:false},{status:429,headers:{'Retry-After':limited.header,'X-RateLimit-Reset-After':limited.reset}});
-        return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
+        return Response.json({user:{id:match[1]},roles:mode==='malformed'?'invalid-role-body':match[1]==='800000000000009999'||mode.startsWith('batch-')&&index===122n?['1299841745550311535']:[]},{headers:mode==='malformed'?{'X-RateLimit-Remaining':'not-a-number','X-RateLimit-Reset-After':'Infinity'}:row.resetMilliseconds?{'X-RateLimit-Remaining':'0','X-RateLimit-Reset-After':'0.03'}:{'X-RateLimit-Remaining':'1','X-RateLimit-Reset-After':'0'}});
       }finally{row.completed=performance.now();active--;}
     }}));
     const result=await Promise.race([run(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('roster pacing qualification exceeded 170 seconds')),170000);})]);

@@ -19,8 +19,11 @@ MAX_RATE_RETRIES = 2
 SOURCE_CHANGED_ERRORS = frozenset({'launch_cursor_source_changed', 'launch_cursor_role_source_changed'})
 SELECTED_PROTOCOL = "promotion-selection-v274"
 SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
+SELECTED_BATCH_PROTOCOL = "promotion-selection-v276"
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
+_SELECTED_BATCH_CONTROL_KEYS = (_SELECTED_CONTROL_KEYS - {'targetGuid'}) | {'targetGuids'}
 _SELECTED_KEYS = {"version", "protocol", "controlId", "actorGuid", "targetGuid", "scopeHash", "observedAt", "snapshotId", "snapshotAt", "startedAt", "expiresAt", "running", "stoppedReason", "attempts", "completed", "page", "coveredGuids"}
+_SELECTED_BATCH_KEYS = (_SELECTED_KEYS - {'targetGuid'}) | {'targetGuids', 'targetsDigest', 'coverageKind'}
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
 _KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions"}
 
@@ -379,21 +382,35 @@ def render_pages(result: Any, at: int) -> str | None:
     return "-- Dated launch projection only; old pages are advisory, never action-fresh.\nOlympusLaunchQueue=" + _lua(safe) + "\n"
 
 
+def _selected_targets276(value: Any) -> bool:
+    return (isinstance(value, list) and 1 <= len(value) <= 20
+            and all(isinstance(guid, str) and _GUID.fullmatch(guid) for guid in value)
+            and all(value[i-1] < value[i] for i in range(1, len(value))))
+
+
+def targets_digest276(value: list[str]) -> str:
+    return hashlib.sha256(json.dumps(value, separators=(',', ':')).encode()).hexdigest()
+
+
 def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
-    message = '|'.join(['launch-selected-read', '2', 'select', value['id'], str(value['observedAt']),
-                        value['scopeHash'], value['guid'], value['targetGuid']])
+    batch = value.get('version') == 3
+    message = '|'.join(['launch-selected-read', '3' if batch else '2', 'select-many' if batch else 'select', value['id'], str(value['observedAt']),
+                         value['scopeHash'], value['guid'], ','.join(value['targetGuids']) if batch else value['targetGuid']])
     return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
-    if not isinstance(value, dict) or set(value) != _SELECTED_CONTROL_KEYS:
+    if not isinstance(value, dict):
         return False
-    if (type(value['version']) is not int or value['version'] != 2 or value['action'] != 'select'
+    batch = value.get('version') == 3
+    if set(value) != (_SELECTED_BATCH_CONTROL_KEYS if batch else _SELECTED_CONTROL_KEYS):
+        return False
+    if (type(value['version']) is not int or value['version'] != (3 if batch else 2) or value['action'] != ('select-many' if batch else 'select')
             or not isinstance(value['id'], str) or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id'])
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
             or not at-60 <= value['observedAt'] <= at+5 or value['guid'] != guid
             or not isinstance(guid, str) or _GUID.fullmatch(guid) is None
-            or not isinstance(value['targetGuid'], str) or _GUID.fullmatch(value['targetGuid']) is None
+            or (not _selected_targets276(value['targetGuids']) if batch else not isinstance(value['targetGuid'], str) or _GUID.fullmatch(value['targetGuid']) is None)
             or not _text(guild) or guild != guild.strip() or canonical_guild(guild) != 'OLYMPUS PRIME'
             or not _text(realm) or not realm
             or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
@@ -406,22 +423,26 @@ def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, all
     # Only the recognized promotion-only envelope can opt into its longer
     # observation window. The public discovery validator stays fixed at60s.
     protocol = record.get('protocol')
-    if (protocol not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL) or not isinstance(page, dict)
+    batch = protocol == SELECTED_BATCH_PROTOCOL
+    if (protocol not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL, SELECTED_BATCH_PROTOCOL) or not isinstance(page, dict)
             or page.get('nextCursor') is not None or page.get('invites') != [] or page.get('riskBuffer') != []
             or page.get('status') == 'held'):
         return False
-    report_ttl = 600 if protocol == SELECTED_PROTOCOL else 60
+    if batch and (record.get('coverageKind') != 'selected-guids' or not _selected_targets276(record.get('targetGuids'))
+                  or record.get('targetsDigest') != targets_digest276(record['targetGuids']) or covered != record['targetGuids']):
+        return False
+    report_ttl = 60 if protocol == SELECTED_LEGACY_PROTOCOL else 600
     if (not _validate_page(page, at, allow_stale, report_ttl)
             or page['snapshotId'] != record['snapshotId'] or page['snapshotAt'] != record['snapshotAt']
             or page['scopeHash'] != record['scopeHash'] or page['scan']['startedAt'] != record['startedAt']
             or page['scan']['expiresAt'] != record['expiresAt'] or page['expiresAt'] > record['expiresAt']
             or not isinstance(covered, list) or not 1 <= len(covered) <= 20
             or any(not isinstance(guid, str) or _GUID.fullmatch(guid) is None for guid in covered)
-            or len(set(covered)) != len(covered) or record['targetGuid'] not in covered
+            or len(set(covered)) != len(covered) or not batch and record['targetGuid'] not in covered
             or len(covered) != page['entitlements']['scanned']):
         return False
     e = page['entitlements']
-    if (e['offset'] % 20 or e['scanned'] != min(20, e['total']-e['offset'])
+    if (e['offset'] % 20 or (e['offset'] != 0 or e['scanned'] != len(record['targetGuids']) if batch else e['scanned'] != min(20, e['total']-e['offset']))
             or e['total'] != page['memberCount'] or e['unscanned'] != max(0, e['total']-e['offset']-e['scanned'])):
         return False
     return all(row['guid'] in covered for key in ('promotions', 'held') for row in page[key])
@@ -442,11 +463,18 @@ class SelectedRead:
         return self.record is not None and self.record['running']
 
     def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float) -> None:
+        batch = control.get('version') == 3
         self.record = dict(version=1, protocol=SELECTED_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
-                           targetGuid=control['targetGuid'], scopeHash=control['scopeHash'], observedAt=control['observedAt'],
+                           scopeHash=control['scopeHash'], observedAt=control['observedAt'],
                            snapshotId=None, snapshotAt=None, startedAt=control['observedAt'], expiresAt=None,
                            running=False, stoppedReason='native-roster-receipt-required', attempts=0, completed=False,
                            page=None, coveredGuids=[])
+        if batch:
+            targets = list(control['targetGuids'])
+            self.record.update(protocol=SELECTED_BATCH_PROTOCOL, targetGuids=targets,
+                               targetsDigest=targets_digest276(targets), coverageKind='selected-guids')
+        else:
+            self.record['targetGuid'] = control['targetGuid']
         self.cursor = None
         self.native_digest = None
         self.native_guids = set()
@@ -460,7 +488,8 @@ class SelectedRead:
                  expiresAt=min(control['observedAt']+600, accepted['exportedAt']+600))
         self.native_guids = {row['guid'] for row in roster['members']}
         self.native_digest = digest
-        if control['targetGuid'] not in self.native_guids:
+        targets = control['targetGuids'] if batch else [control['targetGuid']]
+        if any(guid not in self.native_guids for guid in targets):
             r['stoppedReason'] = 'selected-target-unavailable'
             return
         if at >= r['expiresAt']:
@@ -515,7 +544,9 @@ class SelectedRead:
             return False
         if r['attempts'] >= 3:
             return self.hold('rate-limit-retries-exhausted')
-        query = dict(selectionId=r['controlId'], targetGuid=r['targetGuid'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'])
+        batch = r['protocol'] == SELECTED_BATCH_PROTOCOL
+        query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'])
+        query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
         if self.cursor:
             query['cursor'] = self.cursor
         r['attempts'] += 1  # Spend before transport; no unknown outcome is automatically retried.
@@ -533,10 +564,12 @@ class SelectedRead:
                     return self.hold('rate-limit-retries-exhausted')
                 return self.defer_rate_limit(reply.get('retryAfterSeconds'))
             return self.hold('source-refused')
-        if (not isinstance(reply, dict) or set(reply) != {'version', 'protocol', 'controlId', 'targetGuid', 'coveredGuids', 'page'}
+        keys = {'version', 'protocol', 'controlId', 'coveredGuids', 'page'} | ({'coverageKind', 'targetGuids', 'targetsDigest'} if batch else {'targetGuid'})
+        if (not isinstance(reply, dict) or set(reply) != keys
                 or type(reply['version']) is not int or reply['version'] != 1
-                or reply['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL)
-                or reply['controlId'] != r['controlId'] or reply['targetGuid'] != r['targetGuid']):
+                or (reply['protocol'] != SELECTED_BATCH_PROTOCOL if batch else reply['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL))
+                or reply['controlId'] != r['controlId']
+                or (reply['targetGuids'] != r['targetGuids'] or reply['targetsDigest'] != r['targetsDigest'] or reply['coverageKind'] != 'selected-guids' if batch else reply['targetGuid'] != r['targetGuid'])):
             return self.hold('invalid-selected-page')
         page, covered = reply['page'], reply['coveredGuids']
         if isinstance(page, dict) and validate_page(page, int(self.clock())) and page['status'] == 'held' and covered == []:
@@ -565,14 +598,18 @@ class SelectedRead:
 
 
 def render_selected(record: Any, at: int) -> str | None:
-    if (not isinstance(record, dict) or set(record) != _SELECTED_KEYS or type(record['version']) is not int or record['version'] != 1
-            or record['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL) or not _text(record['controlId'], 32)
+    if not isinstance(record, dict):
+        return None
+    batch = record.get('protocol') == SELECTED_BATCH_PROTOCOL
+    if (set(record) != (_SELECTED_BATCH_KEYS if batch else _SELECTED_KEYS) or type(record['version']) is not int or record['version'] != 1
+            or record['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL, SELECTED_BATCH_PROTOCOL) or not _text(record['controlId'], 32)
             or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', record['controlId'])
             or not _integer(record['observedAt'], 1) or record['controlId'].split(':')[0] != str(record['observedAt'])
             or record['startedAt'] != record['observedAt'] or not _integer(record['attempts'], 0, 3)
             or any(type(record[key]) is not bool for key in ('running', 'completed'))
             or not isinstance(record['coveredGuids'], list)
-            or any(not isinstance(record[key], str) or _GUID.fullmatch(record[key]) is None for key in ('actorGuid', 'targetGuid'))
+            or any(not isinstance(record[key], str) or _GUID.fullmatch(record[key]) is None for key in (('actorGuid',) if batch else ('actorGuid', 'targetGuid')))
+            or batch and (record['coverageKind'] != 'selected-guids' or not _selected_targets276(record['targetGuids']) or record['targetsDigest'] != targets_digest276(record['targetGuids']))
             or not isinstance(record['scopeHash'], str) or not re.fullmatch(r'[0-9a-f]{16}', record['scopeHash'])
             or record['stoppedReason'] is not None and (not _text(record['stoppedReason'], 64) or not record['stoppedReason'])):
         return None
