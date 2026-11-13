@@ -146,6 +146,87 @@ async function serverChecks() {
   check('CL2-138', 'three primary professions are refused', p2.status === 400 && p2.data && p2.data.error === 'invalid_professions', `${p2.status} ${p2.data && p2.data.error}`);
 }
 
+// ---------------------------------------------------------------- unit checks (the real Worker module, transpiled; no harness)
+/** Transpile one Worker module from SOURCE (and its relative imports) into CommonJS in memory. */
+function loadTs(rel) {
+  const ts = require(path.join(__dirname, '..', 'node_modules', 'typescript'));
+  const Module = require('node:module');
+  const cache = new Map();
+  const load = file => {
+    if (cache.has(file)) return cache.get(file).exports;
+    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const m = new Module(file); m.filename = file; cache.set(file, m);
+    m.require = spec => spec.startsWith('.') ? load(path.resolve(path.dirname(file), spec.replace(/\.js$/, '') + (spec.endsWith('.ts') ? '' : '.ts'))) : require(spec);
+    new Function('exports', 'require', 'module', '__filename', '__dirname', code)(m.exports, m.require, m, file, path.dirname(file));
+    return m.exports;
+  };
+  return load(path.join(SOURCE, rel));
+}
+
+async function unitChecks() {
+  // REV-SITEA-2 (12 Nov 2026): the CL2-122 pre-check in saveSettings. A legacy appointment (a <@id> pointer with no stored
+  // proof key) saved without appointedCharactersConfirmed is refused with 400 confirm_appointed_characters before any
+  // account read or Discord call. The same save with the tick is the control: it does reach the account read and Discord.
+  // The Worker captures fetch when its provider module loads, so the stub is installed first and stays: it answers every
+  // Discord call with a 503 and counts it, and passes anything else (the harness requests below) to the real fetch.
+  const realFetch = globalThis.fetch;
+  let provider = [];
+  globalThis.fetch = async function fetch(input, init) {
+    const url = String(input && input.url || input);
+    if (/^https:\/\/(?:[a-z]+\.)?discord(?:app)?\.com\//.test(url)) { provider.push(url); return new Response('{"message":"stub"}', { status: 503, headers: { 'Content-Type': 'application/json' } }); }
+    return realFetch(input, init);
+  };
+  const admin = loadTs('worker/src/site-admin.ts');
+  const run = async (extra) => {
+    provider = [];
+    const statements = [];
+    const stored = { office_45: '<@300000000000000103>' };
+    const rows = sql => /^SELECT key, value FROM site_settings/.test(sql) ? [{ key: 'appointed', value: JSON.stringify(stored) }]
+      : /^SELECT wanted\.value AS id/.test(sql) ? [{ id: '300000000000000103', birth: 'a'.repeat(32), generation: null, status: 'eligible' }] : [];
+    const env = { SITE_ADMINS: '300000000000000001', SITE_GUILD_ID: '300000000000000999', DISCORD_BOT_TOKEN: 'unit-test', COOKIE_SECRET: 'unit-test-secret-unit-test-secret',
+      DB: { prepare(sql) { statements.push(sql.trim().slice(0, 40)); const st = { bind: () => st, all: async () => ({ results: rows(sql.trim()) }), first: async () => null, run: async () => ({ meta: { changes: 0 } }), raw: async () => [] }; return st; },
+        batch: async s => { statements.push('batch'); return s.map(() => ({ results: [], meta: { changes: 0 } })); } } };
+    const body = { appointed: { ...stored }, ...extra };
+    const req = new Request('https://example.test/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await admin.handleAdmin(req, env, '/api/admin/settings', { discord_id: '300000000000000001' }, () => {});
+    const data = await res.json().catch(() => null);
+    return { status: res.status, error: data && data.error, provider: provider.length, reads: statements };
+  };
+  const refused = await run({});
+  check('REV-SITEA-2', 'a legacy <@id> appointment with no proof key, saved without the publication tick, is 400 confirm_appointed_characters with no provider call and no read past the settings row',
+    refused.status === 400 && refused.error === 'confirm_appointed_characters' && refused.provider === 0 && refused.reads.length === 1, JSON.stringify(refused));
+  const control = await run({ appointedCharactersConfirmed: true });
+  check('REV-SITEA-2', 'control: the same save with the tick passes the pre-check, reads the account and calls Discord (stubbed 503: nothing saved)',
+    control.provider >= 1 && control.reads.length > 1 && control.status === 409 && control.error === 'appointed_account_unavailable', JSON.stringify(control));
+
+  // REV-SITEA-3 (12 Nov 2026): the Treasury refusal sentence is treasuryGateDescription, built from the gate's own reads.
+  const treasury = loadTs('worker/src/site-treasury-access.ts');
+  if (typeof treasury.treasuryGateDescription !== 'function' || typeof treasury.treasuryDiscordRoles !== 'function') {
+    check('REV-SITEA-3', 'site-treasury-access.ts exports the gate description and the Discord role list the gate reads', false, 'not exported');
+    return;
+  }
+  const wrangler = read('worker/wrangler.toml');
+  const tomlValue = key => { const m = new RegExp(`^${key} = (?:'([^']*)'|"([^"]*)")`, 'm').exec(wrangler); return m ? (m[1] ?? m[2]) : undefined; };
+  const configured = Object.fromEntries(['GUILD_ID', 'SITE_GUILD_ID', 'ROLE_GUILD_MASTER', 'ROLE_GUILD_LEADER', 'ROLE_OFFICER', 'ROLE_RAID_LEADER', 'CANONICAL_RANKS233', 'QR_NATIVE_ROLE_MAP'].map(k => [k, tomlValue(k)]));
+  const policy = JSON.parse(configured.CANONICAL_RANKS233);
+  const base = { ...configured, DISCORD_BOT_TOKEN: 'unit-test' };
+  const configs = {
+    enabled: base,
+    presentNotEnabled: { ...base, CANONICAL_RANKS233: JSON.stringify({ ...policy, enabled: false }) },
+    absent: (({ CANONICAL_RANKS233, ...rest }) => rest)(base),
+    noToken: (({ DISCORD_BOT_TOKEN, ...rest }) => rest)(base),
+    // A ten-rank native map after the launch cut opens the roster path (no canonical configuration in this case).
+    tenRank: (({ CANONICAL_RANKS233, ...rest }) => ({ ...rest, LINKS_NOT_BEFORE: '1793833200', QR_NATIVE_ROLE_MAP: JSON.stringify({ profile: 'ten-rank', roles: Array.from({ length: 10 }, (_, i) => '4000000000000001' + String(i).padStart(2, '0')) }) }))(base),
+  };
+  const said = Object.fromEntries(Object.entries(configs).map(([k, env]) => [k, { text: treasury.treasuryGateDescription(env), discord: treasury.treasuryDiscordRoles(env) }]));
+  check('REV-SITEA-3', 'canonical rank roles enabled: the sentence names the Discord roles of the five officer ranks the gate reads', said.enabled.discord && /the Discord Guild Master, High Council, Officer, Officer Alt and Raid Leader roles/.test(said.enabled.text), said.enabled.text);
+  check('REV-SITEA-3', 'canonical rank roles present but not enabled: the gate admits no Discord role and the sentence names none', said.presentNotEnabled.discord === null && !/Discord/.test(said.presentNotEnabled.text), said.presentNotEnabled.text);
+  check('REV-SITEA-3', 'no canonical configuration: only the configured legacy roles (Guild Master, Officer, Raid Leader) are named', said.absent.discord && /the Discord Guild Master, Officer and Raid Leader roles/.test(said.absent.text) && !/High Council role|Officer Alt role/.test(said.absent.text), said.absent.text);
+  check('REV-SITEA-3', 'no bot token: no Discord clause; appointments and site administrators are always named', said.noToken.discord === null && !/Discord/.test(said.noToken.text) && Object.values(said).every(x => /the published Co-Guild Master and Treasurer appointments; and site administrators\.$/.test(x.text)), said.noToken.text);
+  check('REV-SITEA-3', 'only a configuration that opens the roster path names the roster ranks', /^The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord /.test(said.tenRank.text) && ['enabled', 'presentNotEnabled', 'absent', 'noToken'].every(k => !/verified roster/.test(said[k].text)), said.tenRank.text);
+  check('REV-SITEA-3', 'the sentence never uses a rank name outside the owner\'s ladder (no Stewart, no Treasurer rank)', Object.values(said).every(x => !/Stewart|Treasurer rank/.test(x.text)));
+}
+
 // ---------------------------------------------------------------- static copy checks (file text; used where no page shows it to a harness persona)
 function staticChecks() {
   const app = read('worker/public/static/app.js');
@@ -237,8 +318,12 @@ async function pageChecks(cdp) {
   // CL2-286 / CL2-287: the refusal states the gate once and follows the Royal Writs switch (off on the harness).
   await open(cdp, 'member', 'treasury-plan', '[...document.querySelectorAll("main h2")].some(h => /Treasury programme/.test(h.textContent))');
   const refusal = await text(cdp);
-  check('CL2-286', 'the refusal names High Council rank, not "the Council"', !/the Guild Master, the Council, Officers/.test(refusal) && /High Council/.test(refusal), refusal.slice(0, 300));
-  check('CL2-286', 'the refusal names every Discord role the gate admits (Guild Master, Officer, Raid Leader)', /the Discord Guild Master, Officer and Raid Leader roles/.test(refusal), refusal.slice(0, 400));
+  // REV-SITEA-3 (12 Nov 2026): the sentence is the gate's own description (unit checks above cover each configuration,
+  // including High Council rank on the roster path); here the page must show exactly what the Worker says it admits.
+  const answer = await http('member', 'GET', '/api/treasury-plan/access');
+  const admits = answer.data && typeof answer.data.admits === 'string' ? answer.data.admits : null;
+  check('CL2-286', 'the refusal does not say "the Council"', !/the Guild Master, the Council, Officers/.test(refusal), refusal.slice(0, 300));
+  check('REV-SITEA-3', 'the refusal shows the gate\'s own description from the access answer, and names no Discord role that answer does not', !!admits && refusal.includes(admits) && (/Discord/.test(admits) || !/Discord/.test(refusal)), `${admits} :: ${refusal.slice(0, 400)}`);
   check('CL2-287', 'with the switch off the refusal says the Royal Writs schedule is paused', !/Royal Writs and Patron tiers stay public/.test(refusal) && /Royal Writs schedule and new Patron applications are paused/.test(refusal));
 
   // CL2-290: an account with no dues week sees "nothing owed", not "ledger open" with a pay-now line.
@@ -386,6 +471,187 @@ async function reviewChecks(cdp) {
   check('CL2-290', 'confirmed member, no dues week: "not counted for you yet", no roster-confirmed condition', /Week of/.test(memberDues) || (/You owe nothing/.test(memberDues) && /No dues week has been counted for you yet/.test(memberDues) && !/once you have a roster-confirmed character/.test(memberDues)), memberDues.slice(0, 300));
 }
 
+/**
+ * Stage 2 follow-up (12 Nov 2026), Codex's UX-LOAD-001 and BROWSER-03. Each sub-check reports its own measurements, so the same
+ * run against the integrated head (1e51050) shows what was wrong before.
+ */
+async function followupChecks(cdp) {
+  const consoleErrors = [];
+  cdp.on('Runtime.exceptionThrown', p => consoleErrors.push(p.exceptionDetails && (p.exceptionDetails.exception?.description || p.exceptionDetails.text)));
+  const want = id => !only || only.has(id);
+  // A paused request that is never answered: the shape of a script that fires neither load nor error.
+  const held = [];
+  const holdScripts = async (pattern) => {
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: pattern, requestStage: 'Request' }] });
+    cdp.onPaused = p => { held.push(p.requestId); };
+  };
+  const releaseHeld = async () => { cdp.onPaused = null; for (const id of held.splice(0)) await cdp.send('Fetch.failRequest', { requestId: id, errorReason: 'Aborted' }).catch(() => {}); await cdp.send('Fetch.disable'); };
+  const scriptRequests = (re) => cdp.requests.filter(r => re.test(r.url)).map(r => r.url.replace(URL0, ''));
+
+  if (want('UX-LOAD-001')) {
+    // 1. analysis.js never answers: the calculator must still open, name the missing comparison, and leave no stalled element.
+    await holdScripts('*/static/talents/analysis.js*');
+    const t0 = Date.now();
+    await open(cdp, 'member', 'talents', 'document.querySelector("main .talents-tool")');
+    const mounted = await waitFor(cdp, 'document.querySelector("main .talents-tool")', 15000);
+    const waited = Date.now() - t0;
+    const first = await cdp.eval(`(() => ({ note: document.querySelector('main .talents-module-note')?.textContent || '', analysis: !!window.OlympusTalentAnalysis, stalled: [...document.querySelectorAll('script[src*="analysis.js"]')].length, opening: /Opening tool/.test(document.querySelector('main')?.textContent || '') }))()`);
+    check('UX-LOAD-001', 'an optional script that never loads or fails no longer holds the calculator: it opens and names the module unavailable', mounted && waited < 15000 && /Build comparison could not be loaded\. Reopen the calculator to try again\./.test(first.note) && !first.analysis && first.stalled === 0 && !first.opening, JSON.stringify({ mounted, waited, ...first }));
+    // 2. Reopening the calculator really asks again (a fresh address, so the stalled request is not joined) and the module mounts.
+    await releaseHeld();
+    const before = scriptRequests(/analysis\.js/).length;
+    await cdp.eval(`location.hash = '#/roles'`); await sleep(1200);
+    await cdp.eval(`location.hash = '#/talents'`);
+    const retried = await waitFor(cdp, 'document.querySelector("main .talents-analysis-host") && window.OlympusTalentAnalysis', 15000);
+    const again = scriptRequests(/analysis\.js/).slice(before);
+    const note2 = await cdp.eval(`document.querySelector('main .talents-module-note')?.textContent || ''`);
+    check('UX-LOAD-001', 'reopening the calculator requests analysis.js again at a fresh address and the comparison mounts', retried && again.some(u => /analysis\.js\?retry=1$/.test(u)) && !note2, JSON.stringify({ retried, again, note2 }));
+
+    // 3. The level-60 sheet's script never answers: its section says so instead of "Opening…" for good; reopening retries.
+    await holdScripts('*/static/talents/stats60.js*');
+    await open(cdp, 'member', 'talents', 'document.querySelector("main .talents-stats60-host")');
+    await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = true; return true; })()`);
+    const statsFailed = await waitFor(cdp, `/could not be loaded/.test(document.querySelector('main .talents-stats60-body [role="alert"]')?.textContent || '')`, 15000);
+    const statsText = await cdp.eval(`document.querySelector('main .talents-stats60-body')?.textContent || ''`);
+    await releaseHeld();
+    const beforeStats = scriptRequests(/stats60\.js/).length;
+    await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = false; return true; })()`); await sleep(300);
+    await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = true; return true; })()`);
+    const statsMounted = await waitFor(cdp, `window.OlympusTalentStats60 && !document.querySelector('main .talents-stats60-body [role="alert"]') && !/Opening the level-60 sheet/.test(document.querySelector('main .talents-stats60-body')?.textContent || '')`, 15000);
+    const statsAgain = scriptRequests(/stats60\.js/).slice(beforeStats);
+    check('UX-LOAD-001', 'a stalled level-60 sheet script ends in "could not be loaded" and closing and reopening the section loads it at a fresh address', statsFailed && statsMounted && statsAgain.some(u => /stats60\.js\?retry=1$/.test(u)), JSON.stringify({ statsFailed, statsText: statsText.slice(0, 120), statsMounted, statsAgain }));
+
+    // 4. Route disposal: leaving while an optional script is stalled mounts nothing on the next page when the deadline passes.
+    await cdp.send('Page.reload', {}); await sleep(1500); // a fresh page script: the modules loaded above are forgotten
+    await holdScripts('*/static/talents/guide-builds179.js*');
+    await open(cdp, 'member', 'talents', 'document.querySelector("main .member-tool")');
+    await cdp.eval(`location.hash = '#/roles'`);
+    const errorsBefore = consoleErrors.length;
+    await sleep(10000);
+    const left = await cdp.eval(`(() => ({ hash: location.hash, tool: !!document.querySelector('main .talents-tool'), stalled: [...document.querySelectorAll('script[src*="guide-builds179.js"]')].length }))()`);
+    await releaseHeld();
+    check('UX-LOAD-001', 'leaving the calculator while a script is stalled: after the deadline nothing mounts on the next page and the stalled element is gone', left.hash === '#/roles' && !left.tool && left.stalled === 0 && consoleErrors.length === errorsBefore, JSON.stringify({ ...left, errors: consoleErrors.slice(errorsBefore) }));
+  }
+
+  if (want('BROWSER-03')) {
+    // An event with two yes answers; the admin (its organizer) decides on the event page.
+    const opId = ('evg1112r' + Date.now().toString(36) + 'xxxxxxxxxxxxxxxx').slice(0, 22);
+    const startsAt = new Date((Math.floor(Date.now() / 1000) + 5 * 86400) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const made = await http('admin', 'POST', '/api/community/events', { opId, title: 'Evergreen roster count check', startsAt, durationMin: 60, capacity: 10 });
+    const eventId = made.data && made.data.event && made.data.event.id;
+    const answers = [];
+    for (const who of ['member', 'officer']) answers.push((await http(who, 'PUT', '/api/community/events/rsvp', { eventId, status: 'yes', revision: 0, character: null, raidRole: null, remindMention: false })).status);
+    if (!eventId || answers.some(s => s !== 200)) { check('BROWSER-03', 'the roster fixture (an event with two yes answers) is created', false, `${made.status} ${JSON.stringify(answers)}`); return; }
+    const decides = () => cdp.requests.filter(r => r.method === 'POST' && /\/api\/community\/events\/decide$/.test(r.url)).length;
+    const route = `community/calendar/${eventId}`;
+    // Both visible counts, the RSVP draft and the focus, read in one go.
+    const state = `(() => {
+      const frames = [...document.querySelectorAll('main section.frame')];
+      const who = frames.find(f => f.querySelector('.plaque h1, .plaque h2')?.textContent === 'Who answered');
+      const kv = document.querySelector('main .card.event dl.kv');
+      const dt = kv && [...kv.querySelectorAll('dt')].find(d => d.textContent === 'Answers');
+      const header = dt ? dt.nextElementSibling.textContent : '';
+      const panel = who ? (who.querySelector('.plaque > span')?.textContent || '') : '';
+      const n = s => { const m = /(\\d+) accepted/.exec(s); return m ? Number(m[1]) : null; };
+      const ch = document.querySelector('#f-rsvp-character');
+      return { header: n(header), panel: n(panel), draft: ch ? ch.value : null, focus: document.activeElement === ch, toast: [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ') };
+    })()`;
+    const rowFor = name => `[...document.querySelectorAll('main section.frame tbody tr')].find(tr => tr.textContent.includes(${JSON.stringify(name)}))`;
+    const decide = (name, value) => cdp.eval(`(() => { const tr = ${rowFor(name)}; if (!tr) return false; const s = tr.querySelector('select[aria-label="Roster decision"]'); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event('change', { bubbles: true })); [...tr.querySelectorAll('button')].find(b => b.textContent === 'Save').click(); return true; })()`);
+    const draft = (value) => cdp.eval(`(() => { const ch = document.querySelector('#f-rsvp-character'); ch.focus(); ch.value = ${JSON.stringify(value)}; ch.dispatchEvent(new Event('input', { bubbles: true })); return document.activeElement === ch; })()`);
+    const settled = (expected) => waitFor(cdp, `(() => { const s = ${state}; return s.header === ${expected} && s.panel === ${expected}; })()`, 6000);
+    await open(cdp, 'admin', route, `${rowFor('QA Member')}`);
+
+    // Accepted, Bench, Accepted and Clear on one row, with an RSVP draft typed and focused before each Save.
+    const steps = [];
+    for (const [value, expected] of [['accepted', 1], ['bench', 0], ['accepted', 1], ['', 0]]) {
+      await waitFor(cdp, `${rowFor('QA Member')} && !${rowFor('QA Member')}.querySelector('button').disabled`, 6000);
+      const text = 'Draft ' + (value || 'clear');
+      await draft(text);
+      const posts = decides();
+      const clicked = await decide('QA Member', value);
+      const ok = await settled(expected); await sleep(400);
+      const s = await cdp.eval(state);
+      steps.push({ value: value || 'clear', clicked, ok, header: s.header, panel: s.panel, posts: decides() - posts, draftKept: s.draft === text, focusKept: s.focus });
+    }
+    check('BROWSER-03', 'Accepted, Bench, Accepted and Clear: the event header and "Who answered" show the same accepted count after each decision, one POST each, the RSVP draft and focus kept', steps.every(x => x.clicked && x.ok && x.posts === 1 && x.draftKept && x.focusKept), JSON.stringify(steps));
+
+    // Out of order: A's reply is held until B's (newer) reply has been shown; the older count must not come back.
+    await open(cdp, 'admin', route, `${rowFor('QA Member')}`);
+    await draft('Draft out of order');
+    const paused = [];
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/events/decide', requestStage: 'Response' }] });
+    cdp.onPaused = p => { paused.push(p); };
+    const postsOoo = decides();
+    await decide('QA Member', 'accepted');
+    await waitFor(cdp, 'true', 10); for (let i = 0; i < 50 && paused.length < 1; i++) await sleep(100);
+    await decide('QA Officer', 'accepted');
+    for (let i = 0; i < 50 && paused.length < 2; i++) await sleep(100);
+    const replies = [];
+    for (const p of paused) { const b = await cdp.send('Fetch.getResponseBody', { requestId: p.requestId }).catch(() => null); try { replies.push(JSON.parse(b.base64Encoded ? Buffer.from(b.body, 'base64').toString() : b.body).event.counts.accepted); } catch { replies.push(null); } }
+    if (paused[1]) await cdp.send('Fetch.continueRequest', { requestId: paused[1].requestId });
+    await sleep(900);
+    if (paused[0]) await cdp.send('Fetch.continueRequest', { requestId: paused[0].requestId });
+    await sleep(1200);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const ooo = await cdp.eval(state);
+    check('BROWSER-03', 'out-of-order decide replies (the newer one first): both counts end on the newer accepted count, two POSTs, the draft kept', paused.length === 2 && replies[0] === 1 && replies[1] === 2 && ooo.header === 2 && ooo.panel === 2 && decides() - postsOoo === 2 && ooo.draft === 'Draft out of order', JSON.stringify({ held: paused.length, replies, ...ooo, posts: decides() - postsOoo }));
+
+    // A lost reply (bare 500) re-reads: the stored decision shows in both counts, nothing is sent again.
+    await open(cdp, 'admin', route, `${rowFor('QA Officer')}`);
+    await draft('Draft lost');
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/events/decide', requestStage: 'Response' }] });
+    cdp.onPaused = p => bare500(cdp, p);
+    const postsLost = decides();
+    await decide('QA Officer', 'bench');
+    const lostOk = await settled(1); await sleep(600);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const lost = await cdp.eval(state);
+    check('BROWSER-03', 'a lost decide reply re-reads the event: both counts show the stored decision, no second POST, the draft kept', lostOk && lost.header === 1 && lost.panel === 1 && decides() - postsLost === 1 && lost.draft === 'Draft lost', JSON.stringify({ ...lost, posts: decides() - postsLost }));
+
+    // A readable receipt without its event re-reads the counts instead of leaving the header stale.
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/events/decide', requestStage: 'Response' }] });
+    cdp.onPaused = p => rewriteJson(cdp, p, json => { json.event = null; });
+    const reads = () => cdp.requests.filter(r => r.method === 'GET' && /\/api\/community\/event\?id=/.test(r.url)).length;
+    const postsBare = decides(), readsBare = reads();
+    await waitFor(cdp, `${rowFor('QA Officer')} && !${rowFor('QA Officer')}.querySelector('button').disabled`, 6000);
+    await draft('Draft recount');
+    await decide('QA Officer', 'accepted');
+    const bareOk = await settled(2); await sleep(600);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const bare = await cdp.eval(state);
+    check('BROWSER-03', 'a receipt with no event re-reads the counts once: both show 2, one POST, the draft and focus kept', bareOk && bare.header === 2 && bare.panel === 2 && decides() - postsBare === 1 && reads() - readsBare >= 1 && bare.draft === 'Draft recount' && bare.focus, JSON.stringify({ ...bare, posts: decides() - postsBare, reads: reads() - readsBare }));
+
+    // ... and when that count re-read fails too, the panel says the counts could not be re-read instead of implying they are current.
+    await waitFor(cdp, `${rowFor('QA Officer')} && !${rowFor('QA Officer')}.querySelector('button').disabled`, 6000);
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/events/decide', requestStage: 'Response' }, { urlPattern: `*/api/community/event?id=${eventId}`, requestStage: 'Request' }] });
+    cdp.onPaused = p => /\/decide$/.test(p.request.url) ? rewriteJson(cdp, p, json => { json.event = null; }) : bare500(cdp, p);
+    const postsFail = decides();
+    await decide('QA Officer', 'bench');
+    const failSaid = await waitFor(cdp, `/The answer counts could not be re-read\\. Reload the page/.test(document.querySelector('main')?.textContent || '')`, 6000);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const failState = await cdp.eval(state);
+    check('BROWSER-03', 'a receipt with no event whose count re-read also fails says the counts could not be re-read; one POST, the draft kept', failSaid && decides() - postsFail === 1 && failState.draft === 'Draft recount', JSON.stringify({ failSaid, ...failState, posts: decides() - postsFail }));
+
+    // Disposal: the reply arrives after the officer left the event; nothing on the next page changes, nothing is said.
+    await open(cdp, 'admin', route, `${rowFor('QA Member')}`);
+    const heldReply = [];
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/events/decide', requestStage: 'Response' }] });
+    cdp.onPaused = p => { heldReply.push(p); };
+    await decide('QA Member', 'bench');
+    for (let i = 0; i < 50 && !heldReply.length; i++) await sleep(100);
+    await cdp.eval(`(() => { window.__oldCard = document.querySelector('main .card.event'); location.hash = '#/community/calendar'; return true; })()`);
+    await waitFor(cdp, `[...document.querySelectorAll('main h1, main h2')].some(h => h.textContent === 'Calendar')`, 6000); await sleep(600);
+    const errorsBefore = consoleErrors.length;
+    const beforeRelease = await cdp.eval(`document.querySelector('main')?.innerHTML.length || 0`);
+    if (heldReply[0]) await cdp.send('Fetch.continueRequest', { requestId: heldReply[0].requestId });
+    await sleep(1500);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const after = await cdp.eval(`(() => ({ hash: location.hash, html: document.querySelector('main')?.innerHTML.length || 0, headerCards: [...document.querySelectorAll('main .card.event h3')].filter(h => !h.querySelector('a')).length, oldCardStillDetached: !!window.__oldCard && !window.__oldCard.isConnected, toast: [...document.querySelectorAll('.toast')].map(t => t.textContent).filter(t => /Roster/.test(t)).length }))()`);
+    check('BROWSER-03', 'a decide reply after the officer left the event changes nothing on the calendar page and says nothing', heldReply.length === 1 && after.hash === '#/community/calendar' && after.html === beforeRelease && after.headerCards === 0 && after.oldCardStillDetached && after.toast === 0 && consoleErrors.length === errorsBefore, JSON.stringify({ held: heldReply.length, before: beforeRelease, ...after, errors: consoleErrors.slice(errorsBefore) }));
+  }
+}
+
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
 async function layoutChecks(cdp) {
   for (const [route, ready] of [['admin/appointments', 'document.querySelector("[data-appointed-holder]")'], ['admin', 'document.querySelector(".admin-section-group228")']]) {
@@ -396,18 +662,32 @@ async function layoutChecks(cdp) {
       check(route === 'admin' ? 'CL2-014' : 'CL2-015', `/#/${route} at ${width}px: no horizontal overflow${route === 'admin' ? '' : ', holder buttons at least 44 px'}`, m.present && m.overflow <= 0 && m.small === 0, JSON.stringify(m));
     }
   }
+  // REV-SITEA-1 (12 Nov 2026): the read-failure "Try again" (CL2-017) is a 44 px target at phone and desktop widths.
+  const retrySizes = {};
+  for (const width of [1280, 390, 375, 320]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 768 });
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/news', requestStage: 'Request' }] });
+    cdp.onPaused = p => bare500(cdp, p);
+    await open(cdp, 'member', 'news', 'document.querySelector("main .notice-box button")');
+    await cdp.send('Fetch.disable'); cdp.onPaused = null;
+    retrySizes[width] = await cdp.eval(`(() => { const b = [...document.querySelectorAll('main .notice-box button')].find(x => x.textContent === 'Try again'); if (!b) return null; const r = b.getBoundingClientRect(); return { h: Math.round(r.height), w: Math.round(r.width), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+  }
+  check('REV-SITEA-1', 'the read-failure "Try again" button is at least 44x44 px at 1280, 390, 375 and 320 px', Object.values(retrySizes).every(s => s && s.h >= 44 && s.w >= 44 && s.overflow <= 0), JSON.stringify(retrySizes));
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
 }
 
 (async () => {
   console.log(`evergreen1112 siteui-a against ${URL0}; static source ${SOURCE}`);
-  await serverChecks();
-  staticChecks();
+  // --followup-only runs just the follow-up browser checks (UX-LOAD-001, BROWSER-03); the full run includes them.
+  const followupOnly = process.argv.includes('--followup-only');
+  if (!followupOnly) await unitChecks();
+  if (process.argv.includes('--unit-only')) { console.log(`RESULT ${results.length - failures}/${results.length} passed`); process.exitCode = failures ? 1 : 0; return; }
+  if (!followupOnly) { await serverChecks(); staticChecks(); }
   if (CDP_PORT) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { await pageChecks(cdp); await reviewChecks(cdp); if (!args['no-layout']) await layoutChecks(cdp); } finally { await cdp.close(); }
+    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));

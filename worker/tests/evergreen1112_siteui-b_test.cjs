@@ -115,8 +115,13 @@ async function sourceChecks() {
     }
   }
   if (want('CL2-105')) {
+    // INT-SITE-1 (12 Nov 2026): after the merge, guides218.js serves only the tools; the class and profession guides moved
+    // to the university (area uni gives its not-found state an H1; asserted in the browser below).
     const gjs = src('worker/public/static/guides218.js');
-    check('CL2-105', 'the guide and tool not-found views render under an H1', /function notFound\(title, text\)[^]*?el\("h1", \{ text: title \}\)/.test(gjs) && (gjs.match(/notFound\("(?:Guide|Tool) not found"/g) || []).length === 3);
+    const nf = /function notFound\(title, text\) \{([^]*?)\n    \}/.exec(gjs);
+    const fallback = /function render\(data\) \{[^]*?: notFound\("Tool not found", [^)]*\);/.test(gjs);
+    check('CL2-105', 'the tool not-found view renders an H1, a status sentence and a way back, and every unknown tool reaches it',
+      !!nf && /el\("h1", \{ text: title \}\)/.test(nf[1]) && /role: "status"/.test(nf[1]) && /link\("#\/guides"/.test(nf[1]) && fallback);
   }
   if (want('CL2-178')) {
     const dir = JSON.parse(src('worker/public/static/resources169.json')).ownerDirectory;
@@ -241,6 +246,19 @@ async function browserChecks() {
       const r = await ev(`const a=[...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length);return a.map(x=>Math.round(x.getBoundingClientRect().height))`);
       check('CL2-322', '"Role guide" links on /#/apply are at least 24 px tall', r.length > 0 && Math.min(...r) >= 24, r);
     }
+    if (want('REV-SITEB-2')) {
+      // REV-SITEB-2 (12 Nov 2026): both kinds of "Role guide" link (application badges; the See-also strip on Vote) share one
+      // 44 px target from the stylesheet. The inline CSSOM size on See-also links is removed before measuring, so the check
+      // reads the stylesheet's rule, not the script's.
+      const sizes = {};
+      for (const [who, route] of [['member', 'vote'], ['applicant', 'apply'], ['admin', 'admin/applications']]) {
+        for (const w of [1280, 390]) {
+          await open(who, w, route); await sleep(600);
+          sizes[`${route}@${w}`] = await ev(`return [...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length).map(a=>{a.style.removeProperty('min-height');a.style.removeProperty('display');return Math.round(a.getBoundingClientRect().height)})`);
+        }
+      }
+      check('REV-SITEB-2', 'every "Role guide" link on Vote, Apply and Admin applications is at least 44 px tall at 1280 and 390 px, from the stylesheet', Object.values(sizes).every(x => x.length > 0 && Math.min(...x) >= 44), sizes);
+    }
     if (want('CL2-321')) {
       await open('admin', 390, '');
       const r = await ev(`const s=[...document.querySelectorAll('nav.nav details.nav-group > summary')].find(x=>x.textContent==='Community');s.click();await new Promise(r=>setTimeout(r,200));const m=s.parentElement.querySelector('.nav-menu');return {heights:[...m.querySelectorAll('a')].map(a=>Math.round(a.getBoundingClientRect().height))}`);
@@ -298,15 +316,27 @@ async function browserChecks() {
       check('CL2-099', 'Community, Vote, Roles and Apply never skip a heading level and every aria reference resolves', Object.values(jumps).every(x => x.jumps === 0 && x.dangling === 0), jumps);
     }
     if (want('CL2-105') || want('CL2-099')) {
-      const out = {};
-      for (const route of ['guides/class/no-such-class', 'guides/tools/no-such-tool']) { await open('member', 1280, route); await sleep(700); out[route] = await ev(`return [...document.querySelectorAll('main h1')].map(h=>h.textContent.trim())`); }
-      check('CL2-105', 'unknown guide and tool addresses render under one H1', Object.values(out).every(h => h.length === 1 && /not found/.test(h[0])), out);
+      // INT-SITE-1 (12 Nov 2026): the merged design. An unknown tool is served by guides218.js; an unknown class guide by
+      // the university, whose not-found H1 is area uni's INT-UNI-1 (this check fails until that lands, by design).
+      const notFoundState = `const main=document.querySelector('main');return {h1:[...main.querySelectorAll('h1')].map(h=>h.textContent.trim()),status:[...main.querySelectorAll('[role=status]')].map(e=>e.textContent.trim()).filter(Boolean).length,back:!!main.querySelector('a[href="#/guides"]')}`;
+      const ok = x => x.h1.length === 1 && /not found$/.test(x.h1[0]) && x.status > 0 && x.back;
+      const tool = {};
+      for (const w of [1280, 375]) { await open('member', w, 'guides/tools/no-such-tool'); await sleep(700); tool[w] = await ev(notFoundState); }
+      check('CL2-105', 'an unknown tool address renders under one H1 ending "not found", with a status sentence and a way back (1280, 375)', Object.values(tool).every(ok), tool);
+      await open('member', 1280, 'guides/class/no-such-class'); await sleep(900);
+      const guide = await ev(notFoundState);
+      check('CL2-105', 'an unknown university guide address renders under one H1 ending "not found" (depends on area uni, INT-UNI-1)', ok(guide), guide);
     }
     if (want('CL2-173')) {
-      await open('member', 1280, 'resources'); await sleep(700);
-      const t = await ev(`return document.querySelector('main').textContent`);
-      check('CL2-173', '/#/resources no longer says the launch is "announced"', !/announced global launch/.test(t) && /Forever launched worldwide on 4 November 2026/.test(t));
+      // INT-SITE-1 (12 Nov 2026): /#/resources and /#/guides now show the university hub; guides218.json's scope note, which
+      // carries the launch sentence, is rendered in the header of every tool page.
+      const launchClaims = `const t=document.querySelector('main').innerText;const s=t.split(/(?<=[.!?])\\s+|\\n+/).filter(x=>/launch/i.test(x));return {h1:[...document.querySelectorAll('main h1')].map(h=>h.textContent.trim()),bad:s.filter(x=>/announc|upcoming|will launch|launches on|ahead of (the )?launch/i.test(x)).map(x=>x.slice(0,120))}`;
+      const hub = {};
+      for (const route of ['resources', 'guides']) { await open('member', 1280, route); await sleep(900); hub[route] = await ev(launchClaims); }
+      check('CL2-173', 'the university hub (/#/resources, /#/guides) never calls the launch announced or upcoming', Object.values(hub).every(x => x.h1.length === 1 && x.bad.length === 0), hub);
       await open('member', 1280, 'guides/tools/changes'); await sleep(700);
+      const scope = await ev(`return [...document.querySelectorAll('main header.guides218-head p.muted.small')].map(p=>p.textContent)`);
+      check('CL2-173', 'the tool pages\' scope note says Forever launched on 4 November 2026, not "announced global launch"', scope.length === 1 && /Forever launched worldwide on 4 November 2026/.test(scope[0]) && !/announced/.test(scope[0]), scope);
       const live = await ev(`const s=[...document.querySelectorAll('main section h2')].map(h=>h.textContent.trim());const first=document.querySelector('main section.guides218-section dt');return {sections:s.slice(0,2),first:first&&first.textContent}`);
       check('CL2-173', 'the What changed tool lists "Global launch" under "Live in the game"', live.sections[0] === 'Live in the game' && live.first === 'Global launch', live);
     }
@@ -320,11 +350,13 @@ async function browserChecks() {
     }
     if (want('CL2-281')) {
       const out = {};
-      for (const route of ['resources', 'guides/class/warrior']) {
+      // INT-SITE-1 (12 Nov 2026): after the merge /#/resources and the class guides are university pages (.uni-head, area
+      // uni); the tools keep the guides218 hero, where the CL2-281 wrap rule lives. Every hero must stay inside the viewport.
+      for (const route of ['resources', 'guides/class/warrior', 'guides/tools/changes']) {
         await open('member', 160, route, 400); await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false }); await cdp.send('Page.reload', {}); await idle(st); await sleep(900);
-        out[route] = await ev(`const h=document.querySelector('.guides218-head');const vw=document.documentElement.clientWidth;const kids=[...h.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right));const c=getComputedStyle(h);return {right:Math.max(...kids),vw,wrap:c.flexWrap,textMin:getComputedStyle(h.querySelector(':scope > div')).minWidth}`);
+        out[route] = await ev(`const h=document.querySelector('.guides218-head, .uni-head');if(!h)return null;const vw=document.documentElement.clientWidth;const kids=[...h.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right));const c=getComputedStyle(h);return {hero:h.className,right:Math.max(...kids),vw,wrap:c.flexWrap,textMin:getComputedStyle(h.querySelector(':scope > div')).minWidth}`);
       }
-      check('CL2-281', 'at 160 CSS px the guide hero wraps, its text may shrink, and nothing passes the viewport', Object.values(out).every(x => x.right <= x.vw && x.wrap === 'wrap' && x.textMin === '0px'), out);
+      check('CL2-281', 'at 160 CSS px every guide hero stays inside the viewport, and the tools hero wraps with shrinkable text', Object.values(out).every(x => x && x.right <= x.vw && (x.hero !== 'guides218-head' || (x.wrap === 'wrap' && x.textMin === '0px'))) && out['guides/tools/changes']?.hero === 'guides218-head', out);
     }
     if (want('CL2-102')) {
       const hdr = {};
@@ -349,7 +381,8 @@ async function browserChecks() {
       await open('member', 1280, 'addons'); await sleep(800);
       const t = await ev(`return document.querySelector('.resources169-featured')?.textContent||''`);
       check('CL2-071x', 'the Olympus Guild card says "Minimum version: 1.5.7", not a "Published file"', /Minimum version: 1\.5\.7/.test(t) && !/Published file/.test(t));
-      await open('member', 1280, 'guides'); await sleep(800);
+      // INT-SITE-1 (12 Nov 2026): /#/guides is the university hub after the merge; the publisher library moved to /#/guides/library.
+      await open('member', 1280, 'guides/library'); await sleep(800);
       const g = await ev(`return [...document.querySelectorAll('main p')].map(p=>p.textContent).find(x=>/Follow-up dated/.test(x))||''`);
       check('CL2-178', 'the publisher library shows the 12 November follow-up date', /Follow-up dated 12 November 2026/.test(g), g);
     }

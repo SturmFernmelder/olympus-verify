@@ -213,7 +213,7 @@
     const role = o?.key || { member: "member", raider: "raider", artisan: "artisan", officer: "officer", high_council: "high_council", patron: "tithe" }[t.id];
     return h("div", { class: "role-tags application-intent199", "data-application-track": t.id }, h("span", { class: "badge blue", text: t.label }), o ? h("span", { class: "badge", "data-target-office": o.key, text: o.applicationLabel || o.label }) : null,
       o?.councilSeat ? h("span", {class:"small muted application-reporting218", text:o.ministry + " · Council portfolio: " + o.councilSeat}) : null,
-      role ? h("a", { href: "#/roles/" + encodeURIComponent(role), text: "Role guide" }) : null);
+      role ? h("a", { class: "role-guide-link1112", href: "#/roles/" + encodeURIComponent(role), text: "Role guide" }) : null);
   }
   function goldBanner199() {
     const policy = M().royalWritPolicy || {};
@@ -2014,14 +2014,32 @@
   // Tools are original, same-origin renderers. Script promises hold no account data;
   // route disposal ends their observers/requests before another view can use the shell.
   const toolScripts = new Map();
-  async function loadMemberScript(namespace, file) {
+  // UX-LOAD-001 (Codex Stage 1, fixed 12 Nov 2026): an optional module may pass a deadline (ms). A script that neither loads nor fails
+  // by then is given up: its listeners and element are removed, its cache entry is dropped and the next request for it uses a fresh
+  // address (?retry=n), because a new element with the same address can join the stalled request instead of making a new one. If the
+  // abandoned request still completes later, the module defines its global and the next visit uses it. Required scripts keep no
+  // deadline: their pages have no partial state to show.
+  const toolScriptRetries = new Map();
+  const OPTIONAL_SCRIPT_DEADLINE_MS = 8000;
+  async function loadMemberScript(namespace, file, deadlineMs = 0) {
     if (window[namespace]) return;
-    if (!toolScripts.has(namespace)) toolScripts.set(namespace, new Promise((resolve, reject) => {
-      const script = h("script", { src: file });
-      script.addEventListener("load", resolve);
-      script.addEventListener("error", () => { toolScripts.delete(namespace); reject(Object.assign(new Error("The tool could not be loaded. Try opening it again."), { memberAsset: true })); });
+    if (!toolScripts.has(namespace)) { let pending = null; pending = new Promise((resolve, reject) => {
+      const retry = toolScriptRetries.get(namespace) || 0;
+      const script = h("script", { src: retry ? `${file}?retry=${retry}` : file });
+      let timer = 0;
+      const settle = (failure) => {
+        clearTimeout(timer); script.removeEventListener("load", loaded); script.removeEventListener("error", failed);
+        if (!failure) { resolve(); return; }
+        script.remove(); toolScriptRetries.set(namespace, retry + 1);
+        if (toolScripts.get(namespace) === pending) toolScripts.delete(namespace);
+        reject(Object.assign(new Error("The tool could not be loaded. Try opening it again."), { memberAsset: true }, failure));
+      };
+      const loaded = () => settle(null), failed = () => settle({ loadError: true });
+      script.addEventListener("load", loaded);
+      script.addEventListener("error", failed);
+      if (deadlineMs > 0) timer = setTimeout(() => settle({ timedOut: true }), deadlineMs);
       document.head.appendChild(script);
-    }));
+    }); toolScripts.set(namespace, pending); }
     await toolScripts.get(namespace);
   }
   const toolStyles = new Map(); // namespace -> a promise that settles once that tool's stylesheet loaded or failed
@@ -2060,9 +2078,11 @@
   ROUTES.talents = (main, parts) => memberTool(main, "OlympusTalents", "/static/talents/calculator.js", "/static/talents/calculator.css", async () => {
     // .186: both modules are optional. allSettled lets a failed load leave the calculator working without that feature, and the
     // calculator names what is missing. Any module whose global is still absent (a load error, or a script that loaded but threw or
-    // never defined it) loses its cache entry, so the next visit requests it again. A script that never answers still holds the route.
+    // never defined it) loses its cache entry, so the next visit requests it again. UX-LOAD-001 (12 Nov 2026): a script that never
+    // answers no longer holds the route: after OPTIONAL_SCRIPT_DEADLINE_MS it counts as unavailable, the calculator opens and names it
+    // ("could not be loaded. Reopen the calculator to try again."), and reopening asks for it again at a fresh address.
     const optional = [["analysis", "OlympusTalentAnalysis", "/static/talents/analysis.js"], ["guideBuilds", "OlympusTalentGuides", "/static/talents/guide-builds179.js"]];
-    await Promise.allSettled(optional.map(([, namespace, file]) => loadMemberScript(namespace, file)));
+    await Promise.allSettled(optional.map(([, namespace, file]) => loadMemberScript(namespace, file, OPTIONAL_SCRIPT_DEADLINE_MS)));
     const unavailable = optional.filter(([, namespace]) => !window[namespace]);
     for (const [, namespace] of unavailable) toolScripts.delete(namespace);
     return {
@@ -2070,8 +2090,9 @@
       // .189 (prepared as .186): the level-60 sheet is optional and independent; it loads only when its section is opened, never on
       // route entry. It follows the same settled rule as the pair above: a load error, or a script that loaded without defining its
       // global, resolves to undefined (the calculator names the sheet unavailable inside its section) and loses its cache entry, so
-      // the next opening requests stats60.js again. A script that never answers still holds only that section.
-      loadStats60: () => Promise.allSettled([loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js")]).then(() => {
+      // the next opening requests stats60.js again. UX-LOAD-001 (12 Nov 2026): a script that never answers is given up after the same
+      // deadline, so the section says the sheet could not be loaded instead of "Opening…" for good.
+      loadStats60: () => Promise.allSettled([loadMemberScript("OlympusTalentStats60", "/static/talents/stats60.js", OPTIONAL_SCRIPT_DEADLINE_MS)]).then(() => {
         if (!window.OlympusTalentStats60) toolScripts.delete("OlympusTalentStats60");
         return window.OlympusTalentStats60;
       }),
@@ -2606,7 +2627,7 @@
       if (show) add(main, treasurySignedOutNotice218());
     };
     const waiting = () => add(main, h("p", { role: "status", text: "Opening the treasury programme…" }));
-    const refuse = () => { finished = true; clear(main); add(main, treasuryRefusal218()); };
+    const refuse = () => { finished = true; clear(main); add(main, treasuryRefusal218(treasuryAnswer218 && treasuryAnswer218.user === S.user && !treasuryAnswer218.canRead ? treasuryAnswer218.admits : null)); };
     const verifyAccess = () => refreshTreasuryAccess218({ fresh: true, live: current });
     const arm = () => {
       clearTimeout(timer);
@@ -2753,13 +2774,14 @@
     }
     return [];
   }
-  function treasuryRefusal218() {
+  function treasuryRefusal218(admits) {
     return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
       // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
       // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
-      // The Discord list follows site-treasury-access.ts discordOfficerRole: Guild Master (ROLE_GUILD_LEADER is the same ID),
-      // Officer and Raid Leader, plus the Discord roles of the first five ranks when the canonical rank roles are switched on.
-      h("p", { text: "The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord Guild Master, Officer and Raid Leader roles, and the Discord roles of those five ranks when rank roles are switched on; the published Co-Guild Master and Treasurer appointments; and site administrators." }),
+      // REV-SITEA-3 (12 Nov 2026): the sentence is the Worker's own description of the gate under its current configuration
+      // (site-treasury-access.ts treasuryGateDescription), so it never names a Discord role the gate does not admit. An
+      // answer without it (an older Worker) gets the general rule only.
+      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the published Co-Guild Master and Treasurer appointments, and site administrators." }),
       h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
@@ -2790,7 +2812,9 @@
         check.promise = api("GET", "/api/treasury-plan/access", undefined, { live: () => current() && [...check.readers].some(read => read()) })
           .then(data => {
             if (!data || data.format !== "olympus-treasury-access-v1" || typeof data.canRead !== "boolean") throw new ApiError(200, { error: "unreadable_answer" });
-            return { user, id, revision, generation, canRead: data.canRead, at };
+            // REV-SITEA-3: a refusal carries the gate's own description (site-treasury-access.ts treasuryGateDescription).
+            const admits = !data.canRead && typeof data.admits === "string" && data.admits.length <= 600 ? data.admits : null;
+            return { user, id, revision, generation, canRead: data.canRead, admits, at };
           })
           .finally(() => { if (treasuryCheck218 === check) treasuryCheck218 = null; });
         treasuryCheck218 = check;
@@ -6769,7 +6793,7 @@
   const retryableRead = (e) => !e || !(e.status === 401 || e.status === 403 || e.status === 404 || (e.status === 409 && codeOf(e) === "reload") || ["contributions_disabled", "feature_disabled", "not_member", "denied"].includes(codeOf(e)));
   function readRetryButton(e, retry) {
     if (typeof retry !== "function" || !retryableRead(e)) return null;
-    const button = h("button", { class: "btn small", type: "button", text: "Try again" });
+    const button = h("button", { class: "btn small read-retry", type: "button", text: "Try again" });
     button.addEventListener("click", () => { if (!button.isConnected || button.disabled) return; button.disabled = true; retry(); });
     return button;
   }
@@ -7832,9 +7856,14 @@
       const e = data.event;
       if (!e) { holder.appendChild(frame("Event", back(), noticeBox("warn", "icon-warning", h("p", { text: data.hydration === "too_large" ? COMMUNITY_ERRORS.events_too_large : "This event could not be read right now." })))); return; }
       if (message) holder.appendChild(noticeBox("warn", "icon-warning", h("p", { text: message })));
-      holder.appendChild(frame(e.title, h("div", { class: "btn-row" }, back(), e.canManage ? [h("a", { class: "btn small", href: `${eventHref(e.id)}/edit`, text: "Edit" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null, h("a", { class: "btn small", href: `${eventHref(e.id)}/discord`, text: "Discord announcement" })] : null), eventCard(e, false)));
+      let card = eventCard(e, false);
+      holder.appendChild(frame(e.title, h("div", { class: "btn-row" }, back(), e.canManage ? [h("a", { class: "btn small", href: `${eventHref(e.id)}/edit`, text: "Edit" }), feat("attendance") ? h("a", { class: "btn small", href: `${eventHref(e.id)}/attendance`, text: "Attendance" }) : null, h("a", { class: "btn small", href: `${eventHref(e.id)}/discord`, text: "Discord announcement" })] : null), card));
       holder.appendChild(can("confirmedGuildData") ? rsvpForm(e, reload) : memberActionNotice());
-      holder.appendChild(signupsPanel(id, data.signups || [], data.nextCursor || null, e));
+      // BROWSER-03 (Codex Stage 1, fixed 12 Nov 2026): a roster decision changes the accepted count, so the panel hands every newer
+      // authoritative event it reads to the header card too. Only the card (no controls inside) is replaced: the answer form, its draft
+      // and the focus stay as they are, and nothing is sent again.
+      const showEvent = (next) => { if (!card.isConnected) return; const fresh = eventCard(next, false); card.replaceWith(fresh); card = fresh; };
+      holder.appendChild(signupsPanel(id, data.signups || [], data.nextCursor || null, e, showEvent));
     };
     const reload = async (message) => {
       try { draw(await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`), message); } catch (e) { fail(e); }
@@ -8075,7 +8104,7 @@
     });
     return h("tr", { role: "row" }, cells);
   }
-  function signupsPanel(id, firstPage, firstCursor, e) {
+  function signupsPanel(id, firstPage, firstCursor, e, onEvent) {
     const columns = ["Member", "Answer", "Character", "Role", "Roster"];
     const tbody = h("tbody");
     const table = organizerActionTable(columns, tbody, { stacked: e.canManage === true, hidden: true });
@@ -8099,12 +8128,32 @@
     const alive = () => attached() && fingerprint() === view;
     // readSeq: the latest list read owns the table; generation: moves whenever the rows are replaced, so a command built from a replaced row is obsolete (F4b.2)
     let readSeq = 0, generation = 0;
+    // BROWSER-03 (12 Nov 2026): the counts here and in the event header come from one authoritative event at a time. Every roster
+    // decision and every answer moves the event's signupGeneration, and an edit moves its revision; both only grow, so an event read
+    // later never has a smaller pair. Replies can arrive out of order (two Saves in flight, a decide reply after a re-read), so an
+    // event older than the one shown is dropped instead of putting an old count back. A decide receipt without a readable event
+    // re-reads the counts (recount) rather than leaving the header stale; nothing is ever sent again.
+    const orderOf = (ev) => [ev.signupGeneration, ev.revision].every(Number.isSafeInteger) ? [ev.signupGeneration, ev.revision] : null;
+    let shownAt = orderOf(e) || [-1, -1], countSeq = 0;
+    const showEvent = (ev) => {
+      const at = ev && ev.id === id && ev.counts ? orderOf(ev) : null;
+      if (!at || !alive() || at[0] < shownAt[0] || at[1] < shownAt[1]) return !!at && alive();
+      shownAt = at; counts.textContent = subtitle(ev);
+      if (typeof onEvent === "function") onEvent(ev);
+      return true;
+    };
+    const recount = async () => {
+      const my = ++countSeq, live = () => my === countSeq && alive(); // only the latest count read may speak; it never replaces rows
+      let data = null;
+      try { data = await fetchPage(null, live); } catch { data = null; }
+      if (live() && !showEvent(data && data.event)) status.textContent = "The answer counts could not be re-read. Reload the page to see the current counts.";
+    };
     const reread = async (lead, text) => {
       const my = ++readSeq, live = () => my === readSeq && alive();
       let data = null, failure = null;
       try { data = await fetchPage(null, live); } catch (again) { failure = again; }
       if (!live()) return; // an obsolete readback (a newer one is in flight) or a departed view: nothing is replaced, nothing is said
-      if (data) { generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); if (data.event && data.event.counts) counts.textContent = subtitle(data.event); receiptBar(lead, `${text} The list was re-read from the Worker.`); }
+      if (data) { generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); showEvent(data.event); receiptBar(lead, `${text} The list was re-read from the Worker.`); }
       else { status.textContent = explain(failure, "The list could not be re-read."); receiptBar(lead, `${text} The list could not be re-read; reload the page before deciding again.`); }
     };
     const rosterCell = (s) => {
@@ -8121,7 +8170,7 @@
         const settle = () => { if (owned()) { pick.disabled = false; saveBtn.disabled = false; } };
         try {
           const out = await api("POST", "/api/community/events/decide", { eventId: id, entries: [sent] }, { live: owned });
-          if (!owned()) return; // the page moved on, or the rows were replaced, while the Worker answered: the Worker's state stands and the current rows show it; nothing is said here
+          if (!owned()) { showEvent(out && out.event); return; } // the page moved on, or the rows were replaced, while the Worker answered: the Worker's state stands and the current rows show it; nothing is said here (BROWSER-03: a newer event still updates the counts while this view is alive)
           const r = out && Array.isArray(out.results) ? out.results.find((x) => x && typeof x === "object" && x.ref === sent.ref) : null;
           const acknowledged = !!r && (r.result === "ok" || Object.prototype.hasOwnProperty.call(REFUSED_WORDS, r.result)) && Number.isInteger(r.revision);
           if (!acknowledged) throw new ApiError(200, { error: "unreadable_answer" }); // .104 (F100-1): no closed receipt is a lost answer, never "nothing changed"
@@ -8131,7 +8180,7 @@
             if (!(changed || noop)) throw new ApiError(200, { error: "unreadable_answer" }); // any other receipt does not acknowledge this command
             s.decision = r.decision; s.decisionRevision = r.revision;
             toast(noop ? "No decision to clear." : r.decision ? `Roster: ${DECISION_WORDS[r.decision] || r.decision}.` : "Decision cleared.", "good");
-            if (out.event && out.event.counts) counts.textContent = subtitle(out.event);
+            if (!showEvent(out.event)) recount(); // BROWSER-03: a receipt whose event is missing or unreadable re-reads the counts
             settle();
             return;
           }
@@ -8172,7 +8221,7 @@
           try {
             const data = await fetchPage(null, still);
             if (!still()) return;
-            generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); // the rows are replaced only by a read that still owns the table
+            generation++; clear(tbody); put(data.signups); cursor = data.nextCursor; finish(); showEvent(data.event); // the rows are replaced only by a read that still owns the table
           } catch (again2) { if (still()) status.textContent = explain(again2, "The list could not be read."); }
           return;
         }

@@ -227,6 +227,8 @@ a.card:hover { filter: brightness(1.2); }
 .btn:active:not(:disabled) { border-image-source: url("/static/wow/button-down.png"); padding-top: 5px; padding-bottom: 1px; }
 .btn:disabled, .btn[aria-disabled="true"] { border-image-source: url("/static/wow/button-disabled.png"); color: #7c7c7c; cursor: not-allowed; }
 .btn.small { min-height: 30px; padding: 1px 11px; font-size: 13px; }
+/* REV-SITEA-1 (12 Nov 2026): the read-failure "Try again" (CL2-017) is the one way out of a failed read: a 44 px target at every width. */
+.btn.small.read-retry { min-height: 44px; }
 /* Navigation stays in place while pressed; only its texture changes. */
 .nav .btn:active { padding: 1px 11px; }
 .btn.big { min-height: 48px; padding: 5px 24px; font-size: 17px; }
@@ -1299,8 +1301,10 @@ main.shell:focus-visible { outline: none; }
 }
 /* CL2-277: rank and title links on Roles are at least 32 px tall. */
 .role-reference-links228 a, .role-reference-links228 strong { display: inline-flex; align-items: center; min-height: 32px; }
-/* CL2-322: the Role guide link beside application badges is at least 24 px tall. */
-.application-intent199 > a { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 4px; }
+/* CL2-322, REV-SITEB-2 (12 Nov 2026): every "Role guide" link (beside application badges, and in the See-also strip on
+   Vote, Roles and the chart) shares one 44 px touch target. The See-also strip also sets it through CSSOM (seeAlso1112). */
+.application-intent199 > a.role-guide-link1112, .role-see-also1112 > a { display: inline-flex; align-items: center; min-height: 44px; }
+.application-intent199 > a.role-guide-link1112 { padding: 2px 4px; }
 /* CL2-281: at 200% zoom on a phone the badge row and the governance hero wrap instead of being clipped. */
 .inline:has(> .badge-slot) { flex-wrap: wrap; }
 .badge-slot { min-width: 0; max-width: 100%; }

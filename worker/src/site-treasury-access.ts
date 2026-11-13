@@ -103,15 +103,57 @@ function rosterOfficerResult(out: D1Result | undefined, names: readonly string[]
   return rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, names);
 }
 
-async function discordOfficerRole(env: Env, discordId: string, check: () => void): Promise<boolean> {
+/** The Discord roles whose holders the Discord path admits under this configuration, or null when that path admits
+ * nobody (no bot token, a guild mismatch, or canonical rank roles present but not enabled and current). The gate below
+ * and treasuryGateDescription both read this one function (REV-SITEA-3, 12 Nov 2026), so the refusal text cannot name a
+ * role the gate does not accept. */
+export function treasuryDiscordRoles(env: Env): { guild: string; wanted: string[] } | null {
   const guild = env.SITE_GUILD_ID;
   const wanted = [env.ROLE_GUILD_MASTER, env.ROLE_GUILD_LEADER, env.ROLE_OFFICER, env.ROLE_RAID_LEADER].filter((id): id is string => typeof id === "string" && ID.test(id));
   const canonical=captureCanonicalRankConfig233(env);
   if(canonical.present){
-    if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||guild!==canonical.policy.guildId)return false;
+    if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||guild!==canonical.policy.guildId)return null;
     for(const rank of canonical.policy.ranks.slice(0,5))if(!wanted.includes(rank.roleId))wanted.push(rank.roleId);
   }
-  if (!env.DISCORD_BOT_TOKEN || !ID.test(guild ?? "") || env.GUILD_ID !== guild || !wanted.length) return false;
+  if (!env.DISCORD_BOT_TOKEN || !ID.test(guild ?? "") || env.GUILD_ID !== guild || !wanted.length) return null;
+  return { guild: guild as string, wanted };
+}
+
+// Member-facing names follow the owner's ten-rank ladder (12 Nov 2026): the runtime's "Guild Master" rank is shown as
+// Leader, and runtime-only names (Stewart, Treasurer) are not named.
+const ROSTER_LABELS: Readonly<Record<string, string>> = Object.freeze({ "Guild Master": "Leader", "High Council": "High Council", "Officer": "Officer", "Officer Alt": "Officer Alt", "Raid Leader": "Raid Leader" });
+const DISCORD_LABELS: Readonly<Record<string, string>> = Object.freeze({ "guild-master": "Guild Master", "high-council": "High Council", "officer": "Officer", "officer-alt": "Officer Alt", "raid-leader": "Raid Leader" });
+const listOf = (items: readonly string[]) => items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+
+/** REV-SITEA-3 (12 Nov 2026): who the gate admits under THIS configuration, in one sentence for the refusal page. Each
+ * clause is built from the same reads the gate uses (currentLadder with officerRank, treasuryDiscordRoles), so a path
+ * the configuration closes is not named. Appointments and site administrators are configuration-independent paths. */
+export function treasuryGateDescription(env: Env): string {
+  const clauses: string[] = [];
+  const ladder = currentLadder(env);
+  if (ladder) {
+    const ranks = [...new Set(ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names) && ROSTER_LABELS[rank] ? [ROSTER_LABELS[rank]!] : []))];
+    if (ranks.length) clauses.push(`${listOf(ranks)} rank on the latest verified roster`);
+  }
+  const discord = treasuryDiscordRoles(env);
+  if (discord) {
+    const canonical = captureCanonicalRankConfig233(env);
+    const named = (canonical.present && canonical.policy ? canonical.policy.ranks.slice(0, 5) : []).filter(rank => discord.wanted.includes(rank.roleId)).map(rank => DISCORD_LABELS[rank.key] ?? rank.name);
+    // Without canonical rank roles, the configured legacy keys name their own roles (ROLE_GUILD_LEADER is the Guild Master ID).
+    const legacy: Array<[unknown, string]> = [[env.ROLE_GUILD_MASTER, "Guild Master"], [env.ROLE_GUILD_LEADER, "Guild Master"], [env.ROLE_OFFICER, "Officer"], [env.ROLE_RAID_LEADER, "Raid Leader"]];
+    const extra = legacy.filter(([id, label]) => typeof id === "string" && discord.wanted.includes(id) && !named.includes(label)
+      && !(canonical.policy?.ranks.slice(0, 5).some(rank => rank.roleId === id))).map(([, label]) => label);
+    const roles = [...new Set([...named, ...extra])];
+    if (roles.length) clauses.push(`the Discord ${listOf(roles)} role${roles.length > 1 ? "s" : ""}`);
+  }
+  clauses.push("the published Co-Guild Master and Treasurer appointments", "site administrators");
+  return `The treasury programme and financial model are open to: ${clauses.slice(0, -1).join("; ")}; and ${clauses[clauses.length - 1]}.`;
+}
+
+async function discordOfficerRole(env: Env, discordId: string, check: () => void): Promise<boolean> {
+  const roles = treasuryDiscordRoles(env);
+  if (!roles) return false;
+  const { guild, wanted } = roles;
   // The guild and role configuration that chose this read must still be the configuration that judges its answer.
   const config = configSnapshot(env, DISCORD_KEYS), same = () => { check(); assertSameConfig(env, DISCORD_KEYS, config); };
   same();
@@ -211,7 +253,9 @@ export async function treasuryAfterMemberGate(request: Request, env: Env, path: 
     // The Discord read (or any earlier await) is over: the answer is given only to the still-admitted original caller.
     const held = await access.readmit(); if (held) return bodyless(request, held);
     access.check();
-    return bodyless(request, privateSiteAsset(apiJson({ format: "olympus-treasury-access-v1", canRead: access.canRead })));
+    // REV-SITEA-3 (12 Nov 2026): a refused caller also gets the gate's own description, which the refusal page shows.
+    return bodyless(request, privateSiteAsset(apiJson(access.canRead ? { format: "olympus-treasury-access-v1", canRead: true }
+      : { format: "olympus-treasury-access-v1", canRead: false, admits: treasuryGateDescription(env) })));
   }
   if (!access.canRead) return bodyless(request, refusal("officer_only", 403, OFFICER_ONLY));
   const response = await env.ASSETS.fetch(request);
