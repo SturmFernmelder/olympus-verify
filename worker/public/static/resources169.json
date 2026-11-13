@@ -283,12 +283,11 @@
       "category": "Guild tools",
       "rationale": "A shared in-game view of Olympus guilds, leaders and census reports.",
       "status": "Author lists Forever file",
-      "minimumVersion": "1.5.7",
       "url": "https://www.curseforge.com/wow/addons/olympus-guild",
       "sourceKind": "Publisher project page; addon API reviewed 2026-10-21",
       "limitations": [
         "Optional for website readers; no desktop companion is needed.",
-        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Use Olympus Guild 1.5.7 or later from its CurseForge page. Website snapshot reporting has separate setup and availability.",
+        "Preferred unified guild package; the retired standalone Army ZIP is not offered. Install it from its CurseForge project page. Website snapshot reporting has separate setup and availability.",
         "In-game census coverage depends on reports received by the addon; it is not proof that every guild has a current website report."
       ],
       "apiUrl": "https://github.com/dnl-gentile/olympus-addon/blob/main/docs/API.md",
@@ -1068,7 +1067,7 @@
             "heading": "Install deliberately",
             "text": [
               "The preserved addon catalogue below remains a dated selection of general tools and Forever-focused projects. Bag replacements, map helpers and encounter cores can overlap. Check dependencies and client flavor; publisher support is not an in-game compatibility test by Olympus.",
-              "Olympus Guild 1.5.7 or later, from its CurseForge page, includes the optional website aggregate exporter. It is the preferred unified guild package. Website snapshot reporting has separate setup and availability; publication alone does not establish that the installed addon works with this website. The retired standalone Army ZIP is not a replacement recommendation, and publishing the addon does not enable website reporting."
+              "Olympus Guild, from its CurseForge project page, includes the optional website aggregate exporter. It is the preferred unified guild package. Website snapshot reporting has separate setup and availability; publication alone does not establish that the installed addon works with this website. The retired standalone Army ZIP is not a replacement recommendation, and publishing the addon does not enable website reporting."
             ],
             "links": [
               {

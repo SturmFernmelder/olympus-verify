@@ -70,6 +70,26 @@ async function sourceChecks() {
     const json = src('worker/public/static/resources169.json');
     check('CL2-071x', 'neither app.js nor the catalogue advertises Olympus Guild 1.3.3 or its old file', !/1\.3\.3/.test(app) && !/1\.3\.3/.test(json) && !/9338970/.test(json));
   }
+  if (want('CL2-071')) {
+    // Round 3 (13 Nov 2026): no rendered copy claims an Olympus Guild file or version that nobody verified on CurseForge;
+    // every Olympus Guild link is the project page itself, under a date-neutral label.
+    const json = src('worker/public/static/resources169.json');
+    const strings = [...app.matchAll(/"((?:[^"\\]|\\.)*)"/g), ...json.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]).filter(t => /Olympus Guild/.test(t));
+    const versioned = strings.filter(t => /\b\d+\.\d+\.\d+\b|or later|latest|current (?:file|release|version)/i.test(t));
+    check('CL2-071', 'no Olympus Guild sentence in the page script or the catalogue names a version, "or later", "latest" or a current file', strings.length >= 3 && versioned.length === 0, versioned);
+    const links = [...(app + json).matchAll(/https:\/\/www\.curseforge\.com\/wow\/addons\/olympus-guild[^"\s)]*/g)].map(m => m[0]);
+    check('CL2-071', 'every Olympus Guild CurseForge link is the project page (no /files/ pin)', links.length >= 3 && links.every(u => u === 'https://www.curseforge.com/wow/addons/olympus-guild'), links);
+    const entry = (json.match(/\{\s*"id": "olympus-guild"[\s\S]*?\n    \}/) || [''])[0];
+    check('CL2-071', 'the catalogue entry carries no version, minimum version, release date or file link', !!entry && !/"(?:version|minimumVersion|releasedAt|fileUrl)":/.test(entry), entry.slice(0, 160));
+  }
+  if (want('CL2-259')) {
+    // Round 3 (13 Nov 2026): the Terms page names its contact, as the Privacy Policy does, and the served copy is regenerated.
+    const terms = src('policies/terms.html');
+    const contact = (terms.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
+    check('CL2-259', 'the Terms have a Contact section naming Rich Campbell with his Discord name', /<strong>Rich Campbell<\/strong> \(Discord: <code>richwcampbell\.<\/code>\)/.test(contact) && /Asmongold’s Discord server/.test(contact), contact.slice(0, 200));
+    const gen = require('node:child_process').spawnSync(process.execPath, [path.join(ROOT, 'worker/scripts/build-policy-content.mjs'), '--check'], { cwd: path.join(ROOT, 'worker'), encoding: 'utf8', windowsHide: true, timeout: 60000 });
+    check('CL2-259', 'the generated policy content and the root mirror match policies/terms.html (build-policy-content --check)', gen.status === 0, (gen.stderr || gen.stdout || '').slice(0, 200));
+  }
   if (want('CL2-176')) {
     try {
       const rp = loadTs('worker/src/ruleset-profile.ts');
@@ -445,14 +465,28 @@ async function browserChecks() {
       const r = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');return n.getAttribute('aria-describedby')`);
       check('CL2-272', 'the Community nav is not described by a hint that is hidden at 768 px and up', r === null, r);
     }
-    if (want('CL2-071x') || want('CL2-178')) {
+    if (want('CL2-071x') || want('CL2-071') || want('CL2-178')) {
       await open('member', 1280, 'addons'); await sleep(800);
       const t = await ev(`return document.querySelector('.resources169-featured')?.textContent||''`);
-      check('CL2-071x', 'the Olympus Guild card says "Minimum version: 1.5.7", not a "Published file"', /Minimum version: 1\.5\.7/.test(t) && !/Published file/.test(t));
+      // Round 3 (13 Nov 2026, CL2-071): the card names no version (the earlier "Minimum version: 1.5.7" is withdrawn) and links the project page.
+      const card = await ev(`const c=document.querySelector('.resources169-featured');return c?{text:c.textContent,links:[...c.querySelectorAll('a')].map(a=>a.href)}:null`);
+      check('CL2-071', 'the Olympus Guild card shows no version, minimum version or published file, and links the CurseForge project page', !!card && !/Minimum version|Published file|\b\d+\.\d+\.\d+\b/.test(card.text) && card.links.includes('https://www.curseforge.com/wow/addons/olympus-guild') && card.links.every(u => !/olympus-guild\/files/.test(u)), card && { text: card.text.slice(0, 300), links: card.links });
       // INT-SITE-1 (12 Nov 2026): /#/guides is the university hub after the merge; the publisher library moved to /#/guides/library.
       await open('member', 1280, 'guides/library'); await sleep(800);
       const g = await ev(`return [...document.querySelectorAll('main p')].map(p=>p.textContent).find(x=>/Follow-up dated/.test(x))||''`);
       check('CL2-178', 'the publisher library shows the 12 November follow-up date', /Follow-up dated 12 November 2026/.test(g), g);
+    }
+    if (want('CL2-071')) {
+      for (const route of ['', 'army']) {
+        await open('member', 1280, route); await sleep(800);
+        const t = await ev(`return [...document.querySelectorAll('main p, main li')].map(p=>p.textContent).filter(x=>/Olympus Guild/.test(x))`);
+        check('CL2-071', `the ${route || 'Home'} page's Olympus Guild sentences name no version`, t.length > 0 && t.every(x => !/\b\d+\.\d+\.\d+\b|or later/.test(x)), t);
+      }
+    }
+    if (want('CL2-259')) {
+      const res = await fetch(BASE + '/legal/terms'), html = await res.text();
+      const contact = (html.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
+      check('CL2-259', 'the served /legal/terms (anonymous) has the Contact section with Rich Campbell and richwcampbell.', res.status === 200 && /Rich Campbell/.test(contact) && /richwcampbell\./.test(contact), { status: res.status, contact: contact.slice(0, 160) });
     }
     if (st.exceptions.length) check('PAGE', 'no page exceptions during the browser checks', false, st.exceptions.slice(0, 3));
   } finally { await cdp.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile briefly. */ } }
