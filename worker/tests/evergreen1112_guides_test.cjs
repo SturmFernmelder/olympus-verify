@@ -584,11 +584,48 @@ check('REV-UNI-2: a mastery exam shows the "How to read the grades" legend with 
   return bad.length === 0 || bad.join(' | ');
 });
 
+// Browser part (opt-in): node tests/evergreen1112_guides_test.cjs --base http://127.0.0.1:<harness> --cdp <port>
+// INT-UNI-1, INT-UNI-2 and REV-UNI-2 in the real site at 1280 and 375 px (member persona).
+async function browserChecks(base, port) {
+  const { launch, instrument, idle, viewport, sleep } = await import('file:///C:/Users/vikto/olympus-claude-candidates/audit279/tools/cdp.mjs');
+  const profile = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'guides-edge-'));
+  const cdp = await launch({ port, profile }), st = await instrument(cdp), out = [];
+  const go = async (width, route) => { await viewport(cdp, width, 900); await cdp.send('Page.navigate', { url: base + '/#/' + route }); await idle(st); await cdp.send('Page.reload', {}); await idle(st); await sleep(900); };
+  try {
+    await cdp.send('Page.navigate', { url: base + '/__qa/member' }); await idle(st);
+    for (const width of [1280, 375]) {
+      const missing = [];
+      for (const route of ['guides/class/no-such-class', 'guides/class/warrior/nope', 'guides/profession/no-such-profession', 'guides/race/orc', 'guides/class/warrior/401', 'guides/class/warrior/arms/101/missing-chapter', 'guides/exam/class-nope/101']) {
+        await go(width, route);
+        const r = await cdp.eval(`(() => { const m = document.querySelector('main'), back = m.querySelector('.uni a[href="#/guides"]');
+          return { h1: [...m.querySelectorAll('h1')].map(h => h.textContent.trim()), status: [...m.querySelectorAll('.uni [role=status]')].map(s => s.textContent.trim()).filter(Boolean),
+            back: back ? Math.round(back.getBoundingClientRect().height) : 0, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+        if (r.h1.length !== 1 || !/ not found$/.test(r.h1[0]) || r.status.length !== 1 || r.back < 44 || r.overflow > 0) missing.push(route + ' ' + JSON.stringify(r));
+      }
+      out.push(['browser ' + width + ' px INT-UNI-1: seven unknown university addresses each show one "… not found" H1, one status sentence and a 44 px way back', missing.length === 0, missing]);
+      await go(width, 'guides/exam/spec-warrior-arms/101');
+      const exam = await cdp.eval(`(() => { const d = document.querySelector('main details.uni-legend'); return { legend: !!d && d.getClientRects().length > 0, summary: d ? d.querySelector('summary').textContent : null, grades: d ? [...d.querySelectorAll('dt')].map(x => x.textContent) : [] }; })()`);
+      out.push(['browser ' + width + ' px REV-UNI-2: the Arms 101 exam shows "How to read the grades"', exam.legend && exam.summary === 'How to read the grades' && exam.grades.length > 0, exam]);
+      await go(width, 'resources');
+      const hub = await cdp.eval(`(() => { const t = document.querySelector('main').textContent, s = document.querySelector('main .uni-hub-schedule'); return { schedule: s ? s.textContent : null, announced: /announced/i.test(t), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+      out.push(['browser ' + width + ' px INT-UNI-2: #/resources (the hub) says Forever launched and gives the first raid unlock date, and never "announced"',
+        /^Forever launched worldwide on 4 November 2026 at 23:00 UTC\. First raid unlock date: 9 December 2026\.$/.test(hub.schedule || '') && !hub.announced && hub.overflow <= 0, hub]);
+    }
+    if (st.exceptions.length) out.push(['browser: no page exceptions', false, st.exceptions.slice(0, 3)]);
+  } finally { await Promise.race([cdp.close(), sleep(3000)]); try { cdp.proc.kill(); } catch { /* gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold it */ } }
+  return out;
+}
+
 (async () => {
   for (const run of pending) {
     const [name, ok, detail] = await run();
     if (ok) passed++; else failed++;
     console.log((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : ' :: ' + String(detail).slice(0, 400)));
+  }
+  const at = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
+  if (at('--base') && at('--cdp')) for (const [name, ok, detail] of await browserChecks(at('--base'), Number(at('--cdp')))) {
+    if (ok) passed++; else failed++;
+    console.log((ok ? 'PASS ' : 'FAIL ') + name + ' :: ' + JSON.stringify(detail).slice(0, 600));
   }
   console.log(passed + ' passed, ' + failed + ' failed');
   process.exitCode = failed ? 1 : 0;

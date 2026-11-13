@@ -538,7 +538,8 @@
         const removed = tree.removedClassic.length ? h("details", { class: "talents-removed", hidden: !compare }, h("summary", { text: "Classic-only references (" + tree.removedClassic.length + ")" }), tree.removedClassic.map(t => h("div", null, h("strong", { text: t.name }), h("p", { text: t.text || "No text supplied." })))) : null;
         if (removed) removedRefs.push(removed);
         const frame = h("span", { class: "talents-tree-frame", "aria-hidden": "true" });
-        const heading = h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h3", { text: tree.name }), pointLabel);
+        // REV-UNI-5 / REV-SITEB-1 (12 Nov 2026): tree names and "Guide builds" are H2 under the class H1, so the page never skips a level.
+        const heading = h("header", { class: "talents-tree-header" }, image(art.treeIcons[treeKey]), h("h2", { text: tree.name }), pointLabel);
         const backdrop = image(art.treeBackgrounds[treeKey], { class: "talents-backdrop", "aria-hidden": "true" });
         const linkLayer = h("div", { class: "talents-links", "aria-hidden": "true" }, links);
         frameRefs.push(frame, heading, backdrop); linkLayers.push(linkLayer);
@@ -693,7 +694,7 @@
         });
       }
       const guidePanel = guideSource ? h("section", { class: "talents-guides", "aria-label": "Guide-recommended builds" },
-        h("div", { class: "talents-guide-heading" }, h("h3", { text: "Guide builds" }), h("a", { href: guideSource.url, rel: "noopener noreferrer", text: "Read Method's " + cls.name + " guide" })),
+        h("div", { class: "talents-guide-heading" }, h("h2", { text: "Guide builds" }), h("a", { href: guideSource.url, rel: "noopener noreferrer", text: "Read Method's " + cls.name + " guide" })),
         guideRecords.length ? h("div", { class: "talents-guide-controls" }, h("label", null, "Checked allocation", guideSelect), guideLoad) : null,
         guideStatus, h("details", { class: "talents-guide-about" }, h("summary", { text: "About these guide builds" }),
           h("p", { class: "talents-guide-attribution", text: "By " + guideSource.author + " · Updated " + guideSource.updatedAt + ". Beta recommendations, not a guarantee of current tuning or optimal results." }),
