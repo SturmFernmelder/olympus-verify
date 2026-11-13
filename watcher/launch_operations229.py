@@ -13,6 +13,8 @@ from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NA
 
 PATH = "/queue/launch-operations?keyVersion=officer-operations-v234"
 PROTOCOL = "officer-operations-v234"
+DISCOVERY_PROTOCOL235 = "officer-operations-v235"
+DISCOVERY_PATH235 = "/queue/launch-operations?keyVersion=" + DISCOVERY_PROTOCOL235
 MAX_BYTES = 262144
 MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
@@ -105,11 +107,20 @@ def validate_page(report: Any, at: int, allow_stale: bool = False) -> bool:
     return _validate_page(report, at, allow_stale, 60)
 
 
-def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> bool:
-    if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != PROTOCOL or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
+def validate_discovery235(report: Any, at: int, allow_stale: bool = False) -> bool:
+    return _validate_page(report, at, allow_stale, 60, discovery235=True)
+
+
+def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int, discovery235: bool = False) -> bool:
+    expected = DISCOVERY_PROTOCOL235 if discovery235 else PROTOCOL
+    if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != expected or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
         return False
     rank_metadata=(report['rankProfile'],report['rankSchemeDigest'],report['rankNames'])
-    if rank_metadata != (NATIVE_PROFILE,RANK_DIGEST,list(RANK_NAMES)) and not (report['status']=='held' and rank_metadata==(None,None,None)):
+    rankless = rank_metadata == (None,None,None)
+    if rank_metadata != (NATIVE_PROFILE,RANK_DIGEST,list(RANK_NAMES)) and not (rankless and (report['status']=='held' or discovery235 and report['status']=='partial')):
+        return False
+    if rankless and report['status']=='partial' and (report['promotions'] != [] or report['riskBuffer'] != []
+            or not isinstance(report['heldReasons'],list) or not any(reason in report['heldReasons'] for reason in ('directive-rank-policy-held','native-rank-scheme-unconfirmed'))):
         return False
     fetched, expires = report["fetchedAt"], report["expiresAt"]
     if not _integer(fetched, 1) or not _integer(expires, 1) or not fetched < expires <= fetched + report_ttl or not fetched <= at + 5 or not allow_stale and at >= expires:
@@ -133,7 +144,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
         if (not isinstance(scan["id"], str) or not re.fullmatch(r"[0-9a-f]{32}", scan["id"])
                 or not _integer(scan["startedAt"], 1) or not _integer(scan["expiresAt"], 1)
                 or not scan["startedAt"] <= fetched < scan["expiresAt"] <= min(scan["startedAt"] + 600, snapshot + 600)
-                or not _text(report["pageCursor"], 8192 if report_ttl == 600 else 4096) or not report["pageCursor"] or not report["pageCursor"].isascii()):
+                or not _text(report["pageCursor"], 8192 if report_ttl == 600 or discovery235 else 4096) or not report["pageCursor"] or not report["pageCursor"].isascii()):
             return False
     entitlement = report["entitlements"]
     if (not isinstance(entitlement, dict) or set(entitlement) != {"offset", "pageSize", "scanned", "total", "unscanned", "retryAfterSeconds"}
@@ -142,7 +153,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
             or entitlement["retryAfterSeconds"] is not None and not _integer(entitlement["retryAfterSeconds"], 1, 86400)):
         return False
     cursor = report["nextCursor"]
-    if cursor is not None and (not _text(cursor, 4096) or not cursor or not cursor.isascii()):
+    if cursor is not None and (not _text(cursor, 8192 if discovery235 else 4096) or not cursor or not cursor.isascii()):
         return False
     if report["status"] == "ready" and (cursor is not None or entitlement["unscanned"] != 0):
         return False
@@ -200,7 +211,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
 
 
 def _same_scan(page: dict[str, Any], first: dict[str, Any]) -> bool:
-    return (all(page[key] == first[key] for key in ("snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "scan", "rankProfile", "rankSchemeDigest", "rankNames"))
+    return (all(page[key] == first[key] for key in ("protocol", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "scan", "rankProfile", "rankSchemeDigest", "rankNames"))
             and page["entitlements"]["total"] == first["entitlements"]["total"])
 
 
@@ -247,7 +258,8 @@ def validate_control(secret: str, value: Any, at: int, guid: Any, guild: Any, re
 
 class Scan:
     """Explicit local control; at most one request per five-second step, never an automatic restart."""
-    def __init__(self, clock: Callable[[], float] = time.time):
+    def __init__(self, clock: Callable[[], float] = time.time, *, discovery235: bool = False):
+        self.discovery235 = discovery235
         self.clock = clock
         self.pages: dict[int, dict[str, Any]] = {}
         self.control_id = ''
@@ -345,7 +357,7 @@ class Scan:
         else:
             offset = len(self.pages) * 20
             cursor = self.cursor
-        path = PATH + ('&cursor=' + urllib.parse.quote(cursor, safe='') if cursor else '')
+        path = (DISCOVERY_PATH235 if self.discovery235 else PATH) + ('&cursor=' + urllib.parse.quote(cursor, safe='') if cursor else '')
         # Spend each attempt, including refusal/unknown, before transport. The first
         # request for each discovery offset spends one of 50 discovery attempts;
         # every retry and explicit recheck shares the other 50 (at most 100 total).
@@ -366,7 +378,8 @@ class Scan:
                     and isinstance(page.get('error'), str) and page['error'] in SOURCE_CHANGED_ERRORS):
                 self._stop('snapshot-changed'); return True
             self._stop('source-refused'); return True
-        if not validate_page(page, int(self.clock())) or page['scopeHash'] != self.scope_hash:
+        validator = validate_discovery235 if self.discovery235 else validate_page
+        if not validator(page, int(self.clock())) or page['scopeHash'] != self.scope_hash:
             self._stop('invalid-page'); return True
         if page['status'] == 'held':
             self._stop('source-held'); return True
@@ -426,7 +439,7 @@ def render_pages(result: Any, at: int) -> str | None:
             or type(result['scanComplete']) is not bool or type(result['running']) is not bool
             or result['stoppedReason'] is not None and not _text(result['stoppedReason'], 64)
             or not _integer(result['discoveredPages'], 0, 50) or result['discoveredPages'] != len(pages)
-            or not _integer(result['refreshedPages'], 0, MAX_REFRESH_ATTEMPTS) or any(not validate_page(page, at, allow_stale=True) for page in pages)):
+            or not _integer(result['refreshedPages'], 0, MAX_REFRESH_ATTEMPTS) or any(not (validate_discovery235 if isinstance(page,dict) and page.get('protocol')==DISCOVERY_PROTOCOL235 else validate_page)(page, at, allow_stale=True) for page in pages)):
         return None
     if pages and any(not _same_scan(page, pages[0]) or page['entitlements']['offset'] != index*20 for index, page in enumerate(pages)):
         return None

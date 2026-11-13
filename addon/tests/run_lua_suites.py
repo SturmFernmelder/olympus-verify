@@ -45,6 +45,7 @@ SUITES = {
     "slash_registration234": (TESTS, Path("test_slash_registration234.lua")),
     "officer_invites233": (TESTS, Path("test_officer_invites233.lua")),
     "live242": (TESTS, Path("test_live242.lua")),
+    "local_correspondence280": (TESTS, Path("test_local_correspondence280.lua")),
     "dan155_census": (TESTS, Path("test_dan155_census.lua")),
     "bridge_status267": (TESTS, Path("test_bridge_status267.lua")),
     "roster268": (TESTS, Path("test_roster268.lua")),

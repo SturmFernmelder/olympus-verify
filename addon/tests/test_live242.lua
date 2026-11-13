@@ -44,6 +44,7 @@ local function fixture(withTreasury)
     e.OlympusVerifyLive242.CaptureVerification("mail",sender,code,nil,nil,true,observation)
   end}
   setfenv(assert(loadfile("../OlympusVerify/Libs/OlympusHmac.lua")),e)("OlympusVerify")
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua")),e)("OlympusVerify")
   if withTreasury then setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyTreasury.lua")),e)("OlympusVerify");x.treasuryFrame=x.frames[1] end
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLive242.lua")),e)("OlympusVerify")
   x.v=e.OlympusVerifyLive242;x.frame=x.frames[withTreasury and 2 or 1]
@@ -136,6 +137,7 @@ local function deliver(x,messages,sender,distribution)
 end
 local function reloadLive627(x)
   local before=#x.frames
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua")),x.e)("OlympusVerify")
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLive242.lua")),x.e)("OlympusVerify")
   x.v=x.e.OlympusVerifyLive242;x.frame=x.frames[before+1];x.event("PLAYER_LOGIN")
 end

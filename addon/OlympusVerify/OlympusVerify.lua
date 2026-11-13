@@ -212,6 +212,7 @@ end
 local function InitDB()
   OlympusVerifyDB = OlympusVerifyDB or {}
   local db = OlympusVerifyDB
+  if OlympusVerifyLocalPrivacy280 then OlympusVerifyLocalPrivacy280.Ensure(db) end
   db.version = 1
   db.events = db.events or {}
   db.queue = db.queue or {}          -- { {id=, name=, target=, discordId=, note=, status=queued|invited|joined|failed, reply=, ts=, source=} }

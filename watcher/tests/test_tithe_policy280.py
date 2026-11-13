@@ -180,14 +180,17 @@ return receiver.rows()
         intake242.collect(self.w); intake242.drain(self.w, collect_inputs=False)
         self.assertEqual(self.calls, []); self.assertNotIn("intake242", self.w.state.d)
 
-    def test_old_unknown_original_gets_metadata_hold_without_body_hash_attempt_changes(self):
+    def test_old_unknown_original_is_locally_denied_without_body_hash_attempt_changes(self):
         body = {"id": "old-source", "type": "donation", "source": "mail", "character": "Old Sender", "donation": {"copper": 100, "note": "PRIVATE_SENTINEL"}}
         original = self.preserve(body, state="outcome_unknown", attempted=True, receipt={"status": "unknown"}, attempts=7, acknowledgedAt=100)
         self.w.state.d["intake242"] = {body["id"]: copy.deepcopy(original)}
         intake242.drain(self.w, collect_inputs=False)
         held = self.w.state.d["intake242"][body["id"]]
-        self.assertEqual({k:v for k,v in held.items() if k != "policyHold"}, original)
-        self.assertEqual(held["policyHold"], "legacy_or_unqualified_receipt")
+        self.assertEqual(held, original)
+        with patch.object(intake242,"_canonical_body",side_effect=AssertionError("local-only original must not be rehashed")):
+            source=intake242._privacy_source280(self.w)
+            self.assertTrue(intake242._privacy_row_denied280(self.w,held,source))
+            self.assertEqual(intake242.receipts(self.w),[])
         self.assertEqual(self.calls, [])
 
     def test_invalid_incoming_same_id_cannot_poison_known_valid_original(self):

@@ -1,4 +1,4 @@
-import { qualifiedNativeSnapshotSource, nativeRankTableFromSource, DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST } from './native-rank-schemes';
+import { nativeMembershipSourceSql, nativeMembershipSourceMatches, qualifiedNativeSnapshotSource, nativeRankTableFromSource, DIRECTIVE_NATIVE_PROFILE, DIRECTIVE_RANK_DIGEST } from './native-rank-schemes';
 import { sealPromotionIntent, readPromotionIntent, continuationAdmitted, type PromotionIntent } from './promotion-intent-directive';
 import { captureCanonicalRankConfig233, currentDirectiveCanonicalPolicy233 } from './canonical-ranks233';
 /** Read-only launch operations view. Existing Native roster/links; no new storage or queue writes. */
@@ -9,7 +9,7 @@ import { apiJson } from './site-core';
 import { captureLaunchVerification, type LaunchVerificationCapture } from './launch-verification227';
 import { FLAGSHIP_GUILD_NAME, canonicalOlympusGuildName } from './guild-affiliation229';
 import { readOfficerInvites233 } from './officer-invites233';
-import { classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
+import { DISCOVERY_OPERATIONS_PROTOCOL235, projectRankHeldDiscovery235, type DiscoveryRankHold235, classifyKnightRoles229, needsLaunchRole229, projectLaunchOperations229, projectSelectedPromotions274, SELECTED_PROMOTION_TTL274, LAUNCH_ROLE_PAGE229, LAUNCH_ROLE_TTL229, LAUNCH_SCAN_TTL229, LAUNCH_OPERATIONS_PROTOCOL229, type KnightState229, type LaunchRosterRow229 } from './launch-operations229';
 import { LaunchRolePacer271 } from './launch-discord-reads271';
 import { captureRosterLineage275,rosterVerificationSql275,type RosterLineageCapture275 } from './roster-verification275';
 
@@ -400,6 +400,7 @@ export async function readDirectivePromotions(env:Env,input:{selectionId:unknown
   return {version:2,protocol:'promotion-selection-directive-v1',coverageKind:'selected-guids',actorGuid:input.actorGuid,controlId:selected.selectionId,targetGuids:selected.targetGuids,targetsDigest,coveredGuids,page};
 }
 export async function handleLaunchOperations229(request: Request, env: Env, watcher = false): Promise<Response> {
+  if(!watcher)return handleDiscoveryOperations235(request,env,false);
   const q=new URL(request.url).searchParams,selected=['selectionId','targetGuids','snapshotId','snapshotAt','actorGuid','confirmations'],hasSelection=selected.some(key=>q.has(key)),allowed=watcher?['keyVersion','cursor',...selected]:['cursor'];
   if(request.method!=='GET'||[...q.keys()].some(k=>!allowed.includes(k))||[...new Set(q.keys())].some(k=>q.getAll(k).length!==1)
     ||watcher&&q.get('keyVersion')!==LAUNCH_OPERATIONS_PROTOCOL229||q.has('cursor')&&!q.get('cursor')
@@ -409,4 +410,106 @@ export async function handleLaunchOperations229(request: Request, env: Env, watc
     const result=hasSelection?await readDirectivePromotions(env,{selectionId:q.get('selectionId'),targetGuids:JSON.parse(q.get('targetGuids')!),snapshotId:Number(q.get('snapshotId')),snapshotAt:Number(q.get('snapshotAt')),actorGuid:q.get('actorGuid'),confirmations:JSON.parse(q.get('confirmations')!)},q.get('cursor')):await readLaunchOperations229(env,q.get('cursor'));
     return apiJson(result,200,{'Cache-Control':'private, no-store, no-transform'});
   }catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);if(error instanceof SyntaxError)return apiJson({error:'invalid_launch_query'},400);throw error;}
+}
+
+// Discovery235 never changes the selected234 reader, seal or cursor vocabulary.
+const DISCOVERY_CURSOR_LIMIT235=8192;
+type DiscoveryCursor235={version:6;purpose:'officer-discovery-v235';snapshotId:number;snapshotAt:number;scopeHash:string;
+ nativeDigest:string;offset:number;issuedAt:number;expiresAt:number;cutoff:number;rankMode:'qualified'|'held';roleScope:string;innerCursor:string|null};
+const held235=(at:number,reason:string)=>({...held229(at,reason),protocol:DISCOVERY_OPERATIONS_PROTOCOL235});
+async function writeDiscoveryCursor235(value:DiscoveryCursor235,secret:string){
+ const body=encoded229(JSON.stringify(value)),mac=hex(await crypto.subtle.sign('HMAC',await cursorKey229(secret),new TextEncoder().encode('officer-discovery-cursor|235|'+body)));
+ const cursor=body+'.'+mac;if(cursor.length>DISCOVERY_CURSOR_LIMIT235)throw new LaunchCursor229('discovery_cursor_capacity');return cursor;
+}
+async function readDiscoveryCursor235(raw:string,secret:string,at:number):Promise<DiscoveryCursor235>{
+ if(raw.length>DISCOVERY_CURSOR_LIMIT235||!/^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/.test(raw))throw new LaunchCursor229('invalid_discovery_cursor');
+ const [body,mac]=raw.split('.');let value:DiscoveryCursor235;
+ try{value=JSON.parse(atob(body.replace(/-/g,'+').replace(/_/g,'/')));if(encoded229(JSON.stringify(value))!==body)throw Error();}catch{throw new LaunchCursor229('invalid_discovery_cursor');}
+ if(!await crypto.subtle.verify('HMAC',await cursorKey229(secret),bytes229(mac),new TextEncoder().encode('officer-discovery-cursor|235|'+body)))throw new LaunchCursor229('invalid_discovery_cursor');
+ if(!value||Object.keys(value).sort().join(',')!=='cutoff,expiresAt,innerCursor,issuedAt,nativeDigest,offset,purpose,rankMode,roleScope,scopeHash,snapshotAt,snapshotId,version'
+  ||value.version!==6||value.purpose!=='officer-discovery-v235'||!Number.isSafeInteger(value.snapshotId)||value.snapshotId<1
+  ||!Number.isSafeInteger(value.snapshotAt)||value.snapshotAt<1||value.snapshotAt>at
+  ||!Number.isSafeInteger(value.issuedAt)||value.issuedAt<value.snapshotAt||value.issuedAt>at
+  ||!Number.isSafeInteger(value.expiresAt)||value.expiresAt!==Math.min(value.issuedAt+600,value.snapshotAt+600)||value.expiresAt<=at
+  ||!Number.isSafeInteger(value.offset)||value.offset<0||value.offset>980||value.offset%20!==0
+  ||!Number.isSafeInteger(value.cutoff)||value.cutoff<0||!/^[a-f0-9]{16}$/.test(value.scopeHash)||!/^[a-f0-9]{64}$/.test(value.nativeDigest)||!/^[a-f0-9]{64}$/.test(value.roleScope)
+  ||!['qualified','held'].includes(value.rankMode)||(value.rankMode==='held'?value.innerCursor!==null:typeof value.innerCursor!=='string'||!value.innerCursor||value.innerCursor.length>4096))throw new LaunchCursor229('invalid_discovery_cursor');
+ return value;
+}
+async function membershipRows235(env:Env,launch:LaunchVerificationCapture,at:number,cutoff:number):Promise<SourceRow229[]>{
+ const source=launch.scope!.provenance;
+ const rows=await env.DB.prepare(`SELECT s.id AS snapshotId,s.exported_at AS snapshotAt,s.member_count AS memberCount,
+  s.source AS nativeSource,s.content_hash AS nativeContentHash,rm.name_key AS nativeNameKey,
+  rm.name,rm.guid,rm.rank,rm.rank_index AS currentSlot,rm.level,rm.last_online AS lastOnlineSeconds,
+  rm.class AS nativeClass,rm.public_note AS publicNote,rm.officer_note AS officerNote,
+  'unknown' AS verification,NULL AS discordId,NULL AS linkedGuid,NULL AS linkStatus,NULL AS linkSource,
+  NULL AS verifiedAt,NULL AS boundAt,NULL AS guidLinks,0 AS banned,0 AS denied,
+  NULL AS privacyGeneration,NULL AS privacyState,NULL AS privacyRevision,NULL AS lineageAnchorId
+ FROM roster_snapshots s JOIN roster_members rm ON rm.snapshot_id=s.id
+ WHERE s.id=(SELECT MAX(id) FROM roster_snapshots) AND ${nativeMembershipSourceSql('s.source','?1')}
+  AND s.complete=1 AND s.trusted=1 AND s.member_count BETWEEN 1 AND 1000
+  AND s.exported_at BETWEEN MAX(?3,?2-599) AND ?2
+  AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id)
+ ORDER BY rm.name_key LIMIT 1000`).bind(source,at,cutoff).all<SourceRow229>();
+ if(!rows.success)throw Error('discovery_native_source_read_unavailable');
+ if(rows.results.some(row=>!nativeMembershipSourceMatches(row.nativeSource,launch.scope!.guild,launch.scope!.realm)))return [];
+ return rows.results;
+}
+export async function readDiscoveryOperations235(env:Env,cursor:string|null=null){
+ const at=now(),launch=captureLaunchVerification(env),secret=secret229(env),cutoff=linksNotBefore(env),configuration=roleConfiguration229(env),policy=captureCanonicalRankConfig233(env);
+ if(launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME)return held235(at,'flagship-native-scope-unconfirmed');
+ if(!secret)return held235(at,'native-secret-unconfigured');
+ if(!configuration)return held235(at,'discovery-seal-unconfigured');
+ if(!policy.current())return held235(at,'directive-rank-policy-source-unconfirmed');
+ // Officers know VERIFY_SECRET. The current server token/policy bind this NEW domain.
+ const sealSecret=JSON.stringify(['officer-discovery-seal',235,secret,configuration.guild,configuration.token,policy.present,policy.mode,policy.raw]);
+ const current=()=>{if(!launch.current()||!policy.current()||secret229(env)!==secret||linksNotBefore(env)!==cutoff||!configuration.current())throw new LaunchCursor229('launch_cursor_source_changed',409);};
+ const captured=cursor?await readDiscoveryCursor235(cursor,sealSecret,at):null;current();
+ const rows=await membershipRows235(env,launch,at,cutoff);current();const first=rows[0];
+ if(!first||rows.length!==first.memberCount){if(captured)throw new LaunchCursor229('launch_cursor_source_changed',409);return held235(at,'native-snapshot-unavailable');}
+ const nativeDigest=await digest229(JSON.stringify(nativeRows272(rows))),scopeHash=(await digest229('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16);
+ const roleScope=await digest229('launch-role-scope|271|'+(configuration?.guild??'')+'|'+(configuration?.token??''));current();
+ const table=nativeRankTableFromSource(first.nativeSource);
+ const qualified=!!table&&rows.every(row=>Number.isInteger(row.currentSlot)&&row.currentSlot!==null&&row.currentSlot>=0&&row.currentSlot<10&&row.rank===table.names[row.currentSlot])
+   &&currentDirectiveCanonicalPolicy233(policy.policy)&&policy.current();
+ const rankMode=qualified?'qualified' as const:'held' as const;
+ const reason:DiscoveryRankHold235=!currentDirectiveCanonicalPolicy233(policy.policy)||!policy.current()?'directive-rank-policy-held':'native-rank-scheme-unconfirmed';
+ if(captured&&(captured.snapshotId!==first.snapshotId||captured.snapshotAt!==first.snapshotAt||captured.scopeHash!==scopeHash||captured.nativeDigest!==nativeDigest||captured.cutoff!==cutoff||captured.rankMode!==rankMode||captured.roleScope!==roleScope))throw new LaunchCursor229('launch_cursor_source_changed',409);
+ const issuedAt=captured?.issuedAt??at,scanExpiresAt=captured?.expiresAt??Math.min(at+600,first.snapshotAt+600),offset=captured?.offset??0;
+ const witness={version:6 as const,purpose:'officer-discovery-v235' as const,snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,scopeHash,nativeDigest,issuedAt,expiresAt:scanExpiresAt,cutoff,rankMode,roleScope};
+ if(qualified){
+  const prior=await readLaunchPage229(env,captured?.innerCursor??null);current();
+  if(prior.status==='held')return {...prior,protocol:DISCOVERY_OPERATIONS_PROTOCOL235};
+  if(prior.snapshotId!==first.snapshotId||prior.snapshotAt!==first.snapshotAt||prior.memberCount!==first.memberCount||prior.entitlements.offset!==offset)throw new LaunchCursor229('launch_cursor_source_changed',409);
+  if(prior.scan.startedAt===null||prior.scan.expiresAt===null||captured&&(captured.issuedAt!==prior.scan.startedAt||captured.expiresAt!==prior.scan.expiresAt))throw new LaunchCursor229('launch_cursor_source_changed',409);
+  // The outer purpose retains the inner scan's exact original clocks.
+  const qualifiedWitness={...witness,issuedAt:prior.scan.startedAt,expiresAt:prior.scan.expiresAt};
+  const pageCursor=prior.pageCursor?await writeDiscoveryCursor235({...qualifiedWitness,offset,innerCursor:prior.pageCursor},sealSecret):null;
+  const nextCursor=prior.nextCursor?await writeDiscoveryCursor235({...qualifiedWitness,offset:offset+20,innerCursor:prior.nextCursor},sealSecret):null;current();
+  const after=await membershipRows235(env,launch,now(),cutoff);current();if(await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest)throw new LaunchCursor229('launch_cursor_source_changed',409);
+  return {...prior,protocol:DISCOVERY_OPERATIONS_PROTOCOL235,pageCursor,nextCursor};
+ }
+ const expiresAt=Math.min(at+60,scanExpiresAt),dto=projectRankHeldDiscovery235({snapshotId:first.snapshotId,snapshotAt:first.snapshotAt,memberCount:first.memberCount,guild:launch.scope.guild,realm:launch.scope.realm,scopeHash},rows,at,expiresAt,reason);
+ if(dto.status==='held')return dto;
+ const page=rows.slice(offset,offset+20);dto.held=dto.held.filter(row=>page.some(value=>value.guid===row.guid));
+ const scanId=(await digest229(JSON.stringify(['officer-discovery',235,scopeHash,nativeDigest,issuedAt,scanExpiresAt,rankMode]))).slice(0,32);current();
+ dto.scan={id:scanId,startedAt:issuedAt,expiresAt:scanExpiresAt};dto.entitlements={offset,pageSize:20,scanned:page.length,total:rows.length,unscanned:Math.max(0,rows.length-offset-page.length),retryAfterSeconds:null};
+ if(offset===0){
+  const pacer=new LaunchRolePacer271(roleScope),readDeadline=Math.min(Date.now()/1000+10,expiresAt,scanExpiresAt);
+  const invites=await readOfficerInvites233(env,{limit:3,attempts:0,retries:0},3,at,{before:()=>pacer.wait(readDeadline,current),observe:async response=>{if(response.status===429)await pacer.limited(response);else if(response.ok)pacer.success(response);current();}});current();
+  dto.invites.push(...invites.invites.filter(row=>row.expiresAt>now()&&row.observedAt<=at+5));dto.heldReasons.push(...invites.heldReasons);
+  if(dto.invites.length)dto.heldReasons=dto.heldReasons.filter(value=>value!=='native-unguilded-proof-required');
+  if(pacer.cooling()){dto.heldReasons.push('discord-rate-limited');dto.entitlements.retryAfterSeconds=pacer.delay();}
+ }
+ dto.pageCursor=await writeDiscoveryCursor235({...witness,offset,innerCursor:null},sealSecret);
+ if(offset+page.length<rows.length)dto.nextCursor=await writeDiscoveryCursor235({...witness,offset:offset+page.length,innerCursor:null},sealSecret);current();
+ const after=await membershipRows235(env,launch,now(),cutoff);current();if(await digest229(JSON.stringify(nativeRows272(after)))!==nativeDigest)throw new LaunchCursor229('launch_cursor_source_changed',409);
+ if(now()>=expiresAt)return held235(now(),'launch-read-window-exhausted');return dto;
+}
+export async function handleDiscoveryOperations235(request:Request,env:Env,watcher=false):Promise<Response>{
+ const q=new URL(request.url).searchParams,allowed=watcher?['keyVersion','cursor']:['cursor'];
+ if(request.method!=='GET'||[...q.keys()].some(key=>!allowed.includes(key))||[...new Set(q.keys())].some(key=>q.getAll(key).length!==1)
+  ||watcher&&q.get('keyVersion')!==DISCOVERY_OPERATIONS_PROTOCOL235||q.has('cursor')&&(!q.get('cursor')||q.get('cursor')!.length>DISCOVERY_CURSOR_LIMIT235))return apiJson({error:'invalid_launch_query'},400);
+ try{return apiJson(await readDiscoveryOperations235(env,q.get('cursor')),200,{'Cache-Control':'private, no-store, no-transform'});}
+ catch(error){if(error instanceof LaunchCursor229)return apiJson({error:error.code},error.status);throw error;}
 }

@@ -35,7 +35,7 @@ import { captureLaunchVerification,launchVerificationEnv } from './launch-verifi
 import type { Env } from "./env";
 import {nativeErasureMode,nativeServingEnvironment} from './privacy-native-mode';
 import { STRICT_ROSTER_DISPLAY_PROTOCOL, STRICT_ROSTER_DISPLAY_PROTOCOL_V2, strictRosterDisplay, unverifiedReport } from "./unverified";
-import { handleLaunchOperations229 } from './site-launch229';
+import { handleLaunchOperations229,handleDiscoveryOperations235 } from './site-launch229';
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
 import { errorRef, idNamespace, logPath } from "./log";
@@ -682,6 +682,7 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         return await postRoster(launchVerificationEnv(env,launch),body,ctx?(label,work)=>deferOriginalServing(ctx,label,work):undefined,roleDispatch,true);
       }
       if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v234')return handleLaunchOperations229(request,env,true);
+      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v235')return handleDiscoveryOperations235(request,env,true);
       if(request.method==='POST'&&path==='/ingest/officer-invite'&&versions.length===1&&versions[0]==='officer-operations-v233'&&query.size===1&&body!==null&&!('keyVersion'in body))return postOfficerInvite233(env,body);
       if (versions.length === 1 && (versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL || versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL_V2)
           && request.method === "GET" && path === "/queue/unverified" && query.size === 1) {

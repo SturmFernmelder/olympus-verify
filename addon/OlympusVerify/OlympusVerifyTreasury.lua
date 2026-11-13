@@ -90,6 +90,8 @@ local function reference(value, extract)
   return found
 end
 local function prune(d)
+  local privacy=OlympusVerifyLocalPrivacy280
+  if privacy then privacy.Ensure(OlympusVerifyDB) end
   local cutoff = time() - T.retentionSeconds
   for _, field in ipairs({ "receipts", "observations" }) do
     local kept, removed = {}, 0
@@ -98,7 +100,7 @@ local function prune(d)
       local ack=type(row)=="table" and intake and intake.acknowledgements and intake.acknowledgements[row.id]
       -- .242 pending receipts have no age expiry. Only a signed durable server
       -- receipt permits pruning this redundant local gold record after 30 days.
-      if type(row) == "table" and type(row.ts) == "number" and (row.ts > cutoff or field=="receipts" and not (ack and ack.status=="done")) then table.insert(kept, row)
+      if type(row) == "table" and type(row.ts) == "number" and (row.ts > cutoff or field=="receipts" and ((not privacy or privacy.PruneBlocked(OlympusVerifyDB,row.id)) or not (ack and ack.status=="done"))) then table.insert(kept, row)
       else removed = removed + 1 end
     end
     d[field] = kept
@@ -107,6 +109,7 @@ local function prune(d)
 end
 local function db()
   if not OlympusVerifyDB then return nil end
+  if OlympusVerifyLocalPrivacy280 then OlympusVerifyLocalPrivacy280.Ensure(OlympusVerifyDB) end
   local d = OlympusVerifyDB.treasury
   if d == nil then
     d = { version = 1, nextId = 0, receipts = {}, observations = {}, overflows = 0 }

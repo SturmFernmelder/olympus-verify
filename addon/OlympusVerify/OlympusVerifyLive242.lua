@@ -87,6 +87,7 @@ function V.IsAuthorizedWatcher()
 end
 local function db()
   if type(OlympusVerifyDB)~="table" then return nil end
+  if OlympusVerifyLocalPrivacy280 then OlympusVerifyLocalPrivacy280.Ensure(OlympusVerifyDB) end
   if OlympusVerifyDB.intake242==nil then OlympusVerifyDB.intake242={version=1,nextId=0,entries={},dedup={},acknowledgements={}} end
   local d=OlympusVerifyDB.intake242
   if type(d)~="table" or type(d.entries)~="table" or type(d.dedup)~="table" or type(d.acknowledgements)~="table" then
@@ -94,6 +95,15 @@ local function db()
     return nil
   end
   return d
+end
+local function localOnly280(row,id)
+  local privacy=OlympusVerifyLocalPrivacy280
+  if not privacy then return type(row)=="table" and row.type=="donation" end
+  return privacy.Blocked(OlympusVerifyDB,id or type(row)=="table" and row.id,row)
+end
+local function localPrivacy280()
+  local p=OlympusVerifyLocalPrivacy280
+  return p and p.Status(OlympusVerifyDB) or {available=false,complete=false,held=true,reason="privacy-module-unavailable"}
 end
 local function clone(v, depth)
   if type(v)~="table" then if type(v)=="string" or type(v)=="number" or type(v)=="boolean" then return v end;return nil end
@@ -114,6 +124,10 @@ function V.Queue(row, key,remoteSenderKey)
     for field in pairs(row.evidence) do if not evidenceKeys[field] then return nil end end
     if row.donation.version~=2 or row.donation.recipient~="Fern Melder" or row.evidence.confirmedLocal~=true or row.evidence.automaticCredit~=false then return nil end
   end
+  if type(key)=="string" and key:sub(1,12)=="declaration|" then return nil end
+  if localOnly280(row,row.id) then return nil end
+  if key and d.dedup[key] and localOnly280(d.entries[d.dedup[key]],d.dedup[key]) then return nil end
+  if row.id and d.entries[row.id] and localOnly280(d.entries[row.id],row.id) then return nil end
   if key and d.dedup[key] then return d.entries[d.dedup[key]] end
   if row.id and d.entries[row.id]~=nil then return type(d.entries[row.id])=="table" and d.entries[row.id] or nil end
   local available,why=capacity243(d,remoteSenderKey);if not available then admissionHeld243(d,why);return nil end
@@ -185,7 +199,7 @@ local function transportId(id)
 end
 local VOLATILE={status=true,acknowledgedAt=true,outcome=true,attempts=true,serverReceipt=true}
 local function bodyBinding(row)
-  if type(row)~="table" then return nil end
+  if type(row)~="table" or localOnly280(row,row.id) then return nil end
   local body={};for k,v in pairs(row) do if not VOLATILE[k] then body[k]=v end end
   local raw=pack(body,0);return raw and H.sha256hex(raw) or nil
 end
@@ -195,6 +209,7 @@ local function configuredCollector() return text(cfg.bridgeRecipient or cfg.trea
 local function existingSecret() return type(cfg.secret)=="string" and #cfg.secret>0 and not cfg.secret:find("REPLACE",1,true) end
 local applyBridgeACK,returnBridgeACK,nativeCollector
 local function queueWire(row, recipient)
+  if localOnly280(row,row and row.id) then return false end
   if not text(recipient,128) or not C_ChatInfo or type(C_ChatInfo.SendAddonMessage)~="function" then return end
   local wireId=transportId(row.id);if not wireId then return end
   local raw=pack(row,0);if not raw or #raw>8192 then return end
@@ -205,7 +220,7 @@ local function queueWire(row, recipient)
 end
 local function sendRow(row, recipient)
   if type(row)~="table" or row.type=="donation" then return end -- collector-local financial evidence
-  local d=db();local me=ownName();local ownGuid=guid(call(UnitGUID,"player"))
+  local d=db();if localOnly280(row,row.id) then return end;local me=ownName();local ownGuid=guid(call(UnitGUID,"player"))
   if not d or not ownGuid or not state.newSelf243 or state.newSelf243[row.id]~=row then return end
   d.transportSchedule243=d.transportSchedule243 or {};local schedule=d.transportSchedule243[row.id]
   if schedule and schedule.attempted then return end -- possible delivery is unknown, never an automatic resend
@@ -237,6 +252,7 @@ end
 local function legacyReturnRoute626(original,stored,sender,d)
   -- Only the known .625 self-request sanitation can be reconstructed without
   -- guessing a discarded original body. No server work/claim is retried here.
+  if localOnly280(stored,stored and stored.id) then return nil end
   if original.source~="self-addon242" or original.clientVersion~="0.6.25" or stored.clientVersion~="0.6.25"
     or original.nativeMembership~=nil or original.nativeDiscord~=nil or original.bridgeSender~=nil
     or original.bridgeUntrusted~=true or not text(original.requestedBy,128) or norm(original.requestedBy)~=norm(sender)
@@ -279,6 +295,7 @@ local function receiveWire(message, sender, distribution)
   local d=db();if not d then return end
   d.bridgeReturns242=d.bridgeReturns242 or {}
   local route=d.bridgeReturns242[row.id];local stored=d.entries[row.id]
+  if localOnly280(stored or row,row.id) then return end
   if route~=nil and type(route)~="table" or stored~=nil and type(stored)~="table" then return end
   if stored then
     if not route then
@@ -393,6 +410,7 @@ nativeCollector=function(sender)
   return nil
 end
 local function matchingCallback(row,d)
+  if localOnly280(row,row and row.id) then return nil end
   if d.bridgeMetadata and d.bridgeMetadata[row.id] then return nil end -- old unqualified foreign original stays held
   return row
 end
@@ -410,7 +428,7 @@ returnBridgeACK=function(row,r)
   local message=table.concat({"A626",transportId(row.id),route.bodySHA256:sub(1,32),H.sha256hex("bridge-recipient626|"..norm(route.recipient)):sub(1,32),r.status=="done" and "D" or "R",tostring(r.observedAt),tostring(r.expiresAt)},"|")
   message=message.."|"..H.hmacSha256hex(cfg.secret,message):sub(1,32)
   if #message>255 then return end
-  state.outbound[#state.outbound+1]={target=route.recipient,message=message}
+  state.outbound[#state.outbound+1]={target=route.recipient,message=message,privacyRequestId=row.id}
   state.returnedACKs[key]={at=time(),mac=r.mac}
 end
 applyBridgeACK=function(message,sender)
@@ -420,6 +438,7 @@ applyBridgeACK=function(message,sender)
   if not at or not untilAt or tostring(at)~=observed or tostring(untilAt)~=expires or not receiptTransportValid({observedAt=at,expiresAt=untilAt},time()) then return end
   local d=db();local id=d and d.bridgeWireIds626 and d.bridgeWireIds626[wire]
   local row=d and d.entries[id];local sent=d and d.bridgeOutbound242 and d.bridgeOutbound242[id]
+  if localOnly280(row,id) then return end
   if type(row)~="table" or type(sent)~="table" or not text(sent.bodySHA256,64) or #sent.bodySHA256~=64
     or not text(sent.collector,128) or not text(sent.recipient,128) or not text(row.character,128)
     or recipient~=H.sha256hex("bridge-recipient626|"..norm(ownName())):sub(1,32)
@@ -461,7 +480,7 @@ end
 local function receipts()
   local d=db();if not d then return end
   for _,r in ipairs(type(OlympusQueue)=="table" and OlympusQueue.intakeReceipts242 or {}) do
-    if type(r)=="table" and text(r.id,64) and (r.status=="done" or r.status=="rejected") and text(r.character,128)
+    if type(r)=="table" and not localOnly280(d.entries[r.id],r.id) and text(r.id,64) and (r.status=="done" or r.status=="rejected") and text(r.character,128)
       and (r.guid==nil or r.guid=="" or guid(r.guid)) and (r.discordRole==nil or text(r.discordRole,128))
       and receiptTransportValid(r,time()) and type(cfg.secret)=="string" then
       local payload=table.concat({"intake242",r.id,r.status,r.guid or "",norm(r.character),r.discordRole or "",tostring(r.observedAt),tostring(r.expiresAt)},"|")
@@ -674,7 +693,7 @@ function V.Status()
   for _,value in pairs(d and type(d.receiptPolicyHolds280)=="table" and d.receiptPolicyHolds280 or {}) do if value==true then held=held+1 end end
   if state.trade and state.trade.heldReason then held=held+1 end
   if state.collecting and state.collecting.heldReason then held=held+1 end
-  return {pending=pending,heldTransfers=held,heldTransfersLimited=retained>=1001,transferCapacityHeld=state.transferCapacityHeld627==true,unsupportedCallbacks=unsupported,mailGuidAvailable=false,serverDurableDeletionOnly=true}
+  return {localPrivacy=localPrivacy280(),pending=pending,heldTransfers=held,heldTransfersLimited=retained>=1001,transferCapacityHeld=state.transferCapacityHeld627==true,unsupportedCallbacks=unsupported,mailGuidAvailable=false,serverDurableDeletionOnly=true}
 end
 local function visibleEntry(row, me, watcher)
   return type(row)=="table" and (watcher or text(row.character,128) and norm(row.character)==me
@@ -682,7 +701,10 @@ local function visibleEntry(row, me, watcher)
 end
 function V.VisibleEntries()
   local d=db();local out={};local me=norm(ownName());local watcher=V.IsAuthorizedWatcher()
-  for _,row in pairs(d and d.entries or {}) do if visibleEntry(row,me,watcher) then out[#out+1]=clone(row) end end
+  for _,row in pairs(d and d.entries or {}) do if visibleEntry(row,me,watcher) then
+    if localOnly280(row,row.id) then out[#out+1]={id=row.id,type=row.type,source=row.source,character=row.character,requestedAt=row.requestedAt,status=row.status,localOnly280=true}
+    else out[#out+1]=clone(row) end
+  end end
   table.sort(out,function(a,b) return a.requestedAt<b.requestedAt end);return out
 end
 -- .267: Dan's generic section copier is not a redactor. Export only a bounded
@@ -704,6 +726,7 @@ function V.BridgeStatus()
   -- At most twenty receipt checks, regardless of the retained intake backlog.
   for _,item in ipairs(selected) do
       local row=item.row;local status="unknown"
+      if not localOnly280(row,row.id) then
       local ack=d.acknowledgements and d.acknowledgements[row.id]
       local delivery=d.deliveryReceipts242 and d.deliveryReceipts242[row.id]
       local sent=d.bridgeOutbound242 and d.bridgeOutbound242[row.id]
@@ -721,6 +744,7 @@ function V.BridgeStatus()
         if receipt.status=="done" then status="delivered" elseif receipt.status=="rejected" then status="rejected" end
       elseif d.deliveryFailures242 and d.deliveryFailures242[row.id]=="unsupported_callback" then status="unsupported_callback"
       elseif row.status=="pending" then status="pending" end
+      end
       -- Existing native Treasury receipts use24hex IDs; other admitted intake
       -- families have their own IDs. Hash only the selected view's IDs so none
       -- is omitted or exposed as arbitrary external text. Originals stay intact.
@@ -733,11 +757,14 @@ end
 function V.PrintOwnStatus()
   local rows=V.VisibleEntries();say("Your verification and role requests: "..#rows..". These are delivery results; check Discord /verify-status for current access.")
   local d=db()
+  local privacy=localPrivacy280()
+  if privacy.held then say("Local correspondence cleanup is incomplete; affected financial originals stay local only. Verification requests use their normal checks.")
+  elseif (privacy.blankedLeaves or 0)>0 then say("Local financial correspondence was blanked. Those originals stay local only; delivery history and unconfirmed outcomes were not changed. Watcher copies have separate custody.") end
   for _,r in ipairs(rows) do if r.status=="pending" and r.source=="self-addon242" then say("An older request is preserved for review and will not be resent automatically. Check Discord /verify-status before a new deliberate request.");break end end
   for _,r in ipairs(rows) do local t=d and d.transportSchedule243 and d.transportSchedule243[r.id];if r.status=="pending" and t and t.attempted then say("Delivery is unconfirmed. This request is preserved and will not be resent automatically; check Discord /verify-status before a new deliberate request.");break end end
   if d and d.admissionHolds243 then say("New intake is held at its bounded capacity; existing originals remain preserved.") end
   if state.transferCapacityHeld627 then say("Transfer intake is held at its retained-context capacity. Existing originals and claims are preserved for review.") end
-  for i=math.max(1,#rows-19),#rows do local r=rows[i];local unsupported=d and d.deliveryFailures242 and d.deliveryFailures242[r.id]=="unsupported_callback";say((r.type or "request")..": "..(unsupported and "unsupported_callback" or r.status or "pending")..(r.serverReceipt and r.serverReceipt.discordRole and " / "..r.serverReceipt.discordRole or "")) end
+  for i=math.max(1,#rows-19),#rows do local r=rows[i];local unsupported=d and d.deliveryFailures242 and d.deliveryFailures242[r.id]=="unsupported_callback";say((r.type or "request")..": "..(r.localOnly280 and "local-only after correspondence minimization" or unsupported and "unsupported_callback" or r.status or "pending")..(r.serverReceipt and r.serverReceipt.discordRole and " / "..r.serverReceipt.discordRole or "")) end
 end
 local function selfCode243(value)
   if type(value)~="string" or #value>256 or value:find("[%z\1-\8\11\12\14-\31\127]") then return nil end
@@ -802,7 +829,7 @@ local function boot()
       if next then
         state.outboundHead=index
         local current=db();local pending=next.pendingRequestId and current and current.entries[next.pendingRequestId]
-        if not next.pendingRequestId or pending and pending.status=="pending" then pcall(C_ChatInfo.SendAddonMessage,"OLV242",next.message,"WHISPER",next.target) end
+        if not localOnly280(pending,next.privacyRequestId or next.pendingRequestId) and (not next.pendingRequestId or pending and pending.status=="pending") then pcall(C_ChatInfo.SendAddonMessage,"OLV242",next.message,"WHISPER",next.target) end
       elseif state.outboundHead then state.outbound={};state.outboundHead=nil end
       -- Only incomplete transport assemblies expire. Saved pending jobs do not.
       if not state.lastWirePrune or time()-state.lastWirePrune>=30 then

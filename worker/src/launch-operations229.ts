@@ -109,3 +109,17 @@ function projectOperations229(source: LaunchRosterSource229 | null, rows: readon
   envelope.status = envelope.entitlements.unscanned ? 'partial' : 'ready';
   return envelope;
 }
+
+/** New discovery purpose only. Selected234 and its rank authority stay unchanged. */
+export const DISCOVERY_OPERATIONS_PROTOCOL235 = 'officer-operations-v235' as const;
+export type DiscoveryRankHold235 = 'directive-rank-policy-held' | 'native-rank-scheme-unconfirmed';
+export function projectRankHeldDiscovery235(source:LaunchRosterSource229|null,rows:readonly LaunchRosterRow229[],at:number,expiresAt:number,reason:DiscoveryRankHold235){
+  const prior=projectLaunchOperations229(source,rows,new Map(),at,expiresAt);
+  const invalid=prior.heldReasons.filter(value=>value!=='native-unguilded-proof-required'&&value!=='native-rank-scheme-unconfirmed');
+  const allowed=reason==='directive-rank-policy-held'||reason==='native-rank-scheme-unconfirmed';
+  return {...prior,protocol:DISCOVERY_OPERATIONS_PROTOCOL235,status:(!invalid.length&&allowed?'partial':'held') as 'partial'|'held',
+    rankProfile:null,rankSchemeDigest:null,rankNames:null,
+    promotions:[] as LaunchPromotion229[],riskBuffer:[] as LaunchRisk229[],
+    held:!invalid.length&&allowed?rows.map(row=>({guid:row.guid,name:row.name,reason})):[] as LaunchHeld229[],
+    heldReasons:[...invalid,...(allowed?[reason]:['discovery-rank-hold-invalid']),'native-unguilded-proof-required']};
+}

@@ -3,7 +3,7 @@ import argparse,contextlib,json,hashlib,time,sys
 from lupa.luajit21 import LuaRuntime
 parser=argparse.ArgumentParser();parser.add_argument('--evidence',type=Path,required=True);parser.add_argument('--source-root',type=Path);args=parser.parse_args()
 workspace=Path(__file__).resolve().parents[2];root=args.source_root or workspace;tests=root/'addon/tests';args.evidence.mkdir(parents=True,exist_ok=True)
-paths=[root/'addon/OlympusVerify'/p for p in ['OlympusVerifyTreasury.lua','OlympusVerifyLive242.lua','Libs/OlympusHmac.lua']]+[tests/p for p in ['test_live242.lua','test_live_safety280.lua','test_tithe_successor280.lua','run_tithe_successor280.py','wow_mock.lua']]
+paths=[root/'addon/OlympusVerify'/p for p in ['OlympusVerifyTreasury.lua','OlympusVerifyLive242.lua','OlympusVerifyLocalPrivacy280.lua','Libs/OlympusHmac.lua']]+[tests/p for p in ['test_live242.lua','test_live_safety280.lua','test_tithe_successor280.lua','run_tithe_successor280.py','wow_mock.lua']]
 pins={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 prefix=(tests/'test_live242.lua').read_text(encoding='utf-8').split('\ndo\n',1)[0]
 helpers=(tests/'test_live_safety280.lua').read_text(encoding='utf-8').split('\ndo\n',1)[0]

@@ -47,6 +47,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import codes  # noqa: E402
 import intake242
+import local_correspondence280
 import savedvars  # noqa: E402
 import savedvars_source280
 import safe_projection280
@@ -580,7 +581,7 @@ class State:
         }
         if path.exists():
             try:
-                loaded = json.loads(path.read_text(encoding="utf-8"))
+                loaded = local_correspondence280.load_owned_state(path.read_text(encoding="utf-8"))
                 if not isinstance(loaded, dict) or not isinstance(loaded.get("outbox", []), list) or not isinstance(loaded.get("seen", []), list):
                     raise ValueError("invalid custody state")
                 self.d.update(loaded)
@@ -637,7 +638,15 @@ class Watcher:
         # Identity used to claim invites, so two officers running the addon do not both invite the same applicant.
         # Defaults to the officer character, normalized, which is unique per officer and needs no extra configuration.
         self.officer_id = str(cfg.get("officer_id") or codes.normalize_character(self.officer) or "").strip()[:64]
+        self._custody_halted = False
         self.state = State(Path(cfg.get("state_file", "watcher-state.json")))
+        # Owner-requested local text removal precedes every recovery/save/consumer.
+        # It creates denial only; failure/uncertain replacement stops this instance.
+        try:
+            self._local_correspondence_status280 = local_correspondence280.initialize(self.state)
+        except (OSError, ValueError, TypeError, OverflowError, RecursionError):
+            self._custody_halted = True
+            raise
         # Local unclassified receipts are independent of network/role dispatch and
         # commit before the chat/SavedVariables cursor. The owner named this exact
         # collector (3 Nov 2026); neither branch names nor a Discord ID are inferred.
@@ -657,7 +666,7 @@ class Watcher:
         self.unverified_poll = _seconds(cfg, "unverified_poll_seconds", 1800)
         self._last_unverified_pull = 0.0
         self._next_strict_display_pull = 0.0
-        self.launch_scan = launch_operations229.Scan(lambda: time.time())
+        self.launch_scan = launch_operations229.Scan(lambda: time.time(), discovery235=True)
         self.launch_selected = launch_operations229.SelectedRead(lambda: time.time())
         self._launch_selected_control = None  # A consumed control identity; never read/admission authority.
         self._next_launch_read_at = 0.0  # Shared across discovery and new-source selected reads.
@@ -682,7 +691,6 @@ class Watcher:
         self._launch_consumed_sv_witness = None  # Process-only, after control handling and durable intake save.
         self._unverified: dict[str, Any] | None = None
         self.max_outbox = int(cfg.get("max_outbox", 500))
-        self._custody_halted = False
         self.worker.pause_save280 = self._save_state280
         self._ack_settlement_pending: tuple[str, dict[str, Any]] | None = None
         self._custody_warning = None

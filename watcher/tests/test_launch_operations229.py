@@ -182,7 +182,7 @@ class LaunchOperations(unittest.TestCase):
             calls = []
             def call(method,path,body=None,retries=3):
                 if method == 'POST': return True,dict(snapshot=12,members=len(body['members']),trusted=True)
-                calls.append((method,path,body));return True,page(self.at)
+                calls.append((method,path,body));return True,dict(page(self.at),protocol='officer-operations-v235')
             instance.worker.call = call
             instance.pull_launch_operations()
             self.assertEqual(calls, [])  # no explicit request, no role fetch
@@ -200,7 +200,7 @@ class LaunchOperations(unittest.TestCase):
             before = instance.launch_operations_file.read_bytes()
             self.assertIn(b'OlympusLaunchQueue=', before)
             self.assertEqual(instance.queue_file.read_text(), 'LEGACY UNCHANGED')
-            self.assertTrue(all(method == 'GET' and path == launch.PATH and body is None for method, path, body in calls))
+            self.assertTrue(all(method == 'GET' and path == launch.DISCOVERY_PATH235 and body is None for method, path, body in calls))
             count = len(calls)
             instance.pull_launch_operations()
             self.assertEqual(len(calls), count)  # No role request on the normal fast loop.
@@ -281,7 +281,7 @@ class LaunchOperations(unittest.TestCase):
             def call(method, path, body=None, retries=3):
                 calls.append((method,path,body))
                 if method == 'POST': return True, dict(snapshot=12, members=len(body['members']), trusted=True)
-                return True, page(int(self.clock), started=self.at)
+                return True, dict(page(int(self.clock), started=self.at),protocol='officer-operations-v235')
             instance.worker.call = call
             control('scan',1)
             with patch.object(watcher.time,'time',lambda:self.clock), patch.object(watcher.time,'sleep'):
@@ -348,7 +348,7 @@ class LaunchOperations(unittest.TestCase):
                     source_at=body['exportedAt'];return True,dict(snapshot=12,members=1,trusted=True)
                 if '&cursor=' not in path:scan_start=int(self.clock)
                 p=page(int(self.clock),total=1,started=scan_start);p['snapshotAt']=source_at;p['scan']['expiresAt']=min(scan_start+600,source_at+600);p['promotions']=[]
-                return True,p
+                p['protocol']='officer-operations-v235';return True,p
             w.worker.call=call;control(1)
             with patch.object(watcher.time,'time',lambda:self.clock),patch.object(watcher.time,'sleep'):
                 check_source();w.pull_launch_operations()

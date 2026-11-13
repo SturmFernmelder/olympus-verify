@@ -46,6 +46,7 @@ OlympusVerifyAPI = { TreasuryTransport = {
   Note = function(text) notes[#notes + 1] = text; return true end,
 } }
 dofile("../OlympusVerify/Libs/OlympusHmac.lua")
+assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua"))("OlympusVerify")
 assert(loadfile("../OlympusVerify/OlympusVerifyTreasury.lua"))("OlympusVerify")
 local frame = frames.OlympusVerifyTreasuryFrame
 local function event(key, ...) frame.onEvent(frame, key, ...) end
@@ -272,7 +273,7 @@ check("periodic idle retention also purges old named observations", #OlympusVeri
 check("unacknowledged pending receipts are not falsely counted as expired", OlympusVerifyDB.treasury.expiredReceipts or 0, 0)
 -- This component consumes the intake's already-authenticated ACK cache. Actual
 -- signature refusal is exercised by live242; no ACK is minted by Treasury.
-OlympusVerifyDB.intake242={acknowledgements={}}
+OlympusVerifyDB.intake242={version=1,nextId=0,entries={},dedup={},acknowledgements={}}
 local acks=OlympusVerifyDB.intake242.acknowledgements
 acks["unrelated-id"]={status="done"}
 acks[keptFirst]={status="rejected"}

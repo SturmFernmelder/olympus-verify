@@ -5,7 +5,7 @@ from lupa.luajit21 import LuaRuntime
 
 parser=argparse.ArgumentParser();parser.add_argument('--evidence',type=Path,required=True);parser.add_argument('--source-root',type=Path);args=parser.parse_args()
 workspace=Path(__file__).resolve().parents[2];root=args.source_root or workspace;tests=root/'addon/tests';args.evidence.mkdir(parents=True,exist_ok=True)
-inputs=[root/'addon/OlympusVerify'/p for p in ['OlympusVerify.lua','OlympusVerifyLive242.lua','Libs/OlympusHmac.lua']]
+inputs=[root/'addon/OlympusVerify'/p for p in ['OlympusVerify.lua','OlympusVerifyLive242.lua','OlympusVerifyLocalPrivacy280.lua','Libs/OlympusHmac.lua']]
 inputs += [tests/p for p in ['wow_mock.lua','test_live242.lua','test_slash_registration234.lua','test_live_safety280.lua','run_live_safety280.py']]
 pins={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
 source=(tests/'test_live242.lua').read_text(encoding='utf-8').split('\ndo\n',1)[0]

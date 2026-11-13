@@ -10,6 +10,7 @@ import codes
 import savedvars
 import savedvars_source280
 import intake_schema280
+import local_correspondence280 as local_privacy280
 PATH = "/ingest/intake242"
 SOURCE_VERSION = "0.6.25"
 
@@ -108,7 +109,52 @@ def _save_state(watcher):
         watcher._custody_halted = True
         raise
 
+def _privacy_source280(watcher, snapshot=None):
+    """Only a deny set from the same owned source; never proof or a replacement original."""
+    unknown = False
+    if snapshot is None:
+        try:
+            snapshot = savedvars_source280.owned(watcher)
+        except (savedvars_source280.SourceUnavailable, AttributeError):
+            snapshot, unknown = None, True
+    data = snapshot.data if snapshot is not None else None
+    db = data.get("OlympusVerifyDB") if type(data) is dict else None
+    intake = db.get("intake242") if type(db) is dict else None
+    blocked, malformed = local_privacy280.addon_marker(intake)
+    prior = getattr(watcher, "_local_correspondence_blocked280", frozenset())
+    # Accumulated process-local denial cannot make a previously held original eligible.
+    blocked = frozenset(prior) | blocked
+    watcher._local_correspondence_blocked280 = blocked
+    return blocked, unknown or malformed, intake
+
+
+def _privacy_body_denied280(watcher, body, source):
+    if type(body) is not dict:
+        return False
+    blocked, unknown, intake = source
+    eid = body.get("id")
+    if type(eid) is str and (eid in blocked or eid in getattr(watcher, "_local_correspondence_blocked280", ())
+                            or local_privacy280.addon_target_denied(intake, eid)):
+        watcher._local_correspondence_blocked280 = frozenset(getattr(watcher, "_local_correspondence_blocked280", ())) | {eid}
+        return True
+    if local_privacy280.legacy(body):
+        return True
+    if unknown and local_privacy280.financial(body):
+        # A label cannot exempt a malformed old original. Only the existing closed,
+        # clock/collector/HMAC-qualified v2 path can continue its normal validators.
+        semantic = {k: v for k, v in body.items() if k not in _VOLATILE}
+        return intake_schema280.financial_error(semantic, watcher.secret, watcher.officer) is not None
+    return False
+
+
+def _privacy_row_denied280(watcher, original, source):
+    return type(original) is dict and (local_privacy280.FIELD in original
+                                      or _privacy_body_denied280(watcher, original.get("body"), source))
+
+
 def _financial_original_matches(original, receipt):
+    if local_privacy280.local_only(original):
+        return False
     fields = {"id", "character", "guid", "observedAt", "bodySHA256", "outcome", "originalNoEffect"}
     if (type(receipt) is not dict or set(receipt) != fields or receipt["originalNoEffect"] is not True
             or receipt["outcome"] != "receipt_collector_pending"):
@@ -165,6 +211,7 @@ def collect(watcher, snapshot=None):
             snapshot = savedvars_source280.owned(watcher)
         except savedvars_source280.SourceUnavailable:
             return state
+    source_privacy = _privacy_source280(watcher, snapshot)
     db = snapshot.data.get("OlympusVerifyDB")
     if type(db) is not dict:
         return state
@@ -178,6 +225,11 @@ def collect(watcher, snapshot=None):
             continue
         eid = entry.get("id")
         if type(eid) is not str or re.fullmatch(r"[A-Za-z0-9:._-]{1,128}", eid) is None:
+            invalid += 1
+            continue
+        # Denial precedes canonical-body hashing and same-ID adoption/comparison.
+        if (_privacy_body_denied280(watcher, entry, source_privacy)
+                or _privacy_row_denied280(watcher, state.get(eid), source_privacy)):
             invalid += 1
             continue
         canonical = _canonical_body(entry)
@@ -215,6 +267,8 @@ def collect(watcher, snapshot=None):
 
 
 def _ordinary_no_effect_matches(original, receipt):
+    if local_privacy280.local_only(original):
+        return False
     body = original.get("body")
     canonical = _canonical_body(body)
     return (type(receipt) is dict and set(receipt) == {"id", "character", "guid", "outcome", "originalNoEffect"}
@@ -227,6 +281,8 @@ def _ordinary_no_effect_matches(original, receipt):
 
 
 def _ordinary_retry_witness(watcher, original):
+    if local_privacy280.local_only(original):
+        return None
     witness = getattr(watcher, "_intake_no_effect280", {}).get(id(original))
     metadata = original.get("retrySchedule280")
     canonical = _canonical_body(original.get("body"))
@@ -261,6 +317,7 @@ def drain(watcher, collect_inputs=True):
         raise ValueError("intake custody ledger held")
     if watcher.worker.paused() or watcher._custody_halted:
         return
+    source_privacy = _privacy_source280(watcher)
     batch, changed, at = [], False, int(time.time())
     items = list(state.values())
     offset = getattr(watcher, "_intake_cursor280", 0) % max(1, len(items))
@@ -269,6 +326,8 @@ def drain(watcher, collect_inputs=True):
         if type(original) is not dict:
             watcher._custody_halted = True
             raise ValueError("intake custody row held")
+        if _privacy_row_denied280(watcher, original, source_privacy):
+            continue  # Intentional local minimization is not tampering or a fresh proof.
         policy = intake_schema280.policy_error(original.get("body"), watcher.secret, watcher.officer)
         if policy:
             if original.get("policyHold") != policy:
@@ -341,11 +400,14 @@ def drain(watcher, collect_inputs=True):
     okay, response = watcher.worker.call("POST", PATH, payload, retries=1)
     if not okay or not isinstance(response, dict) or response.get("version") != 242:
         return
+    # A new local deny marker may have appeared during the transport call.
+    # Re-observe the owned source before accepting any response metadata.
+    source_privacy = _privacy_source280(watcher)
     holds = response.get("policyHolds")
     for hold in holds if isinstance(holds, list) else []:
         if isinstance(hold, dict) and type(hold.get("id")) is str and hold.get("outcome") == "intake_policy_held":
             original = selected.get(hold.get("id"))
-            if original is not None:
+            if original is not None and not _privacy_row_denied280(watcher, original, source_privacy):
                 original["policyHold"] = "server_intake_policy_held"
     deferred = response.get("deferred")
     for receipt in deferred if isinstance(deferred, list) else []:
@@ -353,11 +415,11 @@ def drain(watcher, collect_inputs=True):
             continue
         if isinstance(receipt, dict) and receipt.get("outcome") == "receipt_collector_pending":
             original = selected.get(receipt.get("id"))
-            if original and original["body"].get("source") == intake_schema280.V2:
+            if original and not _privacy_row_denied280(watcher, original, source_privacy) and original["body"].get("source") == intake_schema280.V2:
                 _schedule_financial_retry(watcher, original, receipt, at)
         if isinstance(receipt, dict) and receipt.get("originalNoEffect") is True and receipt.get("outcome") in ("membership_source_pending", "approved_branch_authority_pending"):
             original = selected.get(receipt.get("id"))
-            if original is not None:
+            if original is not None and not _privacy_row_denied280(watcher, original, source_privacy):
                 _schedule_ordinary_retry(watcher, original, receipt, at)
     receipts = response.get("acknowledgements")
     if not isinstance(receipts, list):
@@ -367,7 +429,7 @@ def drain(watcher, collect_inputs=True):
         if not isinstance(receipt, dict) or type(receipt.get("id")) is not str or receipt.get("status") not in ("done", "rejected"):
             continue
         original = selected.get(receipt.get("id"))
-        if (original is None or receipt.get("character") != original["body"].get("character", original["body"].get("name"))
+        if (original is None or _privacy_row_denied280(watcher, original, source_privacy) or receipt.get("character") != original["body"].get("character", original["body"].get("name"))
                 or original["body"].get("guid") and receipt.get("guid") != original["body"]["guid"]
                 or _canonical_body(original["body"]) != (original["body"], original.get("sha256"))):
             continue
@@ -377,9 +439,12 @@ def drain(watcher, collect_inputs=True):
     _save_state(watcher)
 
 def receipts(watcher):
+    source_privacy = _privacy_source280(watcher)
     at = int(time.time())
     result = []
     for original in watcher.state.d.get("intake242", {}).values():
+        if _privacy_row_denied280(watcher, original, source_privacy):
+            continue
         if original.get("state") not in ("done", "rejected") or not isinstance(original.get("receipt"), dict):
             continue
         receipt = dict(original["receipt"])

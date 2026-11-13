@@ -128,12 +128,13 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
       ..(spec and (" Unvalidated loaded container reports: "..spec[1]..". "..spec[2].." Next step: "..spec[3]) or "")) end
   local control = OlympusVerifyDB and OlympusVerifyDB.launchControl
   local held = data.stoppedReason or not selectedPage and not DiscoveryControlCurrent(control,identity,data.controlId,now)
-  local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, partial = data.scanComplete ~= true,
+  local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, rankHeld = false, partial = data.scanComplete ~= true,
     pages = data.pages, actionHeld = held, freshness = {}, scanComplete = data.scanComplete == true, stalePages = 0 }
   local first, guids = data.pages[1], {}
   if type(first) ~= "table" then return refuse("malformed_page", "The first launch page is malformed; no action taken.") end
-  if first.protocol ~= "officer-operations-v234" then
-    return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v234. No action taken; obtain a compatible source projection.") end
+  local protocol=first.protocol
+  if protocol~="officer-operations-v234" and (selectedPage or protocol~="officer-operations-v235") then
+    return refuse("page_protocol", "The loaded launch page protocol is incompatible with this purpose. No action taken; obtain a compatible source projection.") end
   if type(first) ~= "table" or type(first.scan) ~= "table" or not Text(first.scan.id, 32) or #first.scan.id ~= 32
     or not first.scan.id:match("^%x+$") or not Number(first.scan.startedAt, 1, now + 5)
     or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then
@@ -142,12 +143,25 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
     return refuse("malformed_entitlements", "The first launch page's entitlement metadata is malformed; no action taken.") end
   for index, page in ipairs(data.pages) do
     if type(page) ~= "table" then return refuse("malformed_page", "A launch page is malformed; no action taken.") end
-    if page.protocol ~= "officer-operations-v234" then
-      return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v234. No action taken; obtain a compatible source projection.") end
+    if page.protocol~=protocol then
+      return refuse("page_protocol", "Launch pages have different source purposes; no action taken.") end
     local ranks=OlympusVerifyNativeRankConstants
-    if not ranks or page.rankProfile~=ranks.profile or page.rankSchemeDigest~=ranks.digest
-      or not OlympusVerifyNativeRanks or not OlympusVerifyNativeRanks.Qualified({version=1,names=page.rankNames}) then
+    local rankQualified=ranks and page.rankProfile==ranks.profile and page.rankSchemeDigest==ranks.digest
+      and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Qualified({version=1,names=page.rankNames})
+    local rankReason
+    if type(page.heldReasons)=="table" then
+      for _,reason in ipairs(page.heldReasons) do
+        if reason=="directive-rank-policy-held" or reason=="native-rank-scheme-unconfirmed" then rankReason=reason;break end
+      end
+    end
+    local rankHeld=not selectedPage and protocol=="officer-operations-v235" and page.status=="partial"
+      and page.rankProfile==nil and page.rankSchemeDigest==nil and page.rankNames==nil and rankReason
+      and type(page.promotions)=="table" and next(page.promotions)==nil and type(page.riskBuffer)=="table" and next(page.riskBuffer)==nil
+    if not rankQualified and not rankHeld then
       return refuse("rank_scheme", "The complete Directive rank table is unconfirmed; rank-dependent actions are held.") end
+    if index>1 and (page.rankProfile~=first.rankProfile or page.rankSchemeDigest~=first.rankSchemeDigest
+      or rankHeld~=result.rankHeld) then return refuse("rank_scheme", "Launch pages have different rank authority states; no action taken.") end
+    if rankHeld then result.rankHeld=rankHeld;result.rankHeldReason=rankReason end
     if page.status ~= "ready" and page.status ~= "partial" then
       return refuse("page_status", "A launch page is not in a supported ready or partial source state; no action taken.") end
     if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + pageTTL)
@@ -1220,6 +1234,10 @@ function Q.Show()
   Q.listPage=math.min(Q.listPage,math.max(1,math.ceil(#Q.shownRows/8)))
   local used=OlympusLaunchQueue and OlympusLaunchQueue.refreshedPages;used=Number(used,0,50) and used or 0
   local details=current and ((current.scanComplete and "Discovery complete" or "Discovery incomplete").."; "..#current.pages.."/50 pages; "..used.."/50 recheck attempts (including rate-limit retries). Discovery actions use 60-second pages; selected promotions keep their own original expiry. Every action rechecks the native roster.") or why
+  if current and current.rankHeld then
+    details=(details or "").."\nDiscovery rank recommendations are held: "..(current.rankHeldReason=="directive-rank-policy-held" and "the loaded rank policy is held." or "the loaded complete rank table is unconfirmed.")
+      .." Independent invite evidence and separately validated selected reads keep their own original checks."
+  end
   if Q.tab=="invites" then
     local status=OlympusOfficerInvites233 and OlympusOfficerInvites233.Status()
     details=(details or "").."\nNext checks the original remote whisperer's explicit WHO guild state. Unknown guild stays held. "..(status and status.reason or "Capability unavailable.")
