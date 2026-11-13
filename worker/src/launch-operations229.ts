@@ -34,7 +34,7 @@ export interface LaunchRosterSource229 {
   nativeRankTable?: unknown;
 }
 export function launchMotd229() {
-  const short = 'olympus.roachcouncil.com: whisper Fern Melder code! Verified=Member; Knights=Veteran. Initiates get kicked!';
+  const short = 'olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.';
   const bytes = new TextEncoder().encode(short).byteLength;
   if (bytes > 128 || !/^[\x20-\x7e]+$/.test(short)) throw Error('launch_motd_limit');
   const bulletin = [
