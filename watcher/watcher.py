@@ -824,7 +824,8 @@ class Watcher:
         except savedvars_source280.SourceUnavailable:
             current = None
         if not self._same_verification_source280(source["fileSource280"], current):
-            self._verification_roster = None
+            if source is self._verification_roster:
+                self._verification_roster = None
             return False
         # Revalidate unrelated SavedVariables changes without renewing the known
         # roster ACK, source cutoff, pending request or proof's original clock.
@@ -890,6 +891,12 @@ class Watcher:
                 or "refused" in receipt or "skipped" in receipt):
             return
         if not self._verification_source_current280(source):
+            return
+        installed = self._verification_roster
+        # A late receipt cannot downgrade a newer known ACK. Revalidate that
+        # installed source; preserve its original clocks and snapshot verbatim.
+        if (installed is not None and installed["exportedAt"] > source["exportedAt"]
+                and self._verification_source_current280(installed)):
             return
         self._verification_roster = {"digest": source["digest"], "exportedAt": source["exportedAt"],
                                      "scopeHash": source["scopeHash"], "members": source["members"], "guidCounts": source["guidCounts"],
