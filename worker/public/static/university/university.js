@@ -4,7 +4,7 @@
  * the exams from the files beside it, after validate.js has accepted every file the page uses (closed validation:
  * a file that fails is not shown in part). DOM is built with createElement and textContent only.
  * Scores (owner ruling, 12 Nov 2026): one localStorage key, read and written inside try/catch, clearable and
- * exportable; nothing is sent to the Worker. Question order is deterministic (FNV-1a over id and attempt), never a random draw. */
+ * exportable; nothing is sent to the Worker. Question order is deterministic (FNV-1a over attempt and id, then a finaliser), never a random draw. */
 (function (root) {
   "use strict";
   const BASE = "/static/university/";
@@ -78,6 +78,7 @@
     return i === p.length ? r : null;
   }
 
+  const count = n => Number.isInteger(n) && n >= 0 && n <= 5000;
   function checkIndex(index) {
     const ok = index && index.schema === "olympus-university-index-v1" && Array.isArray(index.guides) && index.guides.length <= 80 && index.grades && typeof index.scopeNote === "string"
       && ["A", "B", "C", "D", "E", "U"].every(g => typeof index.grades[g] === "string")
@@ -87,7 +88,9 @@
         && (g.kind !== "profession" || ["primary", "gathering", "secondary"].includes(g.type))
         // The exam index (built by build/validate.cjs --write-exams): every exam this guide's questions can fill.
         && (g.status === "planned" ? g.exams === undefined : Array.isArray(g.exams) && g.exams.length <= 12 && g.exams.every(x => x && EXAM_SCOPE.test(x.scope)
-          && ["101", "201", "301"].includes(x.tier) && Number.isInteger(x.questions) && x.questions > 0 && x.questions <= 2000)));
+          && ["101", "201", "301"].includes(x.tier) && Number.isInteger(x.questions) && x.questions > 0 && x.questions <= 2000))
+        // Chapter counts (same build step): written chapters and those not available yet in 101, 201 and 301.
+        && (g.status === "planned" ? g.chapters === undefined : !!g.chapters && count(g.chapters.written) && Array.isArray(g.chapters.waiting) && g.chapters.waiting.length === 3 && g.chapters.waiting.every(count)));
     if (!ok) throw Error("index");
     return index;
   }
@@ -213,12 +216,17 @@
         el("h3", null, iconFor(entry) ? icon(iconFor(entry)) : null, " ", entry.status === "planned" ? el("span", { text: entry.name }) : link(guideHref(entry), entry.name)),
         entry.status === "planned" ? el("p", { class: "muted small", text: "Not written yet." }) : entry.status === "migrated" ? el("p", { class: "muted small", text: "Carried over from the earlier guide pages; still being written." }) : null,
         kids);
-      // Course status is said once for the page, not on every card.
+      // Course status is said once for the page, not on every card, and is computed from the index's chapter counts so it
+      // never claims more than the courses hold (review, 12 Nov 2026).
       const all = index.guides, done = all.filter(g => g.status === "complete").length;
-      const status = done === all.length ? "Every course below has its 101, 201 and 301 tracks, chapter quizzes and mastery exams."
-        : done + " of " + all.length + " courses are complete. A card says when its course is still being written.";
+      const sum = f => all.reduce((n, g) => n + (g.chapters ? f(g.chapters) : 0), 0);
+      const written = sum(c => c.written), waiting = sum(c => c.waiting[0] + c.waiting[1] + c.waiting[2]), waiting301 = sum(c => c.waiting[2]);
+      const chapters = n => n + " chapter" + (n === 1 ? "" : "s");
+      const status = (done === all.length ? "" : done + " of " + all.length + " courses are complete; a card says when its course is still being written. ")
+        + chapters(written) + (written === 1 ? " is" : " are") + " written." + (waiting ? " " + chapters(waiting) + (waiting === 1 ? " is" : " are") + " not available yet"
+        + (waiting301 ? ", " + waiting301 + " of them in the 301 tracks" : "") + ", and each says what it is waiting for." : "");
       const classes = ordered("class"), races = ordered("race"), exams = examCount(all);
-      return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever. Every chapter pairs Theory with Praxis and ends with a quiz."),
+      return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever, in 101, 201 and 301 tracks. Each written chapter pairs Theory with Praxis, and most end with a quiz."),
         el("p", { class: "small uni-hub-status", text: status }),
         el("nav", { class: "uni-jump", "aria-label": "On this page" }, el("ul", null, [["uni-classes", "Classes"], ["uni-races", "Races"], ["uni-professions", "Professions"], ["uni-tools", "Hub tools"], ["uni-exams", "Mastery exams"]]
           // Buttons, not links: the hash belongs to the router, so a jump moves focus to the section instead.
@@ -372,15 +380,22 @@
 
     function trackView(ctx, entry, owner, route, base, scopeKey) {
       const track = owner.tracks[route.tier];
-      const toc = el("ol", { class: "uni-toc" }, R.SECTIONS.map(([key, title]) => {
-        const chapters = track.chapters.filter(c => c.section === key), omitted = track.omitted.find(o => o.section === key);
-        return el("li", { "data-section": key }, el("strong", { text: title }), chapters.length
-          ? el("ul", null, chapters.map(c => el("li", null, link(base + "/" + route.tier + "/" + c.id, c.title), c.unavailable !== undefined ? el("span", { class: "muted small", text: " (not available yet)" }) : null)))
-          : el("span", { class: "muted small", text: " " + (omitted ? omitted.reason : "") }));
-      }));
+      // The sections this track covers, then the ones it leaves out, one line per reason: a reason shared by several
+      // sections is said once, not repeated down the list (review, 12 Nov 2026).
+      const covered = R.SECTIONS.filter(([key]) => track.chapters.some(c => c.section === key));
+      const toc = covered.length ? el("ol", { class: "uni-toc" }, covered.map(([key, title]) => el("li", { "data-section": key }, el("strong", { text: title }),
+        el("ul", null, track.chapters.filter(c => c.section === key).map(c => el("li", null, link(base + "/" + route.tier + "/" + c.id, c.title), c.unavailable !== undefined ? el("span", { class: "muted small", text: " (not available yet)" }) : null)))))) : null;
+      const reasons = new Map();
+      for (const [key, title] of R.SECTIONS) {
+        const o = track.omitted.find(x => x.section === key);
+        if (o) { if (!reasons.has(o.reason)) reasons.set(o.reason, []); reasons.get(o.reason).push(title); }
+      }
+      const names = list => list.length === 1 ? list[0] : list.slice(0, -1).join(", ") + " and " + list[list.length - 1];
+      const left = reasons.size ? el("ul", { class: "uni-omitted" }, [...reasons].map(([reason, titles]) => el("li", { "data-sections": String(titles.length) }, el("strong", { text: names(titles) + ": " }), reason))) : null;
       const out = [el("nav", { class: "uni-tracks", "aria-label": "Course tracks" }, el("h2", { class: "uni-visually-hidden", text: "Course tracks" }),
         el("ul", null, R.TRACKS.map(([t, name]) => el("li", null, el("a", { href: base + "/" + t, class: "btn" + (t === route.tier ? " active" : ""), "aria-current": t === route.tier ? "page" : null, text: name })))))];
-      out.push(section(TRACK_NAMES[route.tier], el("p", { text: track.summary }), el("h3", { text: "In this track" }), toc));
+      out.push(section(TRACK_NAMES[route.tier], el("p", { text: track.summary }), toc ? [el("h3", { text: "In this track" }), toc] : null,
+        left ? [el("h3", { text: covered.length ? "Not in this track" : "Not written yet" }), left] : null));
       for (const [key, title] of R.SECTIONS) {
         const chapters = track.chapters.filter(c => c.section === key);
         if (chapters.length) out.push(el("section", { class: "card uni-section", "data-section": key }, el("h2", { text: title }), chapters.map(c => chapterView(ctx, entry, c, route.chapter))));

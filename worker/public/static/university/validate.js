@@ -56,16 +56,26 @@
     return !!re && facts.some(f => re.test(factText(f)));
   }
   // Numbers stated in praxis text must come from the facts the step cites.
-  const numbersSupported = (text, facts) => { const have = new Set(facts.flatMap(f => numbersIn(factText(f)))); return numbersIn(text).every(n => have.has(n)); };
+  // "Classic 1.12" names the reference version, not a game value, so it is not a number a fact must hold.
+  const numbersSupported = (text, facts) => { const have = new Set(facts.flatMap(f => numbersIn(factText(f)))); return numbersIn(String(text).replace(/\bClassic 1\.12\b/g, "Classic")).every(n => have.has(n)); };
+  // A fact the 2 Nov notes overtook (supersededBy, review of 12 Nov 2026) is never shown or asked about alone: wherever
+  // it is cited, the fact that supersedes it is cited beside it. Returns the ids of the missing successors.
+  const missingSuccessors = (ids, facts) => ids.map(id => facts.get(id)).filter(f => f && f.supersededBy && !ids.includes(f.supersededBy)).map(f => f.supersededBy).filter((id, i, all) => all.indexOf(id) === i);
 
-  // Deterministic ordering (no Math.random): FNV-1a over the question id and the attempt number.
+  // Deterministic ordering (no Math.random): FNV-1a over the attempt number and the question id, then a 32-bit avalanche
+  // finaliser (MurmurHash3 fmix32). With the attempt hashed last and no finaliser, a new attempt moved each hash by only a
+  // small multiple of the FNV prime, so a retake drew the same questions in a new order (review, 12 Nov 2026).
   function fnv1a(text) {
     let h = 0x811c9dc5;
     for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
     return h >>> 0;
   }
+  function fmix32(h) {
+    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35) >>> 0; h ^= h >>> 16;
+    return h >>> 0;
+  }
   function order(items, key, attempt) {
-    return items.map(item => [fnv1a(key(item) + ":" + attempt), item]).sort((a, b) => a[0] - b[0] || (key(a[1]) < key(b[1]) ? -1 : 1)).map(x => x[1]);
+    return items.map(item => [fmix32(fnv1a(attempt + ":" + key(item))), item]).sort((a, b) => a[0] - b[0] || (key(a[1]) < key(b[1]) ? -1 : 1)).map(x => x[1]);
   }
 
   function collector() {
@@ -108,6 +118,7 @@
       c.check(isList(f.sources, 12, f.grade === "U" ? 0 : 1) && f.sources.every(id => sources.has(id)), where, "cites unknown or no sources");
       c.check(DAY.test(f.reviewedAt || "") && isText(f.gameBuild, 80), where, "reviewedAt and gameBuild are required");
       c.check(f.recheck === undefined || isText(f.recheck, 300), where, "recheck is a reason");
+      c.check(f.supersededBy === undefined || (ID.test(f.supersededBy) && f.supersededBy !== f.id && isText(f.note, 400)), where, "supersededBy names another fact, and the note says what changed");
       if (f.grade === "A" && f.recheck === undefined) {
         c.check(f.sources.includes("talents-data") && (typeof f.talent === "string" || typeof f.tree === "string"), where, "a current grade-A fact names its talent or tree and cites talents-data");
       }
@@ -130,6 +141,7 @@
       if (!c.check(s && isText(s.text, 500) && (s.facts === undefined || isList(s.facts, 6)), where, "a step is {text, facts?}")) continue;
       const cited = (s.facts || []).map(id => facts.get(id));
       c.check(cited.every(Boolean), where, "a step cites an unknown fact");
+      c.check(!missingSuccessors(s.facts || [], facts).length, where, "step '" + s.text.slice(0, 50) + "' cites a superseded fact without " + missingSuccessors(s.facts || [], facts).join(", "));
       if (strict && cited.every(Boolean)) {
         c.check(numbersSupported(s.text, cited), where, "step '" + s.text.slice(0, 50) + "' states a number its facts do not hold");
         c.check(cited.every(f => f.grade !== "U" && !f.recheck), where, "a step cites an unavailable or re-check fact");
@@ -138,6 +150,7 @@
     for (const m of p.mistakes) {
       if (!c.check(m && isText(m.mistake, 300) && isText(m.fix, 500) && isList(m.facts, 6, 1), where, "a mistake is {mistake, fix, facts[1..6]}")) continue;
       const cited = m.facts.map(id => facts.get(id));
+      c.check(!missingSuccessors(m.facts, facts).length, where, "mistake '" + m.mistake.slice(0, 50) + "' cites a superseded fact without " + missingSuccessors(m.facts, facts).join(", "));
       if (c.check(cited.every(Boolean), where, "a mistake cites an unknown fact")) {
         c.check(numbersSupported(m.mistake + " " + m.fix, cited), where, "mistake '" + m.mistake.slice(0, 50) + "' states a number its facts do not hold");
         c.check(cited.every(f => f.grade !== "U" && !f.recheck), where, "a mistake cites an unavailable or re-check fact");
@@ -169,6 +182,7 @@
       c.check(at >= last, w, "chapters must follow the section order " + SECTIONS.map(s => s[0]).join(" > "));
       last = Math.max(last, at); covered.add(ch.section);
       c.check(isList(ch.theory, 16) && ch.theory.every(id => facts.has(id)), w, "theory lists known fact ids");
+      c.check(!isList(ch.theory, 16) || !missingSuccessors(ch.theory, facts).length, w, "theory lists a superseded fact without " + (isList(ch.theory, 16) ? missingSuccessors(ch.theory, facts).join(", ") : ""));
       c.check(ch.presets === undefined || (isList(ch.presets, 4, 1) && ch.presets.every(id => ctx.presets.has(id) && ctx.presets.get(id).classId === ctx.classId)), w, "presets must be this class's presets");
       if (ch.unavailable !== undefined) {
         c.check(isText(ch.unavailable, 400), w, "unavailable is the reason");
@@ -197,10 +211,17 @@
     if (!c.check(tracks && TRACKS.every(([t]) => tracks[t]) && Object.keys(tracks).length === 3, where, "tracks 101, 201 and 301 are required")) return;
     for (const [t] of TRACKS) validateTrack(tracks[t], t, c, where + " " + t, facts, ctx);
   }
-  function validateOverview(o, c, where, facts) {
+  function validateOverview(o, c, where, facts, strict) {
     if (!c.check(o && isText(o.lead, 500) && isList(o.points, 8) && isList(o.facts, 12), where, "overview is {lead, points, facts}")) return;
     c.check(o.points.every(p => p && isText(p.text, 500) && (p.facts === undefined || p.facts.every(id => facts.has(id)))), where, "overview points are {text, facts?}");
     c.check(o.facts.every(id => facts.has(id)), where, "overview cites unknown facts");
+    c.check(!missingSuccessors(o.facts, facts).length && o.points.every(p => !p || !p.facts || !missingSuccessors(p.facts, facts).length), where, "overview cites a superseded fact without the fact that supersedes it");
+    // In a complete guide every overview point is a claim like any praxis step: it cites a fact and states only its numbers
+    // (review, 12 Nov 2026, after uncited partner and scope lines on the profession pages).
+    if (strict) for (const p of o.points) if (p && isText(p.text, 500)) {
+      const cited = (p.facts || []).map(id => facts.get(id));
+      if (c.check(cited.length >= 1 && cited.every(Boolean), where, "point '" + p.text.slice(0, 50) + "' cites no fact")) c.check(numbersSupported(p.text, cited), where, "point '" + p.text.slice(0, 50) + "' states a number its facts do not hold");
+    }
   }
 
   function validateGuide(guide, c, facts, ctx) {
@@ -214,13 +235,13 @@
     c.check(guide.heldBack === undefined || (isList(guide.heldBack, 60) && guide.heldBack.every(x => x && isText(x.from, 200) && isText(x.text, 500) && isText(x.reason, 300))), where, "heldBack is [{from, text, reason}]");
     c.check(guide.pairsWith === undefined || (kind === "profession" && isList(guide.pairsWith, 3) && guide.pairsWith.every(k => SLUG.test(k))), where, "pairsWith lists profession keys");
     const base = { status: guide.status, chapters: ctx.chapters, presets: ctx.presets, classId: kind === "class" ? id : null };
-    validateOverview(guide.overview, c, where + " overview", facts);
+    validateOverview(guide.overview, c, where + " overview", facts, guide.status === "complete");
     validateTracks(guide.tracks, c, where, facts, { ...base, scope: kind + ":" + id });
     if (kind === "class") {
       if (!c.check(isList(guide.specs, 3, 3), where, "a class has three specs")) return;
       for (const s of guide.specs) {
         if (!c.check(s && SLUG.test(s.id) && isText(s.name, 40) && isList(s.roles, 2, 1), where + " spec", "spec header")) continue;
-        validateOverview(s.overview, c, where + " " + s.id + " overview", facts);
+        validateOverview(s.overview, c, where + " " + s.id + " overview", facts, guide.status === "complete");
         validateTracks(s.tracks, c, where + " " + s.id, facts, { ...base, scope: "spec:" + id + "-" + s.id });
       }
     }
@@ -251,6 +272,7 @@
       if (!c.check(cited.every(Boolean), where, "cites an unknown fact")) continue;
       c.check(cited.every(f => f.grade !== "U" && f.value !== null), where, "cites an unavailable (grade U) fact");
       c.check(cited.every(f => !f.recheck), where, "cites a fact marked for re-check");
+      c.check(!missingSuccessors(q.facts, facts).length, where, "cites a superseded fact without " + missingSuccessors(q.facts, facts).join(", "));
       if (cited.some(f => f.grade === "D" || f.grade === "E")) c.check(CLASSIC_STEM.test(q.stem), where, "a question on a Classic reference fact must start 'In Classic 1.12'");
       c.check(supports(q.choices[q.answer], cited), where, "answer '" + q.choices[q.answer] + "' is not found in its cited facts");
       const siblings = (q.distractorFacts || []).map(id => facts.get(id));
@@ -273,6 +295,11 @@
     const sources = validateSources(bundle.sources, c);
     const facts = new Map();
     for (const doc of bundle.factFiles || []) validateFactFile(doc, c, sources, facts, extra.talents);
+    for (const f of facts.values()) {
+      if (f.supersededBy === undefined) continue;
+      const by = facts.get(f.supersededBy);
+      c.check(by && by.grade !== "U" && !by.supersededBy && !by.recheck, "fact " + f.id, "supersededBy " + f.supersededBy + " must be a loaded, current fact");
+    }
     const presets = new Map();
     if (bundle.presets !== undefined) {
       if (c.check(bundle.presets && bundle.presets.schema === "olympus-university-presets-v1" && isList(bundle.presets.presets, 120), "presets.json", "schema")) {

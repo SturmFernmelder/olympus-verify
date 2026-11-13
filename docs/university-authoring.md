@@ -67,6 +67,7 @@ All files are UTF-8 JSON. Text fields have no leading or trailing spaces. Ids ar
 | `sources` | 1 to 12 ids from `sources.json` (0 allowed for grade U) |
 | `reviewedAt`, `gameBuild` | The day you checked it and the build or notes it describes |
 | `recheck` | Set by the migration on every grade-A claim checked against the 16 October talent data. A re-check fact is shown with a "Needs re-check" note, **cannot be quizzed** and cannot appear in a complete guide. Re-check it against the 10 November data (`talents/data.json`), then either remove `recheck`, set `sources` to `["talents-data"]`, add `talent` or `tree`, and set `gameBuild` to `1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)`, or rewrite the value to what the data now says |
+| `supersededBy` | Optional: the id of a current fact (usually grade B) that a newer source gives instead, with a `note` saying what changed. `build/generate-talent-facts.cjs` sets it on talent facts whose 10 November text is older than Blizzard's 2 November notes (its `SUPERSEDED` list: Mental Dexterity and Stormstrike). Wherever such a fact is cited (theory, a step, a mistake, an overview point or a question), the fact that supersedes it must be cited beside it, and no value question is generated for it |
 | `talent` / `tree` | For grade A: the talent id (or the `class-tree` id) in `talents/data.json`. The build checks that every number in the value occurs in that talent's current rank text or cost |
 
 Grade D and E facts must say they are Classic references in the label, value, note or `gameBuild`.
@@ -130,7 +131,9 @@ For every available chapter of a `complete` guide:
 3. at least one mistake with its fix, each citing one to six facts;
 4. at least one quiz question in the chapter, unless it has a `noQuiz` reason.
 
-Every number written in a step, a mistake or a fix must occur in a fact that step cites. A step with no number may cite nothing, but cite the fact whenever the step states a game mechanic. Steps and mistakes may not cite grade-U or re-check facts.
+Every overview point of a `complete` guide cites at least one fact, like a step. Do not repeat a partner profession or a scope note as a point: the page shows `pairsWith` and the index's scope note itself.
+
+Every number written in a step, a mistake, a fix or an overview point must occur in a fact that line cites (the version label "Classic 1.12" is not counted as a number). A step with no number may cite nothing, but cite the fact whenever the step states a game mechanic. Steps and mistakes may not cite grade-U or re-check facts.
 
 ### 3.5 Question (`quizzes/<file>.json`)
 
@@ -150,7 +153,7 @@ Every number written in a step, a mistake or a fix must occur in a fact that ste
 | `scope` | `class:<class>`, `spec:<class>-<spec>`, `race:<race>` or `profession:<key>` |
 | `tier`, `chapter` | The chapter must exist in that scope and tier and must be available |
 | `type` | `mcq` or `scenario` (a short situation, then the question) |
-| `choices`, `answer` | 2 to 5 distinct choices; `answer` is the index of the right one. Write the right one first: the page shuffles them per attempt |
+| `choices`, `answer` | 2 to 5 distinct choices; `answer` is the index of the right one. Write the right one first: the page orders them per attempt with a fixed hash (`validate.js` `order()`: FNV-1a over the attempt and the id, then a 32-bit finaliser), so each attempt is repeatable and a new attempt brings a new order and, in exams and chapter quizzes, a new set of questions |
 | `facts` | 1 to 6 cited facts: no grade U, no re-check |
 | `distractorFacts` | Optional sibling facts (same `topic` as a cited fact, not cited themselves) that hold the wrong answers |
 | `explanation` | Says why the answer is right, and where useful what the wrong choices are |
@@ -205,10 +208,11 @@ Run from the repository root with Node 24.
 ```bash
 node worker/public/static/university/build/validate.cjs          # everything; prints a size table
 node worker/public/static/university/build/validate.cjs --quiet  # errors only
+node worker/public/static/university/build/validate.cjs --write-exams  # rewrite index.json's exam lists and chapter counts
 cd worker && node tests/evergreen1112_guides_test.cjs            # the lane test: rules, renderer, routes, privacy
 ```
 
-`build/validate.cjs` runs the page's own rules over every file at once (ids, the honesty rules, the chapter rules), then once per guide with only the files that guide lists, as the page loads them. It also checks the talent facts against `talents/data.json`, the presets against `guides218.json`, the generated files against their generator, and that every file is listed in `index.json`. A guide the page cannot validate is not shown at all, so never commit with an error.
+`build/validate.cjs` runs the page's own rules over every file at once (ids, the honesty rules, the chapter rules), then once per guide with only the files that guide lists, as the page loads them. It also checks the talent facts against `talents/data.json`, the presets against `guides218.json`, the generated files against their generator, and that every file is listed in `index.json`. It fails when `index.json`'s exam lists or chapter counts (the hub's "N chapters are written" line) are stale: after adding or changing chapters or questions, run it with `--write-exams`. A guide the page cannot validate is not shown at all, so never commit with an error.
 
 ### 5.1 Promote a guide
 

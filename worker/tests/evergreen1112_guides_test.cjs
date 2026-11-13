@@ -340,7 +340,30 @@ check('renderer: the mastery exam draws a fixed set per attempt, grades on submi
   const next = await open(['exam', 'spec-warrior-arms', '101'], undefined, x => x.store.set(KEY, JSON.stringify({ v: 1, q: {}, best: {}, x: { 'spec:warrior-arms:101': 1 } })));
   const nextIds = next.container.querySelectorAll('fieldset').map(b => b.getAttribute('data-question'));
   return ids.length === 10 && JSON.stringify(ids) === JSON.stringify(again) && best === 100 && /10 of 10 \(100%\)/.test(text(p.container.querySelector('div[role="status"]')))
-    && JSON.stringify(nextIds) !== JSON.stringify(ids) || JSON.stringify({ n: ids.length, best });
+    && JSON.stringify(nextIds) !== JSON.stringify(ids) && JSON.stringify([...nextIds].sort()) !== JSON.stringify([...ids].sort()) || JSON.stringify({ n: ids.length, best, ids, nextIds });
+});
+// Review of 12 Nov 2026: "Take a new exam" and "New set of questions" must bring new questions, not the same set reordered.
+check('a new attempt draws a different set of questions, and ten attempts reach most of every exam and chapter pool', () => {
+  const R = rules(), ix = json(uni, 'index.json'), bad = [];
+  let pool = 0, reached = 0, choiceStuck = 0, questions = 0;
+  for (const g of ix.guides.filter(x => x.file)) {
+    const guide = json(uni, g.file), qs = guide.quizFiles.flatMap(f => json(uni, 'quizzes', f + '.json').questions);
+    for (const x of g.exams || []) {
+      const p = R.examPool(qs, x.scope, x.tier, g.kind === 'class' ? g.id : null);
+      if (p.length <= 10) continue;
+      const draw = a => R.order(p, q => q.id, a).slice(0, 10).map(q => q.id).sort().join();
+      if (draw(0) === draw(1)) bad.push(x.scope + ':' + x.tier + ' attempt 1 = attempt 0');
+      const all = new Set(); for (let a = 0; a < 10; a++) R.order(p, q => q.id, a).slice(0, 10).forEach(q => all.add(q.id));
+      pool += p.length; reached += all.size;
+    }
+    const byChapter = new Map(); for (const q of qs) { if (!byChapter.has(q.chapter)) byChapter.set(q.chapter, []); byChapter.get(q.chapter).push(q); }
+    for (const [id, p] of byChapter) if (p.length > 5) {
+      const draw = a => R.order(p, q => q.id, a).slice(0, 5).map(q => q.id).sort().join();
+      if ([1, 2, 3].every(a => draw(a) === draw(0))) bad.push(id + ' chapter quiz never changes');
+    }
+    for (const q of qs) { questions++; const seen = new Set(); for (let a = 0; a < 10; a++) seen.add(R.order(q.choices.map((t, i) => i), i => q.id + ':' + i, a).join()); if (seen.size === 1) choiceStuck++; }
+  }
+  return bad.length === 0 && reached >= 0.85 * pool && choiceStuck === 0 || JSON.stringify({ bad: bad.slice(0, 6), nBad: bad.length, pool, reached, choiceStuck, questions });
 });
 check('renderer: "Export my scores" shows the stored JSON and "Clear my scores" (confirmed) removes the key', async () => {
   const p = await open([], undefined, x => x.store.set(KEY, JSON.stringify({ v: 1, q: { 'class-warrior.affray': { a: 2, c: 1 } }, best: { 'class:warrior:101': 80 }, x: {} })));
@@ -376,7 +399,7 @@ check('renderer: every .218 class, spec and profession link and every race opens
 });
 check('renderer: an unwritten race says so, and an unknown guide or chapter is refused', async () => {
   // Every race is written now; a planned index entry must still render "not written yet" and load no course file.
-  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; x.files.set('index.json', ix); };
+  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
   const a = await open(['race', 'dwarf'], undefined, planned), b = await open(['class', 'warrior', 'nope']), c = await open(['class', 'warrior', 'arms', '101', 'missing-chapter']), d = await open(['race', 'orc']);
   return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1 && [b, c, d].every(x => /There is no such guide\./.test(x.container.textContent));
 });
@@ -395,6 +418,89 @@ check('renderer: presets show "Talent build" (not "Beta snapshot build") with At
   const p = await open(['class', 'warrior', 'fury', '201']);
   const cards = p.container.querySelectorAll('article[data-preset]');
   return cards.length >= 1 && cards.every(c => /Talent build · Level/.test(c.textContent) && !/Beta snapshot/.test(c.textContent) && c.querySelectorAll('button').some(b => text(b) === 'Attach to my application'));
+});
+
+// ---------- Review repairs (12 Nov 2026): two reviewers' content and behaviour findings on the lane ----------
+const allFacts = () => new Map(listJson('facts').flatMap(d => d.facts.map(f => [f.id, { ...(d.defaults || {}), ...f }])));
+const guideFiles = () => ['courses', 'races', 'professions'].flatMap(d => fs.readdirSync(path.join(uni, d)).filter(f => f.endsWith('.json')).map(f => json(uni, d, f)));
+const chaptersOf = g => [g, ...(g.specs || [])].flatMap(o => ['101', '201', '301'].flatMap(t => o.tracks[t].chapters));
+check('review: talent facts the 2 Nov notes overtook carry the note and their successor, get no value question, and are never cited alone', () => {
+  const F = allFacts(), Q = quizzes(), bad = [];
+  for (const id of ['talents-shaman.enhancement-mental-dexterity.r1', 'talents-shaman.enhancement-mental-dexterity.r3', 'talents-shaman.enhancement-stormstrike', 'talents-shaman.enhancement-stormstrike.r1']) {
+    const f = F.get(id);
+    if (!f || !f.supersededBy || !/2 Nov notes/.test(f.note || '') || !F.get(f.supersededBy) || F.get(f.supersededBy).grade !== 'B') bad.push(id);
+  }
+  if (Q.has('talents-shaman.enhancement-mental-dexterity.value')) bad.push('value question still generated');
+  const step = chaptersOf(json(uni, 'courses/shaman.json')).find(c => c.id === 'shaman-enhancement-101-talents').praxis.steps.find(s => /Mental Dexterity/.test(s.text) && /Intellect/.test(s.text));
+  if (!/50%, 100% or 150%/.test(step.text) || !/check the tooltip in game/.test(step.text)) bad.push('101 step: ' + step.text);
+  for (const q of Q.values()) if (q.facts.some(id => F.get(id) && F.get(id).supersededBy && !q.facts.includes(F.get(id).supersededBy))) bad.push(q.id);
+  return bad.length === 0 || bad.join('; ');
+});
+check('review: the validator refuses a question that cites a superseded fact without the fact that supersedes it', refused(({ bundle, quiz }) => {
+  const q = quiz.questions.find(x => x.facts.some(id => id.startsWith('talents-warrior.')));
+  const f = bundle.factFiles.find(d => d.file === 'talents-warrior').facts.find(x => q.facts.includes(x.id));
+  f.supersededBy = 'class-warrior.flask-rule'; f.note = 'Superseded in a test.';
+}, /cites a superseded fact without class-warrior\.flask-rule/));
+check('review: no generated value question shows its own answer elsewhere in the quoted text (Spirit Tap)', () => {
+  const bad = listJson('quizzes').flatMap(d => d.questions).filter(q => q.generated && /\.value$/.test(q.id))
+    .filter(q => { const quoted = (/“([^”]*)”/.exec(q.stem) || [, ''])[1].replace('___', ''); return (quoted.match(/\d+(?:\.\d+)?%?/g) || []).includes(q.choices[q.answer]); });
+  return !quizzes().has('talents-priest.shadow-spirit-tap.value') && bad.length === 0 || bad.map(q => q.id).join(', ');
+});
+check('review: preset rationales hold no ungraded claim the courses held back (Dual Specialization, Smite base damage, Warcraft Tavern advice)', () => {
+  const g = json(stat, 'guides218.json'), bad = [];
+  for (const p of g.presets) for (const w of p.why) if (/Dual Specialization|base damage in the client data|Warcraft Tavern/.test(w)) bad.push(p.id + ': ' + w.slice(0, 60));
+  const copies = fs.readdirSync(path.join(uni, 'presets')).every(f => JSON.stringify(json(uni, 'presets', f).presets) === JSON.stringify(g.presets.filter(p => p.classId === f.replace('.json', ''))));
+  return bad.length === 0 && copies || JSON.stringify({ bad, copies });
+});
+check('review: the Skyborne Read Leyline and Skysight chapter is written from the 26 Oct notes and has a quiz', () => {
+  const F = allFacts(), sky = json(uni, 'races/skyborne.json'), ch = chaptersOf(sky).find(c => c.id === 'skyborne-101-other-racials');
+  const ids = ['race-skyborne.read-leyline', 'race-skyborne.attuned', 'race-skyborne.skysight', 'race-skyborne.charged'];
+  const facts = ids.map(id => F.get(id));
+  const qs = [...quizzes().values()].filter(q => q.chapter === 'skyborne-101-other-racials');
+  return ch && ch.unavailable === undefined && ids.every(id => ch.theory.includes(id)) && facts.every(f => f && f.grade === 'B' && f.sources.includes('g218-50'))
+    && /50%/.test(facts[0].value) && /100%/.test(facts[1].value) && /15%/.test(facts[2].value) && /30%/.test(facts[3].value) && qs.length >= 2
+    && !/Read Ley Line/.test(JSON.stringify(chaptersOf(sky)) + JSON.stringify(sky.overview)) || JSON.stringify({ ch: ch && ch.unavailable, qs: qs.length });
+});
+check('review: Warrior steps say only what their facts hold (dual-wield miss line gone, PvP steps cite the Hunter facts, hit cap not "expertise")', () => {
+  const w = json(uni, 'courses/warrior.json'), all = chaptersOf(w), F = allFacts();
+  const dw = all.find(c => c.id === 'warrior-fury-101-dual-wield').praxis.steps[0].text;
+  const pvp = all.find(c => c.id === 'warrior-arms-201-pvp').praxis.steps;
+  const hunter = pvp.find(s => /^Against Hunters/.test(s.text)).facts, rogue = pvp.find(s => /^Against Rogues/.test(s.text)).facts;
+  return !/miss more often/.test(dw) && ['class-hunter.change-8', 'class-hunter.change-3'].every(id => hunter.includes(id)) && rogue.includes('class-hunter.vs-rogue-sap-distract')
+    && !/expertise cap/i.test(JSON.stringify(all.map(c => [c.title, c.praxis]))) && F.get('class-warrior.hit-and-expertise-caps').label === 'Hit cap' || JSON.stringify({ dw, hunter, rogue });
+});
+check('review: the validator refuses an overview point with no fact (profession partner and scope lines)', refused(({ guide }) => { guide.overview.points.push({ text: 'Mining supplies most of the materials.' }); }, /cites no fact/));
+check('review: profession pages drop the uncited partner and scope lines, and the Alchemy fix no longer contradicts its unknown', () => {
+  const al = json(uni, 'professions/alchemy.json'), text = guideFiles().filter(g => g.kind === 'profession').map(g => JSON.stringify(g.overview)).join(' ');
+  const fix = chaptersOf(al).flatMap(c => (c.praxis && c.praxis.mistakes) || []).find(m => /Scholomance/.test(m.mistake)).fix;
+  return !/usual partner|supplies the leather|supplies most of the materials|come from Blizzard posts, the beta/.test(text) && /not known yet/.test(fix) && !/removes the need/.test(fix) || fix;
+});
+check('review: Champion of the Light is taught with the 2 Nov values, and explanations cite the facts they state', () => {
+  const F = allFacts(), c = F.get('class-paladin.champion-of-the-light'), Q = quizzes();
+  return /12%, 24%, 36%, 48% or 60%/.test(c.value) && c.sources.includes('g218-150') && /10\/20\/30%/.test(c.note || '')
+    && ['profession-blacksmithing.stones-with-poisons', 'profession-blacksmithing.stones-with-imbues'].every(id => Q.get('profession-blacksmithing.windfury-source').facts.includes(id))
+    && Q.get('class-shaman.farseer-personal').facts.includes('class-shaman.no-bloodlust') || JSON.stringify(c);
+});
+check('review: the Gnome guide teaches Eureka! on Power Word: Shield from the 16 Oct notes', () => {
+  const F = allFacts(), f = F.get('common.racial-gnome-eureka-shield'), g = json(uni, 'races/gnome.json');
+  const ch = chaptersOf(g).find(c => c.id === 'gnome-101-priest');
+  return f && f.grade === 'B' && f.sources.includes('g218-49') && ch.theory.includes(f.id) && ch.praxis.steps.some(s => (s.facts || []).includes(f.id))
+    && !g.heldBack.some(h => /no reviewed fact says Eureka! covers Power Word: Shield/.test(h.reason));
+});
+check('renderer: a track states each omission reason once, preset chapters carry no duplicate "check in game" step, and race leads open with their facts', async () => {
+  const human = await open(['race', 'human', '201']), arms = await open(['class', 'warrior', 'arms', '301']);
+  const counts = p => { const s = p.container.querySelectorAll('section').find(x => /Intermediate|Advanced/.test(text(x.querySelector('h2')))); const seen = new Map(); for (const li of s.querySelectorAll('li')) { const t = text(li).replace(/^[^:]*: /, ''); seen.set(t, (seen.get(t) || 0) + 1); } return [...seen.values()].every(n => n === 1); };
+  const dup = guideFiles().flatMap(chaptersOf).filter(c => c.presets && c.praxis && c.praxis.steps.some(s => /^Open the build in the talent calculator/.test(s.text))).map(c => c.id);
+  const leads = guideFiles().filter(g => g.kind === 'race').filter(g => /one of the five Alliance races/.test(g.overview.lead)).map(g => g.id);
+  return counts(human) && counts(arms) && dup.length === 0 && leads.length === 0 || JSON.stringify({ dup, leads });
+});
+check('renderer: the hub says how many chapters are written and waiting, computed from the index, and claims no more', async () => {
+  const ix = json(uni, 'index.json'), p = await open([]);
+  const written = ix.guides.reduce((n, g) => n + (g.chapters ? g.chapters.written : 0), 0), waiting = ix.guides.reduce((n, g) => n + (g.chapters ? g.chapters.waiting.reduce((a, b) => a + b, 0) : 0), 0);
+  const status = text(p.container.querySelector('p.uni-hub-status')), lead = text(p.container.querySelector('p.uni-lead'));
+  const real = guideFiles().flatMap(chaptersOf), realWaiting = real.filter(c => c.unavailable !== undefined).length;
+  return status.includes(written + ' chapters are written') && status.includes(waiting + ' chapters are not available yet') && waiting === realWaiting && written === real.length - realWaiting
+    && !/Every course below has|Every chapter pairs Theory with Praxis and ends with a quiz/.test(p.container.textContent) && /Each written chapter pairs Theory with Praxis/.test(lead) || JSON.stringify({ status, lead });
 });
 
 (async () => {

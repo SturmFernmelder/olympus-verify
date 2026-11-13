@@ -93,8 +93,18 @@ for (const { entry, guide } of guides) {
     if (process.argv.includes("--write-exams")) { entry.exams = want; examsChanged = true; }
     else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run build/validate.cjs --write-exams)");
   }
+  // Chapter counts for the hub's status line (review, 12 Nov 2026: the hub must say what the courses hold, not more):
+  // written chapters, and the chapters not available yet per track 101, 201, 301.
+  const counts = { written: 0, waiting: [0, 0, 0] };
+  for (const owner of [guide, ...(guide.specs || [])]) rules.TRACKS.forEach(([tier], i) => {
+    for (const ch of ((owner.tracks || {})[tier] || { chapters: [] }).chapters) { if (ch.unavailable !== undefined) counts.waiting[i]++; else counts.written++; }
+  });
+  if (JSON.stringify(entry.chapters) !== JSON.stringify(counts)) {
+    if (process.argv.includes("--write-exams")) { entry.chapters = counts; examsChanged = true; }
+    else errors.push("index " + entry.kind + " " + entry.id + ": chapter counts are out of date (run build/validate.cjs --write-exams)");
+  }
 }
-if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists rewritten"); }
+if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists and chapter counts rewritten"); }
 
 // Quiz questions must belong to a guide that lists their file.
 for (const doc of quizFiles) if (!guides.some(x => x.guide.quizFiles.includes(doc.file))) errors.push("quizzes/" + doc.file + ".json: no guide lists it in quizFiles");
