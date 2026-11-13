@@ -10,7 +10,7 @@
 // Each check prints PASS or FAIL; the exit code is the number of failures, so the same file run with --source pointing
 // at the base (b631136) lists what was missing there.
 //
-//   node tests/evergreen1112_cal_test.cjs [--source <worktree>] [--counts <file.json>] [--url http://127.0.0.1:63681 --cdp 63682 --profile <dir>]
+//   node tests/evergreen1112_cal_test.cjs [--source <worktree>] [--counts <file.json>] [--url http://127.0.0.1:63681 --cdp 63682 --profile <dir> --report <file.json>] [--only page]
 const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process'), crypto = require('node:crypto');
 const args = Object.fromEntries(process.argv.slice(2).reduce((out, arg, i, all) => (arg.startsWith('--') ? [...out, [arg.slice(2), all[i + 1]]] : out), []));
 const SOURCE = path.resolve(args.source || path.join(__dirname, '..', '..'));
@@ -503,7 +503,7 @@ async function part2() {
 }
 
 (async () => {
-  try { await part1(); } catch (e) { check('setup', 'part 1 completed without an exception: ' + (e && e.stack || e), false); }
+  if (args.only !== 'page') try { await part1(); } catch (e) { check('setup', 'part 1 completed without an exception: ' + (e && e.stack || e), false); }
   if (URL0) { try { await part2(); } catch (e) { check('setup', 'part 2 completed without an exception: ' + (e && e.stack || e), false); } }
   console.log(`\n${failures} failure(s)`);
   process.exit(Math.min(failures, 99));

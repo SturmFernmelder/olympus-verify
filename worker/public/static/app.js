@@ -7113,6 +7113,7 @@
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
+      if (body && body.classList) body.classList.add("calendar-view"); // round 5: the calendar pages' phone target sizes (app.css, community .96 block)
       // .98: the organizer's pages live beside the member's (the Worker decides who may write; the page shows the refusal)
       if (parts[1] === "new") return organizerNewEvent(body);
       if (parts[1] && parts[2] === "edit") return organizerEditEvent(body, parts[1]);
