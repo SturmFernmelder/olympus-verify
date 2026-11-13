@@ -65,7 +65,11 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
    const statements=wires.slice(start,end).reduce((n,w)=>{try{const x=JSON.parse(w.requestBody);return n+(Array.isArray(x)?x.length:1);}catch{return n+1;}},0);
    const cooldown=(await db.prepare("SELECT value FROM site_settings WHERE key='role.managed.cooldown280'").first())?.value??null;
    const sweepFailed=(await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id").all()).results.map(r=>r.details);
-   return json({ok:true,rows,member,audits,cooldown,sweepFailed,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
+   // Round 5 final (13 Nov 2026): the ban cause the product binds into a refusal's mandate since Codex's 9a66048
+   // (role-settlements.ts removeBanRankRoles1112: the newest admin.ban and admin.unban audit ids of the subject), read
+   // after the measured statements like the rows above, so the driver can recompute the exact mandate.
+   const banCause=await db.prepare("SELECT (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?1) AS ban,(SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?1) AS unban").bind(subject).first();
+   return json({ok:true,rows,member,audits,cooldown,sweepFailed,banCause,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
   const command=async(sub,options)=>{const pending=[],defer=(label,work)=>{pending.push(Promise.resolve().then(work));};
    const interaction={type:2,id:'9'.repeat(18),token:'interaction-token-'+kind,application_id:env.DISCORD_APP_ID,guild_id:env.GUILD_ID,channel_id:'444444444444444444',member:{user:{id:ACTOR,username:'qualification-officer'},roles:[HIGH_COUNCIL]},
     data:{name:'olympus-admin',type:1,options:[{name:sub,type:1,options}]}};

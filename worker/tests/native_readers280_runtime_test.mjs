@@ -5,7 +5,7 @@ import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admissio
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
 import {strictRosterDisplay,STRICT_ROSTER_DISPLAY_PROTOCOL_V2} from '../src/unverified.ts';
 import {treasuryAfterMemberGate,currentLadder,officerRank} from '../src/site-treasury-access.ts';
-import {CANONICAL_GUILD233,CANONICAL_RANKS233,CANONICAL_PROFILE233} from '../src/canonical-ranks233.ts';
+import {CANONICAL_GUILD233,CANONICAL_RANKS233,CANONICAL_PROFILE233,NATIVE_NAMES233} from '../src/canonical-ranks233.ts';
 import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES,qualifiedNativeSnapshotSource,nativeSnapshotSource} from '../src/native-rank-schemes.ts';
 import * as oauth from '../src/privacy-serving-site-oauth.ts';
 import * as authority from '../src/privacy-serving-authority.ts';
@@ -30,7 +30,22 @@ export default {async fetch(request,bindings){const cases=[],check=(name,pass,ob
  for(let slot=0;slot<10;slot++){await env.DB.prepare('UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid=?3').bind(DIRECTIVE_RANK_NAMES[slot],slot,guid).run();const before=assets,result=await open();check('native slot '+slot+' Treasury '+(slot<5?'admitted':'refused'),slot<5?result.status===200&&result.body==='synthetic-private-plan'&&assets===before+1:result.status===403&&assets===before,result);}
  await env.DB.prepare("UPDATE roster_members SET rank='Officer',rank_index=2 WHERE guid=?1").bind(guid).run();
  for(const source of ['addon-native-v1:'+JSON.stringify(SCOPE),nativeSnapshotSource(SCOPE.guild,SCOPE.realm,null,[]),qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm+' OTHER')]){await setSource(source);const before=assets,result=await open();check('nonqualified Treasury source cannot confer rank access '+source.slice(0,35),result.status===403&&assets===before,result);}
- await setSource(qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm));env.CANONICAL_RANKS233=policy(CANONICAL_PROFILE233);check('historical canonical ladder does not become current Treasury native authority',currentLadder(env)===null);env.CANONICAL_RANKS233=policy();
+ // Round 5 final (13 Nov 2026, the agreed compatibility, authorised by Codex for this one check): the exact ORIGINAL
+ // policy still running in production (version 1, CANONICAL_PROFILE233) keeps its own ladder, NATIVE_NAMES233 on the
+ // configured scope's provenance source (site-treasury-access.ts currentLadder, case original233). It never borrows the
+ // Directive route: the qualified v2 source and Directive name/index pairs grant nothing under it (slot 0, Guild Master,
+ // is the same pair on both ladders and is left out of the pair list), and unknown, disabled, stale (an older profile)
+ // or mixed (profile and version from different ladders) policies give null.
+ await setSource(qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm));env.CANONICAL_RANKS233=policy(CANONICAL_PROFILE233);
+ {const original=currentLadder(env),provenance=captureLaunchVerification(env).scope?.provenance,raw=(version,profile,extra={})=>JSON.stringify({version,enabled:true,profile,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'})),...extra});
+  const v2Before=assets,onV2=await open();await setSource(provenance);const directiveBefore=assets,directiveOnOriginal=await open();
+  await env.DB.prepare("UPDATE roster_members SET rank='High Council',rank_index=2 WHERE guid=?1").bind(guid).run();const originalBefore=assets,originalPair=await open();
+  await env.DB.prepare("UPDATE roster_members SET rank='Officer',rank_index=2 WHERE guid=?1").bind(guid).run();await setSource(qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm));
+  const nulls=[raw(3,CANONICAL_PROFILE233),raw(1,'olympus-canonical-ranks-unknown-v1'),raw(1,CANONICAL_PROFILE233,{enabled:false}),raw(1,'olympus-prime-live-20261105-v1'),raw(2,CANONICAL_PROFILE233),raw(1,DIRECTIVE_CANONICAL_PROFILE)].map(p=>{env.CANONICAL_RANKS233=p;return currentLadder(env);});env.CANONICAL_RANKS233=policy(CANONICAL_PROFILE233);
+  check('historical canonical ladder does not become current Treasury native authority',original?.policy==='original233'&&JSON.stringify(original.names)===JSON.stringify(NATIVE_NAMES233)&&typeof provenance==='string'&&original.source===provenance&&original.source!==qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm)
+   &&onV2.status===403&&assets===v2Before+1&&directiveOnOriginal.status===403&&directiveBefore===v2Before&&originalPair.status===200&&originalPair.body==='synthetic-private-plan'&&originalBefore===v2Before
+   &&[1,2,3,4].every(slot=>!officerRank(DIRECTIVE_RANK_NAMES[slot],slot,original.names,original.policy))&&nulls.every(l=>l===null),{original,provenance,onV2,directiveOnOriginal,originalPair,nulls});}
+ env.CANONICAL_RANKS233=policy();
  for(const mutation of [{rank:'Officer',index:3},{rank:'Stewart',index:1},{rank:'Treasurer',index:2}]){await env.DB.prepare('UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid=?3').bind(mutation.rank,mutation.index,guid).run();const before=assets,result=await open();check('mismatched or deprecated native rank is refused '+mutation.rank+':'+mutation.index,result.status===403&&assets===before,result);}
  await env.DB.prepare("UPDATE roster_members SET rank='Officer',rank_index=2 WHERE guid=?1").bind(guid).run();
  for(const change of ["trusted=0","complete=0","member_count=3","exported_at="+(now()+60),"exported_at="+(now()-86400)]){await env.DB.prepare('UPDATE roster_snapshots SET '+change+' WHERE id=1').run();const before=assets,result=await open();check('invalid latest native snapshot refuses plan '+change,result.status===403&&assets===before,result);await env.DB.prepare('UPDATE roster_snapshots SET trusted=1,complete=1,member_count=2,exported_at=?1 WHERE id=1').bind(t-1).run();}
