@@ -10,13 +10,13 @@ local function fixture(member)
   e.NOW=1794312000;e.time=function()return e.NOW end
   e.OlympusVerifyConfig={secret="synthetic-status267-not-production"}
   e.OlympusVerifyDB={boots=1};e.OlympusDB={pendingRoleUpdates={}}
-  e.GetGuildInfo=function()return "OLYMPUS PRIME",member and "Member" or "Officer",member and 8 or 1 end
+  e.GetGuildInfo=function()return "OLYMPUS PRIME",member and "Member" or "Officer",member and 7 or 1 end
   e.GetRealmName=function()return "Synthetic Native Realm" end;e.IsInGuild=function()return true end
   e.UnitGUID=function()return member and "Player-1-1111ABCD" or "Player-1-2222ABCD" end
   e.GetUnitName=function()return x.me end
   e.GetNumGuildMembers=function()return 2 end
   e.GetGuildRosterInfo=function(i)
-    return i==1 and "Fern Melder" or "Self Member",nil,i==1 and 0 or 8,60,"Paladin",nil,nil,nil,true,nil,nil,nil,nil,nil,nil,nil,i==1 and "Player-1-2222ABCD" or "Player-1-1111ABCD"
+    return i==1 and "Fern Melder" or "Self Member",nil,i==1 and 0 or 7,60,"Paladin",nil,nil,nil,true,nil,nil,nil,nil,nil,nil,nil,i==1 and "Player-1-2222ABCD" or "Player-1-1111ABCD"
   end
   e.C_Timer={After=function()end,NewTicker=function()return {}end}
   e.C_ChatInfo={RegisterAddonMessagePrefix=function()end,SendAddonMessage=function()x.messages=x.messages+1 end}
@@ -24,13 +24,14 @@ local function fixture(member)
   e.OlympusVerifyAutoSync={Request=function()end}
   e.OlympusBridge={RegisterSection=function(name,version,exporter)x.registration={name=name,version=version,exporter=exporter};return true end}
   setfenv(assert(loadfile("../OlympusVerify/Libs/OlympusHmac.lua")),e)("OlympusVerify")
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua")),e)("OlympusVerify")
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLive242.lua")),e)("OlympusVerify")
   x.v=e.OlympusVerifyLive242;x.event=function(event,...)x.frames[1]:GetScript("OnEvent")(x.frames[1],event,...)end
   x.event("PLAYER_LOGIN")
   x.d=e.OlympusVerifyDB.intake242
   x.queue=function(at,character)
     return x.v.Queue({type="verify",character=character or x.me,guid=e.UnitGUID("player"),requestedAt=at or e.NOW,
-      requestedBy=character or x.me,code="PRIVATE-CODE-CANARY",nativeMembership={mac="PRIVATE-MAC-CANARY"},donation={note="PRIVATE-NOTE-CANARY"}})
+      requestedBy=character or x.me,code="PRIVATE-CODE-CANARY",nativeMembership={mac="PRIVATE-MAC-CANARY"}})
   end
   x.ack=function(row,status)
     local a={id=row.id,character=row.character,guid=row.guid,status=status,observedAt=e.NOW,expiresAt=e.NOW+300}
@@ -95,6 +96,7 @@ do
 end
 do
   local x=fixture(true)
+  x.event("GUILD_ROSTER_UPDATE") -- original dispatch requires a fresh unique native collector
   check("existing QueueSelf boolean contract is retained",x.v.QueueSelf("ABCD234")==true)
   local row;for _,r in pairs(x.d.entries)do row=r end
   local sent=x.d.bridgeOutbound242[row.id];local h=x.e.OlympusHmac
@@ -109,13 +111,32 @@ do
   check("delivery receipt cannot follow an edited original body",x.v.BridgeStatus().requests[1].deliveryState=="unknown")
 end
 do
-  local x=fixture();local original=string.rep("a",24)
-  local row=x.v.Queue({id=original,type="donation",character=x.me,guid=x.e.UnitGUID("player"),requestedAt=x.e.NOW,donation={note="PRIVATE-NOTE-CANARY"}})
+  local x=fixture();local e=x.e;local wallet=10000
+  local collectorGuid=e.UnitGUID("player")
+  e.OlympusVerifyAPI.TreasuryTransport.Guid=function()return collectorGuid end
+  e.GetMoney=function()return wallet end;e.GetTargetTradeMoney=function()return 100 end;e.GetPlayerTradeMoney=function()return 0 end
+  e.GetUnitName=function(unit)return unit=="player"and x.me or "Native Donor"end
+  e.UnitGUID=function(unit)return unit=="npc"and "Player-1-3333ABCD"or collectorGuid end
+  e.ERR_TRADE_COMPLETE="Trade complete."
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyTreasury.lua")),e)("OlympusVerify")
+  local treasury;for _,frame in ipairs(x.frames)do if frame._events and frame._events.TRADE_SHOW then treasury=frame end end
+  assert(treasury,"actual Treasury event frame must be registered")
+  local function native(event,...)treasury:GetScript("OnEvent")(treasury,event,...)end
+  native("PLAYER_LOGIN");native("TRADE_SHOW")
+  check("current native financial producer accepts the reference",e.OlympusVerifyTreasury.SetTradeReference280("TITHE-ABCD-EFGH"))
+  native("TRADE_ACCEPT_UPDATE",1,1);wallet=wallet+100;native("UI_INFO_MESSAGE",1,"Trade complete.");native("PLAYER_MONEY")
+  local receipt=e.OlympusVerifyDB.treasury.receipts[1];local original=receipt and receipt.id
+  local row=original and x.d.entries[original]
+  check("current24hex financial original retains its native source and MAC",row and #original==24 and row.source=="tithe-gold-v2"and row.evidence.mac==receipt.mac and #receipt.mac==32 and row.donation.note==nil)
   local s=x.v.BridgeStatus()
   check("existing24hex Treasury IDs remain visible through opaque projection",#s.requests==1 and #s.requests[1].id==32 and s.requests[1].type=="donation"and s.requests[1].deliveryState=="pending")
   x.ack(row,"done");s=x.v.BridgeStatus()
-  check("recognized legacy receipt ACK preserves its original ID and delivery",row.id==original and x.d.entries[original]==row and s.requests[1].deliveryState=="delivered")
+  check("recognized current receipt ACK preserves its original ID and delivery",row.id==original and x.d.entries[original]==row and s.requests[1].deliveryState=="delivered")
   assertPublic(s)
+  local retired={id=string.rep("a",24),type="donation",source="mail",character=x.me,guid=collectorGuid,requestedAt=e.NOW,status="outcome_unknown",donation={note="PRIVATE-NOTE-CANARY"}}
+  check("retired generic donation cannot become new custody",x.v.Queue(retired)==nil and x.d.entries[retired.id]==nil)
+  x.ack(retired,"done")
+  check("signed receipt cannot adopt an unadmitted retired original",x.d.entries[retired.id]==nil and x.d.acknowledgements[retired.id]==nil and retired.status=="outcome_unknown")
   local other=x.v.Queue({id="legacy:receipt.42",type="role",character=x.me,requestedAt=x.e.NOW+1,status="done"});other.status="done"
   s=x.v.BridgeStatus()
   check("other admitted ID families expose no raw identifier or invented delivery",#s.requests==2 and #s.requests[1].id==32 and s.requests[1].id~=other.id and s.requests[1].deliveryState=="unknown")

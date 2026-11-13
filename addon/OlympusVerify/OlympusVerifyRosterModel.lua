@@ -72,6 +72,21 @@ local function sourceRows(rows, maximum, byGuid, counts, risk)
   return count
 end
 
+-- A different completed selected read may supersede discovery without holding
+-- an unrelated GUID's deliberate read. This never supplies action authority.
+local function UnrelatedReadContext(current)
+  local selection=current and current.selection
+  local source=OlympusLaunchQueue
+  if not current or not current.actionHeld or type(selection)~="table" or selection.completed~=true
+    or type(selection.covered)~="table" or type(current.loadedScan)~="table" or current.loadedScan.code~="superseded"
+    or type(source)~="table" or getmetatable(source)~=nil or rawget(source,"pages")~=current.pages
+    or rawget(source,"stoppedReason")~=nil then return false end -- Raw source only adds denial.
+  local native=OlympusVerifyNativeRanks
+  if type(native)~="table" or type(native.Observe)~="function" or type(native.Qualified)~="function" then return false end
+  local ok,qualified=pcall(function()return native.Qualified(native.Observe())end)
+  return ok and qualified==true
+end
+
 -- list is the unfiltered native roster with its existing base verification
 -- classification. knownVerifiedInitiates is potential only, never action proof.
 -- held counts loaded Initiate recommendations without a ready native target;
@@ -181,6 +196,7 @@ function M.Promotions(list, launchAPI, now)
   diagnostics.loadedScan=current and current.loadedScan or nil
   diagnostics.selection=current and current.selection or nil
 
+  local unrelatedRead=UnrelatedReadContext(current) -- One complete native rank-table observation per model paint.
   for index = 1, size do
     local row, info = list[index], nil
     local id = guid(row.guid) and row.guid or nil
@@ -199,6 +215,10 @@ function M.Promotions(list, launchAPI, now)
     elseif launchAPI.pending[id] ~= nil or attemptStatus=="pending"
       or not attemptStatus and type(launchAPI.AttemptHeld)=="function" and launchAPI.AttemptHeld(id,current,row.rankIndex) then info = detail("pending", "Prior attempt pending", "An original promotion attempt is pending or unconfirmed. It is not retried by this view.")
     elseif attemptStatus=="recheck" then info=detail("recheck","Check next original step","The last owned step was confirmed. Check this GUID against a fresh complete roster before a separate next promotion click; the original intent and expiry stay fixed.")
+    elseif unrelatedRead and initiate(row) and verified(row) and current.selection.covered[id]~=true
+      and sourceHeld[id]==nil and riskReview[id]==nil
+      and (current.freshness[id]==nil or type(current.freshness[id])=="table" and current.freshness[id].kind=="discovery") then
+      info=detail("check","Check eligibility","A different completed selected read superseded discovery. This GUID has no loaded action authority. A deliberate Check requests a separate current read; original dates and other characters' attempt history stay unchanged.")
     elseif current.actionHeld and not (current.freshness[id] and current.freshness[id].kind=="selected" and current.freshness[id].actionHeld==false) then info = detail("held", diagnostics.loadedScan and diagnostics.loadedScan.label or "Projection stopped or held",
       diagnostics.loadedScan and (diagnostics.loadedScan.summary.." Next step: "..diagnostics.loadedScan.nextStep)
         or "The loaded projection is stopped or superseded. No promotion is ready; review its original control state.")

@@ -403,7 +403,7 @@ local function PromotionControl(input,result,ready,detail,bound,current)
     or input.guid and not CheckCustodyClear(launch,input.guid,current,input.rankIndex) then return "Held",false,nil end
   if result.status=="verified" and not result.historicalLinked and input.rankIndex==9
     and Text(input.guid,40) and type(launch.Select)=="function"
-    and (not detail or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
+    and (not detail or detail.state=="check" or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
     return "Check",true,"check"
   end
   return "—",false,nil

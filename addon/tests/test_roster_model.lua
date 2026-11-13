@@ -168,7 +168,7 @@ do
   D.publish(f.e, { guild = "OLYMPUS PRIME", realm = "Native Realm", actor = "Player-1-0000AAAA", scopeHash = f.scope,
     specs = { { guid = f.rows[2].guid, name = "Beta", start = 9, final = 7 } }, snapshotId = 3, snapshotAt = f.e.NOW, ttl = 60, total = 40 })
   ready, d = f.read()
-  check("fresh selected read stays ready while the first discovery page is expired and advisory", not ready[f.rows[1].guid] and ready[f.rows[2].guid] and d.ready == 1 and d.recommendations == 2 and d.stalePages == 1 and d.byGuid[f.rows[1].guid].state == "held")
+  check("fresh selected Beta stays ready while expired advisory Alpha offers only a separate read Check", not ready[f.rows[1].guid] and ready[f.rows[2].guid] and d.ready == 1 and d.recommendations == 2 and d.stalePages == 1 and d.byGuid[f.rows[1].guid].state == "check")
   check("stale-page summary explicitly keeps historical source rows advisory", d.reason:find("1 stale source page(s) are advisory only", 1, true))
 end
 
