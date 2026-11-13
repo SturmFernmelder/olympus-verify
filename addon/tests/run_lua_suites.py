@@ -63,7 +63,12 @@ SUITES = {
     "live_safety280": (TESTS, Path("test_live_safety280.lua")),
     "tithe_successor280": (TESTS, Path("test_tithe_successor280.lua")),
     "tithe_hookorder280": (TESTS, Path("test_tithe_hookorder280.lua")),
+    "combat_close280": (TESTS, Path("test_combat_close280.lua")),
+    "addon_residual280": (TESTS, Path("test_addon_residual280.lua")),
+    "addon_work280": (TESTS, Path("test_addon_work280.lua")),
 }
+# Shared synthetic fixture modules that suites load; hashed with the suites.
+FIXTURES = [TESTS / "directive_fixture280.lua"]
 PYTHON_RUNNERS = {
     "tithe280": ("run_tithe280.py", False),
     "tithe_slash280": ("run_tithe_slash280.py", False),
@@ -73,7 +78,7 @@ PYTHON_RUNNERS = {
 }
 # Suites that need an input from outside this repository. They run only by name with that input.
 NEEDS_EXTERNAL_ARCHIVE = {"dan155_census"}
-TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps"}
+TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps", "addon_residual280", "addon_work280"}
 
 
 def input_hashes() -> dict[str, str]:
@@ -85,6 +90,7 @@ def input_hashes() -> dict[str, str]:
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())
     paths.extend(TESTS / name for name, _ in PYTHON_RUNNERS.values())
+    paths.extend(FIXTURES)
     return {str(path.relative_to(ADDON)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths if path.is_file()}
 
 
