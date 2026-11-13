@@ -177,7 +177,12 @@ async function unitChecks() {
     return realFetch(input, init);
   };
   const admin = loadTs('worker/src/site-admin.ts');
-  const run = async (extra) => {
+  // Round 5 final (13 Nov 2026): since 51510fe (Codex Root's stopped core) handleAdmin refuses every admin write that does
+  // not carry the current page version (X-Olympus) with 409 reload before any route runs, as the browser always sends it.
+  // The synthetic save therefore carries the page's own header, so the CL2-122 pre-check below is still what answers it;
+  // the reload guard itself is checked separately. On a source that has no such export the header is simply omitted.
+  const pageVersion = (() => { try { return loadTs('worker/src/site-core.ts').PAGE_VERSION; } catch { return undefined; } })();
+  const run = async (extra, withPage = true) => {
     provider = [];
     const statements = [];
     const stored = { office_45: '<@300000000000000103>' };
@@ -187,7 +192,8 @@ async function unitChecks() {
       DB: { prepare(sql) { statements.push(sql.trim().slice(0, 40)); const st = { bind: () => st, all: async () => ({ results: rows(sql.trim()) }), first: async () => null, run: async () => ({ meta: { changes: 0 } }), raw: async () => [] }; return st; },
         batch: async s => { statements.push('batch'); return s.map(() => ({ results: [], meta: { changes: 0 } })); } } };
     const body = { appointed: { ...stored }, ...extra };
-    const req = new Request('https://example.test/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const headers = { 'Content-Type': 'application/json', ...(withPage && pageVersion ? { 'X-Olympus': pageVersion } : {}) };
+    const req = new Request('https://example.test/api/admin/settings', { method: 'PUT', headers, body: JSON.stringify(body) });
     const res = await admin.handleAdmin(req, env, '/api/admin/settings', { discord_id: '300000000000000001' }, () => {});
     const data = await res.json().catch(() => null);
     return { status: res.status, error: data && data.error, provider: provider.length, reads: statements };
@@ -198,6 +204,11 @@ async function unitChecks() {
   const control = await run({ appointedCharactersConfirmed: true });
   check('REV-SITEA-2', 'control: the same save with the tick passes the pre-check, reads the account and calls Discord (stubbed 503: nothing saved)',
     control.provider >= 1 && control.reads.length > 1 && control.status === 409 && control.error === 'appointed_account_unavailable', JSON.stringify(control));
+  if (pageVersion !== undefined) {
+    const stale = await run({ appointedCharactersConfirmed: true }, false);
+    check('REV-SITEA-2', 'a save from a page without the current page version is 409 reload before any read or provider call (51510fe)',
+      stale.status === 409 && stale.error === 'reload' && stale.provider === 0 && stale.reads.length === 0, JSON.stringify(stale));
+  }
 
   // REV-SITEA-3 (12 Nov 2026): the Treasury refusal sentence is treasuryGateDescription, built from the gate's own reads.
   const treasury = loadTs('worker/src/site-treasury-access.ts');
@@ -215,8 +226,14 @@ async function unitChecks() {
     presentNotEnabled: { ...base, CANONICAL_RANKS233: JSON.stringify({ ...policy, enabled: false }) },
     absent: (({ CANONICAL_RANKS233, ...rest }) => rest)(base),
     noToken: (({ DISCORD_BOT_TOKEN, ...rest }) => rest)(base),
-    // A ten-rank native map after the launch cut opens the roster path (no canonical configuration in this case).
+    // A ten-rank native role map after the launch cut, with no canonical configuration. Before 63a347f (Codex Root,
+    // 13 Nov 2026, "separate current membership display and Treasury rank authority") this opened the roster path; since
+    // then a historical role-map profile supplies no current rank authority, so it must name no roster rank.
     tenRank: (({ CANONICAL_RANKS233, ...rest }) => ({ ...rest, LINKS_NOT_BEFORE: '1793833200', QR_NATIVE_ROLE_MAP: JSON.stringify({ profile: 'ten-rank', roles: Array.from({ length: 10 }, (_, i) => '4000000000000001' + String(i).padStart(2, '0')) }) }))(base),
+    // The configuration that opens the roster path now (site-treasury-access.ts currentLadder after 63a347f and 98dc690):
+    // the enabled canonical rank policy plus the members-only launch verification, its native scope and the launch cut,
+    // all as wrangler.toml configures them (VERIFY_SECRET is a synthetic value; its presence is all the capture reads).
+    rosterPath: { ...base, VERIFY_MEMBERSHIP_ONLY: tomlValue('VERIFY_MEMBERSHIP_ONLY'), VERIFY_NATIVE_SCOPE: tomlValue('VERIFY_NATIVE_SCOPE'), LINKS_NOT_BEFORE: tomlValue('LINKS_NOT_BEFORE'), LINKS_NOT_BEFORE_CLOCK_GATED: tomlValue('LINKS_NOT_BEFORE_CLOCK_GATED'), VERIFY_SECRET: 'unit-test-verify' },
   };
   const said = Object.fromEntries(Object.entries(configs).map(([k, env]) => [k, { text: treasury.treasuryGateDescription(env), discord: treasury.treasuryDiscordRoles(env) }]));
   check('REV-SITEA-3', 'canonical rank roles enabled: the sentence names the Discord roles of the five officer ranks the gate reads', said.enabled.discord && /the Discord Guild Master, High Council, Officer, Officer Alt and Raid Leader roles/.test(said.enabled.text), said.enabled.text);
@@ -225,7 +242,11 @@ async function unitChecks() {
   check('REV-SITEA-3', 'no bot token: no Discord clause; appointments and site administrators are always named', said.noToken.discord === null && !/Discord/.test(said.noToken.text) && Object.values(said).every(x => /the holders of the published Co-Guild Master and Lord High Treasurer seats(?:; and| and to) site administrators\.$/.test(x.text)), said.noToken.text);
   // Round 3 item 10 (12 Nov 2026): with only the two configuration-independent paths, the sentence is a plain pair.
   check('ROUND3-10', 'two paths read "open to A and to B." (no colon, no "; and"); three or more keep the list form', ['presentNotEnabled', 'noToken'].every(k => said[k].text === 'The treasury programme and financial model are open to the holders of the published Co-Guild Master and Lord High Treasurer seats and to site administrators.') && /^The treasury programme and financial model are open to: [^;]+; [^;]+; and site administrators\.$/.test(said.enabled.text), JSON.stringify({ two: said.noToken.text, three: said.enabled.text }));
-  check('REV-SITEA-3', 'only a configuration that opens the roster path names the roster ranks', /^The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord /.test(said.tenRank.text) && ['enabled', 'presentNotEnabled', 'absent', 'noToken'].every(k => !/verified roster/.test(said[k].text)), said.tenRank.text);
+  // Round 5 final: the roster clause follows the gate's own currentLadder, so the property is checked against it directly
+  // (a configuration names the roster ranks exactly when the gate opens the roster path), with one configuration of each.
+  const opens = k => typeof treasury.currentLadder === 'function' ? treasury.currentLadder(configs[k]) !== null : k === 'tenRank';
+  check('REV-SITEA-3', 'only a configuration that opens the roster path names the roster ranks', /^The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord /.test(said.rosterPath.text) && opens('rosterPath')
+    && Object.keys(configs).every(k => opens(k) === /verified roster/.test(said[k].text)) && ['enabled', 'presentNotEnabled', 'absent', 'noToken', 'tenRank'].every(k => !opens(k) && !/verified roster/.test(said[k].text)), JSON.stringify({ rosterPath: said.rosterPath.text, tenRank: said.tenRank.text }));
   check('REV-SITEA-3', 'the sentence never uses a rank name outside the owner\'s ladder (no Stewart, no Treasurer rank)', Object.values(said).every(x => !/Stewart|Treasurer rank/.test(x.text)));
 }
 

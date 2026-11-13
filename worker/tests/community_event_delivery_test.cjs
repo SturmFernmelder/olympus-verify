@@ -164,12 +164,17 @@ async function deleteThroughOriginalRoute(target,actor) {
   check("publication defaults OFF, without provider reads/effects or claim", r.status === 503 && requests.length === 0 && !row());
   r = await call("POST", "/api/community/events/discord/publish", {}, null); check("unauthenticated refuses without effects", r.status === 401 && effects().length === 0);
   r = await call("POST", "/api/community/events/discord/publish", {}, MEMBER); check("confirmed non-organizer refuses", r.status === 403 && effects().length === 0);
+  check("  the non-organizer's refusal reads only its own Discord member record (the officer role check), no effect", requests.length === 1 && requests[0].method === "GET" && requests[0].url === `/api/v10/guilds/${GUILD}/members/${MEMBER}`, JSON.stringify(requests.map(q => q.method + " " + q.url)));
   r = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, OTHER); // Round 5 follow-up (13 Nov 2026): the refusal now says whose event it is (403, by role, no names) instead of 404.
   check("another organizer cannot preview another owner's event", r.status === 403 && r.body?.error === "not_event_organizer" && /belongs to another organizer/.test(r.body?.message || "") && !("payload" in r.body));
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { Origin: "https://attacker.example" }); check("foreign origin refused", r.status === 403);
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { "X-Olympus": "1" }); check("old page refused", r.status === 409);
   r = await call("POST", "/api/community/events/discord/publish", { eventId: EVENT, revision: 1, opId: OP, payloadHash: p.payloadHash, content: "private" }); check("client content/destination fields are rejected", r.status === 400 && !row());
-  r = await publish({ INTROS_GUILD_ID: WRONG }); check("mismatched configured server refuses without HTTP", r.status === 503 && requests.length === 0);
+  // Round 5 final (13 Nov 2026): the refusals above now read Discord on purpose (8ddec47, owner rulings of 13 Nov: a member
+  // who is not a listed organizer may be an officer, and another organizer may be High Council, both proved by a fresh
+  // Discord role read), so the count starts here: this preview and publish, by the event's own organizer, make no call.
+  requests = [];
+  r = await publish({ INTROS_GUILD_ID: WRONG }); check("mismatched configured server refuses without HTTP", r.status === 503 && r.body?.error === "delivery_not_configured" && requests.length === 0);
   hooks.http = (req) => req.url === `/api/v10/channels/${CHANNEL}` ? Response.json({ id: CHANNEL, guild_id: WRONG, type: 0 }) : undefined;
   r = await publish(); check("actual channel guild mismatch refuses before claiming/posting", r.status === 409 && !row() && effects().length === 0); hooks = {};
   hooks.http = (req) => req.url === `/api/v10/channels/${CHANNEL}` ? Response.json({ id: CHANNEL, guild_id: GUILD, type: 15 }) : undefined;

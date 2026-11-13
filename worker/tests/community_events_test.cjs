@@ -242,8 +242,13 @@ async function deleteThroughOriginalRoute(target, actor) {
   await fixtureRun("UPDATE community_events SET starts_at = ?, ends_at = ? WHERE id = ?",start,start + 7200,OP1);
 
   console.log("\n== update and cancel ==");
+  // CL2-139 (d84a780, 12 Nov 2026: with places set, the wanted roles together may not exceed them): OP1 wants one tank
+  // and one healer, so one place alone is now refused as an invalid request, before any count of places held.
   r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 1, capacity: 1 });
-  check("lowering the capacity below the places held is 409 capacity_below_signups", r.status === 409 && r.body.error === "capacity_below_signups");
+  check("one place under two wanted roles is 400 role_targets_over_capacity (CL2-139), nothing changed", r.status === 400 && r.body.error === "role_targets_over_capacity" && one("SELECT capacity, revision FROM community_events WHERE id = ?", OP1).capacity === 2);
+  // The capacity rule itself, with wanted roles that fit the one place: two places are held, so it is still 409.
+  r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 1, capacity: 1, roleTargets: { tank: 1 } });
+  check("lowering the capacity below the places held is 409 capacity_below_signups", r.status === 409 && r.body.error === "capacity_below_signups" && one("SELECT capacity, revision FROM community_events WHERE id = ?", OP1).revision === 1);
   r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 1, title: "Raid night", capacity: 2 });
   check("a save that changes nothing says unchanged", r.status === 200 && r.body.unchanged === true && r.body.event.revision === 1);
   r = await call("POST", "/api/community/events/update", ORG, { eventId: OP1, revision: 1, startsAt: iso(start + 3600), capacity: 5 });
