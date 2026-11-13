@@ -218,14 +218,20 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     const out = await openMeasured(f);
     check('a published seat outside the two Treasury seats grants nothing', out.status === 403 && JSON.parse(out.text).error === 'officer_only' && f.calls.assets === 0);
   });
-  // The legacy aliases of the two seats: admitted exactly when the gate declares them (Codex's open mapping packet adds
-  // co_gm, treasurer and rank_treasurer; until it is integrated they are refused). Both outcomes are asserted behaviourally.
+  // The legacy aliases of the two seats. Round 5 gate2 (13 Nov 2026): Codex's d54a954 (treasury-appointment-mapping280)
+  // is committed: the gate admits five closed keys, the two seats and their source-catalogue aliases (co_gm of office_19;
+  // treasurer and rank_treasurer of office_86), each with its own current publication proof. The expectation is now fixed
+  // instead of following whatever list the gate declares: the list must be exactly these five keys (CL2-091, "Co-GM and
+  // Treasurer": no other seat is added), and each alias is admitted behaviourally.
+  await scenario('declared Treasury appointment keys', { roles: [] }, async f => {
+    check('the gate declares exactly the two seats and their three legacy aliases, no other seat',
+      JSON.stringify([...f.gate.TREASURY_APPOINTMENT_SEATS]) === JSON.stringify(['office_19', 'office_86', 'co_gm', 'treasurer', 'rank_treasurer']));
+  });
   for (const key of ['co_gm', 'treasurer', 'rank_treasurer']) await scenario('published legacy seat key ' + key, { roles: [] }, async f => {
-    const declared = f.gate.TREASURY_APPOINTMENT_SEATS.includes(key);
     await publishOffice(f, key);
     const out = await openMeasured(f);
-    check('the legacy seat key ' + key + ' is ' + (declared ? 'admitted because the gate declares it' : 'refused because the gate does not declare it'),
-      declared ? out.status === 200 && out.text === '/* treasury plan */' : out.status === 403 && JSON.parse(out.text).error === 'officer_only' && f.calls.assets === 0);
+    check('the legacy seat key ' + key + ' is admitted because the gate declares it',
+      out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
   });
   await scenario('independent admin remains valid with demoted roster and withdrawn unrelated appointment', { admin: true, onAsset: async f => { await f.write("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1"); await f.write("UPDATE site_settings SET value='{}' WHERE key='appointed'"); } }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
