@@ -231,8 +231,15 @@ export const ROLE_EDITORIAL_219 = {
   }
 } as const;
 
-export function editorialRoleGuides219(input: Readonly<Record<string, RoleGuide201>>): Readonly<Record<string, RoleGuide201>> {
+/** `nativeSource` maps each native-rank key to the office its rank guide describes (rank_guild_master → office_43).
+ * REV-GOV-1, round 3 (12 Nov 2026): a native rank copies that office's edited text, not the family primary's. Since
+ * CL2-037 the Leader family opens with the Sovereign (office_81), but every branch Guild Master holds Rank 1, so Rank 1
+ * keeps the branch Guild Master's guide as on dfca7a2; for the other nine ranks the source office is (or aliases) the
+ * family primary, so their text is unchanged. Aliases and historical keys still share their family primary's text. */
+export function editorialRoleGuides219(input: Readonly<Record<string, RoleGuide201>>, nativeSource: Readonly<Record<string, string>> = {}): Readonly<Record<string, RoleGuide201>> {
   const result: Record<string, RoleGuide201> = { ...input };
+  const copy = (key: string, guide: RoleGuide201) => { const own = input[key]; if (own) result[key] = Object.freeze({ ...own, definition: guide.definition, responsibilities: guide.responsibilities, expectations: guide.expectations, commitment: guide.commitment, worksWith: guide.worksWith }); };
+  const natives: string[] = [];
   for (const family of ROLE_DIRECTORY_203.families) {
     const original = input[family.primaryKey];
     if (!original) throw new Error('Missing canonical role guide');
@@ -240,10 +247,15 @@ export function editorialRoleGuides219(input: Readonly<Record<string, RoleGuide2
     const guide = { ...original, ...edit };
     result[family.primaryKey] = Object.freeze(guide);
     for (const variant of family.variants) {
-      if (!['alias','native','historical'].includes(variant.presentation)) continue;
-      const own = input[variant.key];
-      if (own) result[variant.key] = Object.freeze({ ...own, definition: guide.definition, responsibilities: guide.responsibilities, expectations: guide.expectations, commitment: guide.commitment, worksWith: guide.worksWith });
+      if (variant.presentation === 'native') natives.push(variant.key);
+      else if (['alias','historical'].includes(variant.presentation)) copy(variant.key, guide);
     }
+  }
+  // After every family is edited, so a source office that is another family's primary or alias carries its edited text.
+  for (const key of natives) {
+    const source = result[nativeSource[key]];
+    if (!source) throw new Error('Missing native-rank source guide: ' + key);
+    copy(key, source);
   }
   return Object.freeze(result);
 }

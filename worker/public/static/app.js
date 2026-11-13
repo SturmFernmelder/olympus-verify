@@ -300,10 +300,12 @@
           h("details", null, h("summary", { text: `${familyRows.length} role families · ${rows.length} office keys` }), h("ul", null, familyRows.map(([key, own]) => {
             const family = directory?.families.find(item => item.key === key);
             const label = family?.label || own[0].applicationLabel || own[0].label;
-            const others = [...new Set(own.filter(row => row.group !== "native").map(row => row.applicationLabel || row.label))].filter(text => text !== label);
-            return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("span", { text: label }),
-              others.length ? h("span", { class: "small muted", text: " — " + others.join(" · ") }) : null, " · ",
-              h("a", { href: "#/organization/" + encodeURIComponent(own[0].key), text: "Chart" }));
+            // RC-199 (round 3, 12 Nov 2026): one family heading per rank, and under it every stored key keeps its own labelled
+            // register link with its department and reporting line, as the live build listed them per key (Codex's narrowing).
+            return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("strong", { text: label }),
+              h("ul", null, own.map(row => { const reporting = roleReporting218(row, family, {includeMinistry:false});
+                return h("li", { "data-rosetta-key1112": row.key }, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }),
+                  " · ", row.ministry || row.department, reporting ? " · " + reporting : ""); })));
           }))),
           h("p", { class: "rosetta-access1112" }, role ? h("strong", { text: role.roleName }) : h("span", { class: "muted", text: "Discord role unavailable" }),
             role?.granted === "verified_alt" ? " · given from the verified-alt record, not from the in-game rank." : role ? " · follows this rank on the verified roster." : "",
@@ -479,11 +481,14 @@
         // all regional (or all class) assignments share is stated once beside it; each drawer keeps only what is its own.
         const seen = new Set(), primaryGuide = guides[family.primaryKey];
         const listed = family.variants.filter(variant => !["alias","native","historical"].includes(variant.presentation));
-        // A purely regional family (Regional Raid Leader, Raid Assist) has one job specification: the duty sheet its NA and EU
-        // seats share. The family guide keeps its definition; its shorter restatement of the same duties is not repeated.
-        const regionalFamily = listed.length > 1 && listed.every(variant => variant.presentation === "region") && !!sharedVariantGuide1112(family, guides, "region");
+        // A purely regional family (Regional Raid Leader, Raid Assist) states the duty sheet its NA and EU seats share once.
+        // RC-037 (round 3, 12 Nov 2026): the family guide's own lines stay unless the regional sheet has them verbatim; only
+        // exact matches are de-duplicated (Codex: the general guides carry duties no regional sheet repeats).
+        const regionalSheet = listed.length > 1 && listed.every(variant => variant.presentation === "region") ? sharedVariantGuide1112(family, guides, "region") : null;
+        const regionalFamily = !!regionalSheet, regionalItems = new Set(regionalSheet ? [...regionalSheet.responsibilities, ...regionalSheet.expectations] : []);
         const primaryItems = [...(primaryGuide?.responsibilities || []), ...(primaryGuide?.expectations || [])];
-        const shownItems = new Set(regionalFamily ? [] : primaryItems);
+        const primaryOwnItems = primaryItems.filter(text => !regionalItems.has(text));
+        const shownItems = new Set(regionalFamily ? primaryOwnItems : primaryItems);
         const sharedBlocks = ["region","class"].map(presentation => {
           const shared = sharedVariantGuide1112(family, guides, presentation);
           if (!shared) return null;
@@ -491,7 +496,7 @@
           for (const text of [...shared.responsibilities, ...shared.expectations]) shownItems.add(text);
           const facts = shared.commitment && shared.worksWith;
           if (!resp.length && !exp.length && !facts) return null;
-          const merged = presentation === "region" && regionalFamily;
+          const merged = presentation === "region" && regionalFamily && !primaryOwnItems.length;
           return { presentation, facts, node: h("section", {class:"role-shared1112" + (merged ? " parchment role-info role-guide201" : ""),"data-role-shared1112":presentation},
             merged ? null : h("h4", {text:presentation === "region" ? "Shared by every regional assignment" : "Shared by every class assignment"}),
             resp.length ? [merged ? h("h4", {text:"Responsibilities"}) : null, h("ul", null, resp.map(text => h("li", {text})))] : null,
@@ -499,7 +504,7 @@
             facts ? h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:shared.commitment}), h("dt", {text:"Works with"}), h("dd", {text:shared.worksWith})) : null) };
         }).filter(Boolean);
         const sharedFacts = new Set(sharedBlocks.filter(block => block.facts).map(block => block.presentation));
-        const primaryNode = regionalFamily ? guideBody201(primaryGuide, positionOf(family.primaryKey), {seen, omitItems:new Set(primaryItems), omitFacts:sharedFacts.has("region")})
+        const primaryNode = regionalFamily ? guideBody201(primaryGuide, positionOf(family.primaryKey), {seen, omitItems:regionalItems, omitFacts:sharedFacts.has("region")})
           : canonicalFamilyGuide219(family, guides, seen);
         const variants = [...listed.filter(variant => !["region","class"].includes(variant.presentation)), ...listed.filter(variant => ["region","class"].includes(variant.presentation))].map(variant => {
           const source = office199(variant.key), native = source?.group === "native";
@@ -2233,8 +2238,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "67eb1cddf7172e9b0e2d2f6d06304896a14bc0fbd60969ab128f0b2359b6a4f6";
-  const GOVERNANCE_BYTES = 267517;
+  const GOVERNANCE_SHA256 = "799f92fd402ce87129c89e802a5d14a9463dbb0dfcc191ea08e47c011a471c01";
+  const GOVERNANCE_BYTES = 267458;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });

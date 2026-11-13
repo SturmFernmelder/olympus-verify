@@ -77,10 +77,14 @@ check('REV-GOV-4', 'the standalone operational charter carries the same O15 head
 // ---------------------------------------------------------------- REV-GOV-2 a dated record of the 12 November reconciliation
 const readingGuide = chapter('Reading and Adopting This Book');
 const reconciled = (/On 12 November 2026 the text was editorially reconciled[^\n]*?restored exactly\./.exec(readingGuide) || [''])[0];
-check('REV-GOV-2', 'the reading guide records the 12 November 2026 reconciliation in one dated sentence', !!reconciled && !/\.\s+[A-Z]/.test(reconciled.slice(0, -1)));
-check('REV-GOV-2', 'the sentence names every kind of change and what did not change',
+// Round 3 item 6c: the paragraph bridge refuses an inserted paragraph that keeps the 18 October text inside it, so the
+// record stays in that paragraph, shortened from about 95 words in one sentence to two plain sentences.
+const reconciledWords = reconciled.split(/\s+/).filter(Boolean).length, reconciledSentences = reconciled.split(/(?<=\.)\s+(?=[A-Z])/).length;
+check('REV-GOV-2', 'the reading guide records the 12 November 2026 reconciliation in two or three dated sentences of at most 70 words', !!reconciled && reconciledSentences >= 2 && reconciledSentences <= 3 && reconciledWords <= 70,
+  reconciledWords + ' words, ' + reconciledSentences + ' sentence(s)');
+check('REV-GOV-2', 'the record names every kind of change and what did not change',
   ['cross-references', 'Council compositions', 'build numbers', 'headings', 'duel-escrow clauses', 'suspended proposal', 'tithe tiers',
-    'no rule, amount, eligibility condition, decision or named holder changed', 'editorial manifest'].every(x => reconciled.includes(x)), reconciled.slice(0, 80));
+    'No rule, amount, eligibility condition, decision or named holder changed', 'editorial manifest'].every(x => reconciled.includes(x)), reconciled.slice(0, 80));
 
 // ---------------------------------------------------------------- REV-GOV-3 every in-book section link lands on a generated id
 // The ids exactly as app.js parseGovernanceBook and governanceBlocks generate them.
@@ -226,6 +230,18 @@ check('CL2-061', 'the Council group opens with the Leader and the thirteen seats
 const seedKeys = [...read('worker/src/site-role-directory203.ts').matchAll(/^\s+\{ key: '([a-z_]+)', label:/gm)].map(m => m[1]);
 check('CL2-061', 'the directory\'s family seed order itself starts with the Leader and the seats in protocol order', JSON.stringify(seedKeys.slice(0, 14)) === JSON.stringify(['leader', ...offices.COUNCIL_FAMILY_ORDER]), seedKeys.slice(0, 4).join(','));
 
+// ---------------------------------------------------------------- RC-038 (owner ruling of 13 Nov 2026, "Keep 13 seats")
+// Section II.1.1(b) must list the twelve portfolios exactly as the role directory and organization.json define them
+// (the Council order without the Co-Guild Master), with the Co-Guild Master as the seat beside them, not a portfolio.
+const s111b = book.split('\n').find(l => l.startsWith('(b) High Council Roles concern the competent Leader')) || '';
+const remitNames = ((/with their distinct ([^.;]+?) remits as individually warranted/.exec(s111b) || [])[1] || '').split(', ').flatMap(x => x.split(' and '));
+const portfolioKeys = offices.COUNCIL_FAMILY_ORDER.filter(k => k !== 'co_gm');
+const modelPortfolios = JSON.parse(read('worker/public/static/governance/organization.json')).councilComposition.currentSeats.filter(s => s.id !== 'gm-chair' && s.id !== 'co-gm').map(s => s.familyKey);
+const remitFamily = name => { const hits = portfolioKeys.filter(k => fam(k).label.includes(name === 'Treasury' ? 'Treasurer' : name)); return hits.length === 1 ? hits[0] : '?' + name; };
+check('RC-038', 'Section II.1.1(b) names the twelve Council portfolios of the directory and organization.json, in their order, with the Co-Guild Master beside them',
+  portfolioKeys.length === 12 && JSON.stringify(modelPortfolios) === JSON.stringify(portfolioKeys) && JSON.stringify(remitNames.map(remitFamily)) === JSON.stringify(portfolioKeys)
+  && /the twelve current portfolios enumerated in Article II\.8/.test(s111b) && /the Co-Guild Master sits beside them with the executive coordination remit\./.test(s111b), remitNames.join(' | '));
+
 // ---------------------------------------------------------------- CL2-036 one eligibility rule: what the Worker accepts
 const accepted = new Set();
 for (const row of offices.OFFICE_APPOINTMENTS) for (const track of ['member', 'raider', 'artisan']) {
@@ -251,6 +267,19 @@ check('REV-GOV-1', 'the Rank 1 (Leader) guide describes a Guild Master leading a
   && rankOneGuide.nativeRankOrdinal === 1 && JSON.stringify(rankOneGuide.responsibilities) === JSON.stringify(publicMeta.roleGuides201.office_43.responsibilities), rankOneGuide.definition.slice(0, 60));
 check('REV-GOV-1', 'every native-rank guide carries the text of its rank\'s own source office', ['office_43', 'office_45', 'office_62', 'office_63', 'office_74', 'office_90', 'office_75', 'office_55', 'office_04', 'office_48']
   .every((key, slot) => { const r = publicMeta.roleGuides201['rank_' + ['guild_master', 'high_council', 'officer', 'officer_alt', 'raid_leader', 'veteran', 'raider', 'member', 'alt', 'initiate'][slot]]; return r && r.definition === publicMeta.roleGuides201[key].definition; }));
+
+// REV-GOV-1 at the source (round 3 item 6a): the editorial pass is the last rule. A spy on the pass shows roleGuides201
+// returns exactly what the pass produced (no later override replaces editorial text for the ten ranks), and the pass
+// itself gives Rank 1 the branch Guild Master's guide.
+{
+  const editorial = load('site-role-editorial219'), guideModule = load('site-role-guides201'), real = editorial.editorialRoleGuides219;
+  let produced = null;
+  editorial.editorialRoleGuides219 = (...args) => (produced = real(...args));
+  let served = null;
+  try { served = guideModule.roleGuides201(siteData.POSITIONS); } finally { editorial.editorialRoleGuides219 = real; }
+  check('REV-GOV-1', 'the editorial pass is the only rule: roleGuides201 returns its output unchanged, and that output gives Rank 1 the office_43 guide',
+    !!produced && served === produced && produced.rank_guild_master.definition === produced.office_43.definition && produced.rank_guild_master.definition !== produced.office_81.definition);
+}
 
 // ---------------------------------------------------------------- CL2-046 the Rosetta access column follows the .233 model
 const canonical = load('canonical-ranks233').CANONICAL_RANKS233, treasury = load('site-treasury-access');
@@ -351,11 +380,77 @@ async function browserChecks(BASE, CDP_PORT) {
       charts[width] = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,800));const vp=document.querySelector('.org-viewport').getBoundingClientRect();const cards=[...document.querySelectorAll('.org-stage .org-node')].filter(b=>!b.hidden);const inside=b=>{const r=b.getBoundingClientRect();return r.left>=vp.left-1&&r.right<=vp.right+1&&r.top>=vp.top-1&&r.bottom<=vp.bottom+1};const sel=cards.find(b=>b.getAttribute('aria-pressed')==='true');const vis=cards.filter(inside);return {shown:cards.length,visible:vis.length,selectedVisible:!!sel&&inside(sel),below:!!sel&&vis.some(b=>b.getBoundingClientRect().top>sel.getBoundingClientRect().bottom),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`); }
     bcheck('REV-GOV-6', 'at 390 and 320 px the opened chart shows the selected office and at least two more offices, children below it, with no page overflow',
       [390, 320].every(w => charts[w].selectedVisible && charts[w].below && charts[w].visible >= 3 && charts[w].over <= 0), show(charts));
+    // ================= round 3 (12 Nov 2026)
+    // RC-037: the Raid Leader and Raid Assist cards keep every family-guide line the regional sheet lacks verbatim, once,
+    // and every line of the shared regional sheet, once.
+    const guides = publicMeta.roleGuides201;
+    for (const [familyKey, primaryKey, regionKey] of [['raid_assist', 'office_73', 'raid_assist_na'], ['raid_leader', 'office_74', 'raid_leader_na']]) {
+      const sheet = [...guides[regionKey].responsibilities, ...guides[regionKey].expectations];
+      const own = [...guides[primaryKey].responsibilities, ...guides[primaryKey].expectations].filter(text => !sheet.includes(text));
+      const seenCounts = {};
+      for (const width of [1280, 375]) {
+        await open('member', width, 'roles/' + familyKey);
+        seenCounts[width] = await ev(`const card=document.querySelector('[data-role-family203=${familyKey}]');if(!card)return null;card.open=true;const items=[...card.querySelectorAll('li')].map(li=>li.textContent.trim());const n=t=>items.filter(x=>x===t).length;return {own:${JSON.stringify(own)}.map(n),sheet:${JSON.stringify(sheet)}.map(n),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+      }
+      bcheck('RC-037', `/#/roles/${familyKey} shows each of the ${own.length} ${primaryKey} lines missing from the regional sheet once, and each regional line once (1280 and 375 px)`,
+        own.length > 0 && Object.values(seenCounts).every(c => c && c.own.every(x => x === 1) && c.sheet.every(x => x === 1) && c.over <= 0), show(seenCounts));
+    }
+    // RC-199: every stored key appears in its rank's Rosetta row as its own labelled register link with its department.
+    const expectedByRank = {};
+    for (const row of offices.OFFICE_APPOINTMENTS) (expectedByRank[row.nativeRankOrdinal] ||= []).push(row.key);
+    const rosetta = {};
+    for (const width of [1280, 375]) {
+      await open('member', width, 'roles/rosetta-stone');
+      rosetta[width] = await ev(`const panel=document.getElementById('role-rosetta-stone');if(!panel)return null;panel.open=true;for(const d of panel.querySelectorAll('details'))d.open=true;const out={};for(const tr of panel.querySelectorAll('tr[data-rank-crosswalk]')){out[tr.dataset.rankCrosswalk]=[...tr.querySelectorAll('li[data-rosetta-key1112]')].map(li=>{const a=li.querySelector(':scope > a');return {key:li.dataset.rosettaKey1112,href:a&&a.getAttribute('href'),label:a&&a.textContent.trim(),scope:li.textContent.slice(a?a.textContent.length:0).replace(/^\\s*·\\s*/,'').trim()}})};return {rows:out,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+    const rosettaOk = w => { const r = rosetta[w]; return !!r && r.over <= 0 && Object.entries(expectedByRank).every(([rank, keys]) => { const got = r.rows[rank] || [];
+      return keys.every(k => got.filter(x => x.key === k && x.href === '#/organization/' + encodeURIComponent(k) && x.label && x.scope.length > 3).length === 1); }); };
+    bcheck('RC-199', 'each of the 139 stored keys has its own labelled #/organization link with its department under its rank (1280 and 375 px)', [1280, 375].every(rosettaOk),
+      show({ office_28: (rosetta[1280]?.rows['2'] || []).find(x => x.key === 'office_28'), office_57: (rosetta[1280]?.rows['2'] || []).find(x => x.key === 'office_57'), keys1280: Object.values(rosetta[1280]?.rows || {}).flat().length, over: [rosetta[1280]?.over, rosetta[375]?.over] }));
+    // RC-034: the overview lists branch roles under their department lane and under independent review, as links.
+    await open('member', 1280, 'organization', 900);
+    const contextLinks = await ev(`const out={};for(const box of document.querySelectorAll('[data-alliance-context1112]'))out[box.dataset.allianceContext1112]=[...box.querySelectorAll('a')].map(a=>a.getAttribute('href').slice(8));return out`);
+    bcheck('RC-034', '/#/organization shows the war, artisanry, propaganda and systems lanes and independent review with links to their role families',
+      ['war', 'artisanry', 'propaganda', 'systems', 'independent'].every(k => (contextLinks[k] || []).length > 0) && contextLinks.independent.includes('bank_auditor') && contextLinks.war.includes('chief_strategist'), show(contextLinks));
+    // Review item 6b: the "Ordinary applications" links and the chart summary are at least 44 px tall at every width.
+    const targets = {};
+    for (const width of [1440, 1280, 768, 390, 375, 320]) {
+      await open('member', width, 'organization', 900);
+      targets[width] = await ev(`const links=[...document.querySelectorAll('[role=group][aria-label="Ordinary applications"] a')];const s=document.querySelector('.org-relationship-map205 > summary');return {links:links.length,minLink:links.length?Math.min(...links.map(a=>Math.round(a.getBoundingClientRect().height))):0,summary:s?Math.round(s.getBoundingClientRect().height):0,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+    bcheck('REV-6b', '"Ordinary applications" links and the "Organization chart" summary are at least 44 px tall at 1440, 1280, 768, 390, 375 and 320 px, with no page overflow',
+      Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
 }
 
+// ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views
+// Behaviour check on the served overview module (its one static import pointed at the file on disk): every branch role
+// family is listed under the department lane it reports into, or under independent review when it reports through
+// justice or audit, as the live build placed them; the lists are links to the family cards, not a second set of cards.
+async function overviewChecks() {
+  const os = require('node:os'), { pathToFileURL } = require('node:url');
+  const ctxUrl = pathToFileURL(path.join(root, 'worker/public/static/organization-context205.js')).href;
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'overview1112-')), 'overview.mjs');
+  fs.writeFileSync(tmp, overview.replace('"/static/organization-context205.js"', JSON.stringify(ctxUrl)));
+  const mod = await import(pathToFileURL(tmp).href), { ORGANIZATION_LANES205 } = await import(ctxUrl);
+  const built = mod.buildAllianceOverview205(model, dir);
+  const nodes = new Map(model.nodes.map(n => [n.id, n])), terms = new Map(model.terms.map(t => [t.officeKey, t]));
+  const expected = { independent: [], lanes: Object.fromEntries(ORGANIZATION_LANES205.map(l => [l.key, []])) };
+  for (const f of dir.families.filter(f => f.kind !== 'institution' && f.tier === 'officer_corps')) {
+    const anc = new Set(); for (let n = nodes.get((terms.get(f.primaryKey) || {}).nodeId); n; n = n.parent ? nodes.get(n.parent) : null) anc.add(n.id);
+    const lane = ORGANIZATION_LANES205.find(l => anc.has(l.rootId));
+    if (anc.has('justice') || anc.has('auditor')) expected.independent.push(f.key); else if (lane) expected.lanes[lane.key].push(f.key);
+  }
+  const got = built.contexts ? { independent: built.contexts.independent.map(f => f.key), lanes: Object.fromEntries(Object.entries(built.contexts.lanes).map(([k, v]) => [k, v.map(f => f.key)])) } : null;
+  check('RC-034', 'each branch role family is placed under its department lane or under independent review, as on the live build', !!got && JSON.stringify(got) === JSON.stringify(expected)
+    && ['war', 'artisanry', 'propaganda', 'systems'].every(k => got.lanes[k].length > 0) && got.independent.includes('bank_auditor'), JSON.stringify(got));
+  check('RC-034', 'the lane and independent-review views are link lists to the family cards, not duplicate cards', /function familyContext\(list, title, key\)/.test(overview)
+    && /familyContext\(model\.contexts\.lanes\[lane\.key\]/.test(overview) && /familyContext\(model\.contexts\.independent/.test(overview) && !/familyContext[^\n]*familyCard/.test(overview));
+}
+
 (async () => {
+  await overviewChecks();
   const BASE = flag('--base'), CDP_PORT = Number(flag('--cdp'));
   if (BASE && CDP_PORT) await browserChecks(BASE, CDP_PORT);
   console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
