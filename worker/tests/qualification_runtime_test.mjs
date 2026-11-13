@@ -7,7 +7,7 @@ import {admittedPrivacySubjectWrite, readPrivacySubject} from '../src/privacy-se
 import {grantMemberRole, callBudget} from '../src/roles.ts';
 import {runNativeSubject232} from '../src/full-release-pass.ts';
 import {FRESH_LEASE_ACQUIRE, FRESH_LEASE_RELEASE, FRESH_LEASE_KEY, FRESH_LEASE_SECONDS, freshLeaseValue, CANONICAL233_SWEEP249_SELECT} from '../src/full-release-roles.ts';
-import {postIntake242} from '../src/intake242.ts';
+import {qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
 import {CANONICAL_PROFILE233, CANONICAL_RANKS233, NATIVE_NAMES233} from '../src/canonical-ranks233.ts';
 import {kickRoleWorkGroups266} from '../src/role-reconcile242.ts';
 import {D1_PERFORMANCE_INDEX_NAME, D1_PERFORMANCE_INDEX_DDL} from '../src/d1-performance-index.ts';
@@ -98,19 +98,60 @@ export default {async fetch(request,bindings,ctx){
       await env.DB.prepare(FRESH_LEASE_RELEASE).bind(foreign).run();
     }else if(kind==='treasury'){
       const now=(await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS t").first()).t;
-      const entry={id:'qualification-receipt',type:'donation',character:'Synthetic Member',requestedAt:now-29*86400,donation:{copper:100}};
-      const intake=async entries=>(await postIntake242(env,{entries})).json();
-      const first=await intake([entry]),again=await intake([entry]);
-      check('old observed receipt is admitted and exact retry acknowledged',first.acknowledgements[0]?.status==='done'&&again.acknowledgements[0]?.status==='done');
-      const rows=(await db.prepare("SELECT ts,details FROM audit WHERE action='treasury.receipt242'").all()).results;
-      check('receipt deduplication keeps one actual D1 row',rows.length===1);
-      const receipt=JSON.parse(rows[0].details);
-      check('retention follows observation rather than arrival',receipt.retainUntil===entry.requestedAt+30*86400&&rows[0].ts>=now);
-      const boundary=await intake([{...entry,id:'expired-boundary',requestedAt:now-30*86400}]);
-      check('expired observation boundary is refused',boundary.acknowledgements[0]?.status==='rejected');
-      await env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','qualification-expired',?2)").bind(now,JSON.stringify({retainUntil:now-1})).run();
+      const guild='OLYMPUS PRIME',realm='Qualification Realm',collector='Player-1-1234ABCD',guid='Player-1-9999ABCD';
+      const watcherToken='qualification-watcher-only-0123456789012345';
+      const financialEnv={...env,DB:db,WATCHER_TOKEN:watcherToken,VERIFY_MEMBERSHIP_ONLY:'true',VERIFY_NATIVE_SCOPE:JSON.stringify({version:1,guild,realm})};
+      const intake=async(entries,authorized=true)=>{
+        const response=await worker.fetch(new Request('https://verify.example/ingest/intake242?keyVersion=launch-membership-v1',{
+          method:'POST',headers:{'Content-Type':'application/json',...(authorized?{Authorization:'Bearer '+watcherToken}:{})},body:JSON.stringify({entries})}),financialEnv,ctx);
+        return {status:response.status,body:response.headers.get('Content-Type')?.includes('application/json')?await response.json():await response.text()};
+      };
+      // Independent wire encoder: no production signer or financial factory is
+      // imported. Synthetic Native rows corroborate the collector, not a donor
+      // account or a financial credit. Actual NativeE2 is qualified separately.
+      const sign=async row=>{
+        const d=row.donation,e=row.evidence,normalize=s=>s.replace(/[ \t\r\n\v\f]+/g,' ').replace(/^ | $/g,'').replace(/[A-Z]/g,c=>String.fromCharCode(c.charCodeAt(0)+32));
+        const fields=[row.id,String(row.requestedAt),d.kind,String(d.copper),normalize(row.character),row.guid,normalize(d.recipient),d.collectorGuid,row.guild,row.realm,d.reference,row.clientVersion,e.kind,d.recipient];
+        const message='tithe-gold-v2|'+fields.map(v=>new TextEncoder().encode(v).length+':'+v).join('');
+        const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(config.VERIFY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+        row.evidence.mac=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(message))),b=>b.toString(16).padStart(2,'0')).join('').slice(0,32);return row;
+      };
+      const entry=await sign({id:'a'.repeat(24),type:'donation',source:'tithe-gold-v2',character:'Synthetic Member',guid,requestedAt:now-29*86400,requestedBy:'Fern Melder',guild,realm,clientVersion:'qualification280',donation:{version:2,kind:'trade',copper:100,recipient:'Fern Melder',collectorGuid:collector,reference:'TITHE-ABCD-EFGH'},evidence:{kind:'trade_complete_and_money_delta',confirmedLocal:true,automaticCredit:false,mac:''}});
+      const original=JSON.stringify(entry),beforeCount=(await db.prepare("SELECT COUNT(*) n FROM audit WHERE action='treasury.receipt242'").first()).n;
+      check('actual financial intake requires Watcher authentication',(await intake([entry],false)).status===401);
+      const legacy=await intake([{id:'legacy-receipt',type:'donation',character:'Synthetic Member',requestedAt:now,donation:{copper:100}}]);
+      check('prospective legacy donation is policy-held without capture',legacy.status===200&&legacy.body.policyHolds.length===1&&!legacy.body.acknowledgements.length&&!legacy.body.deferred.length&&(await db.prepare("SELECT COUNT(*) n FROM audit WHERE action='treasury.receipt242'").first()).n===beforeCount);
+      const pending=await intake([entry]),witness=pending.body.deferred[0];
+      check('missing collector has explicit exact-original no-effect witness',pending.status===200&&!pending.body.acknowledgements.length&&!pending.body.policyHolds.length&&witness?.id===entry.id&&witness?.originalNoEffect===true&&witness?.observedAt===entry.requestedAt&&/^[0-9a-f]{64}$/.test(witness?.bodySHA256));
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO roster_snapshots(id,exported_at,received_at,first_received_at,source,member_count,complete,trusted)VALUES(1,?1,?1,?1,?2,1,1,1)').bind(now,qualifiedNativeSnapshotSource(guild,realm)),
+        env.DB.prepare("INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level)VALUES(1,'fern melder','Fern Melder',?1,'Officer',2,60)").bind(collector),
+      ]);
+      const bad=JSON.parse(original);bad.id='b'.repeat(24);bad.evidence.mac='0'.repeat(32);
+      const refusedMAC=await intake([bad]);
+      check('incorrect financial MAC is policy-held without a receipt',refusedMAC.body.policyHolds.length===1&&!refusedMAC.body.acknowledgements.length&&!refusedMAC.body.deferred.length&&(await db.prepare("SELECT COUNT(*) n FROM audit WHERE action='treasury.receipt242'").first()).n===beforeCount);
+      const first=await intake([entry]),row=await db.prepare("SELECT id,ts,actor,action,subject,details FROM audit WHERE action='treasury.receipt242' AND subject=?1").bind('intake242:'+entry.id).first();
+      check('signed v2 receipt admitted through actual authenticated Worker',first.status===200&&first.body.acknowledgements[0]?.status==='done'&&first.body.acknowledgements[0]?.outcome==='unclassified_receipt_recorded'&&!!row);
+      const receipt=JSON.parse(row.details);
+      check('v2 retention follows original observation rather than arrival',receipt.observedAt===entry.requestedAt&&receipt.retainUntil===entry.requestedAt+30*86400&&row.ts>=now&&receipt.evidence.confirmedLocal===true&&receipt.evidence.automaticCredit===false);
+      const again=await intake([entry]);
+      check('exact live-row replay acknowledges original without renewing it',again.body.acknowledgements[0]?.status==='done'&&JSON.stringify(await db.prepare("SELECT id,ts,actor,action,subject,details FROM audit WHERE action='treasury.receipt242' AND subject=?1").bind(row.subject).first())===JSON.stringify(row));
+      const conflicting=JSON.parse(original);conflicting.donation.copper=101;await sign(conflicting);
+      const conflict=await intake([conflicting]);
+      check('conflicting signed same-ID Native transaction gives no ACK or no-effect inference',conflict.status===200&&!conflict.body.acknowledgements.length&&!conflict.body.deferred.length&&!conflict.body.policyHolds.length);
+      check('conflict rollback preserves exact existing receipt bytes',JSON.stringify(await db.prepare("SELECT id,ts,actor,action,subject,details FROM audit WHERE action='treasury.receipt242' AND subject=?1").bind(row.subject).first())===JSON.stringify(row));
+      const expired=JSON.parse(original);expired.id='c'.repeat(24);expired.requestedAt=now-30*86400;await sign(expired);
+      const boundary=await intake([expired]);
+      check('expired new original is policy-held without false ACK or retry',boundary.body.policyHolds.length===1&&!boundary.body.acknowledgements.length&&!boundary.body.deferred.length);
+      const malformed=JSON.stringify({retainUntil:now-1});
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','qualification-expired',?2)").bind(now,JSON.stringify({observedAt:now-30*86400-1,retainUntil:now-1})),
+        env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','qualification-malformed-deadline',?2)").bind(now,malformed),
+      ]);
       await intake([]);
-      check('cleanup honors an existing server observation deadline',!(await db.prepare("SELECT 1 FROM audit WHERE subject='qualification-expired'").first()));
+      check('cleanup honors fixed existing original observation deadline',!(await db.prepare("SELECT 1 FROM audit WHERE subject='qualification-expired'").first()));
+      check('unqualified deadline cannot cause early deletion or normalized custody',(await db.prepare("SELECT ts,details FROM audit WHERE subject='qualification-malformed-deadline'").first())?.details===malformed);
+      check('all requests preserve original client body MAC and observation',JSON.stringify(entry)===original);
     }else{
       // Persisted rows here are scheduling hints only. No fixture identity,
       // Native authority or role effect is inferred from a selector result.

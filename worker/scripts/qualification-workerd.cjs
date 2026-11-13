@@ -16,9 +16,9 @@ async function run(){
         const u=new URL(request.url),p=u.pathname.replace(/^\/api\/v10/,'');
         if(u.origin==='https://verify.example'&&u.pathname==='/internal/roles242/continue'){
           assert.equal(request.method,'POST');assert.equal(u.search,'');
-          const text=await request.text(),body=JSON.parse(text),signature=crypto.createHmac('sha256','qualification-secret-only').update('role-continuation242\n'+text).digest('hex');
+          const text=await request.text(),body=JSON.parse(text),signature=crypto.createHmac('sha256','qualification-cookie-only').update('role-continuation280-v2\n'+u.origin+'\n'+text).digest('hex');
           assert.equal(request.headers.get('X-Olympus-Role-Continuation'),signature,'actual handoff HMAC');
-          assert(['requests','sweep'].includes(body.kind));assert.equal(Object.keys(body).sort().join(','),body.kind==='requests'?'at,kind,nonce':'at,kind,nonce,sweep');
+          assert.equal(body.version,2);assert(['requests','sweep'].includes(body.kind));assert.equal(Object.keys(body).sort().join(','),body.kind==='requests'?'at,kind,nonce,version':'at,kind,nonce,sweep,version');
           assert(Number.isSafeInteger(body.at)&&Math.abs(Math.floor(Date.now()/1000)-body.at)<=60);
           if(body.kind==='sweep')assert.deepEqual(body.sweep,{id:'f'.repeat(32),n:5});
           handoffs.push({kind:body.kind,sweep:body.sweep??null,status:body.kind==='requests'?503:202});
