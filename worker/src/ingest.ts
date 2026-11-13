@@ -3,7 +3,7 @@ import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
 import { nativeSnapshotSource } from './native-rank-schemes';
-import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
+import { audit, getCharacter, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
 import { codeFor, dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
 import { onVerified } from "./review";
@@ -401,13 +401,21 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   if(privacyCapture && privacyCapture.state!=='active')return json({result:'privacy_held'},409);
   // A ban closes the account's open requests (/olympus-admin ban), but a code whispered in the moment before the ban,
   // or a request opened by an older build, must not link anything either.
-  const account = await getMember(env, pending.discord_id);
+  // Known standing refusals are not an uncertain consuming batch. Keep the
+  // same-statement fences below for a restriction that arrives after this read.
+  // These scalar facts replace the former member-only read at the same cost.
+  const account = await env.DB.prepare(`SELECT (SELECT banned FROM members WHERE discord_id=?1) AS banned,
+    EXISTS(SELECT 1 FROM site_users WHERE discord_id=?1 AND denied=1) AS denied,
+    EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply') AS rename_held`)
+    .bind(pending.discord_id).first<{banned:number|null;denied:number;rename_held:number}>();
+  if(!account)return json({result:'outcome_unknown'},503);
   if (account?.banned) {
     await closeRequest(env, pending, "banned");
     await audit(env, "watcher", "verify.banned", name, { discordId: pending.discord_id, source: body.source, ticket },reference);
     await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`,[reference!]);
     return json({ result: "banned" });
   }
+  if(account.denied||account.rename_held)return json({result:'verification_refused',reason:account.denied?'site_denied':'rename_review_required',pendingConsumed:false,roleGranted:false,inviteQueued:false},409);
   const existing = await env.DB.prepare("SELECT c.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision,typeof(c.bound_at) AS bound_type,typeof(c.verified_at) AS verified_type FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.name_key=?1").bind(nameKey).first<OriginalHolder280>();
   const existingCheck280=existing?original230Slots(existing,HOLDER280_FIELDS):()=>{};
   if (existing && existing.discord_id !== pending.discord_id && !["unbound", "denied", "left"].includes(existing.status)) {

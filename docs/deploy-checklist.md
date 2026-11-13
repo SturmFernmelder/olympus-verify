@@ -955,7 +955,7 @@ and in the guild". `/olympus-admin sync` doesn't help either: it only promotes r
   old, because that is when MEE6 strikes. Whatever budget is left goes to a rotation through every member, which
   finds older cases like Magnus, or someone who left the Discord and came back. Restores are audited as
   `role.restored` and posted as one ♻️ line in #server-log per sweep. Banned accounts, characters that left the guild
-  and people no longer in the Discord are never touched. The sweep's state is the newest `role.sweep` audit row. 10
+  and people no longer in the Discord are never touched. Historical note: current .280 uses the newest relevant `role.sweep` head independently for each lane; it no longer takes both cursors from the newest single row. 10
   accounts is at most about 22 Discord calls, which fits the free plan's 50 per request; `ROLE_SWEEP_PER_RUN` in
   wrangler.toml raises it on a paid plan. With the watcher running, the rotation covers a few hundred members in a
   couple of hours.
@@ -8539,7 +8539,23 @@ Release candidate: Worker .280, Olympus Verify0.6.38 and Watcher0.6.38. Update t
 
 Local cleanup blanks recognized legacy financial correspondence, including the old bridged shape, without changing original IDs, structured facts, hashes, clocks or delivery outcomes. Unsupported items remain exact and individually held while recognized neighbors may still be blanked. Structural, invalid-counter and unsafe generated-metadata publication failures preserve the original candidate and report incomplete cleanup. Previously oversized unrelated Watcher history can remain while bounded recognized rows are cleaned. Stale Watcher staging files hold minimization without changing the existing normal save lifecycle; they are never adopted as proof. No private backups or unrelated journals are scrubbed.
 
-Member downloads omit both mail receipt formats even when a row has an own GUID. Erasure attribution remains unchanged; only an opaque receipt key and its original expiry can remain for replay protection. A fresh proof for an existing link preserves its original source and clocks and requires exact neutral lineage for downstream eligibility. Retired subjects cannot stall the ban rotation; malformed sweep progress stays held, visible and durably throttled instead of resetting itself.
+Member downloads omit both mail receipt formats even when a row has an own GUID. Erasure attribution remains unchanged; only an opaque receipt key and its original expiry can remain for replay protection. A fresh proof for an existing link preserves its original source and every existing clock and requires exact neutral lineage for downstream eligibility. A note-created Member with no verification timestamp can record its first timestamp only from the actual consumed fresh native proof. With generation capture enabled, retired subjects cannot stall the ban rotation; malformed sweep progress stays held, visible and durably throttled instead of resetting itself.
+
+Keep at least one generation-capture feature enabled (`MEMBERSHIP_ROLE_SETTLEMENT_ENABLED`, `QR_PHASE1_ENABLED` or `PRIVACY_ERASURE_ENABLED`, exact value `true`) while retired privacy subjects remain. Turning all three off reverts the old selector behavior, which can stall at a retired account. This candidate does not claim to repair that disabled configuration.
+
+For a held sweep head, inspect `SELECT id,ts,subject,details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 20` and the original `role.sweep` rows. A failure with reason `original_progress_or_reference_held` means the original lane progress or its privacy reference could not be confirmed. Unknown lane tags or malformed JSON conservatively hold both lane heads. Other-lane activity cannot repair it. Preserve the original raw row and failure evidence; do not edit/delete it or reset role settlements, nonces or unknown attempts.
+
+Attended Root repair, after identifying the corrupt head and preserving a fresh backup, may append an id-free restart head: ordinary `{"lane":"ordinary","a":0,"c":""}` or ban `{"lane":"ban","b":""}`. This restarts passive scheduling only; every effect still requires its existing fresh authority and custody guards. Bind the exact saved raw corrupt row, its id and the observed newest progress id; do not interpolate malformed JSON into SQL. The conservative compare-and-set template below refuses any intervening progress append. If the unknown/malformed head affects both lanes, inspect and append each lane separately, refreshing the observed newest id between them. A zero-change or uncertain reply is held; never retry it blindly.
+
+```sql
+INSERT INTO audit(ts,actor,action,subject,details)
+SELECT CAST(strftime('%s','now') AS INTEGER),'system','role.sweep','attended_progress_repair',?1
+WHERE ?1 IN ('{"lane":"ordinary","a":0,"c":""}','{"lane":"ban","b":""}')
+AND EXISTS(SELECT 1 FROM audit WHERE id=?2 AND action='role.sweep' AND details IS ?3)
+AND (SELECT MAX(id) FROM audit WHERE action='role.sweep')=?4;
+```
+
+After an acknowledged single insert, read the actual relevant lane heads, observe the next normal cron's original progress result and check that failures stop recurring. The old malformed row stays preserved. This is an operator procedure, not automatic cleanup and not an action performed by this release's tests.
 
 Qualification and rollout are recorded in the external QA pair and append-only shared log, not inferred from this candidate note. Root deploys only after actual Claude/Codex Primary Sign-Offs and Mutual Counter-Signatures on the same final commit/tree, current required CI, and a fresh production export restored locally with integrity, foreign-key and444live/443portable catalogue checks (audit_reconcile266 retained). Use the exact-commit deployment entrypoint with --keep-vars. Keep the relay, Link and separate Treasury activation gates unchanged. Do not initialize D1, register commands indiscriminately, clear unknown effects or manufacture historical receipts.
 

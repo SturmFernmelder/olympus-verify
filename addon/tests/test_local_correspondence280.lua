@@ -159,5 +159,62 @@ for _,kind in ipairs({"invalid-counter","generated-counter","generated-capacity"
  check(kind.." reports incomplete without invented per-item count",status.held and not status.complete and status.heldItems==nil)
  check(kind.." keeps known and unknown financial originals blocked",p.Blocked(root,bridge,old.entries[bridge])and p.Blocked(root,unknown,old.entries[unknown]))
 end
+-- Review conditions C1/C2: original pre-blank facts remain the denial witness,
+-- including supported in-memory aliases that cannot survive a disk serialization.
+do
+ local box=fixture(true);local root=seed();local second=string.rep("9",24);local intake=root.intake242
+ local first=intake.entries[MAIL];local other=clone(first);other.id=second;other.donation=first.donation
+ intake.entries={[MAIL]=first,[second]=other};intake.dedup={};intake.mailCollection242=nil;intake.tradeCollection242=nil;intake.heldTransfers627={}
+ local shared=first.donation;local original=clone(intake);box.e.OlympusVerifyDB=root;local privacy=box.e.OlympusVerifyLocalPrivacy280
+ privacy.Ensure(root);local d=root.intake242;local marker=d.localCorrespondence280
+ check("two aliased known entries blank once while preserving internal alias",d.entries[MAIL].donation==d.entries[second].donation and d.entries[second].donation.note==""and marker.stats.blankedLeaves==1)
+ check("both pre-blank original IDs get permanent denial",marker.blockedIds[MAIL]==true and marker.blockedIds[second]==true and marker.stats.blockedOriginals==2)
+ check("both aliased minimized originals stay transport blocked",privacy.Blocked(root,MAIL,d.entries[MAIL])and privacy.Blocked(root,second,d.entries[second]))
+ check("both aliased minimized originals stay prune blocked",privacy.PruneBlocked(root,MAIL)and privacy.PruneBlocked(root,second))
+ check("shared foreign original facts and delivery state stay unchanged",shared.note=="PRIVATE_MAIL"and same(intake,original)and d.entries[second].attempts==2 and d.entries[second].outcome=="unknown")
+ local once=clone(root);setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua")),box.e)("OlympusVerify");box.e.OlympusVerifyLocalPrivacy280.Ensure(root)
+ check("shared original IDs survive fresh-cache reload without renewal",same(root,once)and box.e.OlympusVerifyLocalPrivacy280.Blocked(root,MAIL,root.intake242.entries[MAIL])and box.e.OlympusVerifyLocalPrivacy280.Blocked(root,second,root.intake242.entries[second]))
+end
+do
+ local box=fixture(true);local row=clone(seed().intake242.entries[MAIL]);row.donation.note=""
+ local raw={intake242={entries={[MAIL]=row},dedup={},acknowledgements={}}};local root=setmetatable(raw,{__index=function()error("foreign root callback")end});local p=box.e.OlympusVerifyLocalPrivacy280
+ local ok,blocked=pcall(p.Blocked,root,MAIL,row)
+ check("uninspectable metatabled root fails closed for textless legacy finance",ok and blocked==true)
+ check("uninspectable root stays unchanged with truthful held status",root==raw and row.donation.note==""and p.Status(root).held and p.Status(root).heldItems==nil and rawget(raw.intake242,"localCorrespondence280")==nil)
+end
+-- A global no-swap has no scoped-cleanup success to report. A per-item hold
+-- still reports its count without claiming that every unknown item was blanked.
+for _,kind in ipairs({"global","partial","complete"})do
+ local box=fixture(true);local root=seed();local original=root.intake242;local lines={}
+ if kind=="global"then original.mailCollection242.self=original.mailCollection242
+ elseif kind=="partial"then local id=string.rep("8",24);original.entries[id]={id=id,type="donation",source="unclassified",requestedAt=1794312000,donation={note="PRIVATE_UNKNOWN"}}end
+ box.e.OlympusVerifyDB=root;box.e.DEFAULT_CHAT_FRAME={AddMessage=function(_,text)lines[#lines+1]=text end};box.v.PrintOwnStatus()
+ local text=table.concat(lines,"\n")
+ if kind=="global"then
+  check("global privacy hold says nothing was blanked on this pass",text:find("nothing was blanked on this pass",1,true)and not text:find("recognized items use scoped blanking",1,true)and not text:find("held items)",1,true))
+  check("global status does not rewrite the original graph",root.intake242==original and original.entries[MAIL].donation.note=="PRIVATE_MAIL")
+ elseif kind=="partial"then check("per-item status retains counted scoped hold wording",text:find("(1 held items)",1,true)and not text:find("nothing was blanked",1,true)and root.intake242.entries[MAIL].donation.note=="")
+ else check("complete status still describes known blanking",text:find("Local financial correspondence was blanked",1,true)and not text:find("nothing was blanked",1,true))end
+end
+do
+ local box=fixture(true);local root=seed();local old=root.intake242;local mail,trade=old.entries[MAIL],old.entries[TRADE]
+ old.bridgeMetadata={[MAIL]={origin="any-foreign-origin"},[TRADE]=false};box.e.OlympusVerifyDB=root;local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root)
+ check("all metadata-present legacy mirrors stay exact regardless of origin value",root.intake242.entries[MAIL]==mail and root.intake242.entries[TRADE]==trade and mail.donation.note=="PRIVATE_MAIL"and trade.donation.note=="PRIVATE_TRADE")
+ check("mirrored legacy IDs remain blocked while other known items blank",p.Blocked(root,MAIL,mail)and p.Blocked(root,TRADE,trade)and root.intake242.entries[DECL].donation.note==""and p.Status(root).heldEntries==2)
+end
+for _,legacy in ipairs({false,true})do
+ local box=fixture(true);local root=seed();local id=string.rep("7",24);local oldTs=1794312000;local original=root.intake242
+ original.entries={[id]={id=id,type="donation",source="treasury-receipt242",requestedAt=oldTs,donation={copper=12}}};original.dedup={};original.mailCollection242=nil;original.tradeCollection242=nil;original.heldTransfers627={};original.acknowledgements={[id]={status="done"}}
+ if legacy then original.heldTransfers627["untyped-1"]={context={kind="mail",body="PRIVATE_LEGACY",header={subject="PRIVATE_SUBJECT"}},reason="legacy_or_invalid_saved_mail_context",heldAt=oldTs}end
+ root.treasury.receipts={{id=id,ts=oldTs,mac="old-receipt-mac",incomingCopper=12}};root.treasury.observations={{ts=oldTs,reason="old-observation"}}
+ local held=original.heldTransfers627["untyped-1"];box.e.OlympusVerifyDB=root;box.e.NOW=oldTs+31*86400;local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root)
+ if legacy then
+  check("untyped legacy context conservatively holds unrelated receipt pruning",p.PruneBlocked(root,id)and not p.Blocked(root,id,root.intake242.entries[id]))
+  check("uncertain prune does not invent blanket ID marker or alter legacy context",root.intake242.localCorrespondence280==nil and root.intake242.heldTransfers627["untyped-1"]==held and held.context.body=="PRIVATE_LEGACY")
+ else check("known unrelated scalar receipt has no global prune hold",not p.PruneBlocked(root,id))end
+ box.e.OlympusVerifyTreasury.Status()
+ check((legacy and "legacy uncertainty keeps"or"known ACK permits expiry of").." unrelated old receipt",#root.treasury.receipts==(legacy and 1 or 0))
+ check((legacy and "legacy uncertainty preserves"or"known receipt preserves").." observation expiry policy",#root.treasury.observations==0)
+end
 print(string.format("local correspondence280: %d/%d passed",checks-failed,checks))
 if failed>0 then error("local correspondence280 regression failed")end

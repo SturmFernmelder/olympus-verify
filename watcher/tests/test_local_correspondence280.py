@@ -199,6 +199,65 @@ class TransportBehavior(Harness):
                     intake242.collect(obj);intake242.drain(obj,False)
                 call.assert_not_called();self.assertEqual(obj.state.d['intake242'][body['id']],old)
 
+    def _sticky_current_policy_recovery(self, mode, expected):
+        # Only the constructor's synthetic dictionary changes; no operator config
+        # or live state is read. Original body/MAC/hash/clock stay frozen.
+        at=NOW;body=current()
+        if mode == "future-clock":
+            body["requestedAt"]=at+120
+            body["evidence"]["mac"]=intake_schema280.tithe_mac("synthetic-key",body)
+        elif mode == "wrong-key": self.cfg["verify_secret"]="wrong-synthetic-key"
+        else: self.cfg["officer_character"]="Another Synthetic Officer"
+        original=row(body);obj=self.loaded({body["id"]:original})
+        readable=dict(entries={},localCorrespondence280=marker())
+        with patch.object(intake242.time,"time",return_value=at),self.source(readable),patch.object(obj.worker,"call",return_value=(False,{})) as first:
+            intake242.drain(obj,False)
+        initial=obj.state.d["intake242"][body["id"]].get("policyHold")
+        with patch.object(intake242.time,"time",return_value=at+121),self.source(readable),patch.object(obj.worker,"call",return_value=(False,{})) as later:
+            intake242.drain(obj,False)
+        obj.state.save()
+        self.cfg["verify_secret"]="synthetic-key";self.cfg["officer_character"]="Fern Melder"
+        with patch.object(intake242.time,"time",return_value=at+121): restarted=self.loaded()
+        with patch.object(intake242.time,"time",return_value=at+121),self.source(readable),patch.object(restarted.worker,"call",return_value=(False,{})) as after_restart:
+            intake242.drain(restarted,False)
+        calls=dict(first=first.call_count,later=later.call_count,restarted=after_restart.call_count)
+        self.assertEqual(initial,expected,calls)
+        self.assertEqual(calls,dict(first=0,later=0,restarted=0))
+        wanted=copy.deepcopy(original);wanted["policyHold"]=expected
+        self.assertEqual(restarted.state.d["intake242"][body["id"]],wanted)
+
+    def test_readable_marker_future_clock_hold_survives_later_drain_and_restart(self):
+        self._sticky_current_policy_recovery("future-clock","receipt_original_clock_held")
+
+    def test_readable_marker_wrong_key_hold_survives_correct_key_restart(self):
+        self._sticky_current_policy_recovery("wrong-key","receipt_authentication_held")
+
+    def test_readable_marker_officer_config_hold_survives_corrected_config(self):
+        self._sticky_current_policy_recovery("wrong-officer","receipt_collector_held")
+
+    def test_readable_marker_acked_receipt_keeps_original_24h_projection_across_30day_boundary(self):
+        at=NOW;body=current();body["requestedAt"]=at-30*86400+300
+        body["evidence"]["mac"]=intake_schema280.tithe_mac("synthetic-key",body)
+        original=row(body,"done");obj=self.loaded({body["id"]:original})
+        readable=dict(entries={},localCorrespondence280=marker())
+        with patch.object(intake242.time,"time",return_value=at),self.source(readable): first=intake242.receipts(obj)
+        with patch.object(intake242.time,"time",return_value=at+600),self.source(readable): later=intake242.receipts(obj)
+        with patch.object(intake242.time,"time",return_value=original["acknowledgedAt"]+86400),self.source(readable): expired=intake242.receipts(obj)
+        self.assertEqual((len(first),len(later),len(expired)),(1,1,0))
+        self.assertEqual(first,later)
+        self.assertEqual(later[0]["observedAt"],original["acknowledgedAt"])
+        self.assertEqual(later[0]["expiresAt"],original["acknowledgedAt"]+86400)
+        self.assertEqual(obj.state.d["intake242"][body["id"]],original)
+
+    def test_unknown_marker_still_checks_full_current_clock_before_hash_or_hold(self):
+        at=NOW;body=current();body["requestedAt"]=at+120
+        body["evidence"]["mac"]=intake_schema280.tithe_mac("synthetic-key",body)
+        original=row(body);obj=self.loaded({body["id"]:original});bad=marker();bad["version"]=2
+        with patch.object(intake242.time,"time",return_value=at),self.source(dict(entries={body["id"]:body},localCorrespondence280=bad)),patch.object(intake242,"_canonical_body",side_effect=AssertionError("unknown-marker future body hashed")),patch.object(obj.worker,"call") as call:
+            intake242.collect(obj);intake242.drain(obj,False)
+        call.assert_not_called()
+        self.assertEqual(obj.state.d["intake242"][body["id"]],original)
+
     def test_known_legacy_denied_before_hash_and_no_metadata_or_ack_mutation(self):
         obj=self.loaded({"old":row(legacy("old"),"done")}); original=copy.deepcopy(obj.state.d["intake242"])
         with self.source(),patch.object(intake242,"_canonical_body",side_effect=AssertionError("must not hash removed text")),patch.object(obj.worker,"call") as call:
