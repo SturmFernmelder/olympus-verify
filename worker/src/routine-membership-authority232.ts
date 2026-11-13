@@ -191,10 +191,10 @@ export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,s
   AND (SELECT COUNT(*) FROM characters WHERE discord_id=${q(0)} AND status NOT IN('unbound','denied'))=json_array_length(${q(7)}))
   AND NOT EXISTS(SELECT 1 FROM json_each(${q(7)}) j
    LEFT JOIN characters c ON c.discord_id=${q(0)} AND c.name_key=json_extract(j.value,'$[0]') AND c.guid IS json_extract(j.value,'$[1]')
-   LEFT JOIN role_settlements a ON a.id=json_extract(j.value,'$[6]')
+   LEFT JOIN role_settlements a ON a.id=json_extract(j.value,'$[6]') AND (c.source IN('whisper','mail') OR a.purpose='${NEUTRAL_IDENTITY_PURPOSE280}')
    WHERE CASE WHEN (c.name_key IS NOT NULL AND c.status=json_extract(j.value,'$[2]') AND c.bound_at=json_extract(j.value,'$[3]'))
    AND (c.verified_at IS json_extract(j.value,'$[4]') AND c.source IS json_extract(j.value,'$[5]'))
-   AND (c.status IN('verified','queued') OR ((${ANCHOR(q(12),q(13),q(10))}) AND (c.source IN('whisper','mail') OR a.purpose='${NEUTRAL_IDENTITY_PURPOSE280}')) OR (${INERT_LEGACY(q(13),q(10))})) THEN 0 ELSE 1 END=1)
+   AND (c.status IN('verified','queued') OR (${ANCHOR(q(12),q(13),q(10))}) OR (${INERT_LEGACY(q(13),q(10))})) THEN 0 ELSE 1 END=1)
   AND COALESCE((SELECT member_count FROM roster_snapshots old WHERE old.id<s.id AND old.complete=1 AND old.trusted=1 AND old.source=s.source ORDER BY old.id DESC LIMIT 1),s.member_count)=${q(11)})`;
  // Both variants are captured while the full original cap is valid. The extra
  // frozen SQL preserves all DB source/link/rank/G/deadline clauses and omits
