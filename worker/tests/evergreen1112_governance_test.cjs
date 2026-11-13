@@ -319,6 +319,171 @@ check('REV-GOV-5', 'the vote board inserts the class leads right after their fam
 check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s seat (Vice Guild Master after Co-GM)', dir.keyToFamily['office_92'] === 'co_gm' && fam('co_gm').primaryKey === 'office_19'
   && /const familySeat = family\?\.group === "council" \? seatKeys1112\.indexOf\(family\.primaryKey\) : -1;/.test(orgView) && /return 1e4 \+ familySeat \+ 0\.1 \+ t\.ordinal \/ 1e4;/.test(orgView));
 
+// ================================================================ round 5 (owner rulings of 13 Nov 2026, about 12:15 UTC)
+// ---------------------------------------------------------------- CL2-039 organization chart: placement and reporting only
+{
+  const nodeOf = id => model.nodes.find(n => n.id === id) || {};
+  const exec = nodeOf('executive'), founder = nodeOf('founder'), justiciar = nodeOf('justiciar'), justice = nodeOf('justice');
+  const seatOf = id => (model.councilComposition.currentSeats.find(s => s.id === id) || {});
+  check('CL2-039', 'the Co-Guild Master node sits in the top tier beside the Guild Master (both chart roots, joined by a coordination line)',
+    founder.parent === null && exec.parent === null && (exec.coordinates || []).includes('founder') && seatOf('gm-chair').nodeId === 'founder' && seatOf('co-gm').nodeId === 'executive',
+    JSON.stringify({ executiveParent: exec.parent, coordinates: exec.coordinates }));
+  check('CL2-039', 'the Lord High Justiciar has its own node that reports directly to both top-tier offices',
+    justiciar.parent === 'founder' && JSON.stringify(justiciar.alsoReportsTo) === '["executive"]' && justiciar.relation === 'accountability'
+    && seatOf('head-justice').nodeId === 'justiciar' && (model.terms.find(t => t.officeKey === 'office_101') || {}).nodeId === 'justiciar'
+    && model.officeMandates.filter(o => o.nodeId === 'justiciar').map(o => o.title).join('|') === 'Lord High Justiciar · Minister of Justice & The Privy Court',
+    JSON.stringify({ justiciar: justiciar.id || null, seat: seatOf('head-justice').nodeId }));
+  check('CL2-039', 'the Court branch (Council of Justice) hangs under the Justiciar and keeps its independent-review relation',
+    justice.parent === 'justiciar' && justice.relation === 'independence' && (model.terms.find(t => t.officeKey === 'office_26') || {}).nodeId === 'justice'
+    && /Council of Justice/.test(justiciar.remit || '') && /Stockades & Court of Appeals/.test(justiciar.remit || ''), JSON.stringify({ justiceParent: justice.parent }));
+  // Not covered by the ruling, so identical to b631136: seats (labels, families, office keys, order), the 13-seat count,
+  // every term except its node, appointments, application tracks and the native ranks. No person's name in the model.
+  const digest = v => sha256(JSON.stringify(v));
+  check('CL2-039', 'seats, seat numbers, office keys, terms, appointments and application tracks are unchanged; the model names no person',
+    digest(model.councilComposition.currentSeats.map(({ nodeId, ...s }) => s)) === 'eb27436254d4efeeae741b062683a6103fe1ef28e243006ceb766c267272ebdb'
+    && digest(model.terms.map(({ nodeId, ...t }) => t)) === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'
+    && digest([model.appointments, model.applicationTracks, model.roleRank199, model.nativeRanks]) === '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34'
+    && model.councilComposition.cabinetSeatCount === 13 && model.cabinet218.seatCount === 13 && !/richwcampbell/i.test(JSON.stringify(model)));
+  // Every current seat except the Council chair sits on the node of its own office (the chair's office_43 placement is the
+  // separate open question on the branch Guild Master term, not covered by this ruling).
+  const misplaced = model.councilComposition.currentSeats.filter(s => s.id !== 'gm-chair' && (model.terms.find(t => t.officeKey === s.officeKeys[0]) || {}).nodeId !== s.nodeId).map(s => s.id);
+  check('CL2-039', 'every Council seat but the chair is placed on the node of its own office', misplaced.length === 0, misplaced.join(','));
+  check('CL2-039', 'the model has a dated record of every placement change, so the earlier edition is recoverable', (() => {
+    const r = model.reportingLines1113; if (!r || r.recordedAt !== '2026-11-13' || !Array.isArray(r.changes)) return false;
+    const has = (k, v, f, a) => r.changes.some(c => c[k] === v && c.field === f && JSON.stringify(c.after) === JSON.stringify(a));
+    return has('nodeId', 'executive', 'parent', null) && has('nodeId', 'executive', 'coordinates', ['founder']) && has('nodeId', 'justice', 'parent', 'justiciar')
+      && has('term', 'office_101', 'nodeId', 'justiciar') && has('councilSeat', 'head-justice', 'nodeId', 'justiciar') && r.changes.some(c => c.nodeId === 'justiciar' && c.before === null);
+  })());
+  const chartText = chapter('Revised Organisation Chart');
+  check('CL2-039', 'the book\'s chart chapter states the same lines: top tier, the Justiciar reporting to both, the Court under it',
+    chartText.includes('The Guild Master, as Sovereign, and the Co-Guild Master form the top tier.')
+    && chartText.includes('The Lord High Justiciar sits in the High Council Cabinet, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals.')
+    && !chartText.includes('Justice handles cases independently.'), chartText.slice(0, 80));
+  check('CL2-039', 'the overview states the same line and lists the Justiciar seat under Justice & independent review',
+    overview.includes('The Lord High Justiciar holds the individual High Council portfolio, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch')
+    && overview.includes('councilReferences("justiciar")') && !overview.includes('councilReferences("justice")'));
+  check('CL2-039', 'the page refuses a model whose second reporting authority is unknown, itself or its own parent',
+    /n\.alsoReportsTo !== undefined && \(!Array\.isArray\(n\.alsoReportsTo\) \|\| n\.alsoReportsTo\.some\(\(id\) => !ids\.has\(id\) \|\| id === n\.id \|\| id === n\.parent\)\)/.test(app));
+  // Review of f443043 (13 Nov 2026), LOW 1: the shared executive node took the Vice Guild Master and the Deputy into the
+  // top tier with it. Only the Co-Guild Master moves; the other two keep their place below the Guild Master.
+  const vice = nodeOf('vice-guild-master'), termsOn = id => model.terms.filter(t => t.nodeId === id).map(t => t.officeKey).join(',');
+  check('CL2-039', 'only the Co-Guild Master is in the top tier: the Vice Guild Master and the Deputy stay below the Guild Master, the Chief of Staff keeps its line to the Co-GM',
+    termsOn('executive') === 'office_19' && model.officeMandates.filter(o => o.nodeId === 'executive').map(o => o.title).join('|') === 'Co-Guild Master'
+    && vice.parent === 'founder' && vice.relation === 'coordination' && termsOn('vice-guild-master') === 'office_29,office_92'
+    && model.officeMandates.filter(o => o.nodeId === 'vice-guild-master').map(o => o.title).join('|') === 'Vice Guild Master'
+    && exec.title === 'Co-Guild Master and Vice Guild Master' && nodeOf('staff').parent === 'executive' && model.nodes.filter(n => n.parent === null && n.relation !== 'classification').map(n => n.id).join(',') === 'founder,executive',
+    JSON.stringify({ executive: termsOn('executive'), vice: vice.parent || null, viceTerms: termsOn('vice-guild-master') }));
+  // Review HIGH: the dated record is an exact finite delta. Undoing it gives back the b631136 model byte for byte (the book
+  // pin aside, which follows the book), so the historical graph, term and mandate inverses of governance_test.cjs can run
+  // on the earlier edition. Every way of breaking the record or the model must refuse or change the result.
+  const BASE_MODEL1113 = 'af1f62cd8ca391277abbbad1f8c92f925a851077068c65653c36ab729e48ad9e';
+  const restore = (() => { try { return require(path.join(root, 'scripts/build-governance-titles.cjs')).restoreReportingLines1113; } catch { return undefined; } })();
+  const restoredDigest = m => { try { return sha256(JSON.stringify({ ...restore(m), book: null })); } catch (error) { return 'refused: ' + error.message; } };
+  check('CL2-039', 'undoing reportingLines1113 restores the b631136 organization model exactly (book pin aside)', typeof restore === 'function' && restoredDigest(model) === BASE_MODEL1113,
+    typeof restore === 'function' ? restoredDigest(model) : 'no restoreReportingLines1113 export');
+  if (typeof restore === 'function') {
+    const mutate = fn => { const m = structuredClone(model); fn(m); return restoredDigest(m); };
+    const find = (m, id) => m.nodes.find(n => n.id === id);
+    const cases = {
+      'changed after (an added node differs)': m => { find(m, 'justiciar').alsoReportsTo = ['council']; },
+      'current value differs from the recorded after': m => { m.terms.find(t => t.officeKey === 'office_101').nodeId = 'justice'; },
+      'a declaration removed': m => { m.reportingLines1113.changes = m.reportingLines1113.changes.filter(c => c.term !== 'office_92'); },
+      'a declaration duplicated': m => { m.reportingLines1113.changes.push(structuredClone(m.reportingLines1113.changes[0])); },
+      'an undeclared change to another node': m => { find(m, 'staff').parent = 'founder'; },
+      'an unknown kind of change': m => { m.reportingLines1113.changes.push({ guide: 'x', field: 'nodeId', before: 'a', after: 'b' }); },
+      'a leftover reference to a removed node': m => { find(m, 'tactical').coordinates.push('vice-guild-master'); },
+      'the record missing': m => { delete m.reportingLines1113; },
+    };
+    const outcomes = Object.fromEntries(Object.entries(cases).map(([name, fn]) => [name, mutate(fn)]));
+    check('CL2-039', 'the inverse refuses or changes its result for every broken record or undeclared model change', Object.values(outcomes).every(d => d !== BASE_MODEL1113),
+      JSON.stringify(Object.entries(outcomes).filter(([, d]) => d === BASE_MODEL1113).map(([k]) => k)));
+  }
+  // Review LOW 3: one name for the top tier. The Council node and Section II.8.1(a) name the Co-GM's top-tier place too.
+  check('CL2-039', 'the High Council node and Section II.8.1(a) place the Co-Guild Master in the top tier beside the Guild Master',
+    nodeOf('council').limits.includes('The Co-Guild Master sits beside the Guild Master in the top tier and serves on the Council alongside twelve portfolios.')
+    && count(book, '(a) The Guild Master chairs the High Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves alongside twelve numbered portfolios') === 1
+    && read('docs/master199-governance-titles.md').includes('The Co-Guild Master sits beside the Guild Master in the top tier and serves alongside twelve numbered portfolios'));
+}
+// Review LOW 6 (13 Nov 2026): the page's own model loader, run on mutated models, refuses a bad second reporting authority.
+async function loaderChecks1113() {
+  const from = app.indexOf('  async function publicGovernanceBytes('), to = app.indexOf('  const governanceSlug = ');
+  const constants = ['GOVERNANCE_BOOK', 'GOVERNANCE_MODEL', 'GOVERNANCE_SHA256', 'GOVERNANCE_BYTES'].map(name => (new RegExp('  const ' + name + ' = [^;]+;').exec(app) || [''])[0]).join('\n');
+  const run = async m => {
+    const bytes = Buffer.from(JSON.stringify(m));
+    const fetch = async () => ({ ok: true, status: 200, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) });
+    const make = new Function('fetch', 'TextDecoder', constants + '\nconst own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);\nlet governanceBookPromise = null, governanceModelPromise = null;\n' + app.slice(from, to) + '\nreturn governanceModel;');
+    try { await make(fetch, TextDecoder)(); return 'accepted'; } catch (error) { return error.message; }
+  };
+  const variant = fn => { const m = structuredClone(model); fn(m.nodes.find(n => n.id === 'justiciar') || m.nodes[1]); return m; };
+  const got = {
+    current: await run(model),
+    unknown: await run(variant(n => { n.alsoReportsTo = ['no-such-office']; })),
+    self: await run(variant(n => { n.alsoReportsTo = [n.id]; })),
+    parent: await run(variant(n => { n.alsoReportsTo = [n.parent]; })),
+    notList: await run(variant(n => { n.alsoReportsTo = 'executive'; })),
+  };
+  const refused = 'The organization model has an invalid relation.';
+  check('CL2-039', 'the page loader accepts the served model and refuses an alsoReportsTo that is unknown, itself, its own parent or not a list',
+    from > 0 && to > from && got.current === 'accepted' && ['unknown', 'self', 'parent', 'notList'].every(k => got[k] === refused), JSON.stringify(got));
+}
+
+// ---------------------------------------------------------------- CL2-291 three paused services carry one exact status
+const PAUSED1113 = 'Paused / Inactive Statutory Proposal (Not Active in Current Build)';
+const PAUSED_KEYS1113 = ['bifrost_writ', 'attunement_charter', 'trial_memorial_writ'];
+// A mention of one of the three by any of the names the surfaces use.
+const PAUSED_NAMES1113 = [/Bifrost|summoning pass/i, /attunement (?:&|or|and) dungeon|dungeon[- ]service charter/i, /Hall of Fame|trial\/memorial|Priority (?:trial )?reviews?\b/i];
+const PAUSED_NAME1113 = new RegExp(PAUSED_NAMES1113.map(r => r.source).join('|'), 'i');
+// One unit of text (a paragraph, a table row, a card) that names k of the three carries the label exactly k times; a unit
+// that names none of them carries no label.
+function pausedUnits1113(units) {
+  const bad = [];
+  for (const u of units) { const named = PAUSED_NAMES1113.filter(r => r.test(u)).length; if (count(u, PAUSED1113) !== named) bad.push(named + '/' + count(u, PAUSED1113) + ' ' + u.slice(0, 70)); }
+  return { bad, labelled: units.filter(u => u.includes(PAUSED1113)).length, mentioned: units.filter(u => PAUSED_NAME1113.test(u)).length };
+}
+{
+  const writs = load('royal-writs199');
+  const rows = writs.ROYAL_WRITS || [];
+  const withStatus = rows.filter(r => r.status !== undefined).map(r => r.key);
+  check('CL2-291', 'exactly the Bifrost pass, the attunement charter and the trial memorial writ carry the status, character for character',
+    JSON.stringify(withStatus) === JSON.stringify(PAUSED_KEYS1113) && PAUSED_KEYS1113.every(k => rows.find(r => r.key === k).status === PAUSED1113), withStatus.join(','));
+  check('CL2-291', 'the label appears on no other writ, the policy, the categories or the checklist',
+    rows.filter(r => !PAUSED_KEYS1113.includes(r.key)).every(r => !JSON.stringify(r).includes(PAUSED1113))
+    && ![writs.ROYAL_WRIT_POLICY, writs.ROYAL_WRIT_CATEGORIES, writs.STOCKADES_CHECKLIST].some(v => JSON.stringify(v).includes(PAUSED1113)));
+  const three = PAUSED_KEYS1113.map(k => rows.find(r => r.key === k) || {});
+  check('CL2-291', 'none of the three reads as something to buy, request or that is running',
+    three.every(r => !/— proposal$/.test(r.label || '') && /^Nothing can be bought or requested/.test(r.limits || '') && !/quote required|published refund terms|need separate approval/i.test(JSON.stringify(r))
+      && r.enabled === false && r.forecastGold === 0 && r.activation === 'unqualified-proposal'), JSON.stringify(three.map(r => r.limits && r.limits.slice(0, 40))));
+  // Review LOW 5 (13 Nov 2026): the card line is "<price> · <term>" with the page's own price function; it says
+  // "Proposed" once ("Proposed price: 25–75g · Proposed 25g/week ..." said it twice).
+  const priceSource = (/\n    const price = row => [^\n]+;\n/.exec(app) || [''])[0];
+  const priceOf = priceSource ? new Function(priceSource + 'return price;')() : null;
+  const lines = three.map(r => priceOf ? priceOf(r) + ' · ' + r.term : '');
+  check('CL2-291', 'each of the three cards says "Proposed" once in its price line', !!priceOf && lines.every(l => count(l, 'Proposed') === 1), JSON.stringify(lines));
+  // Not covered (wagering, lottery and "subject to Blizzard policy" services): byte-identical to b631136.
+  check('CL2-291', 'the wagering, lottery and other service entries and the policy texts are unchanged',
+    sha256(JSON.stringify(rows.filter(r => !PAUSED_KEYS1113.includes(r.key)))) === '58fe3baace7f921e11234fb9d7a8b95402a95809c57ba4b3eba977f1c8c447e8'
+    && sha256(JSON.stringify([writs.ROYAL_WRIT_POLICY, writs.ROYAL_WRIT_CATEGORIES, writs.STOCKADES_CHECKLIST])) === 'b229559dca0701625fef2c5c6b02e9c9e1eb7ec8542c3e47b6fd90e8edd7ceb4');
+  // The book and the titles document: every paragraph that mentions one of the three carries the label before it.
+  const bookUnits = book.split('\n\n').filter(p => !p.startsWith('#'));
+  const titlesUnits = read('docs/master199-governance-titles.md').split('\n\n').filter(p => !p.startsWith('#'));
+  const b = pausedUnits1113(bookUnits), t = pausedUnits1113(titlesUnits);
+  check('CL2-291', 'governance book: each paragraph naming one of the three carries the label once per service named, and no other paragraph carries it', b.bad.length === 0 && b.labelled === 2 && b.mentioned === 2, JSON.stringify(b));
+  check('CL2-291', 'titles document: the same', t.bad.length === 0 && t.labelled === 2 && t.mentioned === 2, JSON.stringify(t));
+  check('CL2-291', 'the book and the titles document carry the label three times each (Bifrost, attunement, trial memorial)', count(book, PAUSED1113) === 3 && count(read('docs/master199-governance-titles.md'), PAUSED1113) === 3);
+}
+async function treasuryPlanChecks1113() {
+  const os = require('node:os'), { pathToFileURL } = require('node:url');
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plan1113-')), 'plan.mjs');
+  fs.writeFileSync(tmp, read('worker/public/static/treasury-plan-content207.js'));
+  const { TREASURY_PLAN207 } = await import(pathToFileURL(tmp).href);
+  // Every string the renderer shows: chapter intros, headings, paragraphs, list items and each table row joined.
+  const units = [];
+  const walk = v => { if (typeof v === 'string') units.push(v); else if (Array.isArray(v)) { if (v.every(x => typeof x === 'string') && v.length > 1 && v.length <= 4 && v.some(x => PAUSED_NAME1113.test(x) || x.includes(PAUSED1113))) units.push(v.join(' | ')); else v.forEach(walk); } else if (v && typeof v === 'object') Object.values(v).forEach(walk); };
+  walk(TREASURY_PLAN207.chapters);
+  const r = pausedUnits1113(units);
+  check('CL2-291', 'treasury plan content: every row or paragraph that mentions the three carries the label, and the label marks nothing else', r.bad.length === 0 && r.labelled === 4 && r.mentioned === 4, JSON.stringify(r));
+}
+
 // ================================================================ browser checks (only with --base and --cdp)
 // The follow-up items of 12 Nov 2026, measured in headless Edge through the audit CDP helper against a harness serving
 // the tree under test. Numbers are printed with every check.
@@ -340,6 +505,9 @@ async function browserChecks(BASE, CDP_PORT) {
   // Browser checks print their measurement on PASS too, so the receipts carry numbers.
   const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
   try {
+    // Round 5 (13 Nov 2026): --round5 runs only the CL2-039 and CL2-291 browser checks.
+    await round5Checks({ open, ev, show, bcheck });
+    if (argv.includes('--round5')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     await round4Checks({ open, ev, show, bcheck, cdp, H });
     if (argv.includes('--round4')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     // INT-GOV-1 (CL2-100): navigation landmarks are the site menu and one page-contents list; per-chapter rows are groups.
@@ -434,6 +602,93 @@ async function browserChecks(BASE, CDP_PORT) {
       Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
+}
+
+// ================================================================ round 5 browser checks (13 Nov 2026)
+async function round5Checks({ open, ev, show, bcheck }) {
+  // CL2-039: the inspector and the List (the chart's text alternative) say the same placement at all six widths.
+  const SEATS = { justiciar: 'Lord High Justiciar · Minister of Justice & The Privy Court', executive: 'Hand of the Sovereign · Co-Guild Master', justice: 'Council of Justice', founder: 'Founder and Patron', 'vice-guild-master': 'Vice Guild Master', staff: 'Chief of Staff' };
+  // Review of f443043, LOW 3: the top tier is named as the overview and the book name it; LOW 1: the Vice Guild Master
+  // stays below the Guild Master and the Chief of Staff keeps its line to the Co-GM card, both as on b631136.
+  const GM = 'the Guild Master (Founder and Patron)', CO = 'the Co-Guild Master';
+  const EXPECT = {
+    justiciar: { inspector: `Accountable to the top tier: ${GM} and ${CO}.`, list: `accountability: ${GM} and ${CO}` },
+    executive: { inspector: `Top tier, beside ${GM}; no reporting parent in this model.`, list: `Top tier, beside ${GM}` },
+    founder: { inspector: `Top tier, beside ${CO}; no reporting parent in this model.`, list: `Top tier, beside ${CO}` },
+    justice: { inspector: `Independent review remit connected to: ${SEATS.justiciar}.`, list: `independence: ${SEATS.justiciar}` },
+    'vice-guild-master': { inspector: `Coordinates through: ${SEATS.founder}.`, list: `coordination: ${SEATS.founder}` },
+    staff: { inspector: `Coordinates through: ${SEATS.executive}.`, list: `coordination: ${SEATS.executive}` },
+  };
+  const READ = `const m=document.querySelector('.org-relationship-map205');if(m)m.open=true;await new Promise(r=>setTimeout(r,700));
+    const rel=document.querySelector('.org-inspector .org-relation');const list={};
+    for(const row of document.querySelectorAll('.org-list-row')){const t=row.querySelector('.org-list-title strong')?.textContent;const p=row.querySelector(':scope > p.small');if(t)list[t]=p&&p.textContent}
+    return {inspector:rel&&rel.textContent,list,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`;
+  const seen = {}, wrong = [];
+  for (const width of [1440, 1280, 768, 390, 375, 320]) for (const id of Object.keys(EXPECT)) {
+    if (width !== 1280 && id !== 'justiciar') continue;
+    await open('member', width, 'organization/' + id, 900);
+    const got = seen[id + '@' + width] = await ev(READ);
+    if (!got || got.inspector !== EXPECT[id].inspector || got.over > 0) wrong.push(id + '@' + width + ' ' + show(got && { inspector: got.inspector, over: got.over }));
+    for (const [key, want] of Object.entries(EXPECT)) if (got && got.list[SEATS[key]] !== want.list) wrong.push(id + '@' + width + ' list ' + key + ' ' + show(got.list[SEATS[key]]));
+  }
+  bcheck('CL2-039', 'inspector and List give the same placement: Justiciar accountable to both top-tier offices, Co-GM and Guild Master side by side, Court under the Justiciar (1440 to 320 px, no overflow)',
+    wrong.length === 0, wrong.length ? wrong.slice(0, 4).join(' | ') : show({ justiciar1280: seen['justiciar@1280'].inspector, over: Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, v.over])) }));
+  // The full map: the top tier shares a column, the Justiciar is in the Cabinet column with the portfolios, the Court is
+  // one column further, and the lines run from the Justiciar to both top-tier offices.
+  await open('member', 1440, 'organization', 900);
+  const map = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,500));
+    [...document.querySelectorAll('.org-chart-tools button')].find(b=>b.textContent==='Full map').click();await new Promise(r=>setTimeout(r,500));
+    const left=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b&&!b.hidden?parseFloat(b.style.left):null};
+    const top=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b?parseFloat(b.style.top):null};
+    const edges=[...document.querySelectorAll('path.org-edge')].filter(p=>p.style.display!=='none').map(p=>p.getAttribute('data-from')+'>'+p.getAttribute('data-to')+':'+[...p.classList].find(c=>c.startsWith('org-edge-')&&c!=='org-edge-active'));
+    return {left:Object.fromEntries(['founder','executive','vice-guild-master','council','treasury','justiciar','justice'].map(id=>[id,left(id)])),top:{founder:top('founder'),executive:top('executive')},edges:edges.filter(e=>/justic|executive>|>executive/.test(e))}`);
+  const L = map.left;
+  bcheck('CL2-039', 'full map: Guild Master and Co-GM in the top column, the Justiciar in the Cabinet column, the Court beyond it, lines to both top-tier offices',
+    L.founder !== null && L.founder === L.executive && L['vice-guild-master'] > L.founder && map.top.executive > map.top.founder && L.justiciar === L.treasury && L.council < L.justiciar && L.justice > L.justiciar
+    && ['justiciar>founder:org-edge-accountability', 'justiciar>executive:org-edge-accountability', 'justice>justiciar:org-edge-independence', 'executive>founder:org-edge-coordination'].every(e => map.edges.includes(e)), show(map));
+  // The Justiciar's branch shows both authorities it reports to (wide: one column; phone: stacked above it) and the Court.
+  const branches = {};
+  for (const width of [1280, 390]) {
+    await open('member', width, 'organization/justiciar', 900);
+    branches[width] = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,800));
+      const cards=[...document.querySelectorAll('.org-stage .org-node')].filter(b=>!b.hidden).map(b=>({id:b.dataset.organizationNode,x:parseFloat(b.style.left),y:parseFloat(b.style.top)}));return cards`);
+  }
+  const at = (w, id) => branches[w].find(c => c.id === id) || {};
+  bcheck('CL2-039', 'the Justiciar branch shows the Guild Master and the Co-GM it reports to and the Court under it (1280 px columns, 390 px stacked)',
+    at(1280, 'founder').x === at(1280, 'executive').x && at(1280, 'founder').x < at(1280, 'justiciar').x && at(1280, 'justiciar').x < at(1280, 'justice').x
+    && JSON.stringify(branches[390].slice().sort((a, b) => a.y - b.y).map(c => c.id).slice(0, 4)) === '["founder","executive","justiciar","justice"]', show(branches));
+  await open('member', 1280, 'organization', 900);
+  const independent = await ev(`const s=document.querySelector('.org-alliance-independent');return s?{text:s.querySelector('p').textContent,seat:!!s.querySelector('a[data-council-reference206="head-justice"]'),chair:[...document.querySelectorAll('[data-council-seat206]')].slice(0,2).map(li=>li.querySelector('small').textContent)}:null`);
+  bcheck('CL2-039', 'the alliance overview says the same: the Justiciar reports to the Guild Master and the Co-GM, its seat is listed under Justice, and the chair and Co-GM are the top tier',
+    !!independent && independent.text.includes('reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch') && independent.seat
+    && JSON.stringify(independent.chair) === JSON.stringify(['Council chair · top tier · Rank 1 Leader', 'Co-Guild Master · top tier · Rank 2 High Council']), show(independent));
+
+  // CL2-291: with the schedule switched on, every rendered card, table row or paragraph that names one of the three carries
+  // the status exactly once per service named, and nothing else carries it.
+  const setWrits = on => ev(`const r=await fetch('/api/admin/settings',{method:'PUT',credentials:'same-origin',headers:{'X-Olympus':'2','Content-Type':'application/json'},body:JSON.stringify({royalWritsOn:${on}})});return r.status`);
+  await open('owner', 1280, 'admin');
+  const switched = await setWrits(true);
+  const UNITS = `${JSON.stringify(PAUSED_NAMES1113.map(r => r.source))}`;
+  const pages = {};
+  try {
+    for (const width of [1440, 1280, 768, 390, 375, 320]) for (const route of ['roles', 'governance', 'vote', 'news', 'admin/treasury', 'treasury-plan', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger']) {
+      // Every width for the three surfaces that carry the most text; the other writs panels at 1280 and 375 px.
+      if (![1280, 375].includes(width) && !['roles', 'treasury-plan', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger'].includes(route)) continue;
+      await open('owner', width, route, 900);
+      pages[route + '@' + width] = await ev(`for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,600));
+        const L=${JSON.stringify(PAUSED1113)},names=${UNITS}.map(s=>new RegExp(s,'i')),n=(t,s)=>t.split(s).length-1;
+        const units=[...document.querySelectorAll('main article.writ199, main tr, main p, main li, main h2, main h3, main h4, main summary')].filter(e=>e.matches('article.writ199, tr')||!e.parentElement.closest('article.writ199, tr')&&!e.querySelector('article.writ199, tr, p, li'));
+        const bad=[];let labelled=0,named=0;for(const u of units){const t=u.textContent,k=names.filter(r=>r.test(t)).length,c=n(t,L);if(k)named++;if(c)labelled++;if(k!==c)bad.push(k+'/'+c+' '+t.slice(0,60))}
+        const cards=[...document.querySelectorAll('main [data-writ-key]')].map(a=>[a.dataset.writKey,a.querySelector('[data-writ-status]')?.textContent||a.querySelector('.badge')?.textContent||null,[...a.querySelectorAll(':scope > p')].find(p=>/ · /.test(p.textContent)&&p.querySelector(':scope > strong'))?.textContent||'']);
+        const all=n(document.querySelector('main').textContent,L);
+        return {named,labelled,bad,all,cards:cards.filter(([k])=>${JSON.stringify(PAUSED_KEYS1113)}.includes(k)),otherBadges:[...new Set(cards.filter(([k])=>!${JSON.stringify(PAUSED_KEYS1113)}.includes(k)).map(c=>c[1]))],over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+  } finally { await open('owner', 1280, 'admin'); await setWrits(false); }
+  const wrongPages = Object.entries(pages).filter(([, v]) => !v || v.bad.length || v.over > 0 || v.cards.some(([, b, line]) => b !== PAUSED1113 || line.split('Proposed').length !== 2) || v.otherBadges.includes(PAUSED1113)).map(([k, v]) => k + ' ' + show(v && { bad: v.bad.slice(0, 2), cards: v.cards, over: v.over }));
+  const surfaces = ['roles@1280', 'governance@1280', 'admin/treasury@1280', 'treasury-plan@1280', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger@1280'];
+  bcheck('CL2-291', 'writs panels (Roles, Governance, Vote, News, Admin Treasury), the Treasury plan and Title III: each of the three shows the exact status, nothing else does (Roles, the plan and Title III at 1440 to 320 px, the others at 1280 and 375 px; no overflow)',
+    switched === 200 && wrongPages.length === 0 && surfaces.every(k => pages[k] && pages[k].named > 0) && ['roles@1280', 'admin/treasury@1280'].every(k => pages[k].cards.length === 3),
+    wrongPages.length ? wrongPages.slice(0, 3).join(' | ') : show({ switched, counts: Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, [v.named, v.labelled, v.all]])) }));
 }
 
 // ================================================================ round 4 browser checks (13 Nov 2026)
@@ -540,6 +795,8 @@ async function overviewChecks() {
 
 (async () => {
   await overviewChecks();
+  await treasuryPlanChecks1113();
+  await loaderChecks1113();
   const BASE = flag('--base'), CDP_PORT = Number(flag('--cdp'));
   if (BASE && CDP_PORT) await browserChecks(BASE, CDP_PORT);
   console.log(failed ? failed + ' check(s) failed' : 'all checks passed');

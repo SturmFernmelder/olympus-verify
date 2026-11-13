@@ -223,9 +223,12 @@
     if (!royalWritsVisible200()) return null;
     const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
     const ordinary = rows.filter(row => !row.activation), proposals = rows.filter(row => row.activation);
+    // CL2-291 (owner ruling, 13 Nov 2026): a paused statutory proposal shows its status verbatim and only a proposed price.
+    const price = row => row.goldMin === 0 && row.goldMax === 0 ? (row.status ? "No price set" : "In-game gold quote required") : (row.status ? "Proposed price: " : "") + `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g`;
     const card = row => h("article", { class: "card writ199", "data-writ-key": row.key, ...(row.activation ? {"data-writ-activation": row.activation} : {}) },
-      h("h3", { text: row.label }), row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
-      h("p", null, h("strong", { text: row.goldMin === 0 && row.goldMax === 0 ? "In-game gold quote required" : `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g` }), " · ", row.term),
+      // The status is a wrapping line, not a one-line badge, so the long label fits a 320 px card.
+      h("h3", { text: row.label }), row.status ? h("p", { class: "small" }, "Status: ", h("strong", { "data-writ-status": "paused", text: row.status })) : row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
+      h("p", null, h("strong", { text: price(row) }), " · ", row.term),
       h("p", { text: row.outcome }), h("p", { class: "muted small", text: row.limits }));
     return h("section", { class: "royal-writs199", "data-royal-writ-page": page }, goldBanner199(),
       h("details", { class: "card", open: checklist }, h("summary", { text: checklist ? "Stockades Appeals & Royal Pardons — operator reference" : "Schedule of Royal Writs, Indulgences & Guild Services" }),
@@ -2254,8 +2257,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "794ce6b3304eac706681eee016cbd7eef1a97152778c491d3b5e7aa28263ff31";
-  const GOVERNANCE_BYTES = 267459;
+  const GOVERNANCE_SHA256 = "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da";
+  const GOVERNANCE_BYTES = 268133;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -2285,7 +2288,9 @@
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
       const ids = new Set(data.nodes.map((n) => n.id));
       if (ids.size !== data.nodes.length || data.nodes.some((n) => !/^[a-z][a-z0-9-]*$/.test(n.id) || (n.parent !== null && !ids.has(n.parent)) ||
-          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id))) ||
+          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id)) ||
+          // CL2-039 (13 Nov 2026): a second authority a node reports to must be another existing node.
+          (n.alsoReportsTo !== undefined && (!Array.isArray(n.alsoReportsTo) || n.alsoReportsTo.some((id) => !ids.has(id) || id === n.id || id === n.parent)))) ||
           data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 103) throw new Error("The organization model has an invalid relation.");
       // A corrupt static file must not turn recursive rendering into a loop.
       for (const n of data.nodes) {

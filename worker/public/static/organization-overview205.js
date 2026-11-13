@@ -132,7 +132,8 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     const order = model.councilSeats.indexOf(seat);
     const row = h("li", { "data-council-seat206": detailed ? seat.id : null }, h("a", { href: "#/roles/" + encodeURIComponent(seat.familyKey), class: detailed ? "org-alliance-seat-link" : null, "data-council-reference206": seat.id, title: seat.description },
       detailed ? posIcon(nodes.get(seat.nodeId).icon) : null, detailed ? h("strong", { text: seat.label }) : seat.label),
-      detailed ? h("small", { text: order === 0 ? "Council chair · Rank 1 Leader" : order === 1 ? "Co-Guild Master · Rank 2 High Council" : "Portfolio " + (order - 1) + " · Rank 2 High Council" }) : null);
+      // CL2-039 (13 Nov 2026): the chair and the Co-Guild Master form the top tier; seat numbers are unchanged.
+      detailed ? h("small", { text: order === 0 ? "Council chair · top tier · Rank 1 Leader" : order === 1 ? "Co-Guild Master · top tier · Rank 2 High Council" : "Portfolio " + (order - 1) + " · Rank 2 High Council" }) : null);
     seatReferences.push({ element: row, familyKey: seat.familyKey });
     return row;
   }
@@ -199,7 +200,8 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     h("p", { class: "org-alliance-legend small", text: "Leadership sets the common charter. Department columns organize work; horizontal placement gives no command authority. Justice and Audit retain independent review. Open the relationship map below for the exact reporting and coordination lines." }),
     groupSection("council", "org-alliance-council", "The Leader chairs the Council; the Co-Guild Master and twelve numbered portfolios follow in protocol order, then the Council's institutions. Council appointments add no rank.", councilRoster),
     h("div", { class: "org-alliance-support" }, h("section", { class: "org-alliance-independent" }, h("h3", { text: "Justice & independent review" }),
-      h("p", { text: "The Lord High Justiciar holds the individual High Council portfolio. Judicial case panels and the Bank Auditor conduct unconflicted reviews independently of the officer or Treasury custodian whose work is under review." }), councilReferences("justice"),
+      // CL2-039 (owner ruling, 13 Nov 2026): the Justiciar reports directly to the top tier and oversees the Court branch.
+      h("p", { text: "The Lord High Justiciar holds the individual High Council portfolio, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals. Judicial case panels and the Bank Auditor conduct unconflicted reviews independently of the officer or Treasury custodian whose work is under review." }), councilReferences("justiciar"),
       familyContext(model.contexts.independent, "Role families that do independent review", "independent"))),
     // CL2-043: the department lanes and branch guides are disclosures too, closed on phones.
     (() => { const box = h("details", { class: "org-alliance-group1112", "data-alliance-departments1112": "true", open: !narrow }, h("summary", null, h("h3", { text: "Departments & shared support" }), h("span", { class: "badge muted", text: String(ORGANIZATION_LANES205.length) })), departments); box.open = !narrow; return box; })(),
