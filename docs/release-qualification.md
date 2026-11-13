@@ -209,6 +209,17 @@ changes require their own review.
 Production deployment, Discord writes and feature activation still require their
 existing authorization. Keep ordinary public, serving-version, cron and protected
 empty-note readbacks after deployment, with their prior owner-scoped exceptions.
+
+The public readback is `node tools/check-public-routes.cjs --build <BUILD> --commit <sha> --output <new file>`,
+which replays the anonymous cases in `tools/public-route-cases.json`. It expects
+**92 cases: the 90 public behaviours the owner approved, plus two added on 12 November
+2026** for the member-gated talent archive, an anonymous GET of
+`/static/talents/archive/260cf99b52db/art.json` and one of
+`/static/talents/archive/260cf99b52db/data.json`. Both added cases assert a refusal:
+HTTP 401 with the same headers and body as every other member-only static file, before
+any asset or database read. They add no public behaviour; they keep the archive from
+becoming public unnoticed. Build entries before 12 November that say "90 public probes"
+describe the replay as it was then.
 Member interaction and branch verification checks remain pending until explicitly
 resumed. A CI/documentation change does not redeploy the stable Worker or bump its
 runtime BUILD. It also does not resolve the separately recorded intermittent D1
