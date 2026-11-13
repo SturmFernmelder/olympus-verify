@@ -230,6 +230,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const projection = JSON.parse(fs.readFileSync(path.join(root, "..", "scripts", "official_asset_reference.json"), "utf8"));
   const digest = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
   const immutable = "public, max-age=31536000, immutable, no-transform";
+  const round5Pins = { "/static/policies.css": { sha256: "490c52bc213f7c8d55b17b5e24ad4fa53e8b31d5b12f7d7edbfc5bba26f1e1d4", bytes: 12260 } };
   const webpCopies074 = { "/static/wow/login/olympus-dark-portal-wide.webp": { sha256: "3898651551731cd1585a5682636d457e8200183504c23c633c8aaa1dd3fddbc9", bytes: 362622 }, "/static/wow/login/olympus-dark-portal-portrait.webp": { sha256: "cd908960637f06c5dc509bf4315ba55859f984bb7e523f73dfdc47cd40462fe1", bytes: 342624 } };
   const files = new Map([...cache.POLICY_ASSETS, ...cache.LOGIN_ASSETS].map(assetPath => [assetPath, fs.readFileSync(path.join(root, "public", assetPath))]));
   const digestedCalls = [];
@@ -247,7 +248,9 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   for (const [assetPath, file] of files) {
     const sha = digest(file), alias = cache.immutablePolicyAssetUrl(assetPath);
     // CL2-074 (owner ruling of 13 Nov 2026): the two WebP copies are pinned here; the retired publication reference predates them.
-    const pin = projection.assets.find(row => row.path === "worker/public" + assetPath) ?? webpCopies074[assetPath];
+    // Round 5 (13 Nov 2026): policies.css gained the phone rules; its bytes are pinned here, like the WebP copies, because the
+    // retired publication reference keeps the row of the earlier file (11,715 bytes) and is not maintained any more.
+    const pin = round5Pins[assetPath] ?? projection.assets.find(row => row.path === "worker/public" + assetPath) ?? webpCopies074[assetPath];
     const served = await get("https://guild.example" + alias, exactEnv, { headers: { Cookie: "session=fixture", Authorization: "Bearer fixture" } });
     const headers = served.headers;
     const bytes = Buffer.from(await served.arrayBuffer());

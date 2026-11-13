@@ -1402,16 +1402,24 @@ main.shell:focus-visible { outline: none; }
      chooser's guide links, the Vote strip, the rank lists on Organization and in the rank planner, the planner's Council
      list and its reference strip, and the member legal view's account strip. */
   #app #application-track-chooser228 li > a:not(.btn), #app section.frame > p.small > a:is([href="#/roles"], [href="#/apply"]),
+  /* News, "Leadership directory": the text before this link is three or four words depending on the data, so it is a
+     standalone target in every state (third round 5 review, 13 Nov 2026). */
+  #app section.frame > p > a[href="#/community/leadership"],
   #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a, #app .current-council218 li > a,
   #app .current-council218 details > p > a, #app .legal-view196 .data-controls p > a,
   /* A link placed directly in a section, on a line of its own between blocks (second round 5 review, 13 Nov 2026): the Apply
      form's "Open the talent calculator" and the Organization Council summary's reference link. */
   #app section.field > a:not(.btn), #app .org-alliance-current-council > a {
-    display: inline-flex; align-items: center; min-height: 44px;
+    /* Width as well as height: the text of some of these links is data (an event title may be one character), and a
+       standalone target is 44 px both ways whatever it says (Codex, 13 Nov 2026 20:15 UTC; measured 6 px before). */
+    display: inline-flex; align-items: center; min-height: 44px; min-width: 44px;
   }
   #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a { min-width: 44px; }
   .role-see-also1112 > a, .role-reference-links228 a, .rosetta199 li:is([data-rosetta-family1112], [data-rosetta-key1112]) > a,
   .rosetta199 tr[data-rank-crosswalk] > td:last-child a { min-width: 44px; justify-content: center; }
+  /* The remaining standalone text links found by the one-character probe (13 Nov 2026). Their texts are fixed words today;
+     the rule is the same for every standalone link: 44 px both ways whatever the text says. */
+  .skip-link, .application-intent199 > a.role-guide-link1112, .application-directory201 > .plaque > a:not(.btn) { min-width: 44px; }
 }
 /* ---------- launch operations v234 (owner ladder 12 Nov 2026; /static/launch-operations234.js) ---------- */
 [data-launch234] .btn, [data-launch234] .btn.small { min-height: 44px; }

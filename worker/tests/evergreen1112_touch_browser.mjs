@@ -3,6 +3,7 @@
 // (`@media (pointer: coarse), (max-width: 720px)`) every standalone control is at least 44 by 44 CSS px.
 // Headless Edge through the audit CDP helper; no dependency. For every persona and route listed below it records:
 //  - at 390, 375 and 320 px (touch emulated): every visible standalone control under 44 px, with route, selector, size;
+//    and every standalone text link that would be under 44 px wide or high if its text were one character (the probe);
 //  - at all six widths (1440, 1280, 768, 390, 375, 320): horizontal page overflow;
 //  - at 1440, 1280 and 768 px (desktop pointer): the top bar height, the first screen of Home and three dense admin
 //    tables, so a run before and a run after can be compared number for number.
@@ -49,7 +50,7 @@ const MEASURE = String.raw`(() => {
   const sameBlock = (n, b) => { let q = n.parentElement; while (q && q !== b && /^inline/.test(getComputedStyle(q).display)) q = q.parentElement; return q === b; };
   const runningWords = b => { const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n, t = ''; while ((n = w.nextNode())) { if (!sameBlock(n, b)) continue; const c = n.parentElement && n.parentElement.closest('a[href], button, summary, [role=button], [role=tab]'); if (c && b.contains(c)) continue; t += ' ' + n.textContent; } return (t.match(/\p{L}{2,}/gu) || []).length; };
   const inline = e => { if (e.tagName !== 'A' || e.classList.contains('btn') || e.getAttribute('role')) return false; if (getComputedStyle(e).display !== 'inline') return false; const b = blockOf(e); if (!b) return false; return runningWords(b) >= 4; };
-  const out = [], inl = [];
+  const out = [], inl = [], short = [];
   for (const e of document.querySelectorAll('a[href], button, summary, input:not([type=hidden]), select, textarea, [role=button], [role=tab]')) {
     let r = shown(e); if (!r) continue;
     if (e.closest('details:not([open]) > :not(summary)')) continue;
@@ -61,9 +62,17 @@ const MEASURE = String.raw`(() => {
     const rec = { region: region(e), selector: sel(e), text: ((e.getAttribute('aria-label') || e.textContent || e.value || e.placeholder || '').replace(/\s+/g, ' ').trim()).slice(0, 40), w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10, kind };
     if (inline(e)) { if (h < MIN - 0.5) inl.push(rec); continue; }
     if (small) out.push(rec);
+    // One-character probe (13 Nov 2026, Codex's observation on a short event title): a standalone link whose only child is
+    // text is measured again with the text "I" and then restored at once. Its box must stay 44 px both ways whatever the
+    // text says, because some link texts are data (an event title, a character name).
+    if (e.tagName === 'A' && e.childNodes.length === 1 && e.firstChild.nodeType === 3) {
+      const t = e.firstChild, old = t.nodeValue; t.nodeValue = 'I';
+      const q = e.getBoundingClientRect(); t.nodeValue = old;
+      if (q.width < MIN - 0.5 || q.height < MIN - 0.5) short.push({ ...rec, w: Math.round(q.width * 10) / 10, h: Math.round(q.height * 10) / 10, kind: 'short' });
+    }
   }
   const de = document.documentElement;
-  return { small: out, inline: inl, overflow: de.scrollWidth - de.clientWidth, h1: (document.querySelector('main h1') || {}).textContent || null, hash: location.hash, path: location.pathname };
+  return { small: out, inline: inl, short, overflow: de.scrollWidth - de.clientWidth, h1: (document.querySelector('main h1') || {}).textContent || null, hash: location.hash, path: location.pathname };
 })()`;
 
 const OVERFLOW = String.raw`(() => { const de = document.documentElement; const wide = [...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.right > de.clientWidth + 1 && getComputedStyle(e).position !== 'fixed'; }).slice(0, 3).map(e => e.tagName.toLowerCase() + [...e.classList].slice(0, 2).map(c => '.' + c).join('') + ' right=' + Math.round(e.getBoundingClientRect().right)); return { overflow: de.scrollWidth - de.clientWidth, wide }; })()`;
@@ -120,11 +129,11 @@ async function sweep() {
               const first = await ev(MEASURE);
               // Controls inside closed disclosures count too: open every closed <details> in the page body and measure again.
               const opened = await ev(`(() => { let n = 0; for (const d of document.querySelectorAll('main details:not([open]), body.olympus-policy details:not([open])')) { d.open = true; n++; } return n; })()`);
-              let second = { small: [], inline: [] };
+              let second = { small: [], inline: [], short: [] };
               if (opened) { await idle(st, { quiet: 300, max: 4000 }); await sleep(350); second = await ev(MEASURE); }
               const key = x => x.region + '|' + x.selector + '|' + x.text + '|' + x.w + 'x' + x.h;
               const merge = (a, b) => { const m = new Map(); for (const x of [...a, ...b]) m.set(key(x), x); return [...m.values()]; };
-              Object.assign(page, { small: merge(first.small, second.small), inline: merge(first.inline, second.inline), overflow: Math.max(first.overflow, second.overflow || 0), h1: first.h1, opened });
+              Object.assign(page, { small: merge(first.small, second.small), inline: merge(first.inline, second.inline), short: merge(first.short || [], second.short || []), overflow: Math.max(first.overflow, second.overflow || 0), h1: first.h1, opened });
             } else {
               Object.assign(page, await ev(OVERFLOW));
             }
@@ -215,6 +224,11 @@ function assert(afterFile, beforeFile) {
   check('the sweep covered at least 30 routes at 390, 375 and 320 px for member, officer and owner', routes.size >= 30 && [390, 375, 320].every(w => phones.has(w)) && ['member', 'officer', 'owner'].every(p => a.personas.includes(p)), { routes: routes.size, phones: [...phones] });
   check('the sweep finished without page errors', a.errors.length === 0, a.errors.slice(0, 3));
   check(`no standalone control under ${MIN} px at 390, 375 and 320 px${argv.includes('--except-policy-pages') ? ' (script-free policy pages excepted)' : ''}`, g.length === 0, g.slice(0, 12).map(x => `${x.route} ${x.selector} "${x.text}" ${x.minW}x${x.minH}`));
+  // The one-character probe: absent from a sweep made before the probe existed, which is a failure here, not a pass.
+  const probed = a.pages.filter(p => p.small).every(p => Array.isArray(p.short));
+  const shortRows = new Map();
+  for (const p of a.pages) for (const x of p.short || []) { if (argv.includes('--except-policy-pages') && policyPages.has(p.route)) continue; const k = (x.region === 'header' ? '(header)' : p.route) + ' ' + x.selector; if (!shortRows.has(k)) shortRows.set(k, `${k} "${x.text}" ${x.w}x${x.h}`); }
+  check(`every standalone text link keeps ${MIN} px both ways with a one-character text at 390, 375 and 320 px`, probed && shortRows.size === 0, probed ? [...shortRows.values()].slice(0, 20) : 'this sweep has no one-character probe');
   const over = a.pages.filter(p => p.overflow > 0);
   check('no horizontal page overflow on any measured route at 1440, 1280, 768, 390, 375 and 320 px', over.length === 0, over.slice(0, 8).map(p => `${p.persona}@${p.width} ${p.route} +${p.overflow} ${(p.wide || []).join(';')}`));
   if (b) {

@@ -315,4 +315,4 @@ details[open] > summary.org-alliance-card-heading::after { content: '\2212'; }
 /* Round 3 review item 6b (12 Nov 2026): the "Ordinary applications" links are 44 px touch targets at every width, and the chart's summary from 761 px up (phones already give it 47 px). */
 .btn-row > a.org-seat-apply{display:inline-flex;align-items:center;justify-content:center;min-height:44px}@media (min-width:761px){.org-relationship-map205>summary{min-height:44px;padding:.55rem 0;box-sizing:border-box}}
 /* Round 4 (13 Nov 2026): on phones and touch screens the Council reference links, the overview's lane and independent-review family links and the inspector's title links are 44 px touch targets (they measured 18 to 23 px). */
-@media (pointer:coarse),(max-width:767px){.org-composition-links>a,[data-alliance-context1112] li>a,.org-inspector h3+ul>li>a{display:inline-flex;align-items:center;min-height:44px}}
+@media (pointer:coarse),(max-width:767px){.org-composition-links>a,[data-alliance-context1112] li>a,.org-inspector h3+ul>li>a{display:inline-flex;align-items:center;min-height:44px;min-width:44px}}

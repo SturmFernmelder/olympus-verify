@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { securityHeaders } from "./site-core";
 
 const policyDigests = Object.freeze({
-  "/static/policies.css": "2384e42f0a23337c9fde34242d3292838429606aea523cf0f0f3abfbc335d42a",
+  "/static/policies.css": "490c52bc213f7c8d55b17b5e24ad4fa53e8b31d5b12f7d7edbfc5bba26f1e1d4",
   "/static/olympus-icon.png": "6363b15aff31a623aef0a6d7e52104fc44066f64852a328da788c84c325874eb",
   "/static/wow-cursor.css": "90146d7844b925b88187a11279798340e2afb63a3d82cb8b60aaaae77c2447d9",
   "/static/wow/cursor-point.png": "e0c2e4058da870eba331be9c2aff62895b1afefc3b3ee3ed9ab24c63771fc42c",
