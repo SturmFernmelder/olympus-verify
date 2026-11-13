@@ -316,10 +316,16 @@ async function part1b() {
   check('CL2-016', 'attendance: the creator officer records it', r.status === 200 && r.data?.results?.[0]?.result === 'ok' && db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?').get(evAttend)?.state === 'present', r);
   r = await record(ADMIN, evAttend, 'excused', 1);
   check('CL2-016', 'attendance: an admin records on an officer\'s event', r.status === 200 && r.data?.results?.[0]?.result === 'ok' && db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?').get(evAttend)?.state === 'excused', r);
+  // Round 5 (owner, 13 Nov 2026, about 12:15 UTC) widened CL2-016: the creator officer now decides its own event's
+  // roster and schedules events on the website; the full matrix is in evergreen1112_cal_test.cjs.
   r = await call('POST', '/api/community/events/decide', { who: OFF_A, body: { eventId: evA, entries: [{ ref, decision: 'accepted', revision: 0 }] } });
-  check('CL2-016', 'not covered by the ruling: roster decisions stay with organizers (the officer is refused)', r.status === 403 && r.data?.error === 'not_organizer', r);
+  check('CL2-016', 'round 5: the creator officer\'s roster decision on its own event is not refused for its role', r.status !== 403 && r.data?.error !== 'not_organizer', r);
+  r = await call('POST', '/api/community/events/decide', { who: OFF_B, body: { eventId: evA, entries: [{ ref, decision: 'accepted', revision: 0 }] } });
+  check('CL2-016', 'round 5: another officer\'s roster decision on it is refused (403 not_organizer, with the role sentence)', r.status === 403 && r.data?.error === 'not_organizer' && /belongs to another organizer/.test(r.data?.message || ''), r);
   r = await call('POST', '/api/community/events', { who: OFF_A, body: { opId: opId(), title: 'Website event', startsAt: iso(T + 7200), durationMin: 60 } });
-  check('CL2-016', 'not covered by the ruling: creating an event on the website stays with organizers', r.status === 403 && r.data?.error === 'not_organizer', r);
+  check('CL2-016', 'round 5: an officer schedules an event on the website', r.status === 200 && r.data?.event?.title === 'Website event', r);
+  r = await call('POST', '/api/community/events', { who: MEMBER, body: { opId: opId(), title: 'Member event', startsAt: iso(T + 7200), durationMin: 60 } });
+  check('CL2-016', 'round 5: a member still cannot (403 not_organizer)', r.status === 403 && r.data?.error === 'not_organizer', r);
 
   console.log('== CL2-091: the Treasury appointment route reads the Co-Guild Master and Lord High Treasurer seats ==');
   const holders = [[COGM, 'Cogmseat'], [TREAS, 'Treasseat'], [OLD_COGM, 'Oldcogm'], [OLD_TREAS, 'Oldtreas'], [JUSTICE, 'Justiceseat'], [COUNCIL45, 'Councilseat'], [BOTH, 'Bothkeys'], [EX_TREAS, 'Extreas']];
@@ -506,7 +512,7 @@ async function part2round3(cdp, go, size) {
     await go('about:blank'); // a fresh page load each time: the same hash again would leave the previous view in place
     await go(URL0 + `/#/community/calendar/${id}/discord`);
     let s = null;
-    for (let i = 0; i < 60; i++) { s = await cdp.eval(`(() => { const m = document.querySelector('main'); if (!m) return null; const t = m.innerText; return { refused: t.includes('Only the event organizer or a site administrator can manage its announcement.'), panel: !!m.querySelector('[data-announcement-preview]'), publish: [...m.querySelectorAll('button')].some(b => /Publish announcement|Update announcement/.test(b.textContent)), reminder: !!m.querySelector('[data-event-reminder]'), loaded: t.includes('Announcement status') || /Ready to publish|could not|not currently eligible|Only the event organizer|unresolved|switched off|published/i.test(t) }; })()`); if (s && (s.refused || (s.panel && s.loaded && (s.reminder || i > 25)))) break; await sleep(200); }
+    for (let i = 0; i < 60; i++) { s = await cdp.eval(`(() => { const m = document.querySelector('main'); if (!m) return null; const t = m.innerText; return { refused: t.includes('Only the event\'s organizer, the High Council, the War Heads or a site administrator can manage its announcement.'), panel: !!m.querySelector('[data-announcement-preview]'), publish: [...m.querySelectorAll('button')].some(b => /Publish announcement|Update announcement/.test(b.textContent)), reminder: !!m.querySelector('[data-event-reminder]'), loaded: t.includes('Announcement status') || /Ready to publish|could not|not currently eligible|Only the event\'s organizer|unresolved|switched off|published/i.test(t) }; })()`); if (s && (s.refused || (s.panel && s.loaded && (s.reminder || i > 25)))) break; await sleep(200); }
     return s;
   };
   await go(URL0 + '/__qa/officer'); await size(1280, 900);

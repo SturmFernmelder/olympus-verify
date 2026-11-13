@@ -58,26 +58,82 @@ const organizer = (env: Env, ctx: CommunityContext) => !!ctx.subject && (isSiteA
  * Dynamic import: the authority module imports this one.
  */
 export async function eventOfficerNow(env: Env, ctx: CommunityContext): Promise<boolean> {
+  return (await eventRolesNow(env, ctx)).officer;
+}
+/**
+ * Calendar round 5 (owner ruling, 13 Nov 2026, about 12:15 UTC): "Officers may create, edit, reschedule, update
+ * RSVP/roster notes, and cancel/archive their own calendar events (and manage RSVPs on their own events), while only
+ * High Council / Admin / War Heads can modify or delete another officer's event." The officer and High Council facts
+ * come from ONE fresh Discord member read (guild-command-authority219.ts guildCalendarRolesNow219: `officer` is the
+ * unchanged CL2-016 predicate, `council` is slots 0 and 1 of the same role set). Both need a roster-confirmed account;
+ * a provider failure is false for both, so it refuses. Dynamic import: the authority module imports this one.
+ */
+export async function eventRolesNow(env: Env, ctx: CommunityContext): Promise<Readonly<{ officer: boolean; council: boolean }>> {
+  const none = Object.freeze({ officer: false, council: false });
   const d = destination(env);
-  if (!ctx.subject || !ctx.capabilities.confirmedGuildData || !d) return false;
+  if (!ctx.subject || !ctx.capabilities.confirmedGuildData || !d) return none;
   try {
-    const { guildOrganizerMemberNow219 } = await import("./guild-command-authority219");
-    return await guildOrganizerMemberNow219(env, ctx.subject.discordId, d.guild);
-  } catch { return false; }
+    const { guildCalendarRolesNow219 } = await import("./guild-command-authority219");
+    return await guildCalendarRolesNow219(env, ctx.subject.discordId, d.guild);
+  } catch { return none; }
+}
+/** Round 5: the War Heads, as the role directory defines them (site-role-directory203.ts): office_94 (War Head, the
+ * historical shared office), office_97 (Lord High Marshal of PvE) and office_98 (Lord High Marshal of PvP). */
+export const WAR_HEAD_OFFICES = Object.freeze(["office_94", "office_97", "office_98"] as const);
+/** A War Head's proof for one request: the holder of a currently published appointment to one of the three offices,
+ * captured exactly as the Treasury gate captures its seats (site-appointed-identities.ts capturePublishedOfficeAuthority,
+ * database and signature checks only, no provider call). `condition` repeats the proof inside the committing statement:
+ * the published map unchanged since the capture and the account still active, so a withdrawn appointment refuses at
+ * the write itself. Null without a roster-confirmed account or on any failure. */
+export interface WarHeadProof { condition: (firstParameter: number) => { sql: string; values: readonly string[] } }
+export async function eventWarHeadNow(env: Env, ctx: CommunityContext): Promise<WarHeadProof | null> {
+  if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return null;
+  try {
+    const { capturePublishedOfficeAuthority, publishedOfficeAuthorityCondition } = await import("./site-appointed-identities");
+    const authority = await capturePublishedOfficeAuthority(env, ctx.subject.discordId, WAR_HEAD_OFFICES);
+    if (!authority) return null;
+    return Object.freeze({ condition: (first: number) => publishedOfficeAuthorityCondition(authority, first) });
+  } catch { return null; }
 }
 /** The announcement's manager: a site admin or listed organizer, or (CL2-016) a current officer, held per request so
- * one request reads Discord once for its checks; beforeSend reads it again just before the Discord effect. */
-const managers = new WeakMap<CommunityContext, Promise<boolean>>();
-async function manages(env: Env, ctx: CommunityContext, fresh = false): Promise<boolean> {
-  if (organizer(env, ctx)) return true;
-  if (fresh) return eventOfficerNow(env, ctx);
+ * one request reads Discord once for its checks; beforeSend reads it again just before the Discord effect. Round 5:
+ * `senior` (a site admin, a High Council role holder or a War Head) manages the announcement of any event. */
+type DeliveryAuthority = Readonly<{ manages: boolean; senior: boolean }>;
+const managers = new WeakMap<CommunityContext, Promise<DeliveryAuthority>>();
+const organizerOwn = new WeakMap<CommunityContext, Map<string, Promise<boolean>>>();
+async function authorityNow(env: Env, ctx: CommunityContext): Promise<DeliveryAuthority> {
+  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true };
+  if (await eventWarHeadNow(env, ctx)) return { manages: true, senior: true };
+  const roles = await eventRolesNow(env, ctx);
+  return { manages: organizer(env, ctx) || roles.officer || roles.council, senior: roles.council };
+}
+/** A listed organizer manages its own announcements without a provider call, as before; whether it may also act on
+ * another officer's event is proved only when the event is not its own (one creator read, then the full proof). */
+async function deliveryAuthority(env: Env, ctx: CommunityContext, eventId: string | null, fresh = false): Promise<DeliveryAuthority> {
+  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true };
+  if (organizer(env, ctx)) {
+    if (eventId === null) return { manages: true, senior: false };
+    let byEvent = organizerOwn.get(ctx);
+    if (!byEvent) { byEvent = new Map(); organizerOwn.set(ctx, byEvent); }
+    let own = byEvent.get(eventId);
+    if (!own) {
+      own = env.DB.prepare("SELECT created_by FROM community_events WHERE id=?1").bind(eventId).first<{ created_by: string | null }>().then((row) => !!row && row.created_by !== null && row.created_by === ctx.subject!.discordId);
+      byEvent.set(eventId, own);
+    }
+    if (await own) return { manages: true, senior: false }; // the statements still fence created_by = me
+  }
+  if (fresh) return authorityNow(env, ctx);
   let held = managers.get(ctx);
-  if (!held) { held = eventOfficerNow(env, ctx); managers.set(ctx, held); }
+  if (!held) { held = authorityNow(env, ctx); managers.set(ctx, held); }
   return held;
 }
+async function manages(env: Env, ctx: CommunityContext, fresh = false, eventId: string | null = null): Promise<boolean> {
+  return (await deliveryAuthority(env, ctx, eventId, fresh)).manages;
+}
+const seniorFlag = async (env: Env, ctx: CommunityContext, eventId: string, fresh = false) => ((await deliveryAuthority(env, ctx, eventId, fresh)).senior ? 1 : 0);
 async function gate(request: Request, env: Env, ctx: CommunityContext, write = false): Promise<Response | null> {
   if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return refusal(env, request, "confirmedGuildData");
-  if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer" }, 403);
+  if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer", message: "Event announcements are managed by the event's organizer, the High Council, the War Heads and site administrators." }, 403);
   if (write && (request.headers.get("X-Olympus") !== PAGE_VERSION || !sameOrigin(request))) return apiJson({ error: "reload" }, 409);
   return null;
 }
@@ -134,8 +190,9 @@ function summary(row: Delivery | null, e: EventRow) {
 }
 /** One admitted read, with event-management authority inside the payload SQL as well as the original session probe. */
 async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{ event: EventRow; delivery: Delivery | null } | typeof FENCE_REFUSED | null> {
-  const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0;
-  if (!(await manages(env, ctx))) return FENCE_REFUSED;
+  const me = ctx.subject!.discordId;
+  if (!(await manages(env, ctx, false, eventId))) return FENCE_REFUSED;
+  const staff = await seniorFlag(env, ctx, eventId); // round 5: a senior manager reads any event's announcement
   const managed = `(created_by = ?2 OR ?3 = 1) AND retain_until > ${DB_NOW}`;
   const out = await admittedRead(env, ctx, "confirmedGuildData", [
     env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, staff),
@@ -246,7 +303,7 @@ export function eventAdoptedCustody(db: D1Database, purpose: "event_publication"
 }
 /** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced. */
 async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
-  const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0, db = privacyProviderCustodyDatabase(env);
+  const me = ctx.subject!.discordId, staff = await seniorFlag(env, ctx, p.eventId), db = privacyProviderCustodyDatabase(env);
   const stillCurrent = `actor=?5 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',ctx.subject!.accountIncarnation)} AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
     AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
     AND ${fenceSql("confirmedGuildData", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
@@ -264,8 +321,9 @@ async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, res
   ]);
 }
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
-  if (!(await manages(env, ctx, true)) || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
-  const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+  const authority = await deliveryAuthority(env, ctx, e.id, true); // round 5: the senior fact is read again with the officer fact
+  if (!authority.manages || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
+  const s = ctx.subject!, staff = authority.senior ? 1 : 0;
   const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
   const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}) AS ok FROM community_event_deliveries d
     WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND ${privacyAccountIncarnationLiteralFenceSql('d.actor_account_incarnation',s.accountIncarnation)} AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
@@ -303,7 +361,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       const message = await discord(env, "GET", `/channels/${d.channel}/messages/${old.message_id}`);
       if (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== old.message_id) return answer(request, env, ctx, eventId, { error: "delivery_custody_unqualified" }, 409);
     }
-    const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    const s = ctx.subject!, nonce = randomToken(), staff = await seniorFlag(env, ctx, eventId);
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: e.revision, startsAt: e.starts_at, opId: op, nonce,
       guild: d.guild, channel: d.channel, pointer: old?.state === "removed" ? null : old?.message_id ?? null,
@@ -394,7 +452,7 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     if (!(await memberPresent(env, ctx, d.guild))) throw new Bad("membership_unconfirmed", 409);
     const message = await discord(env, "GET", `/channels/${d.channel}/messages/${row.message_id}`);
     if (message.status !== 404 && (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== row.message_id)) throw new Bad("delivery_custody_unqualified", 409);
-    const s = ctx.subject!, nonce = randomToken(), staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
+    const s = ctx.subject!, nonce = randomToken(), staff = await seniorFlag(env, ctx, eventId);
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: op,
       nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
