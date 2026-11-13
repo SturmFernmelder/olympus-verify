@@ -1350,6 +1350,46 @@ main.shell:focus-visible { outline: none; }
 }
 /* Community overview cards are H2s under the page H1, sized as card titles. */
 .card-head h2.card-title { margin: 0; font-size: 1.2rem; min-width: 0; overflow-wrap: anywhere; }
+/* Round 5 (13 Nov 2026, area touch): Codex asked to close the phone-control gap before signatures. On touch screens and
+   phones every standalone control is at least 44 by 44 CSS px; desktop pointers keep their density, since every rule
+   sits inside the lane's query. Links inside a sentence keep their line (WCAG 2.5.8 inline exception). The #app prefix
+   lets a minimum win over the tool stylesheets loaded after app.css (organization, rank planner, talents) without
+   !important; it is used only where no rule sets a larger minimum, so .btn.big and the role summaries keep theirs.
+   Measured by worker/tests/evergreen1112_touch_browser.mjs (receipts round5-touch). */
+@media (pointer: coarse), (max-width: 720px) {
+  /* Buttons, button links and the tools' own buttons. */
+  #app .btn:not(.big), #app .olympus-rank-planner .button, #app .prof, #app .s60-sort { min-height: 44px; min-width: 44px; }
+  #app .btn.big { min-height: 48px; }
+  #app .olympus-rank-planner .icon-button, #app .olympus-rank-planner .close-button, #app .x { min-width: 44px; width: 44px; height: 44px; background-position: center; }
+  #app .olympus-rank-planner .rank-choice { min-height: 44px; }
+  #app .org-office-card .organization-term { min-height: 44px; min-width: 44px; }
+  /* The availability grid keeps seven 44 px days; its own box scrolls sideways (.avail-wrap) and the hours stay in view. */
+  #app .grid-avail button { width: 44px; height: 44px; }
+  #app .grid-avail th.t { position: sticky; left: 0; z-index: 1; background: #0b0d0a; }
+  /* Fields: height only. */
+  #app :is(input:not([type]), input[type="text"], input[type="search"], input[type="url"], input[type="number"], input[type="email"],
+    input[type="tel"], input[type="datetime-local"], input[type="password"], input[type="date"], select) { min-height: 44px; }
+  /* Check boxes and radios: the label that activates them is the target; a box without a label grows itself. */
+  #app label:has(> input:is([type="checkbox"], [type="radio"])) { min-height: 44px; }
+  #app label:not([class]):has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+  #app .talents-compare-switch, #app .s60-check { align-items: center; }
+  #app :is(th, td) > input[type="checkbox"] { width: 44px; height: 44px; margin: -6px; background-size: 32px 32px; }
+  /* Disclosures. */
+  :where(.shell) summary { min-height: 44px; padding-block: 10px; box-sizing: border-box; }
+  #app .talents-change-tree > summary { min-height: 44px; }
+  /* Links that stand alone: lists of links, a link that is a whole line, links in table cells and card titles. */
+  .role-reference-links228 a, .role-reference-links228 strong, #app .org-alliance-seat-link, .footer-in .brand,
+  .governance-article-links228 > a, #app .tp207-links > a, #app .talents-guide-heading a,
+  nav[aria-label="Book chapters"] li > a, .legal-paper196 .policy-contents li > a, #app .org-alliance-guide-group218 li > a,
+  #app .org-alliance-council-references li > a, .card.event .card-head h3 > a, .launch-notice218 > p:only-child > a:only-child,
+  .launch-notice218 > p:not([class]) > a:only-child, td > a:is(.summary-role-open, .prof-tag, .application-open),
+  #application-track-chooser228 > p.small > a:only-child, #app section.frame > ul > li > a:only-child, #app .tp207-source-links li > a,
+  #app .tp207-chapter-section h3 > a, #app .olympus-rank-planner .reference-note a[href*="GuildControlUI"] {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+  .role-see-also1112 > a, .role-reference-links228 a, .rosetta199 li:is([data-rosetta-family1112], [data-rosetta-key1112]) > a,
+  .rosetta199 tr[data-rank-crosswalk] > td:last-child a { min-width: 44px; justify-content: center; }
+}
 /* ---------- launch operations v234 (owner ladder 12 Nov 2026; /static/launch-operations234.js) ---------- */
 [data-launch234] .btn, [data-launch234] .btn.small { min-height: 44px; }
 [data-launch234] table { width: 100%; border-collapse: collapse; }
