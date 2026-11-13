@@ -1,0 +1,806 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-hunter",
+ "questions": [
+  {
+   "id": "class-hunter.aimed-shot-cooldown",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which shot shares its cooldown with Aimed Shot?",
+   "choices": [
+    "Multi-Shot",
+    "Arcane Shot",
+    "Summon Hawk"
+   ],
+   "answer": 0,
+   "explanation": "Aimed Shot shares its cooldown with Multi-Shot. Arcane Shot shares its cooldown with Summon Hawk instead.",
+   "facts": [
+    "class-hunter.change-1"
+   ]
+  },
+  {
+   "id": "class-hunter.trap-cooldown",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-forever-changes",
+   "type": "mcq",
+   "stem": "How do trap cooldowns work in Forever?",
+   "choices": [
+    "All traps now share one 30-second cooldown",
+    "Separate fire and frost cooldowns"
+   ],
+   "answer": 0,
+   "explanation": "All traps now share one 30-second cooldown, which replaced the separate fire and frost cooldowns.",
+   "facts": [
+    "class-hunter.change-2"
+   ]
+  },
+  {
+   "id": "class-hunter.auto-shot-stand-still",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-forever-changes",
+   "type": "scenario",
+   "stem": "You move between every shot and Auto Shot never fires. Which Forever change explains it?",
+   "choices": [
+    "Auto Shot needs about half a second of standing still",
+    "Aimed Shot and Sniper Shot no longer stop Auto Shot"
+   ],
+   "answer": 0,
+   "explanation": "Since 16 Oct, Auto Shot needs about half a second of standing still before it fires. The other change is true too, but it is about Aimed Shot and Sniper Shot, not movement.",
+   "facts": [
+    "class-hunter.change-3"
+   ]
+  },
+  {
+   "id": "class-hunter.scorpid-sting",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-forever-changes",
+   "type": "mcq",
+   "stem": "Blizzard's notes changed Scorpid Sting, Disengage and Aspect of the Beast. Which change is Scorpid Sting's?",
+   "choices": [
+    "Lowers the target's hit chance by 2%",
+    "Drops twice as much threat",
+    "Also grants melee Attack Power"
+   ],
+   "answer": 0,
+   "explanation": "Scorpid Sting now lowers the target's hit chance by 2%. Disengage drops twice as much threat, and Aspect of the Beast also grants melee Attack Power.",
+   "facts": [
+    "class-hunter.change-4"
+   ]
+  },
+  {
+   "id": "class-hunter.pet-player-buffs",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-forever-changes",
+   "type": "mcq",
+   "stem": "What can pets no longer do in Forever?",
+   "choices": [
+    "Take player buffs that raise their stats",
+    "Scale with your gear",
+    "Use the higher of your melee or ranged crit"
+   ],
+   "answer": 0,
+   "explanation": "Pets can no longer take player buffs that raise their stats. They do scale with your gear, and since 16 Oct they use the higher of your melee or ranged crit.",
+   "facts": [
+    "class-hunter.change-5"
+   ]
+  },
+  {
+   "id": "class-hunter.survival-gone",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-talent-trees",
+   "type": "mcq",
+   "stem": "Which of these Survival talents is gone in Forever?",
+   "choices": [
+    "Wyvern Sting",
+    "Expose Prey",
+    "Strider Kick"
+   ],
+   "answer": 0,
+   "explanation": "Wyvern Sting is gone from the Survival tree. Expose Prey and Strider Kick are new.",
+   "facts": [
+    "class-hunter.change-8"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-new",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-talent-trees",
+   "type": "mcq",
+   "stem": "Which talent is new in the Beast Mastery tree?",
+   "choices": [
+    "Summon Hawk",
+    "Frenzy",
+    "Bestial Wrath"
+   ],
+   "answer": 0,
+   "explanation": "Summon Hawk and Focused Fire are new. Frenzy and Bestial Wrath are unchanged from Classic 1.12.",
+   "facts": [
+    "class-hunter.change-6"
+   ]
+  },
+  {
+   "id": "class-hunter.survival-new-count",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-talent-trees",
+   "type": "mcq",
+   "stem": "Compared with Classic 1.12, how many new talents does the Survival tree have?",
+   "choices": [
+    "8 new",
+    "5 new",
+    "2 new"
+   ],
+   "answer": 0,
+   "explanation": "Survival has 8 new talents. Marksmanship has 5 and Beast Mastery 2.",
+   "facts": [
+    "talents-hunter.survival-summary"
+   ],
+   "distractorFacts": [
+    "talents-hunter.marksmanship-summary",
+    "talents-hunter.beast-mastery-summary"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-unchanged",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-talent-trees",
+   "type": "mcq",
+   "stem": "Which Marksmanship talents are unchanged from Classic 1.12?",
+   "choices": [
+    "Improved Concussive Shot and Ranged Weapon Specialization",
+    "Hawk Eye and Scatter Shot",
+    "Rapid Recuperation and Sniper Shot"
+   ],
+   "answer": 0,
+   "explanation": "Improved Concussive Shot and Ranged Weapon Specialization are unchanged. Hawk Eye and Scatter Shot moved, and Rapid Recuperation and Sniper Shot are new.",
+   "facts": [
+    "class-hunter.change-7"
+   ]
+  },
+  {
+   "id": "class-hunter.training-the-beast",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest unlocks Beast Training, Feed Pet and Revive Pet?",
+   "choices": [
+    "Training the Beast",
+    "Taming the Beast"
+   ],
+   "answer": 0,
+   "explanation": "The three Taming the Beast quests come first. Training the Beast ends the chain and unlocks Beast Training, Feed Pet and Revive Pet.",
+   "facts": [
+    "class-hunter.quest-taming-the-beast"
+   ]
+  },
+  {
+   "id": "class-hunter.wind-blessed",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-race",
+   "type": "mcq",
+   "stem": "Which Alliance racial gives a Hunter +2% haste?",
+   "choices": [
+    "Wind-Blessed",
+    "Artisan's Precision",
+    "Ruthless"
+   ],
+   "answer": 0,
+   "explanation": "Skyborne Wind-Blessed gives +2% haste. Dwarf Artisan's Precision gives +1% hit and Human Ruthless +1% crit.",
+   "facts": [
+    "common.racial-skyborne-wind-blessed"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-human-ruthless"
+   ]
+  },
+  {
+   "id": "class-hunter.ruthless",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-race",
+   "type": "mcq",
+   "stem": "Since the 26 October notes, what does Human Ruthless give?",
+   "choices": [
+    "+1% crit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Ruthless gives +1% crit, cut from 2% on 26 October. +1% hit is the Dwarf racial and +2% haste the Skyborne one.",
+   "facts": [
+    "common.racial-human-ruthless"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-hunter.pet-attack-power",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-pets",
+   "type": "mcq",
+   "stem": "Per Warcraft Tavern, how much of your Attack Power does your pet inherit?",
+   "choices": [
+    "10%",
+    "100%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Pets inherit 10% of your Attack Power and 100% of your crit. 5% of your Ranged Attack Power is what a hawk's dive adds.",
+   "facts": [
+    "class-hunter.pet-scaling"
+   ],
+   "distractorFacts": [
+    "class-hunter.summon-hawk"
+   ]
+  },
+  {
+   "id": "class-hunter.happiness-top",
+   "scope": "class:hunter",
+   "tier": 101,
+   "chapter": "hunter-101-pets",
+   "type": "mcq",
+   "stem": "Happiness scales your pet's damage across three levels. What is the highest?",
+   "choices": [
+    "125%",
+    "100%",
+    "75%"
+   ],
+   "answer": 0,
+   "explanation": "Happiness scales pet damage to 125%, 100% or 75%, so a well-fed pet deals the most.",
+   "facts": [
+    "class-hunter.pet-food"
+   ]
+  },
+  {
+   "id": "class-hunter.onyxia-size",
+   "scope": "class:hunter",
+   "tier": 201,
+   "chapter": "hunter-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which launch raid takes 40 players?",
+   "choices": [
+    "Onyxia's Lair",
+    "Barrow Deeps",
+    "Hyjal Summit"
+   ],
+   "answer": 0,
+   "explanation": "Onyxia's Lair takes 40 players. Barrow Deeps takes 10 and Hyjal Summit 20. Raid unlock date for all three: 9 December 2026.",
+   "facts": [
+    "class-hunter.launch-raids"
+   ]
+  },
+  {
+   "id": "class-hunter.tranquilizing-shot",
+   "scope": "class:hunter",
+   "tier": 201,
+   "chapter": "hunter-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which Hunter ability removes Enrage and Frenzy effects?",
+   "choices": [
+    "Tranquilizing Shot",
+    "Trueshot Aura",
+    "Wolf Furious Howl"
+   ],
+   "answer": 0,
+   "explanation": "Tranquilizing Shot removes Enrage and Frenzy effects. Trueshot Aura buffs the raid's Ranged Attack Power, and Furious Howl is a Wolf's party buff.",
+   "facts": [
+    "class-hunter.tranquilizing-shot"
+   ],
+   "distractorFacts": [
+    "class-hunter.trueshot-aura",
+    "class-hunter.wolf-furious-howl"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-hawk-cooldown",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 101,
+   "chapter": "hunter-beast-mastery-101-rotation",
+   "type": "mcq",
+   "stem": "Which ability shares its cooldown with Summon Hawk?",
+   "choices": [
+    "Arcane Shot",
+    "Multi-Shot",
+    "Aimed Shot"
+   ],
+   "answer": 0,
+   "explanation": "Summon Hawk shares its cooldown with Arcane Shot. Aimed Shot and Multi-Shot share a different one.",
+   "facts": [
+    "class-hunter.summon-hawk",
+    "class-hunter.change-1"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-bestial-wrath",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 101,
+   "chapter": "hunter-beast-mastery-101-rotation",
+   "type": "mcq",
+   "stem": "How long does Bestial Wrath's 50% damage bonus last?",
+   "choices": [
+    "18 sec",
+    "2 min"
+   ],
+   "answer": 0,
+   "explanation": "Bestial Wrath lasts 18 sec. 2 min is its cooldown.",
+   "facts": [
+    "talents-hunter.beast-mastery-bestial-wrath.r1",
+    "talents-hunter.beast-mastery-bestial-wrath"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-mend-pet",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 101,
+   "chapter": "hunter-beast-mastery-101-pet-care",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, what chance does Improved Mend Pet give Mend Pet to cleanse an effect each time it heals?",
+   "choices": [
+    "50%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 2 gives a 50% chance; rank 1 gives 15%.",
+   "facts": [
+    "talents-hunter.beast-mastery-improved-mend-pet.r2"
+   ],
+   "distractorFacts": [
+    "talents-hunter.beast-mastery-improved-mend-pet.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-intimidation",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 101,
+   "chapter": "hunter-beast-mastery-101-pet-care",
+   "type": "mcq",
+   "stem": "How long does Intimidation stun the target?",
+   "choices": [
+    "3 sec",
+    "1 min"
+   ],
+   "answer": 0,
+   "explanation": "Intimidation stuns for 3 sec on the pet's next successful attack. 1 min is its cooldown.",
+   "facts": [
+    "talents-hunter.beast-mastery-intimidation.r1",
+    "talents-hunter.beast-mastery-intimidation"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-pet-crit",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 201,
+   "chapter": "hunter-beast-mastery-201-priorities",
+   "type": "mcq",
+   "stem": "Per Warcraft Tavern, how much of your crit does your pet inherit?",
+   "choices": [
+    "100%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Pets inherit 100% of your crit and 10% of your Attack Power.",
+   "facts": [
+    "class-hunter.pet-scaling"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-potions",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 201,
+   "chapter": "hunter-beast-mastery-201-consumables",
+   "type": "mcq",
+   "stem": "Which profession makes healing potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions are made with First Aid instead of Alchemy in Forever.",
+   "facts": [
+    "class-hunter.healing-potions"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-elixir",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 201,
+   "chapter": "hunter-beast-mastery-201-consumables",
+   "type": "mcq",
+   "stem": "What does Elixir of Cunning give?",
+   "choices": [
+    "+25 Agility and Intellect for 30 minutes",
+    "+15 Agility",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of Cunning gives +25 Agility and Intellect for 30 minutes. +15 Agility is Tender Wolf Steak and +1% crit is Grilled Squid.",
+   "facts": [
+    "class-hunter.elixir-of-cunning"
+   ],
+   "distractorFacts": [
+    "class-hunter.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-furious-howl",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 201,
+   "chapter": "hunter-beast-mastery-201-raid",
+   "type": "mcq",
+   "stem": "What does a Wolf's Furious Howl raise?",
+   "choices": [
+    "Party melee Attack Power",
+    "Ranged Attack Power"
+   ],
+   "answer": 0,
+   "explanation": "Furious Howl raises party melee Attack Power, after a 40% cut on 24 Sep. Trueshot Aura is the one that raises Ranged Attack Power.",
+   "facts": [
+    "class-hunter.wolf-furious-howl",
+    "talents-hunter.marksmanship-trueshot-aura.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-berserker-rage",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 201,
+   "chapter": "hunter-beast-mastery-201-pvp",
+   "type": "mcq",
+   "stem": "Which Warrior talent can clear the slows you put on a Warrior?",
+   "choices": [
+    "Improved Berserker Rage",
+    "Spearing Strike"
+   ],
+   "answer": 0,
+   "explanation": "At rank 2 of 2, Improved Berserker Rage gives Berserker Rage a 100% chance to remove all movement impairing effects. Spearing Strike is the one that dismounts.",
+   "facts": [
+    "class-hunter.vs-warrior-improved-berserker-rage"
+   ],
+   "distractorFacts": [
+    "class-hunter.vs-warrior-spearing-strike"
+   ]
+  },
+  {
+   "id": "class-hunter.bm-hawk-scaling",
+   "scope": "spec:hunter-beast-mastery",
+   "tier": 301,
+   "chapter": "hunter-beast-mastery-301-scaling",
+   "type": "mcq",
+   "stem": "A hawk's dive deals 32 plus what share of your Ranged Attack Power?",
+   "choices": [
+    "5%",
+    "10%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "The dive deals 32 plus 5% of your Ranged Attack Power. 10% of your Attack Power and 100% of your crit are what the pet inherits.",
+   "facts": [
+    "class-hunter.summon-hawk"
+   ],
+   "distractorFacts": [
+    "class-hunter.pet-scaling"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-sniper-cast",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 101,
+   "chapter": "hunter-marksmanship-101-rotation",
+   "type": "mcq",
+   "stem": "How long is Sniper Shot's cast?",
+   "choices": [
+    "4 sec",
+    "10 sec",
+    "15 sec"
+   ],
+   "answer": 0,
+   "explanation": "Sniper Shot has a 4 sec cast and a 15 sec cooldown, and its range bonus on your next 3 Shots lasts 10 sec.",
+   "facts": [
+    "talents-hunter.marksmanship-sniper-shot",
+    "talents-hunter.marksmanship-sniper-shot.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-rapid-killing",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 101,
+   "chapter": "hunter-marksmanship-101-rotation",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much more damage does Rapid Killing give your next Shot?",
+   "choices": [
+    "20%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 2 gives 20% and rank 1 gives 10%.",
+   "facts": [
+    "talents-hunter.marksmanship-rapid-killing.r2"
+   ],
+   "distractorFacts": [
+    "talents-hunter.marksmanship-rapid-killing.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-rapid-recuperation",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 101,
+   "chapter": "hunter-marksmanship-101-mana-range",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much of your mana regeneration does Rapid Recuperation let continue once Rapid Killing is consumed?",
+   "choices": [
+    "100%",
+    "50%",
+    "25%"
+   ],
+   "answer": 0,
+   "explanation": "At rank 2, Serpent Sting lets 50% continue, rising to 100% once Rapid Killing is consumed. Rank 1 gives 25% and 50%.",
+   "facts": [
+    "talents-hunter.marksmanship-rapid-recuperation.r2"
+   ],
+   "distractorFacts": [
+    "talents-hunter.marksmanship-rapid-recuperation.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-lone-wolf",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 201,
+   "chapter": "hunter-marksmanship-201-priorities",
+   "type": "mcq",
+   "stem": "What does Lone Wolf give?",
+   "choices": [
+    "+20% damage with all attacks while no pet is active",
+    "Converts 20% to 100% of your Intellect into Attack Power"
+   ],
+   "answer": 0,
+   "explanation": "Lone Wolf gives +20% damage with all attacks while no pet is active. Turning Intellect into Attack Power is Careful Aim.",
+   "facts": [
+    "class-hunter.lone-wolf"
+   ],
+   "distractorFacts": [
+    "class-hunter.careful-aim"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-grilled-squid",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 201,
+   "chapter": "hunter-marksmanship-201-consumables",
+   "type": "mcq",
+   "stem": "Which food now gives +1% crit instead of Agility?",
+   "choices": [
+    "Grilled Squid",
+    "Tender Wolf Steak"
+   ],
+   "answer": 0,
+   "explanation": "Grilled Squid now gives +1% crit; Tender Wolf Steak gives +15 Agility.",
+   "facts": [
+    "class-hunter.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-lone-wolf-raid",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 201,
+   "chapter": "hunter-marksmanship-201-raid",
+   "type": "scenario",
+   "stem": "Your raid build takes Lone Wolf. When does its damage bonus apply?",
+   "choices": [
+    "While no pet is active",
+    "While the pet is active"
+   ],
+   "answer": 0,
+   "explanation": "Lone Wolf works only while no pet is active. Focused Fire, a Beast Mastery talent, is the one that works while the pet is active.",
+   "facts": [
+    "class-hunter.lone-wolf",
+    "class-hunter.focused-fire"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-scatter-shot",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 201,
+   "chapter": "hunter-marksmanship-201-pvp",
+   "type": "mcq",
+   "stem": "How long does Scatter Shot disorient the target?",
+   "choices": [
+    "4 sec",
+    "30 sec"
+   ],
+   "answer": 0,
+   "explanation": "Scatter Shot disorients for 4 sec, and any damage removes it. 30 sec is its cooldown.",
+   "facts": [
+    "talents-hunter.marksmanship-scatter-shot.r1",
+    "talents-hunter.marksmanship-scatter-shot"
+   ]
+  },
+  {
+   "id": "class-hunter.mm-arcane-coefficient",
+   "scope": "spec:hunter-marksmanship",
+   "tier": 301,
+   "chapter": "hunter-marksmanship-301-coefficients",
+   "type": "mcq",
+   "stem": "What Attack Power coefficient do Blizzard's notes list for Arcane Shot?",
+   "choices": [
+    "0.15",
+    "5%",
+    "320"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard lists 0.15 for Arcane Shot. 5% of Attack Power per tick is Serpent Sting, and 320 is Sniper Shot's flat bonus in the talent data.",
+   "facts": [
+    "class-hunter.sniper-shot",
+    "talents-hunter.marksmanship-sniper-shot.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-strider-kick",
+   "scope": "spec:hunter-survival",
+   "tier": 101,
+   "chapter": "hunter-survival-101-rotation",
+   "type": "mcq",
+   "stem": "What does Strider Kick give you?",
+   "choices": [
+    "30% for 3 sec",
+    "25% for 10 sec"
+   ],
+   "answer": 0,
+   "explanation": "Strider Kick gives 30% movement speed for 3 sec. 25% for 10 sec is Deterrence's Dodge and Parry bonus.",
+   "facts": [
+    "talents-hunter.survival-strider-kick.r1",
+    "talents-hunter.survival-deterrence.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-clever-traps",
+   "scope": "spec:hunter-survival",
+   "tier": 101,
+   "chapter": "hunter-survival-101-traps",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much longer do Freezing and Frost trap effects last with Clever Traps?",
+   "choices": [
+    "30%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 2 adds 30% and rank 1 adds 15%, to both trap duration and fire trap damage.",
+   "facts": [
+    "talents-hunter.survival-clever-traps.r2"
+   ],
+   "distractorFacts": [
+    "talents-hunter.survival-clever-traps.r1"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-surefooted",
+   "scope": "spec:hunter-survival",
+   "tier": 201,
+   "chapter": "hunter-survival-201-priorities",
+   "type": "mcq",
+   "stem": "In Forever, which attacks does Surefooted's hit bonus apply to?",
+   "choices": [
+    "All attacks",
+    "All melee abilities"
+   ],
+   "answer": 0,
+   "explanation": "Surefooted's hit bonus now applies to all attacks. All melee abilities is what Savage Strikes' crit covers.",
+   "facts": [
+    "class-hunter.surefooted"
+   ],
+   "distractorFacts": [
+    "class-hunter.savage-strikes"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-predators-edge",
+   "scope": "spec:hunter-survival",
+   "tier": 201,
+   "chapter": "hunter-survival-201-priorities",
+   "type": "mcq",
+   "stem": "Per rank, how much off-hand weapon damage does Predator's Edge add?",
+   "choices": [
+    "+10%",
+    "+6%"
+   ],
+   "answer": 0,
+   "explanation": "Predator's Edge adds +10% off-hand weapon damage and +6% melee ability crit damage per rank.",
+   "facts": [
+    "class-hunter.predators-edge"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-tender-wolf-steak",
+   "scope": "spec:hunter-survival",
+   "tier": 201,
+   "chapter": "hunter-survival-201-consumables",
+   "type": "mcq",
+   "stem": "What does Tender Wolf Steak give?",
+   "choices": [
+    "+15 Agility",
+    "+1% crit",
+    "+25 Agility and Intellect"
+   ],
+   "answer": 0,
+   "explanation": "Tender Wolf Steak gives +15 Agility. Grilled Squid gives +1% crit, and Elixir of Cunning +25 Agility and Intellect.",
+   "facts": [
+    "class-hunter.food-in-forever"
+   ],
+   "distractorFacts": [
+    "class-hunter.elixir-of-cunning"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-barrow-deeps",
+   "scope": "spec:hunter-survival",
+   "tier": 201,
+   "chapter": "hunter-survival-201-raid",
+   "type": "mcq",
+   "stem": "Which launch raid takes 10 players?",
+   "choices": [
+    "Barrow Deeps",
+    "Hyjal Summit",
+    "Onyxia's Lair"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps takes 10 players, Hyjal Summit 20 and Onyxia's Lair 40.",
+   "facts": [
+    "class-hunter.launch-raids-2"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-spearing-strike",
+   "scope": "spec:hunter-survival",
+   "tier": 201,
+   "chapter": "hunter-survival-201-pvp",
+   "type": "mcq",
+   "stem": "Which Warrior ability dismounts mounted targets?",
+   "choices": [
+    "Spearing Strike",
+    "Improved Berserker Rage"
+   ],
+   "answer": 0,
+   "explanation": "Spearing Strike deals extra damage to mounted targets and dismounts them. Improved Berserker Rage is the one that clears slows.",
+   "facts": [
+    "class-hunter.vs-warrior-spearing-strike"
+   ],
+   "distractorFacts": [
+    "class-hunter.vs-warrior-improved-berserker-rage"
+   ]
+  },
+  {
+   "id": "class-hunter.sv-lacerating-share",
+   "scope": "spec:hunter-survival",
+   "tier": 301,
+   "chapter": "hunter-survival-301-mongoose-bite",
+   "type": "mcq",
+   "stem": "Lacerating Strikes makes the target bleed for what share of Mongoose Bite's damage?",
+   "choices": [
+    "40%",
+    "10%",
+    "6%"
+   ],
+   "answer": 0,
+   "explanation": "The bleed is 40% of the bite's damage over 21 seconds. +10% and +6% are Predator's Edge's per-rank off-hand damage and crit damage.",
+   "facts": [
+    "class-hunter.lacerating-strikes"
+   ],
+   "distractorFacts": [
+    "class-hunter.predators-edge"
+   ]
+  }
+ ]
+}

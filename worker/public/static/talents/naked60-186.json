@@ -6,16 +6,16 @@
       "1.60.1.70425",
       "1.60.1.70450"
     ],
-    "talentRevision": "260cf99b52db"
+    "talentRevision": "02e1e101d1a5"
   },
   "generatedAt": "2026-10-21T19:46:00Z",
   "generator": "gen_stats60.py",
   "researchSHA256": "93c53a998bc598338e3fd2c9bf6f3e33df23cd87290f5c69eb4c27d9e80b5356",
-  "dataJsonSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+  "dataJsonSHA256": "d8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e",
   "status": "This dataset has no independently verified Forever level-60 base-stat table; it makes no universal claim about publications elsewhere. Base stats here are Classic references (grade E), derived estimates (grade D) or Unavailable (grade U); only the named pinned DB2 fields (A/B) and dated Forever guide rules (C) are Forever evidence.",
   "grades": {
     "A": {
-      "meaning": "Exact from current-build client data (DB2) or an in-game measurement.",
+      "meaning": "Exact from the pinned client data (DB2) or an in-game measurement.",
       "display": "normal"
     },
     "B": {
@@ -367,8 +367,8 @@
       "grade": "A",
       "title": "Talents Forever data (normalised as worker/public/static/talents/data.json)",
       "url": "https://talentsforever.com",
-      "revision": "260cf99b52db",
-      "dataJsonSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+      "revision": "02e1e101d1a5",
+      "dataJsonSHA256": "d8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e",
       "note": "Rank texts; race/class lists cross-checked against CharBaseInfo 1.60.1.70450."
     },
     {

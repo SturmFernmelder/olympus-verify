@@ -1,0 +1,354 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "skinning",
+ "name": "Skinning",
+ "type": "gathering",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[7] (2026-11-04), rewritten into the course format on 2026-11-12",
+ "factFiles": [
+  "common",
+  "profession-skinning",
+  "profession-herbalism",
+  "profession-mining",
+  "profession-cooking"
+ ],
+ "quizFiles": [
+  "profession-skinning"
+ ],
+ "pairsWith": [
+  "leatherworking"
+ ],
+ "overview": {
+  "lead": "Skinners collect leather, hides and scales for Leatherworking, and Forever adds scarce Pristine materials.",
+  "points": [
+   {
+    "text": "A new bag slot takes only reagent bags, and the Bottomless Reagent Bag is made from Pristine Hide.",
+    "facts": [
+     "profession-skinning.reagent-bag-slot"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-skinning.pristine-materials"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "guides218.json professions[7].overview[1]",
+   "text": "It pairs naturally with Leatherworking for leather and mail wearers.",
+   "reason": "No reviewed fact says who wears what Leatherworking makes; the pairing itself stays in pairsWith."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What Forever changes for Skinning, its camp objects, and how to level it.",
+   "chapters": [
+    {
+     "id": "skinning-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for Skinning",
+     "theory": [
+      "profession-skinning.starter-zone-book",
+      "profession-skinning.pristine-materials",
+      "profession-skinning.reagent-bag-slot"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Pick up Pelt Collecting for Beginners, the quest item that drops in starting zones. It teaches Skinning and gives +2 skill.",
+        "facts": [
+         "profession-skinning.starter-zone-book"
+        ]
+       },
+       {
+        "text": "Watch for scarce Pristine Leather, Pristine Hide and Pristine Scale when you skin.",
+        "facts": [
+         "profession-skinning.pristine-materials"
+        ]
+       },
+       {
+        "text": "Put a reagent bag in the new bag slot; it takes nothing else. Gathering bags start at 4 slots.",
+        "facts": [
+         "profession-skinning.reagent-bag-slot"
+        ]
+       },
+       {
+        "text": "Keep some Pristine Hide: the Bottomless Reagent Bag is made from it.",
+        "facts": [
+         "profession-skinning.reagent-bag-slot"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Trying to put an ordinary bag in the new reagent slot.",
+        "fix": "The new bag slot takes only reagent bags.",
+        "facts": [
+         "profession-skinning.reagent-bag-slot"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skinning-101-camp",
+     "section": "overview",
+     "title": "Camp objects",
+     "theory": [
+      "profession-skinning.camp-objects",
+      "profession-cooking.campfire",
+      "profession-cooking.camp-rules",
+      "profession-cooking.legacy-perks"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place a Camp Chair at Skinning 20, a Field Guide at 140 and a Trapper's Workbench at 300.",
+        "facts": [
+         "profession-skinning.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Field Guide blueprint from Lady Anacondra in Wailing Caverns.",
+        "facts": [
+         "profession-skinning.camp-objects"
+        ]
+       },
+       {
+        "text": "Add your object to a camp, then sit or craft nearby for about a minute. The benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules",
+         "profession-cooking.bigger-camps"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Mixing up the Field Guide camp object with the Field Guide Legacy perk.",
+        "fix": "The camp object comes at Skinning 140 from Lady Anacondra's blueprint. The Legacy perk of the same name shortens the camp-feature cooldown.",
+        "facts": [
+         "profession-skinning.camp-objects",
+         "profession-cooking.legacy-perks"
+        ]
+       },
+       {
+        "mistake": "Expecting a trainer to sell the Field Guide.",
+        "fix": "Trainers and NPCs hand out the skill-20 camp objects. The Field Guide comes from a blueprint that drops from Lady Anacondra in Wailing Caverns.",
+        "facts": [
+         "profession-skinning.camp-objects",
+         "profession-cooking.campfire"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skinning-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks and Legacy perks",
+     "theory": [
+      "profession-skinning.skill-caps",
+      "profession-skinning.level-for-each-rank",
+      "profession-skinning.legacy-perks"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Apprentice Skinning goes up to 75, Journeyman to 150, Expert to 225 and Artisan to 300.",
+        "facts": [
+         "profession-skinning.skill-caps"
+        ]
+       },
+       {
+        "text": "Check the level each rank needs in game before you plan around it. Icy Veins lists none for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35.",
+        "facts": [
+         "profession-skinning.level-for-each-rank"
+        ]
+       },
+       {
+        "text": "Two Legacy perks help a skinner: Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+        "facts": [
+         "profession-skinning.legacy-perks"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Trusting one guide's level for Expert or Artisan.",
+        "fix": "Icy Veins and Warcraft Tavern disagree: 10 or 20 for Expert, 25 or 35 for Artisan. Check in game.",
+        "facts": [
+         "profession-skinning.level-for-each-rank"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Skinning makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What Skinning adds to a group and to the market.",
+   "chapters": [
+    {
+     "id": "skinning-201-raid",
+     "section": "consumables",
+     "title": "The Camp Chair for your group",
+     "theory": [
+      "profession-skinning.camp-chair",
+      "profession-skinning.camp-objects"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place the Camp Chair for 2% crit when the group has no Moonkin Aura. It matches the aura and does not stack with it.",
+        "facts": [
+         "profession-skinning.camp-chair"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Placing the Camp Chair next to a Moonkin Aura.",
+        "fix": "The Camp Chair's 2% crit matches Moonkin Aura and does not stack with it.",
+        "facts": [
+         "profession-skinning.camp-chair"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skinning-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-skinning.pristine-materials",
+      "profession-skinning.reagent-bag-slot"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Pristine Leather, Hide and Scale are new scarce drops, and the Bottomless Reagent Bag is made from Pristine Hide, so hold some back until demand is clear. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-skinning.pristine-materials",
+         "profession-skinning.reagent-bag-slot"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling every Pristine Hide as soon as you skin it.",
+        "fix": "The Bottomless Reagent Bag is made from Pristine Hide, so keep some back until demand for it is clear.",
+        "facts": [
+         "profession-skinning.reagent-bag-slot"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 track covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Skinning makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skinning routes and the open camp questions need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "skinning-301-routes",
+     "section": "overview",
+     "title": "Skinning routes and open questions",
+     "theory": [
+      "profession-skinning.unknown-1",
+      "profession-skinning.unknown-2"
+     ],
+     "unavailable": "No reviewed skinning route exists for Forever yet. Where the Trapper's Workbench blueprint drops and whether any passive Skinning perk exists are also open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Skinning makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    }
+   ]
+  }
+ }
+}

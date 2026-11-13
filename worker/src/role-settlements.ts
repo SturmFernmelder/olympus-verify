@@ -15,14 +15,14 @@ import { privacyGenerationFenceSql,readPrivacySubject,privacyProviderCustodyData
 import { fenceSql } from './community-context';
 import { isSiteAdmin } from './site-core';
 import { captureTreasuryReservedRoles } from './treasury-reserved-roles';
-import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,captureBetaRoleDispatch,betaRoleDispatchHeld,betaGrantDispatchHeld,betaGrantDispatchSql,type BetaGrantCapture,type BetaRoleDispatch } from './beta-reset-policy';
+import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,captureBetaRoleDispatch,betaRoleDispatchHeld,betaGrantDispatchHeld,betaGrantDispatchSql,betaSourceEpochState,type BetaGrantCapture,type BetaRoleDispatch } from './beta-reset-policy';
 import { type LaneCapture,type LaneKind,type LaneRemovalPurpose,type LaneTupleRow } from './full-release-roles';
 import { captureLaunchVerification,assertLaunchMembershipMode,launchMembershipPredicate,type LaunchMembershipSource } from './launch-verification227';
 import {assertRuntimeVenue230,runtimeVenue230Facts,runtimeVenue230Predicate,oldSharedMemberProducerHeld230,type RuntimeVenue230} from './shared-membership-cutover230';
 import type {OriginalConsumedMembership230} from './ingest';
 import {captureNativeRankConfig232,historicalNativeRankPolicy232,nativeRankProducerHeld232,NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_STAFF232} from './native-rank-reconciliation232';
 import type {RoutineMembership232} from './routine-membership-authority232';
-import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,currentDirectiveCanonicalPolicy233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,currentDirectiveCanonicalPolicy233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233,CANONICAL_GUILD233} from './canonical-ranks233';
 import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_CANONICAL_INDEX,DIRECTIVE_RANK_NAMES} from './native-rank-constants';
 import {directiveSnapshotSql280} from './directive-native-authority';
 import {captureCanonicalMigration233,canonicalMigrationProducerHeld233,CANONICAL_MIGRATION_PROFILE233,CANONICAL_MIGRATION_ROLE_IDS233} from './canonical-migration233';
@@ -57,11 +57,13 @@ const now=()=>Math.floor(Date.now()/1000);
 const budget=():AttemptBudget=>({limit:8,attempts:0,retries:0});
 /** This path counts every network request and disables the legacy 429 retry. */
 async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,readAdmission?:()=>Promise<boolean>,beforeDispatch?:()=>void,deleteAdmission230?:object):Promise<T> {
- if(deleteAdmission230!==undefined&&deleteAdmission230!==launch230RoleOnly&&deleteAdmission230!==launch230OriginalCompensation&&deleteAdmission230!==native232RoleOnly&&deleteAdmission230!==native232OriginalDrain&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly)throw Error('role_configuration');
- if(readAdmission&&(method==='GET'||method==='PUT'||method==='DELETE'&&(deleteAdmission230===launch230RoleOnly||deleteAdmission230===native232RoleOnly||deleteAdmission230===canonical233RoleOnly||deleteAdmission230===canonical233MigrationRoleOnly))&&!await readAdmission())throw Error('retirement_original_read_admission_changed');
+ if(deleteAdmission230!==undefined&&deleteAdmission230!==launch230RoleOnly&&deleteAdmission230!==launch230OriginalCompensation&&deleteAdmission230!==native232RoleOnly&&deleteAdmission230!==native232OriginalDrain&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&deleteAdmission230!==banRank1112RoleOnly)throw Error('role_configuration');
+ // Owner ruling 12 Nov 2026: the ban token admits only a DELETE of one fixed Olympus rank role in the canonical guild.
+ if(deleteAdmission230===banRank1112RoleOnly){const t=/^\/guilds\/(\d+)\/members\/\d+\/roles\/(\d+)$/.exec(path);if(method!=='DELETE'||!readAdmission||!t||t[1]!==CANONICAL_GUILD233||!CANONICAL_MANAGED_ROLE_IDS233.includes(t[2]!))throw Error('role_configuration');}
+ if(readAdmission&&(method==='GET'||method==='PUT'||method==='DELETE'&&(deleteAdmission230===launch230RoleOnly||deleteAdmission230===native232RoleOnly||deleteAdmission230===canonical233RoleOnly||deleteAdmission230===canonical233MigrationRoleOnly||deleteAdmission230===banRank1112RoleOnly))&&!await readAdmission())throw Error('retirement_original_read_admission_changed');
  const dispatch=()=>{const target=/^\/guilds\/(\d+)\/members\/\d+\/roles\/(\d+)$/.exec(path);
-  if((method==='PUT'||method==='DELETE')&&target&&nativeRankProducerHeld232(env,target[1],target[2])&&deleteAdmission230!==native232RoleOnly&&deleteAdmission230!==launch230RoleOnly&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&!(method==='DELETE'&&(deleteAdmission230===native232OriginalDrain||deleteAdmission230===launch230OriginalCompensation)))throw Error('native232_old_producer_held');
-  if((method==='PUT'||method==='DELETE')&&target&&canonicalMigrationProducerHeld233(env,target[1],target[2])&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&!(method==='DELETE'&&(deleteAdmission230===native232OriginalDrain||deleteAdmission230===launch230OriginalCompensation)))throw Error('canonical233_old_producer_held');
+  if((method==='PUT'||method==='DELETE')&&target&&nativeRankProducerHeld232(env,target[1],target[2])&&deleteAdmission230!==native232RoleOnly&&deleteAdmission230!==launch230RoleOnly&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&deleteAdmission230!==banRank1112RoleOnly&&!(method==='DELETE'&&(deleteAdmission230===native232OriginalDrain||deleteAdmission230===launch230OriginalCompensation)))throw Error('native232_old_producer_held');
+  if((method==='PUT'||method==='DELETE')&&target&&canonicalMigrationProducerHeld233(env,target[1],target[2])&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&deleteAdmission230!==banRank1112RoleOnly&&!(method==='DELETE'&&(deleteAdmission230===native232OriginalDrain||deleteAdmission230===launch230OriginalCompensation)))throw Error('canonical233_old_producer_held');
   if((method==='PUT'||method==='DELETE')&&target&&oldSharedMemberProducerHeld230(env,target[1],target[2])&&deleteAdmission230===undefined)throw Error('shared_member230_old_producer_held');};
  dispatch();
  if(b.attempts>=b.limit)throw new Error('role_budget');b.attempts++;if('calls' in b)(b as AttemptBudget&{calls:number}).calls++;
@@ -110,7 +112,7 @@ export const PROOF_CURRENT=`EXISTS(SELECT 1 FROM verification_proofs p JOIN veri
  SELECT 1 FROM privacy_subjects WHERE subject_id=v.requester AND generation=v.subject_generation AND state='active') END)
  AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=p.requester AND banned=1)
  AND NOT EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=p.requester AND state='reapply')
- AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=p.requester AND desired=0 AND attempts=1 AND purpose IN('grant_compensation','ban','rename_hold','blocking_role','guild_departure','account_erasure') AND state IN('dispatching','unknown'))
+ AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE subject=p.requester AND desired=0 AND attempts=1 AND purpose IN('grant_compensation','ban','canonical_ban_remove_v1','rename_hold','blocking_role','guild_departure','account_erasure') AND state IN('dispatching','unknown'))
  AND NOT EXISTS(SELECT 1 FROM role_settlements other WHERE other.subject=p.requester AND (other.proof_id IS NULL OR other.proof_id<>p.id) AND other.attempts=1 AND other.state IN('dispatching','unknown') AND other.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank'))
  AND EXISTS(SELECT 1 FROM characters WHERE discord_id=p.requester AND guid=p.requester_guid AND name=p.requester_name AND status='member')
  AND (SELECT COUNT(*) FROM characters WHERE guid=p.requester_guid AND status IN('member','left_pending'))=1
@@ -471,6 +473,8 @@ async function compensateGrant(env:Env,b:AttemptBudget,i:Intent,parentNonce:stri
 /** Past one-use removal authority permits only an outcome GET. Cause withdrawal/retirement never permits a second DELETE. */
 export async function reconcileRemovalReceipt(env:Env,id:string,b:AttemptBudget=budget()):Promise<Settlement>{
  if(!TOKEN.test(id))return result('held','invalid_operation');const i=await env.DB.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(id).first<Intent>();
+ // Repair round (12 Nov 2026): a ban rank-role row has its own GET-only observer (no DELETE, its own closing reason).
+ if(i&&i.purpose===BAN_RANK_PURPOSE1112&&i.desired===0&&i.attempts===1)return reconcileBanRankReceipt1112(env,i,b);
  if(!i||i.guild_id!==env.GUILD_ID||i.desired!==0||i.attempts!==1||!['grant_compensation','ban','rename_hold','blocking_role','guild_departure'].includes(i.purpose))return result('held','removal_receipt_not_owned',id);
  if(i.purpose!=='grant_compensation'&&i.role_id!==env.ROLE_GUILD_MEMBER&&!(membershipTransitionEnabled(env)&&membershipTargets(env).retired===i.role_id))return result('held','frozen_configuration_changed',id);
  if(i.purpose==='grant_compensation'&&!await env.DB.prepare("SELECT 1 FROM role_settlements p JOIN role_settlements r ON r.request_digest=p.id WHERE r.id=?1 AND p.subject=r.subject AND p.guild_id=r.guild_id AND p.role_id=r.role_id AND p.desired=1 AND p.attempts=1").bind(id).first())return result('held','compensation_parent_changed',id);
@@ -1588,7 +1592,7 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   const venueGuard=runtimeVenue230Predicate(env,venue,values.length+1);values.push(...venueGuard.values);
   const legacySource=(await import('./privacy-shared-member-cutover230')).sharedMember230LegacyAckSql('old'),legacy=canonical.present?groupLegacyAck233(legacySource):legacySource;check();
   const clear=`NOT EXISTS(SELECT 1 FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND ${canonical.present?`(old.role_id IN(${CANONICAL_MIGRATION_ROLE_IDS233.map(r=>"'"+r+"'").join(',')}) OR old.native_profile='${NATIVE_RANK_PROFILE232}')`:'old.role_id=?4'} AND old.id<>?1 AND (
-   ${canonical.present?"old.state IN('dispatching','unknown') OR ":''}(old.attempts${canonical.present?'<>0':'=1'} AND NOT(CASE WHEN (${launch230KnownReceipt('old')}) OR (${native232KnownReceipt('old')}) OR ${canonical.present?`(${canonical233KnownReceipt('old')}) OR (${canonical233MigrationKnownReceipt('old')}) OR `:''}(${legacy}) THEN 1 ELSE 0 END)) OR
+   ${canonical.present?"old.state IN('dispatching','unknown') OR ":''}(old.attempts${canonical.present?'<>0':'=1'} AND NOT(CASE WHEN (${launch230KnownReceipt('old')}) OR (${native232KnownReceipt('old')}) OR ${canonical.present?`(${canonical233KnownReceipt('old')}) OR (${canonical233MigrationKnownReceipt('old')}) OR (${banRank1112KnownReceipt('old')}) OR `:''}(${legacy}) THEN 1 ELSE 0 END)) OR
    (old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW} AND (old.desired=0 OR old.purpose IN(${launch230PurposeSql})))))`;
   const originalGuard=`(${p.sql}) AND (${venueGuard.sql}) ${canonical.present?`AND (${sourceRankGuard})`:''} AND ${clear} ${canonical.present?`AND (${canonical239NoAmbiguousOwnership('?2','?3','?5')})`:''}
    AND NOT EXISTS(SELECT 1 FROM members WHERE discord_id=?2 AND banned=1)
@@ -2017,7 +2021,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
    {name:'c239_physical_legacy_known',predicate:`(${legacy})`},
    {name:'c239_physical_old_lane_known',predicate:oldLaneAck},
   ] as const;
-  const physicalKnown=canonical233?`(${launch230KnownReceipt('old')}) OR (${native232KnownReceipt('old')}) OR ${canonical233?`(${canonical233KnownReceipt('old')}) OR (${canonical233MigrationKnownReceipt('old')}) OR `:''}(${legacy}) OR ${canonical233?'0=1':oldLaneAck}`:legacyPhysicalKnown.map(source=>`(EXISTS(SELECT 1 FROM ${source.name} known239 WHERE known239.c239_row=old.rowid))`).join(' OR ');
+  const physicalKnown=canonical233?`(${launch230KnownReceipt('old')}) OR (${native232KnownReceipt('old')}) OR ${canonical233?`(${canonical233KnownReceipt('old')}) OR (${canonical233MigrationKnownReceipt('old')}) OR (${banRank1112KnownReceipt('old')}) OR `:''}(${legacy}) OR ${canonical233?'0=1':oldLaneAck}`:legacyPhysicalKnown.map(source=>`(EXISTS(SELECT 1 FROM ${source.name} known239 WHERE known239.c239_row=old.rowid))`).join(' OR ');
   const physical=`NOT EXISTS(SELECT 1 FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND old.id<>?1 AND (old.role_id=?4 OR old.role_id IN(SELECT value FROM json_each(?${familyAt})) OR old.purpose IN('verified_native_rank','verified_privileged_rank','roster_native_rank','roster_privileged_rank','fresh_roster_rank','staff_roster_rank'${canonical233?",'canonical_migration233','canonical_migration_remove233','canonical_migration_compensation233'":''})) AND (
    old.state IN('dispatching','unknown') OR (CASE WHEN old.attempts=0 THEN 0 WHEN ${physicalKnown} THEN 0 ELSE 1 END=1)
    OR (old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW})))`;
@@ -2238,6 +2242,7 @@ export async function migrateCanonicalRank233(originalEnv:Env,subject:string,b:A
    {name:'c239_physical_native_known',predicate:native232KnownReceipt('old')},
    {name:'c239_physical_canonical_known',predicate:canonical233KnownReceipt('old')},
    {name:'c239_physical_migration_known',predicate:canonical233MigrationKnownReceipt('old')},
+   {name:'c239_physical_ban1112_known',predicate:banRank1112KnownReceipt('old')},
    {name:'c239_physical_legacy_known',predicate:legacy},
   ] as const;
   const physicalFacts=(fromParameter:string)=>{const facts=canonical239GroupedFacts('?2','?3','?5',fromParameter);return facts.slice(0,-1)+',\n'+physicalKnown.map(source=>`${source.name} AS MATERIALIZED(SELECT old.rowid AS c239_row FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND (${source.predicate}))`).join(',\n')+' ';};
@@ -2320,4 +2325,293 @@ export async function migrateCanonicalRank233(originalEnv:Env,subject:string,b:A
   }catch{return done('unknown','canonical239_reservation_release_unconfirmed');}
  }catch{return done('held','canonical233_migration_original_binding_held');}
  finally{active=false;}
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Ban rank-role removal (Evergreen 12 Nov 2026, ban lane). Owner ruling, 12 Nov 2026: "A ban removes the member's
+ * Olympus rank role immediately, whether the bot or a staff member granted it, as bans did before .233."
+ * Design: Codex's ban-policy design of 12 Nov (distinct purpose/profile, fixed 18-ID catalogue, exact active-ban cause).
+ * The active ban, not a prior bot PUT, is the removal authority, and only for this purpose. One DELETE per present
+ * role, each durable before HTTP and confirmed by a fresh member read. No PATCH of the role array, no replay of an
+ * unknown outcome and no restoration after an unban: restoration follows the ordinary rank rules.
+ * The cause is the exact latest admin.ban/admin.unban audit identity plus members.banned=1, so an unban and a reban
+ * (even in the same second with the same reason) never reuse an earlier decision.
+ * ------------------------------------------------------------------------------------------------------------- */
+export const BAN_RANK_PURPOSE1112='canonical_ban_remove_v1';
+export const BAN_RANK_PROFILE1112='olympus-ban-rank-removal-20261112-v1';
+/** The fixed catalogue: 12 canonical rank roles plus 6 retired rank IDs. Never inferred from names or caller input. */
+export const BAN_RANK_ROLE_IDS1112=CANONICAL_MANAGED_ROLE_IDS233;
+const banRank1112RoleOnly=Object.freeze({}); // Module-private DELETE admission; never a caller or request value.
+/** A scheduled standing-ban visit admits at most this many DELETEs; the command admits what its budget can confirm. */
+export const BAN_RANK1112_SWEEP_ROLES=1;
+/** Qualification (4 GETs) plus one DELETE and one confirming GET: the least a visit needs before it starts. */
+export const BAN_RANK1112_MIN_REQUESTS=6;
+const BAN_RANK1112_NO_EFFECT=['ban_rank1112_never_dispatched','ban_rank1112_refused_403','ban_rank1112_refused_404','ban_rank1112_rate_limited_429'] as const;
+/** Closed recognizer of this purpose's known outcomes, and only these: an acknowledged-and-confirmed DELETE, or a DELETE
+ * that provably had no effect (never sent, or answered by Discord with a complete 403, 404 or 429).
+ * Successor (12 Nov 2026, Codex's review of f5dfe10, agreed by both agents): a later read that shows the role absent is
+ * NOT a known outcome. A dispatched DELETE whose answer was lost can still land later, for example after another cause
+ * removed the role, a read saw it absent, the member was unbanned and a fresh grant was made; the late DELETE would then
+ * strip the new role. So the f5dfe10 reason ban_rank1112_unknown_observed_absent is gone from this list, no code writes
+ * it any more, and a row carrying it (or any other reason) is not known. Unknown and dispatching rows stay unresolved. */
+function banRank1112KnownReceipt(a:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('ban_rank1112_alias');
+ return canonical239And([`${a}.purpose='${BAN_RANK_PURPOSE1112}'`,`${a}.native_profile='${BAN_RANK_PROFILE1112}'`,`${a}.guild_id='${CANONICAL_GUILD233}'`,
+  `${a}.role_id IN(${BAN_RANK_ROLE_IDS1112.map(r=>"'"+r+"'").join(',')})`,`${a}.desired=0`,`${a}.attempts=1`,
+  native232Hex(a+'.id',32),native232Hex(a+'.proof_id',32),native232Hex(a+'.claim_nonce',32),native232Hex(a+'.request_digest',64),
+  `typeof(${a}.created_at)='integer'`,`${a}.created_at>0`,`typeof(${a}.expires_at)='integer'`,`${a}.expires_at>${a}.created_at`,`${a}.expires_at<=${a}.created_at+300`,
+  `typeof(${a}.checked_at)='integer'`,`${a}.checked_at>=${a}.created_at`,
+  `((${a}.state='settled' AND ${a}.reason='ban_rank1112_delete_acknowledged_and_confirmed') OR (${a}.state='held' AND ${a}.reason IN(${BAN_RANK1112_NO_EFFECT.map(r=>"'"+r+"'").join(',')})))`]);
+}
+/** Unresolved rows of this purpose (a DELETE was claimed and its outcome is not known), whatever their claim window. */
+const banRank1112UnresolvedWhere=(subject:string,guild:string)=>`subject=${subject} AND guild_id=${guild} AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}'
+ AND role_id IN(${BAN_RANK_ROLE_IDS1112.map(r=>"'"+r+"'").join(',')}) AND desired=0 AND attempts=1 AND state IN('dispatching','unknown')`;
+/** Unresolved rows of this purpose whose claim window has passed. Observation only (successor, 12 Nov 2026): a later
+ * member read of their roles is reported as data and never changes these rows' state, reason, nonce, digest or clocks. */
+const banRank1112DebtWhere=(subject:string,guild:string,at:string)=>`${banRank1112UnresolvedWhere(subject,guild)} AND expires_at<=${at}`;
+/**
+ * The rank roles that stay blocked for this member by an unresolved row of this purpose, for the unban reply (repair
+ * round, 13 Nov 2026). The claim window is not applied: a DELETE whose answer was lost blocks its role from that moment.
+ * Read only; null when the read fails, so the caller says it could not tell rather than "none".
+ */
+export async function banRankBlockedRoles1112(env:Env,subject:string):Promise<readonly string[]|null>{
+ if(!ID.test(subject))return Object.freeze([]);
+ try{
+  const rows=(await env.DB.prepare(`SELECT DISTINCT role_id FROM role_settlements WHERE ${banRank1112UnresolvedWhere('?1',`'${CANONICAL_GUILD233}'`)}`).bind(subject).all<{role_id:string}>()).results;
+  const set=new Set(rows.map(r=>r.role_id));return Object.freeze(BAN_RANK_ROLE_IDS1112.filter(id=>set.has(id)));
+ }catch{return null;}
+}
+/**
+ * Closed pre-.233 outcomes that the ban writer's own barrier counts as known (repair round, 13 Nov 2026, independent
+ * review of the successor at 4951e61). Owner ruling (12 Nov 2026): a ban removes the rank role "whether the bot or a
+ * staff member granted it, as bans did before .233", so a role the old bot lanes granted with a confirmed receipt must not
+ * be fenced for good. Each branch is an acknowledged Discord answer followed by a confirming member read, as the writers
+ * in this tree and its history record it:
+ *  - the old fresh/staff lane receipts, the exact predicate the non-canonical routine barrier uses (oldLaneAck in
+ *    runNativeSubject232; full-release-roles.ts: "Only acknowledged closes (removed, effect_and_current_server_confirmed)");
+ *  - 'removed' on a legacy removal (the membership removal batch, grant compensation and account erasure write it only
+ *    after the DELETE was answered and a fresh read showed the role absent, or after a fresh claim found it absent).
+ * GET-only closes ('absent', 'fresh_absence_only', 'fresh_server_absence_batch' and similar) and every dispatching or
+ * unknown row stay unresolved. Used only by banRank1112PhysicalUnresolved, never by a grant writer.
+ */
+function banRank1112LegacyKnown(a:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('ban_rank1112_alias');
+ const acked=`${a}.state='settled' AND ${a}.attempts=1 AND ${a}.claim_nonce IS NOT NULL`;
+ return `((${acked} AND ${a}.reason IN('effect_and_current_server_confirmed','removed') AND ${a}.purpose IN('fresh_roster_rank','staff_roster_rank','fresh_removal_ban','fresh_removal_departure','fresh_removal_rename_hold','fresh_removal_blocking_role','staff_removal_ban','staff_removal_departure'))
+  OR (${acked} AND ${a}.desired=0 AND ${a}.reason='removed' AND ${a}.purpose IN('ban','rename_hold','blocking_role','guild_departure','grant_compensation','account_erasure')))`;
+}
+/**
+ * The same-role, all-generation physical barrier, here for the ban writer's own dispatch (successor, 12 Nov 2026). An
+ * earlier row of ANY purpose or generation on the same member and role holds that role while it is dispatching or
+ * unknown, while it was attempted and is not one of the closed known outcomes (the same recognizers the routine, shared
+ * membership and migration barriers use, this purpose's included, plus the closed pre-.233 acknowledged receipts of
+ * banRank1112LegacyKnown), or while an unattempted claim on it is still live.
+ * `legacy` is the grouped legacy shared-member ACK predicate for alias `a`.
+ */
+function banRank1112PhysicalUnresolved(a:string,legacy:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('ban_rank1112_alias');
+ return `(${a}.state IN('dispatching','unknown') OR (${a}.attempts<>0 AND NOT(CASE WHEN (${launch230KnownReceipt(a)}) OR (${native232KnownReceipt(a)}) OR (${canonical233KnownReceipt(a)}) OR (${canonical233MigrationKnownReceipt(a)}) OR (${banRank1112KnownReceipt(a)}) OR (${legacy}) OR (${banRank1112LegacyKnown(a)}) THEN 1 ELSE 0 END))
+  OR (${a}.attempts=0 AND ${a}.state IN('pending','dispatching') AND ${a}.expires_at>${DB_NOW}))`;
+}
+export type BanRankRole1112=Readonly<{role:string;reason:string}>;
+export type BanRankOrigin1112=Readonly<{kind:'command';banEvent:number}>|Readonly<{kind:'sweep'}>;
+/** Why roles were left for a later visit (repair round, 13 Nov 2026): the request budget, Discord's 429, an unconfirmed
+ * result that stopped the visit, or the sweep's one-role-per-visit limit. The officer's reply names the actual cause. */
+export type BanRankDeferral1112='budget'|'rate_limit'|'unconfirmed'|'one_per_visit';
+export type BanRankOutcome1112=Readonly<{state:'settled'|'held'|'unknown';reason:string;inServer:boolean|null;removed:readonly string[];held:readonly BanRankRole1112[];unknown:readonly BanRankRole1112[];deferred:readonly string[];deferredBy:readonly BanRankDeferral1112[];raced:boolean;requests:number;dispatched:number;observed:number}>;
+/**
+ * Remove every fixed Olympus rank role a banned account holds, manual grants included. `generation` is the caller's
+ * original privacy capture (undefined holds). `b` is the caller's request budget, shared with its other role work.
+ * Every unknown-effect, physical-fence, privacy, venue/epoch, configuration, hierarchy and managed-role check holds
+ * the specific role (or the whole visit), never widens.
+ */
+export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRankOrigin1112,generation:string|null|undefined,b:AttemptBudget,removalDispatch?:RemovalDispatch):Promise<BanRankOutcome1112>{
+ const removed:string[]=[],held:BanRankRole1112[]=[],unknown:BanRankRole1112[]=[],deferred:string[]=[],deferredBy=new Set<BanRankDeferral1112>(),start=b.attempts;let inServer:boolean|null=null,raced=false,dispatched=0,observed=0;
+ // Repair round (12 Nov 2026): every DELETE Discord acknowledged and every role this visit planned live outside the
+ // try, so an error after an acknowledgement still confirms that removal (or records it unknown) and reports it. The
+ // officer is never told "no rank role was removed" after a DELETE was sent.
+ const acked:{role:string;row:(string|number|null)[];checks:()=>void}[]=[];let plan:readonly string[]=[],confirm:((interrupted:boolean)=>Promise<void>)|null=null;
+ const done=(state:BanRankOutcome1112['state'],reason:string):BanRankOutcome1112=>Object.freeze({state,reason,inServer,removed:Object.freeze(removed.slice()),held:Object.freeze(held.slice()),unknown:Object.freeze(unknown.slice()),deferred:Object.freeze(deferred.slice()),deferredBy:Object.freeze([...deferredBy]),raced,requests:b.attempts-start,dispatched,observed});
+ const finish=(reason:string)=>done(unknown.length?'unknown':held.length||deferred.length?'held':'settled',reason);
+ const removal=originalRemovalDispatch(env,removalDispatch);let currentCause:(()=>Promise<boolean>)|null=null;
+ try{
+  const canonical=captureCanonicalRankConfig233(env);
+  if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||env.GUILD_ID!==canonical.policy.guildId)return done('held','ban_rank1112_configuration_held');
+  if(!ID.test(subject)||generation===undefined||generation!==null&&!TOKEN.test(generation))return done('held','ban_rank1112_original_capture_required');
+  if(origin.kind==='command'&&(!Number.isSafeInteger(origin.banEvent)||origin.banEvent<1))return done('held','ban_rank1112_ban_event_required');
+  const selected=await captureRuntimeVenueForRemoval230(env);if(!selected)return done('held','ban_rank1112_venue_held');
+  const {effect,venue}=selected,v=runtimeVenue230Facts(venue),provider=launch230ProviderWitness(effect),policy=canonical.policy;
+  const check=()=>{provider();assertRuntimeVenue230(effect,venue);if(!canonical.current())throw Error('ban_rank1112_configuration_changed');};check();
+  if(v.guildId!==policy.guildId)return done('held','ban_rank1112_venue_held');
+  const original=await readPrivacySubject(effect,subject);check();
+  if(original&&original.state!=='active')return done('held','subject_held');
+  if((original?.subjectGeneration??null)!==generation)return done('held','original_removal_generation_changed');
+  // The exact original active-ban cause, read once before any provider await, with the roles of expired unresolved rows
+  // of this purpose (observation only, successor 12 Nov 2026).
+  const cause=await effect.DB.prepare(`SELECT (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?1) AS ban_event,(SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?1) AS unban_event,
+   (SELECT json_group_array(role_id) FROM role_settlements WHERE ${banRank1112DebtWhere('?1',`'${CANONICAL_GUILD233}'`,DB_NOW)}) AS debt FROM members WHERE discord_id=?1 AND banned=1`).bind(subject).first<{ban_event:number|null;unban_event:number|null;debt:string|null}>();check();
+  if(!cause)return done('held','removal_cause_withdrawn');
+  let debtRoles:string[]=[];try{const parsed:unknown=JSON.parse(cause.debt??'[]');debtRoles=Array.isArray(parsed)?parsed.filter((r):r is string=>typeof r==='string'):[];}catch{debtRoles=[];}
+  const banEvent=cause.ban_event??null,unbanEvent=cause.unban_event??null;
+  if(banEvent!==null&&!Number.isSafeInteger(banEvent)||unbanEvent!==null&&!Number.isSafeInteger(unbanEvent))return done('held','removal_cause_withdrawn');
+  if(origin.kind==='command'&&(banEvent!==origin.banEvent||unbanEvent!==null&&unbanEvent>banEvent))return done('held','removal_cause_withdrawn');
+  if(b.limit-b.attempts<BAN_RANK1112_MIN_REQUESTS)return done('held','role_request_budget');
+  // ?1 row id, ?2 subject, ?3 guild, ?4 role, ?5 generation, ?6 operation, ?7 digest, ?8 ban event, ?9 unban event,
+  // ?10-?11 venue seal, ?12 claim nonce. Every statement references its highest bound index.
+  const operation=randomGeneration(),values:(string|number|null)[]=[null,subject,v.guildId,null,generation,operation,null,banEvent,unbanEvent];
+  const g=runtimeVenue230Predicate(effect,venue,values.length+1);values.push(...g.values);
+  const causeSql=`EXISTS(SELECT 1 FROM members WHERE discord_id=?2 AND banned=1) AND (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?2) IS ?8 AND (SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?2) IS ?9`;
+  const base=canonical239And([`(${g.sql})`,privacyGenerationFenceSql(2,5),`(${causeSql})`]);
+  // Successor (12 Nov 2026): the ban writer's own dispatch check is the same all-purpose, all-generation barrier as the
+  // routine, shared-membership and migration writers' (banRank1112PhysicalUnresolved), not a state-only test.
+  const legacy=groupLegacyAck233((await import('./privacy-shared-member-cutover230')).sharedMember230LegacyAckSql('old'));check();
+  const physical=`NOT EXISTS(SELECT 1 FROM role_settlements old WHERE old.subject=?2 AND old.guild_id=?3 AND old.role_id=?4 AND old.id IS NOT ?1 AND ${banRank1112PhysicalUnresolved('old',legacy)})`;
+  const current=async()=>{check();const r=await effect.DB.prepare(`SELECT 1 WHERE ${base}`).bind(...values).first();check();return !!r;};currentCause=current;
+  // Qualification: one current read set. A role that fails a check is held by itself; the others continue.
+  const me=await request<{id:string;bot?:boolean}>(effect,b,'GET','/users/@me',current);check();
+  if(!me||!ID.test(effect.DISCORD_APP_ID)||me.id!==effect.DISCORD_APP_ID||me.id===subject||me.bot!==true)return done('held','bot_identity');
+  const roles=await request<Role[]>(effect,b,'GET',`/guilds/${v.guildId}/roles`,current);check();
+  const bot=await member(effect,b,me.id,current);check();const target=await member(effect,b,subject,current);check();
+  if(!Array.isArray(roles)||roles.length>250||!bot||!Array.isArray(bot.roles)||target&&!Array.isArray(target.roles))return done('held','role_inventory');
+  if(roles.some(r=>!ID.test(r.id)||!Number.isInteger(r.position)||typeof r.permissions!=='string'||!/^\d{1,32}$/.test(r.permissions)||typeof r.managed!=='boolean')||new Set(roles.map(r=>r.id)).size!==roles.length)return done('held','role_inventory');
+  const inventory=new Map(roles.map(r=>[r.id,r]));const botRoles=bot.roles.map(id=>inventory.get(id));if(botRoles.some(r=>!r))return done('held','bot_inventory');
+  const highest=Math.max(0,...botRoles.map(r=>r!.position)),permission=botRoles.reduce((x,r)=>x|BigInt(r!.permissions),BigInt(inventory.get(v.guildId)?.permissions||'0'));
+  if(!launch230Member(target,subject))return done('held','role_inventory');
+  // Successor (12 Nov 2026): earlier unresolved rows of this purpose whose role this read shows absent are counted as an
+  // observation only. Nothing is written: each row keeps its state, reason, nonce, digest and clocks, and keeps fencing
+  // its role, because its DELETE may still land. No writer reads this count as authority.
+  observed=debtRoles.filter(id=>BAN_RANK_ROLE_IDS1112.includes(id)&&!target?.roles.includes(id)).length;
+  if(!target){inServer=false;return done('settled','not_in_server');}
+  inServer=true;
+  if(target.roles.some(id=>!inventory.has(id)))return done('held','target_inventory_unknown');
+  const present=BAN_RANK_ROLE_IDS1112.filter(id=>target.roles.includes(id));
+  if(!present.length)return done('settled','no_rank_role_present');
+  const manage=!!(permission&268435456n||permission&8n),admitted:string[]=[];
+  for(const role of present){
+   const wanted=inventory.get(role)!,rank=policy.ranks.find(r=>r.roleId===role);
+   const reason=!manage?'bot_missing_manage_roles':wanted.managed?'role_managed_by_integration':wanted.position>=highest?'role_above_bot'
+    :rank&&(wanted.name!==rank.name||wanted.permissions!==rank.permissions)?'role_identity_changed':!rank&&wanted.permissions!=='0'?'role_has_permissions'
+    :betaRoleDispatchHeld(env,removal,v.guildId,role)&&betaSourceEpochState(removal.env,removal.capture).mode!=='active'?HELD_BY_MODE:null;
+   if(reason)held.push(Object.freeze({role,reason}));else admitted.push(role);
+  }
+  // Unresolved earlier effects on these exact roles (any purpose, any generation) hold that role and are never replayed.
+  // Successor (12 Nov 2026): the same barrier as the dispatch guard below; only a live unattempted claim is "in progress".
+  if(admitted.length){
+   const fenced=(await effect.DB.prepare(`SELECT old.role_id,MAX(NOT(old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW})) AS unresolved FROM role_settlements old WHERE old.subject=?1 AND old.guild_id=?2 AND old.role_id IN(SELECT value FROM json_each(?3))
+    AND ${banRank1112PhysicalUnresolved('old',legacy)} GROUP BY old.role_id`).bind(subject,v.guildId,JSON.stringify(admitted)).all<{role_id:string;unresolved:number}>()).results;check();
+   for(const f of fenced){const at=admitted.indexOf(f.role_id);if(at<0)continue;admitted.splice(at,1);(f.unresolved?unknown:held).push(Object.freeze({role:f.role_id,reason:f.unresolved?'earlier_role_change_unresolved':'role_change_in_progress'}));}
+  }
+  // Each admitted DELETE reserves its own request plus one shared confirming read; the rest is left for a later visit.
+  const room=Math.max(0,b.limit-b.attempts-1),cap=origin.kind==='sweep'?BAN_RANK1112_SWEEP_ROLES:admitted.length,take=Math.min(admitted.length,room,cap);
+  if(take<admitted.length)deferredBy.add(room<Math.min(admitted.length,cap)?'budget':'one_per_visit');
+  deferred.push(...admitted.slice(take));plan=Object.freeze(admitted.slice(0,take));
+  const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND proof_id=?6 AND request_digest=?7 AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}' AND desired=0`;
+  const guard=canonical239And([base,physical]);
+  // One fresh member read confirms every acknowledged DELETE of this visit. After an interruption it runs only where the
+  // budget's reserved read is left; without it the row is recorded unknown with its own reason, never as removed.
+  confirm=async(interrupted:boolean)=>{
+   if(!acked.length)return;const list=acked.splice(0,acked.length);
+   let after:Member|null=null,read=false;try{after=await member(effect,b,subject);read=launch230Member(after,subject);}catch{read=false;}
+   for(const a of list){
+    const confirmed=read&&!after?.roles.includes(a.role);let receipt=false;
+    if(confirmed){try{const r=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='settled',reason='ban_rank1112_delete_acknowledged_and_confirmed',checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching' AND (${g.sql}) RETURNING *,NULL AS beta_window_id`).bind(...a.row),a.checks);a.checks();r.check();receipt=r.intent?.id===a.row[0]&&r.intent.state==='settled';}catch{receipt=false;}}
+    if(receipt){removed.push(a.role);continue;}
+    // Follow-up REV-BAN-2 (12 Nov 2026): a read that confirmed the role absent but whose receipt could not be written is
+    // receipt_unknown whether or not the visit was interrupted; interrupted_after_ack is only for a missing confirming
+    // read. Every branch still records the row unknown (fail-closed); only the reason differs.
+    const reason=read&&!confirmed?'ban_rank1112_effect_not_confirmed':read?'ban_rank1112_receipt_unknown':interrupted?'ban_rank1112_interrupted_after_ack':'ban_rank1112_confirmation_unknown';
+    try{await effect.DB.prepare(`UPDATE role_settlements SET state='unknown',reason=?13,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state IN('dispatching','settled')`).bind(...a.row,reason).run();}catch{}
+    unknown.push(Object.freeze({role:a.role,reason:reason.replace('ban_rank1112_','')}));
+   }
+   // An unban during an in-flight DELETE cannot recall it: report the race; nothing is put back automatically.
+   try{raced=!await current();}catch{raced=!interrupted;}
+  };
+  const stopAll=(from:number,reason:string)=>{for(const role of admitted.slice(from,take))held.push(Object.freeze({role,reason}));};
+  for(let index=0;index<take;index++){
+   const role=admitted[index]!,id=randomGeneration();
+   const digest=await sha256(JSON.stringify([BAN_RANK_PURPOSE1112,BAN_RANK_PROFILE1112,operation,origin.kind,subject,generation,v.guildId,role,banEvent,unbanEvent,canonical.raw]));check();
+   const rowValues=[id,subject,v.guildId,role,generation,operation,digest,banEvent,unbanEvent,...g.values];
+   const q=await launch230NativeIntent(effect,effect.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,subject_generation,request_digest,native_profile,created_at,expires_at)
+    SELECT ?1,?2,'${BAN_RANK_PURPOSE1112}',?6,?3,?4,0,'pending','ban_rank1112_awaiting_dispatch',?5,?7,'${BAN_RANK_PROFILE1112}',${DB_NOW},${DB_NOW}+300 WHERE ${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE id=?1) RETURNING *,NULL AS beta_window_id`).bind(...rowValues),check);check();
+   if(!q.intent||q.intent.id!==id){if(!await current()){stopAll(index,'removal_cause_withdrawn');break;}held.push(Object.freeze({role,reason:'role_change_in_progress'}));continue;}
+   const nonce=randomGeneration(),owned=[...rowValues,nonce];
+   const c=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?12,reason='ban_rank1112_dispatching' WHERE ${row} AND state='pending' AND attempts=0 AND expires_at>${DB_NOW} AND ${guard} RETURNING *,NULL AS beta_window_id`).bind(...owned),()=>{check();q.check();});check();q.check();
+   if(!c.intent||c.intent.claim_nonce!==nonce){
+    // Never dispatched: the pending child is closed as known, not left for a later reuse.
+    try{await effect.DB.prepare(`UPDATE role_settlements SET state='held',reason='ban_rank1112_cause_withdrawn_before_dispatch',checked_at=${DB_NOW} WHERE ${row} AND state='pending' AND attempts=0 AND ?12 IS NOT NULL`).bind(...owned).run();}catch{}
+    if(!await current()){stopAll(index,'removal_cause_withdrawn');break;}held.push(Object.freeze({role,reason:'role_change_in_progress'}));continue;
+   }
+   const checks=()=>{check();q.check();c.check();};
+   const admit=async()=>{checks();const r=await effect.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`).bind(...owned).first();checks();return !!r;};
+   let started=false;
+   try{await request(effect,b,'DELETE',`/guilds/${v.guildId}/members/${subject}/roles/${role}`,admit,()=>{checks();started=true;dispatched++;},banRank1112RoleOnly);acked.push({role,row:owned,checks});}
+   catch(error){
+    // Discord's explicit 403/404/429 answers prove no effect; a lost or malformed answer is unknown and never replayed.
+    const status=started&&error instanceof DiscordError&&[403,404,429].includes(error.status)?error.status:null;
+    const state=!started||status!==null?'held':'unknown',reason=!started?'ban_rank1112_never_dispatched':status===429?'ban_rank1112_rate_limited_429':status!==null?'ban_rank1112_refused_'+status:'ban_rank1112_delete_outcome_unknown';
+    try{await effect.DB.prepare(`UPDATE role_settlements SET state=?13,reason=?14,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching'`).bind(...owned,state,reason).run();}catch{}
+    (state==='unknown'?unknown:held).push(Object.freeze({role,reason:reason.replace('ban_rank1112_','')}));
+    if(!started){if(!await current()){stopAll(index+1,'removal_cause_withdrawn');break;}continue;}
+    // A rate limit or an unknown outcome stops this visit; the remaining roles wait for a later visit.
+    if(status===429||state==='unknown'){const later=admitted.slice(index+1,take);if(later.length)deferredBy.add(status===429?'rate_limit':'unconfirmed');deferred.push(...later);break;}
+   }
+  }
+  await confirm(false);
+  return finish(take<admitted.length?'ban_rank1112_continuation_required':'ban_rank1112_visit_complete');
+ }catch{
+  // Repair round (12 Nov 2026): a D1, epoch, configuration or currentness error after an acknowledged DELETE still
+  // confirms it (or records it unknown), and every planned role that was never sent is reported as such.
+  if(confirm){try{await confirm(true);}catch{}}
+  const accounted=new Set([...removed,...held.map(x=>x.role),...unknown.map(x=>x.role),...deferred]);
+  for(const role of plan)if(!accounted.has(role))held.push(Object.freeze({role,reason:'visit_interrupted'}));
+  if(removed.length||held.length||unknown.length||dispatched)return finish('ban_rank1112_visit_interrupted');
+  // A read refused by the admission check names its cause: an unban or reban during a provider await.
+  let withdrawn=false;try{withdrawn=!!currentCause&&!await currentCause();}catch{withdrawn=false;}
+  return done('held',withdrawn?'removal_cause_withdrawn':'ban_rank1112_inventory_or_currentness_held');
+ }
+}
+export type BanRankDebt1112=Readonly<{state:'settled'|'held'|'unknown';reason:string;observed:number;present:number}>;
+/**
+ * GET-only visit for an account that is no longer banned but still has expired unresolved rows of this purpose. One
+ * member read and no write: it never sends a DELETE or a PUT, never mints a row and, since the successor of 12 Nov 2026,
+ * never changes a row either. `observed` counts the rows whose role the read shows absent and `present` the others;
+ * both are observation data for the sweep's own audit, never authority. Every such row stays unresolved and keeps
+ * fencing its role for this member until an attended resolution exists.
+ */
+export async function observeBanRankDebt1112(env:Env,subject:string,generation:string|null|undefined,b:AttemptBudget):Promise<BanRankDebt1112>{
+ const out=(state:BanRankDebt1112['state'],reason:string,observed=0,present=0):BanRankDebt1112=>Object.freeze({state,reason,observed,present});
+ try{
+  const canonical=captureCanonicalRankConfig233(env);
+  if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||env.GUILD_ID!==canonical.policy.guildId)return out('held','ban_rank1112_configuration_held');
+  if(!ID.test(subject)||generation===undefined||generation!==null&&!TOKEN.test(generation))return out('held','ban_rank1112_original_capture_required');
+  const selected=await captureRuntimeVenueForRemoval230(env);if(!selected)return out('held','ban_rank1112_venue_held');
+  const {effect,venue}=selected,v=runtimeVenue230Facts(venue),provider=launch230ProviderWitness(effect);
+  const check=()=>{provider();assertRuntimeVenue230(effect,venue);if(!canonical.current())throw Error('ban_rank1112_configuration_changed');};check();
+  if(v.guildId!==canonical.policy.guildId)return out('held','ban_rank1112_venue_held');
+  const original=await readPrivacySubject(effect,subject);check();
+  if(original&&original.state!=='active')return out('held','subject_held');
+  if((original?.subjectGeneration??null)!==generation)return out('held','original_removal_generation_changed');
+  const rows=(await effect.DB.prepare(`SELECT role_id FROM role_settlements WHERE ${banRank1112DebtWhere('?1','?2',DB_NOW)}`).bind(subject,v.guildId).all<{role_id:string}>()).results;check();
+  if(!rows.length)return out('settled','no_unresolved_row');
+  if(b.limit-b.attempts<1)return out('held','role_request_budget');
+  // ?1 subject, ?2 generation, ?3-?4 venue seal: the read is admitted only while the account and venue are unchanged.
+  const values:(string|number|null)[]=[subject,generation];const g=runtimeVenue230Predicate(effect,venue,values.length+1);values.push(...g.values);
+  const guard=canonical239And([`(${g.sql})`,privacyGenerationFenceSql(1,2)]);
+  const readable=async()=>{check();const r=await effect.DB.prepare(`SELECT 1 WHERE ${guard}`).bind(...values).first();check();return !!r;};
+  const target=await member(effect,b,subject,readable);check();
+  if(!launch230Member(target,subject))return out('held','role_inventory');
+  const present=rows.filter(r=>target?.roles.includes(r.role_id)).length;
+  return out('unknown',present?'removal_outcome_not_absent':'ban_rank1112_unresolved_observed_absent',rows.length-present,present);
+ }catch{return out('held','ban_rank1112_inventory_or_currentness_held');}
+}
+/** reconcileRemovalReceipt's branch for one row of this purpose (account erasure's GET-only debt visit). Successor (12 Nov
+ * 2026): the read is an observation only. The row is never changed and the result is always unknown, so erasure never
+ * counts an unresolved ban DELETE as settled; the erasure job's own visit audit records that it looked. */
+async function reconcileBanRankReceipt1112(env:Env,i:Intent,b:AttemptBudget):Promise<Settlement>{
+ const canonical=captureCanonicalRankConfig233(env);
+ if(canonical.mode!=='enabled'||!canonical.policy||!canonical.current()||i.guild_id!==canonical.policy.guildId||i.guild_id!==env.GUILD_ID||i.native_profile!==BAN_RANK_PROFILE1112||!BAN_RANK_ROLE_IDS1112.includes(i.role_id))return result('held','frozen_configuration_changed',i.id);
+ if(!['dispatching','unknown'].includes(i.state)||!Number.isSafeInteger(i.expires_at)||i.expires_at>now())return result('held','removal_receipt_changed',i.id);
+ if(b.limit-b.attempts<1)return result('held','role_request_budget',i.id);
+ let target:Member|null;try{target=await member(env,b,i.subject);if(!launch230Member(target,i.subject))throw Error();}catch{return result('held','inventory_hierarchy_or_server_hold',i.id);}
+ return result('unknown',target?.roles.includes(i.role_id)?'removal_outcome_not_absent':'ban_rank1112_unresolved_observed_absent',i.id,now());
 }

@@ -88,7 +88,9 @@ const routes = [
   // 2. The scope note itself (CL-019, CL-072, CL-079, CL-163, CL-285, CL-299).
   const note = DATA.scopeNote;
   const sentences = note.split(/(?<=[.!?])\s+/).filter(Boolean);
-  check('CL-019/CL-299 the scope note is one tense-neutral sentence pair', sentences.length === 2 && !hits(note, FUTURE).length && !hits(note, PAST).length,
+  // Evergreen 12 Nov 2026 (CL2-173): Forever launched on 4 November, so the note states that once in the past tense; the
+  // tense-neutral rule above only guarded a release shipped before 23:00 UTC that day.
+  check('CL-019/CL-299/CL2-173 the scope note states the launch once, as past, and frames nothing as still ahead', !hits(note, FUTURE).length && occurrences(note, 'Forever launched worldwide on 4 November 2026') === 1,
     sentences.length + ' sentences; phrases ' + (hits(note, [...FUTURE, ...PAST]).join(', ') || 'none') + ' :: ' + short(note));
   check('the scope note dates the global launch as 4 November 2026, 23:00 UTC', note.includes('4 November 2026') && note.includes('23:00 UTC'), short(note));
   check('the scope note names the 16 October 2026 beta snapshot and its exact client build ' + DATA.talentClientBuild,
@@ -105,8 +107,9 @@ const routes = [
     const found = [...new Set(strings(r.box).flatMap(s => hits(s, FUTURE).map(h => h + ' in "' + short(s) + '"')))];
     check('CL-072/CL-079 ' + r.name + ': no member-visible string frames the launch as still ahead', found.length === 0, found.slice(0, 4).join('\n     '));
   }
-  const pastFound = rendered.flatMap(r => strings(r.box).flatMap(s => hits(s, PAST).map(h => r.name + ' ' + h + ' in "' + short(s) + '"')));
-  check('no guide page says the launch already happened (that would be false before 23:00 UTC)', pastFound.length === 0, pastFound.slice(0, 4).join('\n     '));
+  const launchRow = DATA.tools.whatChanged.find(x => /^(?:global )?launch$/i.test(x.topic));
+  const pastFound = rendered.flatMap(r => strings(r.box).filter(s => s !== note && s !== launchRow?.text).flatMap(s => hits(s, PAST).map(h => r.name + ' ' + h + ' in "' + short(s) + '"')));
+  check('CL2-173 past-tense launch wording appears only in the dated scope note and the launch row', pastFound.length === 0, pastFound.slice(0, 4).join('\n     '));
 
   // 4. The scope note renders exactly once per page, in the page header (hub, one class, one spec, one profession, one tool).
   const once = r => {
@@ -135,12 +138,12 @@ const routes = [
   // 6. The compendium launch row is a dated fact, true either side of 23:00 UTC (CL-079, CL-163, CL-285, CL-299).
   const launchRows = DATA.tools.whatChanged.filter(x => /^(?:global )?launch$/i.test(x.topic));
   const row = launchRows[0];
-  check('CL-285 the compendium launch row is an announced, dated fact: 4 November 2026 at 23:00 UTC, with no going-live tense',
-    launchRows.length === 1 && row.status === 'announced' && row.text.includes('4 November 2026') && row.text.includes('23:00 UTC') && !hits(row.topic + ' ' + row.text, [...FUTURE, ...PAST]).length,
+  check('CL-285/CL2-173 the compendium launch row is a live, dated past fact: 4 November 2026 at 23:00 UTC',
+    launchRows.length === 1 && row.status === 'live' && row.text.startsWith('Forever launched') && row.text.includes('4 November 2026') && row.text.includes('23:00 UTC') && !hits(row.topic + ' ' + row.text, FUTURE).length,
     row ? short(row.topic + ': ' + row.text) : 'no launch row');
   const changes = rendered.find(r => r.name === 'tool #/guides/tools/changes').box;
-  const announced = changes.tags('section').find(s => s.tags('h2').some(h => h.textContent === 'Announced by Blizzard'));
-  check('the dated launch row renders under "Announced by Blizzard" on #/guides/tools/changes',
+  const announced = changes.tags('section').find(s => s.tags('h2').some(h => h.textContent === 'Live in the game'));
+  check('the dated launch row renders under "Live in the game" on #/guides/tools/changes',
     !!row && !!announced && announced.tags('dt').some(dt => dt.textContent === row.topic && dt.parentNode.childNodes[dt.parentNode.childNodes.indexOf(dt) + 1].textContent.startsWith(row.text)));
 
   // 7. The whole catalogue, including strings that render only after a choice. Source labels are excluded: they are
@@ -154,8 +157,8 @@ const routes = [
   const stale = all.filter(([, s]) => hits(s, FUTURE).length);
   check('CL-163 no catalogue string frames the launch as still ahead (at launch, goes live, arrives at launch, launches, once the game is live)',
     stale.length === 0, stale.length + ' strings:\n     ' + stale.map(([p, s]) => p + ' ' + hits(s, FUTURE).join(' ')).join('\n     '));
-  const early = all.filter(([, s]) => hits(s, PAST).length);
-  check('no catalogue string says the launch already happened', early.length === 0, early.slice(0, 4).map(([p, s]) => p + ': ' + short(s)).join('\n     '));
+  const early = all.filter(([, s]) => s !== note && s !== row?.text && hits(s, PAST).length);
+  check('CL2-173 only the scope note and the launch row say the launch happened', early.length === 0, early.slice(0, 4).map(([p, s]) => p + ': ' + short(s)).join('\n     '));
   const dated = all.filter(([, s]) => /\b4 Nov(?:ember)?\b|\bNov(?:ember)? 4\b|3:00 PM PST/i.test(s));
   const wrong = dated.filter(([, s]) => !(s.includes('4 November 2026') && s.includes('23:00 UTC')));
   check('wherever the guides state the launch, it is 4 November 2026 at 23:00 UTC', dated.length >= 2 && wrong.length === 0,

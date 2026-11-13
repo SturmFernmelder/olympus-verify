@@ -1004,8 +1004,10 @@ The site's block remains until replay and all reads pass and no old admitted wri
 If these conditions cannot be proved, restoration remains unavailable. Capture equality and asking staff to stop
 are cross-checks/precautions only, never terminal-state proof.
 
-`ensureSchema` still checks once per isolate, so recovery needs the newly served version's schema path; a redeploy
-receipt is not cancellation evidence for old invocations. A recovery request must preserve writer exclusion, rather
+`ensureSchema` now runs on every request, and it no longer migrates: it only consumes the current admitted schema
+proof and refuses otherwise (correction of 12 November 2026; this paragraph first said it checked once per isolate),
+so recovery needs the newly served version's admitted schema; a redeploy receipt is not cancellation evidence for old
+invocations. A recovery request must preserve writer exclusion, rather
 than silently reopening the bot host or cron. A future authoritative epoch must fence commits and audit seams,
 survive replacement, cover old versions and refuse stale work after reopening. That runtime epoch barrier is
 **not implemented**; proposed .116 work supplies no current guarantee.
@@ -2157,7 +2159,7 @@ The owner's 23 October 2026 follow-up chooses B: Guild Master, High Council, Tre
 
 The public_direction ruleset is PVE - Alliance with no claimed live realm. The exact old beta profile is exported separately for signed observations. The five activation rows and any activated private full-release profile still fail closed. OFFICE_APPOINTMENTS is a generated immutable display-key catalogue:95 ordinal offices,25 legacy ballot aliases and10 native labels, with explicit non-applied placement metadata. Extended appointments do not become ballots or expand noVote. A new named Treasurer native mapping cannot reuse the old Council mapping or enroll a signer; privileged mapping remains unqualified.
 
-The R7 rulebook gains a current Royal Codex supplement with complete unexecuted instruments, member/officer guides, voluntary cosmetic Treasury tiers and operational boundaries. Historical PDF downloads are not relabelled as containing new content. The existing contribution ledger remains the receipt system. The chosen cosmetic schedule is Tithe Payer 25g+, Patron of the Treasury 100g+ and Benefactor of Olympus 500g+ per ninety-day season, for additional in-game gold mailed to Fernmelder with a TITHE reference. Source policy alone dispatches no roles. Publishing the policy makes no real payment receipt, bank permission, Council warrant or Discord effect.
+The R7 rulebook gains a current Royal Codex supplement with complete unexecuted instruments, member/officer guides, voluntary cosmetic Treasury tiers and operational boundaries. Historical PDF downloads are not relabelled as containing new content. The existing contribution ledger remains the receipt system. The chosen cosmetic schedule is Tithe Payer 25g+, Patron of the Treasury 100g+ and Benefactor of Olympus 500g+ per ninety-day season, for additional in-game gold mailed in game to Fern Melder (Discord: Fernmelder) with a TITHE reference. Source policy alone dispatches no roles. Publishing the policy makes no real payment receipt, bank permission, Council warrant or Discord effect.
 
 
 ## Build .197 — owner solo authority and bounded Master follow-ups (24 October 2026)

@@ -78,6 +78,13 @@ const cabinet228 = JSON.parse(cabinet228Bytes);
 const currentCopyBytes = fs.readFileSync(path.join(root, 'docs/governance-current-reader-copy228.json'));
 if (sha256(currentCopyBytes) !== '1a70754c9ea8ff9d8788eae6789f555b287ff04a95e98c43a6bb884a1c098544') throw Error('Current reader copy manifest changed');
 const currentCopy228 = JSON.parse(currentCopyBytes);
+// Evergreen Stage 2 editorial reconciliation (12 November 2026): one full copy of each long block, one current
+// Council composition, dates instead of build numbers and repaired headings. It changes no rule, amount, eligibility,
+// decision or named holder, and leaves every D-numbered register entry verbatim. Whole-paragraph pairs keep each
+// earlier edition exactly recoverable, so it is applied last and inverted first.
+const evergreen1112Bytes = fs.readFileSync(path.join(root, 'docs/governance-evergreen1112.json'));
+if (sha256(evergreen1112Bytes) !== 'fda47758a6a858a4e51643689870715f49fe1b37bd74053c10a0c56dbd3fe7c0') throw Error('Evergreen1112 editorial manifest changed');
+const evergreen1112 = JSON.parse(evergreen1112Bytes);
 
 function scopedParagraphBridge(text, inverse, scope, manifest, label) {
   const changes = manifest.changes.filter(change => change.scope.includes(scope) || scope === "outside" && change.scope.includes("book") && !change.scope.includes("titles"));
@@ -96,6 +103,7 @@ function scopedParagraphBridge(text, inverse, scope, manifest, label) {
 }
 function currentBridge222(text, inverse = false, scope = 'book') {
   if (inverse) {
+    text = scopedParagraphBridge(text, true, scope, evergreen1112, 'Evergreen1112 editorial');
     text = scopedParagraphBridge(text, true, scope, currentCopy228, 'current reader copy');
     text = cabinetBridge224(scopedParagraphBridge(text, true, scope, cabinet228, 'Cabinet228'), true, scope);
   }
@@ -109,7 +117,8 @@ function currentBridge222(text, inverse = false, scope = 'book') {
   }
   if (inverse) return text;
   text = scopedParagraphBridge(cabinetBridge224(text, false, scope), false, scope, cabinet228, 'Cabinet228');
-  return scopedParagraphBridge(text, false, scope, currentCopy228, 'current reader copy');
+  text = scopedParagraphBridge(text, false, scope, currentCopy228, 'current reader copy');
+  return scopedParagraphBridge(text, false, scope, evergreen1112, 'Evergreen1112 editorial');
 }
 function projection(book, source) {
   source = currentBridge222(source, true, 'titles');

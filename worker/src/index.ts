@@ -55,6 +55,7 @@ import { sweepRenameHolds } from "./rename-review";
 import { policyResponse } from "./policies";
 import { memberLegalNavigation } from "./member-legal-navigation";
 import { CAMERA_PAGE_PATH, fetchCanonicalHtmlAsset, memberSiteGate, privateCameraPageAsset, privateSiteAsset } from './site-access';
+import { memberApiTransport, memberSiteAsset } from './member-transport';
 import { forwardPrivateProductionControl } from './privacy-private-control-adapter';
 import { LOGIN_ASSETS, POLICY_ASSETS, policyHeaders } from "./policy-render";
 import { verifyAddonDownload } from './verify-addon-download';
@@ -88,7 +89,7 @@ import {BETA_RESET_CRON,BETA_RESET_SCHEDULE_QUALIFIED,runBetaResetSlice} from '.
 import {resetGuardEnabled,captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {createPrivacyWriteAdmissionDatabase,isPrivacyWriteAdmissionDatabase,PrivacyWriteAdmissionHeld} from './privacy-write-admission';
 import {captureHandlerServingOrigin,registerHandlerInteractionNames,type HandlerServingOrigin} from './privacy-serving-production-origin';
-import {EPOCH2_SCHEDULE_QUALIFIED,CANONICAL_RANK_SCHEDULE_QUALIFIED,CANONICAL_RANK_CHILD_STATEMENTS,CANONICAL_RANK_SCHEDULE_HTTP,captureOriginalRosterSchedule,originalRosterScheduleFacts,type OriginalRosterSchedule} from './scheduled-budget';
+import {EPOCH2_SCHEDULE_QUALIFIED,CANONICAL_RANK_SCHEDULE_QUALIFIED,CANONICAL_RANK_CHILD_STATEMENTS,CANONICAL_RANK_SCHEDULE_HTTP,captureOriginalRosterSchedule,originalRosterScheduleFacts,roleSweepLane1112,type OriginalRosterSchedule,type RoleSweepLane1112} from './scheduled-budget';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {RecoveryFloorHeld} from './privacy-recovery-floor';
 import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
@@ -262,7 +263,8 @@ export default {
         if (treasuryPrivate) return treasuryPrivate;
         if ((request.method === 'GET' || request.method === 'HEAD') && path.startsWith('/static/')) {
           if (path === CAMERA_PAGE_PATH) return privateCameraPageAsset(await fetchCanonicalHtmlAsset(request, env.ASSETS, path));
-          return privateSiteAsset(await env.ASSETS.fetch(request));
+          // CL2-076 (owner ruling of 13 Nov 2026): app.js and app.css of this build are kept in the member's browser.
+          return memberSiteAsset(request, await env.ASSETS.fetch(request), BUILD);
         }
       }
       // This build's columns and tables (schema.ts); a no-op once done in this isolate, retried on the next request
@@ -281,7 +283,7 @@ export default {
       // public one (a site run on the workers.dev address), in which case the bot's routes below still apply.
       if (host === "site") {
         const r = await handleSite(request, env, path, schemaReady, BUILD, (work) => deferOriginalServing(ctx,'site_callback',work),siteOAuthOrigin,roleDispatch);
-        if (r) return r;
+        if (r) return memberApiTransport(path, r); // CL2-076: member JSON may be compressed by the edge
         if (siteHost(env) !== hostOf(env.PUBLIC_BASE_URL)) return new Response("not found", { status: 404 });
       }
       const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
@@ -298,9 +300,12 @@ export default {
         // Revision 4 (A1, A4 entry 1): the lane configuration is captured here, synchronously. Unconfigured keeps the
         // original statement exactly; configured shares one Discord-call allowance between the sweep and the fresh pass.
         const lane = captureLaneConfig(env);
-        if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch));
+        // Ban lane successor (12 Nov 2026): one role-sweep lane from this request's own quarter-hour phase, captured here
+        // before any await; a held clock leaves no lane, and a canonical sweep then holds. Codex replaces this wiring.
+        let roleLane: RoleSweepLane1112 | undefined; try { roleLane = roleSweepLane1112(originalRosterScheduleFacts(captureOriginalRosterSchedule()).phase); } catch { roleLane = undefined; }
+        if (!lane.configured) deferOriginalServing(ctx,'queue_member_roles',()=>sweepMemberRoles(env, "watcher",undefined,roleDispatch,roleLane));
         // A refused registration is audited, then propagates exactly as .160's did: the legacy sweep rides on this deferral.
-        else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
+        else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch,roleLane)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
       }
       return botResponse280(res);
     } catch (e) {
@@ -413,7 +418,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     deferOriginalServing(ctx,'sweepInviteQueue',()=>sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones
     deferOriginalServing(ctx,'sweepMemberRoles',async()=>{
       const calls=callBudget(env);
-      await sweepMemberRoles(env,"cron",calls,roleDispatch);
+      await sweepMemberRoles(env,"cron",calls,roleDispatch,roleSweepLane1112(rosterCadence.phase)); // ban lane successor, 12 Nov 2026
       // Cosmetic expiry may use only the unused part of this original 120-statement
       // role slice. Its numeric observation is not account or dispatch authority.
       // Missing/failed Native observation means no cleanup, never an assumed reserve.
@@ -763,8 +768,8 @@ const QUEUE_ROUTE_STATEMENTS = 26;
  * throttled, had no ROLE_GUILD_MEMBER or failed), then one fresh-role pass on the same Discord-call allowance. Its statements
  * are admitted against what this invocation counts when the env can count them; otherwise the pass reserves its own bounds,
  * less this route's QUEUE_ROUTE_STATEMENTS. */
-async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,roleDispatch:BetaRoleDispatch): Promise<void> {
-  try { await sweepMemberRoles(env, "watcher", parent,roleDispatch); } catch { /* never thrown; the pass still runs */ }
+async function queueFreshRoles(env: Env, lane: LaneCapture, parent: CallBudget,roleDispatch:BetaRoleDispatch,roleLane?:RoleSweepLane1112): Promise<void> {
+  try { await sweepMemberRoles(env, "watcher", parent,roleDispatch,roleLane); } catch { /* never thrown; the pass still runs */ }
   const pass = await import('./full-release-pass');
   let counted = env, adm: Admission | undefined;
   try { const count = { used: 0 }; counted = countStatements(env, count); adm = lane.native232?.present ? pass.nativeAdmission232(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS) : pass.freshAdmission(count, pass.FRESH_SWEEP_STATEMENTS - QUEUE_ROUTE_STATEMENTS); }

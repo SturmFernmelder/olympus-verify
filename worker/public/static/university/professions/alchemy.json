@@ -1,0 +1,341 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "alchemy",
+ "name": "Alchemy",
+ "type": "primary",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[0] (2026-11-04), rewritten by hand into the exemplar course",
+ "factFiles": [
+  "common",
+  "profession-alchemy"
+ ],
+ "quizFiles": [
+  "profession-alchemy"
+ ],
+ "pairsWith": [
+  "herbalism",
+  "engineering"
+ ],
+ "overview": {
+  "lead": "Alchemists brew elixirs, potions and flasks, and in Forever they also make the dyes other crafters need. The classic healing potions are now First Aid crafts.",
+  "points": [
+   {
+    "text": "Raiders will want flasks and the new 30-minute elixirs.",
+    "facts": [
+     "profession-alchemy.30-minute-elixirs"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-alchemy.healing-potions-moved",
+   "profession-alchemy.dyes"
+  ]
+ },
+ "tracks": {
+  "101": {
+   "summary": "What Alchemy makes in Forever, how to train it and how to level it.",
+   "chapters": [
+    {
+     "id": "alchemy-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for Alchemy",
+     "theory": [
+      "profession-alchemy.healing-potions-moved",
+      "profession-alchemy.dyes",
+      "profession-alchemy.new-materials",
+      "profession-alchemy.camp-objects",
+      "profession-alchemy.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-alchemy.professions-window"
+        ]
+       },
+       {
+        "text": "Leave healing potions to First Aid: Superior and Major Healing Potions moved there.",
+        "facts": [
+         "profession-alchemy.healing-potions-moved"
+        ]
+       },
+       {
+        "text": "Gather Frilled Lichen, Rosecap and Stranglevine for the Cerulean, Magenta and Viridian Dye other crafts now need.",
+        "facts": [
+         "profession-alchemy.dyes"
+        ]
+       },
+       {
+        "text": "Place a Mana Well at skill 20, a Fermenter at 140 and an Alchemy Laboratory at 300.",
+        "facts": [
+         "profession-alchemy.camp-objects"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Training Alchemy to make healing potions.",
+        "fix": "Superior and Major Healing Potions are First Aid crafts in Forever; the old Alchemy recipes are gone.",
+        "facts": [
+         "profession-alchemy.healing-potions-moved"
+        ]
+       },
+       {
+        "mistake": "Stacking the Mana Well buff with Blessing of Wisdom.",
+        "fix": "The Mana Well buff matches Blessing of Wisdom and does not stack with it.",
+        "facts": [
+         "profession-alchemy.camp-objects"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "alchemy-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-alchemy.skill-ranks",
+      "profession-alchemy.alliance-trainers",
+      "profession-alchemy.legacy",
+      "profession-alchemy.merchants-favor"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-alchemy.skill-ranks"
+        ]
+       },
+       {
+        "text": "For Artisan Alchemy, Alliance players train at Feathermoon Stronghold (Feralas) or the Emerald Sanctuary (Felwood).",
+        "facts": [
+         "profession-alchemy.alliance-trainers"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point.",
+        "facts": [
+         "profession-alchemy.legacy"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge.",
+        "facts": [
+         "profession-alchemy.merchants-favor"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-alchemy.skill-ranks"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Alchemy makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What raiders need from an Alchemist, and the Auction House lines to watch.",
+   "chapters": [
+    {
+     "id": "alchemy-201-raid",
+     "section": "consumables",
+     "title": "Raid consumables",
+     "theory": [
+      "profession-alchemy.flasks",
+      "profession-alchemy.30-minute-elixirs",
+      "profession-alchemy.new-potions",
+      "profession-alchemy.rage-potions",
+      "profession-alchemy.favor-recipes",
+      "profession-alchemy.fire-protection-recipe-classic-baseline"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Make flasks at an Alchemy Lab. The Alchemy Laboratory camp object (Alchemy 300) means no trip to Scholomance.",
+        "facts": [
+         "profession-alchemy.flasks"
+        ]
+       },
+       {
+        "text": "Brew the 30-minute Favor elixirs for raiders: Grizzly, Owl, Cunning, Greater Cleric's, Greater Mageblood and Phalanx.",
+        "facts": [
+         "profession-alchemy.30-minute-elixirs"
+        ]
+       },
+       {
+        "text": "Elixir of the Grizzly needs Alchemy 300, Honored and 240 Favor.",
+        "facts": [
+         "profession-alchemy.favor-recipes"
+        ]
+       },
+       {
+        "text": "Offer Rage potions to Druids as well as Warriors.",
+        "facts": [
+         "profession-alchemy.rage-potions"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning a trip to Scholomance to make flasks.",
+        "fix": "Once you have the Alchemy Laboratory camp object (Alchemy 300) you can brew flasks without Scholomance; where its blueprint drops is not known yet.",
+        "facts": [
+         "profession-alchemy.flasks"
+        ]
+       },
+       {
+        "mistake": "Telling a Druid that Rage potions are for Warriors only.",
+        "fix": "Rage, Great Rage and Mighty Rage Potions now work for Druids as well as Warriors.",
+        "facts": [
+         "profession-alchemy.rage-potions"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "alchemy-201-market",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-alchemy.dyes",
+      "profession-alchemy.30-minute-elixirs"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Dyes are a new input for other crafts, and raiders use elixirs and flasks, so those are the lines to watch on the Auction House. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-alchemy.dyes",
+         "profession-alchemy.flasks"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Assuming a Runecloth Bag needs only cloth.",
+        "fix": "It now takes 4 Magenta and 2 Cerulean Dye, which Alchemists make.",
+        "facts": [
+         "profession-alchemy.dyes"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "gear",
+     "reason": "Alchemy makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skill-by-skill routes and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "alchemy-301-routes",
+     "section": "overview",
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-alchemy.unknown-1",
+      "profession-alchemy.unknown-2",
+      "profession-alchemy.unknown-3",
+      "profession-alchemy.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route or recipe-source list exists for Forever yet. The site holds rank thresholds, trainers and Favor recipes (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Alchemy makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,1977 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "warrior",
+ "name": "Warrior",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[0] (2026-11-04), rewritten by hand into the exemplar course",
+ "factFiles": [
+  "common",
+  "class-warrior",
+  "talents-warrior",
+  "class-hunter"
+ ],
+ "quizFiles": [
+  "class-warrior",
+  "talents-warrior"
+ ],
+ "overview": {
+  "lead": "Warriors tank or deal melee damage, and everything runs on Rage. Blizzard's deep dive singles out their sustained damage when several enemies are in melee range and the buffs and debuffs only Warriors bring. Their weak spot is recovering quickly from heavy damage.",
+  "points": [
+   {
+    "text": "Protection is the shield tank, Fury is the dual-wield spec Warcraft Tavern names for raids, and Arms is its pick for battlegrounds.",
+    "facts": [
+     "class-warrior.use-a-shield",
+     "class-warrior.raid-role",
+     "class-warrior.raid-role-2"
+    ]
+   },
+   {
+    "text": "Racials changed on 26 October: Human Ruthless is +1% crit and Dwarf Artisan's Precision is +1% hit with spells and attacks. No racial grants weapon skill.",
+    "facts": [
+     "common.racial-human-ruthless",
+     "common.racial-dwarf-artisans-precision",
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "class-warrior.change-1",
+   "class-warrior.change-2"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[0].specs[0].beginner.tips[3]",
+   "text": "The total stays 51.",
+   "reason": "Kept the rest of the line; no reviewed fact states the point total."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[1]",
+   "text": "Raging Blows makes Cleave and Whirlwind cost 3 less Rage.",
+   "reason": "Raging Blows is not in the 10 November talent data; the step now names Improved Whirlwind."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[1]",
+   "text": "Berserker Rage is learned at level 30 in Forever (Classic: level 32).",
+   "reason": "No reviewed fact holds either level."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[2]",
+   "text": "Rend and Sunder Armor tag mobs instantly (1 Oct), so you claim shared quest mobs quickly.",
+   "reason": "No reviewed fact holds the mob-tagging change of 1 October; only the date had been recorded here (REV-UNI-4, 12 Nov 2026)."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[3]",
+   "text": "Dual Specialization unlocks at level 40, and Warcraft Tavern suggests a damage spec as your second one for solo play.",
+   "reason": "No reviewed fact holds the level."
+  },
+  {
+   "from": "classes[0].specs[0].pvp.overview[1], classes[0].specs[1].pvp.overview[2]",
+   "text": "(since 16 Oct)",
+   "reason": "Date dropped; the talent data does not carry it."
+  },
+  {
+   "from": "classes[0].specs[0].pvp.matchups[0]",
+   "text": "by 2% ... on a 30-second cooldown",
+   "reason": "Kept, citing the Hunter guide's Blizzard facts."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[0]",
+   "text": "Dual-wield auto attacks miss more often than special attacks.",
+   "reason": "Ungraded line: no reviewed fact holds the Forever dual-wield miss chance, and no Classic 1.12 reference fact has been added for it."
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[0]",
+   "text": "Warcraft Tavern's author calls Arms the traditional leveling pick and prefers Bloodthrill over Weaponmaster while leveling.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling advice; the 101 track teaches leveling from the presets and the talent data."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[0]",
+   "text": "Warcraft Tavern rates every Warrior spec viable for leveling but says Fury takes more damage and has more downtime.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling assessment."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[0], classes[0].specs[2].pvp.overview[0]",
+   "text": "Warcraft Tavern rates all three Warrior specs viable for leveling, but its Protection guide says the spec does poorly when you are not tanking. Protection is built for dungeons and raids; Warcraft Tavern says it does poorly when you are not tanking.",
+   "reason": "No graded fact holds Warcraft Tavern’s view of Protection outside tanking."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[1]",
+   "text": "Queuing Heroic Strike no longer raises your off-hand hit chance in Forever.",
+   "reason": "No reviewed fact holds the change to queued Heroic Strike and off-hand hit."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[2]",
+   "text": "Unbridled Wrath no longer doubles its Rage with two-handed weapons.",
+   "reason": "The 10 November rank text gives a 12% chance per weapon hit and says nothing about two-handed weapons; no reviewed fact holds the change."
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[2].note",
+   "text": "Blizzard's 30 Sep deep dive also had it make Whirlwind hit with both weapons; the snapshot text no longer mentions that.",
+   "reason": "The current talent data does not mention it, and no reviewed fact holds the deep dive’s Whirlwind line."
+  },
+  {
+   "from": "classes[0].specs[1].pvp.overview[0]",
+   "text": "Warcraft Tavern says Fury has no real PvP tools, and that Berserker Stance and Death Wish leave it fragile.",
+   "reason": "No graded fact holds Warcraft Tavern’s PvP assessment of Fury; the PvP chapter keeps the Arms recommendation."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[2]",
+   "text": "Thunder Clap's threat was lowered to balance its new damage, so pair it with Demoralizing Shout on big pulls.",
+   "reason": "No reviewed fact says Thunder Clap’s threat was lowered; the threat facts give its Attack Power scaling and cooldown only."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What every Warrior should know before choosing a spec: Rage, the class quests and the racial choice.",
+   "chapters": [
+    {
+     "id": "warrior-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Warriors",
+     "theory": [
+      "class-warrior.change-1",
+      "class-warrior.change-2",
+      "class-warrior.change-3",
+      "class-warrior.change-4",
+      "class-warrior.change-5"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Tactical Mastery at level 14: it keeps 10 Rage when you swap stances.",
+        "facts": [
+         "class-warrior.change-2"
+        ]
+       },
+       {
+        "text": "Use Victory Rush (level 20) within 20 seconds of a kill; it heals 10% of your maximum health.",
+        "facts": [
+         "class-warrior.change-2"
+        ]
+       },
+       {
+        "text": "Choose weapons for their damage and stats, not for Rage: Rage from your hits is normalized to weapon speed.",
+        "facts": [
+         "class-warrior.change-1"
+        ]
+       },
+       {
+        "text": "Count basic-attack crits as Rage income: they give bonus Rage.",
+        "facts": [
+         "class-warrior.change-1"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Picking a slow, hard-hitting weapon to generate more Rage.",
+        "fix": "Rage from your hits is normalized to weapon speed, so weapon damage no longer changes it.",
+        "facts": [
+         "class-warrior.change-1"
+        ]
+       },
+       {
+        "mistake": "Treating Recklessness, Retaliation and Shield Wall as one shared cooldown.",
+        "fix": "They no longer share a cooldown, and Retaliation and Shield Wall are now 15-minute cooldowns.",
+        "facts": [
+         "class-warrior.change-3"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "warrior-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-warrior.quest-defensive-stance-quest",
+      "class-warrior.quest-race-armor-quests",
+      "class-warrior.quest-the-affray-berserker-stance"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "At level 10, take your race's Defensive Stance quest. Taunt and Sunder Armor are trained after it.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       },
+       {
+        "text": "At level 20, look for your race's armor quest, which rewards the Fire Hardened Hauberk or the Brutal Hauberk.",
+        "facts": [
+         "class-warrior.quest-race-armor-quests"
+        ]
+       },
+       {
+        "text": "At level 30, The Affray grants Berserker Stance and leads into the Whirlwind Weapon quest chain.",
+        "facts": [
+         "class-warrior.quest-the-affray-berserker-stance"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Looking for Taunt at the trainer before the level 10 quest.",
+        "fix": "Defensive Stance comes from the quest, and Taunt and Sunder Armor are trained after it.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "warrior-101-race",
+     "section": "overview",
+     "title": "Choosing a race",
+     "theory": [
+      "common.racial-dwarf-artisans-precision",
+      "common.racial-human-ruthless",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "A Dwarf Warrior gets +1% hit with spells and attacks from Artisan's Precision.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision"
+        ]
+       },
+       {
+        "text": "A Human Warrior gets +1% crit from Ruthless, cut from 2% on 26 October.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of the choice: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Using an older guide that gives Ruthless 2% crit.",
+        "fix": "Ruthless is +1% crit since the 26 October notes.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       },
+       {
+        "mistake": "Choosing a race for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "warrior-101-macros",
+     "section": "macros",
+     "title": "Essential macros",
+     "theory": [],
+     "unavailable": "No Warrior macro has been checked in Forever yet. When one is, it will use only /cast, /use, /target and /stopattack with conditionals, because custom scripts stay disabled in the game client."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What a Warrior brings to the raid, whatever the spec.",
+   "chapters": [
+    {
+     "id": "warrior-201-raid-utility",
+     "section": "praxis",
+     "title": "What Warriors bring to a raid",
+     "theory": [
+      "class-warrior.blizzards-class-view",
+      "class-warrior.battle-shout",
+      "class-warrior.armor-reduction",
+      "class-warrior.launch-raids",
+      "class-warrior.onyxias-lair-entry"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Keep Battle Shout up: it is raid-wide since 16 Oct, with the old Improved Battle Shout bonus built in.",
+        "facts": [
+         "class-warrior.battle-shout"
+        ]
+       },
+       {
+        "text": "Apply Sunder Armor even when a Rogue's stronger Expose Armor is up; both can contribute.",
+        "facts": [
+         "class-warrior.armor-reduction"
+        ]
+       },
+       {
+        "text": "Carry your own Drakefire Amulet in your bags for Onyxia's Lair, and build fire resistance before the fight.",
+        "facts": [
+         "class-warrior.onyxias-lair-entry"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Skipping Sunder Armor because a Rogue has Expose Armor up.",
+        "fix": "Sunder Armor can be applied even when a stronger Expose Armor is up.",
+        "facts": [
+         "class-warrior.armor-reduction"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "No Warrior macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced chapters live in each spec's 301 track.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "talents",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "rotation",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "gear",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "consumables",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "macros",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "praxis",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "arms",
+   "name": "Arms",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Arms suits a two-handed weapon: Two-Handed Weapon Specialization sits in the tree, Mortal Strike is at the bottom, and Bloodthrill gives you Overpower chances while your Rend is on the target.",
+    "points": [
+     {
+      "text": "Weaponmaster replaces the old per-weapon specializations, so any weapon you pick up gets a bonus: crit for axes and polearms, armor ignore for maces and staves, extra attacks for swords.",
+      "facts": [
+       "class-warrior.change-6",
+       "class-warrior.weaponmaster-at-5-5"
+      ]
+     },
+     {
+      "text": "Warcraft Tavern presents Arms mainly as a battleground spec that still works in raids, with Fury as its raid pick.",
+      "facts": [
+       "class-warrior.raid-role"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-warrior.arms-summary"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Arms, the core rotation and the Rage habits that matter first.",
+     "chapters": [
+      {
+       "id": "warrior-arms-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warrior.arms-summary",
+        "talents-warrior.arms-sweeping-strikes",
+        "talents-warrior.arms-mortal-strike",
+        "talents-warrior.arms-improved-tactical-mastery.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Victory Rush (level 20) stays usable for 20 seconds after a kill and heals 10% of your maximum health, so open the next pull with it.",
+          "facts": [
+           "class-warrior.change-2"
+          ]
+         },
+         {
+          "text": "Sweeping Strikes makes your next 5 melee attacks hit an extra nearby enemy, which helps when two mobs are on you.",
+          "facts": [
+           "talents-warrior.arms-sweeping-strikes.r1"
+          ]
+         },
+         {
+          "text": "Tactical Mastery keeps 10 Rage when you swap stances. Improved Tactical Mastery retains another 5, 10 or 15 Rage for one, two or three points.",
+          "facts": [
+           "class-warrior.change-2",
+           "talents-warrior.arms-improved-tactical-mastery.r1",
+           "talents-warrior.arms-improved-tactical-mastery.r2",
+           "talents-warrior.arms-improved-tactical-mastery.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Saving points for Mortal Strike without taking Sweeping Strikes.",
+          "fix": "Mortal Strike requires Sweeping Strikes, so take Sweeping Strikes on the way down.",
+          "facts": [
+           "talents-warrior.arms-mortal-strike"
+          ]
+         },
+         {
+          "mistake": "Looking for Axe, Mace, Sword or Polearm Specialization.",
+          "fix": "Arms combines the old weapon specializations into Weaponmaster.",
+          "facts": [
+           "class-warrior.change-6"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-arms-leveling-30"
+       ]
+      },
+      {
+       "id": "warrior-arms-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-warrior.arms-mortal-strike.r1",
+        "class-warrior.bloodthrill",
+        "class-warrior.slam"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open with Charge for Rage, then put Rend on the target so your main-hand swings can enable Overpower.",
+          "facts": [
+           "class-warrior.bloodthrill"
+          ]
+         },
+         {
+          "text": "Use Mortal Strike on cooldown and Overpower whenever it lights up.",
+          "facts": [
+           "talents-warrior.arms-mortal-strike"
+          ]
+         },
+         {
+          "text": "Fit Slam in while Mortal Strike cools down. Its base cooldown is 15 seconds, and Improved Slam keeps it from delaying your swing.",
+          "facts": [
+           "class-warrior.slam"
+          ]
+         },
+         {
+          "text": "Spend spare Rage on Heroic Strike, or on Cleave when two or more enemies stand close."
+         },
+         {
+          "text": "Finish low-health targets with Execute."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Letting Rend fall off the target.",
+          "fix": "Bloodthrill only gives Overpower chances against your Rend target, so keep Rend up.",
+          "facts": [
+           "class-warrior.bloodthrill"
+          ]
+         },
+         {
+          "mistake": "Pressing Slam ahead of Mortal Strike.",
+          "fix": "Use Mortal Strike on cooldown and fit Slam into the gaps while it cools down.",
+          "facts": [
+           "class-warrior.slam",
+           "talents-warrior.arms-mortal-strike"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-arms-101-rage",
+       "section": "rotation",
+       "title": "Rage habits",
+       "theory": [
+        "class-warrior.change-1",
+        "class-warrior.crit-and-rage",
+        "talents-warrior.arms-spearing-strike"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Rage from your own hits depends on weapon speed, not weapon damage, so a stronger weapon of the same speed adds damage but no extra Rage.",
+          "facts": [
+           "class-warrior.change-1"
+          ]
+         },
+         {
+          "text": "Crits from basic attacks give extra Rage (a 100% bonus since 1 October), so crit feeds both damage and Rage.",
+          "facts": [
+           "class-warrior.crit-and-rage"
+          ]
+         },
+         {
+          "text": "Spearing Strike needs Battle Stance, costs 15 Rage and has a 20 sec cooldown. It deals extra damage to Giants, Dragonkin and mounted targets, and dismounts riders.",
+          "facts": [
+           "talents-warrior.arms-spearing-strike",
+           "talents-warrior.arms-spearing-strike.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting a bigger weapon of the same speed to give more Rage.",
+          "fix": "Rage from your hits is normalized to weapon speed, so it does not.",
+          "facts": [
+           "class-warrior.change-1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Level-60 builds, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "warrior-arms-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [
+        "talents-warrior.arms-weaponmaster.r5",
+        "talents-warrior.arms-two-handed-weapon-specialization.r3",
+        "talents-warrior.arms-deep-wounds.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Weaponmaster at 5/5 gives +5% crit with axes and polearms, ignores 15% of armor with maces and staves, or gives a 5% chance of an extra attack with swords.",
+          "facts": [
+           "class-warrior.weaponmaster-at-5-5"
+          ]
+         },
+         {
+          "text": "Two-Handed Weapon Specialization raises two-handed weapon damage by 6% at rank 3 of 3.",
+          "facts": [
+           "talents-warrior.arms-two-handed-weapon-specialization.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on Shield Bash or Shield Slam to trigger Weaponmaster's sword effect.",
+          "fix": "They no longer trigger it.",
+          "facts": [
+           "class-warrior.weaponmaster-at-5-5"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-arms-raid-60",
+        "warrior-arms-pvp-60"
+       ]
+      },
+      {
+       "id": "warrior-arms-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-warrior.main-hand-hit-from-talents",
+        "class-warrior.hit-cap-at-level-60",
+        "class-warrior.dwarf-and-human-racials",
+        "class-warrior.weaponmaster-at-5-5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Get hit from gear or the Dwarf racial: Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
+          "facts": [
+           "class-warrior.main-hand-hit-from-talents"
+          ]
+         },
+         {
+          "text": "Treat the hit cap as unknown until Blizzard or reviewed logs give a number."
+         },
+         {
+          "text": "Count +1% hit for a Dwarf and +1% crit for a Human.",
+          "facts": [
+           "class-warrior.dwarf-and-human-racials"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking Furious Precision for main-hand hit.",
+          "fix": "It increases your chance to hit with off-hand attacks only.",
+          "facts": [
+           "class-warrior.main-hand-hit-from-talents"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-arms-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "warrior-arms-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warrior.world-buffs-in-raids",
+        "class-warrior.elixir-of-the-grizzly",
+        "class-warrior.food",
+        "class-warrior.healing-potions",
+        "class-warrior.classic-melee-consumables",
+        "class-warrior.flask-rule"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Plan raid nights without world buffs: Icy Veins says they are removed inside raids.",
+          "facts": [
+           "class-warrior.world-buffs-in-raids"
+          ]
+         },
+         {
+          "text": "Bring Elixir of the Grizzly: +25 Strength and +2% crit for 30 minutes.",
+          "facts": [
+           "class-warrior.elixir-of-the-grizzly"
+          ]
+         },
+         {
+          "text": "Buy healing potions from a First Aid crafter: they are no longer an Alchemy craft.",
+          "facts": [
+           "class-warrior.healing-potions"
+          ]
+         },
+         {
+          "text": "Eat Smoked Desert Dumplings (+20 Strength) or Grilled Squid (+1% crit). Both need an Iron Oven camp object (Cooking 300).",
+          "facts": [
+           "class-warrior.food"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning to drink two flasks.",
+          "fix": "In the Classic reference only one flask is active at a time, and it persists through death.",
+          "facts": [
+           "class-warrior.flask-rule"
+          ]
+         },
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Icy Veins' raid overview says world buffs are removed inside raids.",
+          "facts": [
+           "class-warrior.world-buffs-in-raids"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-arms-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-warrior.raid-role",
+        "class-warrior.recklessness-talentsforever-data",
+        "class-warrior.armor-reduction"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Expect Fury to be the raid pick: Warcraft Tavern presents Arms as a battleground spec that is still viable in PvE.",
+          "facts": [
+           "class-warrior.raid-role"
+          ]
+         },
+         {
+          "text": "Recklessness gives +100% crit chance for 15 seconds while you take 20% more damage, and it no longer shares a cooldown with Retaliation or Shield Wall.",
+          "facts": [
+           "class-warrior.recklessness-talentsforever-data"
+          ]
+         },
+         {
+          "text": "Keep Sunder Armor going alongside a Rogue's Expose Armor.",
+          "facts": [
+           "class-warrior.armor-reduction"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Holding Recklessness back because Shield Wall was used.",
+          "fix": "Recklessness no longer shares a cooldown with Retaliation or Shield Wall.",
+          "facts": [
+           "class-warrior.recklessness-talentsforever-data"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-arms-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-warrior.arms-mortal-strike.r1",
+        "talents-warrior.arms-improved-hamstring.r3",
+        "talents-warrior.fury-improved-berserker-rage.r2",
+        "talents-warrior.protection-iron-will.r5",
+        "talents-warrior.fury-piercing-howl.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Arms is the usual PvP Warrior spec: Mortal Strike cuts healing on the target by 50% for 10 seconds, Improved Hamstring can root, and Spearing Strike knocks riders off their mounts.",
+          "facts": [
+           "talents-warrior.arms-mortal-strike.r1",
+           "talents-warrior.arms-improved-hamstring.r3",
+           "talents-warrior.arms-spearing-strike.r1"
+          ]
+         },
+         {
+          "text": "Improved Berserker Rage can remove movement-impairing effects, Iron Will shortens stuns and fears, and Victory Rush heals you after kills.",
+          "facts": [
+           "talents-warrior.fury-improved-berserker-rage.r2",
+           "talents-warrior.protection-iron-will.r5",
+           "class-warrior.change-2"
+          ]
+         },
+         {
+          "text": "Piercing Howl (Fury row 3) dazes every enemy within 10 yards, slowing them by 50% for 6 seconds.",
+          "facts": [
+           "talents-warrior.fury-piercing-howl",
+           "talents-warrior.fury-piercing-howl.r1"
+          ]
+         },
+         {
+          "text": "Against Hunters: Wyvern Sting is gone, Scorpid Sting now lowers your hit chance by 2%, and all traps share one 30-second cooldown and can be laid in combat. Auto Shot needs a brief stand-still, so keep the pressure on.",
+          "facts": [
+           "class-hunter.change-8",
+           "class-hunter.change-4",
+           "class-hunter.change-2",
+           "class-hunter.change-3"
+          ]
+         },
+         {
+          "text": "Against Rogues: Sap no longer breaks a Rogue's Stealth, and Distract now warns you that a Rogue is near. Improved Berserker Rage can clear movement-impairing effects.",
+          "facts": [
+           "class-hunter.vs-rogue-sap-distract",
+           "talents-warrior.fury-improved-berserker-rage.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Saving Mortal Strike for damage only.",
+          "fix": "It also reduces the effectiveness of any healing on the target by 50% for 10 sec, so use it while the target is being healed.",
+          "facts": [
+           "talents-warrior.arms-mortal-strike.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "warrior-arms-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients and swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "warrior-arms-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and defense breakpoints",
+       "theory": [
+        "class-warrior.hit-cap-at-level-60"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "warrior-arms-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-warrior.launch-raids"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "warrior-arms-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for the opponents listed in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "fury",
+   "name": "Fury",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Fury dual-wields one-handed weapons for steady damage. Warcraft Tavern names it the main PvE Warrior spec, with strong cleave from Cleave and Whirlwind.",
+    "points": [
+     {
+      "text": "Bloodthirst no longer heals: it hits for 45% of your Attack Power plus 30 and gives you 10% movement speed for 10 seconds.",
+      "facts": [
+       "talents-warrior.fury-bloodthirst.r1"
+      ]
+     },
+     {
+      "text": "Death Wish leads to Bloodthirst. Flurry no longer needs Death Wish, and Death Wish increases the damage you take while it is active.",
+      "facts": [
+       "class-warrior.change-7",
+       "talents-warrior.fury-bloodthirst",
+       "talents-warrior.fury-death-wish.r1"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-warrior.fury-summary",
+     "class-warrior.raid-role-2"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Fury, the core rotation and dual-wield basics.",
+     "chapters": [
+      {
+       "id": "warrior-fury-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warrior.fury-summary",
+        "talents-warrior.fury-blood-craze.r3",
+        "talents-warrior.fury-gore-drinker.r2",
+        "talents-warrior.fury-enrage.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Blood Craze heals you a little after you take a critical strike or a big hit, and Gore Drinker heals on your next swings after Enrage, Bloodrage, Berserker Rage, Death Wish or Bloodthirst.",
+          "facts": [
+           "talents-warrior.fury-blood-craze.r3",
+           "talents-warrior.fury-gore-drinker.r2"
+          ]
+         },
+         {
+          "text": "Enrage can trigger from any damaging attack you take, so its damage bonus is up often while you level.",
+          "facts": [
+           "talents-warrior.fury-enrage.r5"
+          ]
+         },
+         {
+          "text": "Flurry no longer requires Death Wish, and Death Wish now leads to Bloodthirst, so plan the tree around Flurry first.",
+          "facts": [
+           "class-warrior.change-7",
+           "talents-warrior.fury-bloodthirst"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking Death Wish because Flurry needs it.",
+          "fix": "Flurry no longer needs Death Wish; Death Wish leads to Bloodthirst.",
+          "facts": [
+           "class-warrior.change-7",
+           "talents-warrior.fury-bloodthirst"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-fury-leveling-30"
+       ]
+      },
+      {
+       "id": "warrior-fury-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-warrior.fury-bloodthirst.r1",
+        "talents-warrior.fury-improved-whirlwind.r2",
+        "talents-warrior.fury-death-wish.r1",
+        "class-warrior.battle-shout"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Battle Shout up; it now buffs the whole raid.",
+          "facts": [
+           "class-warrior.battle-shout"
+          ]
+         },
+         {
+          "text": "Use Bloodthirst on cooldown, then Whirlwind. Improved Whirlwind cuts Whirlwind's cooldown by 2 sec at rank 2 of 2.",
+          "facts": [
+           "talents-warrior.fury-bloodthirst",
+           "talents-warrior.fury-improved-whirlwind.r2"
+          ]
+         },
+         {
+          "text": "Spend extra Rage on Heroic Strike against one target, or Cleave against several."
+         },
+         {
+          "text": "Use Death Wish with your other cooldowns: 20% more Physical damage for 30 seconds, at the cost of taking more damage.",
+          "facts": [
+           "talents-warrior.fury-death-wish.r1"
+          ]
+         },
+         {
+          "text": "Switch to Execute when the target is low; Improved Execute lowers its Rage cost.",
+          "facts": [
+           "talents-warrior.fury-improved-execute.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using Death Wish while the raid takes heavy damage.",
+          "fix": "Death Wish raises all damage you take, so time it away from heavy raid damage.",
+          "facts": [
+           "class-warrior.death-wish"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-fury-101-dual-wield",
+       "section": "rotation",
+       "title": "Dual-wield basics",
+       "theory": [
+        "class-warrior.main-hand-hit-from-talents",
+        "talents-warrior.fury-lingering-rage.r5",
+        "talents-warrior.fury-dual-wield-specialization"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
+          "facts": [
+           "class-warrior.main-hand-hit-from-talents"
+          ]
+         },
+         {
+          "text": "Unbridled Wrath gives each weapon hit a chance to generate extra Rage, so dual wielding feeds it twice as often.",
+          "facts": [
+           "talents-warrior.fury-unbridled-wrath.r1"
+          ]
+         },
+         {
+          "text": "Lingering Rage delays Rage decay after combat, so you carry Rage into the next pull.",
+          "facts": [
+           "talents-warrior.fury-lingering-rage.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Looking for a Warrior talent that adds main-hand hit.",
+          "fix": "None exists: Furious Precision covers off-hand attacks only, so main-hand hit comes from gear or the Dwarf racial.",
+          "facts": [
+           "class-warrior.main-hand-hit-from-talents"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "warrior-fury-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-warrior.fury-flurry.r3",
+        "talents-warrior.fury-furious-precision.r3",
+        "talents-warrior.fury-cruelty.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Flurry has 3 ranks and needs no Death Wish.",
+          "facts": [
+           "talents-warrior.fury-flurry",
+           "class-warrior.change-7"
+          ]
+         },
+         {
+          "text": "Furious Precision at rank 3 of 3 adds 10% hit with off-hand attacks.",
+          "facts": [
+           "talents-warrior.fury-furious-precision.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following an older guide that spends points on Raging Blows.",
+          "fix": "Raging Blows is not in the 10 Nov data.",
+          "facts": [
+           "class-warrior.raging-blows"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-fury-raid-60"
+       ]
+      },
+      {
+       "id": "warrior-fury-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-warrior.furious-precision",
+        "class-warrior.hit-cap-at-level-60-2",
+        "class-warrior.crit-and-rage",
+        "class-warrior.racials",
+        "class-warrior.flurry",
+        "class-warrior.bloodthirst-scaling"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Furious Precision gives +4/7/10% hit with off-hand attacks.",
+          "facts": [
+           "class-warrior.furious-precision"
+          ]
+         },
+         {
+          "text": "Basic-attack crits give 100% bonus Rage since 1 October, so crit feeds Rage as well as damage.",
+          "facts": [
+           "class-warrior.crit-and-rage"
+          ]
+         },
+         {
+          "text": "Flurry gives 10%, 20% or 30% faster attacks for the next three swings after a crit.",
+          "facts": [
+           "class-warrior.flurry"
+          ]
+         },
+         {
+          "text": "Bloodthirst deals 45% of your Attack Power plus a flat amount and no longer heals.",
+          "facts": [
+           "class-warrior.bloodthirst-scaling"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Pressing Bloodthirst as a heal.",
+          "fix": "It no longer heals: it hits for 45% of your Attack Power plus 30 and gives 10% movement speed for 10 sec.",
+          "facts": [
+           "talents-warrior.fury-bloodthirst.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-fury-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "warrior-fury-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warrior.world-buffs-in-raids-2",
+        "class-warrior.elixir-of-the-grizzly",
+        "class-warrior.food",
+        "class-warrior.healing-potions",
+        "class-warrior.classic-melee-consumables",
+        "class-warrior.flask-rule-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Plan raid nights without world buffs: Icy Veins says they are removed inside raids.",
+          "facts": [
+           "class-warrior.world-buffs-in-raids-2"
+          ]
+         },
+         {
+          "text": "Bring Elixir of the Grizzly: +25 Strength and +2% crit for 30 minutes.",
+          "facts": [
+           "class-warrior.elixir-of-the-grizzly"
+          ]
+         },
+         {
+          "text": "Eat Smoked Desert Dumplings (+20 Strength) or Grilled Squid (+1% crit). Both need an Iron Oven camp object (Cooking 300).",
+          "facts": [
+           "class-warrior.food"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Asking an Alchemist for healing potions.",
+          "fix": "Healing potions are made with First Aid instead of Alchemy in Forever.",
+          "facts": [
+           "class-warrior.healing-potions"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-fury-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-warrior.raid-role-2",
+        "class-warrior.blizzards-class-view",
+        "class-warrior.death-wish",
+        "class-warrior.raging-blows",
+        "class-warrior.onyxias-lair-entry-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Fury is Warcraft Tavern's PvE pick: dual-wield damage with strong Cleave and Whirlwind cleave.",
+          "facts": [
+           "class-warrior.raid-role-2"
+          ]
+         },
+         {
+          "text": "Time Death Wish away from heavy raid damage: it now raises all damage taken.",
+          "facts": [
+           "class-warrior.death-wish"
+          ]
+         },
+         {
+          "text": "Each raider needs their own Drakefire Amulet in their bags for Onyxia's Lair.",
+          "facts": [
+           "class-warrior.onyxias-lair-entry-2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning Cleave and Whirlwind costs around Raging Blows.",
+          "fix": "Raging Blows is not in the 10 Nov data.",
+          "facts": [
+           "class-warrior.raging-blows"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-fury-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-warrior.fury-piercing-howl.r1",
+        "talents-warrior.fury-improved-berserker-rage.r2",
+        "talents-warrior.fury-blood-craze.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern names Fury as the PvE spec and presents Arms as the battleground spec, so most PvP Warriors play Arms.",
+          "facts": [
+           "class-warrior.raid-role"
+          ]
+         },
+         {
+          "text": "Without a Bloodthirst heal, Fury leans on Victory Rush, Blood Craze and Gore Drinker for sustain.",
+          "facts": [
+           "class-warrior.change-2",
+           "talents-warrior.fury-blood-craze.r3",
+           "talents-warrior.fury-gore-drinker.r2"
+          ]
+         },
+         {
+          "text": "Piercing Howl dazes every enemy within 10 yards, and Improved Berserker Rage can clear movement-impairing effects.",
+          "facts": [
+           "talents-warrior.fury-piercing-howl.r1",
+           "talents-warrior.fury-improved-berserker-rage.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on Bloodthirst to heal you in a duel.",
+          "fix": "Bloodthirst no longer heals; sustain comes from Victory Rush, Blood Craze and Gore Drinker.",
+          "facts": [
+           "talents-warrior.fury-bloodthirst.r1",
+           "class-warrior.change-2"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "warrior-fury-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients and swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "warrior-fury-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and defense breakpoints",
+       "theory": [
+        "class-warrior.hit-cap-at-level-60-2"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "warrior-fury-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-warrior.launch-raids"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "warrior-fury-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for the opponents listed in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "protection",
+   "name": "Protection",
+   "roles": [
+    "tank"
+   ],
+   "overview": {
+    "lead": "Protection is Forever's shield tank: Defiance's threat bonus and Bastion's damage bonus only work while a shield is equipped.",
+    "points": [
+     {
+      "text": "Blocks, dodges and parries feed Rage through Shield Specialization and Master of Defense, and Vanguard lets you Charge in Defensive Stance.",
+      "facts": [
+       "talents-warrior.protection-shield-specialization.r5",
+       "talents-warrior.protection-master-of-defense.r2",
+       "talents-warrior.protection-vanguard.r1"
+      ]
+     },
+     {
+      "text": "Shield Slam causes very high threat, grows with your block value and has a 50% chance to dispel a magic effect on the target.",
+      "facts": [
+       "talents-warrior.protection-shield-slam.r1"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-warrior.protection-summary",
+     "class-warrior.change-8"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Protection, tanking your first dungeons and the Rage rules for tanks.",
+     "chapters": [
+      {
+       "id": "warrior-protection-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warrior.protection-summary",
+        "class-warrior.quest-defensive-stance-quest",
+        "class-warrior.use-a-shield"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Defensive Stance comes from the level 10 class quest, and Taunt and Sunder Armor are trained after it.",
+          "facts": [
+           "class-warrior.quest-defensive-stance-quest"
+          ]
+         },
+         {
+          "text": "Defensive Stance carries an 80% threat bonus, and Defiance adds 7%, 13% or 20% over its three points.",
+          "facts": [
+           "class-warrior.use-a-shield"
+          ]
+         },
+         {
+          "text": "Compared with Classic 1.12, the Protection tree has 3 new and 14 changed talents, so read each talent's current text instead of a Classic guide's description.",
+          "facts": [
+           "talents-warrior.protection-summary"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Tanking without a shield.",
+          "fix": "Defiance and Bastion keep their shield requirement, so equip one.",
+          "facts": [
+           "class-warrior.use-a-shield"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-protection-dungeon-30"
+       ]
+      },
+      {
+       "id": "warrior-protection-101-rotation",
+       "section": "rotation",
+       "title": "Core threat rotation",
+       "theory": [
+        "talents-warrior.protection-vanguard.r1",
+        "class-warrior.threat-tools",
+        "talents-warrior.protection-shield-slam",
+        "talents-warrior.protection-improved-shield-wall.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Charge in (Vanguard keeps you in Defensive Stance), then Shield Slam.",
+          "facts": [
+           "talents-warrior.protection-vanguard.r1"
+          ]
+         },
+         {
+          "text": "On packs, use Thunder Clap and Demoralizing Shout. Thunder Clap scales with Attack Power and works in Defensive Stance, and Demoralizing Shout threatens every target it hits.",
+          "facts": [
+           "class-warrior.threat-tools"
+          ]
+         },
+         {
+          "text": "Use Revenge whenever it is available, and Sunder Armor to build threat on your main target; Sunder threat scales with Attack Power.",
+          "facts": [
+           "class-warrior.threat-tools"
+          ]
+         },
+         {
+          "text": "Spend spare Rage on Heroic Strike once your threat is solid."
+         },
+         {
+          "text": "Save Last Stand and Shield Wall for emergencies; Improved Shield Wall shortens Shield Wall's cooldown.",
+          "facts": [
+           "talents-warrior.protection-improved-shield-wall.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Pressing Shield Slam without a shield equipped.",
+          "fix": "Shield Slam requires a shield, and its damage grows with your Block Value.",
+          "facts": [
+           "talents-warrior.protection-shield-slam",
+           "talents-warrior.protection-shield-slam.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-protection-101-tips",
+       "section": "rotation",
+       "title": "Rage and survival for tanks",
+       "theory": [
+        "class-warrior.rage-from-damage-taken",
+        "talents-warrior.protection-last-stand",
+        "talents-warrior.protection-last-stand.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Rage from damage taken now ignores your armor and absorbs, so a Power Word: Shield on you no longer costs you Rage.",
+          "facts": [
+           "class-warrior.change-1",
+           "class-warrior.rage-from-damage-taken"
+          ]
+         },
+         {
+          "text": "Last Stand gives you 30% of your maximum health for 20 sec and has a 3 min cooldown.",
+          "facts": [
+           "talents-warrior.protection-last-stand",
+           "talents-warrior.protection-last-stand.r1"
+          ]
+         },
+         {
+          "text": "Shield Slam needs a shield, so use it whenever it is ready.",
+          "facts": [
+           "talents-warrior.protection-shield-slam"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting to keep Last Stand's extra health.",
+          "fix": "After the effect expires, the health is lost.",
+          "facts": [
+           "talents-warrior.protection-last-stand.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, threat and defense, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "warrior-protection-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-warrior.protection-defiance.r3",
+        "talents-warrior.protection-anticipation.r5",
+        "talents-warrior.protection-bastion.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Defiance at rank 3 of 3 adds 20% threat in Defensive Stance while a shield is equipped.",
+          "facts": [
+           "talents-warrior.protection-defiance.r3"
+          ]
+         },
+         {
+          "text": "Bastion at rank 5 of 5 adds 10% to all damage you deal while a shield is equipped.",
+          "facts": [
+           "talents-warrior.protection-bastion.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Improved Revenge to stun.",
+          "fix": "It adds damage to Revenge instead: 60% at rank 3 of 3.",
+          "facts": [
+           "class-warrior.improved-revenge",
+           "talents-warrior.protection-improved-revenge.r3"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "warrior-protection-raid-60"
+       ]
+      },
+      {
+       "id": "warrior-protection-201-priorities",
+       "section": "stat-caps",
+       "title": "Threat, defense and caps",
+       "theory": [
+        "class-warrior.use-a-shield",
+        "class-warrior.threat-tools",
+        "class-warrior.rage-from-damage-taken",
+        "class-warrior.anticipation",
+        "class-warrior.improved-revenge",
+        "class-warrior.hit-and-expertise-caps"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a shield on: Blizzard lists an 80% threat bonus for Defensive Stance and 7%, 13% or 20% for Defiance.",
+          "facts": [
+           "class-warrior.use-a-shield"
+          ]
+         },
+         {
+          "text": "Anticipation adds Defense Skill: 20 at rank 5 of 5.",
+          "facts": [
+           "talents-warrior.protection-anticipation.r5"
+          ]
+         },
+         {
+          "text": "Treat the hit cap as unknown: Blizzard has published no numbers yet."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Assuming armor still cuts the Rage you get from being hit.",
+          "fix": "Rage from damage taken ignores armor (treated as a flat 50% reduction) and absorbs.",
+          "facts": [
+           "class-warrior.rage-from-damage-taken"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-protection-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
+      },
+      {
+       "id": "warrior-protection-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warrior.food-in-forever",
+        "class-warrior.healing-potions",
+        "class-warrior.classic-tank-staples",
+        "class-warrior.classic-tank-buffs-and-food",
+        "class-warrior.flask-rule",
+        "class-warrior.world-buffs-in-raids-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Bring Forever food: Smoked Desert Dumplings (+20 Strength) and Dirge's Chops (+25 Stamina) keep their stats, while Grilled Squid now gives +1% crit.",
+          "facts": [
+           "class-warrior.food-in-forever"
+          ]
+         },
+         {
+          "text": "Get healing potions from First Aid crafters.",
+          "facts": [
+           "class-warrior.healing-potions"
+          ]
+         },
+         {
+          "text": "Read the Classic tank list (Flask of the Titans, Greater Stoneshield Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-warrior.classic-tank-staples"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Icy Veins' raid overview says world buffs are removed inside raids.",
+          "facts": [
+           "class-warrior.world-buffs-in-raids-2"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-protection-201-raid",
+       "section": "praxis",
+       "title": "Tanking the raid",
+       "theory": [
+        "class-warrior.raid-tank",
+        "class-warrior.long-cooldowns",
+        "class-warrior.shield-wall-talentsforever-data",
+        "class-warrior.onyxias-lair",
+        "class-warrior.fire-resistance-target-for-onyxia",
+        "class-warrior.raid-sizes"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Wear a shield: shield-based Protection is the intended raid tank in Forever.",
+          "facts": [
+           "class-warrior.raid-tank"
+          ]
+         },
+         {
+          "text": "Shield Wall and Retaliation are 15-minute cooldowns; Improved Shield Wall shortens Shield Wall further.",
+          "facts": [
+           "class-warrior.long-cooldowns"
+          ]
+         },
+         {
+          "text": "Shield Wall gives 60% less damage taken for 12 seconds in the talentsforever data.",
+          "facts": [
+           "class-warrior.shield-wall-talentsforever-data"
+          ]
+         },
+         {
+          "text": "Build fire resistance before Onyxia: Blizzard warns of powerful fire attacks and repositioning across three phases.",
+          "facts": [
+           "class-warrior.onyxias-lair"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning Shield Wall from Classic numbers.",
+          "fix": "Classic 1.12 Shield Wall was 75% for 10 seconds; the Forever data gives 60% less damage taken for 12 seconds.",
+          "facts": [
+           "class-warrior.shield-wall-talentsforever-data"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "warrior-protection-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-warrior.protection-concussion-blow.r1",
+        "talents-warrior.protection-improved-shield-bash.r2",
+        "talents-warrior.protection-improved-disarm.r3",
+        "talents-warrior.protection-iron-will.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Concussion Blow stuns for 5 sec, and Improved Shield Bash gives Shield Bash a chance to silence for 3 sec, which helps when guarding a flag or a healer.",
+          "facts": [
+           "talents-warrior.protection-concussion-blow.r1",
+           "talents-warrior.protection-improved-shield-bash.r2"
+          ]
+         },
+         {
+          "text": "Improved Disarm shortens Disarm's cooldown, and Iron Will shortens stuns and fears on you.",
+          "facts": [
+           "talents-warrior.protection-improved-disarm.r3",
+           "talents-warrior.protection-iron-will.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting every Shield Bash to silence at rank 1 of 2.",
+          "fix": "Improved Shield Bash gives a 50% chance at rank 1 and a 100% chance at rank 2, for 3 sec.",
+          "facts": [
+           "talents-warrior.protection-improved-shield-bash.r1",
+           "talents-warrior.protection-improved-shield-bash.r2"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Warrior macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "warrior-protection-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients and swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "warrior-protection-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and defense breakpoints",
+       "theory": [
+        "class-warrior.hit-and-expertise-caps"
+       ],
+       "unavailable": "Blizzard has published no level-60 hit cap for Forever and community estimates conflict, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "warrior-protection-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-warrior.launch-raids"
+       ],
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "warrior-protection-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for the opponents listed in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

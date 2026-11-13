@@ -297,7 +297,8 @@ function splitFixtureSchema(source) {
     check("issued cookie binds actual Native version and account birth", !!currentSession && currentSession.u === viewer && /^[0-9a-f]{32}$/.test(currentSession.n) && nativeUser && currentSession.n === nativeUser.account_incarnation && currentSession.v === nativeUser.session_version && nativeUser.in_server === 1);
     check("only the exact controlled original OAuth transport runs once", controlledOAuthCalls.join(",") === "token,me,member" && outboundAttempts === 0, controlledOAuthCalls);
     res = await get('https://guild.example/static/app.css',{headers:{Cookie:cookie}});
-    check('a current signed session gets real CSS with private no-store headers',res.status===200&&/text\/css/.test(res.headers.get('Content-Type')||'')&&res.headers.get('Cache-Control')==='private, no-store, no-transform',res.status);
+    // CL2-076 (owner ruling of 13 Nov 2026): unversioned member CSS stays private no-store and may now be compressed.
+    check('a current signed session gets real CSS with private no-store headers',res.status===200&&/text\/css/.test(res.headers.get('Content-Type')||'')&&res.headers.get('Cache-Control')==='private, no-store',res.status);
     for (const asset of ['/static/governance/organization.json','/static/governance/reconciled-book.md','/static/organization-view.js']) {
       res = await get('https://guild.example'+asset);
       check('real workerd withholds private governance asset without login: '+asset,res.status===401);

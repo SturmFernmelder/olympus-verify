@@ -14,6 +14,10 @@ concurrency:
 
 # Owner permanent restructuring mandate, 10 November 2026.
 # No full-suite shards, static-source projection pins or release-specific helper loops.
+# Evergreen 12 November 2026 (CL2-022, CL2-023, CL2-182): the directive's gate runs in full under the same four
+# required job names. The addon job runs every Lua suite that needs no external archive; the worker job adds the
+# generated-artifact parity checks and the complete Watcher suite, with Lupa installed by hash so the Watcher's Lua
+# round trips run instead of skipping. Local timings are in docs/release-qualification.md.
 jobs:
   worker:
     name: worker
@@ -35,11 +39,30 @@ jobs:
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
         working-directory: worker
-      - name: TypeScript and targeted genuine Workerd D1 behavior
+      - name: Generated policy pages, Link core, code vectors and served addon package match their sources
+        run: |
+          npm run check:policies
+          npm run check:link-core
+          npm run check:vectors
+          node ../scripts/build-verify-addon.cjs --check
+        working-directory: worker
+      # CL2-076 (owner ruling of 13 Nov 2026): members keep app.js and app.css of a BUILD in their browser for a year,
+      # so a change to either file must ship with a new BUILD. Exit 3 (no base to compare) fails the step too.
+      - name: Script and style changes come with a new BUILD
+        env:
+          ASSET_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          node scripts/tests/check-asset-build.test.cjs
+          node scripts/check-asset-build.cjs --base "$ASSET_BASE"
+      - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
-      - name: Watcher launch controls, rate recovery and main-loop scheduling
-        run: python3 -m unittest discover -s watcher/tests -p 'test_launch*.py'
+      - name: Install the hash-pinned LuaJIT bridge for the Watcher's Lua round trips
+        run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt
+      - name: Complete Watcher suite
+        env:
+          OLYMPUS_REQUIRE_LUA: '1'
+        run: python3 -m unittest discover -s watcher/tests
 
   addon:
     name: addon
@@ -49,10 +72,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install existing LuaJIT bridge
-        run: python3 -m pip install --user 'lupa==2.8'
-      - name: Bounded 1000-member Lua performance benchmark
-        run: python3 addon/tests/run_lua_suites.py --suite performance235
+      - name: Install the hash-pinned LuaJIT bridge
+        run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt
+      - name: Every offline Lua suite, including the 1000-member performance benchmark
+        run: python3 addon/tests/run_lua_suites.py --all-offline
 
   backup:
     name: backup

@@ -3,7 +3,9 @@
 .guides218 h1{margin:0 0 4px;font-size:clamp(24px,4vw,34px);line-height:1.15}
 .guides218 h2{margin:0 0 10px;font-size:20px}
 .guides218 h3{margin:14px 0 6px;font-size:16px}
-.guides218-head{display:flex;gap:14px;align-items:flex-start}
+.guides218-head{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;min-width:0}
+/* CL2-281 (12 Nov 2026): at 200% zoom on a phone the hero text shrinks and wraps beside or under its icon instead of being clipped. */
+.guides218-head>div{flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
 .guides218-head .guides218-icon{width:56px;height:56px;flex:0 0 56px;border-radius:6px}
 .guides218-lead{margin:0 0 6px;font-size:16px}
 .guides218-icon{width:24px;height:24px;vertical-align:middle;border-radius:4px}
@@ -91,3 +93,12 @@
 .guides222-profession[data-theme="tailoring"]{--resource-art:url("/static/wow/prof-tailoring.png")}
 .guides222-profession::before{background-size:auto,148px 148px!important;background-repeat:no-repeat;background-position:center,right center!important}.guides222-tool{--resource-art:url("/static/wow/molten-core.jpg")}
 @media(forced-colors:active){.guides218-card::before{display:none}.guides218-card{background:Canvas;color:CanvasText}}
+/* Evergreen Stage 2 (12 Nov 2026): 44 px touch targets for the tools' controls and navigation (inline source links in
+ * running text keep the text's own line height). */
+.guides218-crumbs a{display:inline-block;min-height:44px;line-height:44px}
+.guides218 select,.guides218 .btn,.guides218-legend summary{min-height:44px}
+.guides218-checklist li{grid-template-columns:44px 1fr}
+.guides218-checklist input{width:24px;height:44px}
+.guides218-checklist label{display:flex;align-items:center;min-height:44px;line-height:1.3}
+.guides218 nav[aria-label="Related"] a,.guides218-section>.guides218-list>li>a:first-child{display:inline-block;min-height:44px;line-height:44px}
+.guides218 label[for="guides218-role"]{display:inline-flex;align-items:center;min-height:44px;margin-right:8px}

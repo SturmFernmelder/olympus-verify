@@ -276,7 +276,11 @@ UI.Refresh()
 check("strict captured proof offers the supported hardware exchange", contains(UI.summary:GetText(), "proof waiting: Sync & reload"), true)
 state.verificationExchange = "sync-requested"
 UI.Refresh()
-check("requested exchange directs the officer to the actual Watcher outcome", contains(UI.summary:GetText(), "local request recorded; server result separate"), true)
+-- Evergreen 12 Nov 2026 (CL2-185): fd329ba (.269) reworded this summary. The behaviour that matters is that a
+-- requested exchange reads differently from a waiting one and claims only the local request, never a server result.
+local requested = UI.summary:GetText()
+check("requested exchange says only the local request is recorded", contains(requested, "local request recorded; server result separate"), true)
+check("requested exchange no longer offers the waiting-proof Sync", contains(requested, "proof waiting: Sync & reload"), false)
 check("exchange notices never perform a protected or reload action", actions, 0)
 print(string.format("\n%d/%d passed", total - failures, total))
 os.exit(failures == 0 and 0 or 1)

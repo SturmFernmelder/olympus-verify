@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-leatherworking",
+ "questions": [
+  {
+   "id": "profession-leatherworking.rack-skill",
+   "scope": "profession:leatherworking",
+   "tier": 101,
+   "chapter": "leatherworking-101-changes",
+   "type": "mcq",
+   "stem": "At what Leatherworking skill can you place the Tanning Rack?",
+   "choices": [
+    "125",
+    "300",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "Since Blizzard's hotfix of 6 November 2026 the Tanning Rack needs skill 125 (it was 140). The Camp Tent comes at skill 20 and the Sewing Machine at 300.",
+   "facts": [
+    "profession-leatherworking.camp-objects",
+    "profession-leatherworking.tanning-rack-skill"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.advanced-recipes",
+   "scope": "profession:leatherworking",
+   "tier": 101,
+   "chapter": "leatherworking-101-changes",
+   "type": "mcq",
+   "stem": "Blizzard says the more advanced Leatherworking recipes need which camp object?",
+   "choices": [
+    "Tanning Rack",
+    "Sewing Machine",
+    "Camp Tent"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard names the Tanning Rack. The Camp Tent (skill 20) and Sewing Machine (skill 300) are the other Leatherworking camp objects.",
+   "facts": [
+    "profession-leatherworking.tanning-rack",
+    "profession-leatherworking.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.journeyman-training",
+   "scope": "profession:leatherworking",
+   "tier": 101,
+   "chapter": "leatherworking-101-leveling",
+   "type": "mcq",
+   "stem": "What does Journeyman Leatherworking training need?",
+   "choices": [
+    "skill 50, level 10",
+    "skill 125, level 20",
+    "skill 200, level 35"
+   ],
+   "answer": 0,
+   "explanation": "Journeyman needs skill 50 and level 10, Expert skill 125 and level 20, and Artisan skill 200 and level 35.",
+   "facts": [
+    "profession-leatherworking.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.apprentice-cap",
+   "scope": "profession:leatherworking",
+   "tier": 101,
+   "chapter": "leatherworking-101-leveling",
+   "type": "mcq",
+   "stem": "Up to what skill does Apprentice Leatherworking go?",
+   "choices": [
+    "75",
+    "150",
+    "225"
+   ],
+   "answer": 0,
+   "explanation": "Apprentice goes up to 75, Journeyman up to 150, Expert up to 225 and Artisan up to 300.",
+   "facts": [
+    "profession-leatherworking.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.bop-example",
+   "scope": "profession:leatherworking",
+   "tier": 201,
+   "chapter": "leatherworking-201-gear",
+   "type": "mcq",
+   "stem": "Which item does the Forever guide name as a craft that is Bind on Pickup for the leatherworker?",
+   "choices": [
+    "Wisdom's Leather Boots",
+    "Core Armor Kit"
+   ],
+   "answer": 0,
+   "explanation": "The guide's example is Wisdom's Leather Boots. The Core Armor Kit is the tank kit that now gives +4 defense.",
+   "facts": [
+    "profession-leatherworking.gear-only-you-can-make",
+    "profession-leatherworking.core-armor-kit"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.core-kit",
+   "scope": "profession:leatherworking",
+   "tier": 201,
+   "chapter": "leatherworking-201-raid",
+   "type": "mcq",
+   "stem": "How much defense does the Core Armor Kit give in Forever?",
+   "choices": [
+    "+4",
+    "+3"
+   ],
+   "answer": 0,
+   "explanation": "It now gives +4 defense instead of the +3 it gave before.",
+   "facts": [
+    "profession-leatherworking.core-armor-kit"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.spell-kit",
+   "scope": "profession:leatherworking",
+   "tier": 201,
+   "chapter": "leatherworking-201-raid",
+   "type": "mcq",
+   "stem": "Which new armor kit adds spell power?",
+   "choices": [
+    "Mystic Medium",
+    "Forceful Medium",
+    "Light"
+   ],
+   "answer": 0,
+   "explanation": "Mystic Medium adds spell power, Forceful Medium adds attack power and Light adds Stamina.",
+   "facts": [
+    "profession-leatherworking.stat-armor-kits"
+   ]
+  },
+  {
+   "id": "profession-leatherworking.ap-kit",
+   "scope": "profession:leatherworking",
+   "tier": 201,
+   "chapter": "leatherworking-201-market",
+   "type": "scenario",
+   "stem": "A melee buyer wants an armor kit with attack power. Which new kit do you list for them?",
+   "choices": [
+    "Forceful Medium",
+    "Mystic Medium",
+    "Light"
+   ],
+   "answer": 0,
+   "explanation": "Forceful Medium adds attack power. Mystic Medium adds spell power and Light adds Stamina.",
+   "facts": [
+    "profession-leatherworking.stat-armor-kits"
+   ]
+  }
+ ]
+}

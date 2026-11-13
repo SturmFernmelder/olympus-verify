@@ -1,0 +1,328 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-tailoring",
+ "facts": [
+  {
+   "id": "profession-tailoring.reagent-bags",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-bag",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Reagent bags",
+   "value": "A new bag slot takes only reagent bags. Tailors make a 6-slot Linen Reagent Bag and later Woolen and Mageweave Reagent Bags.",
+   "sources": [
+    "g218-111",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.bigger-bags",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-bag",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Bigger bags",
+   "value": "Red Linen Bag is now 8 slots, Mooncloth Bag 18, Bottomless Bag 20 and the Warlock Felcloth soul bag 32. Mageweave (12) and Runecloth (14) bags are unchanged.",
+   "sources": [
+    "g218-111"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.dyes-in-recipes",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-bag",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Dyes in recipes",
+   "value": "The Runecloth Bag now needs 4 Magenta Dye and 2 Cerulean Dye, which alchemists make.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.gear-only-you-can-make",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-gear",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Gear only you can make",
+   "value": "Some crafts are Bind on Pickup for the tailor, such as Novice Ardent's Sash and Filigreed Flame Circlet.",
+   "sources": [
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.camp-objects",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Faction Banner at skill 20, Spinning Wheel at 140 (blueprint from the Unstable Sentinel in Dalaran) and Loom at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.skill-ranks",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.merchants-favor",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Merchant's Favor",
+   "value": "Favor recipes come from the Azeroth Commerce Authority at Three Corners in western Redridge, paid with Merchant's Favor from sealed Waylaid Crates.",
+   "sources": [
+    "g218-113"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.legacy",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each. Dedicated Study gives a daily skill-up.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.spell-school-sets",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-gear",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Spell-school sets",
+   "value": "The Azeroth Commerce Authority sells recipes for spell-school cloth sets for Merchant's Favor.",
+   "sources": [
+    "g218-111"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.faction-banner",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-camp",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Faction Banner",
+   "value": "The Banner's buff matches Divine Spirit, works only for your own faction and does not stack with the Priest buff.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.unknown-1",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Loom blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.unknown-2",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "The final list of Favor cloth sets and their prices.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.unknown-3",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the slightly shorter Mooncloth cooldown seen in beta data is in the live game.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.unknown-4",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether Tailoring gets embroidery; it appears only in unverified perk lists.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.professions-window",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-change",
+   "grade": "B",
+   "label": "Professions window",
+   "value": "Professions have their own window, opened with K. Recipe lists can be searched and filtered, and you can track a recipe in the objectives frame.",
+   "sources": [
+    "g218-95"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.camp-rules",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones. You sit at the camp for at least 1 minute to get them.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.campsite-size",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Campsite size",
+   "value": "A basic campsite holds 3 camp features, one per player. Cooking upgrades raise this to 5 or 10.",
+   "sources": [
+    "g218-116",
+    "g218-97",
+    "g218-24",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.earning-favor",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Earning Merchant's Favor",
+   "value": "Fill Waylaid Crates (found in the world or bought on the Auction House) and hand the sealed crates to Marcy Baker of the Azeroth Commerce Authority at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+   "sources": [
+    "g218-113"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.profession-title",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Profession title",
+   "value": "Crafters who reach 300 can earn a certification item that unlocks a profession title. Alliance players get it from the Azeroth Commerce Authority.",
+   "sources": [
+    "g218-25"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.vendor-prices",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-market",
+   "grade": "B",
+   "label": "Vendor prices",
+   "value": "Blizzard's beta notes say many profession-made items sell to vendors for less.",
+   "sources": [
+    "g218-49"
+   ],
+   "gameBuild": "WoW: Forever (Blizzard beta notes of 16 Oct 2026)"
+  }
+ ]
+}

@@ -9,7 +9,7 @@ for(let i=2;i<process.argv.length;i++){
   if(arg==='--output'&&output===undefined){output=process.argv[++i];if(!output)throw Error('--output requires a directory');}
   else if(arg==='--target')targets.push(process.argv[++i]);
   else if(arg==='--help'){
-    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation] [--target promotions]\nRuns tsc --noEmit and genuine local Workerd/D1 behavior once. Promotions traverses bounded real cursor requests in its own fixture. Whole-run cap:180 seconds; no retries.');
+    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation] [--target promotions]\nRuns tsc --noEmit and genuine local Workerd/D1 behavior once, including the ban rank-role removal fixture. Promotions traverses bounded real cursor requests in its own fixture and, on a separate 1,000-member database, asserts per-request physical D1 statement ceilings, sub-second reads and query plans (every full scan of any table must match the recorded allow-list in docs/release-qualification.md). Whole-run cap:180 seconds; no retries.');
     process.exit(0);
   }else throw Error('unknown qualification argument: '+arg);
 }
@@ -45,8 +45,10 @@ function stage(name,args){return new Promise((resolve,reject)=>{
   try{
     await stage('typecheck',[require.resolve('typescript/bin/tsc'),'--noEmit']);
     await stage('workerd',[path.join(__dirname,'qualification-workerd.cjs'),output,...targets.filter(target=>target!=='promotions')]);
+    // Owner ruling 12 Nov 2026: a ban removes every Olympus rank role at once. Always part of the default gate.
+    await stage('ban',[path.join(root,'tests/evergreen1112_ban_workerd_test.cjs')]);
     if(targets.includes('promotions'))await stage('promotions',[path.join(root,'tests/launch_roster_pacing271_workerd_test.cjs')]);
     complete=true;
   }catch(failure){error=String(failure);console.error(error);process.exitCode=1;}
-  finally{record('result.json',{complete,elapsedSeconds:(performance.now()-started)/1000,capSeconds:CAP_MS/1000,stages,targets:['baseline',...targets],error,runtimeStagePassed:['workerd',...(targets.includes('promotions')?['promotions']:[])].every(name=>stages.some(s=>s.name===name&&s.exitCode===0&&!s.timedOut&&!s.spawnError)),retries:0,providerCalls:0,scope:'Bounded source typecheck and genuine local behavior; live acceptance remains separate.'});}
+  finally{record('result.json',{complete,elapsedSeconds:(performance.now()-started)/1000,capSeconds:CAP_MS/1000,stages,targets:['baseline',...targets],error,runtimeStagePassed:['workerd','ban',...(targets.includes('promotions')?['promotions']:[])].every(name=>stages.some(s=>s.name===name&&s.exitCode===0&&!s.timedOut&&!s.spawnError)),retries:0,providerCalls:0,scope:'Bounded source typecheck and genuine local behavior; live acceptance remains separate.'});}
 })();

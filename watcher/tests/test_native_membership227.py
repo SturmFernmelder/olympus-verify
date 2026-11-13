@@ -336,9 +336,11 @@ class NativeMembershipTests(unittest.TestCase):
         self.w.render_queue = lambda *args: self.fail('Membership mode rendered an invitation queue')
         self.w.retry_queue_written = lambda: self.fail('Membership mode replayed an old acknowledgement')
         presence = {'presenceOnly': True, 'entries': []}
+        # Evergreen 12 Nov 2026 (CL2-184): .268 made launch-roster-display-v2 the protocol, and a v2 report always
+        # carries the separate review list. Without it the renderer correctly refuses the report and writes nothing.
         fresh = dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, fetchedAt=self.at, snapshotAt=self.at - 60,
-                     guild='Olympus', realm='Fixture Realm', verified=[],unknown=[],
-                     unverified=[dict(name=NAME, guid=GUID, pending=False)])
+                     guild='Olympus', realm='Fixture Realm', verified=[],
+                     unverified=[dict(name=NAME, guid=GUID, pending=False)], unknown=[])
         original_lists = None
         for response, report in ((presence, fresh), (presence, {**fresh, 'snapshotAt': self.at - 3601}),
                                  (presence, {**fresh, 'entries': []}),
@@ -410,7 +412,8 @@ class NativeMembershipTests(unittest.TestCase):
                 okay, _ = worker.call('GET', path, retries=1)
             self.assertEqual(okay, wanted)
             request = transport.call_args.args[0]
-            self.assertEqual(request.full_url, 'https://test.invalid'+watcher.STRICT_DISPLAY_PATH)
+            self.assertEqual(request.full_url, 'https://test.invalid' + watcher.STRICT_DISPLAY_PATH)
+            self.assertTrue(request.full_url.endswith('?keyVersion=launch-roster-display-v2'))
             self.assertIsNone(request.data)
 
 if __name__ == '__main__':

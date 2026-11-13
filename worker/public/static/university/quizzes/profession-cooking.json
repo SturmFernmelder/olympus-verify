@@ -1,0 +1,159 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-cooking",
+ "questions": [
+  {
+   "id": "profession-cooking.well-fed",
+   "scope": "profession:cooking",
+   "tier": 101,
+   "chapter": "cooking-101-changes",
+   "type": "mcq",
+   "stem": "Most buff foods give a Well Fed buff of what length?",
+   "choices": [
+    "15-minute",
+    "5-minute",
+    "1-hour"
+   ],
+   "answer": 0,
+   "explanation": "Most buff foods give a 15-minute Well Fed buff plus 5% more experience from kills. The 5-minute and 1-hour figures are camp-kit and camp-feature cooldowns.",
+   "facts": [
+    "profession-cooking.well-fed"
+   ],
+   "distractorFacts": [
+    "profession-cooking.camp-rules"
+   ]
+  },
+  {
+   "id": "profession-cooking.expert-kit",
+   "scope": "profession:cooking",
+   "tier": 101,
+   "chapter": "cooking-101-camp",
+   "type": "mcq",
+   "stem": "How many camp features does the Expert kit hold?",
+   "choices": [
+    "10",
+    "5",
+    "3"
+   ],
+   "answer": 0,
+   "explanation": "The Basic kit holds 3 camp features, the Journeyman kit 5 and the Expert kit 10.",
+   "facts": [
+    "profession-cooking.bigger-camps"
+   ]
+  },
+  {
+   "id": "profession-cooking.feature-cooldown",
+   "scope": "profession:cooking",
+   "tier": 101,
+   "chapter": "cooking-101-camp",
+   "type": "mcq",
+   "stem": "What cooldown do all camp features share?",
+   "choices": [
+    "1-hour cooldown",
+    "5-minute cooldown"
+   ],
+   "answer": 0,
+   "explanation": "All camp features share a 1-hour cooldown. The 5-minute cooldown is on the kits.",
+   "facts": [
+    "profession-cooking.camp-rules"
+   ]
+  },
+  {
+   "id": "profession-cooking.journeyman-campfire",
+   "scope": "profession:cooking",
+   "tier": 101,
+   "chapter": "cooking-101-leveling",
+   "type": "mcq",
+   "stem": "Who drops the Journeyman Campfire blueprint?",
+   "choices": [
+    "Lord Serpentis",
+    "Cookie"
+   ],
+   "answer": 0,
+   "explanation": "Lord Serpentis in Wailing Caverns drops the Journeyman Campfire blueprint. Cookie in the Deadmines drops the Cookie's Feast blueprint and Cookie's Stirring Rod.",
+   "facts": [
+    "profession-cooking.journeyman-campfire"
+   ],
+   "distractorFacts": [
+    "profession-cooking.cookie"
+   ]
+  },
+  {
+   "id": "profession-cooking.gourmand",
+   "scope": "profession:cooking",
+   "tier": 101,
+   "chapter": "cooking-101-leveling",
+   "type": "mcq",
+   "stem": "Which Legacy perk makes food buffs last longer?",
+   "choices": [
+    "Gourmand",
+    "Master Chef",
+    "Reagent Economy"
+   ],
+   "answer": 0,
+   "explanation": "Gourmand makes food buffs last longer. Master Chef gives extra cooking results, and Reagent Economy removes vendor reagents for tier-1 camp features.",
+   "facts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-cooking.sages-tea",
+   "scope": "profession:cooking",
+   "tier": 201,
+   "chapter": "cooking-201-raid",
+   "type": "mcq",
+   "stem": "What does Sage's Tea give?",
+   "choices": [
+    "+44 healing",
+    "+22 spell damage",
+    "+28 spell damage"
+   ],
+   "answer": 0,
+   "explanation": "Sage's Tea gives +44 healing. Nightfin Soup gives +22 spell damage, and Baked Salmon and Lobster Stew +28 spell damage.",
+   "facts": [
+    "profession-cooking.healer-food"
+   ],
+   "distractorFacts": [
+    "profession-cooking.reworked-raid-foods"
+   ]
+  },
+  {
+   "id": "profession-cooking.mightfish",
+   "scope": "profession:cooking",
+   "tier": 201,
+   "chapter": "cooking-201-raid",
+   "type": "mcq",
+   "stem": "What does Mightfish Steak give in Forever?",
+   "choices": [
+    "+40 attack power",
+    "+1% crit",
+    "+20 Strength"
+   ],
+   "answer": 0,
+   "explanation": "Mightfish Steak gives +40 attack power. Grilled Squid and Hot Smoked Bass give +1% crit, and Smoked Desert Dumplings keep +20 Strength.",
+   "facts": [
+    "profession-cooking.reworked-raid-foods"
+   ]
+  },
+  {
+   "id": "profession-cooking.iron-oven",
+   "scope": "profession:cooking",
+   "tier": 201,
+   "chapter": "cooking-201-gold",
+   "type": "scenario",
+   "stem": "Foods that need an Iron Oven may stay scarce. What Cooking skill does the Iron Oven itself need?",
+   "choices": [
+    "300",
+    "250"
+   ],
+   "answer": 0,
+   "explanation": "Icy Veins says the Iron Oven needs Cooking 300. Cooking 250 is the skill for Sage's Tea.",
+   "facts": [
+    "profession-cooking.iron-oven"
+   ],
+   "distractorFacts": [
+    "profession-cooking.healer-food"
+   ]
+  }
+ ]
+}

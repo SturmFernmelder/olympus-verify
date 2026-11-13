@@ -1,0 +1,89 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "race-night-elf",
+ "questions": [
+  {
+   "id": "race-night-elf.priest-spells",
+   "scope": "race:night-elf",
+   "tier": 101,
+   "chapter": "night-elf-101-class-quests",
+   "type": "mcq",
+   "stem": "Which racial spells does a Night Elf Priest unlock through class quests?",
+   "choices": [
+    "Starshards, Elune's Grace",
+    "Desperate Prayer, Chastise",
+    "Confounding Flash, Contingency Plan"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Starshards and Elune's Grace for Night Elves. Desperate Prayer and Chastise are Dwarf, Confounding Flash and Contingency Plan Gnome.",
+   "facts": [
+    "class-priest.quest-racial-priest-spells"
+   ]
+  },
+  {
+   "id": "race-night-elf.training-the-beast",
+   "scope": "race:night-elf",
+   "tier": 101,
+   "chapter": "night-elf-101-class-quests",
+   "type": "mcq",
+   "stem": "After the three Taming the Beast quests, which Hunter quest unlocks Beast Training, Feed Pet and Revive Pet?",
+   "choices": [
+    "Training the Beast",
+    "Taming the Beast"
+   ],
+   "answer": 0,
+   "explanation": "The trainer starts a race-specific chain of three Taming the Beast quests. Training the Beast follows and unlocks Beast Training, Feed Pet and Revive Pet.",
+   "facts": [
+    "class-hunter.quest-taming-the-beast"
+   ]
+  },
+  {
+   "id": "race-night-elf.cat-form",
+   "scope": "race:night-elf",
+   "tier": 101,
+   "chapter": "night-elf-101-druid-quests",
+   "type": "mcq",
+   "stem": "Which quest chain teaches Cat Form in Forever?",
+   "choices": [
+    "The Great Cat Spirit",
+    "Heeding the Call",
+    "A Lesson to Learn",
+    "Lessons Anew"
+   ],
+   "answer": 0,
+   "explanation": "Cat Form now comes from 'The Great Cat Spirit' at level 20. 'Heeding the Call' starts Bear Form, 'A Lesson to Learn' leads to Aquatic Form and 'Lessons Anew' teaches Cure Poison.",
+   "facts": [
+    "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
+    "class-druid.quest-aquatic-form-a-lesson-to-learn",
+    "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+   ]
+  },
+  {
+   "id": "race-night-elf.cure-poison-level",
+   "scope": "race:night-elf",
+   "tier": 101,
+   "chapter": "night-elf-101-druid-quests",
+   "type": "mcq",
+   "stem": "At what level does a Druid take 'Lessons Anew', the Cure Poison quest?",
+   "choices": [
+    "14",
+    "10",
+    "16",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "'Lessons Anew' is the level 14 Cure Poison quest. Bear Form starts at 10, the Aquatic Form trials at 16 and Cat Form at 20.",
+   "facts": [
+    "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
+    "class-druid.quest-aquatic-form-a-lesson-to-learn",
+    "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+   ]
+  }
+ ]
+}

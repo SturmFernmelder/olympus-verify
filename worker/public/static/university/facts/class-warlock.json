@@ -1,0 +1,1055 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-warlock",
+ "facts": [
+  {
+   "id": "class-warlock.change-1",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Affliction",
+   "value": "Affliction: Soul Harvest, Improved Drains, Pandemic, Malevolence and Wrack are new. Improved Curse of Weakness, Improved Drain Soul, Improved Drain Mana, Improved Curse of Exhaustion and Dark Pact are gone, and Improved Life Tap and Grim Reach only moved.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-affliction"
+  },
+  {
+   "id": "class-warlock.change-2",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Curse of Agony and Curse of Doom are now Banes, and each Warlock can keep only one Bane on a target. Curse of the Elements now covers all magic schools, and Curse of Shadows is gone.",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-3",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Firestone and Spellstone are weapon imbues that stack with other temporary enchants such as Wizard Oil, so your off-hand is free. Firestone adds Fire damage and spell crit; Spellstone adds Shadow damage and spell haste.",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-4",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Life Tap scales with Spirit. Drain Soul's chance to give a Soul Shard rises every tick until it is certain, and a non-trivial kill always gives one.",
+   "sources": [
+    "g218-78",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-5",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Demons scale from your own stats, Voidwalker Sacrifice scales with 10% of your spell healing, and your current pet is stunned while you summon another one.",
+   "sources": [
+    "g218-78",
+    "g218-17",
+    "g218-48"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-6",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Demonic Sacrifice moved to 11 points, lasts 2 hours and swapped its effects; Master Demonologist uses the opposite pairing. Demonic Pact at 31 points keeps the sacrifice when you summon a different demon, so both effects can be combined.",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-7",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Forever adds the Incubus, a male counterpart to the Succubus, and calls Enslave Demon 'Subjugate Demon'. Improved Shadow Bolt now boosts only your own Shadow damage, so it no longer helps the raid.",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-8",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healthstones: not confirmed by Blizzard",
+   "value": "Improved Healthstone is no longer a talent, and talentsforever's 30 Oct datamine shows Healthstones healing as if fully talented (Major Healthstone: 1,440). No Blizzard note confirms the healing yet.",
+   "sources": [
+    "g218-77",
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-9",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Demonology",
+   "value": "Demonology: Demonic Aegis, Demonic Energies, Decimation, Demonic Brand, Improved Felhunter, Demonic Knowledge and Demonic Pact are new. Improved Healthstone, Fel Stamina, Improved Subjugate Demon, Improved Firestone and Improved Spellstone are gone. Improved Voidwalker and Improved Sayaad are the only Warlock talents left unchanged.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-demonology"
+  },
+  {
+   "id": "class-warlock.change-10",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Destruction",
+   "value": "Destruction: Molten Skin, Bane of Havoc, Fire and Brimstone, Shadow and Flame and Incinerate are new. Improved Firebolt, Improved Lash of Pain, Devastation, Improved Immolate and Emberstorm are gone, and Destructive Reach only moved.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-destruction"
+  },
+  {
+   "id": "class-warlock.launch-raids",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40), all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview, 20 Oct 2026)"
+  },
+  {
+   "id": "class-warlock.quest-demon-quests-imp-voidwalker-succubus-incubus-felhunter",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Demon quests: Imp, Voidwalker, Succubus, Incubus, Felhunter (1, 10, 20, 20 and 30)",
+   "value": "Warcraft Tavern's Warlock leveling guide says each demon comes from a class quest, and demon trainers sell grimoires for pet abilities. Named quests: 'Devourer of Souls' (Succubus), 'What Is Love?' (Incubus, Stormwind) and 'Seeking Strahad' (Felhunter).",
+   "sources": [
+    "g218-80"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.quest-ritual-of-summoning-and-create-soulstone",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Ritual of Summoning and Create Soulstone (20 and 18)",
+   "value": "Datamined spellbook levels. The ritual needs you plus two helpers. Meeting stones reportedly do not summon in Forever, so this ritual is the only summon (Warcraft Tavern).",
+   "sources": [
+    "g218-77",
+    "g218-82"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.quest-inferno-infernal",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Inferno (Infernal) (50)",
+   "value": "Classic: a level-50 quest from Niby the Almighty in Felwood; collect three Flawless Fel Essences, then defeat a summoned Infernal. The Forever files list the spell at 50 with Classic text, but whether the quest is the same is unverified.",
+   "sources": [
+    "g218-83",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.quest-ritual-of-doom-doomguard",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Ritual of Doom (Doomguard) (60)",
+   "value": "Classic: learned at 60, uses a Demonic Figurine and needs you plus four party members. The Forever files list it at 60 with Classic text; how you unlock it there is unverified.",
+   "sources": [
+    "g218-84",
+    "g218-83",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.quest-felsteed-and-dreadsteed",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Felsteed and Dreadsteed (40 and 60 in Classic)",
+   "value": "Classic: the Felsteed comes from a level-40 quest (Strahad Farsan in Ratchet) and the Dreadsteed from a long level-60 chain that ends in a Dire Maul ritual. Neither spell is in the datamined Forever spellbook and no Forever source mentions them, so their status is unconfirmed.",
+   "sources": [
+    "g218-83",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.warlock-hit-from-talents",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Warlock hit from talents",
+   "value": "Suppression: up to 5% hit with all spells and up to 20% less threat",
+   "note": "Snapshot and datamine: 1% hit and 4% less threat per rank, 5 ranks. Classic's version only reduced resists on Affliction spells.",
+   "sources": [
+    "g218-78",
+    "g218-15",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Spell hit cap against raid bosses (Forever)",
+   "value": null,
+   "note": "No official Forever value has been published.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.classic-1-12-hit-cap-reference-only",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 hit cap (reference only)",
+   "value": "16% spell hit against bosses three levels higher and 3% against same-level targets; 1% of spells always miss",
+   "sources": [
+    "g218-57"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.shadow-crit",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Shadow crit",
+   "value": "Malevolence adds up to 5% Shadow crit, and Pandemic up to 100% more crit damage bonus on DoTs and drains",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.wrack-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Wrack",
+   "value": "Wrack channels for 6 sec, dealing 60 Shadow damage every 1 sec. While you channel it, your Siphon Life, Corruption and Bane of Agony on the target deal their periodic damage 100% faster. It requires Siphon Life.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-wrack"
+  },
+  {
+   "id": "class-warlock.spirit-and-mana",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Spirit and mana",
+   "value": "Life Tap now scales with Spirit",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.curse-of-the-elements",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Curse of the Elements",
+   "value": "Raises damage taken from all magic schools; Curse of Shadows is gone",
+   "note": "talentsforever: 4 ranks (levels 20, 30, 40 and 50); the top rank lowers magic resistances by 75 and adds 10% magic damage taken.",
+   "sources": [
+    "g218-78",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.one-bane-per-warlock",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "One Bane per Warlock",
+   "value": "Each Warlock can keep only one Bane on a target, and anything that worked with Curses also works with Banes",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.curse-plus-bane-untested",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Curse plus Bane (untested)",
+   "value": "Read literally, the tooltips allow one Curse and one Bane from the same Warlock on a target at once",
+   "note": "talentsforever datamine. Nobody has tested it, so agree curse duties before the pull.",
+   "sources": [
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.demonic-sacrifice-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Demonic Sacrifice",
+   "value": "Demonic Sacrifice gives an effect for 2 hours that depends on the demon. Imp: 15% more Shadow damage. Voidwalker: 2% of your total Mana every 4 sec. Succubus or Incubus: 15% more Fire damage. Felhunter: 3% of your total Health every 4 sec. Summoning any demon cancels the effect.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-sacrifice"
+  },
+  {
+   "id": "class-warlock.group-utility",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Group utility",
+   "value": "Healthstones (a heal off the potion cooldown), Soulstone, Ritual of Summoning, curses, Banish, the Imp's Blood Pact and Fire Shield, and the Felhunter's Spell Lock and Devour Magic",
+   "note": "Icy Veins and Warcraft Tavern Forever guides.",
+   "sources": [
+    "g218-54",
+    "g218-79"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.no-shadow-priest-boost",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "No Shadow Priest boost",
+   "value": "Shadow Weaving is personal now, so Shadow Priests no longer amplify Warlock Shadow damage",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.remove-lesser-curse",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-pvp",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Mages and Banes",
+   "value": "A Mage's Remove Lesser Curse also removes Banes.",
+   "note": "Icy Veins Forever, as the Mage guide cites it.",
+   "sources": [
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.weapon-imbue",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Weapon imbue",
+   "value": "Spellstone adds Shadow damage and spell haste and stacks with Wizard Oil",
+   "note": "talentsforever's datamined top rank: +2% haste and up to +21 Shadow damage for 2 hours.",
+   "sources": [
+    "g218-78",
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.classic-1-12-caster-kit-reference",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Runn Tum Tuber Surprise",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.forever-alchemy",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Healing potions moved to First Aid, new elixirs include Minor Arcane Elixir, and flasks are brewed at a portable Alchemy Laboratory camp object",
+   "note": "Warcraft Tavern.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.healthstones",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healthstones",
+   "value": "Heal as if fully talented in the files: the Major Healthstone heals 1,440 (Classic untalented: 1,200)",
+   "note": "talentsforever datamine.",
+   "sources": [
+    "g218-77"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.demonic-knowledge-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Demonic Knowledge",
+   "value": "Demonic Knowledge raises your spell damage and your demon's by up to 33% of your level for one point and up to 100% at 3/3, while a demon is summoned.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-knowledge"
+  },
+  {
+   "id": "class-warlock.sacrifice-and-pact",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Sacrifice and Pact",
+   "value": "Demonic Sacrifice lasts 2 hours, and Demonic Pact keeps it when you summon a different demon, so both effects can be combined for the first time",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.master-demonologist-pairing",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Master Demonologist pairing",
+   "value": "Imp: Fire damage. Voidwalker: less physical damage taken. Succubus or Incubus: Shadow damage. Felhunter: less magic damage taken",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.hit-for-demonology-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Hit for Demonology",
+   "value": "Demonology has no hit talent; Suppression sits in Affliction row 1 (1% hit at rank 1, 5 ranks).",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-suppression"
+  },
+  {
+   "id": "class-warlock.decimation-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Decimation",
+   "value": "Decimation cuts Soul Fire's cooldown by 45% at rank 1. After you cast Shadow Bolt or Searing Pain on an enemy below 35% health, Soul Fire casts 20% faster and costs no Soul Shard for 10 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-decimation"
+  },
+  {
+   "id": "class-warlock.pet-tanking-in-raids",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pet tanking in raids",
+   "value": "Unproven. Warcraft Tavern says Demonic Brand makes it achievable; Blizzard only says Demonology keeps enemies focused on the pet",
+   "sources": [
+    "g218-81",
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.demonic-brand-threat-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Demonic Brand threat",
+   "value": "With one point in Demonic Brand, Searing Pain generates 17% less threat, and Shadow damage from the brand carries high threat.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-brand"
+  },
+  {
+   "id": "class-warlock.pet-utility",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pet utility",
+   "value": "Imp: Blood Pact and Fire Shield. Felhunter: Spell Lock and Devour Magic",
+   "note": "Icy Veins and Warcraft Tavern Forever guides.",
+   "sources": [
+    "g218-54",
+    "g218-79"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.ritual-of-summoning",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Ritual of Summoning",
+   "value": "Meeting stones reportedly do not summon, so the Warlock ritual (you plus two helpers) is the only summon",
+   "note": "Warcraft Tavern, based on the BlizzCon demo.",
+   "sources": [
+    "g218-82"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.onyxia",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia",
+   "value": "Every raider carries their own Drakefire Amulet, and Blizzard asks raids to build fire resistance before the fight",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.weapon-imbue-2",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Weapon imbue",
+   "value": "Firestone (Fire damage and spell crit) or Spellstone (Shadow damage and spell haste); both stack with Wizard Oil",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.classic-1-12-caster-kit-reference-2",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Sagefish Delight",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.camp-buffs",
+   "scope": {
+    "class": "warlock",
+    "spec": "demonology"
+   },
+   "topic": "demonology-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones; you sit at the camp for at least 1 minute",
+   "note": "Warcraft Tavern. Whether they last into raids is not stated.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.incinerate",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Incinerate",
+   "value": "31-point talent: 2.5 sec cast, 25% more damage on Immolated targets",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.cast-speed-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Cast speed: Bane",
+   "value": "Bane: Shadow Bolt, Immolate and Incinerate cast 0.1 sec faster and Soul Fire 0.4 sec faster at rank 1, up to 0.5 sec and 2 sec at 5/5.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-bane"
+  },
+  {
+   "id": "class-warlock.destruction-damage-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Agonizing Flames",
+   "value": "Agonizing Flames adds 3% damage to all your Destruction spells and 3% crit chance to Searing Pain for one point, and 10% each at 3/3.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-agonizing-flames"
+  },
+  {
+   "id": "class-warlock.hit-for-destruction-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Hit for Destruction",
+   "value": "Destruction has no hit talent; Suppression (Affliction row 1) is the Warlock's hit source.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-suppression"
+  },
+  {
+   "id": "class-warlock.classic-1-12-hit-cap-reference-only-2",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 hit cap (reference only)",
+   "value": "16% spell hit against bosses three levels higher; 1% of spells always miss",
+   "sources": [
+    "g218-57"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.improved-shadow-bolt",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Improved Shadow Bolt",
+   "value": "Now boosts only your own Shadow damage, so it no longer helps the raid",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.bane-of-havoc",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bane of Havoc",
+   "value": "One target for 5 min takes 15% of the damage you deal to other targets, which pays off on fights with more than one enemy",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.mana-snapshot",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Mana: Cataclysm",
+   "value": "Cataclysm makes your Destruction spells cost 3% less mana for one point and 10% less at 3/3.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-cataclysm"
+  },
+  {
+   "id": "class-warlock.curse-of-the-elements-files",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Curse of the Elements (files)",
+   "value": "4 ranks; the top rank lowers magic resistances by 75 and adds 10% magic damage taken from all schools",
+   "note": "talentsforever datamine; Blizzard confirms it now covers all magic schools.",
+   "sources": [
+    "g218-77",
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.healthstones-and-soulstone",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healthstones and Soulstone",
+   "value": "Healthstones heal outside the potion cooldown, and the Soulstone gives a combat resurrection",
+   "note": "Icy Veins and Warcraft Tavern Forever guides.",
+   "sources": [
+    "g218-54",
+    "g218-79"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.weapon-imbue-3",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Weapon imbue",
+   "value": "Firestone (Fire damage and spell crit) matches Incinerate and Conflagrate; Spellstone (Shadow damage and spell haste) matches Shadow Bolt; both stack with Wizard Oil",
+   "sources": [
+    "g218-78"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.classic-1-12-caster-kit-reference-3",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Runn Tum Tuber Surprise, Sagefish Delight",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.classic-1-12-fire-resistance-sources-reference",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 fire resistance sources (reference)",
+   "value": "Onyxia Scale Cloak (+16), Drakefire Amulet (+15), Juju Ember (+15 for 10 min), Greater Fire Resistance cloak enchant (+15), fire protection potions",
+   "sources": [
+    "g218-30"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warlock.world-buffs-in-raids",
+   "scope": {
+    "class": "warlock",
+    "spec": "destruction"
+   },
+   "topic": "destruction-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Rallying Cry of the Dragonslayer is marked 'No effect while in a raid instance' in Forever data",
+   "note": "Wowhead Forever database.",
+   "sources": [
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

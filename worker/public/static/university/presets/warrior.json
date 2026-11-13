@@ -1,0 +1,175 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "warrior-arms-raid-60",
+   "classId": "warrior",
+   "specId": "arms",
+   "label": "raid (two-hander)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warrior.60.30323213032215201550500000120000000000000000000000000",
+   "points": 51,
+   "treePoints": [
+    33,
+    18,
+    0
+   ],
+   "why": [
+    "Deep Wounds turns your crits into bleeds and Impale raises your abilities’ critical damage. Bloodthrill (2/2) gives main-hand swings on your Rend target a 20% chance to enable Overpower, and Improved Overpower makes it likelier to crit.",
+    "Improved Tactical Mastery (3/3) keeps up to 15 more Rage when you change stances, Anger Management adds Rage in combat, and Weaponmaster and Two-Handed Weapon Specialization reward your two-hander.",
+    "The points freed by the shorter Improved Tactical Mastery and Bloodthrill go to Improved Charge, Reckless Swings (your next 4 melee attacks generate 5 more Rage) and Improved Execute."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-arms-pvp-60",
+   "classId": "warrior",
+   "specId": "arms",
+   "label": "battlegrounds",
+   "context": "pvp",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warrior.60.05323013132015231050501000000000000005000000000000000",
+   "points": 51,
+   "treePoints": [
+    35,
+    11,
+    5
+   ],
+   "why": [
+    "Mortal Strike’s healing cut, Improved Hamstring’s 15% chance to immobilize and Spearing Strike, which dismounts mounted targets, are the reasons to play Arms in PvP.",
+    "Improved Charge adds 6 Rage to your opener, Piercing Howl dazes every enemy within 10 yards, and Iron Will shortens stuns and fears on you by 15%.",
+    "Improved Tactical Mastery now stops at three ranks, so its two spare points complete Deflection for 5% parry."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-arms-leveling-30",
+   "classId": "warrior",
+   "specId": "arms",
+   "label": "leveling to 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warrior.30.30323013032100000000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Improved Charge adds 6 Rage on the opener, Anger Management adds Rage in combat and slows its loss between pulls, and Improved Tactical Mastery keeps up to 15 more Rage when you swap stances.",
+    "Improved Rend opens Deep Wounds, which turns your crits into bleeds, Impale adds critical damage, and Two-Handed Weapon Specialization adds damage with your two-hander.",
+    "With Improved Tactical Mastery at three ranks, Impale fills row 4 so the 21st point can still open Bloodthrill at level 30."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-fury-raid-60",
+   "classId": "warrior",
+   "specId": "fury",
+   "label": "raid (dual-wield)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warrior.60.32023010000000000550530055122100231000000000000000000",
+   "points": 51,
+   "treePoints": [
+    11,
+    40,
+    0
+   ],
+   "why": [
+    "Dual Wield Specialization, Furious Precision and Flurry (3/3: 30% faster swings for 3 attacks after a melee crit) keep both weapons busy, with Cruelty and Unbridled Wrath for crit and Rage.",
+    "Death Wish leads to Bloodthirst, and Flurry no longer needs Death Wish. Reckless Swings and Improved Whirlwind, new in Fury, add Rage and a faster, harder Whirlwind.",
+    "Eleven Arms points take Improved Heroic Strike, Deflection, Improved Charge, Improved Tactical Mastery and Anger Management. Raging Blows is no longer in the tree."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-fury-leveling-30",
+   "classId": "warrior",
+   "specId": "fury",
+   "label": "leveling to 30 (dual-wield)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warrior.30.00000000000000000050530205000100000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Cruelty and Unbridled Wrath come first for melee crit and a chance of extra Rage on every weapon hit.",
+    "Furious Precision and Dual Wield Specialization make the off-hand land more often and hit harder, and Blood Craze heals you after you take a crit or a big hit.",
+    "Death Wish at level 30 helps on tough pulls and later leads to Bloodthirst. Flurry no longer depends on it."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-protection-raid-60",
+   "classId": "warrior",
+   "specId": "protection",
+   "label": "raid tank",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warrior.60.05023010000000000000000000000000000250533120331021351",
+   "points": 51,
+   "treePoints": [
+    11,
+    0,
+    40
+   ],
+   "why": [
+    "Shield Specialization and Master of Defense turn blocks, dodges and parries into Rage, Deflection adds 5% parry to feed that, and Anticipation adds Defense.",
+    "Improved Thunder Clap, Improved Sunder Armor and Focused Rage make threat abilities cheaper, Defiance and Bastion add threat and damage while you wear a shield, and Vanguard lets you Charge in Defensive Stance.",
+    "Improved Tactical Mastery now has three ranks, so two Arms points go to Improved Charge and Anger Management stays in reach."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warrior-protection-dungeon-30",
+   "classId": "warrior",
+   "specId": "protection",
+   "label": "dungeon tank to 30",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warrior.30.00000000000000000000000000000000000250303020321000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Shield Specialization and Master of Defense give Rage when you block, dodge or parry, and Improved Bloodrage raises the Rage from Bloodrage (25% at rank 1).",
+    "Improved Thunder Clap and Defiance help you hold packs in early dungeons, and Improved Sunder Armor makes Sunder cheaper.",
+    "Vanguard lets you open with Charge without leaving Defensive Stance."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

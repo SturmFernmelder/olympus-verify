@@ -1,0 +1,409 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "cooking",
+ "name": "Cooking",
+ "type": "secondary",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[9] (2026-11-04), rewritten into the course format on 2026-11-12",
+ "factFiles": [
+  "common",
+  "profession-cooking"
+ ],
+ "quizFiles": [
+  "profession-cooking"
+ ],
+ "pairsWith": [
+  "fishing"
+ ],
+ "overview": {
+  "lead": "Cooking makes the food that buffs raiders and adds experience while you level, and the Basic Campfire it lights opens a campsite.",
+  "points": [
+   {
+    "text": "More Cooking skill unlocks bigger camp kits that hold more camp features.",
+    "facts": [
+     "profession-cooking.bigger-camps"
+    ]
+   },
+   {
+    "text": "Many raid foods were reworked for Forever, and several of them need an Iron Oven.",
+    "facts": [
+     "profession-cooking.reworked-raid-foods",
+     "profession-cooking.iron-oven"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-cooking.food-gives-xp",
+   "profession-cooking.campfire"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "guides218.json professions[9].overview[0]",
+   "text": "Every character can learn all three secondary professions next to two primary ones.",
+   "reason": "No reviewed fact holds the profession-slot rule."
+  },
+  {
+   "from": "guides218.json professions[9].overview[1]",
+   "text": "Warcraft Tavern suggests Cooking and Fishing for everyone.",
+   "reason": "No reviewed fact holds this advice."
+  },
+  {
+   "from": "guides218.json professions[9].goldNote",
+   "text": "Camp feature items can be traded or sold on the Auction House, though placing one needs the profession skill.",
+   "reason": "No reviewed fact holds the trading rule for camp items."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What Forever changes for Cooking, how camps work, and how to level it.",
+   "chapters": [
+    {
+     "id": "cooking-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for Cooking",
+     "theory": [
+      "profession-cooking.food-gives-xp",
+      "profession-cooking.well-fed",
+      "profession-cooking.unlocking-camps"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Eat crafted food while you level. Blizzard says it now gives a small experience bonus as well as stats.",
+        "facts": [
+         "profession-cooking.food-gives-xp"
+        ]
+       },
+       {
+        "text": "Most buff foods give a 15-minute Well Fed buff plus 5% more experience from kills.",
+        "facts": [
+         "profession-cooking.well-fed"
+        ]
+       },
+       {
+        "text": "Finish the short questline around level 5 that unlocks camping.",
+        "facts": [
+         "profession-cooking.unlocking-camps"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Treating Cooking as a raid-only profession.",
+        "fix": "Crafted food gives a small experience bonus, and most buff foods add 5% more experience from kills, so it helps while you level too.",
+        "facts": [
+         "profession-cooking.food-gives-xp",
+         "profession-cooking.well-fed"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "cooking-101-camp",
+     "section": "overview",
+     "title": "Campfires and camp rules",
+     "theory": [
+      "profession-cooking.campfire",
+      "profession-cooking.bigger-camps",
+      "profession-cooking.camp-rules"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Light a Basic Campfire. It creates a campsite with vendors, repairs, profession workstations and one-hour buffs you get by sitting at the fire.",
+        "facts": [
+         "profession-cooking.campfire"
+        ]
+       },
+       {
+        "text": "The Basic kit (Cooking 1) holds 3 camp features, the Journeyman kit 5 and the Expert kit 10. Each player can add one feature per camp.",
+        "facts": [
+         "profession-cooking.bigger-camps"
+        ]
+       },
+       {
+        "text": "Kits have a 5-minute cooldown, and all camp features share a 1-hour cooldown. Sit or craft nearby for about a minute and the benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules"
+        ]
+       },
+       {
+        "text": "The first camp objects come from trainers or NPCs at skill 20. Advanced ones come from blueprints that drop from dungeon bosses.",
+        "facts": [
+         "profession-cooking.campfire"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Trying to pitch a camp in a major city.",
+        "fix": "Camps cannot be placed in major cities.",
+        "facts": [
+         "profession-cooking.camp-rules"
+        ]
+       },
+       {
+        "mistake": "Expecting a camp buff to stack with the class buff it matches.",
+        "fix": "Camp buffs do not stack with class buffs.",
+        "facts": [
+         "profession-cooking.campfire"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "cooking-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, blueprints and recipes",
+     "theory": [
+      "profession-cooking.skill-ranks",
+      "profession-cooking.journeyman-campfire",
+      "profession-cooking.cookie",
+      "profession-cooking.favor-recipes",
+      "profession-cooking.legacy-perks"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Cooking follows the same rank ladder as the other professions, up to 300. Artisan Cooking comes from the Clamlette Surprise quest at level 35.",
+        "facts": [
+         "profession-cooking.skill-ranks"
+        ]
+       },
+       {
+        "text": "Get the Journeyman Campfire blueprint from Lord Serpentis in Wailing Caverns.",
+        "facts": [
+         "profession-cooking.journeyman-campfire"
+        ]
+       },
+       {
+        "text": "Kill Cookie in the Deadmines for the skill-140 Cookie's Feast blueprint and Cookie's Stirring Rod, a wand that gives +25% cooking speed.",
+        "facts": [
+         "profession-cooking.cookie"
+        ]
+       },
+       {
+        "text": "Buy Cooking recipes from the Azeroth Commerce Authority with Merchant's Favor.",
+        "facts": [
+         "profession-cooking.favor-recipes"
+        ]
+       },
+       {
+        "text": "Four Legacy perks help a cook: Master Chef gives extra cooking results, Gourmand makes food buffs last longer, the Field Guide perk shortens the camp-feature cooldown and Reagent Economy removes vendor reagents for tier-1 camp features.",
+        "facts": [
+         "profession-cooking.legacy-perks"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Looking for an Artisan Cooking trainer.",
+        "fix": "Artisan Cooking comes from the Clamlette Surprise quest at level 35.",
+        "facts": [
+         "profession-cooking.skill-ranks"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Cooking makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "The reworked raid foods, the Iron Oven, and what sells.",
+   "chapters": [
+    {
+     "id": "cooking-201-raid",
+     "section": "consumables",
+     "title": "Raid foods",
+     "theory": [
+      "profession-cooking.reworked-raid-foods",
+      "profession-cooking.iron-oven",
+      "profession-cooking.healer-food"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "For spell damage, cook Nightfin Soup (+22) or Baked Salmon and Lobster Stew (+28).",
+        "facts": [
+         "profession-cooking.reworked-raid-foods"
+        ]
+       },
+       {
+        "text": "Grilled Squid and Hot Smoked Bass give +1% crit, Mightfish Steak +40 attack power, Smoked Desert Dumplings +20 Strength and Dirge's Chops +25 Stamina.",
+        "facts": [
+         "profession-cooking.reworked-raid-foods"
+        ]
+       },
+       {
+        "text": "For healers, cook Sage's Tea: +44 healing, at Cooking 250.",
+        "facts": [
+         "profession-cooking.healer-food"
+        ]
+       },
+       {
+        "text": "Plan on an Iron Oven. Icy Veins says Dirge's Chops, Mightfish Steak and Grilled Squid need one, and it needs Cooking 300.",
+        "facts": [
+         "profession-cooking.iron-oven"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Expecting to cook Mightfish Steak at a Basic Campfire.",
+        "fix": "Icy Veins says it also needs an Iron Oven, a camp object that needs Cooking 300.",
+        "facts": [
+         "profession-cooking.iron-oven"
+        ]
+       },
+       {
+        "mistake": "Assuming every raid food changed.",
+        "fix": "Smoked Desert Dumplings (+20 Strength) and Dirge's Chops (+25 Stamina) keep their stats.",
+        "facts": [
+         "profession-cooking.reworked-raid-foods"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "cooking-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-cooking.iron-oven",
+      "profession-cooking.food-gives-xp",
+      "profession-cooking.well-fed"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Foods that need an Iron Oven, such as Dirge's Chops, Mightfish Steak and Grilled Squid, may stay scarce while few cooks have one. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-cooking.iron-oven"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Stocking only raid food.",
+        "fix": "Crafted food also gives a small experience bonus, and most buff foods add 5% more experience from kills, so players who are leveling buy food too.",
+        "facts": [
+         "profession-cooking.food-gives-xp",
+         "profession-cooking.well-fed"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 track covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Cooking makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skill routes, blueprint sources and most camp numbers need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "cooking-301-routes",
+     "section": "overview",
+     "title": "Leveling routes and open questions",
+     "theory": [
+      "profession-cooking.unknown-1",
+      "profession-cooking.unknown-2",
+      "profession-cooking.unknown-3",
+      "profession-cooking.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route or recipe-source list exists for Forever yet. Where the Iron Oven and Expert Campfire blueprints drop, the skill each bigger kit needs, whether camps work in dungeons and raids, most camp buff values and the final Favor recipe list are also open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Cooking makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    }
+   ]
+  }
+ }
+}

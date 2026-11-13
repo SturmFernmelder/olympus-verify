@@ -1,4 +1,4 @@
-/** Class-bound declared specialization from the pinned talent trees (260cf99b52db).
+/** Class-bound declared specialization from the pinned talent trees (260cf99b52db; the tree names are unchanged in 02e1e101d1a5).
  * Self-reported preference, never a verified build, roster rank or entitlement. */
 export const APPLICATION_SPECS_219: Readonly<Record<string,readonly {key:string;label:string}[]>> = Object.freeze({
   "warrior": [

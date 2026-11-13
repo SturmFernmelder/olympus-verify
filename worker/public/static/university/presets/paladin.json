@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "paladin-holy-raid-60",
+   "classId": "paladin",
+   "specId": "holy",
+   "label": "raid healer (32/14/5)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.paladin.60.503202150221012515012213000000000005000000000000000",
+   "points": 51,
+   "treePoints": [
+    32,
+    14,
+    5
+   ],
+   "why": [
+    "Holy to Light’s Vigil: Healing Light, Illumination, Infusion of Light and Holy Power, with Holy Shock and Boundless Light, and Oath of Light on your main tank.",
+    "Spiritual Focus (5/5) protects your heals from pushback, Reverence (2/2) keeps 30% of your mana regeneration while casting, and Divine Precision adds Holy spell hit and shorter silences.",
+    "Divine Intellect moved to Protection, so fourteen points there take it with Guardian’s Favor, Sacred Duty, one point of Precision, Templar’s Bulwark and Improved Hammer of Justice. Benediction in Retribution trims the cost of instant spells."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "paladin-holy-dungeon-30",
+   "classId": "paladin",
+   "specId": "holy",
+   "label": "dungeon healer (level 30)",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.paladin.30.503200150220010000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Spiritual Focus (5/5) now fills row 1 and protects Holy Light and Flash of Light from pushback. Healing Light adds 12% healing, and Reverence keeps 30% of your mana regeneration while casting.",
+    "Divine Favor makes one heal a guaranteed critical effect, and Illumination refunds mana after critical heals.",
+    "Holy Shock arrives at 21 points. Infusion of Light speeds up Holy Light after Holy Shock or Flash of Light crits, and Divine Precision fills row 4."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "paladin-protection-raid-60",
+   "classId": "paladin",
+   "specId": "protection",
+   "label": "raid tank (0/46/5)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.paladin.60.000000000000000005530213251351153105000000000000000",
+   "points": 51,
+   "treePoints": [
+    0,
+    46,
+    5
+   ],
+   "why": [
+    "Redoubt, Shield Specialization (2/2: 30% more shield block and mana back on blocks) and Holy Shield lead to Shieldsworn, which makes Holy Strike trigger your shield talents and lets you block spells.",
+    "Improved Righteous Fury, Anticipation, Toughness and Iron Creed reduce the damage you take, Templar’s Bulwark is an absorb for emergencies, and Reckoning and Swift Judgement add attacks and a second Judgement.",
+    "Improved Seal of Fury and One-Handed Weapon Specialization were removed, so those points went to Divine Intellect, Shieldsworn and one point of Stoicism. Benediction trims the cost of your instant spells."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "paladin-protection-dungeon-30",
+   "classId": "paladin",
+   "specId": "protection",
+   "label": "dungeon tank (level 30)",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.paladin.30.000000000000000000530212201320000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Redoubt and Shield Specialization (2/2) raise your block and return mana on blocks, and Templar’s Bulwark is an absorb for emergencies.",
+    "Precision adds hit, Sacred Duty shortens Divine Protection and Templar’s Bulwark, and Improved Hammer of Justice brings the stun back sooner.",
+    "Improved Righteous Fury cuts the damage you take while Righteous Fury (trained at level 10) is active, Swift Judgement adds a second Judgement, and Anticipation adds Defense."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "paladin-retribution-raid-60",
+   "classId": "paladin",
+   "specId": "retribution",
+   "label": "raid (10/8/33)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.paladin.60.050050000000000005030000000000000005233301201301351",
+   "points": 51,
+   "treePoints": [
+    10,
+    8,
+    33
+   ],
+   "why": [
+    "Seal of Command leads to Vengeance, and Repentance leads to Unsealed Wrath, which stores your active Seal on melee hits and releases the stacks when you attack with a different Seal.",
+    "Conviction (3/3) adds 6% crit, Two-Handed Weapon Specialization adds 6% Physical and Holy damage and 20% less threat, and Champion of the Light turns up to 60% of your Intellect into spell damage.",
+    "Divine Strength and Improved Seals (5/5) in Holy, plus Divine Intellect and Precision in Protection, add Strength, Seal damage, Intellect and 3% hit. Instrument of Law and Twist of Light were removed."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "paladin-retribution-leveling-30",
+   "classId": "paladin",
+   "specId": "retribution",
+   "label": "leveling (level 30)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.paladin.30.000000000000000000000000000000000005230301201300100",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Benediction makes instant spells and Seals cheaper, Improved Judgement shortens Judgement, and Conviction (3/3) adds 6% crit.",
+    "Seal of Command and Sacred Arbiter, a stronger Holy Strike that refreshes your Judgements, are the damage core. Vindication weakens what hits you, and Pursuit of Justice speeds you between quests.",
+    "Holy Conduit moved to Holy, so Two-Handed Weapon Specialization goes to 3/3 for Physical and Holy damage, and the 21st point starts Vengeance."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

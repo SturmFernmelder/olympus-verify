@@ -1,7 +1,7 @@
 /** Member-site delivery boundary (.154). No application source or guild payload is sent before Discord sign-in. */
 import type { Env } from './env';
-import { currentUser, originalUserSession, securityHeaders } from './site-core';
-import { stillMember } from './site-api';
+import { currentUser, originalUserSession, rememberGateUser, securityHeaders } from './site-core';
+import { membershipRecheckDue, stillMember } from './site-api';
 import { privacyBoundSiteEnv } from './privacy-serving-authority';
 import { loginHeaders, policyShell } from './policy-render';
 import { errorRef } from './log';
@@ -31,7 +31,9 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
   const note = flash && Object.hasOwn(FLASH, flash) ? `<p role="status">${FLASH[flash]}${privacyLink}</p>` : '';
   // Direct owner answer, 23 Oct 2026: approved .173 stills remain the default.
   // The optional animation is a client-model render, not a publisher-issued video.
-  const still = `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
+  // Owner ruling of 13 Nov 2026 (CL2-074): browsers that support WebP load the same stills as WebP copies
+  // (quality 0.82, same pixel size); the PNG sources stay as the fallback, with the same media, sizes and alt text.
+  const still = `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.webp" type="image/webp" width="852" height="1847"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><source srcset="/static/wow/login/olympus-dark-portal-wide.webp" type="image/webp" width="1916" height="821"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
   const motion = animation && request.headers.get('Save-Data')?.trim().toLowerCase() !== 'on'
     ? `<details class="login-motion" open><summary><span class="motion-hide">Hide animated background</span><span class="motion-show">Show animated background</span></summary><video class="login-portal-video" aria-hidden="true" width="960" height="540" autoplay loop muted playsinline preload="metadata"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video></details>` : '';
   const login = siteLoginLocation(siteEntryReturn(new URL(request.url)));
@@ -77,8 +79,11 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   if (user && request.method === 'GET' && (path === '/api/me' || path === '/api/application' || path === '/api/community/context')) return null;
   if (user && user.in_server === 1 && !user.denied) {
     try {
+      // Evergreen 12 Nov 2026 (CL2-073): when no Discord check is due nothing rewrites the row, so the page may reuse it.
+      const unchanged = !membershipRecheckDue(user);
       const held = await stillMember(privacyBoundSiteEnv(env, originalUserSession(user)), user);
       if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
+      if (unchanged) rememberGateUser(request, user);
       return null;
     } catch (e) {
       console.error('site access unavailable', 'membership', errorRef(e));
@@ -96,6 +101,11 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   const body = api ? { error, message: user ? 'This account cannot enter the guild site. Your own account-data controls remain available.' : 'Sign in with Discord to enter Olympus.' } : { error };
   return new Response(JSON.stringify(body), { status, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
 }
+
+/** The routes memberSiteGate lets through before it admits a member (sign-in, privacy rights, own-data export and
+ * erasure, sign-out). Their responses keep their headers exactly (CL2-076, owner ruling of 13 Nov 2026). */
+export const memberGateExempt = (path: string): boolean => AUTH_PATHS.has(path) || PRIVACY_PATHS.has(path) ||
+  path === '/api/me/export' || path === '/api/me/erasure/status' || path === '/api/me/erasure' || path === '/auth/logout';
 
 export function privateSiteAsset(response: Response): Response {
   const headers = securityHeaders(new Headers(response.headers));

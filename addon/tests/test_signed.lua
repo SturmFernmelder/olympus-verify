@@ -11,6 +11,7 @@ local function check(label, got, want)
   print(string.format("%s %-78s %s", ok and "ok  " or "FAIL", label, ok and "" or ("got " .. tostring(got) .. " want " .. tostring(want))))
 end
 local function lastPrint(pat) for i = #PRINTS, 1, -1 do if PRINTS[i]:find(pat, 1, true) then return PRINTS[i] end end end
+-- Refusal assertions below inspect emitted replies, including their supported next steps.
 
 -- what the client does with chat logging, and with timers (fired by hand)
 TOGGLES, TIMERS = {}, {}
@@ -91,7 +92,8 @@ local bad = string.sub(ticket, 1, 3) .. (string.sub(ticket, 4, 4) == "A" and "B"
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. bad, "Guess Work")
 check("a wrong mac is refused", entry("Guess Work"), nil)
 check("  with invalid/expired refusal and current fresh-code instructions", (whispersTo(w1, "Guess Work")[1] or ""):find("invalid or expired", 1, true) ~= nil
-  and (whispersTo(w1, "Guess Work")[1] or ""):find("Get my code",1,true) ~= nil, true)
+  and (whispersTo(w1, "Guess Work")[1] or ""):find("Get my code in Discord",1,true) ~= nil
+  and (whispersTo(w1, "Guess Work")[1] or ""):find("/verify-status",1,true) ~= nil, true)
 
 print("\n== no automatic chat-log flush (0.6.3: measured, it never wrote the file early) ==")
 local function toggles() local t = {} for i, v in ipairs(TOGGLES) do t[i] = tostring(v) end return table.concat(t, ",") end
@@ -186,7 +188,8 @@ check("a phone-capitalised !Verify, with a full stop after the code, works", ent
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t2, "Second Sid")
 check("the same request code from another character is refused", entry("Second Sid"), nil)
 check("  and the claimed-code refusal has current fresh-code instructions", (whispersTo(w9, "Second Sid")[1] or ""):find("was used by another character", 1, true) ~= nil
-  and (whispersTo(w9, "Second Sid")[1] or ""):find("Get my code",1,true) ~= nil, true)
+  and (whispersTo(w9, "Second Sid")[1] or ""):find("Get my code in Discord",1,true) ~= nil
+  and (whispersTo(w9, "Second Sid")[1] or ""):find("/verify-status",1,true) ~= nil, true)
 local evSid = OlympusVerifyDB.events[#OlympusVerifyDB.events]
 check("  recorded as not ok, so the watcher relays nothing from it", evSid.name == "Second Sid" and evSid.ok == false and evSid.kind == "ticket", true)
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t2, "First Finn")
@@ -200,7 +203,8 @@ onEvent(frame, "CHAT_MSG_WHISPER", "!verify " .. t3 .. "1", "Extra Digit")
 onEvent(frame, "CHAT_MSG_WHISPER", "!verify 0" .. string.sub(t3, 1, 6), "Leading Zero")
 check("a code with anything added to it is not a code (the watcher agrees)", entry("Extra Digit") == nil and entry("Leading Zero") == nil, true)
 check("  and is answered as invalid/expired with current fresh-code instructions", (whispersTo(w10, "Extra Digit")[1] or ""):find("invalid or expired", 1, true) ~= nil
-  and (whispersTo(w10, "Extra Digit")[1] or ""):find("Get my code",1,true) ~= nil, true)
+  and (whispersTo(w10, "Extra Digit")[1] or ""):find("Get my code in Discord",1,true) ~= nil
+  and (whispersTo(w10, "Extra Digit")[1] or ""):find("/verify-status",1,true) ~= nil, true)
 check("the library's rule matches the watcher's", L.strictCode("k7qystg") == "K7QYSTG" and L.strictCode("K7QYSTG1") == nil and L.strictCode("0K7QYST") == nil and L.strictCode("abcde") == nil, true)
 
 print("\n== the character behind a confirmed code is signed with its GUID ==")

@@ -1,0 +1,497 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "race",
+ "id": "dwarf",
+ "name": "Dwarf",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "factFiles": [
+  "common",
+  "class-priest",
+  "class-shaman",
+  "class-warrior",
+  "class-hunter"
+ ],
+ "quizFiles": [
+  "race-dwarf"
+ ],
+ "overview": {
+  "lead": "Since the 26 October notes their racial Artisan's Precision gives +1% hit with spells and attacks, and Dwarf Shaman is new for the Alliance in Forever.",
+  "points": [
+   {
+    "text": "The class guides name Dwarves for Warrior, Paladin, Hunter, Rogue, Priest and Shaman. Dwarf Shamans are new for the Alliance in Forever.",
+    "facts": [
+     "common.alliance-new-race-class-combos"
+    ]
+   },
+   {
+    "text": "Every Priest race now learns Fear Ward, so a raid no longer needs a Dwarf Priest for it.",
+    "facts": [
+     "class-priest.fear-ward-for-every-priest"
+    ]
+   },
+   {
+    "text": "No racial grants weapon skill in Forever, so a Dwarf's weapon choice is free of racial math.",
+    "facts": [
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "common.racial-dwarf-artisans-precision",
+   "class-shaman.alliance-shamans"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[1].overview[1]",
+   "text": "The 26 Oct racial changes swapped Dwarf's Earth Fury for Artisan's Precision (+1% hit) and cut Human's Ruthless crit bonus from 2% to 1%.",
+   "reason": "Paladin overview prose with no grade or source; no reviewed fact names Earth Fury."
+  },
+  {
+   "from": "classes[5].overview[1]",
+   "text": "For Olympus, Dwarf is the only Alliance Shaman race.",
+   "reason": "No graded fact says Dwarf is the only Alliance Shaman race; the graded facts say Dwarf Shaman is one of the new combinations."
+  },
+  {
+   "from": "classes[2].specs[0].pvp.overview[2]",
+   "text": "Warcraft Tavern suggests Dwarf or Human for Alliance PvP Hunters and notes that Night Elf Shadowmeld is fun in PvP.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[1]",
+   "text": "Alliance racials add tools: Dwarf Chastise roots humanoids, Gnome Confounding Flash confuses up to 5 nearby enemies, and Night Elf Elune's Grace makes melee and ranged attacks miss you more often.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "Artisan's Precision in numbers, the classes Dwarves play in Forever, and the Dwarf class quests, including the Shaman totem quests.",
+   "chapters": [
+    {
+     "id": "dwarf-101-racials",
+     "section": "overview",
+     "title": "Dwarf racials in Forever",
+     "theory": [
+      "common.racial-dwarf-artisans-precision",
+      "class-priest.extra-hit-for-dwarves",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Count +1% hit from Artisan's Precision. It covers spells and attacks, so it helps a Dwarf caster as much as a Dwarf in melee or at range.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision"
+        ]
+       },
+       {
+        "text": "Treat it as a 26 October change: guides written before then do not include it.",
+        "facts": [
+         "class-priest.extra-hit-for-dwarves"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of your plans: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Treating Artisan's Precision as a melee-only bonus.",
+        "fix": "It adds 1% hit with spells and attacks, so Dwarf Priests and Shamans get it too.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision"
+        ]
+       },
+       {
+        "mistake": "Choosing Dwarf for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "dwarf-101-classes",
+     "section": "overview",
+     "title": "Dwarf classes in Forever",
+     "theory": [
+      "common.alliance-new-race-class-combos",
+      "class-shaman.alliance-shamans",
+      "class-shaman.classic-baseline",
+      "class-priest.change-2",
+      "class-priest.fear-ward-for-every-priest"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Dwarf Shaman is one of the Alliance's new race and class combinations in Forever, next to Human Hunter and Gnome Priest.",
+        "facts": [
+         "common.alliance-new-race-class-combos"
+        ]
+       },
+       {
+        "text": "Shamans were Horde-only in Classic, so a Dwarf Shaman gives an Alliance raid Shaman totems and Mana Tide.",
+        "facts": [
+         "class-shaman.classic-baseline",
+         "class-shaman.alliance-shamans"
+        ]
+       },
+       {
+        "text": "Do not roll a Dwarf Priest for Fear Ward alone: every Priest race learns it at 20.",
+        "facts": [
+         "class-priest.fear-ward-for-every-priest"
+        ]
+       },
+       {
+        "text": "Fear Ward and Devouring Plague were Dwarf and Undead racials in Classic. In Forever every Priest learns both at 20.",
+        "facts": [
+         "class-priest.change-2"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Asking for a Dwarf Priest because the raid needs Fear Ward.",
+        "fix": "Every Priest race has Fear Ward at 20, so any Priest can cover it.",
+        "facts": [
+         "class-priest.fear-ward-for-every-priest"
+        ]
+       },
+       {
+        "mistake": "Planning an Alliance raid without Shaman totems, as in Classic.",
+        "fix": "Dwarf Shaman is new in Forever, so Alliance raids can bring Shaman totems and Mana Tide.",
+        "facts": [
+         "class-shaman.alliance-shamans"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "dwarf-101-class-quests",
+     "section": "overview",
+     "title": "Dwarf class quests",
+     "theory": [
+      "class-priest.quest-racial-priest-spells",
+      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+      "class-warrior.quest-defensive-stance-quest",
+      "class-hunter.quest-taming-the-beast"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "As a Dwarf Priest, plan the racial spell quests at levels 10 and 20. They unlock Desperate Prayer and Chastise.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Fear Ward and Devouring Plague need no quest: every Priest race learns both at 20.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       },
+       {
+        "text": "As a Dwarf Warrior, expect a race-specific quest at level 10 that unlocks Defensive Stance. Taunt and Sunder Armor are trained after it.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       },
+       {
+        "text": "As a Dwarf Hunter, see your trainer at level 10. It starts your race's chain of three Taming the Beast quests, then Training the Beast, which unlocks Beast Training, Feed Pet and Revive Pet.",
+        "facts": [
+         "class-hunter.quest-taming-the-beast"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Following the Human Priest spell list as a Dwarf.",
+        "fix": "Dwarf Priests unlock Desperate Prayer and Chastise. Divine Grace and Feedback are the Human spells.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "mistake": "Following the Bartleby quest as a Dwarf Warrior.",
+        "fix": "The Defensive Stance quest is race-specific, and the Bartleby quest is the Human version.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "dwarf-101-shaman-totem-quests",
+     "section": "overview",
+     "title": "Dwarf Shaman totem quests",
+     "theory": [
+      "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
+      "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+      "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan",
+      "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "At level 4, take Teo Hammerstorm's Earth totem quest in Anvilmar, Dun Morogh. It rewards Earth Totem and Stoneskin Totem.",
+        "facts": [
+         "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+        ]
+       },
+       {
+        "text": "At level 10, the Fire totem quest from Bruegs Kindleborn and Braldir Ashmantle runs from Dun Morogh to Loch Modan. It rewards Fire Totem and Searing Totem.",
+        "facts": [
+         "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle"
+        ]
+       },
+       {
+        "text": "At level 20, set aside about 2 hours for Norric Lochthane's Water totem chain in Loch Modan. It runs through Wetlands, Redridge, Ashenvale and Westfall and rewards Water Totem and Healing Stream Totem.",
+        "facts": [
+         "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+        ]
+       },
+       {
+        "text": "At level 30, Veyric's Air totem quest is a short trip to Arathi Highlands. It rewards Air Totem.",
+        "facts": [
+         "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Starting the Water totem chain with little time left in the session.",
+        "fix": "It is the longest chain, about 2 hours across four zones, so start it when you have the time.",
+        "facts": [
+         "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+        ]
+       },
+       {
+        "mistake": "Looking for the Air totem quest before level 30.",
+        "fix": "Veyric's Air totem quest is a level 30 quest, the same level as the Classic one.",
+        "facts": [
+         "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "dwarf-101-pvp",
+     "section": "praxis",
+     "title": "Dwarf racials in PvP",
+     "theory": [],
+     "unavailable": "The site holds no reviewed fact on what Dwarf racials do in PvP. This chapter waits for one."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Races have no talent tree; see your class guide."
+    },
+    {
+     "section": "rotation",
+     "reason": "Races have no rotation of their own."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in 201: Artisan's Precision and hit."
+    },
+    {
+     "section": "gear",
+     "reason": "Races have no gear of their own."
+    },
+    {
+     "section": "consumables",
+     "reason": "Races have no consumables of their own."
+    },
+    {
+     "section": "macros",
+     "reason": "No racial macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What Artisan's Precision means for hit, and what a Dwarf Shaman brings to an Alliance raid.",
+   "chapters": [
+    {
+     "id": "dwarf-201-hit",
+     "section": "stat-caps",
+     "title": "Artisan's Precision and hit",
+     "theory": [
+      "common.racial-dwarf-artisans-precision",
+      "class-warrior.main-hand-hit-from-talents",
+      "class-priest.extra-hit-for-dwarves",
+      "class-shaman.spell-hit-classic-baseline-for-the-cap",
+      "class-shaman.melee-hit-cap-vs-raid-bosses"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "As a Dwarf Warrior, count Artisan's Precision for your main hand. Furious Precision, the only Warrior talent that adds hit, covers off-hand attacks only, so main-hand hit comes from gear or the Dwarf racial.",
+        "facts": [
+         "class-warrior.main-hand-hit-from-talents"
+        ]
+       },
+       {
+        "text": "As a Dwarf Shadow Priest, put the 1% toward hit early: Warcraft Tavern advises Shadow to cap hit as soon as possible.",
+        "facts": [
+         "class-priest.extra-hit-for-dwarves"
+        ]
+       },
+       {
+        "text": "Read 16% as Classic's spell hit figure against raid bosses three levels higher, not as Forever's cap, which is not known yet.",
+        "facts": [
+         "class-shaman.spell-hit-classic-baseline-for-the-cap"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Gearing a Dwarf caster to a hit cap from a Classic guide as if it were Forever's.",
+        "fix": "Forever's cap is not known yet. 16% is the Classic figure for casters against raid bosses three levels higher.",
+        "facts": [
+         "class-shaman.spell-hit-classic-baseline-for-the-cap"
+        ]
+       },
+       {
+        "mistake": "Expecting Furious Precision to add main-hand hit.",
+        "fix": "It covers off-hand attacks only. Main-hand hit comes from gear or the Dwarf racial.",
+        "facts": [
+         "class-warrior.main-hand-hit-from-talents"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "dwarf-201-shaman-raid",
+     "section": "praxis",
+     "title": "Dwarf Shamans in Alliance raids",
+     "theory": [
+      "class-shaman.alliance-shamans",
+      "class-shaman.raid-wide-buff-totems-2",
+      "class-shaman.change-2",
+      "class-shaman.imbues-with-totems"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid since 16 October.",
+        "facts": [
+         "class-shaman.raid-wide-buff-totems-2"
+        ]
+       },
+       {
+        "text": "Agree with your raid leader whether the raid runs Windfury or Flametongue Totem: the two can't both be active.",
+        "facts": [
+         "class-shaman.raid-wide-buff-totems-2"
+        ]
+       },
+       {
+        "text": "Pair Grace of Air with either one. Since 16 October it no longer conflicts with them.",
+        "facts": [
+         "class-shaman.change-2"
+        ]
+       },
+       {
+        "text": "Your own weapon imbue and the matching totem work at the same time since Blizzard's hotfix of 10 November 2026, so a Windfury Weapon Shaman still gains from Windfury Totem.",
+        "facts": [
+         "class-shaman.imbues-with-totems"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Two Shamans dropping Windfury and Flametongue Totems for the same raid.",
+        "fix": "Windfury and Flametongue Totems can't both be active. Decide which one the raid runs.",
+        "facts": [
+         "class-shaman.raid-wide-buff-totems-2",
+         "class-shaman.change-2"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No further reviewed Dwarf fact exists yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "No advanced Dwarf chapter can be written yet: hit cap math for Artisan's Precision needs a published Forever cap.",
+   "chapters": [
+    {
+     "id": "dwarf-301-hit-breakpoints",
+     "section": "stat-caps",
+     "title": "Hit cap breakpoints with Artisan's Precision",
+     "theory": [
+      "common.racial-dwarf-artisans-precision",
+      "class-shaman.melee-hit-cap-vs-raid-bosses"
+     ],
+     "unavailable": "Forever's melee and spell hit caps have not been published, so the breakpoint math for Artisan's Precision's 1% cannot be written. This chapter waits for a measured cap."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No measured Forever racial data exists yet."
+    }
+   ]
+  }
+ }
+}

@@ -383,11 +383,12 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     // .210 QA: a mid-session 401 signs the page out; the Staff menu and the Stream Shield toggle must go with it.
     const out210 = await openPage(STAFF);
     const header210 = () => out210.app.querySelector("header")?.textContent || "";
-    const before210 = /Staff/.test(header210()) && !!out210.app.querySelector(".stream-shield-toggle");
+    // Owner directive, 12 Nov 2026: the Staff menu is the Admin menu.
+    const before210 = /Admin/.test(header210()) && !!out210.app.querySelector(".stream-shield-toggle");
     out210.answer(pathname => pathname.startsWith("/api/admin/") ? new Response('{"error":"signed_out"}', { status: 401, headers: { "Content-Type": "application/json" } }) : null);
     await out210.go("#/admin");
-    await waitFor(() => !/Staff/.test(header210()), ".210 the signed-out header after a 401", 8000);
-    check(".210 after a mid-session 401 the header drops the Staff menu and the Stream Shield toggle", before210 && !/Staff/.test(header210()) && !out210.app.querySelector(".stream-shield-toggle"));
+    await waitFor(() => !/Admin/.test(header210()), ".210 the signed-out header after a 401", 8000);
+    check(".210 after a mid-session 401 the header drops the Admin menu and the Stream Shield toggle", before210 && !/Admin/.test(header210()) && !out210.app.querySelector(".stream-shield-toggle"));
     check("CC074 current API 401 replaces the document with the canonical gate and leaves an asset-free transition",
       out210.location.replaced && out210.location.navigated === '/?entry=session-ended' && !!out210.app.querySelector('[data-session-ending]')
       && !out210.app.querySelector('img, header, nav') && !out210.app.textContent.includes('Something went wrong'));
@@ -713,8 +714,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   page = await openPage(MEMBER);
   check("a confirmed member sees the admitted Community hub and its directory dropdown, and the boot says confirmedGuildData", !!page.app.querySelector('nav.nav a[href="#/community"]') && page.app.querySelectorAll("details.nav-group").some(group => group.querySelector("summary").textContent === "Community" && group.querySelector('a[href="#/community/directory"]')) && page.boot.community.capabilities.confirmedGuildData === true);
   await page.go("#/community");
-  await waitFor(() => !!byText(page.app, "h3", "Discord member list"), "the overview");
-  check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h3", "Discord member list") && !!byText(page.app, "h3", "My profile") && !byText(page.app, "h3", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
+  await waitFor(() => !!byText(page.app, "h2", "Discord member list"), "the overview");
+  check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h2", "Discord member list") && !!byText(page.app, "h2", "My profile") && !byText(page.app, "h2", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
   await page.go("#/community/directory");
   check(".196 default member directory leaves optional guild profiles and crafting closed until requested", !!byText(page.app, "h2", "Discord member list") && !!byText(page.app, "button", "Show Member profiles and crafting offers") && !byText(page.app, "h2", "Crafting offers"));
   byText(page.app, "button", "Show Member profiles and crafting offers").click();
@@ -784,8 +785,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
   const m2 = await openPage(MEMBER);
   await m2.go("#/community");
-  await waitFor(() => !!byText(m2.app, "h3", "Calendar"), "the overview with the new cards");
-  check("the overview adds Calendar, My trial and My dues cards, and the tabs", !!byText(m2.app, "h3", "Calendar") && !!byText(m2.app, "h3", "My trial") && !!byText(m2.app, "h3", "My dues") && !!byText(m2.app, "a", "My dues"));
+  await waitFor(() => !!byText(m2.app, "h2", "Calendar"), "the overview with the new cards");
+  check("the overview adds Calendar, My trial and My dues cards, and the tabs", !!byText(m2.app, "h2", "Calendar") && !!byText(m2.app, "h2", "My trial") && !!byText(m2.app, "h2", "My dues") && !!byText(m2.app, "a", "My dues"));
   await m2.go("#/community/calendar");
   await waitFor(() => !!byText(m2.app, "a", "Molten Core") && m2.app.textContent.includes("Raid night"), "the calendar and the attendance record");
   const evCard = byText(m2.app, "a", "Molten Core").closest(".card");
@@ -2050,8 +2051,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const off5 = await openPage(MEMBER);
     off5.delay((p) => { calls.push(p); return 0; });
     await off5.go("#/community");
-    await waitFor(() => !!byText(off5.app, "h3", "Leadership"), "the community overview");
-    check("(.115) News is off by default: no News tab and no News card for a confirmed member", !texts(off5.app, 'nav[aria-label="Community sections"] a').includes("Town Crier") && !byText(off5.app, "h3", "Town Crier"));
+    await waitFor(() => !!byText(off5.app, "h2", "Leadership"), "the community overview");
+    check("(.115) News is off by default: no News tab and no News card for a confirmed member", !texts(off5.app, 'nav[aria-label="Community sections"] a').includes("Town Crier") && !byText(off5.app, "h2", "Town Crier"));
     await off5.go("#/community/news");
     await settle();
     check("  the legacy News link opens the canonical off state without reading the Worker", off5.location.hash === "#/news" && off5.app.textContent.includes("Town Crier dispatches are switched off.") && !calls.some((p) => p.startsWith("/api/news")));
@@ -2093,8 +2094,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     (await fixtureRun("INSERT INTO community_events (id, op_id, title, starts_at, duration_min, ends_at, created_by, created_at, updated_at, retain_until) VALUES (?, ?, ?, ?, 120, ?, ?, ?, ?, ?)",EV, EV, "Zul'Gurub", now + 900, now + 900 + 7200, OTHER, now, now, now + 900 + 7200 + 30 * 86400));
     const news = await openPage(MEMBER);
     await news.go("#/community");
-    await waitFor(() => !!byText(news.app, "h3", "Town Crier"), "the News card");
-    const card = byText(news.app, "h3", "Town Crier").closest("a");
+    await waitFor(() => !!byText(news.app, "h2", "Town Crier"), "the News card");
+    const card = byText(news.app, "h2", "Town Crier").closest("a");
     check("  switched on: the News tab and the overview card with the official launch icon", texts(news.app, 'nav[aria-label="Community sections"] a').includes("Town Crier") && card.getAttribute("href") === "#/news" && !!card.querySelector('img[src="/static/wow/icon-launch.png"]'));
     await news.go("#/community/news");
     await waitFor(() => !!byText(news.app, "h2", "Notices"), "the News page");
@@ -2896,7 +2897,7 @@ function originalTerms218(terms) {
       const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
       const readerNodes = require("./governance_reader_nodes228_fixture.cjs").originalReaderNodes228(model.nodes);
       if (!readerNodes) return false;
-      return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store, no-transform" && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false
+      return modelResponse.status === 200 && modelResponse.headers.get("Cache-Control") === "private, no-store" /* CL2-076 (13 Nov 2026): member JSON may be compressed */ && model.revision === "R7" && model.draft === false && model.ratified === true && model.appointmentsIssued === false
         && model.nodes.length === 43 && nodes.size === 43 && model.terms.length === 103 && new Set(model.terms.map(term => term.label)).size === 103 && model.nativeRanks.length === 10 && model.officeMandates.length === 43
         && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(readerNodes,"nodes").filter(node => !["trading","security","concordat","propaganda","systems-heraldry"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node.id==="systems"?JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-nodes222.json"),"utf8")).systemsBefore:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
         && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(model.officeMandates,"officeMandates").filter(office => !["trading","security","concordat","propaganda","systems-heraldry"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"

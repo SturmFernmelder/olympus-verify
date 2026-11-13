@@ -67,7 +67,10 @@ export const PROFESSIONS = ["alchemy", "blacksmithing", "enchanting", "engineeri
 export type Profession = (typeof PROFESSIONS)[number];
 export const RAID_ROLES = ["tank", "healer", "damage"] as const;
 export type RaidRole = (typeof RAID_ROLES)[number];
-export const LIMITS = { maxProfessions: 4, maxAlts: 10, nameMin: 2, nameMax: 40, skillMax: 450, maxCrafts: 50, recipeMin: 2, recipeMax: 60, professions: PROFESSIONS } as const;
+// CL2-138 (Evergreen 12 Nov 2026), Classic 1.12 rules: two primary professions plus the three secondary ones (Cooking,
+// Fishing, First Aid), and a skill cap of 300 (Artisan). The earlier 4 / 450 allowed a primary third and an impossible skill.
+export const SECONDARY_PROFESSIONS: readonly string[] = ["cooking", "fishing", "first_aid"];
+export const LIMITS = { maxProfessions: 5, maxPrimaryProfessions: 2, maxAlts: 10, nameMin: 2, nameMax: 40, skillMax: 300, maxCrafts: 50, recipeMin: 2, recipeMax: 60, professions: PROFESSIONS } as const;
 export const PAGE_SIZE = 100;
 /** Listed profiles one read evaluates; also the directory's size (HL-1). COMMUNITY_DIRECTORY_LIMIT overrides it (1..10000). */
 export const DEFAULT_SCAN_LIMIT = 2500;
@@ -200,6 +203,7 @@ export function parseProfileInput(body: Record<string, unknown>): Input {
       seen.add(name);
       return { profession: name as Profession, skill: skill as number | null };
     });
+    if (input.professions.filter((p) => !SECONDARY_PROFESSIONS.includes(p.profession)).length > LIMITS.maxPrimaryProfessions) throw new Bad("invalid_professions"); // CL2-138
   }
   if (body.alts !== undefined) {
     const list = body.alts;
@@ -563,7 +567,8 @@ export async function craftingSearch(request: Request, env: Env, ctx: CommunityC
     if (professionMode) return apiJson({ error: "invalid_q" }, 400); // a recipe query cannot silently become a member search
     if (rawQ.length > LIMITS.recipeMax * 4) return apiJson({ error: "invalid_q" }, 400);
     const k = recipeKeyOf(normalizeRecipe(rawQ));
-    if (k.length < 2 || k.length > 40 || UNSAFE.test(k)) return apiJson({ error: "invalid_q" }, 400);
+    // CL2-145: a query may be as long as a stored recipe name (recipeMax), not 40.
+    if (k.length < 2 || k.length > LIMITS.recipeMax || UNSAFE.test(k)) return apiJson({ error: k.length < 2 ? "invalid_q" : "invalid_q_long" }, 400);
     q = k;
   }
   let profession: Profession | null = null;

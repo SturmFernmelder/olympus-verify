@@ -12,7 +12,7 @@
   const STATS = ["str", "agi", "sta", "int", "spi"];
   const STAT_LABEL = { str: "Strength", agi: "Agility", sta: "Stamina", int: "Intellect", spi: "Spirit" };
   const GRADE_ORDER = { A: 5, B: 4, C: 3, E: 2, D: 1, U: 0 };
-  const GRADE_FALLBACK = { A: "Exact from current-build client data", B: "Client data with a semantic reading", C: "Rule confirmed by a WoW Forever guide", D: "Derived estimate from Classic reference — not Forever-verified", E: "Classic reference — not Forever-verified", U: "Unavailable" };
+  const GRADE_FALLBACK = { A: "Exact from the pinned client data", B: "Client data with a semantic reading", C: "Rule confirmed by a WoW Forever guide", D: "Derived estimate from Classic reference — not Forever-verified", E: "Classic reference — not Forever-verified", U: "Unavailable" };
   const SOURCE_SHORT = { "db2-wago": "Forever client DB2", "cmangos-7f98ba0f": "CMaNGOS", "vmangos-a9fa07aa": "vmangos", "tavern-forever-stats": "Warcraft Tavern Forever guide", "wiki-spell-crit": "warcraft.wiki.gg", foreverdb: "ForeverDB" };
   // Talents whose rank text grants parry without a published value.
   const PARRY_GRANTS = Object.freeze(["shaman-enhancement-spirit-weapons"]);

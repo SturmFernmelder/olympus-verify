@@ -60,7 +60,7 @@ const recordTool169 = (page, namespace, calls) => {
   }
   const avatarPage = await openPage(MEMBER);
   const promotion185 = avatarPage.app.querySelector('[data-addon-promotion="olympus-guild"]');
-  check(".210 signed-in Home names the published unified addon with separate website setup and verification", !!promotion185 && promotion185.textContent.includes("No desktop companion") && promotion185.textContent.includes("Olympus Guild 1.3.3 is published as the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.") && !promotion185.textContent.includes("publisher adoption"));
+  check(".210 signed-in Home names the published unified addon with separate website setup and verification", !!promotion185 && promotion185.textContent.includes("No desktop companion") && /* Evergreen 12 Nov 2026 (CL2-071): the 1.5.7 floor, not the old 1.3.3 file */ promotion185.textContent.includes("Olympus Guild (version 1.5.7 or later, from its CurseForge page) is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.") && !promotion185.textContent.includes("publisher adoption"));
   const promotionLink185 = promotion185?.querySelector('a[href="https://www.curseforge.com/wow/addons/olympus-guild"]');
   check(".185 the prominent publisher link opens safely and the catalog stays available", !!promotionLink185 && promotionLink185.getAttribute("target") === "_blank" && promotionLink185.getAttribute("rel") === "noopener noreferrer" && !!promotion185.querySelector('a[href="#/addons"]'));
   const anonymousPromotion185 = await openPage(null);
@@ -215,7 +215,8 @@ const recordTool169 = (page, namespace, calls) => {
 
   console.log("\n== .169: grouped navigation and explanatory guides ==");
   const member = await openPage(MEMBER);
-  check(".169 native Guild and Resources menus contain the actual routes", !!group169(member, "Guild") && !!group169(member, "Resources") && ["#/roles", "#/governance", "#/organization", "#/talents", "#/addons", "#/guides", "#/guide/member", "#/guide/officer"].every(href => !!link169(member, href)));
+  // Owner directive, 12 Nov 2026: the menu formerly named Guild is Guilds.
+  check(".169 native Guilds and Resources menus contain the actual routes", !!group169(member, "Guilds") && !!group169(member, "Resources") && ["#/roles", "#/governance", "#/organization", "#/talents", "#/addons", "#/guides", "#/guide/member", "#/guide/officer"].every(href => !!link169(member, href)));
   check(".169 a member has no Staff menu or Admin route link", !group169(member, "Staff") && !link169(member, "#/admin"));
   check(".196 Community dropdown exposes its hub while News OFF stays hidden and Game updates remain in Resources", !!group169(member, "Community") && !!link169(member, "#/community") && !link169(member, "#/news") && !!group169(member, "Resources").querySelector('a[href="#/updates"]'));
   const newsMember = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.newsOn = true; boot.community.features.census = true; } });
@@ -228,7 +229,7 @@ const recordTool169 = (page, namespace, calls) => {
   ];
   const labels169 = root => root.querySelectorAll("a").map(link => [link.getAttribute("href"), link.textContent.trim()]);
   const menu169 = labels169(group169(newsMember, "Community")), tabs169 = labels169(newsMember.app.querySelector('nav[aria-label="Community sections"]'));
-  const cards169 = newsMember.app.querySelectorAll("a.card").map(card => [card.getAttribute("href"), card.querySelector("h3").textContent]);
+  const cards169 = newsMember.app.querySelectorAll("a.card").map(card => [card.getAttribute("href"), card.querySelector("h2").textContent]); // Evergreen 12 Nov 2026: overview cards are H2s under the Community H1
   check("Community navigation uses the same complete order, labels and canonical links in header, tabs and cards", JSON.stringify(menu169)===JSON.stringify(expectedCommunity169) && JSON.stringify(tabs169)===JSON.stringify(expectedCommunity169) && JSON.stringify(cards169)===JSON.stringify(expectedCommunity169.slice(1)), {menu169,tabs169,cards169});
   const heldCommunity = await openPage(MEMBER, {}, { bootTransform: boot => { boot.settings.newsOn = true; boot.community.capabilities.applicantWrite = false; } });
   check(".170 missing private Community capability removes its menu and Guild news link without removing public Game updates", !group169(heldCommunity, "Community") && !link169(heldCommunity, "#/community") && !link169(heldCommunity, "#/news") && !!group169(heldCommunity, "Resources").querySelector('a[href="#/updates"]'));
@@ -236,15 +237,16 @@ const recordTool169 = (page, namespace, calls) => {
   check(".196 legacy Community features OFF keeps the eligible Army dropdown and signed-in Game updates", !!group169(noCommunity, "Community") && !!link169(noCommunity, "#/community") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
   check(".196 Army remains in the guarded Community dropdown with legacy features OFF without private Census routes", noCommunity.boot.community.capabilities.armyRead === true && !!link169(noCommunity, "#/community/army") && !!link169(noCommunity, "#/community") && !link169(noCommunity, "#/news") && !link169(noCommunity, "#/community/census") && !!group169(noCommunity, "Resources").querySelector('a[href="#/updates"]'));
   const staff = await openPage(STAFF);
-  check(".169 only the actual staff boot receives the Staff group and Admin link", !!group169(staff, "Staff") && !!link169(staff, "#/admin") && staff.boot.user.isAdmin === true);
-  const canonicalStaff169=group169(staff,"Staff"),canonicalResources169=group169(staff,"Resources");
-  check(".218 the canonical Officer Operational Guide appears once in Resources and never in Staff", !!canonicalStaff169 && !!canonicalResources169
+  // Owner directive, 12 Nov 2026: the one-link Staff menu is the Admin menu (one link per admin group).
+  check(".169 only the actual staff boot receives the Admin group and Admin link", !!group169(staff, "Admin") && !!link169(staff, "#/admin") && staff.boot.user.isAdmin === true);
+  const canonicalStaff169=group169(staff,"Admin"),canonicalResources169=group169(staff,"Resources");
+  check(".218 the canonical Officer Operational Guide appears once in Resources and never in Admin", !!canonicalStaff169 && !!canonicalResources169
     && !canonicalStaff169.querySelector('a[href="#/guide/officer"]')
     && canonicalResources169.querySelectorAll('a[href="#/guide/officer"]').length === 1
     && staff.app.querySelectorAll('header nav a[href="#/guide/officer"]').length === 1);
   console.log("\n== .170: exclusive fine-pointer, tap and keyboard navigation ==");
   const navigationHeader = member.app.querySelector("header"), navigationFooter = member.app.querySelector("footer");
-  const guildMenu = group169(member, "Guild"), resourceMenu = group169(member, "Resources");
+  const guildMenu = group169(member, "Guilds"), resourceMenu = group169(member, "Resources");
   const guildTrigger = guildMenu.querySelector("summary"), resourceTrigger = resourceMenu.querySelector("summary");
   const openMenus = () => member.app.querySelectorAll("nav.nav details.nav-group[open]");
   let finePointer = false; member.window.matchMedia = query => ({ matches: query === "(hover: hover) and (pointer: fine)" && finePointer });

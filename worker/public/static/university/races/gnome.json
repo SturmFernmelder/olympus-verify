@@ -1,0 +1,355 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "race",
+ "id": "gnome",
+ "name": "Gnome",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "factFiles": [
+  "common",
+  "class-priest",
+  "class-mage",
+  "profession-engineering"
+ ],
+ "quizFiles": [
+  "race-gnome"
+ ],
+ "overview": {
+  "lead": "The Gnome racial Eureka! is an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger, and Gnome Priest is new for the Alliance in Forever.",
+  "points": [
+   {
+    "text": "The class guides name Gnomes for Rogue, Priest, Mage and Warlock. Gnome Priests are new for the Alliance in Forever.",
+    "facts": [
+     "common.alliance-new-race-class-combos"
+    ]
+   },
+   {
+    "text": "Engineering Specialization no longer adds skill. It makes engineering devices fail and backfire less often.",
+    "facts": [
+     "profession-engineering.gnome-racial"
+    ]
+   },
+   {
+    "text": "No racial grants weapon skill in Forever, so a Gnome's weapon choice is free of racial math.",
+    "facts": [
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "common.racial-gnome-eureka"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[4].specs[0].beginner.tips[3]",
+   "text": "Gnome Eureka! now also boosts Power Word: Shield, and Human Divine Grace is an instant heal on an ally under 50% health that clears Weakened Soul (5 min cooldown).",
+   "reason": "Discipline tip with no grade or source. The Eureka! half is now carried as common.racial-gnome-eureka-shield (16 Oct notes); no reviewed fact holds the Divine Grace details."
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[1]",
+   "text": "Alliance racials add tools: Dwarf Chastise roots humanoids, Gnome Confounding Flash confuses up to 5 nearby enemies, and Night Elf Elune's Grace makes melee and ranged attacks miss you more often.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[2]",
+   "text": "Warcraft Tavern names Human (Will to Survive breaks stuns) and Gnome (Escape Artist) as strong Alliance PvP races.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  },
+  {
+   "from": "classes[6].specs[2].pvp.overview[0]",
+   "text": "Blink breaks stuns and roots, and Warcraft Tavern rates Gnome Escape Artist and Human Will to Survive as strong PvP racials.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "Eureka! in numbers, the Gnome Engineering racial, and the Gnome Priest, new in Forever.",
+   "chapters": [
+    {
+     "id": "gnome-101-racials",
+     "section": "overview",
+     "title": "Gnome racials in Forever",
+     "theory": [
+      "common.racial-gnome-eureka",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Eureka! is an 8 sec buff. While it lasts, your non-periodic abilities are 10% cheaper and stronger.",
+        "facts": [
+         "common.racial-gnome-eureka"
+        ]
+       },
+       {
+        "text": "Fill those 8 seconds with non-periodic abilities, the only kind Eureka! improves.",
+        "facts": [
+         "common.racial-gnome-eureka"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of your plans: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Spending the Eureka! window on effects that work over time.",
+        "fix": "Eureka! makes non-periodic abilities 10% cheaper and stronger, so use direct spells and attacks inside it.",
+        "facts": [
+         "common.racial-gnome-eureka"
+        ]
+       },
+       {
+        "mistake": "Choosing Gnome for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "gnome-101-eureka-trigger",
+     "section": "overview",
+     "title": "What starts Eureka!",
+     "theory": [
+      "common.racial-gnome-eureka"
+     ],
+     "unavailable": "The site's facts give Eureka!'s length and effect, but not what starts it or how often it can happen. This chapter waits for a reviewed fact."
+    },
+    {
+     "id": "gnome-101-engineering",
+     "section": "overview",
+     "title": "Gnomes and Engineering",
+     "theory": [
+      "profession-engineering.gnome-racial"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Engineering Specialization no longer adds Engineering skill in Forever.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       },
+       {
+        "text": "It now cuts the failure and backfire rate of engineering devices by 20%.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       },
+       {
+        "text": "Level Engineering as any other race would: the racial gives no head start in skill.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting on the Gnome racial for bonus Engineering skill, as older guides do.",
+        "fix": "In Forever it adds no skill. It cuts the failure and backfire rate of engineering devices by 20%.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "gnome-101-priest",
+     "section": "overview",
+     "title": "Gnome Priests",
+     "theory": [
+      "common.alliance-new-race-class-combos",
+      "class-priest.quest-racial-priest-spells",
+      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+      "common.racial-gnome-eureka-shield"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Gnome Priest is one of the Alliance's new race and class combinations in Forever, next to Human Hunter and Dwarf Shaman.",
+        "facts": [
+         "common.alliance-new-race-class-combos"
+        ]
+       },
+       {
+        "text": "Plan the racial spell quests at levels 10 and 20. A Gnome Priest unlocks Confounding Flash and Contingency Plan.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Fear Ward and Devouring Plague need no quest: every Priest race learns both at 20.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       },
+       {
+        "text": "Eureka! also benefits Power Word: Shield, so a Gnome Priest's shields gain from it too.",
+        "facts": [
+         "common.racial-gnome-eureka-shield"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Following another race's Priest spell list as a Gnome.",
+        "fix": "Gnome Priests unlock Confounding Flash and Contingency Plan. Desperate Prayer and Chastise are the Dwarf spells.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "gnome-101-pvp",
+     "section": "praxis",
+     "title": "Gnome racials in PvP",
+     "theory": [],
+     "unavailable": "The site holds no reviewed fact on what Gnome racials do in PvP, such as Escape Artist. This chapter waits for one."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Races have no talent tree; see your class guide."
+    },
+    {
+     "section": "rotation",
+     "reason": "Races have no rotation of their own."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Hit, crit and defense caps are not known for Forever yet; each class guide's stat caps chapter tracks them."
+    },
+    {
+     "section": "gear",
+     "reason": "Races have no gear of their own."
+    },
+    {
+     "section": "consumables",
+     "reason": "Races have no consumables of their own."
+    },
+    {
+     "section": "macros",
+     "reason": "No racial macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "201": {
+   "summary": "How Eureka! compares with the other Alliance racials for a raiding Mage.",
+   "chapters": [
+    {
+     "id": "gnome-201-raid-racials",
+     "section": "praxis",
+     "title": "Eureka! next to the other Mage racials",
+     "theory": [
+      "class-mage.alliance-racials-for-raiders",
+      "common.racial-human-ruthless"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "For a raiding Mage, compare the three Alliance racials the Mage guide lists: Human Ruthless +1% crit, Gnome Eureka! (an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger) and High Order Skyborne Wind-Blessed +2% haste.",
+        "facts": [
+         "class-mage.alliance-racials-for-raiders"
+        ]
+       },
+       {
+        "text": "Weigh Eureka! by how much of your damage comes from non-periodic spells, since those are the only ones it improves.",
+        "facts": [
+         "class-mage.alliance-racials-for-raiders"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Comparing a Gnome Mage against a Human Mage whose Ruthless is still 2% crit.",
+        "fix": "Ruthless is +1% crit since the 26 October notes.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No further reviewed Gnome fact exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No further reviewed Gnome fact exists yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "No advanced Gnome chapter can be written yet: Eureka! math beyond its listed effect needs measured Forever data.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No measured Forever racial data exists yet."
+    }
+   ]
+  }
+ }
+}

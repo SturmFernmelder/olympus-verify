@@ -60,7 +60,13 @@ check("the complete guide has ten rank lines plus six guidance lines", #guide, 1
 local tocFile = assert(io.open("../OlympusVerify/OlympusVerify.toc", "r"))
 local toc = tocFile:read("*a"); tocFile:close()
 local version = toc:match("## Version:%s*([^\r\n]+)")
-check("TOC declares a release version", version and version:match("^%d+%.%d+%.%d+$") ~= nil, true)
+-- Evergreen 12 Nov 2026 (CL2-187): the release number is read, not pinned. A pinned copy went stale at every release
+-- (0.6.27 against a 0.6.37 TOC) and hid the rest of this suite. The invariant is that the TOC and the source fallback
+-- in OlympusVerify.lua agree, and that status reports the TOC's number.
+local sourceFile = assert(io.open("../OlympusVerify/OlympusVerify.lua", "r"))
+local sourceVersion = sourceFile:read("*a"):match('local SOURCE_VERSION = "([^"]+)"'); sourceFile:close()
+check("TOC version is a release number", type(version) == "string" and version:match("^%d+%.%d+%.%d+$") ~= nil, true)
+check("TOC version matches the OlympusVerify.lua source fallback", version, sourceVersion)
 local guideLine,coreLine,lineNumber=nil,nil,0
 for line in toc:gmatch("[^\r\n]+") do
   lineNumber=lineNumber+1

@@ -9,7 +9,9 @@ for(let i=0;i<args.length;i+=2){
 const build=options['--build'],commit=options['--commit'],output=options['--output'],root=path.resolve(__dirname,'..');
 if(!/^\d{4}-\d{2}-\d{2}\.\d+ .+$/.test(build??'')||!/^[a-f0-9]{40}$/.test(commit??'')||!output||!path.isAbsolute(output)||fs.existsSync(output))throw Error('Exact current build/commit and new absolute output file required');
 const cases=JSON.parse(fs.readFileSync(path.join(__dirname,'public-route-cases.json'),'utf8')).cases;
-if(cases.length!==90)throw Error('Expected the existing ninety public behaviors');
+// 12 Nov 2026: 92 = the 90 owner-approved behaviors plus the two member-gated talent archive files.
+const EXPECTED_CASES=92;
+if(cases.length!==EXPECTED_CASES)throw Error('Expected the 92 recorded public behaviors');
 const hosts=new Set(['olympus.roachcouncil.com','olympus-verify.roach-council.workers.dev','guild.roachcouncil.com']);
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function source(relative){
@@ -57,5 +59,5 @@ function check(c,response,body,url){
   const result={startedAt,at:new Date().toISOString(),build,sourceCommit:commit,cases:rows.length,passed:rows.filter(r=>r.passed).length,strictPassed:rows.filter(r=>r.strictFailures.length===0).length,anonymousOnly:true,credentialsSent:false,mutatingRequests:0,retries:0,rows};
   fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
   console.log(JSON.stringify({cases:result.cases,passed:result.passed,strictPassed:result.strictPassed,failures:rows.filter(r=>!r.passed).map(r=>({ordinal:r.ordinal,failures:r.failures}))}));
-  if(result.passed!==90)process.exitCode=1;
+  if(result.passed!==EXPECTED_CASES)process.exitCode=1;
 })().catch(()=>{console.error('Public-route observations incomplete; preserve original evidence.');process.exitCode=1;});

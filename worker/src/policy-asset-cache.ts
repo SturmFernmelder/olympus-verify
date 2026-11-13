@@ -22,6 +22,9 @@ const loginDigests = Object.freeze({
   "/static/wow/login/dark-portal-poster.jpg": "c2c0820f50c6cf1944e88e5fd54f2b421df1955ebe7842cb976ac5599f191050",
   "/static/wow/login/olympus-dark-portal-wide.png": "17661fd0184e3a20fd6ed366673e64fc66baef41ed378bfdf5ab9f3ed0a16dc6",
   "/static/wow/login/olympus-dark-portal-portrait.png": "218063b8ba4e5496c659a310cb46cd26d5c14d4784a7e66f9497d968e1679659",
+  // Owner ruling of 13 Nov 2026 (CL2-074): WebP copies of the two stills above (quality 0.82); the PNGs stay the fallback.
+  "/static/wow/login/olympus-dark-portal-wide.webp": "3898651551731cd1585a5682636d457e8200183504c23c633c8aaa1dd3fddbc9",
+  "/static/wow/login/olympus-dark-portal-portrait.webp": "cd908960637f06c5dc509bf4315ba55859f984bb7e523f73dfdc47cd40462fe1",
 });
 
 export const POLICY_ASSETS = Object.freeze(Object.keys(policyDigests));

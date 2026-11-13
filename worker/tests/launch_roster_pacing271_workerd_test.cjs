@@ -6,9 +6,9 @@ const {performance}=require('node:perf_hooks');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.resolve(__dirname,'..'),out=fs.mkdtempSync(path.join(os.tmpdir(),'olv-roster-pacing271-'));
 const started=performance.now();
-const sourceFiles=['src/site-launch229.ts','src/launch-discord-reads271.ts','src/launch-operations229.ts','src/officer-invites233.ts','src/roster-verification275.ts','src/unverified.ts','src/routine-membership-authority232.ts'];
+const sourceFiles=fs.readdirSync(path.join(root,'src'),{recursive:true}).filter(file=>file.endsWith('.ts')).map(file=>'src/'+file.replaceAll('\\','/')).sort();
 const hashes=()=>Object.fromEntries(sourceFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
-const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs'];
+const testFiles=['tests/launch_roster_pacing271_runtime.mjs','tests/launch_roster_pacing271_workerd_test.cjs','tests/d1_statement_budget.mjs'];
 const testHashes=()=>Object.fromEntries(testFiles.map(file=>[file,createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
 const http=[],checks=[],perMode=new Map(),inflightMutations=new Set();let mf,active=0,maxActive=0,sourceChanged=false,unrelatedChanged=false;
 const check=(name,value)=>{assert(value,name);checks.push({name,passed:true});};
@@ -363,6 +363,13 @@ async function selectedReads273(originalDiscovery){
 }
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
+  // Evergreen 12 Nov 2026 (CL2-024): statement ceilings and query plans, measured on their own 1,000-member database.
+  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===16);
+  const budgetRecord={page:budget.page,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings,plans:budget.plans};
+  fs.writeFileSync(path.join(out,'d1-statement-budget.json'),JSON.stringify(budgetRecord,null,2)+'\n',{flag:'wx'});
+  console.log('D1_STATEMENT_BUDGET '+JSON.stringify({page:budget.page,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings}));
+  for(const item of budget.checks){assert(item.passed,item.name);checks.push(item);}
+  if(process.argv.includes('--budget-only'))return {complete:true,actualLocalWorkerdD1:true,checks,syntheticDiscordGETs:http.length,providerCalls:0,pages:0};
   await directiveHandler280();
   check('remaining v4/v5 controls exercise exported internal readers, not retired HTTP acceptance',true);
   await selectedCursorCapacity273();
@@ -471,7 +478,7 @@ async function run(){
     const sourceSHA256=hashes(),testSHA256=testHashes();
     fs.writeFileSync(path.join(out,'source-sha256.json'),JSON.stringify(sourceSHA256,null,2)+'\n',{flag:'wx'});
     const script=buildSync({entryPoints:[path.join(__dirname,'launch_roster_pacing271_runtime.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
-    mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
+    mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script,modules:true,compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,d1Databases:{DB:'roster-pacing271',DB_BUDGET:'roster-budget1112'},resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),outboundService:async request=>{
       const url=new URL(request.url),match=url.pathname.match(/^\/api\/v10\/guilds\/800000000000000001\/members\/(\d{18})$/),mode=(request.headers.get('Authorization')||'').replace('Bot synthetic-roster-pacing-','');
       assert.equal(url.origin,'https://discord.com');assert.equal(url.search,'');assert.equal(request.method,'GET');assert(match);
       const index=BigInt(match[1])-800000000000001000n;assert(index>=0n&&index<1000n||match[1]==='800000000000009999');

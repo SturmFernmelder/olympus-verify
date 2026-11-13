@@ -1,5 +1,13 @@
 # Guild roster verification and Olympus Guild coexistence
 
+**Current author release (12 November 2026): Olympus Guild 1.5.8.** The 1.3.2 and 1.3.3 readings in this document are dated records. What 1.5.7 and 1.5.8 changed, and every activation limit of the integration, is in [the integration record](dan155-integration.md#current-status-12-november-2026). The limits that concern this document:
+
+| Off now | Before it is switched on | Who switches it |
+|---|---|---|
+| The Olympus Guild display read (`/olv olympus on`, `GetCouncil()`): off after every reload. | An officer turns it on for one session; council names stay display hints. | The officer at the keyboard. |
+| The local census viewer (`/olv census on`): off after every reload. | An officer turns it on for one session; it writes no SavedVariables and uploads nothing. | The officer at the keyboard. |
+| Code self-submission from Dan's "My Discord verification" entry (`QueueSelf`): not accepted. A queued code is a pending local request, never verification. | A Lua check of Dan's current consumer against `OlympusVerifyBridge242.Status()`, and the owner resuming member-interaction acceptance, which stays owner-held. | The owner; Codex Root releases any code change it needs. |
+
 **Publication status checked 28 October 2026:** [upstream PR #72](https://github.com/dnl-gentile/olympus-addon/pull/72)
 merged on 26 October as `71bc357c251b49a167821cc0b7f922eb69fa35b6`. Both the public
 [GitHub v1.3.3 release](https://github.com/dnl-gentile/olympus-addon/releases/tag/v1.3.3) and the

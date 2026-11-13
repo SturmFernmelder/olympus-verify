@@ -1,4 +1,5 @@
-import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql} from './privacy-serving-authority';
+import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql,privacyGenerationLiteralFenceSql,privacyBoundSiteEnv} from './privacy-serving-authority';
+import type { RulesetSnapshot } from './ruleset-profile';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import { admittedPrivacyOAuthWrite, admittedPrivacySubjectWrite, readPrivacySubject, type PrivacySubject } from './privacy-serving-authority';
 import {captureSiteOAuthAccount,confirmSiteOAuthNoLocalAccount,dispatchSiteOAuthProfile,siteOAuthCallbackInput,assertSiteOAuthCallbackCustody,verifySiteOAuthState,signSiteOAuthCookie,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
@@ -36,14 +37,15 @@ import { policyResponse } from "./policies";
 import { memberLegalNavigation } from "./member-legal-navigation";
 import { handlePolicyForms } from "./policy-forms";
 import { policyHeaders } from "./policy-render";
-import { loadSiteState, meta, snowflakeTime } from "./site-data";
-import { generalSettingsDto, handleApi, meData } from "./site-api";
-import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
+import { rulesetMeta, snowflakeTime, staticMeta } from "./site-data";
+import { handleApi, meDataWithState } from "./site-api";
+import { apiJson, b64u, clearCookie, cookie, currentUser, gateUser, originalUserSession, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
 import {consumeAddressRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { rankPlannerFragmentPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
 import { siteSignInWithMedia } from './site-access';
+import { memberDocument, type DocumentText } from './member-transport';
 import { olympusSocialMetadata } from './site-brand';
 import { siteEntryReturn, siteLoginLocation, siteLoginReturn, siteReturnFromVerifiedState, siteReturnLocation } from './site-return';
 
@@ -129,28 +131,47 @@ export function scriptJson(obj: unknown): string {
   return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
+/**
+ * The boot JSON with the page's catalogue as its "meta" key (Evergreen 12 Nov 2026, CL2-072). The page reads the
+ * catalogue from here and nowhere else, so this is its one copy per page load. Its persona-independent part is
+ * serialized and escaped once per isolate (about 7 ms of CPU per load before); only the ruleset head and the account's
+ * own data are serialized per request. JSON.parse of the result equals the boot with meta: meta(ruleset).
+ */
+let staticMetaScript: string | null = null;
+export function bootScriptJson(boot: Record<string, unknown>, ruleset: RulesetSnapshot): string {
+  staticMetaScript ??= scriptJson(staticMeta()).slice(1, -1);
+  const head = scriptJson(rulesetMeta(ruleset)).slice(0, -1);
+  const metaJson = staticMetaScript ? `${head},${staticMetaScript}}` : `${head}}`;
+  const { meta: _replaced, ...rest } = boot;
+  const body = scriptJson(rest);
+  return body === "{}" ? `{"meta":${metaJson}}` : `{"meta":${metaJson},${body.slice(1)}`;
+}
+
 async function page(env: Env, request: Request, build: string, extra: Record<string, unknown> = {}, status = 200, cookies: string[] = []): Promise<Response> {
-  let boot: Record<string, unknown>;
+  let boot: Record<string, unknown>, ruleset: RulesetSnapshot;
+  let communityRead: Promise<ReturnType<typeof contextDto> | null> = Promise.resolve(null);
   try {
-    const user = await currentUser(env, request);
+    // Evergreen 12 Nov 2026 (CL2-073): the member gate already read this account for this very request; that row is
+    // reused unless the gate's hourly Discord check rewrote it (site-access.ts, site-core.ts gateUser).
+    const user = gateUser(request) ?? await currentUser(env, request);
     if (!user || user.in_server !== 1 || user.denied) {
       const flash = extra.flash as { kind?: string } | undefined;
       return siteSignInWithMedia(request, env, status, flash?.kind ?? (user?.denied ? 'denied' : user && user.in_server !== 1 ? 'not_member' : undefined), cookies);
     }
-    const state = await loadSiteState(env), settings = state.settings;
-    boot = user ? await meData(env, user, settings, state.ruleset) : { signedIn: false, settings: generalSettingsDto(settings), meta: meta(state.ruleset), now: now() };
+    // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker
+    // admits. Read beside the account's data rather than after it; a failure still only hides the community pages.
+    // .catch after .then, so a throw in contextDto also hides the community pages, as the base's try/catch did.
+    communityRead = communityContext(env, request, { guildRoleRead: true }).then(contextDto).catch(() => null);
+    // The account's own reads carry the session fence inside their batch (as /api/me does), so a reused gate row
+    // cannot stand in for a session that ended in between.
+    const own = await meDataWithState(privacyBoundSiteEnv(env, originalUserSession(user)), user);
+    boot = own.dto; ruleset = own.ruleset;
   } catch {
     // No database (the schema check failed): the page still loads and says so, rather than a Worker error.
     return siteSignInWithMedia(request, env, 503, 'updating', cookies);
   }
-  // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker admits
-  let community: ReturnType<typeof contextDto> | null = null;
-  try {
-    community = contextDto(await communityContext(env, request, { guildRoleRead: true }));
-  } catch {
-    community = null; // no database: the page hides the community pages and says so
-  }
-  boot = { ...boot, ...extra, build, joinUrl: joinUrl(env), community,
+  const community = await communityRead; // null without a database: the page hides the community pages and says so
+  boot ={ ...boot, ...extra, build, joinUrl: joinUrl(env), community,
     qrVerification: { enabled: env.QR_PHASE1_ENABLED === "true" } };
   const html = `<!doctype html>
 <html lang="en">
@@ -166,7 +187,7 @@ ${olympusSocialMetadata()}
 <link rel="preload" href="/static/wow/morpheus.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v=${encodeURIComponent(build)}">
 <link rel="stylesheet" href="/static/wow-cursor.css?v=${encodeURIComponent(build)}">
-<script type="application/json" id="boot">${scriptJson(boot)}</script>
+<script type="application/json" id="boot">${bootScriptJson(boot, ruleset)}</script>
 <script src="/static/app.js?v=${encodeURIComponent(build)}" defer></script>
 </head>
 <body>
@@ -175,7 +196,25 @@ ${olympusSocialMetadata()}
 </html>`;
   const h = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }), true);
   for (const c of cookies) h.append("Set-Cookie", c);
-  return new Response(request.method === "HEAD" ? null : html, { status, headers: h });
+  return memberDocument(request, html, status, h, pageText(extra)); // CL2-076: gzip by the Worker, no-transform kept
+}
+
+/** The flash kinds page()'s callers write as literals. A kind outside this list is treated as text from the request. */
+const FIXED_FLASH_KINDS: ReadonlySet<string> = new Set(['updating', 'not_configured', 'cancelled', 'discord_error', 'expired', 'busy', 'privacy_held']);
+/** Whether page() may compress (member-transport.ts DocumentText; independent review of CL2-076, 13 Nov 2026). page()
+ * reads only the session cookie, the method and Accept-Encoding from the request; anything else a caller takes from
+ * the request reaches the page through `extra`. So the page counts as fixed only when `extra` is empty or is a flash
+ * of a listed kind with no detail. Any detail (the callback's ?error= text, Discord's status codes, a setting's
+ * name) and any other key make the page 'from-request', which is sent uncompressed. A change that writes request
+ * text into the page any other way must pass 'from-request' to memberDocument. */
+export function pageText(extra: Record<string, unknown>): DocumentText {
+  const keys = Object.keys(extra);
+  if (keys.length === 0) return 'fixed';
+  const flash = extra.flash as Record<string, unknown> | undefined;
+  if (keys.length !== 1 || keys[0] !== 'flash' || !flash || typeof flash !== 'object') return 'from-request';
+  const fixed = typeof flash.kind === 'string' && FIXED_FLASH_KINDS.has(flash.kind) &&
+    Object.keys(flash).every(k => k === 'kind' || (k === 'detail' && flash.detail === undefined));
+  return fixed ? 'fixed' : 'from-request';
 }
 
 const joinUrl = (env: Env) => {

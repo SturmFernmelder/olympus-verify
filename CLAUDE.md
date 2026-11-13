@@ -6,11 +6,11 @@ Guidance for the AI coding agents working in this repository (Claude Code reads 
 `AGENTS.md`, which points here). It describes how the code is built and the rules that are easy to break. For what is
 deployed and what is open, read the tail of the task log (below) and `docs/deploy-checklist.md` (newest build last).
 
-## Current Evergreen audit (4 November 2026)
+## Current Evergreen audit
 
-Production Verify .228 shipped at commit `68548e8cff218bdb06b5db9d1f8524235e160363`, tree `291e2e788e5b0a387ba69667b2929b285715074b`. The .229 launch operations successor is prepared under the owner's 5 November instruction; this source paragraph does not assert its deployment. The canonical site is `olympus.roachcouncil.com`. The announced launch time was 4 November at 23:00 UTC. The owner-authorized production queue switch is off. Check the append-only shared log for subsequent live readbacks and launch decisions. The .229 operator guide is `docs/launch229-operator.md`.
+This file deliberately names no deployed build: a build named here is stale at the next release. What is live, at which commit and tree, and how it was qualified is the newest entry of [`docs/deploy-checklist.md`](docs/deploy-checklist.md) (newest build last) together with the append-only shared log `Olympus/claude_code_x_chatgpt_codex.md` (live readbacks and launch decisions). The canonical site is `olympus.roachcouncil.com`. The flagship guild's in-game name is **OLYMPUS PRIME**; `OLYMPUS` and `Olympus I` are aliases (owner, 5 November 2026). WoW: Forever launched on 4 November 2026 at 23:00 UTC. The officer launch guide is [`docs/launch229-operator.md`](docs/launch229-operator.md).
 
-The owner's **permanent restructuring mandate of 10 November 2026** supersedes every older full-suite, static-source projection-pin and release-helper requirement in this repository. The current policy is [release qualification](docs/release-qualification.md): TypeScript `tsc --noEmit`, targeted genuine Workerd/D1 behavior, the Lua 1,000-member performance benchmark, and a fresh D1 backup checked with SQLite integrity/foreign-key validation. Do not restart the 334-suite aggregate, require historical source-string/hash reconstruction, or build throwaway operator control loops. Stable live behavior is evidence; genuine runtime failures remain failures.
+The owner's **permanent restructuring mandate of 10 November 2026** supersedes every older full-suite, static-source projection-pin and release-helper requirement in this repository. The current policy is [release qualification](docs/release-qualification.md), which follows the owner's 12 November 2026 directive: TypeScript `tsc --noEmit`, targeted genuine Workerd/D1 behavior (with per-request D1 statement ceilings and query-plan checks on a 1,000-member fixture), every offline Lua suite including the 1,000-member performance benchmark, the complete Python Watcher suite, and a fresh D1 backup checked with SQLite integrity/foreign-key validation. Do not restart the 334-suite aggregate, require historical source-string/hash reconstruction, or build throwaway operator control loops. Stable live behavior is evidence; genuine runtime failures remain failures, and a stale test fixture is repaired, never left red (the directive's Zero Hostage Rule).
 
 Review the actual changed code and record its exact commit/tree, test results, live observations and remaining limits. Keep independent reviewer attribution and any expressly applicable owner signature requirements/waivers; never invent a Claude countersignature or usage-exhaustion claim. Historical reports and frozen evidence remain immutable records, not fixtures that must be repaired before the next deployment.
 
@@ -28,7 +28,7 @@ deploy checklist and test plan.
 
 Since 30 Sep 2026 this repository is also the target of the consolidation with Olympus Forever (the second Worker at
 `Olympus Forever/`): Olympus Verify is the keeper, Forever's better mechanisms are ported here one reviewed commit at
-a time, and the site moves from `guild.roachcouncil.com` to `olympus.roachcouncil.com`. Task log:
+a time, and the site moved from `guild.roachcouncil.com` (now a legacy host that redirects) to `olympus.roachcouncil.com`. Task log:
 `Olympus/claude_code_x_chatgpt_codex.md`. The earlier consolidation log stays with its dated history.
 
 ## Commands
@@ -45,13 +45,14 @@ npm run test:all               # compatibility alias; NEVER the retired aggregat
 From the repository root:
 
 ```bash
-python addon/tests/run_lua_suites.py --suite performance235
+python addon/tests/run_lua_suites.py --all-offline      # every Lua suite that needs no external archive
+OLYMPUS_REQUIRE_LUA=1 python -m unittest discover -s watcher/tests   # the complete Watcher suite
 python scripts/check-d1-backup.py /private/path/fresh-production.sql --format sql --live-catalogue /private/path/live-catalogue.json
 ```
 
-The Lua command uses the existing Lupa 2.8 LuaJIT interpreter and exercises both 920- and 1,000-member rosters. The backup checker restores only into a temporary local database, runs SQLite integrity and foreign-key checks, and optionally compares an actual current catalogue. A local CI schema check is not a fresh production backup. See [release-qualification.md](docs/release-qualification.md) for the complete bounded workflow and honest evidence scope.
+The Lua runner uses the existing Lupa 2.8 LuaJIT interpreter (`addon/tests/requirements-lupa.txt`, installed by hash in CI). `--all-offline` runs the default suites and the targeted roster, Guild tab and promotion suites; only `dan155_census`, which needs Daniel's 1.5.5 archive, stays opt-in (`--suite dan155_census --dan-archive <zip>`). `performance235` exercises both 920- and 1,000-member rosters. With `OLYMPUS_REQUIRE_LUA=1` the Watcher's two Lua round trips fail instead of skipping when no Lua is installed. The backup checker restores only into a temporary local database, runs SQLite integrity and foreign-key checks, and optionally compares an actual current catalogue. A local CI schema check is not a fresh production backup. See [release-qualification.md](docs/release-qualification.md) for the complete bounded workflow, its timings and its honest evidence scope.
 
-CI has three qualification jobs (`worker`, `addon`, `backup`) and the existing always-run required `check` collector. `worker` runs the bounded qualification; `addon` runs only the performance benchmark; `backup` checks SQLite restoration and the reusable checker's negative cases. The collector refuses failed, cancelled, skipped or missing dependencies. Existing secret scanning remains independent of the retired test aggregate. There are no shard placeholders, mandatory suite-count census, automatic Army preview mock suite or projection pre-push hook. Historical scripts remain diagnostic records; they cannot block a release through a stale string or file hash.
+CI has three qualification jobs (`worker`, `addon`, `backup`) and the existing always-run required `check` collector. `worker` checks the generated policy pages, Link core, code vectors and the served addon ZIP against their sources, runs the bounded qualification with its four targets, and runs the complete Watcher suite; `addon` runs every offline Lua suite; `backup` checks SQLite restoration and the reusable checker's negative cases. The collector refuses failed, cancelled, skipped or missing dependencies. Existing secret scanning remains independent of the retired test aggregate. There are no shard placeholders, mandatory suite-count census, automatic Army preview mock suite or projection pre-push hook. Historical scripts remain diagnostic records; they cannot block a release through a stale string or file hash.
 
 There is no ESLint or Prettier; `.editorconfig` sets 2 spaces, LF and a final newline (Python 4 spaces).
 
@@ -71,14 +72,14 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 | Path | Contents |
 |---|---|
-| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether Olympus I has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (the one Guild Member writer), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `community-context.ts` is the fence every write goes through, `community-names.ts` the identity rule), `schema.ts` (self-applied migrations) |
+| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether the flagship guild, OLYMPUS PRIME, has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (`grantMemberRole`, one of the two writers of the Member role `ROLE_GUILD_MEMBER`), `role-settlements.ts` (the lane block every Native, canonical-rank and Member-rank role request goes through), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `community-context.ts` is the fence every write goes through, `community-names.ts` the identity rule), `schema.ts` (self-applied migrations) |
 | `worker/schema.sql`, `worker/migrations/` | The canonical schema and the same statements as dated files. Additive only. |
 | `worker/public/static/` | The site's script (`app.js`: the whole site, including the community member, organizer and staff pages since .93-.100), stylesheet, the game art (`tools/build-site-assets.py`), the Olympus crest `olympus-icon.png` (the brand and tab icon, the website's one non-game image since .111) and the rank planner. |
-| `worker/tests/` | Node suites (`*_test.cjs`) and Python SQL suites. Each transpiles the real `src/*.ts` and runs the real `schema.sql` in SQLite behind a D1-shaped shim; only Discord's HTTP side is faked. |
+| `worker/tests/` | The bounded qualification's genuine Workerd/D1 runtimes (`qualification_runtime_test.mjs`, `launch_roster_pacing271_*`, `d1_statement_budget.mjs`), run by `npm run qualify`. Everything else here (`*_test.cjs` suites that transpile `src/*.ts` into SQLite behind a D1-shaped shim, and the Python SQL suites) is a historical diagnostic since the owner's 10 November 2026 mandate: useful to run by hand, never a release gate. |
 | `addon/OlympusVerify/`, `addon/OlympusProbe/`, `addon/test/`, `addon/tests/` | The addon, the read-only probe, the harness and the Lua suites. |
 | `watcher/` | The Python watcher (stdlib only) and its tests. |
 | `tools/` | `guild-map.py` (server map through the Worker), `backfill-roles.py` (dry-run by default), `build-site-assets.py`, `stockades-role-reset.py` (separately gated Discord operation). |
-| `policies/` | The tracked Privacy Policy and Terms of Service. The Worker serves the canonical readers at `/legal/privacy` and `/legal/terms` from `worker/src/policy-content.ts`, GENERATED by `worker/scripts/build-policy-content.mjs` (`npm run check:policies`, part of `npm test`); edit the HTML here, then regenerate. The owner's 21 October successor instruction retires exactly `/privacy` and `/terms` with empty HTTP 410 responses without redirects; `/privacy/*` account and erasure handlers remain unchanged. The GitHub Pages mirror publishes the same files. |
+| `policies/` | The tracked Privacy Policy and Terms of Service. The Worker serves the canonical readers at `/legal/privacy` and `/legal/terms` from `worker/src/policy-content.ts`, GENERATED by `worker/scripts/build-policy-content.mjs`; `npm run check:policies` (run by the CI `worker` job, not by `npm test`) refuses a stale copy. Edit the HTML here, then regenerate. The owner's 21 October successor instruction retires exactly `/privacy` and `/terms` with empty HTTP 410 responses without redirects; `/privacy/*` account and erasure handlers remain unchanged. The GitHub Pages mirror publishes the same files. |
 | `docs/` | `design.md` (why), `deploy-checklist.md` (every build: what changed, rollout, rollback, tests), `launch-runbook.md` (the owner's steps from the signed head to the launch: deploy, the donor's private phase as a gate, the cutover, the flags, publication; then the end of the beta, typed names and what officers do when a roster export is refused (section 10); the in-game ladder decision changed on 3 Oct 2026 (owner answer 6: ten ranks, the Treasurer at index 2 right below Officer, no Probation); that native-Treasurer recommendation is superseded by the owner's 14 October 2026 confirmation of the existing second native rank (immediately below Guild Master), with Treasurer and Co-Guild Master as appointments; the current ten-rank recommended preset already exists in `worker/public/static/rank-planner/model.js`; the planner produces drafts and protected Guild Master setup remains attended, with rank order and withdrawal permissions reviewed separately; the owner-fixed 22 October 2026, 17:00 UTC member/rank reset has an unshipped automatic-entry candidate, remains removal-OFF with its separate Native qualification gate false, and preserves manual leadership, Council roles, appointments and the directory; see current runbook section 8 and `beta-reset-2026-10-22.md`, with superseded manual-reset instructions retained only as dated history), `source-provenance.md` (what is tracked and what never is, the generated and derived files, the ported modules, the publication helpers and what publication means), `beta-test-plan.md`, the Asmongold docs. |
 | `scripts/` | `deploy-commit.sh` (deploy an exact commit), `scan-secrets.sh` (CI), `cutover-config.sh` (.77/.81: shows, checks or, as the final authorized cutover step, applies `worker/wrangler.cutover.toml`, the reviewed cutover configuration kept beside the live `wrangler.toml` so a deploy before the cutover still serves the current server; `--check` accepts two committed states, the reviewed pair or the applied state bound to the profile by the marker `worker/wrangler.cutover.applied`; after the cutover, `--activate` changes only the eight activation keys (the seven community keys and `VERIFY_OPEN_SINCE`, which only moves forward to a real later `YYYY-MM-DD` day) and appends a record to the marker, never rewriting the cutover's own); the publication helpers (Codex's V4, 1 Oct 2026: `publication_audit.py`, `public_history.py`, `official_assets.py` with `official_asset_reference.json`, `stage_publication.py`, `validate_publication.py`; Python 3, standard library; byte-identical to the reviewed candidate except a disclosed LF normalization), and Codex's Pages reconciliation successor (`reconcile_public_root.py` with its hash-pinned `pages_network_guard.cjs`, 1 Oct 2026, exact reviewed bytes), described in `docs/source-provenance.md`. `LICENSE` is proprietary; `THIRD_PARTY_NOTICES.md` names what is not the owner's (the game's interface artwork and the two fonts above all). |
 
@@ -116,13 +117,21 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   at its worst case against the invocation's counted statements before it starts and claimed in the transaction of its
   change; a newer run supersedes an older one; `done_at` on the run, never `complete`, says the backlog is empty; a sync
   admits the same way and says "Not applied yet". Links are pinned to
-  character GUIDs. Since .55 `src/roles.ts` is the
-  one writer: every grant goes through `grantMemberRole` (blocking-role guard, fail-closed config check); only the
-  sweep (`removeIfBlocked`), a roster departure and a ban remove the role. New modules never call `addRole`. Since
+  character GUIDs. Since .233 `ROLE_GUILD_MEMBER` (`wrangler.toml`) and the canonical Member rank role are the same
+  role, `1552077551839617104` (Olympus Member, per Codex's .233 record), so that one role has two write paths.
+  (1) `grantMemberRole` in `src/roles.ts` (since .55; blocking-role guard, fail-closed config check) grants it from the
+  link, roster, restore and backfill paths (callers in `roster.ts`, `roster-effects.ts`, `restore.ts`,
+  `backfill.ts`); only the sweep (`removeIfBlocked`), a roster departure and a ban remove it on this path. On the Olympus
+  guild this path is held whenever the .230 shared-membership cutover is configured (`oldSharedMemberProducerHeld230`
+  in `src/shared-membership-cutover230.ts`). (2) When canonical ranks are enabled (`CANONICAL_RANKS233`, .232 and .233),
+  every rank role, the Member rank role included, is written outside `grantMemberRole`: each PUT or DELETE goes
+  through the lane block in `src/role-settlements.ts`, reached from `full-release-pass.ts` (the canonical minute and
+  the fresh pass) and `role-reconcile242.ts` (signed continuations). New modules never call `addRole`. Since
   .114 a rename Blizzard required (`src/rename-review.ts`) holds every grant while a `rename_holds` row is `reapply`
   (`"held"`), and `revokeForReapply` is the one remover added since .55 (at the decision; the hold is re-read after the
   member GET and after a grant's PUT, and held accounts join the sweep's banned reconciliation).
-- **Seats** (`src/guild-seats.ts`, .115, the owner's item B of 2 Oct 2026): whether Olympus I has room is read from the
+- **Seats** (`src/guild-seats.ts`, .115, the owner's item B of 2 Oct 2026): whether OLYMPUS PRIME (the flagship guild;
+  `Olympus I` is an alias since the owner's 5 November 2026 naming) has room is read from the
   LATEST roster snapshot only, and only when it is complete (stamped in the same batch as its last member rows; a row
   still unfinished `SNAPSHOT_WRITE_GRACE_S` after it arrived is "stuck" and the next export writes it again), trusted
   (judged against the last export that counts, on or after `LINKS_NOT_BEFORE`, pre-.115 rows re-judged in order
@@ -163,8 +172,9 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   lose a handled answer (`page.drop`), slow a request (`page.delay`), make a handled answer unreadable (`page.garble`) or
   readable but wrong (`page.answer`), fail a request before the Worker (`page.before`), and act between one request's
   complete batches (`HOOKS.afterBatch`; since .161 frontend races run only between complete Native transactions, and a
-  statement-level `afterStatement` hook exists only in the `community_event_*` suites); add a check there with every
-  page change.
+  statement-level `afterStatement` hook exists only in the `community_event_*` suites). It is a historical
+  diagnostic: neither `npm run qualify` nor CI runs it, so nothing in the gate checks page behaviour. Run it by hand
+  for a page change and extend a bounded Workerd check when the change is material.
 - **Community modules** (`community-*.ts`, since .56): one identity (the site session), facts from keeper tables only,
   capabilities that name requirements (`applicantWrite`, `confirmedGuildData`, `communityStaff` = `SITE_ADMINS`); a
   write is one batch whose first statement carries `fenceSql` (id, session version and the cookie's expiry, judged by
@@ -189,18 +199,20 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   bounds a fixed id (a stale retry) and proves nothing about where an id came from; an id a staff client builds with the
   current time behaves like a fresh form on this staff-only route. Members never get a notice's id (it would say when an
   administrator opened Admin -> News). A stale delete of an expired notice gets its id and revision, never its text.
-  Audit rows carry counts, never a title or a text. The members' "Site updates" are `RELEASE_NOTES` in the same file
-  (site_news_test: the newest build number and date exactly match `BUILD`; preserve the historical inverse chain).
+  Audit rows carry counts, never a title or a text. The "Site updates" list is `RELEASE_NOTES` in the same file; since
+  .222 only the owner's own account receives it (`site-news.ts` member read: `releases` is empty for everyone else), so
+  members see no build notes. Keep its newest row's build number and date equal to `BUILD` (the old
+  `site_news_test` check of that is a historical diagnostic, not a gate).
 - **Typed names** (.115, item C): a name an administrator types (an appointed role in Settings, the I-X directory) is
   added or changed only with `namesConfirmed: true` (the page's consent box, the person agreed); `NAME_WITHHELD`
   ("Name withheld") replaces a name removed on request and keeps an appointed role closed. The `site.settings` audit
-  records role keys, a count and booleans, never a name or the notice text; `schema.ts redactSettingsAudit` rewrites the
-  older rows once at an isolate start (marker `auditTypedNames`). A failure only logs and a later start retries, and an
-  older writer resumed after the marker writes the old shape again, so the counts-only read-back (marker 1, no named
-  `appointed` or text `notice` left, no unreadable row; `docs/deploy-checklist.md` .115 rollout step 7, read by
-  `owner_requests_test`) is a mandatory acceptance gate after every deploy, roll-forward and restore; "a later start" is
-  a fresh isolate (`ensureSchema` checks once per isolate); redeploying the same commit invokes the new-isolate recovery
-  path but does not prove old invocations have ended. A restore is unavailable unless actual write quiescence is
+  records role keys, a count and booleans, never a name or the notice text. `schema.ts redactSettingsAudit` rewrote the
+  older rows (marker `auditTypedNames`); since the admitted-schema epoch `ensureSchema` no longer migrates or rewrites
+  anything: on every request it only consumes the current admitted schema proof (`assertAdmissionCurrentSchema`) and
+  refuses otherwise, and the epoch installation is a separate closed operation. An older writer resumed after the
+  marker could write the old shape again, so the counts-only read-back (marker 1, no named `appointed` or text `notice`
+  left, no unreadable row; `docs/deploy-checklist.md` .115 rollout step 7) is a mandatory acceptance gate after every
+  deploy, roll-forward and restore; redeploying the same commit does not prove old invocations have ended. A restore is unavailable unless actual write quiescence is
   separately proved before the final private capture and maintained through replacement, replay and read-back:
   every preservation-critical writer, all serving/retiring versions, pending SQL and post-response work must be covered.
   WAF closure stops new website admissions; a fixed wait, equal captures, a staff promise or ordinary redeployment
@@ -211,20 +223,31 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 - **Logging hygiene:** never log URLs with query strings, tokens, codes, cookies, BattleTags or IPs. Discord errors
   keep the path without the query. Audit rows carry no secrets. Since .51 every `console.*` call that reports a
   failure goes through `log.ts errorRef` (a fixed category and a bounded status; never the message, the name or a
-  digest of either); the hosts suite fails on a bare one. Workers Logs keep what is printed.
+  digest of either). Nothing in the gate enforces this now: `tests/hosts_test.cjs`, which fails on a bare one, is a
+  historical diagnostic that neither `npm run qualify` nor CI runs, so check new failure logging by hand in review.
+  Workers Logs keep what is printed.
 - **The entry exports functions only.** `src/index.ts` may export the default handler and functions; a scalar export
-  makes Workerd refuse the bundle at startup (.47 to .50 did not start). The bounded qualification loads the actual
-  current Worker in Workerd. The old `tests/bundle_runtime_test.cjs` remains a historical diagnostic, outside the default gate.
+  makes Workerd refuse the bundle at startup (.47 to .50 did not start). The bounded qualification imports the current
+  `src/index.ts` into a test entry, bundles that with esbuild and runs it in Workerd with `nodejs_compat` only. It does
+  not build the wrangler production bundle or use `wrangler.toml`'s other flags and bindings, so it cannot catch a scalar
+  export from `src/index.ts`; a production-bundle stage is Codex Root's tooling and is not in the gate yet. The old
+  `tests/bundle_runtime_test.cjs` remains a historical diagnostic, outside the default gate.
 - **Fail closed:** an unknown roster or Discord state holds a grant and never revokes.
 - **The cron's D1 budget** (`src/scheduled-budget.ts`, .115, Codex's finding of 3 Oct 2026): the conservative source/test
   accounting charges every statement attempt, each batch element included, and composes `scheduled()` with every job
   it hands to `waitUntil` into one invocation budget against the recorded Paid limit of 1,000. This is not a
   provider-confirmed claim about aggregate batch accounting. Each job's worst case and the per-run caps (role sweep accounts, names, expired profiles,
-  weekly obligations, the roster effects' slice) live in that one table, whose recorded target is at or below 700, and the
-  allowances of `/ingest/roster` and `/olympus-admin sync` are derived from it; a capped job continues in a fixed order on
-  the next run. A new scheduled job, a new schema statement or a raised cap changes the table first;
-  `tests/scheduled_budget_test.cjs` measures that accounting model against the source. The interrupted .115 figures
-  remain provisional until the roster correction and final exact-head qualification; no caps change by documentation.
+  weekly obligations, the roster effects' slice) live in that one table, whose recorded target for the ordinary
+  scheduled run is at or below 700 (`SCHEDULED_STATEMENT_TARGET`), and the allowances of `/ingest/roster`
+  (`ROSTER_INGEST_STATEMENTS`, 700 less the cold schema worst case: 494) and `/olympus-admin sync` are derived from it; a
+  capped job continues in a fixed order on the next run. Two later budgets sit outside that table: the canonical-rank
+  minute (.238) is its own invocation with a worst case of 751 (`CANONICAL_RANK_SCHEDULED_WORST_CASE`: 1 schema proof +
+  2 preflight + 748 pass), and a signed role continuation (`role-reconcile242.ts`) admits up to 850. A new scheduled job,
+  a new schema statement or a raised cap changes the table first. The bounded gate measures real per-request physical
+  counts on a 1,000-member fixture (launch-operations page, strict roster display, roster ingest;
+  `docs/release-qualification.md`); `tests/scheduled_budget_test.cjs` is a historical diagnostic of the accounting
+  model. Whether the directive's "under 100 statements" applies per request or per scheduled invocation is an open
+  owner question; no caps change by documentation.
 
 ## Conventions
 
@@ -252,7 +275,7 @@ Before merge, review the exact changed commit/tree and complete the bounded qual
 
 Use the existing exact-commit deployment entrypoint and concise reusable tooling. Do not generate per-build hardcoded helper hierarchies, helper hash/manifest/review polling loops, historical projection inverses, fixture repair marathons or new aggregate suite requirements. Keep actual commit/tree and deployed-artifact custody, runtime identity/privacy/standing/unknown-effect fences, Native E2, current D1 preservation and protected RT-16 decisions. Keep Daniel relay, Olympus Link and separate Treasury dispatch behind their existing gates. This policy changes qualification, not production behavior or feature activation.
 
-After deployment, check the release identity, all 90 public probes, the original first-cron audit and the attended RT-16 empty-note readback. The reviewed bot-host robots comment and 60-second first-cron allowances apply to those exact checks. Verify then record post-deploy results in `QA-REPORT.md` and the shared log. Live slash registration and native addon or Watcher acceptance each require their own evidence.
+After deployment, check the release identity, all 92 public probes (the 90 owner-approved behaviours plus the two anonymous refusals of the member-gated talent archive files, added 12 November 2026; see [release qualification](docs/release-qualification.md#deployment-and-evidence)), the original first-cron audit and the attended RT-16 empty-note readback. The reviewed bot-host robots comment and 60-second first-cron allowances apply to those exact checks. Verify then record post-deploy results in `QA-REPORT.md` and the shared log. Live slash registration and native addon or Watcher acceptance each require their own evidence.
 
 - **The task log is append-only.** Headings `## [YYYY-MM-DD HH:MM:SS UTC] Agent — subject`. Never rewrite the other
   agent's text; correct with a new entry.

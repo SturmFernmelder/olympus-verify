@@ -6,7 +6,7 @@
   else root.OlympusTalentAnalysis = api;
 })(typeof window === "object" ? window : globalThis, function () {
   "use strict";
-  const SOURCE = Object.freeze({ revision: "260cf99b52db", rawSHA256: "260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588", normalizedSHA256: "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c", clientBuild: "1.60.1.70425", name: "Talents Forever", url: "https://talentsforever.com", license: "CC BY 4.0" });
+  const SOURCE = Object.freeze({ revision: "02e1e101d1a5", rawSHA256: "02e1e101d1a5695e5c4d687b19cd74bc11bd82b9123d8386d6a1cdc1a0387a60", normalizedSHA256: "d8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e", clientBuild: "1.60.1.70755", name: "Talents Forever", url: "https://talentsforever.com", license: "CC BY 4.0" });
   const CLASS_IDS = ["warrior", "paladin", "hunter", "rogue", "priest", "shaman", "mage", "warlock", "druid"];
   // Filled from exact reviewed rank strings. Values are manually scoped component modifiers, never final character totals.
   const MAPPINGS = {
@@ -142,7 +142,7 @@
     ],
     "note": "Each listed component follows the pinned rank text. Conditional behavior, interactions and final character totals are not simulated."
   },
-  "paladin-holy-divine-intellect": {
+  "paladin-protection-divine-intellect": {
     "texts": [
       "Increases your total Intellect by 2%.",
       "Increases your total Intellect by 4%.",
@@ -885,7 +885,7 @@
     ],
     "note": "Each listed component follows the pinned rank text. Conditional behavior, interactions and final character totals are not simulated."
   },
-  "druid-feral-combat-heart-of-the-wild": {
+  "druid-restoration-heart-of-the-wild": {
     "texts": [
       "Increases your Intellect by 2%. In addition, while in Bear Form or Dire Bear Form your Stamina is increased by 4% and while in Cat Form your Strength is increased by 2%.",
       "Increases your Intellect by 4%. In addition, while in Bear Form or Dire Bear Form your Stamina is increased by 8% and while in Cat Form your Strength is increased by 4%.",

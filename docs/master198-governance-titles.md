@@ -212,7 +212,7 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 ### Section III.4.1 — Voluntary recognition and exact thresholds
 
-(a) Cosmetic Tithe Roles recognise additional, voluntary in-game gold within each published ninety-day season: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold**, and **Benefactor of Olympus — 500 gold**. At most the highest currently qualified tier is displayed. Contributions are mailed to Fernmelder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
+(a) Cosmetic Tithe Roles recognise additional, voluntary in-game gold within each published ninety-day season: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold**, and **Benefactor of Olympus — 500 gold**. At most the highest currently qualified tier is displayed. Contributions are mailed in game to Fern Melder (Discord: Fernmelder) with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
 
 (b) Ordinary weekly dues, a waived obligation and an unclassified historical receipt do not automatically become cosmetic credit. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
 

@@ -18,6 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import watcher
 import codes
 import scrub_state
+
+
+def run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
+    # Evergreen 12 Nov 2026 (CL2-180): on Windows a child writes its pipe in the ANSI code page unless told otherwise,
+    # so scrub_state's em dash arrived as byte 0x97 and the UTF-8 reader thread crashed while the test still passed on
+    # the return code alone. The child is told to write UTF-8 and the parent decodes strictly.
+    return subprocess.run([sys.executable, "-X", "utf8", *args], capture_output=True, text=True, encoding="utf-8",
+                          errors="strict", env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}, timeout=20)
 import custody_recovery as recovery
 
 
@@ -427,7 +435,7 @@ class Custody196Tests(unittest.TestCase):
         _, path, backup = self.scrub_seed()
         before = path.read_bytes()
         with recovery.StateLease(path):
-            result = subprocess.run([sys.executable, str(Path(scrub_state.__file__)), str(path)], capture_output=True, text=True, timeout=20)
+            result = run_cli([str(Path(scrub_state.__file__)), str(path)])
         self.assertEqual(result.returncode, 2)
         self.assertNotIn("SYNTHETIC-PRIVATE", result.stdout + result.stderr)
         self.assertEqual(path.read_bytes(), before)
@@ -519,9 +527,10 @@ class Custody196Tests(unittest.TestCase):
 
     def test_legacy_scrub_real_cli_help_and_refusal_do_not_read_config(self):
         script = str(Path(scrub_state.__file__))
-        result = subprocess.run([sys.executable, script, "--help"], capture_output=True, text=True, timeout=20)
+        result = run_cli([script, "--help"])
         self.assertEqual(result.returncode, 0)
-        result = subprocess.run([sys.executable, script, str(self.root / "missing.json")], capture_output=True, text=True, timeout=20)
+        self.assertIn("usage", result.stdout.lower())
+        result = run_cli([script, str(self.root / "missing.json")])
         self.assertEqual(result.returncode, 2)
         self.assertIn("requires inspection", result.stderr)
         self.assertNotIn("Traceback", result.stderr)

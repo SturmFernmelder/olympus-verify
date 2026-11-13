@@ -6,16 +6,17 @@
     "attribution": "Data from talentsforever.com (https://talentsforever.com)",
     "license": "CC-BY-4.0",
     "licenseURL": "https://creativecommons.org/licenses/by/4.0/",
-    "upstreamGenerated": "2026-10-16",
-    "fetchedAt": "2026-10-18T19:24:58.682401-05:00",
+    "upstreamGenerated": "2026-11-10",
+    "fetchedAt": "2026-11-12T17:33:59-06:00",
     "clientBuilds": [
-      "1.60.1.70425"
+      "1.60.1.70755"
     ],
-    "rawBytes": 1734440,
-    "rawSHA256": "260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588",
-    "changes": "Normalized class/tree/talent identifiers and field names; no talent text or rank values changed. Icons and artwork omitted.",
+    "rawBytes": 1756078,
+    "rawSHA256": "02e1e101d1a5695e5c4d687b19cd74bc11bd82b9123d8386d6a1cdc1a0387a60",
+    "changes": "Normalized class/tree/talent identifiers and field names, and left out the per-talent source, icon and hotfix-date fields (each class’s source line names its hotfix days); no talent text or rank values changed. Icons and artwork omitted.",
     "limits": [
-      "Fan-maintained beta-client snapshot; not live server tuning or independent in-game verification.",
+      "Fan-maintained read of beta client build 1.60.1.70755 plus the server hotfixes of 3, 4, 6 and 10 November 2026 from the beta hotfix cache, as each class’s source line states; not a live-client read or independent in-game verification.",
+      "Some values follow Blizzard’s development notes of 2 November 2026 ahead of game data; where the notes name a row but no column, the column is the source’s choice.",
       "Classic fields are the source comparison reference, normally rank-one text; the source gives no exact Classic client build.",
       "This is a Forever calculator with Classic comparison, not a complete separately allocatable Classic all-rank calculator.",
       "Standard level-10-to-60 point budget only; Legacy Talented extra points are not modeled.",
@@ -25,15 +26,39 @@
   "counts": {
     "classes": 9,
     "trees": 27,
-    "talents": 466,
-    "ranks": 1313
+    "talents": 467,
+    "ranks": 1297
   },
-  "normalizedBytes": 494373,
-  "normalizedSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+  "normalizedBytes": 498935,
+  "normalizedSHA256": "d8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e",
   "upstreamSnapshotRetainedOutsidePublication": true,
   "artCopied": true,
   "siteCodeCopied": false,
-  "upstreamSnapshotFilename": "talentsforever-source-260cf99b52db.json",
+  "upstreamSnapshotFilename": "talentsforever-source-02e1e101d1a5.json",
   "artProvenance": "/static/talents/art-provenance.json",
-  "artImportNote": "Build .170 separately imports redistributed Blizzard artwork. Original normalized dataset and its data-only import transformation remain unchanged."
+  "artImportNote": "Build .170 separately imported redistributed Blizzard artwork. The 10 November mapping reuses those exact files where a talent keeps an icon that is already on file; talents whose icon is not on file are listed in art.json and show the calculator’s plain no-art tile. No new artwork was fetched.",
+  "archive": [
+    {
+      "revision": "260cf99b52db",
+      "label": "16 October beta data",
+      "upstreamGenerated": "2026-10-16",
+      "clientBuilds": [
+        "1.60.1.70425"
+      ],
+      "rawBytes": 1734440,
+      "rawSHA256": "260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588",
+      "upstreamSnapshotFilename": "talentsforever-source-260cf99b52db.json",
+      "counts": {
+        "classes": 9,
+        "trees": 27,
+        "talents": 466,
+        "ranks": 1313
+      },
+      "normalizedBytes": 494373,
+      "normalizedSHA256": "8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c",
+      "data": "/static/talents/archive/260cf99b52db/data.json",
+      "art": "/static/talents/archive/260cf99b52db/art.json",
+      "use": "Read-only. The calculator loads it only to open a build code made on this revision; new builds and attachments use the current snapshot."
+    }
+  ]
 }

@@ -2,10 +2,10 @@
 'use strict';
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), vm = require('node:vm');
 const root = path.join(__dirname, '..');
-const INPUT_SHA256 = '8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c';
-const UPSTREAM_SHA256 = '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588';
-const CALCULATOR_SHA256 = 'b626de0b68cc93edc0ea45565e463e1fe241666d012e16bd5ee38d7f5d571cb0';
-const REVISION = '260cf99b52db';
+const INPUT_SHA256 = 'd8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e';
+const UPSTREAM_SHA256 = '02e1e101d1a5695e5c4d687b19cd74bc11bd82b9123d8386d6a1cdc1a0387a60';
+const CALCULATOR_SHA256 = '10ab1bb973b55d57b0bce390e710a9c486cb2039903d96f39cebd0f9f75baa81';
+const REVISION = '02e1e101d1a5';
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 function projectSnapshot(data, calculator) {
   const validation = calculator.validateData(data);

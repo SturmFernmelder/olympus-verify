@@ -1,0 +1,1027 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-druid",
+ "facts": [
+  {
+   "id": "class-druid.change-1",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Shapeshifting: most potions and consumables work in form (Rage potions and Thistletea too; Mana Potions in form came back on 8 Oct), weapon enchants and procs work in form, form auto-attacks use your weapon's DPS, and forms have been immune to Disarm since 1 Oct.",
+   "sources": [
+    "g218-85",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-2",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Baseline spells include Nature's Grasp at 10 (usable in forms and indoors), Revive at 12, Omen of Clarity at 20, Feral Faerie Fire and Improved Mark of the Wild. Lacerate is a one-point Feral talent on row 4. Tiger's Fury was removed.",
+   "sources": [
+    "g218-85",
+    "g218-17",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-3",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Bear and Dire Bear Form have a 115% threat bonus. Lacerate is now a Feral talent, while Primal Bite is a separate 31-point Bear choice.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-4",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Cats learn Poised at level 32. Start a fight from full Energy to save 10 Energy on your next Energy ability. Predatory Discipline leads to Shifting Power at 31 points.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-5",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Moonkin Aura and Leader of the Pack each improve every type of critical strike. The auras are mutually exclusive. Coordinate which one your raid uses.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-6",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Balance and Restoration: Hurricane has no cooldown, Entangling Roots works indoors, Thorns scales with spell power, Rejuvenation, Tranquility and Wild Growth can crit (24 Sep), Swiftmend no longer eats the heal over time, and a 16 Oct fix stops high-rank Rejuvenation from blocking another Druid's.",
+   "sources": [
+    "g218-85",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-7",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Berserk and Gift of the Earthmother were removed. Furor moves to Feral in exchange for Heart of the Wild, and Restoration gains Bloom.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.change-8",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "talent-removed",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Balance talents gone since Classic 1.12",
+   "value": "Five Classic Balance talents are gone from the tree: Nature's Grasp, Improved Nature's Grasp, Natural Weapons, Improved Thorns and Omen of Clarity.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-balance"
+  },
+  {
+   "id": "class-druid.change-8-feral-combat",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "talent-removed",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Feral Combat talents gone since Classic 1.12",
+   "value": "Two Classic Feral Combat talents are gone from the tree: Feral Aggression and Faerie Fire (Feral).",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-feral-combat"
+  },
+  {
+   "id": "class-druid.change-8-restoration",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "talent-removed",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Restoration talents gone since Classic 1.12",
+   "value": "Two Classic Restoration talents are gone from the tree: Improved Mark of the Wild and Improved Enrage.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-restoration"
+  },
+  {
+   "id": "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Bear Form: 'Heeding the Call' to 'Body and Heart' (10)",
+   "value": "Alliance starts in Darnassus. You visit the Great Bear Spirit in Moonglade and return to your capital. Teaches Bear Form, Growl and Maul, and the Moonglade step gives Teleport: Moonglade (warcraft.wiki.gg, Method).",
+   "sources": [
+    "g218-89",
+    "g218-93",
+    "g218-90"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Cure Poison: 'Lessons Anew' (the 'Power over Poison' chain) (14)",
+   "value": "Teaches Cure Poison. Alliance starts in Darnassus (warcraft.wiki.gg, Method).",
+   "sources": [
+    "g218-89",
+    "g218-93",
+    "g218-90"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.quest-aquatic-form-a-lesson-to-learn",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Aquatic Form: 'A Lesson to Learn' (16)",
+   "value": "A set of trials that ends with the 'Aquatic Form' quest (warcraft.wiki.gg, Method).",
+   "sources": [
+    "g218-89",
+    "g218-93",
+    "g218-90"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Cat Form: 'The Great Cat Spirit' (new in Forever) (20)",
+   "value": "Cat Form is no longer simply trained. Recover relics from the Stormrage Barrow Den in Moonglade, then do 'Blessings of the Great Cat Spirit' and 'To Darnassus', which teaches Cat Form, Claw, Prowl and Rip (warcraft.wiki.gg, Wowhead, Method). A 16 Oct beta report said the Relic of the Fang could not be looted; no fix was confirmed.",
+   "sources": [
+    "g218-91",
+    "g218-92",
+    "g218-93",
+    "g218-86"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.quest-skyborne-druid-form-quests",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skyborne Druid form quests (Unconfirmed)",
+   "value": "Single report (Method): Skyborne Druids start their form quests on Zephras Isle, 'The Great Ursera Spirit' for Bear and 'The Great Windborne Cat Spirit' for Cat. Other reports disagree on the NPCs and start points.",
+   "sources": [
+    "g218-93"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.eclipse-loop",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Eclipse loop",
+   "value": "Eclipse: each Wrath cuts the cast time of your next 2 Starfires by 0.17, 0.33 or 0.50 sec, depending on rank. It stores up to 4 charges, and they last 15 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-eclipse"
+  },
+  {
+   "id": "class-druid.damage-over-time",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Damage over time: Nature's Splendor",
+   "value": "Nature's Splendor adds 3 sec to Moonfire and Rejuvenation, 6 sec to Regrowth and 2 sec to Insect Swarm.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-nature-s-splendor"
+  },
+  {
+   "id": "class-druid.crit-chain",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Crit chain: Nature's Grace",
+   "value": "Nature's Grace: after a non-periodic spell crit, your spellcasting speed rises and your global cooldown shortens by 10% for 3 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-nature-s-grace"
+  },
+  {
+   "id": "class-druid.mana",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Mana: Moonglow",
+   "value": "Moonglow cuts the Mana cost of your damaging spells by 8%, 17% or 25% across its 3 ranks.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-moonglow"
+  },
+  {
+   "id": "class-druid.spell-hit-classic-baseline-for-the-cap",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Spell hit (Classic baseline for the cap)",
+   "value": "Nature's Reach adds hit (2% at rank 1) and range. Classic casters needed 16% spell hit against raid bosses three levels higher; Icy Veins says Forever has a cap but its value is not known yet.",
+   "sources": [
+    "g218-15",
+    "g218-68",
+    "g218-67"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.moonkin-aura",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Moonkin Aura",
+   "value": "The critical strike bonus applies to all attacks and spells.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.moonkin-aura-with-leader-of-the-pack",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Moonkin Aura with Leader of the Pack",
+   "value": "Only one of these auras can apply. Coordinate with the Feral Druid before setting the raid composition.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.raid-utility-levels",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid utility levels",
+   "value": "Rebirth 20, Remove Curse 24, Abolish Poison 26, Tranquility 30, Innervate and Hurricane 40, Gift of the Wild 50, per the warcraft.wiki.gg Forever ability table.",
+   "sources": [
+    "g218-89",
+    "g218-87"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.world-buffs",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs",
+   "value": "Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance', and warcraft.wiki.gg says world buffs are removed in dungeons and raids.",
+   "sources": [
+    "g218-12",
+    "g218-24"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.classic-baseline",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "In Classic, Balance was weak in raids and mainly brought for the party spell-crit aura.",
+   "sources": [
+    "g218-94"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.potions-in-moonkin-form",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Potions in Moonkin Form",
+   "value": "Most potions and consumables work in form, and Mana Potions in form were restored on 8 Oct.",
+   "sources": [
+    "g218-85",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.classic-caster-kit",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic caster kit",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Major Mana Potion, Mageblood Potion, wizard oils, Demonic and Dark Runes, Runn Tum Tuber Surprise, Nightfin Soup and Sagefish Delight.",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.new-forever-elixirs",
+   "scope": {
+    "class": "druid",
+    "spec": "balance"
+   },
+   "topic": "balance-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New Forever elixirs",
+   "value": "Warcraft Tavern reports Elixir of Cunning (Agility plus Intellect) and Minor Arcane Elixir, and says flasks are brewed at a portable Alchemy Laboratory camp object.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.bear-threat",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bear threat",
+   "value": "Bear and Dire Bear Form have a 115% threat bonus. Lacerate moves to row 4 and Primal Bite to row 7.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.bear-survival",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bear survival",
+   "value": "Thick Hide adds armor from Defense bonuses, so Defense gear now helps, and Frenzied Regeneration heals up to 100% of max health over its duration.",
+   "sources": [
+    "g218-85"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.rage",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Rage",
+   "value": "Later beta notes doubled Rage from crits.",
+   "sources": [
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.cat-energy",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Cat Energy",
+   "value": "Predatory Discipline lets Ferocious Bite benefit from excess Energy without spending it. Take Shifting Power after it if you are building for Cat Form.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.bleed-bonus",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bleed bonus",
+   "value": "Rend and Tear increases damage by up to 15%. Blizzard also increased the base damage and attack-power scaling of Rip and Rake.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.feral-capstones",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Feral capstones",
+   "value": "Berserk was removed. Choose Primal Bite for Bear Form or Shifting Power for Cat Form.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.leader-of-the-pack",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Leader of the Pack",
+   "value": "The critical strike bonus applies to spells and attacks and is exclusive with Moonkin Aura.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.bear-raid-tanking",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Bear raid tanking",
+   "value": null,
+   "note": "Untested: bear threat and armor improved during beta, but no Forever raid has been tanked yet.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.swipe-in-the-beta-snapshot",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Swipe: Feral Instinct",
+   "value": "Feral Instinct adds 10%, 20% or 30% to Swipe damage across its 3 ranks and makes you harder to detect while Prowling.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-feral-combat-feral-instinct"
+  },
+  {
+   "id": "class-druid.weapon-procs-in-form",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Weapon procs in form",
+   "value": "Windfury Totem, Crusader and sharpening stones all work in form, and Alliance raids can now field Dwarf Shamans for Windfury Totem.",
+   "sources": [
+    "g218-85",
+    "g218-62"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.classic-baseline-2",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "In Classic, bears were decent raid tanks and cat damage was mid-tier.",
+   "sources": [
+    "g218-94"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.melee-hit-cap-vs-raid-bosses",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Melee hit cap vs raid bosses",
+   "value": null,
+   "note": "No Forever value has been published.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.classic-tank-kit",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic tank kit",
+   "value": "Flask of the Titans, Elixir of the Mongoose, Elixir of Greater Agility, Elixir of the Giants, Greater Stoneshield Potion, Juju Might, Juju Power, Winterfall Firewater and Grilled Squid.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.flasks",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Flasks",
+   "value": "In Classic only one flask is active at a time, and it persists through death.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.rage-potions-and-thistletea",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Rage Potions and Thistletea",
+   "value": "Now usable by Druids, and most potions work in form.",
+   "sources": [
+    "g218-85",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.new-forever-elixirs-2",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New Forever elixirs",
+   "value": "Warcraft Tavern reports Elixir of the Grizzly (Strength plus crit) and Elixir of Cunning (Agility plus Intellect).",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.fire-resistance-for-onyxia",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "feral-combat-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Fire resistance for Onyxia",
+   "value": "Blizzard tells raids to build fire resistance before Onyxia but gives no target number.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.heal-over-time-core",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Heal-over-time core: Improved Rejuvenation",
+   "value": "Improved Rejuvenation raises the effect of your Rejuvenation by 5%, 10% or 15% across its 3 ranks.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-restoration-improved-rejuvenation"
+  },
+  {
+   "id": "class-druid.crits",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Crits",
+   "value": "Rejuvenation, Tranquility and Wild Growth can crit since 24 Sep.",
+   "sources": [
+    "g218-85",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.swiftmend",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Swiftmend",
+   "value": "Swiftmend requires your own Rejuvenation or Regrowth on the target. Blizzard confirmed it leaves that effect in place.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.bloom",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bloom",
+   "value": "Bloom scales with Spirit. It heals for 100% of Spirit at natural expiry and 50% when the effect is dispelled.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.mana-2",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Mana: Reflection",
+   "value": "Reflection lets 17%, 33% or 50% of your Mana regeneration continue while casting.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-restoration-reflection"
+  },
+  {
+   "id": "class-druid.wild-growth",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Wild Growth",
+   "value": "The base cast time is 3 seconds. Naturalist shortens it by up to 0.5 seconds.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.blizzards-healer-intent",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Blizzard's healer intent",
+   "value": "Druid healing relies on heals over time that need planning, and Blizzard calls it less versatile than Priest healing.",
+   "sources": [
+    "g218-85"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.several-druids-together",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Several Druids together",
+   "value": "Warcraft Tavern argues several Restoration Druids now work well together because heals over time stack and crit; a 16 Oct fix stops high-rank Rejuvenation from blocking another Druid's.",
+   "sources": [
+    "g218-87",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.utility",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Utility",
+   "value": "Innervate (40), Rebirth (20), Remove Curse (24), Abolish Poison (26) and Tranquility (30) per the warcraft.wiki.gg Forever table.",
+   "sources": [
+    "g218-89"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.classic-baseline-3",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "Restoration Druids were strong raid healers in Classic, with Innervate and Rebirth as their signature utilities.",
+   "sources": [
+    "g218-94"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.classic-healer-kit",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic healer kit",
+   "value": "Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion, Mageblood Potion, Demonic and Dark Runes, Nightfin Soup, Runn Tum Tuber Surprise, Sagefish Delight and wizard oils.",
+   "sources": [
+    "g218-29"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-druid.forever-alchemy",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Warcraft Tavern says healing potions moved from Alchemy to First Aid and flasks are brewed at a portable Alchemy Laboratory camp object.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.camp-buffs",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Warcraft Tavern: profession camp objects grant slightly weaker copies of class buffs that don't stack with the real ones, and you must sit at the camp for at least 1 minute.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.launch-raids",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "druid-raid-calendar",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40), all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
+  }
+ ]
+}
