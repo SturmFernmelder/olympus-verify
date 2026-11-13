@@ -1204,7 +1204,8 @@
       // that keeps its attributes and content.
       for (const node of authored.slice(1)) {
         const twin = document.createElement("h2");
-        for (const attribute of [...node.attributes]) twin.setAttribute(attribute.name, attribute.value);
+        const names = typeof node.getAttributeNames === "function" ? node.getAttributeNames() : Object.keys(node.attributes || {});
+        for (const name of names) twin.setAttribute(name, node.getAttribute(name));
         while (node.firstChild) twin.appendChild(node.firstChild);
         node.replaceWith(twin);
       }

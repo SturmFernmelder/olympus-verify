@@ -52,7 +52,7 @@ function check(label, value) { total++; if (value) passed++; console.log((value 
   for (const retired of ['/privacy', '/terms']) {
     for (const method of ['GET', 'HEAD']) {
       const gone = policies.policyResponse(new Request('https://guild.example' + retired + '?state=do-not-echo', { method }), retired);
-      check(retired + ' ' + method + ' is explicitly retired without redirect, cookie, login or policy content', gone.status === 410 && !gone.headers.has('Location') && !gone.headers.has('Set-Cookie') && await gone.text() === '' && gone.headers.get('Cache-Control') === 'no-store, no-transform' && gone.headers.get('Content-Security-Policy') === privacy.headers.get('Content-Security-Policy'));
+      check(retired + ' ' + method + ' is explicitly retired without redirect, cookie, login or policy content', gone.status === 410 && !gone.headers.has('Location') && !gone.headers.has('Set-Cookie') && (method === 'HEAD' ? await gone.text() === '' : (await gone.text()).includes('href="/legal' + retired + '"')) /* CL2-320 (12 Nov 2026) */ && gone.headers.get('Cache-Control') === 'no-store, no-transform' && gone.headers.get('Content-Security-Policy') === privacy.headers.get('Content-Security-Policy'));
     }
     const wrongMethod = policies.policyResponse(new Request('https://guild.example' + retired, { method: 'POST', body: 'ignored' }), retired);
     check(retired + ' retains the GET/HEAD-only method boundary', wrongMethod.status === 405 && wrongMethod.headers.get('Allow') === 'GET, HEAD' && !wrongMethod.headers.has('Location') && !wrongMethod.headers.has('Set-Cookie'));
