@@ -1307,6 +1307,12 @@ main.shell:focus-visible { outline: none; }
 .application-intent199 > a.role-guide-link1112 { padding: 2px 4px; }
 /* CL2-281: at 200% zoom on a phone the badge row and the governance hero wrap instead of being clipped. */
 .inline:has(> .badge-slot) { flex-wrap: wrap; }
+/* Round 3 (12 Nov 2026, CL2-281): since name entry closed, the names panel lists recorded names as rows (name, status
+   badge, Remove). At 200% zoom on a phone they were 377 px wide in a 145 px window; they wrap instead. */
+#names .person { flex-wrap: wrap; max-width: 100%; }
+#names .person .nm { flex: 1 1 8em; }
+#names .person .nm b { white-space: normal; overflow-wrap: anywhere; }
+#names .person .badge { white-space: normal; }
 .badge-slot { min-width: 0; max-width: 100%; }
 .badge { max-width: 100%; }
 .governance-hero { flex-wrap: wrap; }

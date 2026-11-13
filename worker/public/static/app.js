@@ -3010,14 +3010,14 @@
             h("div", null,
               h("div", { class: "title", text: "Olympus" }),
               h("div", { class: "tag" }, h("span", { text: "Asmongold's guild" }), h("span", { "data-ruleset-identity": "current", text: rulesetIdentity() })),
-              h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, list the friends you are bringing, and record the names you have reserved in game. Leader, High Council and Officer Corps seats are reserved appointments." }),
+              h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, and list the friends you are bringing. Leader, High Council and Officer Corps seats are reserved appointments." }),
               signInButton(true),
               h("p", { class: "muted small", text: "For members of Asmongold's Discord server. The site checks that one membership and nothing else: it never sees your password, email, other servers or messages." })))),
         flash,
         h("section", { class: "grid three" },
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-apply"), h("h3", { text: "Apply" })), h("p", { class: "muted", text: "Browse illustrated, collapsible guides for every rank, title and office. Eligible membership, Raider and Artisan roles have application choices; reserved leadership seats have detailed duties and expectations without application buttons." }), h("p", { class: "small" }, h("a", { href: "#/roles", text: "What each role involves" }))),
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-vote"), h("h3", { text: "Vote" })), h("p", { class: "muted", text: "Historical applications and nominations remain on record. A nomination is a recommendation for leadership review; it does not open a reserved seat to applications. Only the guild's leadership sees vote counts." })),
-          h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Your seat" })), h("p", { class: "muted", text: "Add the friends joining with you and the character names you reserved in game." }))),
+          h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Your seat" })), h("p", { class: "muted", text: "Add the friends joining with you." }))),
         datesPanel(),
         warningBox(),
       ]);
@@ -3088,8 +3088,8 @@
           h("p", { class: "muted small", text: `${plural(S.boardVotes || 0, "applicant")} voted on, ${plural((S.votes || []).length, "write-in")}. Only the guild's leadership sees counts.` })),
         h("a", { class: "card", href: "#/names" },
           h("div", { class: "card-head" }, icon("icon-names"), h("h3", { text: "Reserved names" })),
-          h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : namesSoon ? "Soon" : plural((S.reserved || []).length, "name") + " saved" }),
-          h("p", { class: "muted small", text: namesOpen ? "Saved on your list below." : namesSoon ? "Website name entry is not open yet." : "View the names you saved." }))),
+          h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : namesSoon ? "Soon" : (S.reserved || []).length ? plural(S.reserved.length, "name") + " saved" : "None" }),
+          h("p", { class: "muted small", text: namesOpen ? "Saved on your list below." : namesSoon ? "Website name entry is not open yet." : (S.reserved || []).length ? "View the names you saved." : "No names recorded." }))),
       frame("Beta Epoch Archive", h("span", { class: "badge", text: "Guild history" }),
         h("p", null, "Blizzard's 20 October update scheduled the final beta shutdown for 23 October 2026 at 10:00 AM PDT (17:00 UTC). ", h("a", {href:"https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",target:"_blank",rel:"noopener noreferrer",text:"Read the announced schedule"}), ". Its guild work continues into the announced PvE · Alliance direction."),
         h("p", { class: "muted small", text: "This archive records the guild's published rules, release history and aggregate milestones. It contains no former-member roster, private account copies or erased member records. The shutdown time is Blizzard's announced plan, not a server closure observed by this site; the guild's separate reset-policy cutoff is unchanged." }),
@@ -3161,7 +3161,9 @@
             toast(`${r.name} removed from your list.`, "good");
             section.replaceWith(namesPanel());
             const count = document.getElementById("names-count");
-            if (count) count.textContent = plural(S.reserved.length, "name") + " saved";
+            // Round 3 (12 Nov 2026, CL2-175 leftovers): an empty list reads "No names recorded.", not "0 names saved".
+            if (count) count.textContent = S.reserved.length ? plural(S.reserved.length, "name") + " saved" : "None";
+            if (count && !S.reserved.length && count.nextElementSibling) count.nextElementSibling.textContent = "No names recorded.";
           } catch (err) { toast(err.message, "bad"); button.disabled = false; }
         });
         return button;
