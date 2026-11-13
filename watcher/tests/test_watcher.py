@@ -23,6 +23,19 @@ import codes  # noqa: E402
 import savedvars  # noqa: E402
 import watcher  # noqa: E402
 
+@contextlib.contextmanager
+def capture_projection_writes280():
+    """Observe actual successful projection replacements, including no-op checks."""
+    calls=unittest.mock.Mock()
+    real=watcher.safe_projection280.write
+    def write(path,parent,payload,inputs,previous=None):
+        result=real(path,parent,payload,inputs,previous)
+        if result[0]: calls(path,payload)
+        return result
+    with patch.object(watcher.safe_projection280,"write",side_effect=write):
+        yield calls
+
+
 VECTORS = json.loads((Path(__file__).parent / "vectors.json").read_text(encoding="utf-8"))
 
 SV_SAMPLE = r'''
@@ -272,43 +285,45 @@ class WatcherTests(unittest.TestCase):
         for private_value in (rejected, malformed, malformed[:12], ticket):
             self.assertNotIn(private_value, output)
 
-    def test_savedvars_parse_failures_withhold_contents_and_keep_the_original_cursor_policy(self):
+    def test_savedvars_parse_failures_withhold_contents_and_keep_original_cursor(self):
         sv = self.wow / "WTF" / "Account" / "ACC" / "SavedVariables" / "OlympusVerify.lua"
         sentinel = "PRIVATE_PARSE_SENTINEL"
-        for index, payload in enumerate((f'OlympusVerifyDB = {{ @{sentinel} }}',
-                                         f'OlympusVerifyDB = {{ ["events"] = {sentinel} }}'), start=1):
+        for index,payload in enumerate((f'OlympusVerifyDB = {{ @{sentinel} }}',
+                                       f'OlympusVerifyDB = {{ ["events"] = {sentinel} }}'),start=1):
             with self.subTest(payloadClass=index):
-                # Exercise the real parser first so an empty or unrelated failure cannot satisfy the absence check.
                 with self.assertRaises(ValueError) as parser_failure:
                     savedvars.parse(payload)
-                self.assertIn(sentinel[:12], str(parser_failure.exception))
-                sv.write_text(payload, encoding="utf-8")
-                os.utime(sv, (1700000000 + index, 1700000000 + index))
-                before = {key: value for key, value in self.w.state.d.items() if key != "sv_mtime"}
-                captured = io.StringIO()
+                self.assertIn(sentinel[:12],str(parser_failure.exception))
+                sv.write_text(payload,encoding="utf-8")
+                os.utime(sv,(1700000000+index,1700000000+index))
+                before=json.loads(json.dumps(self.w.state.d))
+                disk=self.w.state.path.read_bytes() if self.w.state.path.exists() else None
+                captured=io.StringIO()
                 with contextlib.redirect_stdout(captured):
+                    with self.assertRaises(watcher.SavedVariablesSourceUnavailable) as held:
+                        self.w.check_savedvars()
+                self.assertEqual(str(held.exception),"")
+                for private_value in (sentinel,sentinel[:12],str(parser_failure.exception)):
+                    self.assertNotIn(private_value,captured.getvalue())
+                self.assertEqual(self.calls,[])
+                self.assertEqual(self.w.state.d,before,"Bad source never advances the durable cursor")
+                self.assertEqual(self.w.state.path.read_bytes() if self.w.state.path.exists() else None,disk)
+                with self.assertRaises(watcher.SavedVariablesSourceUnavailable):
                     self.w.check_savedvars()
-                self.assertIn("SavedVariables parse failed: unreadable or invalid data (contents withheld)", captured.getvalue())
-                for private_value in (sentinel, sentinel[:12], str(parser_failure.exception)):
-                    self.assertNotIn(private_value, captured.getvalue())
-                self.assertEqual(self.calls, [], "a failed parse forwards no data")
-                self.assertEqual(self.w.state.d["sv_mtime"], sv.stat().st_mtime)
-                self.assertEqual(json.loads(self.w.state.path.read_text(encoding="utf-8"))["sv_mtime"], sv.stat().st_mtime)
-                self.assertEqual({key: value for key, value in self.w.state.d.items() if key != "sv_mtime"}, before)
-                with contextlib.redirect_stdout(io.StringIO()) as unchanged:
-                    self.w.check_savedvars()
-                self.assertEqual(unchanged.getvalue(), "", "unchanged failed file is not retried")
+                self.assertIsNone(self.w._launch_consumed_sv_witness)
 
     def test_savedvars_read_error_text_is_withheld_without_changing_failure_state(self):
         sv = self.wow / "WTF" / "Account" / "ACC" / "SavedVariables" / "OlympusVerify.lua"
-        sv.write_text("synthetic unreadable source", encoding="utf-8")
-        captured = io.StringIO()
-        with patch.object(savedvars, "parse_file", side_effect=OSError("PRIVATE_READ_ERROR")), contextlib.redirect_stdout(captured):
-            self.w.check_savedvars()
-        self.assertIn("contents withheld", captured.getvalue())
-        self.assertNotIn("PRIVATE_READ_ERROR", captured.getvalue())
-        self.assertEqual(self.w.state.d["sv_mtime"], sv.stat().st_mtime)
-        self.assertEqual(self.calls, [])
+        sv.write_text("synthetic unreadable source",encoding="utf-8")
+        before=json.loads(json.dumps(self.w.state.d))
+        captured=io.StringIO()
+        with patch.object(watcher.savedvars_source280.os,"open",side_effect=OSError("PRIVATE_READ_ERROR")),contextlib.redirect_stdout(captured):
+            with self.assertRaises(watcher.SavedVariablesSourceUnavailable) as held:
+                self.w.check_savedvars()
+        self.assertEqual(str(held.exception),"")
+        self.assertNotIn("PRIVATE_READ_ERROR",captured.getvalue())
+        self.assertEqual(self.w.state.d,before)
+        self.assertEqual(self.calls,[])
 
     def test_lag_summary_reports_measurements_without_assigning_a_flush_or_batch_cause(self):
         for lags, expected in [([1, 3], "2 line(s): median 2s, slowest 3s, 2 within 10s"),
@@ -477,7 +492,7 @@ class ResilienceTests(unittest.TestCase):
             calls.append((m, p, b))
             return True, response
         self.w.worker.call = queue_response
-        with patch.object(watcher.time, "time", return_value=at), patch.object(watcher, "atomic_local_text", wraps=watcher.atomic_local_text) as write:
+        with patch.object(watcher.time, "time", return_value=at), capture_projection_writes280() as write:
             self.w.pull_queue();before = self.w.state.d["queue_hash"]
             self.w.state.d["intake242"] = {"a": {"state": "done", "acknowledgedAt": at, "receipt": {"id": "a", "status": "done", "guid": "", "character": "First Last", "discordRole": ""}}}
             self.w._last_queue_pull = 0;self.w.pull_queue()
@@ -487,14 +502,11 @@ class ResilienceTests(unittest.TestCase):
             self.assertIn('status = "verified"', self.w.queue_file.read_text(encoding="utf-8"))
             original_ack = json.dumps(self.w.state.d["intake242"]["a"], sort_keys=True)
             original_hash = self.w.state.d["queue_hash"]
-        with patch.object(watcher.time, "time", return_value=at+86400), patch.object(watcher, "atomic_local_text", wraps=watcher.atomic_local_text) as write:
+        with patch.object(watcher.time, "time", return_value=at+86400), capture_projection_writes280() as write:
             self.w._last_queue_pull = 0;self.w.pull_queue()
             self.assertEqual(sum(call.args[0] == self.w.queue_file for call in write.call_args_list), 1)
             queue = savedvars.parse_file(str(self.w.queue_file))["OlympusQueue"]
-            receipt = queue["intakeReceipts242"][0]
-            self.assertEqual((receipt["id"], receipt["status"], receipt["observedAt"]), ("a", "done", at))
-            self.assertEqual(receipt["expiresAt"], at+86340+86400)
-            self.assertTrue(at+86400 < receipt["expiresAt"] <= at+2*86400)
+            self.assertFalse(queue["intakeReceipts242"], "delivery expires at its original ACK+86400, never rolls forward")
             self.assertFalse(queue["verificationResults242"], "terminal ACK delivery must not renew current verification")
             self.assertNotEqual(original_hash, self.w.state.d["queue_hash"])
             self.assertEqual(self.w.state.d["intake242"]["a"]["acknowledgedAt"], at)
@@ -506,7 +518,7 @@ class ResilienceTests(unittest.TestCase):
         self.w.pull_unverified = lambda: None
         response = {"entries": [], "verificationResults": [{"guid": "Player-1-ABCD", "character": "First Last", "status": "verified", "discordRole": "Veteran", "observedAt": at, "expiresAt": at+300}]}
         self.w.worker.call = lambda m, p, b=None, retries=3: (True, response)
-        with patch.object(watcher.time, "time", return_value=at), patch.object(watcher, "atomic_local_text", wraps=watcher.atomic_local_text) as write:
+        with patch.object(watcher.time, "time", return_value=at), capture_projection_writes280() as write:
             self.w.pull_queue();initial = self.w.state.d["queue_hash"]
             response["verificationResults"][0]["discordRole"] = "Raider"
             self.w._last_queue_pull = 0;self.w.pull_queue();role_hash = self.w.state.d["queue_hash"]
@@ -521,7 +533,7 @@ class ResilienceTests(unittest.TestCase):
         self.w.pull_unverified = lambda: None
         response = {"entries": [], "verificationResults": [{"guid": "Player-1-ABCD", "character": "First Last", "status": "pending-role", "discordRole": "", "observedAt": at, "expiresAt": at+300}]}
         self.w.worker.call = lambda m, p, b=None, retries=3: (True, response)
-        with patch.object(watcher, "atomic_local_text", wraps=watcher.atomic_local_text) as write:
+        with capture_projection_writes280() as write:
             with patch.object(watcher.time, "time", return_value=at):self.w.pull_queue()
             before = self.w.state.d["queue_hash"]
             with patch.object(watcher.time, "time", return_value=at+1):
@@ -532,41 +544,42 @@ class ResilienceTests(unittest.TestCase):
                 self.w._last_queue_pull = 0;self.w.pull_queue()
             self.assertEqual(sum(call.args[0] == self.w.queue_file for call in write.call_args_list), 2)
 
-    def test_queue_local_retry_does_not_repeat_worker_or_advance_before_replace(self):
-        entries = [{"id": 7, "character": "Synthetic Queue", "discordId": "1", "status": "queued"}]
-        calls, payloads = [], []
-        self.w.pull_unverified = lambda: None
-        self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p, b)) or (True, {"entries": entries} if m == "GET" else {"ok": True}))
-        real_replace = os.replace
-
-        def replace(source, target):
-            if target == self.w.queue_file:
+    def test_queue_projection_failure_is_not_retried_inline_or_acknowledged(self):
+        self.w.pull_unverified=lambda:None
+        calls,payloads=[],[]
+        response={"entries":[{"id":7,"character":"Synthetic Queue","status":"queued"}]}
+        self.w.worker.call=lambda m,p,b=None,retries=3:(calls.append((m,p,b)) or (True,response if m=="GET" else {"ok":True}))
+        real_replace=os.replace
+        def replace(source,target):
+            if target==self.w.queue_file:
                 payloads.append(Path(source).read_text(encoding="utf-8"))
-                self.assertEqual(self.w.state.d["queue_hash"], "")
-                self.assertEqual(self.w.state.d["queue_written_pending"], [])
-                if len(payloads) == 1:
-                    raise PermissionError(13, "synthetic lock")
-            return real_replace(source, target)
-
-        with patch.object(watcher.os, "replace", side_effect=replace), patch.object(watcher.time, "sleep"):
+                if len(payloads)==1: raise PermissionError(13,"synthetic lock")
+            return real_replace(source,target)
+        with patch.object(watcher.safe_projection280.os,"replace",side_effect=replace):
             self.w.pull_queue()
-        self.assertEqual(len(payloads), 2)
-        self.assertEqual(payloads[0], payloads[1])
-        self.assertEqual([m for m, _, _ in calls], ["GET", "POST"])
-        self.assertEqual(calls[1][1], "/queue/written")
-        self.assertEqual(calls[1][2], {"ids": [7], "officer": self.w.officer_id})
+            self.assertEqual(len(payloads),1,"no blind local retry in the same visit")
+            self.assertEqual([m for m,p,b in calls],["GET"])
+            self.assertEqual(self.w.state.d["queue_hash"],"")
+            self.assertEqual(self.w.state.d["queue_written_pending"],[])
+            self.assertFalse(self.w.queue_file.exists())
+            self.w._last_queue_pull=0
+            self.w.pull_queue()
+        self.assertEqual(len(payloads),2)
+        self.assertEqual([m for m,p,b in calls],["GET","GET","POST"])
+        self.assertEqual(calls[-1][1],"/queue/written")
+        self.assertEqual(calls[-1][2],{"ids":[7],"officer":self.w.officer_id})
 
-    def test_queue_exhausted_write_does_not_acknowledge_or_change_custody(self):
-        self.w.pull_unverified = lambda: None
-        calls = []
-        self.w.worker.call = lambda m, p, b=None, retries=3: (calls.append((m, p)) or (True, {"entries": [{"id": 8, "character": "Synthetic", "status": "queued"}]}))
-        with patch.object(watcher.os, "replace", side_effect=PermissionError(13, "synthetic lock")), patch.object(watcher.time, "sleep"):
-            with self.assertRaises(PermissionError):
-                self.w.pull_queue()
-        self.assertEqual([m for m, _ in calls], ["GET"])
-        self.assertEqual(self.w.state.d["queue_hash"], "")
-        self.assertEqual(self.w.state.d["queue_written_pending"], [])
-        self.assertIsNone(self.w.state.d["queue_written_original"])
+    def test_queue_unavailable_write_does_not_acknowledge_or_change_custody(self):
+        self.w.pull_unverified=lambda:None
+        calls=[]
+        self.w.worker.call=lambda m,p,b=None,retries=3:(calls.append((m,p)) or (True,{"entries":[{"id":8,"character":"Synthetic","status":"queued"}]}))
+        before=json.loads(json.dumps(self.w.state.d))
+        with patch.object(watcher.safe_projection280.os,"replace",side_effect=PermissionError(13,"synthetic lock")),patch.object(watcher.time,"sleep") as sleep:
+            self.w.pull_queue()
+            sleep.assert_not_called()
+        self.assertEqual([m for m,p in calls],["GET"])
+        self.assertEqual(self.w.state.d,before)
+        self.assertFalse(self.w.queue_file.exists())
 
     def test_check_refuses_terminal_4xx_or_malformed_queue_without_followup(self):
         self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
@@ -655,7 +668,7 @@ class ResilienceTests(unittest.TestCase):
             f'    {{ ["type"] = "removed", ["name"] = "Longer Gone", ["ts"] = {now + 1}, ["ok"] = true,\n'
             '      ["reason"] = "space", ["detail"] = "freed a seat" },\n'
             '  },\n'
-            '  ["roster"] = { ["exportedAt"] = 0, ["members"] = {} },\n'
+            '  ["roster"] = { ["exportedAt"] = 0, ["members"] = { { ["name"] = "Synthetic row" } } },\n'
             '}\n',
             encoding="utf-8",
         )

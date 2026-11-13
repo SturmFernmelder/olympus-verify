@@ -35,8 +35,12 @@ class NativeMembershipTests(unittest.TestCase):
         self.w = watcher.Watcher(dict(wow_dir=str(self.root), account='LOCAL_TEST', worker_url='https://test.invalid', watcher_token='test-token', verify_secret=SECRET, officer_character='Fern Melder', membership_only=True, state_file=str(self.root / 'state.json')))
         self.calls = []
         self.w.worker.call = lambda method, path, body=None, retries=3: (self.calls.append((path, body)) or (True, {'trusted': True, 'snapshot': 1, 'members': len(body['members'])} if path == '/ingest/roster' else {'result': 'ok'}))
-        self.w.forward_roster(dict(exportedAt=self.at, total=1, nativeGuild='OLYMPUS PRIME', nativeRealm='Synthetic Realm',
-                                  members=[dict(name=NAME, guid=GUID, rank='Member', rankIndex=7, level=60)]))
+        native=dict(roster=dict(exportedAt=self.at,total=2,nativeGuild='OLYMPUS PRIME',nativeRealm='Synthetic Realm',members=[
+            dict(name='Fern Melder',guid='Player-1-00000001',rank='Guild Master',rankIndex=0,level=60),
+            dict(name=NAME,guid=GUID,rank='Member',rankIndex=7,level=60)]),lastCharacterGuid='Player-1-00000001',events=[])
+        self.w.sv_file.parent.mkdir(parents=True,exist_ok=True)
+        self.w.sv_file.write_text('OlympusVerifyDB='+watcher.launch_operations229._lua(native),encoding='utf-8')
+        self.w.check_savedvars()
         self.calls.clear()
 
     def tearDown(self):
@@ -307,6 +311,7 @@ class NativeMembershipTests(unittest.TestCase):
             self.assertEqual(config.read_bytes(), original)
 
     def test_strict_check_requires_a_savedvariables_file_in_its_selected_tree(self):
+        self.w.sv_file.unlink()
         self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
         health = {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True,
                   'nativeMembershipProofVersion': 1}}
@@ -332,7 +337,7 @@ class NativeMembershipTests(unittest.TestCase):
         self.w.retry_queue_written = lambda: self.fail('Membership mode replayed an old acknowledgement')
         presence = {'presenceOnly': True, 'entries': []}
         fresh = dict(protocol=watcher.STRICT_DISPLAY_PROTOCOL, fetchedAt=self.at, snapshotAt=self.at - 60,
-                     guild='Olympus', realm='Fixture Realm', verified=[],
+                     guild='Olympus', realm='Fixture Realm', verified=[],unknown=[],
                      unverified=[dict(name=NAME, guid=GUID, pending=False)])
         original_lists = None
         for response, report in ((presence, fresh), (presence, {**fresh, 'snapshotAt': self.at - 3601}),
@@ -363,7 +368,7 @@ class NativeMembershipTests(unittest.TestCase):
             if report is fresh and response is presence:
                 original_lists = lists
                 self.assertEqual(self.w.strict_display_file.name, 'OlympusVerifyLists.lua')
-                self.assertIn(b'OlympusVerifyLists = { version = 1', lists)
+                self.assertIn(b'OlympusVerifyLists = { version = 2', lists)
                 self.assertIn(f'snapshotAt = {self.at - 60}'.encode(), lists)
                 self.assertIn(GUID.encode(), lists)
                 for banned in (b'OlympusQueue', b'entries', b'eligibleAt', b'discordId'):
@@ -405,7 +410,7 @@ class NativeMembershipTests(unittest.TestCase):
                 okay, _ = worker.call('GET', path, retries=1)
             self.assertEqual(okay, wanted)
             request = transport.call_args.args[0]
-            self.assertEqual(request.full_url, 'https://test.invalid/queue/unverified?keyVersion=launch-roster-display-v1')
+            self.assertEqual(request.full_url, 'https://test.invalid'+watcher.STRICT_DISPLAY_PATH)
             self.assertIsNone(request.data)
 
 if __name__ == '__main__':

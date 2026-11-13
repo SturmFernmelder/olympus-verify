@@ -110,21 +110,14 @@ return x.rows()
         from lupa.luajit21 import LuaRuntime
         root = Path(__file__).resolve().parents[2]
         fixture = (root / "addon/tests/test_live242.lua").read_text(encoding="utf-8").split("\ndo\n", 1)[0]
+        helpers = (root / "addon/tests/test_live_safety280.lua").read_text(encoding="utf-8").split("\ndo\n", 1)[0]
         runtime = LuaRuntime(unpack_returned_tuples=True)
-        runtime.globals().BRIDGE_TEST_NOW = int(time.time())
+        runtime.globals().LIVE280_NOW = int(time.time())
         with contextlib.chdir(root / "addon/tests"):
-            rows = runtime.execute(fixture + r'''
-local sender,receiver=fixture(),fixture()
-sender.e.NOW=BRIDGE_TEST_NOW;receiver.e.NOW=BRIDGE_TEST_NOW
-sender.e.OlympusVerifyAPI.TreasuryTransport.Name=function() return 'Remote Sender' end
-sender.e.UnitGUID=function(unit) return unit=='player' and 'Player-1-9999ABCD' or 'Player-1-1234ABCD' end
-sender.e.GetUnitName=function(unit) return unit=='player' and 'Remote Sender' or 'Fern Melder' end
-sender.e.GetGuildInfo=function() return 'OLYMPUS PRIME','Member',8 end
+            rows = runtime.execute(fixture + helpers + r'''
+local sender,receiver=member('Remote Sender'),fixture()
 assert(sender.v.QueueSelf('ABC234'))
-for i=1,49 do sender.pump() end
-for _,message in ipairs(sender.addonMessages) do
- if message[1]=='OLV242' then receiver.event('CHAT_MSG_ADDON',message[1],message[2],message[3],'Remote Sender') end
-end
+drain(sender,receiver)
 return receiver.rows()
 ''')
         def plain(value):
