@@ -93,8 +93,10 @@ try {
   check('round 3: the invite queue shows the v233 and the v242 row, each with how it was seen in plain words, with no sideways scrolling inside its table at all six widths', layout.every(x => x.invites.length === 2 && x.invites.map(r => r.source).join('|') === 'native-who-unit-v233|native-who-whisper-v242' && x.invites.every(r => r.cells[1] === witness[r.source] && r.cells[3] === 'Recheck and invite in-game') && x.wraps.filter(w => w.invites).every(w => w.inner <= 0)), layout.map(x => ({ w: x.width, invites: x.invites, wraps: x.wraps.filter(w => w.invites) })));
   check('every control in the view is at least 44 px in both directions at all six widths', layout.every(x => x.small.length === 0), layout.map(x => ({ w: x.width, small: x.small })));
   // The admin section navigation above the view is another lane's (admin navigation and headings); check the view's own outline.
-  const heads = layout[1].headings.slice(layout[1].headings.indexOf('H1:Launch operations & MOTD'));
-  check('the view headings run h1, then h2 per frame, then h3 inside the examined page', heads[0] === 'H1:Launch operations & MOTD' && heads.slice(1).every(h => /^H[23]:/.test(h)) && heads.indexOf('H3:Holds on this read') > heads.indexOf('H2:Discovery and current eligibility') && heads.includes('H2:Rank table in force') && heads.includes('H3:Knights to Veteran (slot 5)') && heads.includes('H3:Verified Initiates to Member (slot 7), by way of Alt') && heads.filter(h => h.startsWith('H1:')).length === 1, heads);
+  // Round 5: CL2-099 (12 Nov 2026) keeps one H1 per view, the Admin heading; an admin tool's own H1 becomes an H2
+  // (pageHeading218 in app.js), so the view title is now an H2 under "Admin". The order inside the view is unchanged.
+  const heads = layout[1].headings.slice(layout[1].headings.indexOf('H2:Launch operations & MOTD'));
+  check('the view headings run: one H1 (Admin), the view title as h2, then h2 per frame, then h3 inside the examined page', heads[0] === 'H2:Launch operations & MOTD' && heads.slice(1).every(h => /^H[23]:/.test(h)) && heads.indexOf('H3:Holds on this read') > heads.indexOf('H2:Discovery and current eligibility') && heads.includes('H2:Rank table in force') && heads.includes('H3:Knights to Veteran (slot 5)') && heads.includes('H3:Verified Initiates to Member (slot 7), by way of Alt') && JSON.stringify(layout[1].headings.filter(h => h.startsWith('H1:'))) === '["H1:Admin"]', layout[1].headings);
 
   // 3. Exact values against the page that was served.
   await viewport(cdp, 1280, 900);
