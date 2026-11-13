@@ -230,7 +230,11 @@ function splitFixtureSchema(source) {
     let applied = 0, schemaErr = "";
     try { for (const sql of statements) { await legacy.prepare(sql).run(); applied++; } } catch (e) { schemaErr = String(e.message).slice(0, 200); }
     const compoundTriggers = statements.filter(sql => /^CREATE\s+TRIGGER\b/i.test(sql.trimStart())).length;
-    check(`schema.sql complete statements apply to separate legacy D1 (${statements.length} statements)`, statements.length === 160 && applied === statements.length && !schemaErr && compoundTriggers === 5, applied, schemaErr, compoundTriggers);
+    const legacyExpiryControl = await legacy.prepare("SELECT singleton,protocol,observed_at,selected_count FROM privacy_rejection_expiry_control").all();
+    const legacyIntegrity = await legacy.prepare("PRAGMA integrity_check").all(), legacyForeignKeys = await legacy.prepare("PRAGMA foreign_key_check").all();
+    check(`schema.sql complete statements apply to separate legacy D1 (${statements.length} statements)`, applied === statements.length && !schemaErr && compoundTriggers === 5 &&
+      JSON.stringify(legacyExpiryControl.results) === JSON.stringify([{ singleton: 1, protocol: "original-guild-rejection-expiry-v1", observed_at: 0, selected_count: 0 }]) &&
+      legacyIntegrity.results.length === 1 && legacyIntegrity.results[0].integrity_check === "ok" && legacyForeignKeys.results.length === 0, applied, schemaErr, compoundTriggers, legacyExpiryControl.results, legacyIntegrity.results, legacyForeignKeys.results);
     const oldDetails = JSON.stringify({ votingOpen: "1", notice: "Raid at eight", appointed: JSON.stringify({ treasurer: "Zed Holder", "class_lead:priest": "Quill Holder" }) });
     await legacy.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000000, oldDetails).run();
     await legacy.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000001, "not json").run();
@@ -346,8 +350,10 @@ function splitFixtureSchema(source) {
     check("real Workerd native Body methods admit the original authenticated detail GET", detail.status === 200 && detailBody.user.id === viewer && detailBody.application.status === "submitted", detail.status, detailBody.error);
     const target = await get("https://guild.example/api/admin/users/" + viewer + "/decision-target?route=status&decisionAction=membership_rejection_v1", { headers: { Cookie: adminCookie } }), targetBody = await target.json();
     check("real Workerd preserves original target preparation instead of bypassing custody", target.status === 200 && typeof targetBody.targetToken === "string" && targetBody.targetToken.length > 100, target.status, targetBody.error);
-    const nonAdmin = await get(applicationPath, { headers: { Cookie: cookie } });
-    check("the original non-admin viewer cannot read the administrator detail", nonAdmin.status === 401, nonAdmin.status);
+    const beforeDeniedReads = await readTarget(), deniedAuditBefore = (await d1.prepare("SELECT COUNT(*) AS n FROM audit").first()).n;
+    const nonAdmin = await get(applicationPath, { headers: { Cookie: cookie } }), nonAdminBody = await nonAdmin.json();
+    const anonymousAdminDetail = await get(applicationPath), anonymousAdminBody = await anonymousAdminDetail.json();
+    check("signed-in non-admin detail is forbidden, anonymous detail is signed out, and both leave the target unchanged", nonAdmin.status === 403 && JSON.stringify(nonAdminBody) === '{"error":"forbidden","message":"This action requires a site administrator."}' && anonymousAdminDetail.status === 401 && anonymousAdminBody.error === "signed_out" && !Object.hasOwn(anonymousAdminBody, "user") && !Object.hasOwn(anonymousAdminBody, "application") && JSON.stringify(await readTarget()) === JSON.stringify(beforeDeniedReads) && (await d1.prepare("SELECT COUNT(*) AS n FROM audit").first()).n === deniedAuditBefore, nonAdmin.status, nonAdminBody, anonymousAdminDetail.status, anonymousAdminBody);
     const missingTarget = await get(applicationPath + "/status", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://guild.example", "X-Olympus": "2", "Content-Type": "application/json", "X-Olympus-Decision-Action": "membership_rejection_v1" }, body: JSON.stringify({ status: "declined" }) });
     check("the native status writer still holds a missing original target token", missingTarget.status === 409 && (await missingTarget.json()).error === "original_membership_decision_held", missingTarget.status);
     const wrongOrigin = await get(applicationPath + "/status", { method: "POST", headers: { Cookie: adminCookie, Origin: "https://elsewhere.example", "X-Olympus": "2", "Content-Type": "application/json", "X-Olympus-Decision-Target": targetBody.targetToken || "", "X-Olympus-Decision-Action": "membership_rejection_v1" }, body: JSON.stringify({ status: "declined" }) });
