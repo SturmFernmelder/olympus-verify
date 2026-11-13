@@ -250,13 +250,16 @@ subject line of a mail, a note typed for a trade, and whispers offering gold. Th
 Watcher and the server refuse receipts in the old format. On the server, a one-time cleanup blanks that text in the
 stored receipts and keeps the rows. The sender's name and any character ID, the amount, the time, the source, the item
 names and counts, and the record IDs stay.</p>
-<p>Copies of the older text can still be in the collecting officer's addon file and in the Watcher's local file on that
-computer. They are held there and are not uploaded.</p>
-<p><strong>The kept checksum.</strong> Each stored receipt on the server keeps a checksum made from the original record,
-including the old text. A checksum cannot be turned back into the text. Once the text is blanked, the checksum no longer
-matches the record, so it proves nothing about what the text said. Someone who can read the rest of a record could
-still test a guessed short text against it. The server deletes the checksum with the row after the receipt's 30-day
-deadline.</p>
+<p>The older text is also removed on the collecting officer's computer. The next time the addon loads, it blanks the old
+text in its saved file, including where the text was part of an internal lookup key; the game writes the change to disk
+when the officer next reloads or logs out. The next time the Watcher starts, it blanks the old text in its own local
+copy. In both places the sender, amount, time, status, item names and counts, and the record IDs stay, and a blanked
+record is never uploaded.</p>
+<p><strong>The kept checksum.</strong> The server's receipts, the addon's file and the Watcher's copy each keep a
+checksum made from the original record, including the old text. A checksum cannot be turned back into the text. Once
+the text is blanked, the checksum no longer matches the record, so it proves nothing about what the text said. Someone
+who can read the rest of a record could still test a guessed short text against it. The server deletes its checksum
+with the row after the receipt's 30-day deadline; the local copies keep theirs as long as they keep the record.</p>
 <p><strong>Backups.</strong> The cleanup does not reach copies made before it ran, such as the database backups and
 Cloudflare recovery history described under Recovery copies, or a backup of an officer's computer. It does not touch
 the game's own chat log or other addons' saved files.</p>
