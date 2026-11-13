@@ -309,6 +309,39 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   check('CL2-076: a Range request on the page gets the whole page (200, no Content-Range)', rangedPage.status === 200 && !rangedPage.h('Content-Range') && strip(gunzip(rangedPage.bytes)) === strip(docHtml));
   const gate = await raw(null, '/', { headers: { 'Accept-Encoding': 'gzip' } });
   check('CL2-076: the signed-out sign-in page is unchanged (not compressed by the Worker)', gate.status === 200 && !gate.h('Content-Encoding') && /no-store/.test(gate.h('Cache-Control') || '') && /Enter Olympus/.test(gate.bytes.toString('utf8')));
+  // Review finding 1 (13 Nov 2026): text the requester chose is never compressed next to the member's data and the
+  // per-session proof (BREACH). The decision is made where the page is built (site.ts pageText), from what the caller
+  // put into the page, and memberDocument sends anything but 'fixed' uncompressed.
+  const site = load('./site'), transport = load('./member-transport');
+  const shapes = [[{}, 'fixed'], [{ flash: { kind: 'updating' } }, 'fixed'], [{ flash: { kind: 'cancelled', detail: undefined } }, 'fixed'], [{ flash: { kind: 'expired', detail: undefined } }, 'fixed'],
+    [{ flash: { kind: 'discord_error', detail: 'zq-guess' } }, 'from-request'], [{ flash: { kind: 'discord_error', detail: 'token 502' } }, 'from-request'], [{ flash: { kind: 'not_configured', detail: 'COOKIE_SECRET' } }, 'from-request'],
+    [{ flash: { kind: 'no_such_kind' } }, 'from-request'], [{ flash: { kind: 'updating', extra: 'x' } }, 'from-request'], [{ flash: { kind: 'updating' }, q: 'x' }, 'from-request'], [{ q: 'x' }, 'from-request'], [{ flash: 'text' }, 'from-request']];
+  const decided = typeof site.pageText === 'function' ? shapes.map(([extra, want]) => [JSON.stringify(extra), site.pageText(extra), want]) : null;
+  check('CL2-076 echo: the page counts as fixed only with no extra or a listed flash kind without detail; any detail or other key is from-request', !!decided && decided.every(([, got, want]) => got === want), decided ? decided.filter(([, got, want]) => got !== want) : 'site.ts exports no pageText');
+  const docHeaders = () => new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-transform' });
+  const docReq = method => new Request('https://guild.example/', { method, headers: { 'Accept-Encoding': 'gzip, deflate, br' } });
+  const SAMPLE = '<!doctype html><title>t</title>' + 'x'.repeat(4000);
+  const outs = {};
+  for (const [label, text, method] of [['fixed', 'fixed', 'GET'], ['from-request', 'from-request', 'GET'], ['from-request HEAD', 'from-request', 'HEAD'], ['no decision', undefined, 'GET']]) {
+    const r = await transport.memberDocument(docReq(method), SAMPLE, 200, docHeaders(), text), b = Buffer.from(await r.arrayBuffer());
+    outs[label] = { encoding: r.headers.get('Content-Encoding'), vary: r.headers.get('Vary'), bytes: b.length, same: b.toString('utf8') === (method === 'HEAD' ? '' : SAMPLE) };
+  }
+  check('CL2-076 echo: memberDocument gzips a fixed page for a browser that takes gzip', outs.fixed.encoding === 'gzip' && outs.fixed.vary === 'Accept-Encoding', outs.fixed);
+  check('CL2-076 echo: memberDocument sends a from-request page (GET and HEAD), or one with no decision, uncompressed and byte for byte', ['from-request', 'from-request HEAD', 'no decision'].every(k => outs[k].encoding === null && outs[k].vary === null && outs[k].same), outs);
+  // Through the real Worker entry: the callback's error page for a signed-in member carries the ?error= text in the
+  // boot's flash detail, beside the member's data and the editor proof, and goes out uncompressed. (Today the callback
+  // also runs on a snapshot of the request that keeps only the cookie and the client address, privacy-serving-site-
+  // oauth.ts, so its Accept-Encoding never reaches page(); this check holds even if that changes.)
+  const ECHO = 'zq' + 'x'.repeat(30) + '-guess';
+  const echoed = await raw(MEMBER, '/auth/callback?error=' + encodeURIComponent(ECHO), { headers: { 'Accept-Encoding': 'gzip, deflate, br' } });
+  const echoedBoot = bootOf(echoed.bytes.toString('utf8'));
+  report.cl2076.echo = { status: echoed.status, contentEncoding: echoed.h('Content-Encoding'), vary: echoed.h('Vary'), bytes: echoed.bytes.length, flash: echoedBoot && echoedBoot.flash }; report.cl2076.decision = { decided, outs };
+  check('CL2-076 echo: a signed-in member\'s callback error page carrying ?error= text is sent uncompressed', echoed.status === 200 && !echoed.h('Content-Encoding') && echoed.bytes[0] === 0x3c && !!echoedBoot && !!echoedBoot.flash && echoedBoot.flash.detail === ECHO.slice(0, 40) && echoedBoot.applicationEditorProof !== undefined, report.cl2076.echo);
+  check('CL2-076 echo: it keeps no-store, no-transform and the exact security policy', echoed.h('Cache-Control') === 'no-store, no-transform' && echoed.h('Content-Security-Policy') === docPlain.h('Content-Security-Policy'), echoed.h('Cache-Control'));
+  const again = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076 echo: the ordinary signed-in page is still compressed', again.status === 200 && again.h('Content-Encoding') === 'gzip' && !!bootOf(gunzip(again.bytes)));
+  const anonEcho = await raw(null, '/auth/callback?error=' + encodeURIComponent(ECHO), { headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076 echo: signed out, the callback error answer is unchanged (sign-in page, not compressed by the Worker, no Vary: Accept-Encoding)', anonEcho.status === gate.status && !anonEcho.h('Content-Encoding') && !/accept-encoding/i.test(anonEcho.h('Vary') || '') && anonEcho.h('Cache-Control') === gate.h('Cache-Control') && /Enter Olympus/.test(anonEcho.bytes.toString('utf8')), anonEcho.status + ' ' + anonEcho.h('Cache-Control'));
   // Sign-out: the browser may keep its copy of the script (owner-accepted), but nothing it asks for is answered.
   const OUT = '300000000000000008';
   await seedUser(OUT, 'Out Going'); await checkedAt(OUT, now);

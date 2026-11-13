@@ -44,7 +44,7 @@ import { rankPlannerFragmentPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
 import { siteSignInWithMedia } from './site-access';
-import { memberDocument } from './member-transport';
+import { memberDocument, type DocumentText } from './member-transport';
 import { olympusSocialMetadata } from './site-brand';
 import { siteEntryReturn, siteLoginLocation, siteLoginReturn, siteReturnFromVerifiedState, siteReturnLocation } from './site-return';
 
@@ -193,7 +193,25 @@ ${olympusSocialMetadata()}
 </html>`;
   const h = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }), true);
   for (const c of cookies) h.append("Set-Cookie", c);
-  return memberDocument(request, html, status, h); // CL2-076: gzip by the Worker, no-transform kept
+  return memberDocument(request, html, status, h, pageText(extra)); // CL2-076: gzip by the Worker, no-transform kept
+}
+
+/** The flash kinds page()'s callers write as literals. A kind outside this list is treated as text from the request. */
+const FIXED_FLASH_KINDS: ReadonlySet<string> = new Set(['updating', 'not_configured', 'cancelled', 'discord_error', 'expired', 'busy', 'privacy_held']);
+/** Whether page() may compress (member-transport.ts DocumentText; independent review of CL2-076, 13 Nov 2026). page()
+ * reads only the session cookie, the method and Accept-Encoding from the request; anything else a caller takes from
+ * the request reaches the page through `extra`. So the page counts as fixed only when `extra` is empty or is a flash
+ * of a listed kind with no detail. Any detail (the callback's ?error= text, Discord's status codes, a setting's
+ * name) and any other key make the page 'from-request', which is sent uncompressed. A change that writes request
+ * text into the page any other way must pass 'from-request' to memberDocument. */
+export function pageText(extra: Record<string, unknown>): DocumentText {
+  const keys = Object.keys(extra);
+  if (keys.length === 0) return 'fixed';
+  const flash = extra.flash as Record<string, unknown> | undefined;
+  if (keys.length !== 1 || keys[0] !== 'flash' || !flash || typeof flash !== 'object') return 'from-request';
+  const fixed = typeof flash.kind === 'string' && FIXED_FLASH_KINDS.has(flash.kind) &&
+    Object.keys(flash).every(k => k === 'kind' || (k === 'detail' && flash.detail === undefined));
+  return fixed ? 'fixed' : 'from-request';
 }
 
 const joinUrl = (env: Env) => {

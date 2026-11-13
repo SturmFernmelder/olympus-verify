@@ -67,11 +67,20 @@ export function acceptsGzip(request: Request): boolean {
   return (gzip ?? any ?? 0) > 0;
 }
 
+/** What the page's text is made of, decided where the page is built (site.ts page()). 'fixed': only this build's
+ * own text and the member's data, with nothing taken from the request. 'from-request': anything else, for example
+ * the sign-in callback's error text. Text the requester chose must never be compressed together with the member's
+ * data and the per-session proof value: someone who watches the response length could learn the secret by trying
+ * many values (BREACH; independent review of CL2-076, 13 Nov 2026). */
+export type DocumentText = 'fixed' | 'from-request';
+
 /** The signed-in page itself. It keeps no-store and no-transform (the zone's content-changing features would
  * otherwise rewrite it under its exact content-security policy), so the Worker compresses it: gzip when the browser
- * takes it, the same bytes after decoding, Vary: Accept-Encoding either way. HEAD carries the same headers and no
- * body; a Range header is ignored and the whole page is sent, as before. */
-export async function memberDocument(request: Request, html: string, status: number, headers: Headers): Promise<Response> {
+ * takes it, the same bytes after decoding, Vary: Accept-Encoding whether or not it took gzip. HEAD carries the same headers and no
+ * body; a Range header is ignored and the whole page is sent, as before. A page whose text is not 'fixed' is always
+ * sent uncompressed, whatever the browser accepts; the argument has no default, so every caller has to decide. */
+export async function memberDocument(request: Request, html: string, status: number, headers: Headers, text: DocumentText): Promise<Response> {
+  if (text !== 'fixed') return new Response(request.method === 'HEAD' ? null : html, { status, headers });
   headers.set('Vary', 'Accept-Encoding');
   if (!acceptsGzip(request)) return new Response(request.method === 'HEAD' ? null : html, { status, headers });
   headers.set('Content-Encoding', 'gzip');
