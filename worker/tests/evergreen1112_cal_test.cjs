@@ -103,6 +103,19 @@ globalThis.fetch = async (url, init = {}) => {
   }
   return res(404, { code: 0 });
 };
+// Round 5 follow-up 2: a hook before each bot or member call (to change a fact between provider awaits) and a lost POST
+// answer (Discord posted, the Worker never learned it), wrapped around the fake Discord above.
+let beforeFetch = null, losePost = false;
+{
+  const fakeDiscord = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const p = new URL(url).pathname.replace(/^\/api\/v10/, ''), m = init.method || 'GET';
+    if (beforeFetch && !String(new Headers(init.headers).get('Authorization') || '').startsWith('Bearer ')) beforeFetch(m, p);
+    const r = await fakeDiscord(url, init);
+    if (losePost && m === 'POST' && p === `/channels/${RAID_CHANNEL}/messages`) { losePost = false; return new Response(JSON.stringify({ message: 'lost' }), { status: 500, headers: { 'Content-Type': 'application/json' } }); }
+    return r;
+  };
+}
 
 const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON');
@@ -553,6 +566,110 @@ async function part1() {
       check('cal', 'attendance list, withdrawn after the proof and before the read: refused (403) without the list', firedList && list.status === 403 && !('attendance' in (list.data || {})), { firedList, status: list.status, data: list.data && { error: list.data.error, attendance: list.data.attendance } });
     } finally { T -= 1200; }
     await appointAll();
+
+    // Round 5 follow-up 2 (13 Nov 2026): the independent review of 9b4331a. A fact changed between the request's provider
+    // awaits (beforeFetch: just before the named Discord call) or inside a statement (beforeRead), then the write.
+    console.log('== the announcement: follow-up 2, reconcile, High Council claims, answers after an effect, attendance ==');
+    const FETCH = {
+      channel: ['GET', new RegExp(`^/channels/${RAID_CHANNEL}$`)],
+      message: ['GET', new RegExp(`^/channels/${RAID_CHANNEL}/messages/\\d+$`)],
+      del: ['DELETE', new RegExp(`^/channels/${RAID_CHANNEL}/messages/\\d+$`)],
+    };
+    const atFetch = async ([method, re], act, run) => {
+      let fired = false;
+      beforeFetch = (m, path0) => { if (!fired && m === method && re.test(path0)) { fired = true; act(); } };
+      try { return { r: await run(), fired }; } finally { beforeFetch = null; }
+    };
+    const savedHcRoles = [...ACC.hc.roles];
+    const dropHc = () => { ACC.hc.roles = [MEMBER_ROLE]; };
+    const restoreHc = () => { ACC.hc.roles = [...savedHcRoles]; };
+    const fullRow = eid => JSON.stringify(db.prepare('SELECT * FROM community_event_deliveries WHERE event_id=?').get(eid) || null);
+    const custodyOf = eid => JSON.stringify(db.prepare('SELECT * FROM privacy_provider_messages WHERE operation_id LIKE ? ORDER BY operation_id').all('event_publication:' + eid + ':%'));
+    const reconcileAs = (who, eid, held, messageId) => call('POST', '/api/community/events/discord/reconcile', { who: ACC[who].id, body: { eventId: eid, opId: held.op_id, messageId } });
+    /** The creator's publish whose POST answer is lost: Discord has the message, the row is held unknown without it. */
+    const lostPublish = async title => {
+      const eid = await setupEvent('creator', title, T + 4 * 3600);
+      const p0 = await preview('creator', eid);
+      losePost = true;
+      await publishFrom('creator', eid, p0);
+      const held = delivery(eid);
+      if (!held || held.state !== 'unknown' || held.message_id !== null) throw Error('lost-publish setup: ' + JSON.stringify(held));
+      return { eid, held, messageId: posted.at(-1).id };
+    };
+
+    // F1. Reconcile: another officer's held row is written only by a caller who manages the event at the write.
+    await appointAll();
+    let L = await lostPublish('Reconcile own');
+    r = await reconcileAs('creator', L.eid, L.held, L.messageId);
+    check('cal', 'reconcile control: the creator reconciles its own lost publish (200 posted, message id recorded)', r.status === 200 && delivery(L.eid)?.state === 'posted' && delivery(L.eid)?.message_id === L.messageId, { status: r.status, data: r.data, row: delivery(L.eid) });
+    L = await lostPublish('Reconcile War Head');
+    r = await reconcileAs('wh94', L.eid, L.held, L.messageId);
+    check('cal', 'reconcile control: an appointed War Head records the message id on another officer\'s held row', delivery(L.eid)?.message_id === L.messageId && delivery(L.eid)?.result_code === 'reconciled', { status: r.status, data: r.data, row: delivery(L.eid) });
+    for (const [label, at] of [['at the message GET (before the settle)', 'fetch'], ['inside the settle statement', 'statement']]) {
+      await appointAll();
+      L = await lostPublish('Reconcile withdrawn ' + at);
+      const before = fullRow(L.eid), custody0 = custodyOf(L.eid), n0 = effects.length;
+      x = at === 'fetch' ? await atFetch(FETCH.message, withdraw, () => reconcileAs('wh94', L.eid, L.held, L.messageId))
+        : await racing('settle', L.eid, () => reconcileAs('wh94', L.eid, L.held, L.messageId));
+      check('cal', `reconcile as a War Head withdrawn ${label}: another officer's held row and its custody are not written, refusal says the event is another's`, x.fired && fullRow(L.eid) === before && custodyOf(L.eid) === custody0 && effectsSince(n0).length === 0 && saysOthers(x.r), { fired: x.fired, before: JSON.parse(before), after: JSON.parse(fullRow(L.eid)), status: x.r.status, data: x.r.data });
+    }
+    await appointAll();
+    L = await lostPublish('Reconcile council removed');
+    before = fullRow(L.eid);
+    try { x = await atFetch(FETCH.message, dropHc, () => reconcileAs('hc', L.eid, L.held, L.messageId)); } finally { restoreHc(); }
+    check('cal', 'reconcile as High Council, role removed at the message GET: the fresh role read before the settle refuses, the row is not written', x.fired && fullRow(L.eid) === before && x.r.status === 403, { fired: x.fired, before: JSON.parse(before), after: JSON.parse(fullRow(L.eid)), status: x.r.status, data: x.r.data });
+    let reads0 = memberReads;
+    r = await reconcileAs('hc', L.eid, L.held, L.messageId);
+    check('cal', 'reconcile control: High Council with the role records the message id (gate, membership and the fresh read: 3 member reads)', delivery(L.eid)?.message_id === L.messageId && memberReads - reads0 === 3, { status: r.status, reads: memberReads - reads0, row: delivery(L.eid) });
+
+    // F2. High Council claims on another officer's event: the role is read again immediately before the claim.
+    const eH1 = await setupEvent('creator', 'Council at qualify', T + 4 * 3600);
+    p = await preview('hc', eH1); n = effects.length;
+    try { x = await atFetch(FETCH.channel, dropHc, () => publishFrom('hc', eH1, p)); } finally { restoreHc(); }
+    check('cal', 'publish as High Council, role removed at the qualify GET (before the claim): no POST, no delivery row, refusal says the event is another\'s', x.fired && effectsSince(n).length === 0 && delivery(eH1) === null && x.r.status === 403 && OTHERS.test(x.r.data?.message || ''), { fired: x.fired, effects: effectsSince(n), row: delivery(eH1), status: x.r.status, data: x.r.data });
+    const eH2 = await setupEvent('creator', 'Council at custody', T + 4 * 3600);
+    p = await preview('hc', eH2); reads0 = memberReads; r = await publishFrom('hc', eH2, p);
+    const hcPublishReads = memberReads - reads0;
+    check('cal', 'High Council control: publishes another officer\'s event with 4 member reads (gate, membership, before the claim, before the effect)', r.status === 200 && hcPublishReads === 4, { status: r.status, reads: hcPublishReads });
+    before = fullRow(eH2); n = effects.length;
+    try { x = await atFetch(FETCH.message, dropHc, () => removeAs('hc', eH2)); } finally { restoreHc(); }
+    check('cal', 'remove as High Council, role removed at the custody GET (before the removal claim): no DELETE, another officer\'s posted row is left exactly as it was', x.fired && effectsSince(n).length === 0 && fullRow(eH2) === before && x.r.status === 403, { fired: x.fired, effects: effectsSince(n), before: JSON.parse(before), after: JSON.parse(fullRow(eH2)), status: x.r.status, data: x.r.data });
+    const eH3 = await setupEvent('hc', 'Council own', T + 4 * 3600);
+    p = await preview('hc', eH3); reads0 = memberReads; r = await publishFrom('hc', eH3, p);
+    check('cal', 'High Council on its own event: no extra read before the claim (3 member reads)', r.status === 200 && memberReads - reads0 === 3, { status: r.status, reads: memberReads - reads0 });
+
+    // F3. After an acknowledged effect, a caller who no longer manages the event gets a held answer, not a role refusal.
+    const HELD = /reached Discord and its result is recorded, but you no longer manage this event's announcement/;
+    const heldAnswer = q => q.status === 409 && q.data?.error === 'delivery_held' && HELD.test(q.data?.message || '') && !('delivery' in (q.data || {})) && !('eventId' in (q.data || {}));
+    await appointAll();
+    const eA1 = await setupEvent('creator', 'Answer after POST', T + 4 * 3600);
+    p = await preview('wh94', eA1); n = effects.length;
+    x = await racing('settle', eA1, () => publishFrom('wh94', eA1, p));
+    check('cal', 'publish as War Head, withdrawn after the acknowledged POST: 409 delivery_held saying the request reached Discord, no event details', x.fired && effectsSince(n).join() === 'POST' && heldAnswer(x.r), { status: x.r.status, data: x.r.data });
+    await appointAll();
+    const eA2 = await setupEvent('creator', 'Answer after DELETE', T + 4 * 3600);
+    p = await preview('wh94', eA2); await publishFrom('wh94', eA2, p); n = effects.length;
+    x = await atFetch(FETCH.del, withdraw, () => removeAs('wh94', eA2));
+    check('cal', 'remove as War Head, withdrawn while the DELETE is in flight: recorded removed, answer 409 delivery_held, no event details', x.fired && effectsSince(n).join() === 'DELETE' && delivery(eA2)?.state === 'removed' && heldAnswer(x.r), { status: x.r.status, data: x.r.data, row: delivery(eA2) });
+    await appointAll();
+
+    // F4. Attendance: the High Council role read is the last await before the admitted batch.
+    const targetsSql = /SELECT r\.ref, r\.discord_id FROM community_refs r WHERE r\.ref IN/;
+    const refFor = async eid => ((await call('GET', `/api/community/event?id=${eid}`, { who: ACC.admin.id })).data?.signups || [])[0]?.ref;
+    for (const removed of [false, true]) {
+      const eT = await setupEvent('creator', 'Council attendance ' + removed, T + 600);
+      await call('PUT', '/api/community/events/rsvp', { who: ACC.signer3.id, body: { eventId: eT, status: 'yes', revision: 0 } });
+      const ref0 = await refFor(eT);
+      T += 1200;
+      try {
+        const b = snapshot(eT);
+        let firedT = false;
+        beforeRead = sql => { if (removed && !firedT && targetsSql.test(sql)) { firedT = true; dropHc(); } };
+        try { r = await call('POST', '/api/community/attendance/record', { who: ACC.hc.id, body: { eventId: eT, entries: [{ ref: ref0, state: 'present', revision: 0 }] } }); } finally { beforeRead = null; restoreHc(); }
+        if (removed) check('cal', 'attendance as High Council, role removed at the targets read: refused, nothing written', firedT && r.status >= 400 && snapshot(eT) === b, { firedT, status: r.status, data: r.data && r.data.error });
+        else check('cal', 'attendance control: High Council records on another officer\'s event', r.status === 200 && snapshot(eT) !== b, { status: r.status, data: r.data && r.data.error });
+      } finally { T -= 1200; }
+    }
   }
 
   console.log('== limits apply to officers unchanged ==');

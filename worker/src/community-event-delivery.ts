@@ -22,7 +22,7 @@ const RESULTS = ["published", "reconciled", "removed", "admission_changed", "dis
 const safeResult = (v: unknown) => typeof v === "string" && (RESULTS as readonly string[]).includes(v) ? v : null;
 type State = "claimed" | "posted" | "refused" | "unknown" | "removed";
 export interface Destination { guild: string; channel: string; host: string }
-interface EventRow { id: string; title: string; starts_at: number; duration_min: number; status: string; revision: number; created_at: number; retain_until: number; publication_closed: number }
+interface EventRow { id: string; title: string; starts_at: number; duration_min: number; status: string; revision: number; created_at: number; retain_until: number; publication_closed: number; created_by?: string | null }
 interface Delivery {
   event_id: string; purpose: "publication"; event_revision: number; starts_at: number; guild_id: string; channel_id: string;
   message_id: string | null; frozen_content: string | null; payload_hash: string | null; op_id: string; claim_nonce: string;
@@ -136,6 +136,20 @@ async function deliveryAuthority(env: Env, ctx: CommunityContext, eventId: strin
 async function manages(env: Env, ctx: CommunityContext, fresh = false, eventId: string | null = null): Promise<boolean> {
   return (await deliveryAuthority(env, ctx, eventId, fresh)).manages;
 }
+/** The authority a claim binds (round 5 follow-up 2). A War Head's condition is inside the claim and a site admin is
+ * configuration, so the held proof stands for them. A High Council role holder acting on an event that is not its own
+ * is admitted only by its `senior` flag, which comes from a Discord read made several provider awaits earlier; it is
+ * read again here, immediately before the claim (one provider call, on that path only), so a role removed in the
+ * meantime claims nothing and another officer's delivery row is left as it was. beforeSend still reads it once more
+ * just before the effect. A holder of both a War Head appointment and the High Council role is proved as a War Head
+ * only (authorityNow reads no role for a War Head): if the appointment is withdrawn mid-request the statement refuses
+ * although the role would admit it. That fails closed; asking again starts a new request with a new proof. */
+async function claimAuthority(env: Env, ctx: CommunityContext, e: EventRow): Promise<DeliveryAuthority> {
+  const held = await deliveryAuthority(env, ctx, e.id);
+  const me = ctx.subject!.discordId;
+  if (!held.senior || held.warHead || isSiteAdmin(env, me) || (e.created_by != null && e.created_by === me)) return held;
+  return deliveryAuthority(env, ctx, e.id, true);
+}
 /** The senior half of a statement's `created_by = me OR …` fence: `?flag = 1` (admin or High Council role), OR the War
  * Head's own published-appointment condition at parameters `first`, `first + 1` and `first + 2`, bound with its values
  * (as community-events.ts does with v.warHead and site-treasury-access.ts with its seats). Without a War Head proof the
@@ -221,7 +235,7 @@ async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{
     const f = seniorFence(authority, 3, 4);
     const managed = `(created_by = ?2 OR ${f.sql}) AND retain_until > ${DB_NOW}`;
     const out = await admittedRead(env, ctx, "confirmedGuildData", [
-      env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, f.flag, ...f.values),
+      env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed,created_by FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, f.flag, ...f.values),
       env.DB.prepare(`SELECT * FROM community_event_deliveries WHERE event_id=?1 AND purpose='publication' AND retain_until>${DB_NOW}
         AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND ${managed})`).bind(eventId, me, f.flag, ...f.values),
     ]);
@@ -233,8 +247,12 @@ async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{
   if (row && row.created_by !== me) return { notYours: true, erased: row.created_by === null };
   return authority.manages ? null : FENCE_REFUSED;
 }
-async function answer(request: Request, env: Env, ctx: CommunityContext, eventId: string, extra: Record<string, unknown> = {}, status = 200, outcome = false): Promise<Response> {
+/** `effect`: this request reached Discord (a POST, PATCH, GET-then-DELETE was attempted and settled). If the caller no
+ * longer manages the event by then, the pre-effect role refusal would read as "nothing happened", so the answer is
+ * held instead, without event details (round 5 follow-up 2). The page keeps the operation for any held answer. */
+async function answer(request: Request, env: Env, ctx: CommunityContext, eventId: string, extra: Record<string, unknown> = {}, status = 200, outcome = false, effect = outcome): Promise<Response> {
   const out = await read(env, ctx, eventId);
+  if (effect && (out === FENCE_REFUSED || isNotYours(out))) return apiJson({ error: "delivery_held", message: `This request reached Discord and its result is recorded, but you no longer manage this event's announcement. Its organizer, ${MANAGERS} can check it.` }, 409);
   if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
   if (isNotYours(out)) return notYours(out.erased);
   if (!out) return apiJson({ error: "event_not_found" }, 404);
@@ -325,27 +343,47 @@ export interface EventCustodyProof {
  * cannot be overwritten by a late response; a different known pointer also refuses.
  */
 export function eventAdoptedCustody(db: D1Database, purpose: "event_publication" | "event_reminder", p: EventCustodyProof,
-  result: "posted" | "refused" | "unknown" | "removed", pointer: string | null): D1PreparedStatement {
+  result: "posted" | "refused" | "unknown" | "removed", pointer: string | null,
+  applied: { sql: string; values: readonly unknown[] } | null = null): D1PreparedStatement {
+  // `applied` (parameters from ?8): an extra condition that must hold, used where the custody may be written only when
+  // the statement before it in the same batch was admitted (the reconcile settle, round 5 follow-up 2).
   return db.prepare(`UPDATE privacy_provider_messages SET
     message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?4,message_id) END,
     state=CASE WHEN ?3='removed' THEN 'removed' WHEN ?4 IS NOT NULL THEN 'known'
       WHEN ?3='refused' AND message_id IS NULL THEN 'refused' ELSE state END,updated_at=${DB_NOW}
     WHERE operation_id=?1 AND purpose=?2 AND channel_id=?5 AND retain_until<=?6
-      AND state IN('claimed','unknown','known') AND (message_id IS NULL OR message_id=?4 OR message_id IS ?7)`)
-    .bind(`${purpose}:${p.eventId}:${p.opId}:${p.nonce}`, purpose, result, pointer, p.channel, p.retainUntil, p.pointer);
+      AND state IN('claimed','unknown','known') AND (message_id IS NULL OR message_id=?4 OR message_id IS ?7)${applied ? ` AND ${applied.sql}` : ""}`)
+    .bind(`${purpose}:${p.eventId}:${p.opId}:${p.nonce}`, purpose, result, pointer, p.channel, p.retainUntil, p.pointer, ...(applied?.values ?? []));
 }
 /** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced.
- * Bookkeeping (round 5 follow-up): neither statement is fenced by the caller's authority in its WHERE. The first is
- * keyed by this request's own claim (nonce, operation, destination, revision) and always records what Discord
- * acknowledged (the message id, a refusal, a removal); the caller's current authority, the War Head's appointment
- * condition included (at ?17..?19), only decides whether a send counts as `posted` or is held as `unknown` with its
- * removal requested. The second (eventAdoptedCustody) is keyed by the operation alone. So an acknowledged effect is
- * always recorded, and a send whose sender stopped qualifying before it was recorded is held, never shown as current. */
-async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
+ * Two kinds of settlement (round 5 follow-up 2, 13 Nov 2026, the independent review of 9b4331a):
+ *   - Publish and remove (`fenced` false): bookkeeping of THIS request's own claim. Neither statement is fenced by the
+ *     caller's authority in its WHERE. The first is keyed by the claim this request made (its fresh nonce, operation,
+ *     destination, revision) and always records what Discord acknowledged (the message id, a refusal, a removal); the
+ *     caller's current authority, the War Head's appointment condition included (at ?17..?19), only decides whether a
+ *     send counts as `posted` or is held as `unknown` with its removal requested. The second (eventAdoptedCustody) is
+ *     keyed by the operation alone. So an acknowledged effect is always recorded, and a send whose sender stopped
+ *     qualifying before it was recorded is held, never shown as current.
+ *   - Reconcile (`fenced` set): this request made no claim and caused no effect; it is keyed by the EXISTING row's
+ *     nonce and operation, which may be another officer's. So the management fence is in the UPDATE's own WHERE
+ *     (`created_by = me OR <senior fence>`, the War Head's condition at ?17..?19 bound with its values; "managed" only
+ *     when the caller's fresh proof in eventDeliveryReconcile still manages the event), and the custody statement runs
+ *     only when that UPDATE applied (a guard on the row it just wrote). One exception keeps the privacy custody: a row
+ *     that is already held for removal (cleanup_requested=1, set by an erasure, a cancellation or an earlier held
+ *     send) records an exactly proved pointer whoever proved it, because that only adds the message id its removal
+ *     needs and changes no management state (it stays unknown, removal requested). A caller who no longer manages the
+ *     event writes nothing to a row that is not held for removal. */
+async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null, fenced: "managed" | "custodyOnly" | null = null) {
   const me = ctx.subject!.discordId, senior = seniorFence(await deliveryAuthority(env, ctx, p.eventId), 9, 17), db = privacyProviderCustodyDatabase(env);
   const stillCurrent = `actor=?5 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',ctx.subject!.accountIncarnation)} AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
     AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))
     AND ${fenceSql("confirmedGuildData", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
+  const fence = fenced ? `
+        AND (cleanup_requested=1 OR ${fenced === "managed" ? `EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))` : "0"})` : "";
+  // The row the fenced UPDATE writes: this operation and nonce, the reconciled pointer and code. If an earlier reconcile
+  // already wrote exactly this, the custody statement repeats an identical write.
+  const applied = fenced ? { sql: `EXISTS(SELECT 1 FROM community_event_deliveries WHERE event_id=?8 AND purpose='publication' AND claim_nonce=?9 AND op_id=?10 AND message_id=?4 AND result_code=?11)`,
+    values: [p.eventId, p.nonce, p.opId, code] } : null;
   await db.batch([
     db.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
       state=CASE WHEN ?3='posted' THEN CASE WHEN state IN('claimed','unknown') AND ${stillCurrent} THEN 'posted' ELSE 'unknown' END ELSE ?3 END,
@@ -353,10 +391,10 @@ async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, res
       cleanup_requested=CASE WHEN ?3='removed' THEN 0 WHEN ?10 IS NOT NULL AND NOT(${stillCurrent}) THEN 1 ELSE cleanup_requested END,
       updated_at=${DB_NOW}, result_code=?4
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?2 AND op_id=?11 AND guild_id=?12 AND channel_id=?13
-        AND event_revision=?8 AND starts_at=?15 AND retain_until<=?16 AND (message_id IS ?14 OR message_id=?10) AND state IN('claimed','unknown')`)
+        AND event_revision=?8 AND starts_at=?15 AND retain_until<=?16 AND (message_id IS ?14 OR message_id=?10) AND state IN('claimed','unknown')${fence}`)
       .bind(p.eventId, p.nonce, result, code, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, p.revision, senior.flag, pointer,
         p.opId, p.guild, p.channel, p.pointer, p.startsAt, p.retainUntil, ...senior.values),
-    eventAdoptedCustody(db, "event_publication", p, result, pointer),
+    eventAdoptedCustody(db, "event_publication", p, result, pointer, applied),
   ]);
 }
 /** The final guard, after the claim and immediately before the Discord effect. The authority is proved again here
@@ -365,7 +403,9 @@ async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, res
  *     withdrawal at any moment up to this statement refuses here and no POST, PATCH or DELETE follows;
  *   - a High Council member's role is a Discord role, which no SQL statement can re-read. The strongest available proof
  *     is the fresh provider read made here, after the claim, with only this one database read between it and the
- *     effect; a provider failure refuses. The statement binds the outcome of that read as its flag (?7).
+ *     effect; a provider failure refuses. The statement binds the outcome of that read as its flag (?7). On another
+ *     officer's event the claim itself was admitted by a read made immediately before it (claimAuthority), so the
+ *     claim can rewrite another officer's row only if the role is removed during that one claim statement.
  *   - a site admin is configuration and keeps the flag, as before this round. */
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
   const authority = await deliveryAuthority(env, ctx, e.id, true);
@@ -409,7 +449,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       const message = await discord(env, "GET", `/channels/${d.channel}/messages/${old.message_id}`);
       if (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== old.message_id) return answer(request, env, ctx, eventId, { error: "delivery_custody_unqualified" }, 409);
     }
-    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await deliveryAuthority(env, ctx, eventId), 7, 18); // ?18..?20: a War Head's appointment
+    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await claimAuthority(env, ctx, e), 7, 18); // ?18..?20: a War Head's appointment
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: e.revision, startsAt: e.starts_at, opId: op, nonce,
       guild: d.guild, channel: d.channel, pointer: old?.state === "removed" ? null : old?.message_id ?? null,
@@ -479,8 +519,14 @@ export async function eventDeliveryReconcile(request: Request, env: Env, ctx: Co
     if (!exactPayload(response.value, content, components)) throw new Bad(exactContent(response.value, content) ? "delivery_mismatch" : "delivery_custody_unqualified", 409);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: row.op_id,
       nonce: row.claim_nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
-    await settle(env, ctx, custody, "posted", "reconciled", body.messageId);
-    return answer(request, env, ctx, eventId, {}, 200, true);
+    // Round 5 follow-up 2: four provider awaits sit between read() and this write, and the row may be another officer's.
+    // The authority is proved again here, with no await between it and the fenced settle: a War Head's appointment is
+    // captured again (database only; its condition is also inside the statement), a High Council or officer role is a
+    // fresh Discord read (one provider call, on this path only).
+    // Without management only a row already held for removal takes the proved pointer (see settle).
+    const fresh = await deliveryAuthority(env, ctx, eventId, true);
+    await settle(env, ctx, custody, "posted", "reconciled", body.messageId, fresh.manages ? "managed" : "custodyOnly");
+    return answer(request, env, ctx, eventId, {}, 200, true, false); // no effect was caused: a refusal here is a plain refusal
   } catch (e) { return bad(e) ?? Promise.reject(e); }
 }
 
@@ -502,7 +548,7 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     if (!(await memberPresent(env, ctx, d.guild))) throw new Bad("membership_unconfirmed", 409);
     const message = await discord(env, "GET", `/channels/${d.channel}/messages/${row.message_id}`);
     if (message.status !== 404 && (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== row.message_id)) throw new Bad("delivery_custody_unqualified", 409);
-    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await deliveryAuthority(env, ctx, eventId), 9, 10); // ?10..?12: a War Head's appointment
+    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await claimAuthority(env, ctx, out.event), 9, 10); // ?10..?12: a War Head's appointment
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: op,
       nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };

@@ -899,9 +899,9 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
       if (s.pending === 1) return apiJson({ error: "event_not_started", event: await loadEvent(env, ctx, eventId, viewer) }, 409); // .67: the database clock
       return null;
     };
-    const refused = await refuse(true);
-    if (refused) return refused;
-    // who each ref names, and whether the organizer may address them: an answer or a row on this event, or a listed profile; qualifying now
+    // who each ref names, and whether the organizer may address them: an answer or a row on this event, or a listed profile; qualifying now.
+    // Round 5 follow-up 2 (13 Nov 2026): read BEFORE the authority, which it does not depend on, so the Discord role read
+    // in refuse(true) is the last await before the admitted batch (nothing from it is disclosed unless the batch admits).
     const targets = await env.DB.prepare(
       `SELECT r.ref, r.discord_id FROM community_refs r WHERE r.ref IN (SELECT value FROM json_each(?1))
          AND (EXISTS (SELECT 1 FROM community_event_signups s WHERE s.event_id = ?2 AND s.discord_id = r.discord_id)
@@ -909,6 +909,8 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
               OR EXISTS (SELECT 1 FROM community_profiles p WHERE p.discord_id = r.discord_id AND p.listed = 1))
          AND ${eventParticipantSql226(env,"r.discord_id")}`,
     ).bind(JSON.stringify(entries.map((x) => x.ref)), eventId).all<{ ref: string; discord_id: string }>();
+    const refused = await refuse(true);
+    if (refused) return refused;
     const idOfRef = new Map(targets.results.map((x) => [x.ref, x.discord_id]));
     const writes = entries.filter((x) => x.value !== null && idOfRef.has(x.ref));
     const payload = JSON.stringify(writes.map((x) => [idOfRef.get(x.ref)!, x.value!.state, x.value!.reasonCode, x.value!.revision, x.ref]));
