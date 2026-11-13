@@ -105,4 +105,13 @@ const body = String.raw`
 const execution = new Module(__filename, module);
 execution.filename = __filename;
 execution.paths = Module._nodeModulePaths(__dirname);
-execution._compile(source.slice(0, starts[0].index) + '\n' + body, __filename);
+// RC-272 (our 925a505, 12 Nov 2026): the Community section row schedules its sideways scroll with
+// requestAnimationFrame, which every browser has. The page window gets it as one later frame, the same two
+// lines frontend_check.cjs receives on the mig-a branch; once that copy carries them, they are taken from it.
+let prefix = source.slice(0, starts[0].index);
+if (!prefix.includes('sandbox.requestAnimationFrame')) {
+  const windowLine = '  sandbox.globalThis = sandbox; sandbox.self = sandbox;\n';
+  if (prefix.split(windowLine).length !== 2) throw Error('One real frontend sandbox window line required');
+  prefix = prefix.replace(windowLine, windowLine + '  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);\n  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);\n');
+}
+execution._compile(prefix + '\n' + body, __filename);
