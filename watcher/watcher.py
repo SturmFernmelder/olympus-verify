@@ -2580,7 +2580,9 @@ class Watcher:
             return
         okay, response = self.worker.call("GET", "/health", retries=1)
         state = response.get("verification") if okay and isinstance(response, dict) and response.get("ok") is True else None
-        if not isinstance(state, dict) or state.get("mode") != "members-only" or state.get("nativeScopePinned") is not True or type(state.get("nativeMembershipProofVersion")) is not int or state["nativeMembershipProofVersion"] != 1:
+        if (not isinstance(state, dict) or state.get("mode") != "members-only" or state.get("nativeScopePinned") is not True
+                or type(state.get("nativeMembershipProofVersion")) is not int or state["nativeMembershipProofVersion"] != 1
+                or type(state.get("nativeRosterProtocolVersion")) is not int or state["nativeRosterProtocolVersion"] != 2):
             raise LaunchNotReady("launch verification Worker/profile is not ready; ingestion was not started")
         build = re.fullmatch(r"\d{4}-\d{2}-\d{2}\.(\d{1,6})(?: .*)?", response.get("build", "")) if isinstance(response.get("build"), str) else None
         if build is not None and int(build[1]) >= 264:

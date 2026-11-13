@@ -82,7 +82,7 @@ def _directive_intent(row: dict[str, Any], page: dict[str, Any], at: int, stale:
 
 
 def _confirmations(value: Any, targets: list[str]) -> list[dict[str, Any]] | None:
-    if not _text(value, 65536) or not value.isascii():
+    if not _text(value, 8192) or not value.isascii():
         return None
     try:
         rows = json.loads(value)
@@ -97,7 +97,7 @@ def _confirmations(value: Any, targets: list[str]) -> list[dict[str, Any]] | Non
                 return None
             seen.add(row['guid'])
         return rows
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError, OverflowError):
         return None
 
 
@@ -108,7 +108,8 @@ def validate_page(report: Any, at: int, allow_stale: bool = False) -> bool:
 def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> bool:
     if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != PROTOCOL or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
         return False
-    if report['status'] != 'held' and (report['rankProfile'] != NATIVE_PROFILE or report['rankSchemeDigest'] != RANK_DIGEST or report['rankNames'] != list(RANK_NAMES)):
+    rank_metadata=(report['rankProfile'],report['rankSchemeDigest'],report['rankNames'])
+    if rank_metadata != (NATIVE_PROFILE,RANK_DIGEST,list(RANK_NAMES)) and not (report['status']=='held' and rank_metadata==(None,None,None)):
         return False
     fetched, expires = report["fetchedAt"], report["expiresAt"]
     if not _integer(fetched, 1) or not _integer(expires, 1) or not fetched < expires <= fetched + report_ttl or not fetched <= at + 5 or not allow_stale and at >= expires:
@@ -406,9 +407,14 @@ def _lua(value: Any) -> str:
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
     if type(value) in (int, float):
+        if not math.isfinite(value):
+            raise ValueError('Invalid generated Lua value')
         return str(value)
     if isinstance(value, list):
         return "{" + ",".join(_lua(item) for item in value) + "}"
+    keywords={'and','break','do','else','elseif','end','false','for','function','goto','if','in','local','nil','not','or','repeat','return','then','true','until','while'}
+    if (not isinstance(value,dict) or any(not isinstance(key,str) or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is None or key in keywords for key in value)):
+        raise ValueError('Invalid generated Lua key')
     return "{" + ",".join(key + "=" + _lua(item) for key, item in value.items()) + "}"
 
 
@@ -459,7 +465,7 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
     # Old controls remain historical originals; never upgrade them to the new ladder.
     if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or value['version'] != 4
             or value['action'] != 'select-directive' or not _selected_targets276(value['targetGuids'])
-            or _confirmations(value['confirmations'], value['targetGuids']) is None
+            or not _text(value['confirmations'],8192) or not value['confirmations'].isascii()
             or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
             or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
             or not at-60 <= value['observedAt'] <= at+5 or value['guid'] != guid
@@ -468,7 +474,10 @@ def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild
             or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
             or not isinstance(value['mac'], str) or re.fullmatch('[a-f0-9]{32}', value['mac']) is None):
         return False
-    return hmac.compare_digest(value['mac'], selected_control_mac(secret, value))
+    # Confirm the small scalar envelope before parsing any untrusted nested JSON.
+    if not hmac.compare_digest(value['mac'], selected_control_mac(secret, value)):
+        return False
+    return _confirmations(value['confirmations'],value['targetGuids']) is not None
 
 
 def validate_legacy_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:

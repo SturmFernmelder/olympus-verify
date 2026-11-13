@@ -64,7 +64,7 @@ class VerificationExchangeTests(unittest.TestCase):
     def transport(self, method, path, body=None, retries=3):
         self.calls.append((method, path, copy.deepcopy(body), retries))
         if path == '/health':
-            return True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1}}
+            return True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}
         if path == '/ingest/roster':
             self.accepted = True
             return True, {'snapshot': 7, 'trusted': True, 'members': len(body['members'])}

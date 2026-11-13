@@ -116,7 +116,7 @@ class NativeMembershipTests(unittest.TestCase):
             watcher.Watcher({**self.w.cfg, 'membership_only': 'true'})
 
     def test_startup_never_ingests_into_old_or_unqualified_worker(self):
-        for response in ({'ok': True, 'build': 'old'}, {'ok': True, 'verification': {'mode': 'legacy', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1}}, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': False, 'nativeMembershipProofVersion': 1}}, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': True}}):
+        for response in ({'ok': True, 'build': 'old'}, {'ok': True, 'verification': {'mode': 'legacy', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': False, 'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': True}}):
             calls = []
             self.w.worker.call = lambda method, path, **kwargs: (calls.append((method, path)) or (True, response))
             with self.assertRaises(watcher.LaunchNotReady):
@@ -125,7 +125,7 @@ class NativeMembershipTests(unittest.TestCase):
 
     def test_current_configured_worker_is_admitted_without_a_game_or_ingest_request(self):
         calls = []
-        self.w.worker.call = lambda method, path, **kwargs: (calls.append((method, path)) or (True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1}}))
+        self.w.worker.call = lambda method, path, **kwargs: (calls.append((method, path)) or (True, {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True, 'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}))
         self.w.require_launch_worker()
         self.assertEqual(calls, [('GET', '/health')])
 
@@ -144,7 +144,7 @@ class NativeMembershipTests(unittest.TestCase):
         del self.w.worker.call  # Exercise the real protocol-appending transport, not the setUp stub.
         calls, output = [], io.StringIO()
         health = {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True,
-                  'nativeMembershipProofVersion': 1}, 'relays': {'requestCodes': True}}
+                  'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}, 'relays': {'requestCodes': True}}
 
         def answer(request, timeout):
             self.assertEqual(request.get_method(), 'GET')
@@ -195,7 +195,7 @@ class NativeMembershipTests(unittest.TestCase):
     def test_strict_check_refuses_unconfirmed_presence_without_legacy_diagnostics(self):
         self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
         health = {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True,
-                  'nativeMembershipProofVersion': 1}}
+                  'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}
         for response in (None, {}, {'entries': []}, {'presenceOnly': False, 'entries': []},
                          {'presenceOnly': True, 'entries': 'unknown'}):
             with self.subTest(response=response):
@@ -208,7 +208,7 @@ class NativeMembershipTests(unittest.TestCase):
     def test_strict_check_real_http_refusals_are_not_success_or_ingestion(self):
         self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
         health = {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True,
-                  'nativeMembershipProofVersion': 1}}
+                  'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}
         for status in (400, 401, 403, 429):
             with self.subTest(status=status):
                 self.w.worker = watcher.Worker('https://test.invalid', 'synthetic-only')
@@ -228,7 +228,7 @@ class NativeMembershipTests(unittest.TestCase):
     def test_strict_check_requires_current_health_before_queue(self):
         for health in ({'ok': True}, {'ok': True, 'verification': {'mode': 'legacy'}},
                        {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': False,
-                                                   'nativeMembershipProofVersion': 1}}):
+                                                   'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}):
             calls = []
             self.w.worker.call = lambda m, p, **kw: (calls.append((m, p)) or (True, health))
             with self.assertRaises(watcher.LaunchNotReady), contextlib.redirect_stdout(io.StringIO()):
@@ -314,7 +314,7 @@ class NativeMembershipTests(unittest.TestCase):
         self.w.sv_file.unlink()
         self.w.queue_file.parent.mkdir(parents=True, exist_ok=True)
         health = {'ok': True, 'verification': {'mode': 'members-only', 'nativeScopePinned': True,
-                  'nativeMembershipProofVersion': 1}}
+                  'nativeMembershipProofVersion': 1, 'nativeRosterProtocolVersion': 2}}
         self.w.worker.call = lambda m, p, **kw: (True, health if p == '/health' else {'entries': [], 'presenceOnly': True})
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(self.w.check(), 1)

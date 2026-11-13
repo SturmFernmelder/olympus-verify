@@ -671,7 +671,11 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     }
     if (query.has("cacheOnly242") || query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       const versions=query.getAll('keyVersion');
-      if(request.method==='POST'&&path==='/ingest/roster'&&versions.length===1&&versions[0]==='native-roster-v2'&&query.size===1&&body!==null&&!('keyVersion'in body))return await postRoster(env,body,ctx?(label,work)=>deferOriginalServing(ctx,label,work):undefined,roleDispatch,true);
+      if(request.method==='POST'&&path==='/ingest/roster'&&versions.length===1&&versions[0]==='native-roster-v2'&&query.size===1&&body!==null&&!('keyVersion'in body)){
+        const launch=captureLaunchVerification(env);
+        if(launch.mode!=='members-only'||!launch.scope||!launch.current())return json({error:'unsupported_protocol',message:'The native roster protocol requires the current members-only configuration.'},400);
+        return await postRoster(launchVerificationEnv(env,launch),body,ctx?(label,work)=>deferOriginalServing(ctx,label,work):undefined,roleDispatch,true);
+      }
       if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v234')return handleLaunchOperations229(request,env,true);
       if(request.method==='POST'&&path==='/ingest/officer-invite'&&versions.length===1&&versions[0]==='officer-operations-v233'&&query.size===1&&body!==null&&!('keyVersion'in body))return postOfficerInvite233(env,body);
       if (versions.length === 1 && (versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL || versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL_V2)
@@ -783,7 +787,7 @@ const BUILD = "2026-11-12.279 Promotion history and Guild controls";
  */
 function launchVerificationHealth(env: Env) {
   const verification = captureLaunchVerification(env);
-  return { mode: verification.mode, nativeScopePinned: !!verification.scope, nativeMembershipProofVersion: 1 };
+  return { mode: verification.mode, nativeScopePinned: !!verification.scope, nativeMembershipProofVersion: 1, nativeRosterProtocolVersion: 2 };
 }
 
 async function health(env: Env, full: boolean) {
