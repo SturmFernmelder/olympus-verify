@@ -178,6 +178,11 @@
    "from": "classes[7].specs[1].beginner.leveling[0]",
    "text": "Warcraft Tavern says Demonology gets comfortable once you have Demonic Brand.",
    "reason": "No reviewed fact holds Warcraft Tavern's view; the row comes from the talent data."
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[0]",
+   "text": "Warcraft Tavern rates Destruction the hardest of the three to level alone and recommends Affliction for leveling.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling ranking."
   }
  ],
  "tracks": {

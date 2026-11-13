@@ -455,6 +455,32 @@ check('renderer: presets show "Talent build" (not "Beta snapshot build") with At
 const allFacts = () => new Map(listJson('facts').flatMap(d => d.facts.map(f => [f.id, { ...(d.defaults || {}), ...f }])));
 const guideFiles = () => ['courses', 'races', 'professions'].flatMap(d => fs.readdirSync(path.join(uni, d)).filter(f => f.endsWith('.json')).map(f => json(uni, d, f)));
 const chaptersOf = g => [g, ...(g.specs || [])].flatMap(o => ['101', '201', '301'].flatMap(t => o.tracks[t].chapters));
+// REV-UNI-4 (12 Nov 2026): a re-run of the reviewer's comparison over the base guides218.json (dfca7a2) found these old
+// lines with no trace in the university: no fact, step or question carries them and no heldBack record holds them (one
+// had only its "(1 Oct)" date recorded). None has a per-line source, so each is held back with its reason. A record
+// counts only when it holds at least half of the line, so a date fragment cannot stand in for a whole claim.
+const REV_UNI_4_DROPS = [
+  ['warrior', 'classes[0].specs[0].beginner.leveling[0]', "Warcraft Tavern's author calls Arms the traditional leveling pick and prefers Bloodthrill over Weaponmaster while leveling."],
+  ['warrior', 'classes[0].specs[1].beginner.leveling[0]', 'Warcraft Tavern rates every Warrior spec viable for leveling but says Fury takes more damage and has more downtime.'],
+  ['warrior', 'classes[0].specs[1].beginner.tips[1]', 'Queuing Heroic Strike no longer raises your off-hand hit chance in Forever.'],
+  ['warrior', 'classes[0].specs[1].beginner.tips[2]', 'Unbridled Wrath no longer doubles its Rage with two-handed weapons.'],
+  ['warrior', 'classes[0].specs[1].pro.raid[2].note', "Blizzard's 30 Sep deep dive also had it make Whirlwind hit with both weapons; the snapshot text no longer mentions that."],
+  ['warrior', 'classes[0].specs[1].pvp.overview[0]', 'Warcraft Tavern says Fury has no real PvP tools, and that Berserker Stance and Death Wish leave it fragile.'],
+  ['warrior', 'classes[0].specs[2].beginner.leveling[0]', 'Warcraft Tavern rates all three Warrior specs viable for leveling, but its Protection guide says the spec does poorly when you are not tanking.'],
+  ['warrior', 'classes[0].specs[2].pvp.overview[0]', 'Protection is built for dungeons and raids; Warcraft Tavern says it does poorly when you are not tanking.'],
+  ['warrior', 'classes[0].specs[2].beginner.tips[2]', "Thunder Clap's threat was lowered to balance its new damage, so pair it with Demoralizing Shout on big pulls."],
+  ['warrior', 'classes[0].specs[2].beginner.leveling[2]', 'Rend and Sunder Armor tag mobs instantly (1 Oct), so you claim shared quest mobs quickly.'],
+  ['warlock', 'classes[7].specs[2].beginner.leveling[0]', 'Warcraft Tavern rates Destruction the hardest of the three to level alone and recommends Affliction for leveling.'],
+  ['druid', 'classes[8].specs[1].beginner.rotation[4]', 'In Bear Form, use Swipe when you need threat on several targets.'],
+];
+const heldNorm = s => String(s).toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\s+/g, ' ').trim();
+const holds = (h, from, text) => h.from.split(/,\s*/).includes(from) && heldNorm(h.text).length >= 0.5 * heldNorm(text).length && (heldNorm(h.text).includes(heldNorm(text)) || heldNorm(text).includes(heldNorm(h.text)));
+check('REV-UNI-4: every old line the migration dropped with no trace has a heldBack record that holds it, with a reason', () => {
+  const bad = REV_UNI_4_DROPS.filter(([course, from, text]) => !(json(uni, 'courses', course + '.json').heldBack || []).some(h => holds(h, from, text) && h.reason.length > 20)).map(x => x[1]);
+  const fragment = !holds({ from: 'classes[0].specs[2].beginner.leveling[2]', text: '(1 Oct)' }, REV_UNI_4_DROPS[9][1], REV_UNI_4_DROPS[9][2]);
+  return bad.length === 0 && fragment || JSON.stringify({ notHeld: bad, fragmentRefused: fragment });
+});
+
 // CONTENT-01 and CONTENT-09 (12 Nov 2026): Blizzard's hotfixes of 6 and 10 November 2026 (one dated source, g218-156 in
 // both catalogues) lowered the Tanning Rack to skill 125, let weapon imbues and weapon totems work together, set
 // Stormstrike to 100% weapon damage on an 8 sec cooldown, Mental Dexterity to 33/66/100%, Maelstrom Weapon to 20% per
