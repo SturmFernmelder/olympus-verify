@@ -8113,8 +8113,14 @@
         forget(); message.value = "";
       } catch (ex) {
         // These are definite pre-effect refusals. Every other answer remains bound to its operation until a durable read proves it.
-        if (!uncertain(ex) && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
-        status.textContent = uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
+        // Round 5 follow-up (13 Nov 2026): the Worker answers feature_disabled and delivery_not_configured with 503 before
+        // any effect, and the shared uncertain() counts every coded 5xx as unknown. So a DECODED answer (the Worker's own
+        // JSON, not a lost or unreadable one) whose code is in this list is a refusal whatever its status; any other coded
+        // 5xx, an unreadable answer and a network failure stay unknown.
+        const decoded = ex instanceof ApiError && ex.status > 0 && !!ex.data && typeof ex.data.error === "string" && ex.data.error !== "unreadable_answer";
+        const refused = decoded && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(ex.data.error);
+        if (refused) forget();
+        status.textContent = refused ? explain(ex, ex.data.error === "delivery_not_configured" ? "Discord announcements are not set up on this site. Nothing was sent." : "The announcement could not be completed.") : uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
       } finally { busy = false; buttons(); }
       await load();
     };
