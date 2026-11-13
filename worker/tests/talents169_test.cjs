@@ -632,7 +632,7 @@ async function detailRenderRegression() {
   const unknownHostN03=document.createElement('main'),unknownChangesN03=[],unknownControllerN03=await browserModule.exports.mount(unknownHostN03,{className:'no_such_class',onBuildChange:value=>unknownChangesN03.push(value)});
   const classButtonsN03=()=>byClass(unknownHostN03,'talents-class-button'),classKeysN03=displayClassIds;
   check('.218 an unavailable linked class exposes one real heading and all nine choices with an explicit blank default and no automatic change callback',
-    unknownHostN03.all(node=>node.tagName==='H1').length===1&&unknownHostN03.all(node=>node.tagName==='H1')[0].textContent==='Olympus · Forever talents'
+    unknownHostN03.all(node=>node.tagName==='H1').length===1&&unknownHostN03.all(node=>node.tagName==='H1')[0].textContent==='Warrior'/* CL2-099 (12 Nov 2026): the class name is the H1 */
     &&classButtonsN03().length===9&&classButtonsN03().map(node=>node.getAttribute('data-class')).join('|')===classKeysN03.join('|')
     &&classButtonsN03().filter(node=>node.getAttribute('aria-pressed')==='true').length===1&&classButtonsN03().find(node=>node.getAttribute('data-class')==='warrior').getAttribute('aria-pressed')==='true'
     &&byClass(unknownHostN03,'talents-tree').length===3&&byClass(unknownHostN03,'talents-feedback')[0].textContent==='That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below.'

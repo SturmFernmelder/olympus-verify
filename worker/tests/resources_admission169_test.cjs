@@ -9,7 +9,8 @@ const ts = require('typescript'), entry = require('./helpers/privacy129_fixture.
 const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000169';
 const URL_BASE = 'https://guild.example/api/resource-updates';
 const FEEDS = new Set([
-  'https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-updated-october-15/2360696.rss',
+  // Evergreen 12 Nov 2026 (siteui-b, CL2-171): Blizzard's post-launch forum-post feed replaced the beta dev-notes thread.
+  'https://us.forums.blizzard.com/en/wow/groups/blizzard-tracker/posts.rss',
   'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss',
 ]);
 const compiled = new Map();
@@ -42,7 +43,7 @@ function graph(state) {
         state.expectedSnapshot = state.snapshot();
       }
       const host = url.includes('us.forums.blizzard.com') ? 'us.forums.blizzard.com' : 'www.wowhead.com';
-      return new Response(`<?xml version="1.0"?><rss><channel><item><title>Public publisher headline</title><link>https://${host}/news=169/checked-source</link><pubDate>${new Date(state.now * 1000 - 3600000).toUTCString()}</pubDate><category>Forever</category></item></channel></rss>`, { headers: { 'Content-Type': 'application/rss+xml' } });
+      return new Response(`<?xml version="1.0"?><rss><channel><item><title>Public Forever publisher headline</title><link>https://${host}/news=169/checked-source</link><pubDate>${new Date(state.now * 1000 - 3600000).toUTCString()}</pubDate><category>Forever</category></item></channel></rss>`, { headers: { 'Content-Type': 'application/rss+xml' } });
     },
   });
   function load(name) {
@@ -1011,11 +1012,11 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
     });
   }
   await caseWith('fresh public cache still requires post-cache original session admission', async f => {
-    let changed = false; const matched = [], ids = ['blizzard-notes', 'wowhead-forever', 'wowhead-blues-forever183'];
+    let changed = false; const matched = [], ids = ['blizzard-tracker-forever1112', 'wowhead-forever', 'wowhead-blues-forever183'];
     f.state.cache = {
       async match(request) {
         const cacheKey = request.url.split('/').pop(); assert.ok(ids.includes(cacheKey)); matched.push(request.url);
-        const id = cacheKey === 'wowhead-blues-forever183' ? 'wowhead-blues' : cacheKey;
+        const id = cacheKey === 'wowhead-blues-forever183' ? 'wowhead-blues' : cacheKey === 'blizzard-tracker-forever1112' ? 'blizzard-notes' : cacheKey;
         if (!changed) {
           changed = true; const first = f.state.native.nativeTrace.length;
           await f.write('UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?', SUBJECT);
