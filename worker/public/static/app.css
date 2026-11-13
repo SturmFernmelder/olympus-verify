@@ -1286,3 +1286,8 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   [data-launch234] :is(th, td) { border-bottom: 1px solid CanvasText; }
   .launch234-digest > summary:focus-visible, [data-launch234] .table-wrap:focus-visible { outline: 2px solid Highlight; }
 }
+/* ui280 piece 2: the News activity table (/static/activity280.js). It wraps instead of scrolling sideways at 320 px. */
+[data-activity-comparison] table.data th, [data-activity-comparison] table.data td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+[data-activity-comparison] table.data td > span { display: block; font-variant-numeric: tabular-nums; }
+[data-activity-comparison] meter { display: block; width: 100%; max-width: 10rem; height: 0.8rem; margin-top: 4px; }
+@media (max-width: 420px) { [data-activity-comparison] table.data :is(th, td) { padding: 6px; } }

@@ -6847,6 +6847,10 @@
             h("ul", null, (r.lines || []).map((l) => h("li", { text: l }))))))
         : null,
     ]);
+    // Codex's /static/activity280.js (13 Nov 2026) redraws the same admitted figures as one table in place of the
+    // day and week lists; the lists stay when the script cannot load or the renderer declines the figures.
+    if (f) loadMemberScript("OlympusActivity280", "/static/activity280.js").then(() => { const lists = figures.slice(f.roster.day || f.roster.week ? 0 : 1, 5), chart = window.OlympusActivity280.render(f, fmtDateTime), glance = chart && chart.querySelector("h4");
+      if (!chart || !lists[0].isConnected) return; if (glance) glance.replaceWith(h("h3", { text: glance.textContent })); lists[0].replaceWith(chart); for (const n of lists.slice(1)) n.remove(); }).catch(() => {});
   }
   const proofBadge = (source) => (source === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : h("span", { class: "badge muted", text: "self-labelled" }));
   const altBadge = (a) => (a.status === "officer_confirmed" ? h("span", { class: "badge green", text: "officer-confirmed" }) : a.proof === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : a.status === "rejected" ? h("span", { class: "badge red", text: "rejected" }) : h("span", { class: "badge muted", text: "claimed" }));

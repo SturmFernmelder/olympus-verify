@@ -1,5 +1,6 @@
 'use strict';
-// Evergreen 12 Nov 2026, lane ui280, Piece 1: the launch roster view for officer-operations-v234.
+// Evergreen 12 Nov 2026, lane ui280. Piece 1 (Parts A, B): the launch roster view for officer-operations-v234.
+// Piece 2 (Part C): the News activity table (/static/activity280.js) through the real News route and /api/news.
 // Part A runs the real view module (/static/launch-operations234.js) against pages made by the real
 // producer (worker/src/launch-operations229.ts, native-rank-schemes.ts) in the repo's DOM fixture.
 // Part B runs the real app.js admin route against the real Worker and SQLite (frontend_check.cjs,
@@ -121,6 +122,58 @@ const runUi280=String.raw`
  check('B12 Refresh reads again only when pressed',reads.length===2);
  const ordinary=await openPage(MEMBER);await ordinary.go('#/admin/launch-operations');await settle();
  check('B13 an ordinary member gets no launch view and the module is never requested',!ordinary.app.querySelector('#launch-motd229')&&!ordinary.app.querySelector('[data-launch234]')&&!ordinary.document.head.querySelector(SCRIPT));
- console.log('\n'+ok+'/'+n+' ui280 launch v234 checks passed');process.exit(ok===n?0:1);
+ // ---------------------------------------------------------------- Piece 2: the activity table on News
+ console.log('\n== Part C: News activity presentation (the real app.js News route and the real /api/news) ==');
+ const ACT_FILE=path.join(root,'public','static','activity280.js'),ACT_SRC=fs.readFileSync(ACT_FILE,'utf8');
+ const ACT_SEL='script[src="/static/activity280.js"]';
+ // The repo's DOM fixture has appendChild only; activity280.js uses ParentNode.append, as every current browser has it.
+ if(!Element.prototype.append)Element.prototype.append=function(...nodes){for(const node of nodes)this.appendChild(node);};
+ const installActivity=pg=>{if(!pg.window.OlympusActivity280)vm.runInNewContext(ACT_SRC,{window:pg.window,document:pg.document,Number,Math,String,Object,Array},{filename:'activity280.js'});};
+ const supplyScript=async(pg,sel,install,fail=false)=>{const asked=await waitFor(()=>!!pg.document.head.querySelector(sel),sel+' request',4000);if(!asked)return false;if(!fail)install(pg);pg.document.head.querySelector(sel).dispatchEvent(new Event(fail?'error':'load'));for(let i=0;i<6;i++)await settle();return true;};
+ const READER='300000000000000311';
+ await siteUser(READER,{global_name:'Synthetic News reader'});await character(READER,'Synthetic Reader','Player-1-0311');
+ await fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsOn', '1', ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",now);
+ const putFigures=async value=>fixtureRun("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES ('newsFigures', ?, ?, NULL) ON CONFLICT(key) DO UPDATE SET value = excluded.value",value===null?'not-json':JSON.stringify(value),now);
+ const FIG={v:1,asOf:now-600,latestId:1,dayBaseId:null,weekBaseId:null,countingSince:now-9*86400,roster:{day:{joined:2,left:0},week:{joined:7,left:3}},applications:{day:{firstSaved:'few',decided:0},week:{firstSaved:6,decided:'few'}}};
+ await putFigures(FIG);
+ const newsApi=async()=>{const r=await indexMod.default.fetch(new Request('https://guild.example/api/news',{headers:{Cookie:await cookieFor(READER),'X-Olympus':'2'}}),env(),ctx);return {status:r.status,body:await r.json()};};
+ const figFrame=pg=>{const h2=pg.app.querySelectorAll('h2').find(x=>x.textContent.trim()==='The guild in figures');return h2?h2.closest('section'):null;};
+ const openNews=async()=>{const pg=await openPage(READER);await pg.go('#/news');await waitFor(()=>!!figFrame(pg),'the figures frame',8000);return pg;};
+ const cellTexts=sec=>sec?sec.querySelectorAll('tbody tr').map(tr=>[tr.querySelector('th')?.textContent,...tr.querySelectorAll('td').map(td=>td.querySelector('span')?.textContent)]):[];
+ const api1=await newsApi();
+ check('C0 the real /api/news returns the seeded figures as members see them',api1.status===200&&JSON.stringify(api1.body.figures?.roster)===JSON.stringify(FIG.roster)&&JSON.stringify(api1.body.figures?.applications)===JSON.stringify(FIG.applications),JSON.stringify(api1.body.figures));
+ const n1=await openNews(),before1=figFrame(n1);
+ const listsFirst=!!before1&&before1.querySelectorAll('dl.kv').length===3&&!before1.querySelector('table');
+ const askedAct=await supplyScript(n1,ACT_SEL,installActivity);
+ check('C1 the News page shows the day and week lists at once and asks for /static/activity280.js as a member script',listsFirst&&askedAct,String(listsFirst)+' '+String(askedAct));
+ const f1=figFrame(n1),sec1=f1&&f1.querySelector('[data-activity-comparison="news"]');
+ const want=x=>x==='few'?'Fewer than 5':String(x),F=api1.body.figures||FIG;
+ const expected=[['Characters joined',want(F.roster.day.joined),want(F.roster.week.joined)],['Characters left',want(F.roster.day.left),want(F.roster.week.left)],['Applications first saved',want(F.applications.day.firstSaved),want(F.applications.week.firstSaved)],['Decisions saved',want(F.applications.day.decided),want(F.applications.week.decided)]];
+ check('C2 the lists are replaced by one table whose every number equals the /api/news response',!!sec1&&JSON.stringify(cellTexts(sec1))===JSON.stringify(expected)&&f1.querySelectorAll('dl.kv').length===0,JSON.stringify(cellTexts(sec1)));
+ check('C3 the table is semantic: a caption, 3 column and 4 row headers with scope, bars only on exact numbers and hidden from assistive technology',!!sec1&&!!sec1.querySelector('caption')&&sec1.querySelectorAll('th[scope="col"]').length===3&&sec1.querySelectorAll('th[scope="row"]').length===4&&sec1.querySelectorAll('meter').length===6&&sec1.querySelectorAll('meter').every(m=>m.getAttribute('aria-hidden')==='true')&&!!sec1.closest('.table-wrap')===false&&!!sec1.querySelector('.table-wrap table.data'));
+ const headingsIn=f1?f1.querySelectorAll('h2,h3,h4,h5').map(x=>x.tagName+':'+x.textContent.trim()):[];
+ check('C4 headings stay in order under the frame (h2, then h3 for the table) and the source explanation and source strip are kept',JSON.stringify(headingsIn)===JSON.stringify(['H2:The guild in figures','H3:Activity at a glance'])&&!!f1.querySelector('[data-source-strip]')&&f1.textContent.includes('Joined and left compare complete, checked roster exports')&&f1.textContent.includes('do not add the columns'),JSON.stringify(headingsIn));
+ await putFigures({...FIG,roster:{day:null,week:null}});
+ const n2=await openNews();await supplyScript(n2,ACT_SEL,installActivity);const f2=figFrame(n2),sec2=f2&&f2.querySelector('[data-activity-comparison]');
+ check('C5 with no roster history yet the existing explanation stays above the table and the roster cells read Unavailable, never 0',!!sec2&&f2.textContent.includes('Not enough roster history yet; counting began')&&JSON.stringify(cellTexts(sec2).slice(0,2))===JSON.stringify([['Characters joined','Unavailable','Unavailable'],['Characters left','Unavailable','Unavailable']]),f2&&f2.textContent.slice(0,400));
+ await putFigures(FIG);
+ const n3=await openNews();const failed=await supplyScript(n3,ACT_SEL,installActivity,true);const f3=figFrame(n3);
+ check('C6 when the script cannot load, the existing lists stay with their numbers and no table appears',failed&&!!f3&&f3.querySelectorAll('dl.kv').length===3&&!f3.querySelector('table')&&f3.textContent.includes('2 joined, 0 left')&&f3.textContent.includes('7 joined, 3 left')&&f3.textContent.includes('fewer than 5'));
+ const n4=await openPage(READER);n4.intercept(async(url)=>{if(url==='/api/news'){const real=await newsApi();real.body.figures.asOf=-1;return new Response(JSON.stringify(real.body),{status:200});}return null;});
+ await n4.go('#/news');await waitFor(()=>!!figFrame(n4),'the figures frame',8000);await supplyScript(n4,ACT_SEL,installActivity);const f4=figFrame(n4);
+ check('C7 figures the renderer declines keep the existing lists (no half-drawn table)',!!f4&&f4.querySelectorAll('dl.kv').length===3&&!f4.querySelector('table'));
+ await putFigures(null);
+ const n5=await openPage(READER);await n5.go('#/news');await waitFor(()=>!!figFrame(n5),'the figures frame',8000);await new Promise(r=>setTimeout(r,200));
+ check('C8 withheld or missing figures keep the "No figures yet" fallback and the script is never requested',figFrame(n5).textContent.includes('No figures yet')&&!n5.document.head.querySelector(ACT_SEL));
+ await putFigures(FIG);
+ await fixtureRun("UPDATE site_settings SET value = '0' WHERE key = 'newsOn'");
+ const n6=await openPage(READER);await n6.go('#/news');await settle();await settle();await new Promise(r=>setTimeout(r,200));
+ check('C9 with News switched off the page says so and neither /api/news figures nor the script are shown',n6.app.textContent.includes('Town Crier dispatches are switched off.')&&!figFrame(n6)&&!n6.document.head.querySelector(ACT_SEL));
+ await fixtureRun("UPDATE site_settings SET value = '1' WHERE key = 'newsOn'");
+ const outsider='300000000000000312';await siteUser(outsider,{global_name:'Synthetic outsider'});
+ const n7=await openPage(outsider);await n7.go('#/news');await settle();await settle();await new Promise(r=>setTimeout(r,200));
+ check('C10 an account without News standing gets the standing notice and no figures or script',!figFrame(n7)&&!n7.document.head.querySelector(ACT_SEL));
+
+ console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
