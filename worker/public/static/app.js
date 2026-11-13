@@ -1147,14 +1147,20 @@
   const toastBox = h("div", { class: "toasts", role: "status", "aria-live": "polite" });
   document.body.appendChild(toastBox);
   // CL2-280 (12 Nov 2026): the stack lets taps through around its toasts (CSS), each toast can be dismissed, a message
-  // already showing is renewed instead of repeated, and at most three stay.
+  // already showing is renewed instead of repeated, and at most three stay unless errors fill the stack (RC-280 below).
   function toast(msg, kind = "") {
     const text = String(msg);
     for (const old of [...toastBox.children]) if (old.dataset.message === text && old.dataset.kind === kind) dropToast(old);
     const t = h("div", { class: "toast " + kind, "data-message": text, "data-kind": kind }, h("span", { text }),
       h("button", { class: "toast-x", type: "button", "aria-label": "Dismiss message", title: "Dismiss", onclick: () => dropToast(t) }));
     toastBox.appendChild(t);
-    for (const old of [...toastBox.children].slice(0, -3)) dropToast(old);
+    // RC-280 (round 3, 12 Nov 2026): the cap never cuts an error short of its 9 s. The oldest non-error toast goes first;
+    // when only errors are left to drop, the stack grows.
+    while (toastBox.children.length > 3) {
+      const old = [...toastBox.children].find(x => x !== t && x.dataset.kind !== "bad");
+      if (!old) break;
+      dropToast(old);
+    }
     t.dataset.timer = String(setTimeout(() => dropToast(t), kind === "bad" ? 9000 : 4500));
   }
   // CL2-280 / CL2-097 follow-up (12 Nov 2026): toasts live outside #app, so the focus memory does not see them. A toast
@@ -1188,9 +1194,18 @@
     if (event.relatedTarget) return;
     setTimeout(() => { if (lastFocus === el && el.isConnected && (!document.activeElement || document.activeElement === document.body)) lastFocus = null; }, 0);
   });
+  // RC-097 (round 3, 12 Nov 2026): a flow that detaches the focused control and puts it back itself (the Treasury plan's
+  // suspend-and-reverify) holds it here, so the global restore cannot move focus first and defeat the flow's own restore,
+  // as it did after CL2-097. The returned release lets the global restore act once the flow gives the node up.
+  const focusHeld = new WeakSet();
+  function holdFocus(el) {
+    if (!(el instanceof Element)) return () => {};
+    focusHeld.add(el);
+    return () => { focusHeld.delete(el); queueMicrotask(() => { if (lastFocus === el && !el.isConnected) restoreFocus(); }); };
+  }
   function restoreFocus() {
     const lost = lastFocus;
-    if (!lost || lost.isConnected || document.activeElement && document.activeElement !== document.body) return;
+    if (!lost || lost.isConnected || focusHeld.has(lost) || document.activeElement && document.activeElement !== document.body) return;
     lastFocus = null;
     const sig = focusSignature.get(lost);
     const usable = el => el.isConnected && !el.disabled && !el.closest("[hidden], [inert]") && el.getClientRects().length > 0;
@@ -2607,6 +2622,7 @@
       timer = null;
       const cleanup = disposePlan;
       disposePlan = null;
+      suspendedPlan?.release();
       suspendedPlan = null;
       mounted = false;
       clear(main);
@@ -2649,11 +2665,8 @@
         // At expiry, detach the presentation until a fresh answer confirms this view.
         clearTimeout(timer);
         timer = null;
-        suspendedPlan = {
-          nodes: [...main.childNodes],
-          focus: main.contains(document.activeElement) ? document.activeElement : null,
-          x: window.scrollX, y: window.scrollY
-        };
+        const focus = main.contains(document.activeElement) ? document.activeElement : null;
+        suspendedPlan = { nodes: [...main.childNodes], focus, release: holdFocus(focus), x: window.scrollX, y: window.scrollY };
         clear(main);
       } else removePlan();
       waiting();
@@ -2666,13 +2679,14 @@
         if (!current()) return;
         if (suspendedPlan) {
           if (!treasuryPlanAllowed218()) throw new ApiError(0, { error: "access_unconfirmed" });
-          const { nodes, focus, x, y } = suspendedPlan;
+          const { nodes, focus, release, x, y } = suspendedPlan;
           suspendedPlan = null;
           const restoreScroll = Number.isFinite(y) && window.scrollX === waitingX && window.scrollY === waitingY;
           clear(main);
           add(main, nodes);
           if (restoreScroll) window.scrollTo(x, y);
           if (focus && document.activeElement === document.body) focus.focus({ preventScroll: true });
+          release();
           arm();
           return;
         }
@@ -2775,13 +2789,16 @@
     return [];
   }
   function treasuryRefusal218(admits) {
-    return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
+    // Round 3 (12 Nov 2026): the badge must not claim officers when the gate's description below names no officer path
+    // (treasuryGateDescription writes a roster "rank" clause and a "Discord" role clause only when those paths admit).
+    const officers = !admits || /\brank\b|\bDiscord\b/.test(admits);
+    return frame("Treasury programme", h("span", { class: "badge", text: officers ? "Officers and above" : "Appointments and administrators" }),
       // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
       // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
       // REV-SITEA-3 (12 Nov 2026): the sentence is the Worker's own description of the gate under its current configuration
       // (site-treasury-access.ts treasuryGateDescription), so it never names a Discord role the gate does not admit. An
       // answer without it (an older Worker) gets the general rule only.
-      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the published Co-Guild Master and Treasurer appointments, and site administrators." }),
+      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the holders of the published Co-Guild Master and Lord High Treasurer seats, and site administrators." }),
       h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
@@ -2996,14 +3013,14 @@
             h("div", null,
               h("div", { class: "title", text: "Olympus" }),
               h("div", { class: "tag" }, h("span", { text: "Asmongold's guild" }), h("span", { "data-ruleset-identity": "current", text: rulesetIdentity() })),
-              h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, list the friends you are bringing, and record the names you have reserved in game. Leader, High Council and Officer Corps seats are reserved appointments." }),
+              h("p", { class: "lead", text: "Explore Olympus membership, raiding and artisan roles, and list the friends you are bringing. Leader, High Council and Officer Corps seats are reserved appointments." }),
               signInButton(true),
               h("p", { class: "muted small", text: "For members of Asmongold's Discord server. The site checks that one membership and nothing else: it never sees your password, email, other servers or messages." })))),
         flash,
         h("section", { class: "grid three" },
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-apply"), h("h3", { text: "Apply" })), h("p", { class: "muted", text: "Browse illustrated, collapsible guides for every rank, title and office. Eligible membership, Raider and Artisan roles have application choices; reserved leadership seats have detailed duties and expectations without application buttons." }), h("p", { class: "small" }, h("a", { href: "#/roles", text: "What each role involves" }))),
           h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-vote"), h("h3", { text: "Vote" })), h("p", { class: "muted", text: "Historical applications and nominations remain on record. A nomination is a recommendation for leadership review; it does not open a reserved seat to applications. Only the guild's leadership sees vote counts." })),
-          h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Your seat" })), h("p", { class: "muted", text: "Add the friends joining with you and the character names you reserved in game." }))),
+          h("div", { class: "card" }, h("div", { class: "card-head" }, icon("icon-friends"), h("h3", { text: "Your seat" })), h("p", { class: "muted", text: "Add the friends joining with you." }))),
         datesPanel(),
         warningBox(),
       ]);
@@ -3055,7 +3072,7 @@
         h("div", { class: "btn-row" },
           h("a", { class: "btn", href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Get Olympus Guild" }),
           h("a", { class: "btn small", href: "#/addons", text: "Browse all addons" })),
-        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild (version 1.5.7 or later, from its CurseForge page) is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate." })),
+        h("p", { class: "muted small", text: "No desktop companion is needed to use this website. Olympus Guild, from its CurseForge project page, is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate." })),
       put.length
         ? h("div", { class: "mt" }, noticeBox("info", "icon-vote",
             h("p", null, h("strong", { text: "You were nominated. " }), `Other members put you forward for ${listText(put.map(roleName))}. They are not told who you are, and you are not told who they are.`),
@@ -3074,8 +3091,8 @@
           h("p", { class: "muted small", text: `${plural(S.boardVotes || 0, "applicant")} voted on, ${plural((S.votes || []).length, "write-in")}. Only the guild's leadership sees counts.` })),
         h("a", { class: "card", href: "#/names" },
           h("div", { class: "card-head" }, icon("icon-names"), h("h3", { text: "Reserved names" })),
-          h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : namesSoon ? "Soon" : plural((S.reserved || []).length, "name") + " saved" }),
-          h("p", { class: "muted small", text: namesOpen ? "Saved on your list below." : namesSoon ? "Website name entry is not open yet." : "View the names you saved." }))),
+          h("div", { class: "big", id: "names-count", text: namesOpen ? `${(S.reserved || []).length} of ${M().limits.reserved}` : namesSoon ? "Soon" : (S.reserved || []).length ? plural(S.reserved.length, "name") + " saved" : "None" }),
+          h("p", { class: "muted small", text: namesOpen ? "Saved on your list below." : namesSoon ? "Website name entry is not open yet." : (S.reserved || []).length ? "View the names you saved." : "No names recorded." }))),
       frame("Beta Epoch Archive", h("span", { class: "badge", text: "Guild history" }),
         h("p", null, "Blizzard's 20 October update scheduled the final beta shutdown for 23 October 2026 at 10:00 AM PDT (17:00 UTC). ", h("a", {href:"https://us.forums.blizzard.com/en/wow/t/heads-up-wow-forever-stress-test-on-october-21/2387920",target:"_blank",rel:"noopener noreferrer",text:"Read the announced schedule"}), ". Its guild work continues into the announced PvE · Alliance direction."),
         h("p", { class: "muted small", text: "This archive records the guild's published rules, release history and aggregate milestones. It contains no former-member roster, private account copies or erased member records. The shutdown time is Blizzard's announced plan, not a server closure observed by this site; the guild's separate reset-policy cutoff is unchanged." }),
@@ -3147,7 +3164,9 @@
             toast(`${r.name} removed from your list.`, "good");
             section.replaceWith(namesPanel());
             const count = document.getElementById("names-count");
-            if (count) count.textContent = plural(S.reserved.length, "name") + " saved";
+            // Round 3 (12 Nov 2026, CL2-175 leftovers): an empty list reads "No names recorded.", not "0 names saved".
+            if (count) count.textContent = S.reserved.length ? plural(S.reserved.length, "name") + " saved" : "None";
+            if (count && !S.reserved.length && count.nextElementSibling) count.nextElementSibling.textContent = "No names recorded.";
           } catch (err) { toast(err.message, "bad"); button.disabled = false; }
         });
         return button;
@@ -5106,7 +5125,7 @@
     const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const was = s.appointed || {};
     const appointmentKind = office => {
-      if (office.key === "co_gm" || office.key === "treasurer") return "Treasury-plan access appointment";
+      if (office.key === "office_19" || office.key === "office_86") return "Treasury-plan access seat"; // CL2-091 (owner ruling, 13 Nov 2026)
       if (office.group === "native") return `Native rank display · Rank ${office.nativeRankOrdinal}`;
       if (office.aliasOf) return office.group === "leadership" ? "Leadership display alias" : "Historical display alias";
       if (office.group === "class") return "Class lead appointment";
@@ -5225,7 +5244,7 @@
     add(body, frame("Appointed roles", null,
       h("p", { class: "muted small", text: "A role with a name here has an appointment display record. Its historical voting board and write-ins close while the appointment is recorded; prior votes and nominations are preserved. Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed. An empty field is not an application vacancy." }),
       h("p", { class: "muted small", text: "Every office and rank below has a Discord name or exact user ID selector. Search and Save check current server membership and account standing. A website sign-in, character link or roster confirmation is not required to associate a current Discord member. These website records do not change Discord roles, native ranks, bank access or signing authority. Existing ballot roles remain closed while appointed; extended offices are separate records." }),
-      h("p", { class: "muted small", text: "Co-Guild Master (co_gm) and Treasurer (treasurer) are the Treasury-plan access appointments. A current published Discord account association on either record can qualify for officer Treasury plan access. Their separately listed office records retain their own scope." }),
+      h("p", { class: "muted small", text: "The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. A holder recorded on either seat with a current published Discord account association qualifies. The older co_gm and treasurer records are display aliases and open nothing." }),
       h("p", { class: "muted small appointment-scope228", text: "Separate offices, aliases, regions, classes and ranks each keep their own display record." }),
       appointmentControls203,
       namesOkRow, namesOkError,
@@ -6909,10 +6928,19 @@
   const communitySection = key => COMMUNITY_SECTIONS.find(section => section.key === key);
   // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
   function communityTabs(sub) {
-    return h("div", { class: "community-tabs" },
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
+      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
+    // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
+    // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+    requestAnimationFrame(() => {
+      const current = nav.isConnected && nav.scrollWidth > nav.clientWidth ? nav.querySelector('[aria-current="page"]') : null;
+      if (!current) return;
+      const row = nav.getBoundingClientRect(), link = current.getBoundingClientRect(), pad = 4;
+      if (link.left < row.left + pad) nav.scrollLeft -= row.left + pad - link.left;
+      else if (link.right > row.right - pad) nav.scrollLeft += link.right - (row.right - pad);
+    });
+    return h("div", { class: "community-tabs" }, nav,
       // The scroll hint is for sighted phone users only; it is not tied to the nav, so it is never announced where it is hidden.
-      h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
-        h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false }))),
       h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
   }
   const sourceStrip = (source, freshness) => h("div", { class: "source-strip", "data-source-strip": true },
@@ -6959,7 +6987,9 @@
         add(result, h("pre", {class:"small",text:data.message || data.content || "Your verification request was received."}));
         if (typeof data.code === "string") add(result, h("p", {class:"small",text:"Whisper this private code from that character to Fern Melder:"}), h("code", {text:data.code}));
       } catch (error) {
-        if (live()) add(result, h("p", {class:"err",text:explain(error,"Verification could not be refreshed. Try again or ask High Council to use /olympus check.")}));
+        // RC-017 (round 3, 12 Nov 2026): since CL2-017 a bare failure shows this fallback, and a lost answer may already have
+        // issued a code, so it asks for a status check before a second request instead of inviting a retry.
+        if (live()) add(result, h("p", {class:"err",text:explain(error,"The answer did not arrive, so it is not known whether a code was issued. Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.")}));
       } finally { if (live()) submit.disabled = false; }
     });
   };
@@ -7153,7 +7183,7 @@
       frame(standalone ? "Published snapshots" : "Army", sourceStrip("Unverified community observations", "Reported characters, not unique people"),
         h("a", { class: "btn small", href: "#/organization/alliance-overview", text: "Explore OLYMPUS PRIME / Olympus II–X roles & organization" }),
         h("p", { text: "The Army page shows aggregate guild snapshots that authorized reporters deliberately reviewed and published for signed-in Olympus members." }),
-        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Use version 1.5.7 or later. Website reporting is available only when enabled by site administrators."),
+        h("p", { class: "small" }, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild on CurseForge" }), " · Website reporting is available only when enabled by site administrators."),
         S.user && S.user.isAdmin ? h("a", { class: "btn small", href: "#/army/report", text: "Report a guild snapshot" }) : null,
         h("p", { class: "muted small", text: "Missing guilds are unavailable, not zero. Volunteer observations do not establish game origin, membership or complete guild coverage. Reporting uses the unified Olympus Guild addon and a separate attended page with current server admission. Publishing the addon does not enable website reporting." }), reader))]);
     const load = async (namespace, file) => {
@@ -7910,7 +7940,11 @@
   // .130: explicit organizer publication. A lost answer survives navigation/reload as a tab-local operation marker;
   // an absent read is never permission to resend. The Worker owns every destination, authority and custody check.
   async function organizerEventDiscord(body, id) {
-    if (!can("organizer")) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
+    // CL2-016 (owner ruling, 13 Nov 2026, "Officers: own events"): an officer who created the event manages its announcement.
+    // The page asks the Worker whether this viewer manages the event (canManage); the Worker decides every request again.
+    let manages = can("organizer");
+    if (!manages && can("confirmedGuildData")) { try { const d = await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`); manages = !!(d && d.event && d.event.id === id && d.event.canManage === true); } catch { manages = false; } }
+    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
     const key = "olympus.eventDelivery." + id;
     const opPattern = /^[A-Za-z0-9_-]{22}$/;
     const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
@@ -8022,7 +8056,8 @@
     };
     publish.addEventListener("click", () => action("publish")); remove.addEventListener("click", () => action("remove")); reconcile.addEventListener("click", () => action("reconcile")); refresh.addEventListener("click", load);
     buttons(); await load();
-    await organizerEventReminder(panel, id);
+    // CL2-016: the opt-in Discord reminder is not part of the ruling and stays with organizers, so an officer is not shown it.
+    if (can("organizer")) await organizerEventReminder(panel, id);
   }
   async function organizerEventReminder(body, id) {
     const panel = h("div", { class: "stack", "data-event-reminder": "" }); add(body, panel);

@@ -52,7 +52,15 @@ function load(name) {
 // A fake Discord: OAuth, the member endpoint for Asmongold's server, nothing else.
 const GUILD = '236932545793490944', ADMIN = '472099715253796864', MEMBER = '300000000000000001', OTHER = '300000000000000002';
 const users = new Map([[ADMIN, { id: ADMIN, username: 'fernmelder', global_name: 'Fern', avatar: null }], [MEMBER, { id: MEMBER, username: 'alice', global_name: 'Alice', avatar: null }], [OTHER, { id: OTHER, username: 'bob', global_name: 'Bob', avatar: null }]]);
-const member = id => ({ user: users.get(id), nick: null, avatar: null, joined_at: '2024-01-15T12:00:00.000Z', roles: [] });
+// Round 3 (CL2-016, CL2-091): more synthetic accounts, their Discord roles (changed by the test), and a bot that answers
+// the announcement's channel, self and message calls. Every posted message is kept so a check can count them.
+const OFFICER_ROLE = '1554262223038324840', RAID_CHANNEL = '1554266022444408872', APP_ID = '1550176895671341076';
+const OFF_A = '300000000000000003', OFF_B = '300000000000000004', FORMER = '300000000000000005', COGM = '300000000000000006', TREAS = '300000000000000007',
+  OLD_COGM = '300000000000000008', OLD_TREAS = '300000000000000009', JUSTICE = '300000000000000010', COUNCIL45 = '300000000000000011', BOTH = '300000000000000012', EX_TREAS = '300000000000000013';
+for (const [id, name] of [[OFF_A, 'offa'], [OFF_B, 'offb'], [FORMER, 'former'], [COGM, 'cogm'], [TREAS, 'treas'], [OLD_COGM, 'oldcogm'], [OLD_TREAS, 'oldtreas'], [JUSTICE, 'justice'], [COUNCIL45, 'council'], [BOTH, 'both'], [EX_TREAS, 'extreas']]) users.set(id, { id, username: name, global_name: name, avatar: null });
+const rolesOf = new Map([[OFF_A, [OFFICER_ROLE]], [OFF_B, [OFFICER_ROLE]], [FORMER, [OFFICER_ROLE]]]);
+const posted = [];
+const member = id => ({ user: users.get(id), nick: null, avatar: null, joined_at: '2024-01-15T12:00:00.000Z', roles: [...(rolesOf.get(id) || [])], pending: false });
 const realFetch = globalThis.fetch; // part 2 talks to the local harness and Edge with the real fetch
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url), p = u.pathname.replace(/^\/api\/v10/, ''), m = init.method || 'GET';
@@ -67,6 +75,12 @@ globalThis.fetch = async (url, init = {}) => {
   }
   let x;
   if ((x = p.match(/^\/guilds\/(\d+)\/members\/(\d+)$/))) return users.has(x[2]) ? res(200, member(x[2])) : res(404, { code: 10007 });
+  if (auth.startsWith('Bot ') && m === 'GET' && p === '/users/@me') return res(200, { id: APP_ID, username: 'olympus', bot: true });
+  if (auth.startsWith('Bot ') && m === 'GET' && p === `/channels/${RAID_CHANNEL}`) return res(200, { id: RAID_CHANNEL, guild_id: GUILD, type: 0 });
+  if (auth.startsWith('Bot ') && m === 'POST' && p === `/channels/${RAID_CHANNEL}/messages`) {
+    const b = JSON.parse(init.body), msg = { id: String(1560000000000000000n + BigInt(posted.length + 1)), channel_id: RAID_CHANNEL, author: { id: APP_ID, bot: true }, content: b.content, components: b.components, embeds: [], attachments: [], type: 0, nonce: b.nonce, mention_everyone: false, mention_roles: [], mentions: [] };
+    posted.push(msg); return res(200, msg);
+  }
   return res(404, { code: 0 });
 };
 
@@ -75,13 +89,15 @@ db.exec('PRAGMA foreign_keys = ON');
 db.function('strftime', (format, value) => { if (format !== '%s' || value !== 'now') throw Error('unexpected clock input'); return String(T); });
 entry.installCurrentEntryEpoch(db, { now: T });
 const port = entry.originalNativePort(db, {});
+// Round 3: the calendar and announcement settings, switched on only for the CL2-016 and CL2-091 sections.
+let EXTRA = {};
 const rawEnv = () => entry.currentEntryEnvironment({
   DB: port, GUILD_ID: '1549537348516188200', DISCORD_APP_ID: '1550176895671341076', DISCORD_CLIENT_SECRET: 'client-secret',
   DISCORD_BOT_TOKEN: 'bot-token', DISCORD_PUBLIC_KEY: '00', COOKIE_SECRET: 'cookie-secret-for-tests-only-0123456789',
   VERIFY_SECRET: 'verify-secret-for-tests', WATCHER_TOKEN: 'watcher-token-for-tests-only-0123456789', PUBLIC_BASE_URL: 'https://verify.example',
   SITE_HOST: 'guild.example', SITE_GUILD_ID: GUILD, SITE_ADMINS: ADMIN, SITE_JOIN_URL: 'https://discord.gg/example', INTROS_GUILD_ID: GUILD,
   INTROS_ROLES: '', INTROS_CHANNELS: '', ADMISSION_MODE: 'auto', SET_GUILD_NOTE: 'false', QUEUE_CLAIM_LIMIT: '25', QUEUE_CLAIM_TTL_MINUTES: '15',
-  ROSTER_MIN_MEMBERS: '0', ROSTER_MAX_SHRINK_PCT: '100', CHANNEL_SERVER_LOG: '', CHANNEL_NOTICES: '',
+  ROSTER_MIN_MEMBERS: '0', ROSTER_MAX_SHRINK_PCT: '100', CHANNEL_SERVER_LOG: '', CHANNEL_NOTICES: '', ...EXTRA,
 });
 const waits = [];
 const ctx = { waitUntil: p => waits.push(Promise.resolve(p).catch(() => {})) };
@@ -190,6 +206,160 @@ async function part1() {
   check('CL2-175', 'the admin switch says it can no longer open entry', app.includes('This switch no longer opens entry: the site has refused new or changed names since Blizzard\'s name reservation ended on 3 November 2026.'), '');
 }
 
+// ---------------------------------------------------------------- Part 1b (round 3): CL2-016 and CL2-091 on the real Worker
+// Direct test rows go through the write-admission port, as the historical treasury test does (raw writes are refused).
+const testWriter = () => load('./privacy-write-admission').createPrivacyWriteAdmissionDatabase(port, 'writer', 'canonical', entry.ENTRY_EPOCH);
+const confirm = async (id, name) => { await testWriter().prepare('INSERT OR IGNORE INTO members(discord_id) VALUES(?)').bind(id).run(); return testWriter()
+  .prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at) VALUES(?,?,?,'member',?)").bind(name.toLowerCase(), name, id, T).run(); };
+const opId = () => crypto.randomBytes(16).toString('base64url');
+const iso = s => new Date(s * 1000).toISOString();
+// Everything a refused call could have changed about one event: the row, its history, its attendance, its announcement.
+const snapshot = id => JSON.stringify({
+  e: db.prepare('SELECT title,details,starts_at,duration_min,capacity,status,revision,nonce,attendance_nonce,attendance_generation,signup_generation,created_by,publication_closed FROM community_events WHERE id=?').get(id),
+  c: db.prepare('SELECT action,actor,at,fields FROM community_event_changes WHERE event_id=? ORDER BY id').all(id),
+  a: db.prepare('SELECT discord_id,state,revision,recorded_by FROM community_event_attendance WHERE event_id=? ORDER BY discord_id').all(id),
+  d: db.prepare('SELECT state,message_id,claim_nonce,actor FROM community_event_deliveries WHERE event_id=?').all(id),
+  audit: db.prepare('SELECT COUNT(*) AS n FROM audit WHERE subject=?').get(id).n,
+});
+async function raidCommand(actorId, title, startsAt) {
+  // The Discord /raid path itself (guild-calendar219.ts createCalendar219), so created_by is whoever ran the command.
+  const env = { ...rawEnv(), DB: testWriter() }, authority = load('./guild-command-authority219'), calendar = load('./guild-calendar219');
+  const actor = await authority.captureGuildActor219(env, { guild_id: GUILD, member: { user: { id: actorId, username: users.get(actorId).username } } }, T, T);
+  return (await calendar.createCalendar219(env, actor, { title, starts: iso(startsAt), minutes: 60 })).id;
+}
+
+async function part1b() {
+  EXTRA = { COMMUNITY_FEATURES: 'events,attendance', INTROS_CHANNELS: 'raid-signups=' + RAID_CHANNEL, ROLE_OFFICER: OFFICER_ROLE, EVENT_DISCORD_DELIVERY: 'on',
+    ASSETS: { fetch: async () => new Response('/* treasury plan */', { status: 200, headers: { 'Content-Type': 'text/javascript' } }) } };
+  jar.clear();
+  for (const [id, name] of [[ADMIN, 'Fernadmin'], [MEMBER, 'Alicemember'], [OFF_A, 'Officera'], [OFF_B, 'Officerb'], [FORMER, 'Formerofficer']]) { await signIn(id); await confirm(id, name); }
+
+  console.log('== CL2-016: officers manage the events they created (owner ruling, 13 November 2026) ==');
+  const at = T;
+  const evA = await raidCommand(OFF_A, 'Officer A raid', at + 3 * 3600);
+  const evB = await raidCommand(OFF_B, 'Officer B raid', at + 3 * 3600);
+  const evF = await raidCommand(FORMER, 'Former officer raid', at + 3 * 3600);
+  const evCancel = await raidCommand(OFF_A, 'Officer A second raid', at + 3 * 3600);
+  const evAttend = await raidCommand(OFF_A, 'Officer A attendance raid', at + 1800);
+  const evAttendF = await raidCommand(FORMER, 'Former officer attendance raid', at + 1800);
+  const creators = db.prepare(`SELECT id, created_by FROM community_events WHERE id IN (?,?,?,?,?,?)`).all(evA, evB, evF, evCancel, evAttend, evAttendF);
+  check('CL2-016', 'setup: the /raid command records who ran it as the event\'s creator', creators.length === 6 && creators.every(r => r.created_by === ({ [evA]: OFF_A, [evB]: OFF_B, [evF]: FORMER, [evCancel]: OFF_A, [evAttend]: OFF_A, [evAttendF]: FORMER })[r.id]), creators);
+  rolesOf.delete(FORMER); // FORMER ran /raid as an officer and has since lost the role
+  const rev = id => db.prepare('SELECT revision FROM community_events WHERE id=?').get(id).revision;
+  const edit = (who, id, title) => call('POST', '/api/community/events/update', { who, body: { eventId: id, revision: rev(id), title } });
+  const refusedUnchanged = async (label, id, run, want) => {
+    const before = snapshot(id), r = await run();
+    check('CL2-016', label, r.status >= 400 && want(r) && snapshot(id) === before, { status: r.status, data: r.data, changed: snapshot(id) !== before });
+  };
+
+  let r = await call('GET', `/api/community/event?id=${evA}`, { who: OFF_A });
+  check('CL2-016', 'the creator officer sees canManage on their event, without the organizer-only sign-up refs', r.status === 200 && r.data?.event?.canManage === true && (r.data.signups || []).every(s => !('ref' in s)), r.data?.event);
+  r = await call('GET', `/api/community/events?from=${encodeURIComponent(iso(at))}&to=${encodeURIComponent(iso(at + 86400))}`, { who: OFF_A });
+  const listed = Object.fromEntries((r.data?.events || []).map(e => [e.id, e.canManage]));
+  check('CL2-016', 'in the calendar list the officer manages their own events only', r.status === 200 && listed[evA] === true && listed[evCancel] === true && listed[evB] === false && listed[evF] === false, listed);
+  r = await call('GET', `/api/community/event?id=${evA}`, { who: OFF_B });
+  check('CL2-016', 'another officer sees no canManage on it', r.status === 200 && r.data?.event?.canManage === false, r.data?.event);
+  r = await call('GET', `/api/community/event?id=${evF}`, { who: FORMER });
+  check('CL2-016', 'a former officer sees no canManage on the event they created', r.status === 200 && r.data?.event?.canManage === false, r.data?.event);
+
+  r = await edit(OFF_A, evA, 'Officer A raid, renamed');
+  check('CL2-016', 'edit: the creator officer may', r.status === 200 && r.data?.event?.title === 'Officer A raid, renamed' && r.data.event.canManage === true, r);
+  await refusedUnchanged('edit: another officer may not (not_event_organizer), and the event is unchanged', evA, () => edit(OFF_B, evA, 'Taken over'), x => x.data?.error === 'not_event_organizer');
+  await refusedUnchanged('edit: a former officer who created it may not (not_organizer), unchanged', evF, () => edit(FORMER, evF, 'Still mine'), x => x.status === 403 && x.data?.error === 'not_organizer');
+  await refusedUnchanged('edit: a member may not (not_organizer), unchanged', evA, () => edit(MEMBER, evA, 'Member edit'), x => x.status === 403 && x.data?.error === 'not_organizer');
+  r = await edit(ADMIN, evB, 'Officer B raid, admin edit');
+  check('CL2-016', 'edit: an admin may edit any officer\'s event', r.status === 200 && r.data?.event?.title === 'Officer B raid, admin edit', r);
+
+  const preview = who => call('GET', `/api/community/events/discord?eventId=${evA}`, { who });
+  const publish = async (who, id) => {
+    const p = await call('GET', `/api/community/events/discord?eventId=${id}`, { who });
+    return p.status !== 200 ? p : call('POST', '/api/community/events/discord/publish', { who, body: { eventId: id, revision: p.data.revision, opId: opId(), payloadHash: p.data.payloadHash } });
+  };
+  r = await preview(OFF_A);
+  check('CL2-016', 'announcement: the creator officer reads the preview and may publish', r.status === 200 && r.data?.canPublish === true, r);
+  await refusedUnchanged('announcement: another officer may not publish it, nothing is posted', evA, async () => { const n = posted.length, x = await publish(OFF_B, evA); return { ...x, status: posted.length === n ? x.status : 200 }; }, x => x.status === 404 || x.status === 403);
+  await refusedUnchanged('announcement: a former officer may not publish their own event', evF, async () => { const n = posted.length, x = await publish(FORMER, evF); return { ...x, status: posted.length === n ? x.status : 200 }; }, x => x.status === 403 && x.data?.error === 'not_organizer');
+  await refusedUnchanged('announcement: a member may not publish it', evA, async () => { const n = posted.length, x = await publish(MEMBER, evA); return { ...x, status: posted.length === n ? x.status : 200 }; }, x => x.status === 403 && x.data?.error === 'not_organizer');
+  let n = posted.length;
+  r = await publish(OFF_A, evA);
+  check('CL2-016', 'announcement: the creator officer publishes it (one message posted)', r.status === 200 && r.data?.delivery?.state === 'posted' && posted.length === n + 1, r);
+  n = posted.length;
+  r = await publish(ADMIN, evB);
+  check('CL2-016', 'announcement: an admin publishes another officer\'s event', r.status === 200 && r.data?.delivery?.state === 'posted' && posted.length === n + 1, r);
+
+  const cancel = (who, id) => call('POST', '/api/community/events/cancel', { who, body: { eventId: id, revision: rev(id) } });
+  await refusedUnchanged('cancel: another officer may not, unchanged', evCancel, () => cancel(OFF_B, evCancel), x => x.data?.error === 'not_event_organizer');
+  await refusedUnchanged('cancel: a former officer who created it may not, unchanged', evF, () => cancel(FORMER, evF), x => x.status === 403 && x.data?.error === 'not_organizer');
+  await refusedUnchanged('cancel: a member may not, unchanged', evCancel, () => cancel(MEMBER, evCancel), x => x.status === 403 && x.data?.error === 'not_organizer');
+  r = await cancel(OFF_A, evCancel);
+  check('CL2-016', 'cancel: the creator officer may', r.status === 200 && r.data?.event?.status === 'cancelled', r);
+  r = await cancel(ADMIN, evF);
+  check('CL2-016', 'cancel: an admin may cancel an event created by someone else', r.status === 200 && r.data?.event?.status === 'cancelled', r);
+
+  r = await call('PUT', '/api/community/events/rsvp', { who: MEMBER, body: { eventId: evAttend, status: 'yes', revision: 0 } });
+  const r2 = await call('PUT', '/api/community/events/rsvp', { who: MEMBER, body: { eventId: evAttendF, status: 'yes', revision: 0 } });
+  check('CL2-016', 'setup: a member signs up for both attendance events', r.status === 200 && r2.status === 200, [r.status, r2.status]);
+  T += 3600; // both attendance events have started
+  const list = (who, id) => call('GET', `/api/community/event/attendance?id=${id}`, { who });
+  r = await list(OFF_A, evAttend);
+  const ref = (r.data?.attendance || [])[0]?.ref;
+  check('CL2-016', 'attendance: the creator officer reads the list', r.status === 200 && typeof ref === 'string' && r.data.event.canManage === true, r);
+  const record = (who, id, state, revision) => call('POST', '/api/community/attendance/record', { who, body: { eventId: id, entries: [{ ref, state, revision }] } });
+  r = await list(OFF_B, evAttend);
+  check('CL2-016', 'attendance: another officer may not read the list (not_event_organizer)', r.status === 403 && r.data?.error === 'not_event_organizer' && !('attendance' in (r.data || {})), r);
+  await refusedUnchanged('attendance: another officer may not record, unchanged', evAttend, () => record(OFF_B, evAttend, 'absent', 0), x => x.status === 403 && x.data?.error === 'not_event_organizer');
+  r = await list(FORMER, evAttendF);
+  check('CL2-016', 'attendance: a former officer may not read the list of the event they created', r.status === 403 && r.data?.error === 'not_organizer', r);
+  await refusedUnchanged('attendance: a former officer may not record on it, unchanged', evAttendF, () => record(FORMER, evAttendF, 'present', 0), x => x.status === 403 && x.data?.error === 'not_organizer');
+  await refusedUnchanged('attendance: a member may not record, unchanged', evAttend, () => record(MEMBER, evAttend, 'present', 0), x => x.status === 403 && x.data?.error === 'not_organizer');
+  r = await record(OFF_A, evAttend, 'present', 0);
+  check('CL2-016', 'attendance: the creator officer records it', r.status === 200 && r.data?.results?.[0]?.result === 'ok' && db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?').get(evAttend)?.state === 'present', r);
+  r = await record(ADMIN, evAttend, 'excused', 1);
+  check('CL2-016', 'attendance: an admin records on an officer\'s event', r.status === 200 && r.data?.results?.[0]?.result === 'ok' && db.prepare('SELECT state FROM community_event_attendance WHERE event_id=?').get(evAttend)?.state === 'excused', r);
+  r = await call('POST', '/api/community/events/decide', { who: OFF_A, body: { eventId: evA, entries: [{ ref, decision: 'accepted', revision: 0 }] } });
+  check('CL2-016', 'not covered by the ruling: roster decisions stay with organizers (the officer is refused)', r.status === 403 && r.data?.error === 'not_organizer', r);
+  r = await call('POST', '/api/community/events', { who: OFF_A, body: { opId: opId(), title: 'Website event', startsAt: iso(T + 7200), durationMin: 60 } });
+  check('CL2-016', 'not covered by the ruling: creating an event on the website stays with organizers', r.status === 403 && r.data?.error === 'not_organizer', r);
+
+  console.log('== CL2-091: the Treasury appointment route reads the Co-Guild Master and Lord High Treasurer seats ==');
+  const holders = [[COGM, 'Cogmseat'], [TREAS, 'Treasseat'], [OLD_COGM, 'Oldcogm'], [OLD_TREAS, 'Oldtreas'], [JUSTICE, 'Justiceseat'], [COUNCIL45, 'Councilseat'], [BOTH, 'Bothkeys'], [EX_TREAS, 'Extreas']];
+  for (const [id, name] of holders) { await signIn(id); await confirm(id, name); }
+  const appoint = map => call('PUT', '/api/admin/settings', { who: ADMIN, body: { appointed: Object.fromEntries(Object.entries(map).map(([k, id]) => [k, `<@${id}>`])), appointedCharactersConfirmed: true, namesConfirmed: true } });
+  r = await appoint({ office_19: COGM, office_86: EX_TREAS, co_gm: OLD_COGM, treasurer: OLD_TREAS, office_101: JUSTICE, office_45: COUNCIL45, office_97: BOTH });
+  check('CL2-091', 'setup: the admin publishes the seats (office_19, office_86, the old co_gm and treasurer keys, two other Council seats)', r.status === 200, r);
+  const access = async who => (await call('GET', '/api/treasury-plan/access', { who })).data;
+  const plan = async who => (await call('GET', '/static/treasury-plan207.js', { who })).status;
+  let a = await access(COGM);
+  check('CL2-091', 'the holder of the published Co-Guild Master seat (office_19) is admitted', a?.canRead === true, a);
+  a = await access(EX_TREAS);
+  check('CL2-091', 'the holder of the published Lord High Treasurer seat (office_86) is admitted', a?.canRead === true, a);
+  for (const [id, what] of [[OLD_COGM, 'the old co_gm key alone'], [OLD_TREAS, 'the old treasurer key alone'], [JUSTICE, 'another Council seat (office_101, Justice)'], [COUNCIL45, 'the High Council appointment office_45'], [MEMBER, 'a member with no seat']]) {
+    a = await access(id);
+    check('CL2-091', `${what} no longer admits, and the refusal names the two seats`, a?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(a.admits || ''), a);
+    const s = await plan(id);
+    check('CL2-091', `  the plan's data file follows the same gate for ${what} (403)`, s === 403, s);
+  }
+  check('CL2-091', 'the seat holders read the plan\'s data file (200)', (await plan(COGM)) === 200 && (await plan(EX_TREAS)) === 200, '');
+  r = await appoint({ office_19: COGM, office_86: TREAS, co_gm: BOTH, office_97: BOTH });
+  check('CL2-091', 'setup: the Treasurer seat moves to a new holder; the old co_gm key goes to someone else', r.status === 200, r);
+  a = await access(EX_TREAS);
+  check('CL2-091', 'a former holder of the Lord High Treasurer seat is no longer admitted', a?.canRead === false, a);
+  check('CL2-091', '  and the former holder\'s data-file request is refused', (await plan(EX_TREAS)) === 403, '');
+  a = await access(TREAS);
+  check('CL2-091', 'the new holder of the Lord High Treasurer seat is admitted', a?.canRead === true, a);
+  a = await access(BOTH);
+  check('CL2-091', 'the old co_gm key plus another Council seat still does not admit', a?.canRead === false, a);
+  r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH });
+  a = await access(BOTH);
+  check('CL2-091', 'the same person on co_gm and on the Co-Guild Master seat is admitted (through the seat)', r.status === 200 && a?.canRead === true, a);
+  a = await access(COGM);
+  check('CL2-091', 'the replaced Co-Guild Master seat holder is refused', a?.canRead === false, a);
+  const treasury = load('./site-treasury-access');
+  check('CL2-091', 'the gate exports exactly the two seats, and both are the role directory\'s family primary keys', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86"]'
+    && (() => { const src = fs.readFileSync(path.join(ROOT, 'src/site-role-directory203.ts'), 'utf8'); return /key: 'co_gm'[^\n]*primaryKey: 'office_19'/.test(src) && /key: 'treasurer'[^\n]*primaryKey: 'office_86'/.test(src); })(), treasury.TREASURY_APPOINTMENT_SEATS);
+  EXTRA = {};
+}
+
 // ---------------------------------------------------------------- Part 2: the harness and a headless Edge
 async function http(persona, method, p, body) {
   const headers = { Cookie: `QA209_persona=${persona}`, 'X-Olympus': '2', Origin: URL0 };
@@ -296,12 +466,78 @@ async function part2() {
     let hint = null;
     for (let i = 0; i < 50; i++) { hint = await cdp.eval(`(() => { const l = [...document.querySelectorAll('label.check')].find(x => x.textContent.includes('People may enter reserved names')); return l ? l.textContent : null; })()`); if (hint) break; await sleep(200); }
     check('CL2-175', 'admin Settings: the name-entry switch carries the one-sentence note that it no longer opens entry', !!hint && hint.includes('This switch no longer opens entry'), hint);
+    if (!args.only || args.only === 'round3') await part2round3(cdp, go, size);
     if (args.report) fs.writeFileSync(args.report, JSON.stringify(report, null, 2) + '\n');
   } finally { await cdp.close(); }
 }
 
+// Round 3 through the harness (CL2-016, CL2-091): the harness's officer persona holds the Discord Officer role; its
+// treasurer and cogm personas hold only the old co_gm and treasurer keys. Website events can only be created by an
+// organizer (the admin), so the officer's own-event page view is shown by rewriting canManage in the event answer the
+// page reads; the Worker still refuses that officer every write (checked here over HTTP and on the real Worker above).
+async function part2round3(cdp, go, size) {
+  console.log('== CL2-091 through the harness ==');
+  for (const persona of ['treasurer', 'cogm']) {
+    const r = await http(persona, 'GET', '/api/treasury-plan/access');
+    check('CL2-091', `harness: the ${persona} persona (only the old ${persona === 'cogm' ? 'co_gm' : 'treasurer'} key) is refused, and the sentence names the two seats`, r.status === 200 && r.data?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(r.data.admits || ''), r.data);
+  }
+  await go(URL0 + '/__qa/admin'); await size(1280, 900); await go(URL0 + '/#/admin/appointments');
+  let seats = null;
+  for (let i = 0; i < 50 && !seats; i++) { seats = await cdp.eval(`(() => { const t = document.querySelector('main')?.textContent || ''; return /Treasury-plan access seat/.test(t) ? t : null; /* the rows sit in collapsed details */ })()`); if (!seats) await sleep(200); }
+  const kinds = seats ? [...seats.matchAll(/\(([a-z_0-9]+)\)\n?[^\n]*/g)].length : 0;
+  check('CL2-091', 'admin Settings labels office_19 and office_86 as the Treasury-plan access seats, and co_gm and treasurer as display aliases', !!seats && /Co-Guild Master — Treasury-plan access seat \(office_19\)/.test(seats) && /Lord High Treasurer · Minister of the Imperial Exchequer — Treasury-plan access seat \(office_86\)/.test(seats)
+    && /Co-Guild Master — Leadership display alias \(co_gm\)/.test(seats) && !/Treasury-plan access appointment/.test(seats) && /The older co_gm and treasurer records are display aliases and open nothing\./.test(seats), seats ? (seats.match(/[^\n]*Treasury-plan[^\n]*/g) || []).slice(0, 4) : kinds);
+
+  console.log('== CL2-016 through the harness ==');
+  const startsAt = new Date(Math.ceil(Date.now() / 1000 + 3 * 3600) * 1000).toISOString();
+  let r = await http('admin', 'POST', '/api/community/events', { opId: crypto.randomBytes(16).toString('base64url'), title: 'QA round 3 raid', startsAt, durationMin: 60 });
+  const id = r.data?.event?.id;
+  check('CL2-016', 'harness setup: the admin schedules a website event', r.status === 200 && typeof id === 'string', r.status);
+  if (!id) return;
+  const before = await http('officer', 'GET', `/api/community/event?id=${id}`);
+  check('CL2-016', 'harness: the officer persona does not manage an event the admin created', before.status === 200 && before.data?.event?.canManage === false, before.data?.event);
+  r = await http('officer', 'POST', '/api/community/events/update', { eventId: id, revision: before.data?.event?.revision, title: 'Taken over' });
+  const after = await http('officer', 'GET', `/api/community/event?id=${id}`);
+  check('CL2-016', 'harness: the officer\'s edit of that event is refused and changes nothing', r.status === 409 && r.data?.error === 'not_event_organizer' && after.data?.event?.title === 'QA round 3 raid' && after.data?.event?.revision === before.data?.event?.revision, { status: r.status, error: r.data?.error });
+  r = await http('officer', 'GET', `/api/community/events/discord?eventId=${id}`);
+  check('CL2-016', 'harness: the officer cannot read that event\'s announcement preview', r.status === 404 || r.status === 403, r.status);
+
+  const discordPage = async () => {
+    await go('about:blank'); // a fresh page load each time: the same hash again would leave the previous view in place
+    await go(URL0 + `/#/community/calendar/${id}/discord`);
+    let s = null;
+    for (let i = 0; i < 60; i++) { s = await cdp.eval(`(() => { const m = document.querySelector('main'); if (!m) return null; const t = m.innerText; return { refused: t.includes('Only the event organizer or a site administrator can manage its announcement.'), panel: !!m.querySelector('[data-announcement-preview]'), publish: [...m.querySelectorAll('button')].some(b => /Publish announcement|Update announcement/.test(b.textContent)), reminder: !!m.querySelector('[data-event-reminder]'), loaded: t.includes('Announcement status') || /Ready to publish|could not|not currently eligible|Only the event organizer|unresolved|switched off|published/i.test(t) }; })()`); if (s && (s.refused || (s.panel && s.loaded && (s.reminder || i > 25)))) break; await sleep(200); }
+    return s;
+  };
+  await go(URL0 + '/__qa/officer'); await size(1280, 900);
+  let page = await discordPage();
+  check('CL2-016', 'page: an officer who did not create the event is refused the announcement page, with no reminder panel', !!page && page.refused && !page.panel && !page.reminder, page);
+  // The officer's own event: the event answer the page reads says canManage (what the Worker answers for the creator officer).
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/community/event?id=*', requestStage: 'Response' }] });
+  const paused = async p => {
+    try {
+      const body = await cdp.send('Fetch.getResponseBody', { requestId: p.requestId });
+      const json = JSON.parse(body.base64Encoded ? Buffer.from(body.body, 'base64').toString('utf8') : body.body);
+      if (json && json.event) json.event.canManage = true;
+      await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: p.responseStatusCode || 200, responseHeaders: (p.responseHeaders || []).filter(x => !/^content-(length|encoding)$/i.test(x.name)), body: Buffer.from(JSON.stringify(json)).toString('base64') });
+    } catch { try { await cdp.send('Fetch.continueRequest', { requestId: p.requestId }); } catch { /* gone */ } }
+  };
+  cdp.on('Fetch.requestPaused', p => { paused(p); });
+  page = await discordPage();
+  check('CL2-016', 'page: an officer the Worker says manages the event gets the announcement panel, still without the reminder panel', !!page && !page.refused && page.panel && page.publish && !page.reminder, page);
+  await go(URL0 + `/#/community/calendar/${id}`);
+  let buttons = null;
+  for (let i = 0; i < 50 && !buttons; i++) { buttons = await cdp.eval(`(() => { const l = [...document.querySelectorAll('main a.btn')].map(a => a.textContent); return l.includes('Edit') ? l : null; })()`); if (!buttons) await sleep(200); }
+  check('CL2-016', 'page: on such an event the officer sees Edit, Attendance and Discord announcement', !!buttons && ['Edit', 'Attendance', 'Discord announcement'].every(b => buttons.includes(b)), buttons);
+  await cdp.send('Fetch.disable');
+  await go(URL0 + '/__qa/admin');
+  page = await discordPage();
+  check('CL2-016', 'page: an admin still gets the announcement panel and the reminder panel', !!page && !page.refused && page.panel && page.reminder, page);
+}
+
 (async () => {
   try { await part1(); } catch (e) { check('setup', 'part 1 completed without an exception: ' + (e && e.stack || e), false); }
+  if (!args.only || args.only === 'round3') { try { await part1b(); } catch (e) { check('setup', 'part 1b (CL2-016, CL2-091) completed without an exception: ' + (e && e.stack || e), false); } }
   if (URL0) { try { await part2(); } catch (e) { check('setup', 'part 2 completed without an exception: ' + (e && e.stack || e), false); } }
   console.log(`\n${failures} failure(s)`);
   process.exit(Math.min(failures, 99));

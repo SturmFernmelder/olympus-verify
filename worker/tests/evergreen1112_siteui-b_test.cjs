@@ -70,6 +70,26 @@ async function sourceChecks() {
     const json = src('worker/public/static/resources169.json');
     check('CL2-071x', 'neither app.js nor the catalogue advertises Olympus Guild 1.3.3 or its old file', !/1\.3\.3/.test(app) && !/1\.3\.3/.test(json) && !/9338970/.test(json));
   }
+  if (want('CL2-071')) {
+    // Round 3 (13 Nov 2026): no rendered copy claims an Olympus Guild file or version that nobody verified on CurseForge;
+    // every Olympus Guild link is the project page itself, under a date-neutral label.
+    const json = src('worker/public/static/resources169.json');
+    const strings = [...app.matchAll(/"((?:[^"\\]|\\.)*)"/g), ...json.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]).filter(t => /Olympus Guild/.test(t));
+    const versioned = strings.filter(t => /\b\d+\.\d+\.\d+\b|or later|latest|current (?:file|release|version)/i.test(t));
+    check('CL2-071', 'no Olympus Guild sentence in the page script or the catalogue names a version, "or later", "latest" or a current file', strings.length >= 3 && versioned.length === 0, versioned);
+    const links = [...(app + json).matchAll(/https:\/\/www\.curseforge\.com\/wow\/addons\/olympus-guild[^"\s)]*/g)].map(m => m[0]);
+    check('CL2-071', 'every Olympus Guild CurseForge link is the project page (no /files/ pin)', links.length >= 3 && links.every(u => u === 'https://www.curseforge.com/wow/addons/olympus-guild'), links);
+    const entry = (json.match(/\{\s*"id": "olympus-guild"[\s\S]*?\n    \}/) || [''])[0];
+    check('CL2-071', 'the catalogue entry carries no version, minimum version, release date or file link', !!entry && !/"(?:version|minimumVersion|releasedAt|fileUrl)":/.test(entry), entry.slice(0, 160));
+  }
+  if (want('CL2-259')) {
+    // Round 3 (13 Nov 2026): the Terms page names its contact, as the Privacy Policy does, and the served copy is regenerated.
+    const terms = src('policies/terms.html');
+    const contact = (terms.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
+    check('CL2-259', 'the Terms have a Contact section naming Rich Campbell with his Discord name', /<strong>Rich Campbell<\/strong> \(Discord: <code>richwcampbell\.<\/code>\)/.test(contact) && /Asmongold’s Discord server/.test(contact), contact.slice(0, 200));
+    const gen = require('node:child_process').spawnSync(process.execPath, [path.join(ROOT, 'worker/scripts/build-policy-content.mjs'), '--check'], { cwd: path.join(ROOT, 'worker'), encoding: 'utf8', windowsHide: true, timeout: 60000 });
+    check('CL2-259', 'the generated policy content and the root mirror match policies/terms.html (build-policy-content --check)', gen.status === 0, (gen.stderr || gen.stdout || '').slice(0, 200));
+  }
   if (want('CL2-176')) {
     try {
       const rp = loadTs('worker/src/ruleset-profile.ts');
@@ -236,6 +256,38 @@ async function browserChecks() {
       const r = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');const b=n.getBoundingClientRect();const tops=new Set([...n.querySelectorAll('a')].map(a=>Math.round(a.getBoundingClientRect().top)));return {rows:tops.size,height:Math.round(b.height),links:n.querySelectorAll('a').length,over:document.documentElement.scrollWidth-innerWidth}`);
       check('CL2-272', 'at 390 px the Community sections are one scrolling row with no page overflow', r.rows === 1 && r.over <= 0, r);
     }
+    if (want('RC-272')) {
+      // RC-272 (round 3, 12 Nov 2026): in the scrolling row the current section's link must be fully visible on every
+      // Community section, without the page itself scrolling. Sections whose page shows no Community row (Town Crier) are
+      // listed and skipped.
+      const seen = {};
+      for (const [who, w] of [['admin', 390], ['admin', 320]]) {
+        await open(who, w, 'community'); await sleep(400);
+        const hrefs = await ev(`return [...document.querySelectorAll('nav[aria-label="Community sections"] a')].map(a=>a.getAttribute('href'))`);
+        for (const href of hrefs) {
+          await open(who, w, href.slice(2)); await sleep(600);
+          seen[`${href}@${w}`] = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');if(!n)return {tabs:false};const c=n.querySelector('[aria-current="page"]');if(!c)return {tabs:true,current:null};const a=n.getBoundingClientRect(),b=c.getBoundingClientRect();return {tabs:true,current:c.textContent,visible:b.left>=a.left-0.5&&b.right<=a.right+0.5&&b.left>=-0.5&&b.right<=innerWidth+0.5,scrolled:Math.round(n.scrollLeft),pageY:Math.round(scrollY),pageX:Math.round(scrollX),links:n.querySelectorAll('a').length}`);
+        }
+      }
+      const rows = Object.entries(seen).filter(([, x]) => x.tabs);
+      const offscreenStart = rows.filter(([, x]) => x.scrolled > 0).length;
+      check('RC-272', 'at 390 and 320 px the current section link is fully visible on every Community section, with no page scroll', rows.length >= 16 && rows.every(([, x]) => x.current && x.visible && x.pageY === 0 && x.pageX === 0) && offscreenStart > 0,
+        { sections: rows.length, rowScrolledFor: offscreenStart, failing: rows.filter(([, x]) => !(x.current && x.visible && x.pageY === 0 && x.pageX === 0)).map(([k, x]) => k + ' ' + JSON.stringify(x)).slice(0, 6), noRow: Object.keys(seen).filter(k => !seen[k].tabs) });
+    }
+    if (want('RC-280')) {
+      // RC-280 (round 3, 12 Nov 2026): the real toast() and dropToast() from app.js, run in the page on a private stack, with
+      // four messages in each mix. An error toast is never evicted before its timer; the oldest non-error goes first.
+      const app = src('worker/public/static/app.js');
+      const fn = name => (new RegExp(`\\n  function ${name}\\([^]*?\\n  }\\n`).exec(app) || [''])[0];
+      const code = fn('toast') + fn('dropToast');
+      const r = await ev(`const toastBox=document.createElement('div'),app=document.createElement('div');let lastFocus=null;
+        const h=(tag,attrs,...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(attrs||{})){if(v===false||v==null)continue;if(k==='text')e.textContent=v;else if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v);}for(const c of kids.flat())if(c)e.append(c);return e;};
+        ${code}
+        const run=kinds=>{toastBox.replaceChildren();kinds.forEach((k,i)=>toast('m'+i,k));const out=[...toastBox.children].map(t=>t.dataset.message+(t.dataset.kind==='bad'?':bad':''));for(const t of toastBox.children)clearTimeout(Number(t.dataset.timer));return out.join(',');};
+        return {extracted:${JSON.stringify(code.length)},allInfo:run(['','','','']),errorFirst:run(['bad','','','']),mixed:run(['','bad','','bad']),allErrors:run(['bad','bad','bad','bad']),errorsThenInfo:run(['bad','bad','bad',''])}`);
+      check('RC-280', 'four infos keep the newest three; an error is kept over older infos; four errors all stay; three errors and an info all stay',
+        r.extracted > 200 && r.allInfo === 'm1,m2,m3' && r.errorFirst === 'm0:bad,m2,m3' && r.mixed === 'm1:bad,m2,m3:bad' && r.allErrors === 'm0:bad,m1:bad,m2:bad,m3:bad' && r.errorsThenInfo === 'm0:bad,m1:bad,m2:bad,m3', r);
+    }
     if (want('CL2-277')) {
       await open('member', 390, 'roles');
       const r = await ev(`const a=[...document.querySelectorAll('main a')].filter(a=>/^(Rank \\d|Title [IVX]+$)/.test(a.textContent.trim())&&a.getClientRects().length);return {count:a.length,min:Math.min(...a.map(x=>Math.round(x.getBoundingClientRect().height)))}`);
@@ -250,14 +302,23 @@ async function browserChecks() {
       // REV-SITEB-2 (12 Nov 2026): both kinds of "Role guide" link (application badges; the See-also strip on Vote) share one
       // 44 px target from the stylesheet. The inline CSSOM size on See-also links is removed before measuring, so the check
       // reads the stylesheet's rule, not the script's.
-      const sizes = {};
+      // Round 3 item 10 (12 Nov 2026): the inline sizes are removed from EVERY link of the row, not just the measured one, so
+      // a sibling's inline 44 px cannot stretch the row and carry the measured link. The control then switches the stylesheet
+      // rule off on the same links (inline CSSOM, which the CSP allows): the Vote link must drop below 44 px, which shows
+      // the check can fail.
+      const sizes = {}, control = {};
       for (const [who, route] of [['member', 'vote'], ['applicant', 'apply'], ['admin', 'admin/applications']]) {
         for (const w of [1280, 390]) {
           await open(who, w, route); await sleep(600);
-          sizes[`${route}@${w}`] = await ev(`return [...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length).map(a=>{a.style.removeProperty('min-height');a.style.removeProperty('display');return Math.round(a.getBoundingClientRect().height)})`);
+          const r = await ev(`const guides=[...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length);const links=[...new Set(guides.flatMap(g=>[...g.parentElement.querySelectorAll(':scope > a')]))];const orig=new Map(links.map(a=>[a,a.style.cssText]));const size=()=>guides.map(a=>Math.round(a.getBoundingClientRect().height));
+            for(const g of guides){g.style.removeProperty('display');g.style.setProperty('min-height','0px','important');}const oldMethodRuleOff=size();for(const a of links)a.style.cssText=orig.get(a);
+            for(const a of links){a.style.removeProperty('min-height');a.style.removeProperty('display');}const ruled=size();
+            for(const a of links){a.style.setProperty('min-height','0px','important');a.style.setProperty('display','inline','important');}const off=size();for(const a of links)a.style.cssText=orig.get(a);return {ruled,off,oldMethodRuleOff}`);
+          sizes[`${route}@${w}`] = r.ruled; control[`${route}@${w}`] = { off: r.off, oldMethodRuleOff: r.oldMethodRuleOff };
         }
       }
       check('REV-SITEB-2', 'every "Role guide" link on Vote, Apply and Admin applications is at least 44 px tall at 1280 and 390 px, from the stylesheet', Object.values(sizes).every(x => x.length > 0 && Math.min(...x) >= 44), sizes);
+      check('REV-SITEB-2', 'control: with the rule switched off on the whole row, the Vote "Role guide" link is under 44 px (the measurement can fail)', ['vote@1280', 'vote@390'].every(k => control[k].off.length > 0 && Math.max(...control[k].off) < 44), control);
     }
     if (want('CL2-321')) {
       await open('admin', 390, '');
@@ -273,8 +334,30 @@ async function browserChecks() {
         await open('admin', 160, route, 400); await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false }); await cdp.send('Page.reload', {}); await idle(st); await sleep(600);
         const r = await ev(`const over=document.documentElement.scrollWidth-document.documentElement.clientWidth;const brand=document.querySelector('.topbar .brand').getBoundingClientRect();const slots=[...document.querySelectorAll('.badge-slot')].filter(s=>s.getClientRects().length).map(s=>Math.round(s.getBoundingClientRect().right));return {over,brandRight:Math.round(brand.right),slotMax:slots.length?Math.max(...slots):null,vw:document.documentElement.clientWidth}`);
         if (want('CL2-323')) check('CL2-323', `at 160 CSS px (/#/${route}) the header brand fits and the page has no overflow`, r.over <= 0 && r.brandRight <= r.vw, r);
-        if (want('CL2-281') && route === '') check('CL2-281', 'at 160 CSS px the reserved-name badge slots stay inside the viewport', r.slotMax === null || r.slotMax <= r.vw, r);
       }
+    }
+    if (want('CL2-281')) {
+      // Round 3 item 9 (12 Nov 2026): name entry is closed (CL2-175), so Home shows no badge slots and the old check passed
+      // without measuring. Three recorded names, two of them 30 characters long, are injected into the member's boot
+      // document, and their rows (name, status badge, Remove) are measured at 160 CSS px with a 2x device pixel ratio.
+      const names = [{ name: 'Aaaaaaaaaaaaaaa Bbbbbbbbbbbbbb', status: 'saved' }, { name: 'Cccccccccccccc Ddddddddddddddd', status: 'ended' }, { name: 'Eeeeeeeeee Ffffffff', status: 'queued' }];
+      await open('member', 160, '', 400);
+      let injected = 0;
+      cdp.on('Fetch.requestPaused', async p => {
+        try {
+          const body = p.responseStatusCode === 200 ? await cdp.send('Fetch.getResponseBody', { requestId: p.requestId }) : null;
+          const html = body ? (body.base64Encoded ? Buffer.from(body.body, 'base64').toString('utf8') : body.body) : '';
+          if (!html.includes('"reserved":[]')) return void await cdp.send('Fetch.continueRequest', { requestId: p.requestId });
+          injected++;
+          await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: (p.responseHeaders || []).filter(x => !/^content-(length|encoding)$/i.test(x.name)), body: Buffer.from(html.replace('"reserved":[]', '"reserved":' + JSON.stringify(names))).toString('base64') });
+        } catch { cdp.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {}); }
+      });
+      await cdp.send('Fetch.enable', { patterns: [{ urlPattern: BASE + '/*', resourceType: 'Document', requestStage: 'Response' }] });
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await cdp.send('Page.reload', {}); await idle(st); await sleep(900);
+      await cdp.send('Fetch.disable');
+      const r = await ev(`const vw=document.documentElement.clientWidth;const rows=[...document.querySelectorAll('#names .person')].map(row=>({text:row.textContent.slice(0,40),right:Math.max(...[row,...row.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right))),width:Math.round(row.getBoundingClientRect().width)}));return {vw,rows,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+      check('CL2-281', 'at 160 CSS px the three recorded-name rows (name, badge, Remove) stay inside the viewport with no page overflow', injected >= 1 && r.rows.length === 3 && r.rows.every(x => x.right <= r.vw) && r.over <= 0, { injected, ...r });
     }
     if (want('SHIELD')) {
       await open('admin', 320, '');
@@ -292,9 +375,14 @@ async function browserChecks() {
       check('CL2-172', 'review dates on /#/addons read as plain dates, not raw timestamps', r.length > 0 && r.every(t => !/\d{4}-\d{2}-\d{2}/.test(t)), r);
     }
     if (want('CL2-320')) {
-      const res = await fetch(BASE + '/privacy', { headers: { Accept: 'text/html' } });
-      const body = await res.text();
-      check('CL2-320', '/privacy stays 410 and links the current policy', res.status === 410 && /href="\/legal\/privacy"/.test(body), { status: res.status, bytes: body.length });
+      // RC-320 (round 3, 12 Nov 2026): CL2-320 is withdrawn. The owner's 21 October instruction (CLAUDE.md) retires exactly
+      // /privacy and /terms with an EMPTY 410 and no redirect; this asserts the restored behaviour through the real Worker.
+      const out = {};
+      for (const p of ['/privacy', '/terms']) for (const method of ['GET', 'HEAD']) {
+        const res = await fetch(BASE + p, { method, headers: { Accept: 'text/html' }, redirect: 'manual' });
+        out[`${method} ${p}`] = { status: res.status, bytes: (await res.text()).length, location: res.headers.get('Location'), cookie: res.headers.has('Set-Cookie') };
+      }
+      check('CL2-320', '/privacy and /terms are empty 410 responses (GET and HEAD) with no redirect and no cookie', Object.values(out).every(x => x.status === 410 && x.bytes === 0 && x.location === null && !x.cookie), out);
     }
     // ---- Review follow-ups (12 Nov 2026) ----
     const contrastJs = `const L=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4};const lum=([r,g,b])=>0.2126*L(r)+0.7152*L(g)+0.0722*L(b);const rat=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05)};const rgb=s=>s.match(/[\\d.]+/g).slice(0,3).map(Number);`;
@@ -377,14 +465,30 @@ async function browserChecks() {
       const r = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');return n.getAttribute('aria-describedby')`);
       check('CL2-272', 'the Community nav is not described by a hint that is hidden at 768 px and up', r === null, r);
     }
-    if (want('CL2-071x') || want('CL2-178')) {
+    if (want('CL2-071x') || want('CL2-071') || want('CL2-178')) {
       await open('member', 1280, 'addons'); await sleep(800);
       const t = await ev(`return document.querySelector('.resources169-featured')?.textContent||''`);
-      check('CL2-071x', 'the Olympus Guild card says "Minimum version: 1.5.7", not a "Published file"', /Minimum version: 1\.5\.7/.test(t) && !/Published file/.test(t));
+      // Round 3 (13 Nov 2026, CL2-071): the card names no version (the earlier "Minimum version: 1.5.7" is withdrawn) and links the project page.
+      const card = await ev(`const c=document.querySelector('.resources169-featured');return c?{text:c.textContent,links:[...c.querySelectorAll('a')].map(a=>a.href)}:null`);
+      // The integration note's dated history ("The earlier 1.3.2 API review ...") names what was reviewed, not a file on offer.
+      const offer = card ? card.text.replace(/The earlier 1\.3\.2 API review[\s\S]*?does not enable website reporting\./, '') : '';
+      check('CL2-071', 'the Olympus Guild card shows no version, minimum version or published file, and links the CurseForge project page', !!card && !/Minimum version|Published file|or later|\b\d+\.\d+\.\d+\b/.test(offer) && card.links.includes('https://www.curseforge.com/wow/addons/olympus-guild') && card.links.every(u => !/olympus-guild\/files/.test(u)), card && { text: card.text.slice(0, 300), links: card.links });
       // INT-SITE-1 (12 Nov 2026): /#/guides is the university hub after the merge; the publisher library moved to /#/guides/library.
       await open('member', 1280, 'guides/library'); await sleep(800);
       const g = await ev(`return [...document.querySelectorAll('main p')].map(p=>p.textContent).find(x=>/Follow-up dated/.test(x))||''`);
       check('CL2-178', 'the publisher library shows the 12 November follow-up date', /Follow-up dated 12 November 2026/.test(g), g);
+    }
+    if (want('CL2-071')) {
+      for (const route of ['', 'army']) {
+        await open('member', 1280, route); await sleep(800);
+        const t = await ev(`return [...document.querySelectorAll('main p, main li')].map(p=>p.textContent).filter(x=>/Olympus Guild/.test(x))`);
+        check('CL2-071', `the ${route || 'Home'} page's Olympus Guild sentences name no version`, t.length > 0 && t.every(x => !/\b\d+\.\d+\.\d+\b|or later/.test(x)), t);
+      }
+    }
+    if (want('CL2-259')) {
+      const res = await fetch(BASE + '/legal/terms'), html = await res.text();
+      const contact = (html.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
+      check('CL2-259', 'the served /legal/terms (anonymous) has the Contact section with Rich Campbell and richwcampbell.', res.status === 200 && /Rich Campbell/.test(contact) && /richwcampbell\./.test(contact), { status: res.status, contact: contact.slice(0, 160) });
     }
     if (st.exceptions.length) check('PAGE', 'no page exceptions during the browser checks', false, st.exceptions.slice(0, 3));
   } finally { await cdp.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile briefly. */ } }
