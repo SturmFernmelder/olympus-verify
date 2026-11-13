@@ -46,7 +46,7 @@ import { refAfterSignup } from "./community-refs";
 import { validateName } from "./community-names";
 import { isoToSeconds, secondsToIso } from "./community-time";
 import { RAID_ROLES, scanLimit, type RaidRole, orderDigest, encodeCursor, cursorParts } from "./community-directory";
-import { eventDeliveryChanged, eventDeliveryCloseExpired, eventDeliveryExpiry, eventDeliveryOwnerErase, eventOfficerNow } from "./community-event-delivery";
+import { eventDeliveryChanged, eventDeliveryCloseExpired, eventDeliveryExpiry, eventDeliveryOwnerErase, eventRolesNow, eventWarHeadNow, WAR_HEAD_OFFICES, type WarHeadProof } from "./community-event-delivery";
 import { eventReminderChanged, eventReminderCloseExpired, eventReminderExpiry, eventReminderMentionErase, eventReminderOwnerErase } from "./community-event-reminders";
 
 /*
@@ -200,12 +200,100 @@ const tally = (rows: { status: RsvpStatus; raid_role: RaidRole | null; n: number
   }
   return c;
 };
-/** `officer`: CL2-016 (owner, 13 Nov 2026), a current officer (eventOfficerNow) who is not an organizer; it manages only events it created. */
-interface Viewer { id: string; organizer: boolean; staff: boolean; officer: boolean }
-const viewerOf = (ctx: CommunityContext, officer = false): Viewer => ({ id: ctx.subject!.discordId, organizer: ctx.capabilities.organizer, staff: ctx.capabilities.communityStaff, officer: officer && !ctx.capabilities.organizer });
-/** CL2-016: the officer fact costs a Discord read, so a reader asks for it only when a shown event is their own and nothing else already lets them manage it. */
-const officerViewer = async (env: Env, ctx: CommunityContext, creators: readonly (string | null)[]): Promise<Viewer> =>
-  viewerOf(ctx, !ctx.capabilities.organizer && creators.some((c) => c !== null && c === ctx.subject!.discordId) && (await eventOfficerNow(env, ctx)));
+/**
+ * Who manages which event (CL2-016, owner, 13 Nov 2026; widened by the owner's ruling of 13 Nov 2026, about 12:15 UTC:
+ * "Officers may create, edit, reschedule, update RSVP/roster notes, and cancel/archive their own calendar events (and
+ * manage RSVPs on their own events), while only High Council / Admin / War Heads can modify or delete another
+ * officer's event."; "Raid Leaders (Rank 5 / Slot 4) count as officers for calendar event creation and management.").
+ *   `officer`  a current officer (eventRolesNow: the unchanged CL2-016 predicate, Raid Leaders included, Officer Alts
+ *              not) who is not an organizer: creates events, and manages only the events it created.
+ *   `senior`   may act on ANY event: a site admin (as before), a High Council role holder (native slots 0 and 1, proved
+ *              by the same fresh Discord read) or a War Head (a published office_94/97/98 appointment, `warHead`, whose
+ *              proof is repeated inside the committing statement). Nothing outside the calendar opens.
+ *   `roleSenior` the senior part the statements cannot re-prove (admin or role), bound as the statements' flag.
+ * Every non-admin fact needs a roster-confirmed account; a provider failure is false. The calendar has no archive
+ * operation: cancelling is the removal, and a past event leaves by its retention (no new state).
+ */
+interface Viewer { id: string; organizer: boolean; staff: boolean; officer: boolean; senior: boolean; roleSenior: boolean; anyOfficer: boolean; warHead: WarHeadProof | null }
+const viewerOf = (ctx: CommunityContext): Viewer => {
+  const staff = ctx.capabilities.communityStaff, admin = staff && ctx.capabilities.organizer; // an admin manages with a roster-confirmed account, as before
+  return { id: ctx.subject!.discordId, organizer: ctx.capabilities.organizer, staff, officer: false, senior: admin, roleSenior: admin, anyOfficer: false, warHead: null };
+};
+/** One fresh Discord read per request at most: every check of one request asks the same held answer. */
+const rolesHeld = new WeakMap<CommunityContext, Promise<Readonly<{ officer: boolean; council: boolean }>>>();
+const rolesOnce = (env: Env, ctx: CommunityContext) => {
+  let held = rolesHeld.get(ctx);
+  if (!held) { held = eventRolesNow(env, ctx); rolesHeld.set(ctx, held); }
+  return held;
+};
+const withRoles = (v: Viewer, roles: Readonly<{ officer: boolean; council: boolean }>): Viewer =>
+  ({ ...v, officer: roles.officer && !v.organizer, anyOfficer: roles.officer, senior: v.senior || roles.council, roleSenior: v.roleSenior || roles.council });
+/** Display facts the server already holds without a provider call (round 5), read in the reader's own admitted batch:
+ * whether the published appointments name the viewer for a War Head office, and whether the newest complete, trusted
+ * roster export ranks a roster-confirmed character of theirs in an officer slot (0, 1, 2 or 4) or a High Council slot
+ * (0 or 1). They only decide which controls the page shows; every write proves the role again, fresh. */
+type Hint = { warHead: boolean; officer: boolean; council: boolean };
+// A function, not a constant: the delivery module's list is read at call time (the two modules import each other's graph).
+const warHeadHint = () => `EXISTS(SELECT 1 FROM site_settings hs, json_each(CASE WHEN json_valid(hs.value) AND json_type(hs.value)='object' THEN hs.value ELSE '{}' END) ha
+  WHERE hs.key='appointed' AND ha.key IN (${WAR_HEAD_OFFICES.map((k) => `'${k}'`).join(",")}) AND ha.type='text' AND ha.value='<@'||?1||'>')`;
+const rosterSlot = (slots: string) => `EXISTS(SELECT 1 FROM characters hc JOIN roster_snapshots hr ON hr.id=(SELECT MAX(id) FROM roster_snapshots) AND hr.complete=1 AND hr.trusted=1
+  JOIN roster_members hm ON hm.snapshot_id=hr.id AND hm.name_key=hc.name_key AND (hc.guid IS NULL OR hm.guid IS NULL OR hm.guid=hc.guid)
+  WHERE hc.discord_id=?1 AND hc.status='member' AND hm.rank_index IN (${slots}))`;
+const hintStatement = (env: Env, me: string) => env.DB.prepare(`SELECT ${warHeadHint()} AS war_head, ${rosterSlot("0,1,2,4")} AS officer, ${rosterSlot("0,1")} AS council`).bind(me);
+const hintOf = (out: D1Result | undefined): Hint => {
+  const r = out?.results?.[0] as { war_head?: number; officer?: number; council?: number } | undefined;
+  return { warHead: r?.war_head === 1, officer: r?.officer === 1, council: r?.council === 1 };
+};
+/** The viewer a read shows: the officer fact costs a Discord read, so a reader asks for it only when a shown event is
+ * their own and nothing else already lets them manage it (CL2-016, unchanged); a senior's controls on other events
+ * follow the hint. A fresh answer, when this request has one, replaces the hint. */
+async function shownViewer(env: Env, ctx: CommunityContext, creators: readonly (string | null)[], hint: Hint | null): Promise<Viewer> {
+  const v = viewerOf(ctx);
+  if (v.senior) return v;
+  const hinted = !!hint && (hint.warHead || hint.council);
+  if (!v.organizer && creators.some((c) => c !== null && c === v.id)) { const shown = withRoles(v, await rolesOnce(env, ctx)); return { ...shown, senior: shown.senior || !!hint?.warHead }; }
+  return { ...v, senior: hinted };
+}
+const canCreateShown = (v: Viewer, hint: Hint | null) => v.organizer || v.anyOfficer || (!!hint && hint.officer);
+type Act = "manage" | "attendance";
+/** The write's authority for one event (round 5), proved fresh at the write: a site admin and a listed organizer on its
+ * own events need no provider call (as before); for another event a War Head proof (database only) is tried first; then
+ * one fresh Discord read gives the officer and High Council facts. A listed organizer still records attendance on any event. */
+async function authorityFor(env: Env, ctx: CommunityContext, createdBy: string | null, act: Act): Promise<Viewer> {
+  const v = viewerOf(ctx), own = createdBy !== null && createdBy === v.id;
+  if (v.senior || (v.organizer && (own || act === "attendance"))) return v;
+  if (own) { // the creator: the officer read first (as before); a War Head who lost the role still manages
+    const r = withRoles(v, await rolesOnce(env, ctx));
+    if (r.officer || r.senior) return r;
+    const warHead = await eventWarHeadNow(env, ctx);
+    return warHead ? { ...r, senior: true, warHead } : r;
+  }
+  const warHead = await eventWarHeadNow(env, ctx);
+  if (warHead) return { ...v, senior: true, warHead };
+  return withRoles(v, await rolesOnce(env, ctx));
+}
+const mayManage = (v: Viewer, createdBy: string | null, act: Act) => v.senior || (act === "attendance" && v.organizer) || (createdBy !== null && createdBy === v.id && (v.organizer || v.officer));
+/** The statements' own fence for another officer's event: `?flag = 1` for an admin or a High Council role holder (the
+ * role cannot be re-read in SQL), OR the War Head's published-appointment condition at parameters `first`… */
+const warSql = (v: Viewer, first: number): { sql: string; values: readonly string[] } => {
+  if (!v.warHead) return { sql: "0", values: [] };
+  const c = v.warHead.condition(first);
+  return { sql: `(${c.sql})`, values: c.values };
+};
+const roleFlag = (v: Viewer) => (v.roleSenior ? 1 : 0);
+/** After a refused write by a War Head: when the appointment is no longer published (the statement's own condition
+ * failed), the refusal says so as a role refusal instead of a lost race. Null when the proof still holds. */
+async function withdrawnAppointment(env: Env, ctx: CommunityContext, v: Viewer, createdBy: string | null, extra: () => Promise<Record<string, unknown>>, act: Act = "manage"): Promise<Response | null> {
+  if (!v.warHead || (await eventWarHeadNow(env, ctx))) return null;
+  const without = { ...v, senior: v.roleSenior, warHead: null };
+  return mayManage(without, createdBy, act) ? null : notYours(without, createdBy, await extra());
+}
+// Refusals say whose event it is and who can change it, by role and without names, and never invite a retry (403).
+const MANAGERS = "the High Council, the War Heads or a site administrator";
+const notManager = () => apiJson({ error: "not_organizer", message: "Events are managed by the officer or organizer who scheduled them, and by the High Council, the War Heads and site administrators." }, 403);
+const notCreator = () => apiJson({ error: "not_organizer", message: "Scheduling events is for officers (the Leader, the High Council, Officers and Raid Leaders), guild organizers and site administrators." }, 403);
+const notYours = (v: Viewer, createdBy: string | null, extra: Record<string, unknown> = {}) => !(v.organizer || v.anyOfficer) ? notManager()
+  : apiJson({ error: "not_event_organizer", message: createdBy === null ? `The organizer of this event is no longer on record. Only ${MANAGERS} can change it.` : `This event belongs to another organizer. Only that organizer, ${MANAGERS} can change it.`, ...extra }, 403);
 function eventShape(e: EventRow, counts: Counts, mine: MineRow | undefined, viewer: Viewer, creatorQualifies: boolean, own?: OwnAttendance) {
   return {
     id: e.id,
@@ -222,7 +310,7 @@ function eventShape(e: EventRow, counts: Counts, mine: MineRow | undefined, view
     counts,
     mine: mine ? { status: mine.status, character: mine.character_name, raidRole: mine.raid_role, revision: mine.revision, changedSinceRsvp: mine.rsvp_starts_at !== e.starts_at, remindMention: mine.remind_mention === 1, decision: mine.decision ?? null } : null,
     myAttendance: own ? { state: own.state, source: own.source, reasonCode: own.reason_code, recordedAt: secondsToIso(own.recorded_at) } : null,
-    canManage: (viewer.organizer || viewer.officer) && (viewer.staff || (e.created_by !== null && e.created_by === viewer.id)),
+    canManage: viewer.senior || ((viewer.organizer || viewer.officer) && e.created_by !== null && e.created_by === viewer.id),
   };
 }
 const QUAL_CREATOR = `(e.created_by IS NOT NULL AND ${qualifiesSql("e.created_by")}) AS creator_ok`;
@@ -236,8 +324,8 @@ const shapeFrom = (rows: (EventRow & { creator_ok: number })[], countRows: Count
  * One event as the viewer may read it now: one fenced batch (.67). `hydration` says why `event` is null although the
  * event may exist: the reader's admission did not hold at the payload, or the answers behind the counts exceed the bound.
  */
-async function readEvent(env: Env, ctx: CommunityContext, id: string): Promise<{ event: EventDto | null; hydration?: "refused" | "too_large" }> {
-  const viewer = viewerOf(ctx);
+async function readEvent(env: Env, ctx: CommunityContext, id: string, known?: Viewer): Promise<{ event: EventDto | null; hydration?: "refused" | "too_large" }> {
+  const viewer = viewerOf(ctx); // round 5: a write passes the viewer it proved (`known`), so its hydration reads Discord no second time
   const limit = scanLimit(env);
   const out = await admittedRead(env, ctx, "confirmedGuildData", [
     env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
@@ -246,18 +334,19 @@ async function readEvent(env: Env, ctx: CommunityContext, id: string): Promise<{
     env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
     env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
     env.DB.prepare(`SELECT s.event_id, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id = ?1 AND s.decision = 'accepted' AND ${eventParticipantSql226(env,"s.discord_id")} GROUP BY s.event_id`).bind(id),
+    ...(known ? [] : [hintStatement(env, viewer.id)]),
   ]);
   if (out === FENCE_REFUSED) return { event: null, hydration: "refused" };
-  const [ev, pre, counts, mine, own, accepted] = out;
+  const [ev, pre, counts, mine, own, accepted, hint] = out;
   const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
   if (!e) return { event: null };
   if (((pre!.results[0] as { n: number } | undefined)?.n ?? 0) > limit) return { event: null, hydration: "too_large" };
-  return { event: shapeFrom([e], counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], await officerViewer(env, ctx, [e.created_by]), accepted!.results as AcceptedRow[])[0] ?? null };
+  return { event: shapeFrom([e], counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], known ?? (await shownViewer(env, ctx, [e.created_by], hintOf(hint))), accepted!.results as AcceptedRow[])[0] ?? null };
 }
-const loadEvent = async (env: Env, ctx: CommunityContext, id: string): Promise<EventDto | null> => (await readEvent(env, ctx, id)).event;
+const loadEvent = async (env: Env, ctx: CommunityContext, id: string, known?: Viewer): Promise<EventDto | null> => (await readEvent(env, ctx, id, known)).event;
 /** Only after a returned mutation batch: preserve its acknowledgement without a newly refused event payload. */
-async function readEventAfterWrite(env:Env,ctx:CommunityContext,id:string):Promise<{event:EventDto|null;hydration?:'refused'|'too_large'}>{
- try{return await readEvent(env,ctx,id);}catch(error){
+async function readEventAfterWrite(env:Env,ctx:CommunityContext,id:string,known?:Viewer):Promise<{event:EventDto|null;hydration?:'refused'|'too_large'}>{
+ try{return await readEvent(env,ctx,id,known);}catch(error){
   if(error instanceof PrivacySiteRequestHeld)return {event:null,hydration:'refused'};
   throw error;
  }
@@ -272,19 +361,10 @@ async function gate(request: Request, env: Env, ctx: CommunityContext, feature: 
   if (organizer && !ctx.capabilities.organizer) return notOrganizer();
   return null;
 }
-/** CL2-016 (owner, 13 Nov 2026): who may edit, cancel and take attendance: an organizer as before (SITE_ADMINS for every
- * event, a COMMUNITY_ORGANIZERS entry for its own), or a current officer (eventOfficerNow) for the events they created.
- * The answer is the viewer the route then uses; the officer's own-event rule is enforced in each route's statements. */
-async function manager(request: Request, env: Env, ctx: CommunityContext, feature: "events" | "attendance"): Promise<Response | Viewer> {
-  const no = await gate(request, env, ctx, feature);
-  if (no) return no;
-  if (ctx.capabilities.organizer) return viewerOf(ctx);
-  return (await eventOfficerNow(env, ctx)) ? viewerOf(ctx, true) : notOrganizer();
-}
 /** After a refused write: whether the caller still manages events by fresh facts, so the refusal can give the event's own reason. */
 const stillManages = async (env: Env, request: Request, viewer: Viewer): Promise<boolean> => {
   const fresh = await communityContext(env, request);
-  return fresh.capabilities.organizer || (viewer.officer && fresh.capabilities.confirmedGuildData);
+  return fresh.capabilities.organizer || ((viewer.officer || viewer.senior) && fresh.capabilities.confirmedGuildData);
 };
 async function bodyOf(request: Request, keys: readonly string[]): Promise<Record<string, unknown>> {
   const body = await readJson(request);
@@ -338,9 +418,10 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
       env.DB.prepare(`${MINE_SELECT} WHERE s.discord_id = ?7 AND s.event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
       env.DB.prepare(`SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE discord_id = ?7 AND event_id IN (${pageSql})`).bind(...pageParams, viewer.id),
       env.DB.prepare(`SELECT s.event_id, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id IN (${pageSql}) AND s.decision = 'accepted' AND ${eventParticipantSql226(env,"s.discord_id")} GROUP BY s.event_id`).bind(...pageParams),
+      hintStatement(env, viewer.id), // round 5: which controls to show, without a provider call
     ]);
     if (out === FENCE_REFUSED) return communityReadRefusal(env, request);
-    const [win, evs, pre, counts, mine, own, accepted] = out;
+    const [win, evs, pre, counts, mine, own, accepted, hintRow] = out;
     const windowRows = win!.results as { starts_at: number; id: string }[];
     if (windowRows.length > limit || ((pre!.results[0] as { n: number } | undefined)?.n ?? 0) > limit) return apiJson({ error: "events_too_large" }, 503);
     const digest = await orderDigest(windowRows.map((r) => [r.starts_at, r.id]));
@@ -348,8 +429,10 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
     const rows = evs!.results as (EventRow & { creator_ok: number })[];
     const page = rows.slice(0, EVENT_LIMITS.pageSize);
     const last = page.at(-1);
-    const events = shapeFrom(page, counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], await officerViewer(env, ctx, page.map((e) => e.created_by)), accepted!.results as AcceptedRow[]);
-    return apiJson({ from: secondsToIso(from), to: secondsToIso(to), events, nextCursor: rows.length > EVENT_LIMITS.pageSize && last ? encodeCursor([2, "events", from, to, digest, last.starts_at, last.id]) : null });
+    const hint = hintOf(hintRow), shown = await shownViewer(env, ctx, page.map((e) => e.created_by), hint);
+    const events = shapeFrom(page, counts!.results as CountRow[], mine!.results as MineRow[], ctx.features.has("attendance") ? (own!.results as OwnAttendance[]) : [], shown, accepted!.results as AcceptedRow[]);
+    // round 5: `canCreate` shows the scheduling form; the create write proves the officer role again
+    return apiJson({ from: secondsToIso(from), to: secondsToIso(to), events, canCreate: ctx.capabilities.confirmedGuildData && canCreateShown(shown, hint), nextCursor: rows.length > EVENT_LIMITS.pageSize && last ? encodeCursor([2, "events", from, to, digest, last.starts_at, last.id]) : null });
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
   }
@@ -390,9 +473,10 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
       ).bind(id, limit + 1),
       env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
       env.DB.prepare("SELECT event_id, state, source, reason_code, recorded_at FROM community_event_attendance WHERE event_id = ?1 AND discord_id = ?2").bind(id, viewer.id),
+      hintStatement(env, viewer.id), // round 5
     ]);
     if (out === FENCE_REFUSED) return communityReadRefusal(env, request); // .67: the reader's admission at the payload
-    const [ev, signups, mine, own] = out;
+    const [ev, signups, mine, own, hintRow] = out;
     const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
     if (!e) return apiJson({ error: "event_not_found" }, 404);
     if (after && (after.revision !== e.revision || after.generation !== e.signup_generation)) return apiJson({ error: "cursor_stale" }, 409);
@@ -406,10 +490,20 @@ export async function getEvent(request: Request, env: Env, ctx: CommunityContext
     const remaining = after ? ordered.filter((x) => cmp(x.key, after!.key) > 0) : ordered;
     const page = remaining.slice(0, EVENT_LIMITS.pageSize);
     const last = page.at(-1);
-    const shown = await officerViewer(env, ctx, [e.created_by]); // CL2-016: canManage only; sign-up refs stay with organizers
+    // Round 5: the sign-up refs (what a roster decision names) go to an organizer as before, and to a viewer PROVED to
+    // manage this event: the creator officer (the read CL2-016 already makes for an own event), a War Head (database
+    // proof, tried only when the hint names the viewer) or a High Council role holder (one Discord read, made only when
+    // the hint says High Council: a member without such a hint costs no provider call, as before).
+    const hint = hintOf(hintRow);
+    let shown = await shownViewer(env, ctx, [e.created_by], hint);
+    const ownEvent = e.created_by !== null && e.created_by === viewer.id;
+    let proved = viewer.organizer || viewer.senior || (ownEvent && shown.officer) || (shown.anyOfficer && shown.roleSenior);
+    if (!proved && hint.warHead) { const warHead = await eventWarHeadNow(env, ctx); if (warHead) { shown = { ...shown, senior: true, warHead }; proved = true; } else shown = { ...shown, senior: shown.roleSenior || hint.council }; }
+    if (!proved && hint.council) { shown = withRoles({ ...shown, senior: viewer.senior }, await rolesOnce(env, ctx)); proved = shown.roleSenior; } // a fresh answer replaces the hint
+    const refs = viewer.organizer || proved;
     return apiJson({
       event: eventShape(e, counts, (mine!.results as MineRow[])[0], shown, e.creator_ok === 1, ctx.features.has("attendance") ? (own!.results as OwnAttendance[])[0] : undefined),
-      signups: page.map(({ r }) => ({ ...(viewer.organizer ? { ref: r.ref, decisionRevision: r.decision_revision } : {}), displayName: r.display_name, status: r.status, character: r.character_name, raidRole: r.raid_role, updatedAt: secondsToIso(r.updated_at), changedSinceRsvp: r.rsvp_starts_at !== e.starts_at, decision: r.decision ?? null })),
+      signups: page.map(({ r }) => ({ ...(refs ? { ref: r.ref, decisionRevision: r.decision_revision } : {}), displayName: r.display_name, status: r.status, character: r.character_name, raidRole: r.raid_role, updatedAt: secondsToIso(r.updated_at), changedSinceRsvp: r.rsvp_starts_at !== e.starts_at, decision: r.decision ?? null })),
       nextCursor: remaining.length > EVENT_LIMITS.pageSize && last ? encodeCursor([1, "signups", id, e.revision, e.signup_generation, digest, ...last.key]) : null,
     });
   } catch (e) {
@@ -529,7 +623,7 @@ export async function opHash(v: EventValues): Promise<string> {
 
 /** POST /api/community/events {opId, title, details?, startsAt, durationMin, capacity?, roleTargets?} → {event}; the id IS the opId. */
 export async function createEvent(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const no = await gate(request, env, ctx, "events", true);
+  const no = await gate(request, env, ctx, "events");
   if (no) return no;
   const reload = needPage(request);
   if (reload) return reload;
@@ -546,6 +640,14 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
       roleTargets: body.roleTargets === undefined ? null : (parseField("roleTargets", body.roleTargets, t) as RoleTargets | null),
     };
     assertTargetsFit(v);
+    // Round 5 ("Officers may create … their own calendar events"; Raid Leaders count as officers): an organizer as before,
+    // or a current officer proved by one fresh Discord read now, after the request was parsed. Every limit below, the
+    // statement's fence and the replay rule are the organizer's, unchanged.
+    let creator = viewerOf(ctx);
+    if (!creator.organizer) {
+      creator = withRoles(creator, await rolesOnce(env, ctx));
+      if (!creator.anyOfficer) return notCreator();
+    }
     const hash = await opHash(v);
     const endsAt = v.startsAt + v.durationMin * 60;
     const me = ctx.subject!.discordId, nonce = randomToken();
@@ -559,10 +661,11 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
       historyStatement(env, id, "created", me, t, [], nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_created', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(id, t, me, nonce),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, id));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, id, creator));
     const existing = await env.DB.prepare("SELECT created_by, op_hash FROM community_events WHERE id = ?1").bind(id).first<{ created_by: string | null; op_hash: string | null }>();
     if (existing && (existing.created_by !== me || existing.op_hash !== hash)) return apiJson({ error: "op_conflict" }, 409);
-    if (existing && (await communityContext(env, request)).capabilities.organizer) return apiJson({ ...(await readEvent(env, ctx, id)), replay: true });
+    const fresh = existing ? await communityContext(env, request) : null;
+    if (existing && fresh && (fresh.capabilities.organizer || (creator.anyOfficer && fresh.capabilities.confirmedGuildData))) return apiJson({ ...(await readEvent(env, ctx, id, creator)), replay: true });
     return refusal(env, request, "confirmedGuildData");
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
@@ -573,8 +676,9 @@ type Stored = { id: string; title: string; details: string; starts_at: number; d
 const stored = (env: Env, id: string) => env.DB.prepare(`SELECT id, title, details, starts_at, duration_min, capacity, role_targets, status, revision, created_by, created_at, ${placesHeld(env, "community_events.id")} AS yes, ${acceptedHeld(env, "community_events.id")} AS accepted, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(id).first<Stored>();
 async function organizerRefusal(env: Env, ctx: CommunityContext, row: Stored | null, viewer: Viewer, revision: number, at: number): Promise<Response | null> {
   if (!row) return apiJson({ error: "event_not_found" }, 404);
-  const event = () => loadEvent(env, ctx, row.id);
-  if (!viewer.staff && (row.created_by === null || row.created_by !== viewer.id)) return apiJson({ error: "not_event_organizer", event: await event() }, 409);
+  const event = () => loadEvent(env, ctx, row.id, viewer);
+  // Round 5: another officer's event, or one whose creator is erased, is for the senior managers only (403, never a retry).
+  if (!mayManage(viewer, row.created_by, "manage")) return viewer.organizer || viewer.anyOfficer ? notYours(viewer, row.created_by, { event: await event() }) : notManager();
   if (row.status === "cancelled") return apiJson({ error: "event_cancelled", event: await event() }, 410);
   if (row.started === 1) return apiJson({ error: "event_started", event: await event() }, 409); // .67: the database clock, like the statement
   if (row.revision !== revision) return apiJson({ error: "stale_revision", event: await event() }, 409);
@@ -583,8 +687,8 @@ async function organizerRefusal(env: Env, ctx: CommunityContext, row: Stored | n
 
 /** POST /api/community/events/update {eventId, revision, ...fields} → {event} */
 export async function updateEvent(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const managed = await manager(request, env, ctx, "events");
-  if (managed instanceof Response) return managed;
+  const no = await gate(request, env, ctx, "events");
+  if (no) return no;
   const reload = needPage(request);
   if (reload) return reload;
   try {
@@ -595,8 +699,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     const given = EVENT_FIELDS.filter((f) => body[f] !== undefined);
     if (given.length === 0) throw new Bad("invalid_request");
     const parsed = new Map(given.map((f) => [f, parseField(f, body[f], t)]));
-    const viewer = managed;
     const row = await stored(env, eventId);
+    const viewer = row ? await authorityFor(env, ctx, row.created_by, "manage") : viewerOf(ctx); // round 5: proved at the write, for this event
     const refused = await organizerRefusal(env, ctx, row, viewer, revision, t);
     if (refused) return refused;
     const current: EventValues = { title: row!.title, details: row!.details, startsAt: row!.starts_at, durationMin: row!.duration_min, capacity: row!.capacity, roleTargets: row!.role_targets ? (JSON.parse(row!.role_targets) as RoleTargets) : null };
@@ -604,31 +708,33 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     // The accepted horizon belongs to the original creation, so repeated edits cannot keep the parent disposition forever.
     if (next.startsAt > row!.created_at + EVENT_LIMITS.horizonDays * 86400) throw new Bad("invalid_starts_at");
     const changed = EVENT_FIELDS.filter((f) => (f === "roleTargets" ? roleTargetsText(next.roleTargets) !== roleTargetsText(current.roleTargets) : next[f] !== current[f]));
-    if (changed.length === 0) return apiJson({ ...(await readEvent(env, ctx, eventId)), unchanged: true });
+    if (changed.length === 0) return apiJson({ ...(await readEvent(env, ctx, eventId, viewer)), unchanged: true });
     // Only an edit of the places or the wanted roles is judged, so an older event stays editable for its other fields.
     if (changed.includes("capacity") || changed.includes("roleTargets")) assertTargetsFit(next);
     const lowers = next.capacity !== null && (current.capacity === null || next.capacity < current.capacity);
     const belowHeld = (held: number) => lowers && next.capacity !== null && next.capacity < held;
-    const capacityRefusal = async () => apiJson({ error: "capacity_below_signups", event: await loadEvent(env, ctx, eventId) }, 409);
-    const acceptedRefusal = async () => apiJson({ error: "capacity_below_accepted", event: await loadEvent(env, ctx, eventId) }, 409); // stage 2
+    const capacityRefusal = async () => apiJson({ error: "capacity_below_signups", event: await loadEvent(env, ctx, eventId, viewer) }, 409);
+    const acceptedRefusal = async () => apiJson({ error: "capacity_below_accepted", event: await loadEvent(env, ctx, eventId, viewer) }, 409); // stage 2
     if (belowHeld(row!.yes)) return capacityRefusal();
     if (belowHeld(row!.accepted)) return acceptedRefusal();
     const endsAt = next.startsAt + next.durationMin * 60;
-    const me = ctx.subject!.discordId, nonce = randomToken();
-    // ?1 id, ?2 revision, ?3 me, ?4 version, ?5.. values
+    const me = ctx.subject!.discordId, nonce = randomToken(), war = warSql(viewer, 17);
+    // ?1 id, ?2 revision, ?3 me, ?4 version, ?5.. values, ?15 admin or High Council role, ?16 expiry, ?17.. a War Head's appointment proof
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_events SET title = ?5, details = ?6, starts_at = ?7, duration_min = ?8, ends_at = ?9, capacity = ?10, role_targets = ?11, retain_until = ?12, revision = revision + 1, nonce = ?13, updated_at = ?14
-         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND ?7 <= created_at + ${EVENT_LIMITS.horizonDays * 86400} AND (created_by = ?3 OR ?15 = 1)
+         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND ?7 <= created_at + ${EVENT_LIMITS.horizonDays * 86400} AND (created_by = ?3 OR ?15 = 1 OR ${war.sql})
            AND (?10 IS NULL OR (capacity IS NOT NULL AND ?10 >= capacity) OR (?10 >= ${placesHeld(env, "community_events.id")} AND ?10 >= ${acceptedHeld(env, "community_events.id")}))
            AND ${fenceSql("confirmedGuildData", 3, 4, 16,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
-      ).bind(eventId, revision, me, ctx.subject!.sessionVersion, next.title, next.details, next.startsAt, next.durationMin, endsAt, next.capacity, roleTargetsText(next.roleTargets), endsAt + EVENT_RETENTION_S, nonce, t, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
+      ).bind(eventId, revision, me, ctx.subject!.sessionVersion, next.title, next.details, next.startsAt, next.durationMin, endsAt, next.capacity, roleTargetsText(next.roleTargets), endsAt + EVENT_RETENTION_S, nonce, t, roleFlag(viewer), ctx.subject!.expiresAt, ...war.values),
       eventDeliveryChanged(env, eventId, nonce),
       eventReminderChanged(env, eventId, nonce),
       historyStatement(env, eventId, "updated", me, t, changed, nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_updated', ?1, ?5 WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce, JSON.stringify({ fields: changed })),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId, viewer));
+    const withdrawn = await withdrawnAppointment(env, ctx, viewer, row!.created_by, async () => ({ event: await loadEvent(env, ctx, eventId) }));
+    if (withdrawn) return withdrawn;
     const after = await stored(env, eventId);
     const refusedAfter = await organizerRefusal(env, ctx, after, viewer, revision, t);
     if (refusedAfter) return refusedAfter;
@@ -644,8 +750,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
 
 /** POST /api/community/events/cancel {eventId, revision} → {event} */
 export async function cancelEvent(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const managed = await manager(request, env, ctx, "events");
-  if (managed instanceof Response) return managed;
+  const no = await gate(request, env, ctx, "events");
+  if (no) return no;
   const reload = needPage(request);
   if (reload) return reload;
   try {
@@ -653,21 +759,24 @@ export async function cancelEvent(request: Request, env: Env, ctx: CommunityCont
     const eventId = idOf(body.eventId);
     const revision = revisionOf(body.revision, 1);
     const t = now();
-    const viewer = managed;
-    const refused = await organizerRefusal(env, ctx, await stored(env, eventId), viewer, revision, t);
+    const row = await stored(env, eventId);
+    const viewer = row ? await authorityFor(env, ctx, row.created_by, "manage") : viewerOf(ctx); // round 5
+    const refused = await organizerRefusal(env, ctx, row, viewer, revision, t);
     if (refused) return refused;
-    const me = ctx.subject!.discordId, nonce = randomToken();
+    const me = ctx.subject!.discordId, nonce = randomToken(), war = warSql(viewer, 10);
     const out = await admitted(env, ctx, [
       env.DB.prepare(
         `UPDATE community_events SET status = 'cancelled', revision = revision + 1, nonce = ?5, updated_at = ?6, retain_until = MIN(retain_until, ?7)
-         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?8 = 1) AND ${fenceSql("confirmedGuildData", 3, 4, 9,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
-      ).bind(eventId, revision, me, ctx.subject!.sessionVersion, nonce, t, t + EVENT_RETENTION_S, viewer.staff ? 1 : 0, ctx.subject!.expiresAt),
+         WHERE id = ?1 AND revision = ?2 AND status = 'scheduled' AND starts_at > ${DB_NOW} AND (created_by = ?3 OR ?8 = 1 OR ${war.sql}) AND ${fenceSql("confirmedGuildData", 3, 4, 9,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`,
+      ).bind(eventId, revision, me, ctx.subject!.sessionVersion, nonce, t, t + EVENT_RETENTION_S, roleFlag(viewer), ctx.subject!.expiresAt, ...war.values),
       eventDeliveryChanged(env, eventId, nonce, true),
       eventReminderChanged(env, eventId, nonce),
       historyStatement(env, eventId, "cancelled", me, t, [], nonce),
       env.DB.prepare("INSERT INTO audit (ts, actor, action, subject, details) SELECT ?2, ?3, 'community.event_cancelled', ?1, NULL WHERE EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND nonce = ?4)").bind(eventId, t, me, nonce),
     ]);
-    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId));
+    if (out !== FENCE_REFUSED) return apiJson(await readEventAfterWrite(env, ctx, eventId, viewer));
+    const withdrawn = await withdrawnAppointment(env, ctx, viewer, row!.created_by, async () => ({ event: await loadEvent(env, ctx, eventId) }));
+    if (withdrawn) return withdrawn;
     return (await organizerRefusal(env, ctx, await stored(env, eventId), viewer, revision, t)) ?? refusal(env, request, "confirmedGuildData");
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
@@ -687,8 +796,8 @@ const unionSql226 = (env: Env) => `SELECT m.discord_id, r.ref, ${eventParticipan
 
 /** GET /api/community/event/attendance?id=[&cursor=] → {event, attendance, nextCursor, signupGeneration, attendanceGeneration} (organizers) */
 export async function attendanceList(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const managed = await manager(request, env, ctx, "attendance");
-  if (managed instanceof Response) return managed;
+  const no = await gate(request, env, ctx, "attendance");
+  if (no) return no;
   try {
     const url = new URL(request.url);
     const id = idOf(url.searchParams.get("id"));
@@ -700,7 +809,12 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
       if (parts.length !== 8 || version !== 1 || kind !== "attendance" || eventId !== id || !safeInt(signups) || !safeInt(attendance) || !text(digest, 32) || !HEX32.test(digest) || !text(name, 512) || !text(ref) || !ID.test(ref)) throw new Bad("invalid_cursor");
       after = { signups, attendance, digest, key: [name, ref] };
     }
-    const viewer = managed;
+    // Round 5: the authority is proved for THIS event before its list is read (one creator read), and checked again
+    // against the creator the payload batch read.
+    const pre = await env.DB.prepare("SELECT created_by FROM community_events WHERE id = ?1").bind(id).first<{ created_by: string | null }>();
+    if (!pre) return apiJson({ error: "event_not_found" }, 404);
+    const viewer = await authorityFor(env, ctx, pre.created_by, "attendance");
+    if (!mayManage(viewer, pre.created_by, "attendance")) return notYours(viewer, pre.created_by);
     const limit = scanLimit(env);
     const out = await admittedRead(env, ctx, "confirmedGuildData", [
       env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
@@ -713,7 +827,7 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
     const [ev, counts, union, mine, own] = out;
     const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
     if (!e) return apiJson({ error: "event_not_found" }, 404);
-    if (viewer.officer && (e.created_by === null || e.created_by !== viewer.id)) return apiJson({ error: "not_event_organizer" }, 403); // CL2-016: another officer's event stays admin-only
+    if (!mayManage(viewer, e.created_by, "attendance")) return notYours(viewer, e.created_by); // CL2-016, round 5: another officer's event is for the senior managers
     if (after && (after.signups !== e.signup_generation || after.attendance !== e.attendance_generation)) return apiJson({ error: "cursor_stale" }, 409);
     const rows = union!.results as UnionRow[];
     if (rows.length > limit) return apiJson({ error: "events_too_large" }, 503);
@@ -751,8 +865,8 @@ type Result = { ref: string; result: "ok" | "invalid" | "unknown_member" | "stal
 
 /** POST /api/community/attendance/record {eventId, entries:[{ref, state, reasonCode?, revision}]} → {event, results} (organizers, after the start). */
 export async function recordAttendance(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const viewer = await manager(request, env, ctx, "attendance");
-  if (viewer instanceof Response) return viewer;
+  const no = await gate(request, env, ctx, "attendance");
+  if (no) return no;
   const reload = needPage(request);
   if (reload) return reload;
   try {
@@ -761,15 +875,17 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
     const entries = parseEntries(body.entries);
     const t = now();
     const me = ctx.subject!.discordId;
-    const refuse = async (): Promise<Response | null> => {
+    let viewer = viewerOf(ctx), creator: string | null = null;
+    const refuse = async (prove = false): Promise<Response | null> => {
       const s = await env.DB.prepare(`SELECT status, created_by, (starts_at > ${DB_NOW}) AS pending FROM community_events WHERE id = ?1`).bind(eventId).first<{ status: string; created_by: string | null; pending: number }>();
       if (!s) return apiJson({ error: "event_not_found" }, 404);
-      if (viewer.officer && (s.created_by === null || s.created_by !== me)) return apiJson({ error: "not_event_organizer" }, 403); // CL2-016
-      if (s.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId) }, 410);
-      if (s.pending === 1) return apiJson({ error: "event_not_started", event: await loadEvent(env, ctx, eventId) }, 409); // .67: the database clock
+      if (prove) { viewer = await authorityFor(env, ctx, s.created_by, "attendance"); creator = s.created_by; } // round 5: proved for this event
+      if (!mayManage(viewer, s.created_by, "attendance")) return notYours(viewer, s.created_by); // CL2-016, round 5
+      if (s.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId, viewer) }, 410);
+      if (s.pending === 1) return apiJson({ error: "event_not_started", event: await loadEvent(env, ctx, eventId, viewer) }, 409); // .67: the database clock
       return null;
     };
-    const refused = await refuse();
+    const refused = await refuse(true);
     if (refused) return refused;
     // who each ref names, and whether the organizer may address them: an answer or a row on this event, or a listed profile; qualifying now
     const targets = await env.DB.prepare(
@@ -783,13 +899,13 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
     const writes = entries.filter((x) => x.value !== null && idOfRef.has(x.ref));
     const payload = JSON.stringify(writes.map((x) => [idOfRef.get(x.ref)!, x.value!.state, x.value!.reasonCode, x.value!.revision, x.ref]));
     const creating = [...new Set(writes.filter((x) => x.value!.revision === 0).map((x) => idOfRef.get(x.ref)!))];
-    const nonce = randomToken();
+    const nonce = randomToken(), war = warSql(viewer, 10);
     const limit = scanLimit(env);
     const ADMITTED = "EXISTS (SELECT 1 FROM community_events WHERE id = ?1 AND attendance_nonce = ?2)";
     const member = "json_extract(j.value, '$[0]')";
     const statements: D1PreparedStatement[] = [
       // the admitted first statement: the event is open for recording, the calendar has room for every member this may add, the organizer still qualifies
-      env.DB.prepare(`UPDATE community_events SET attendance_nonce = ?2 WHERE id = ?1 AND ${attendanceUnlocked219('community_events.id')} AND status = 'scheduled' AND starts_at <= ${DB_NOW} AND ?3 = ?3 AND ${calendarRoom("?4", "?5")} AND (?9 = 1 OR created_by = ?6) AND ${fenceSql("confirmedGuildData", 6, 7, 8,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(eventId, nonce, t, JSON.stringify(creating), limit, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, viewer.officer ? 0 : 1),
+      env.DB.prepare(`UPDATE community_events SET attendance_nonce = ?2 WHERE id = ?1 AND ${attendanceUnlocked219('community_events.id')} AND status = 'scheduled' AND starts_at <= ${DB_NOW} AND ?3 = ?3 AND ${calendarRoom("?4", "?5")} AND (?9 = 1 OR created_by = ?6 OR ${war.sql}) AND ${fenceSql("confirmedGuildData", 6, 7, 8,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`).bind(eventId, nonce, t, JSON.stringify(creating), limit, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, viewer.organizer || viewer.roleSenior ? 1 : 0, ...war.values),
     ];
     if (writes.length > 0) {
       statements.push(
@@ -823,10 +939,12 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
     );
     const out = await admitted(env, ctx, statements);
     if (out === FENCE_REFUSED) {
+      const withdrawn = await withdrawnAppointment(env, ctx, viewer, creator, async () => ({}), "attendance");
+      if (withdrawn) return withdrawn;
       const r2 = await refuse();
       if (r2) return r2;
       const room = await env.DB.prepare(`SELECT (SELECT COUNT(*) FROM json_each(?1) nj WHERE NOT ${inCalendar("nj.value")}) AS joining, ${calendarRoom("?1", "?2")} AS room`).bind(JSON.stringify(creating), limit).first<{ joining: number; room: number }>();
-      if ((room?.joining ?? 0) > 0 && (room?.room !== 1 || (await stillManages(env, request, viewer)))) return apiJson({ error: "calendar_full", event: await loadEvent(env, ctx, eventId) }, 409);
+      if ((room?.joining ?? 0) > 0 && (room?.room !== 1 || (await stillManages(env, request, viewer)))) return apiJson({ error: "calendar_full", event: await loadEvent(env, ctx, eventId, viewer) }, 409);
       return refusal(env, request, "confirmedGuildData");
     }
     type Written = { discord_id: string; state: AttendanceState; source: string; reason_code: ReasonCode | null; recorded_at: number; revision: number };
@@ -851,7 +969,7 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
       else if ((row.revision ?? 0) !== x.value.revision) results.push({ ref: x.ref, result: "stale_revision", entry });
       else results.push({ ref: x.ref, result: "unknown_member", entry: null });
     }
-    return apiJson({ ...(await readEvent(env, ctx, eventId)), results });
+    return apiJson({ ...(await readEvent(env, ctx, eventId, viewer)), results });
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
   }
@@ -918,7 +1036,7 @@ type DecisionResult = { ref: string; result: "ok" | "invalid" | "unknown_member"
  * target in the same batch, as attendance does.
  */
 export async function decideRoster(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
-  const no = await gate(request, env, ctx, "events", true);
+  const no = await gate(request, env, ctx, "events");
   if (no) return no;
   const reload = needPage(request);
   if (reload) return reload;
@@ -927,22 +1045,28 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
     const eventId = idOf(body.eventId);
     const entries = parseDecisionEntries(body.entries);
     const t = now();
-    const s = ctx.subject!, me = s.discordId, staff = ctx.capabilities.communityStaff ? 1 : 0;
-    const refuse = async (): Promise<Response | null> => {
+    const s = ctx.subject!, me = s.discordId;
+    // Round 5: the creator officer decides its own event's roster ("manage RSVPs on their own events"); the senior
+    // managers decide any event's; an organizer as before (its own events; a site admin every event).
+    let viewer = viewerOf(ctx), creator: string | null = null;
+    const refuse = async (prove = false): Promise<Response | null> => {
       const e = await env.DB.prepare(`SELECT status, created_by, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(eventId).first<{ status: string; created_by: string | null; started: number }>();
       if (!e) return apiJson({ error: "event_not_found" }, 404);
-      if (!(staff === 1 || (e.created_by !== null && e.created_by === me))) return apiJson({ error: "not_organizer", message: "Only the organizer of this event, or staff, decides its roster." }, 403);
-      if (e.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId) }, 410);
-      if (e.started === 1) return apiJson({ error: "event_started", event: await loadEvent(env, ctx, eventId) }, 409);
+      if (prove) { viewer = await authorityFor(env, ctx, e.created_by, "manage"); creator = e.created_by; }
+      if (!mayManage(viewer, e.created_by, "manage")) return notYours(viewer, e.created_by);
+      if (e.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId, viewer) }, 410);
+      if (e.started === 1) return apiJson({ error: "event_started", event: await loadEvent(env, ctx, eventId, viewer) }, 409);
       return null;
     };
-    const refused = await refuse();
+    const refused = await refuse(true);
     if (refused) return refused;
-    const nonce = randomToken();
-    const open = `e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND (e.created_by = ?5 OR ?8 = 1)`;
+    const nonce = randomToken(), staff = roleFlag(viewer), war = warSql(viewer, 11);
+    // ?8 admin or High Council role, ?11.. a War Head's appointment proof (repeated in every statement that writes)
+    const open = `e.status = 'scheduled' AND e.starts_at > ${DB_NOW} AND (e.created_by = ?5 OR ?8 = 1 OR ${war.sql})`;
     const fence = fenceSql("confirmedGuildData", 5, 9, 10, s.privacyGeneration, s.accountIncarnation);
     const target = `discord_id = (SELECT r.discord_id FROM community_refs r WHERE r.ref = ?3 AND ${eventParticipantSql226(env,"r.discord_id")})`;
-    const bind = (ref: string, decision: Decision | null, revision: number) => [eventId, nonce, ref, decision, me, t, revision, staff, s.sessionVersion, s.expiresAt] as const;
+    const bind = (ref: string, decision: Decision | null, revision: number) => [eventId, nonce, ref, decision, me, t, revision, staff, s.sessionVersion, s.expiresAt, ...war.values] as const;
+    const detailsAt = 11 + war.values.length;
     const statements: D1PreparedStatement[] = [
       // the admitted first statement: the event is open and this organizer manages it; the list's pages restart
       env.DB.prepare(`UPDATE community_events AS e SET signup_generation = signup_generation + 1 WHERE e.id = ?1 AND ${open} AND ${fence}`).bind(...bind("", null, 0)),
@@ -964,7 +1088,7 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
          RETURNING discord_id, decision, decision_revision AS revision, decided_at`).bind(...bind(x.ref, v.decision, v.revision)));
     }
     statements.push(
-      env.DB.prepare(`INSERT INTO audit (ts, actor, action, subject, details) SELECT ?6, ?5, 'community.roster_decided', ?1, ?11 FROM community_events e WHERE e.id = ?1 AND ${open} AND ${fence}`)
+      env.DB.prepare(`INSERT INTO audit (ts, actor, action, subject, details) SELECT ?6, ?5, 'community.roster_decided', ?1, ?${detailsAt} FROM community_events e WHERE e.id = ?1 AND ${open} AND ${fence}`)
         .bind(...bind("", null, 0), JSON.stringify({ entries: valid.length })),
       // the result's payload, read in the same batch and requalifying every target: a member who no longer qualifies has no row here
       env.DB.prepare(
@@ -976,6 +1100,8 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
     );
     const out = await admitted(env, ctx, statements);
     if (out === FENCE_REFUSED) {
+      const withdrawn = await withdrawnAppointment(env, ctx, viewer, creator, async () => ({}));
+      if (withdrawn) return withdrawn;
       const r2 = await refuse();
       if (r2) return r2;
       return refusal(env, request, "confirmedGuildData");
@@ -1001,7 +1127,7 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
       else if (x.value.decision === "accepted") results.push({ ref: x.ref, result: "full", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
       else results.push({ ref: x.ref, result: "stale_revision", decision: row.decision, revision: row.revision ?? 0, displayName: row.display_name });
     }
-    return apiJson({ ...(await readEvent(env, ctx, eventId)), results });
+    return apiJson({ ...(await readEvent(env, ctx, eventId, viewer)), results });
   } catch (e) {
     return bad(e) ?? Promise.reject(e);
   }
