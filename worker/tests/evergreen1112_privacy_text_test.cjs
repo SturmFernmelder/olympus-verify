@@ -4,7 +4,9 @@
 // (the export SQL, the erasure marker SQL and the receipt shape validators, against node:sqlite and Python).
 // Owner rulings it follows (STAGE2-RULES.md): "Blank it, keep the rows" and "Yes, blank it too" (local text),
 // "Delete the text now" (server notes), "Officer looks them up" (mail receipts), quiz scores in the browser.
-// Plain Node, no new dependency: esbuild and node:sqlite are already present.
+// Plain Node, no new dependency: esbuild and node:sqlite are already present. The addon checks run the addon's own Lua
+// through lupa (LuaJIT 2.1, the runtime of addon/tests/run_lua_suites.py): set OLYMPUS_LUA_PYTHON to a Python that has
+// lupa installed; without it those checks fail, never skip.
 // Usage: node tests/evergreen1112_privacy_text_test.cjs [--root <repository root>]   (default: this checkout)
 const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process');
 const args = process.argv.slice(2), at = args.indexOf('--root');
@@ -26,6 +28,31 @@ const text = html.replace(/<[^>]+>/g, '').replace(/&rsquo;|’/g, "'").replace(/
 const sectionMatch = /<h2>Gold receipts and captured game text<\/h2>([\s\S]*?)<h2>/.exec(html);
 const section = sectionMatch ? sectionMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ') : '';
 const says = (re, where = section) => re.test(where) || 'policy does not say ' + re;
+// One paragraph of the section, found by its opening words (tags removed, whitespace collapsed).
+const paragraphs = sectionMatch ? sectionMatch[1].split(/<p>/).map(p => p.replace(/<[^>]+>/g, '').replace(/&rsquo;|’/g, "'").replace(/\s+/g, ' ').trim()).filter(Boolean) : [];
+const paragraph = start => paragraphs.find(p => p.startsWith(start)) || '';
+
+// Run Lua chunks in LuaJIT through lupa; the last chunk's return table comes back as JSON.
+function lua(load, run) {
+  const python = process.env.OLYMPUS_LUA_PYTHON || 'python';
+  const code = [
+    'import sys, json', 'import lupa.luajit21 as runtime',
+    'lua = runtime.LuaRuntime(unpack_returned_tuples=True)', 'src = json.loads(sys.stdin.read())',
+    'for chunk in src["load"]: lua.execute(chunk)',
+    'def conv(v):', '    return {str(k): conv(x) for k, x in v.items()} if runtime.lua_type(v) == "table" else v',
+    'print(json.dumps(conv(lua.execute(src["run"]))))',
+  ].join('\n');
+  const r = cp.spawnSync(python, ['-I', '-B', '-X', 'utf8', '-c', code], { input: JSON.stringify({ load, run }), encoding: 'utf8', timeout: 120000, maxBuffer: 1 << 24 });
+  if (r.status !== 0) throw Error('Lua runtime (lupa) unavailable or failed; set OLYMPUS_LUA_PYTHON: ' + (r.stderr || String(r.error)).slice(-300));
+  return JSON.parse(r.stdout.trim());
+}
+// Run a Python snippet against this tree's watcher/ (argv[1]); it prints one JSON value.
+function py(lines) {
+  const r = cp.spawnSync('python', ['-I', '-B', '-X', 'utf8', '-c', ['import sys, json, copy, os, tempfile, pathlib', 'sys.path.insert(0, sys.argv[1])', ...lines].join('\n'), path.join(repo, 'watcher')], { encoding: 'utf8', timeout: 120000, maxBuffer: 1 << 24 });
+  if (r.status !== 0) throw Error((r.stderr || String(r.error)).slice(-400));
+  return JSON.parse(r.stdout.trim());
+}
+const helperLua = () => read('addon/OlympusVerify/OlympusVerifyLocalPrivacy280.lua');
 
 // ---------- the real server modules, bundled in memory ----------
 let mod = null;
@@ -133,26 +160,77 @@ check('the Watcher refuses the old format and a note on a new receipt, and accep
   const got = r.status === 0 ? JSON.parse(r.stdout.trim()) : (r.stderr || String(r.error)).slice(-300);
   return JSON.stringify(got) === JSON.stringify([null, 'receipt_shape_held', 'legacy_or_unqualified_receipt']) || got;
 });
-check('policy: the addon keeps an unconfirmed receipt and prunes a confirmed one after 30 days', () => {
-  const addon = read('addon/OlympusVerify/OlympusVerifyTreasury.lua');
-  return says(/keeps a receipt in its saved file until the server confirms it, and removes a confirmed receipt once it is 30 days old/) === true
-    && /retentionSeconds = 30 \* 86400/.test(addon) && /row\.ts > cutoff or field=="receipts" and not \(ack and ack\.status=="done"\)/.test(addon) || 'prune rule not found';
+// Round 5 privacy, second pass (13 Nov 2026): with the local cleanup integrated, the addon's prune also asks the
+// cleanup (PruneBlocked) and keeps a blocked receipt, and every receipt while the file holds a transfer record the
+// cleanup cannot read. This runs the addon's own prune function, cut from OlympusVerifyTreasury.lua, with the helper.
+check('policy: the addon prunes a confirmed receipt after 30 days, keeps an unconfirmed one, and keeps past 30 days a blocked receipt and every receipt beside an old-form transfer record (behaviour, Lua)', () => {
+  const treasury = read('addon/OlympusVerify/OlympusVerifyTreasury.lua');
+  const prune = /\nlocal function prune\(d\)\n[\s\S]*?\nend\n(?=local function db\(\))/.exec(treasury);
+  if (!prune || !/retentionSeconds = 30 \* 86400/.test(treasury)) return 'prune function or 30-day constant not found';
+  const got = lua([helperLua()], `local T={retentionSeconds=30*86400}
+NOW=1800000000; time=function() return NOW end
+${prune[0]}
+local old,young=NOW-31*86400,NOW-86400
+local function receipt(id,ts) return {id=id,ts=ts,kind="trade",sender="Synthetic Payer"} end
+local function file(rows,acks,extra)
+ local intake={version=1,nextId=0,entries={},dedup={},acknowledgements={}}
+ for _,id in ipairs(acks) do intake.acknowledgements[id]={status="done"} end
+ if extra then extra(intake) end
+ return {intake242=intake,treasury={version=1,nextId=0,receipts=rows,observations={},overflows=0}}
+end
+local function run(f) OlympusVerifyDB=f; prune(f.treasury); local out={} for _,r in ipairs(f.treasury.receipts) do out[#out+1]=r.id:sub(1,1) end table.sort(out) return table.concat(out,",") end
+local A,B,C,D,E=("a"):rep(24),("b"):rep(24),("c"):rep(24),("d"):rep(24),("e"):rep(24)
+local out={}
+out.clean=run(file({receipt(A,old),receipt(B,old),receipt(C,young)},{A,C}))
+local blocked=file({receipt(D,old)},{D},function(i) i.entries[D]={id=D,type="donation",source="mail",character="Synthetic Payer",requestedAt=old,status="done",donation={copper=900,note="PRIV_D"}} end)
+out.blocked=run(blocked); out.blanked=blocked.intake242.entries[D].donation.note
+NOW=NOW+400*86400; out.blockedLater=run(blocked); NOW=1800000000
+out.oldForm=run(file({receipt(E,old)},{E},function(i) i.heldTransfers627={["untyped-1"]={context={kind="mail",body="PRIV_C"},reason="held",heldAt=old}} end))
+out.many=run(file({receipt(E,old)},{E},function(i) i.heldTransfers627={} for n=1,1001 do local id=string.format("%024x",n) i.heldTransfers627[id]={context={contextVersion=1,kind="trade",transferId=id},reason="held",heldAt=old} end end))
+out.damaged=run(file({receipt(E,old)},{E},function(i) i.localCorrespondence280={version=1,purpose="financial-correspondence-local-only-v1",damaged=true} end))
+out.control=run(file({receipt(E,old)},{E}))
+return out`);
+  const want = { clean: 'b,c', blocked: 'd', blanked: '', blockedLater: 'd', oldForm: 'e', many: 'e', damaged: 'e', control: '' };
+  const p = paragraph('How long receipts are kept.');
+  return /keeps a receipt in its saved file until the server confirms it, and removes a confirmed receipt once it is 30 days old\./.test(p)
+    && /It keeps a receipt past 30 days if the receipt's ID belongs to a record that the cleanup of older text, described below, blanked or held\./.test(p)
+    && /While the saved file still holds a held transfer record of an old or unknown form, the addon keeps every receipt in that file past 30 days\./.test(p)
+    && /The same applies while the file holds more than 1,000 held transfer records, or while the cleanup's own record in it is damaged\./.test(p)
+    && /The addon does not remove these kept receipts automatically\./.test(p)
+    && JSON.stringify(got, Object.keys(want).sort()) === JSON.stringify(want, Object.keys(want).sort()) && Object.keys(got).length === Object.keys(want).length
+    || { got, paragraph: p.slice(0, 200) };
+});
+check('the kept receipts are never removed later: no addon code deletes a blocked ID or a held transfer record', () => {
+  const sources = fs.readdirSync(path.join(repo, 'addon/OlympusVerify')).filter(f => f.endsWith('.lua')).map(f => read('addon/OlympusVerify/' + f)).join('\n');
+  // (The helper's constructor of a fresh, empty marker is not a removal: it only runs when no marker exists.)
+  const removal = /blockedIds\[[^\]]*\]\s*=\s*nil|\.blockedIds\s*=|rawset\([^)]*"blockedIds"|heldTransfers627\[[^\]]*\]\s*=\s*nil|\.heldTransfers627\s*=\s*(?:nil|\{\})|rawset\([^)]*"heldTransfers627"/.exec(sources);
+  return says(/The addon does not remove these kept receipts automatically\./) === true && !removal || (removal ? 'a removal path exists: ' + removal[0] : 'sentence missing');
 });
 
 // ---------- 3. the data download ----------
-check('policy: the download lists only receipts with a uniquely linked character ID; mail receipts are left out (behaviour, node:sqlite)', () => {
+check('policy: the download lists only receipts with a uniquely linked character ID; mail receipts are left out even when they carry your own character ID, in both stored formats (behaviour, node:sqlite)', () => {
   if (!mod) return 'bundle unavailable';
-  const db = database(), { rows } = seed(db), env = fakeEnv();
+  const db = database(), { rows, t } = seed(db), env = fakeEnv();
+  // Round 5 privacy, second pass: mail receipts that DO carry the member's own, uniquely linked character ID, in both
+  // stored formats, beside a legacy trade receipt as the positive control. Only the trade receipts may come out.
+  const ownMail = {
+    v2: v2('9'.repeat(24), 'mail', MY_GUID, t),
+    legacy: { ...rows.legacyMail, sourceId: 'legacy-mail-own', guid: MY_GUID },
+  };
+  const legacyTrade = { ...rows.legacyMail, sourceId: 'legacy-trade-own', source: 'trade', guid: MY_GUID, note: '' };
+  const rec = db.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?,'watcher','treasury.receipt242',?,?)");
+  for (const r of [ownMail.v2, ownMail.legacy, legacyTrade]) rec.run(t, 'intake242:' + r.sourceId, JSON.stringify(r));
   const plan = mod.communityScopedExportPlan(env, ME, ['treasury242']);
   if (plan.statements.length !== 1) return 'unexpected statement count';
   const got = run(db, plan.statements[0]), ids = got.map(r => r.sourceId);
   const keys = [...new Set(got.flatMap(r => Object.keys(r)))].sort().join(',');
   const raw = JSON.stringify(got);
+  const noMail = got.every(r => r.source !== 'mail' && r.kind !== 'mail') && !raw.includes(ownMail.v2.sourceId) && !raw.includes(ownMail.legacy.sourceId);
   return says(/lists a gold receipt only when it carries the in-game character ID of one of your linked characters and no other account is linked to that ID/) === true
     && says(/so mail receipts are left out/) === true && says(/It leaves out names, the reference, any text, item lists and the checksum\./) === true
-    && JSON.stringify(ids) === JSON.stringify([rows.trade.sourceId])
+    && JSON.stringify(ids) === JSON.stringify([rows.trade.sourceId, legacyTrade.sourceId]) && noMail
     && keys === 'classification,copper,guid,kind,observedAt,retainUntil,source,sourceId,ts,version'
-    && !/Synthetic Payer|TITHE-|SYNTHETIC|payloadHash|"f{64}"/.test(raw) || { ids, keys };
+    && !/Synthetic Payer|TITHE-|SYNTHETIC|payloadHash|"f{64}"/.test(raw) || { ids, keys, noMail };
 });
 check('policy: the separate privacy-connection copy contains no gold receipts; its selected families leave the receipt family out', () => {
   const src = read('worker/src/privacy-access-export.ts');
@@ -279,8 +357,9 @@ check('policy: quiz scores stay in one browser entry; the University script stor
 // ---------- 7. local blanking: claimed only when the component is in the tree ----------
 // The second commit of this area says the addon and the Watcher blank the old text locally. That sentence may
 // only ship together with Codex's component (addon helper loaded by the TOC, Watcher module used by the Watcher).
+const claimsLocal = () => /blanks the old text in memory/.test(section) || /The Watcher blanks the old text in its own local copy/.test(section);
 check('policy claims local blanking only when the addon helper and the Watcher module that do it are present', () => {
-  const claims = /it blanks the old text in its saved file/.test(section) || /Watcher starts, it blanks the old text/.test(section);
+  const claims = claimsLocal();
   const helper = 'addon/OlympusVerify/OlympusVerifyLocalPrivacy280.lua', module = 'watcher/local_correspondence280.py';
   const present = fs.existsSync(path.join(repo, helper)) && fs.existsSync(path.join(repo, module))
     && /^OlympusVerifyLocalPrivacy280\.lua\s*$/m.test(read('addon/OlympusVerify/OlympusVerify.toc'))
@@ -290,19 +369,222 @@ check('policy claims local blanking only when the addon helper and the Watcher m
     || 'without the component the policy must say the local copies can still hold the text';
 });
 check('when local blanking is claimed it keeps the stated facts and covers both places', () => {
-  if (!/it blanks the old text in its saved file/.test(section)) return true;
-  return says(/In both places the sender, amount, time, status, item names and counts, and the record IDs stay, and a blanked record is never uploaded\./) === true
+  if (!claimsLocal()) return true;
+  return /^Records the cleanup recognises\. In the addon and in the Watcher, the old text of such a record is blanked\. The sender, amount, time, status, item names and counts, and the record IDs stay\. A blanked record is never uploaded\.$/.test(paragraph('Records the cleanup recognises.'))
     && says(/the local copies keep theirs as long as they keep the record/) === true || 'local blanking facts incomplete';
 });
-// Round 5 review (13 Nov 2026), finding 4: Codex's components do not blank without exception. The addon helper
-// leaves "Unknown/malformed/cyclic or oversized financial graphs ... unchanged" (local-correspondence-prototype280
-// REPORT.md), and the Watcher persists no partial ledger when a scoped preflight fails and keeps unsupported or
-// malformed originals "individually held" (watcher-local-correspondence-prototype280 CONTRACT-01.json). A claim of
-// local blanking must say so, and must not promise that every record is blanked.
-check('when local blanking is claimed it states the exception for damaged or oversized saved data, held and not uploaded', () => {
-  if (!/it blanks the old text in its saved file/.test(section)) return true;
-  return says(/If the saved data is damaged or too large to process safely, the addon or the Watcher leaves the old text in it as it is; those records stay held and are never uploaded\./) === true
-    && !/(?:always|every record|without exception)[^.]*blank|blank[^.]*(?:always|every record|without exception)/i.test(section) || 'local blanking exception missing or overclaimed';
+// Round 5 review (13 Nov 2026), finding 4, and the second pass on the committed components: the cleanup does not
+// blank without exception. A claim of local blanking must state the three cases separately and must not promise that
+// every record is blanked.
+check('when local blanking is claimed it states the three cases: recognised, held on its own, nothing changed', () => {
+  if (!claimsLocal()) return true;
+  const held = paragraph('Records it does not recognise.'), none = paragraph('When nothing can be changed.'), every = paragraph('In every case');
+  return /A record the cleanup does not recognise, or cannot process within its limits, is left exactly as it is, text included\. It is held on its own and never uploaded, and the recognised records in the same file are still blanked\. The cleanup then reports itself as incomplete\./.test(held)
+    && /In the addon, three kinds are always held this way: its copies of another addon's records, records of an unknown shape, and held transfer records of an old form\./.test(held)
+    && /If the saved data is damaged in its structure, or the cleanup's own bookkeeping would pass its limits, the cleanup changes nothing and the old data stays exactly as it was\. In the addon, the same happens when the saved data is larger than the addon's size limits\./.test(none)
+    && /In the Watcher, a large amount of unrelated history does not stop the cleanup: the recognised receipt records are still blanked and the rest stays unchanged\./.test(none)
+    && /The Watcher also leaves its copy unchanged when it finds an unfinished save from an earlier run, and tries again at a later start\./.test(none)
+    && /^In every case, nothing held is uploaded\. When its own cleanup is incomplete, the Watcher says so in one line when it starts, with counts and no names or text\.$/.test(every)
+    // The superseded single-exception sentence is gone, and no sentence says every Watcher file beyond its limits is left whole.
+    && !/too large to process safely/.test(section) && !/Watcher[^.]*(?:larger|too large|size limits)[^.]*(?:changes nothing|as it is|stays exactly)/.test(section)
+    && !/(?:always|every record|without exception)[^.]*blank|blank[^.]*(?:always|every record|without exception)/i.test(section)
+    || { held: held.slice(0, 160), none: none.slice(0, 160), every };
+});
+check('the addon cleanup, as committed: recognised text blanked with the rest kept, mirrored, unknown and old-form records held unchanged and blocked, incomplete reported; damage or size limits change nothing (behaviour, Lua)', () => {
+  const got = lua([helperLua()], `local P=OlympusVerifyLocalPrivacy280
+local R1,M1,U1,R2,R3=("1"):rep(24),("2"):rep(24),("3"):rep(24),("4"):rep(24),("5"):rep(24)
+local function entry(id,note) return {id=id,type="donation",source="mail",character="Synthetic Payer",requestedAt=1700000000,status="done",donation={copper=900,items={{name="Synthetic item",count=2}},note=note}} end
+local function file()
+ local d={version=1,nextId=0,entries={},dedup={},acknowledgements={},bridgeMetadata={}}
+ d.entries[R1]=entry(R1,"PRIV_R1"); d.entries[M1]=entry(M1,"PRIV_M1"); d.bridgeMetadata[M1]={source="OlympusDB"}
+ d.entries[U1]={id=U1,type="donation",source="mystery-source",donation={copper=1,note="PRIV_U1"}}
+ d.heldTransfers627={["untyped-1"]={context={kind="mail",body="PRIV_C1"},reason="held",heldAt=1}}
+ d.mailCollection242={contextVersion=1,kind="mail",transferId=R2,header={sender="Synthetic Payer",subject="PRIV_SUBJ"},body="PRIV_BODY",mailFingerprint=("f"):rep(64),key=("e"):rep(64)}
+ d.tradeCollection242={contextVersion=1,kind="trade",transferId=R3,note="PRIV_TRADE"}
+ return {intake242=d}
+end
+local root=file(); local before=root.intake242
+local origM,origU,origH=before.entries[M1],before.entries[U1],before.heldTransfers627["untyped-1"]
+local ok,reason=P.Ensure(root); local d=root.intake242; local s=P.Status(root); local r=d.entries[R1]
+local out={ok=ok,reason=reason,swapped=d~=before,r1note=r.donation.note,
+ r1kept=r.id==R1 and r.character=="Synthetic Payer" and r.requestedAt==1700000000 and r.status=="done" and r.donation.copper==900 and r.donation.items[1].name=="Synthetic item" and r.donation.items[1].count==2,
+ mirroredSame=d.entries[M1]==origM and origM.donation.note=="PRIV_M1",unknownSame=d.entries[U1]==origU and origU.donation.note=="PRIV_U1",
+ oldFormSame=d.heldTransfers627["untyped-1"]==origH and origH.context.body=="PRIV_C1",
+ mailBody=d.mailCollection242.body,mailSubject=d.mailCollection242.header.subject,mailSender=d.mailCollection242.header.sender,
+ checksumKept=d.mailCollection242.mailFingerprint==("f"):rep(64) and d.mailCollection242.key==("e"):rep(64),
+ tradeNote=d.tradeCollection242.note,noChecksumMade=d.tradeCollection242.key==nil and d.tradeCollection242.mailFingerprint==nil and r.key==nil,
+ heldItems=s.heldItems,complete=s.complete,heldStatus=s.held,
+ blocked=P.Blocked(root,M1,d.entries[M1]) and P.Blocked(root,U1,d.entries[U1]) and P.Blocked(root,R1,r)}
+local function whole(mutate)
+ local f=file(); mutate(f.intake242); local b=f.intake242; local k,why=P.Ensure(f); local st=P.Status(f)
+ return {ok=k,reason=why,same=f.intake242==b,note=f.intake242.entries[R1].donation.note,body=f.intake242.mailCollection242.body,held=st.held}
+end
+out.cycle=whole(function(x) local t={} t.self=t x.extra=t end)
+out.size=whole(function(x) local t={} for i=1,65537 do t[i]={} end x.extra=t end)
+out.bookkeeping=whole(function(x) x.localCorrespondence280={version=1,purpose="financial-correspondence-local-only-v1",damaged=true} end)
+return out`);
+  const want = {
+    ok: false, reason: 'scoped-minimization-incomplete', swapped: true, r1note: '', r1kept: true, mirroredSame: true, unknownSame: true, oldFormSame: true,
+    mailBody: '', mailSubject: '', mailSender: 'Synthetic Payer', checksumKept: true, tradeNote: '', noChecksumMade: true, heldItems: 3, complete: false, heldStatus: true, blocked: true,
+    cycle: { ok: false, reason: 'cycle', same: true, note: 'PRIV_R1', body: 'PRIV_BODY', held: true },
+    size: { ok: false, reason: 'table-capacity', same: true, note: 'PRIV_R1', body: 'PRIV_BODY', held: true },
+    bookkeeping: { ok: false, reason: 'privacy-metadata-format', same: true, note: 'PRIV_R1', body: 'PRIV_BODY', held: true },
+  };
+  const order = o => JSON.stringify(o, Object.keys(o).sort().concat(['ok', 'reason', 'same', 'note', 'body', 'held']));
+  const held = paragraph('Records it does not recognise.'), none = paragraph('When nothing can be changed.');
+  return /is left exactly as it is, text included\. It is held on its own and never uploaded, and the recognised records in the same file are still blanked\. The cleanup then reports itself as incomplete\./.test(held)
+    && /In the addon, three kinds are always held this way: its copies of another addon's records, records of an unknown shape, and held transfer records of an old form\./.test(held)
+    && /If the saved data is damaged in its structure, or the cleanup's own bookkeeping would pass its limits, the cleanup changes nothing and the old data stays exactly as it was\. In the addon, the same happens when the saved data is larger than the addon's size limits\./.test(none)
+    && order(got) === order(want) || got;
+});
+check('the Watcher cleanup, as committed: recognised text blanked, an unrecognised row held unchanged, unrelated oversized history does not stop it, damage or an unfinished save changes nothing (behaviour, Python)', () => {
+  const got = py([
+    'import local_correspondence280 as lc',
+    'class S:',
+    '    def __init__(self, d, path=None): self.d = d; self.path = path; self.saved = 0',
+    '    def save(self): self.saved += 1',
+    "def row(eid, note, sha=True):",
+    "    r = {'body': {'id': eid, 'type': 'donation', 'source': 'mail', 'character': 'Synthetic Payer', 'requestedAt': 1700000000, 'donation': {'copper': 900, 'items': [{'name': 'Synthetic item', 'count': 2}], 'note': note}}, 'state': 'done'}",
+    "    if sha: r['sha256'] = 'a' * 64",
+    '    return r',
+    "def restored(r):",
+    "    r = copy.deepcopy(r); r.pop(lc.FIELD, None); return r",
+    'out = {}',
+    "led = {'r1': row('r1', 'PRIV_R1'), 'r2': row('r2', 'PRIV_R2', sha=False), 'bad': row('bad', 'PRIV_BAD')}",
+    "led['bad']['body']['surprise'] = 1",
+    "cand, st = lc.prepare(S({'intake242': copy.deepcopy(led)}), 1800000000)",
+    "L = cand['intake242']",
+    "r1 = restored(L['r1']); r1['body']['donation']['note'] = 'PRIV_R1'",
+    "out['mixed'] = dict(complete=st['complete'], blanked=st['blankedNotes'], held=st['heldRows'], note=L['r1']['body']['donation']['note'], rest=r1 == led['r1'], sha=L['r1'].get('sha256') == 'a' * 64, noShaMade='sha256' not in L['r2'], bad=L['bad'] == led['bad'], localOnly=lc.local_only(L['r1']) and lc.local_only(L['bad']))",
+    "big = {'r1': row('r1', 'PRIV_R1'), 'history': {'body': {'type': 'verify', 'list': [0] * 270000}}}",
+    "cand, st = lc.prepare(S({'intake242': copy.deepcopy(big)}), 1800000000)",
+    "out['oversized'] = dict(complete=st['complete'], blanked=st['blankedNotes'], note=cand['intake242']['r1']['body']['donation']['note'], history=cand['intake242']['history'] == big['history'])",
+    "cand, st = lc.prepare(S({'intake242': [row('r1', 'PRIV_R1')]}), 1800000000)",
+    "out['damaged'] = dict(candidate=cand is None, complete=st['complete'], blanked=st['blankedNotes'])",
+    'with tempfile.TemporaryDirectory() as tmp:',
+    "    p = pathlib.Path(tmp) / 'watcher-state.json'; p.with_suffix('.tmp').write_text('{}', encoding='utf-8')",
+    "    s = S({'intake242': {'r1': row('r1', 'PRIV_R1')}}, p); st = lc.initialize(s)",
+    "    out['staging'] = dict(reason=st['reason'], complete=st['complete'], note=s.d['intake242']['r1']['body']['donation']['note'], saved=s.saved)",
+    'print(json.dumps(out, sort_keys=True))',
+  ]);
+  const want = {
+    damaged: { blanked: 0, candidate: true, complete: false },
+    mixed: { bad: true, blanked: 2, complete: false, held: 1, localOnly: true, noShaMade: true, note: '', rest: true, sha: true },
+    oversized: { blanked: 1, complete: false, history: true, note: '' },
+    staging: { complete: false, note: 'PRIV_R1', reason: 'local-privacy-staging-present', saved: 0 },
+  };
+  const none = paragraph('When nothing can be changed.');
+  return /In the Watcher, a large amount of unrelated history does not stop the cleanup: the recognised receipt records are still blanked and the rest stays unchanged\./.test(none)
+    && /The Watcher also leaves its copy unchanged when it finds an unfinished save from an earlier run, and tries again at a later start\./.test(none)
+    && /A record the cleanup does not recognise, or cannot process within its limits, is left exactly as it is, text included\./.test(paragraph('Records it does not recognise.'))
+    && JSON.stringify(got) === JSON.stringify(want) || got;
+});
+check('policy timing: the addon cleanup runs when the addon loads, on account-wide saved data; the Watcher cleans its copy at start, before anything else reads it', () => {
+  const core = read('addon/OlympusVerify/OlympusVerify.lua'), toc = read('addon/OlympusVerify/OlympusVerify.toc'), watcher = read('watcher/watcher.py');
+  const p = paragraph('The older text is also removed');
+  const init = /local function InitDB\(\)\n\s*OlympusVerifyDB = OlympusVerifyDB or \{\}\n\s*local db = OlympusVerifyDB\n\s*if OlympusVerifyLocalPrivacy280 then OlympusVerifyLocalPrivacy280\.Ensure\(db\) end/.test(core)
+    && /if event == "ADDON_LOADED" then\n\s*if \.\.\. == ADDON then InitDB\(\) end/.test(core);
+  const accountWide = /^## SavedVariables: OlympusVerifyDB\s*$/m.test(toc) && !/SavedVariablesPerCharacter:[^\n]*OlympusVerifyDB/.test(toc);
+  const start = watcher.indexOf('local_correspondence280.initialize(self.state)'), journal = watcher.indexOf('self.treasury = TreasuryJournal(');
+  return /^The older text is also removed on the collecting officer's computer\. The addon's saved data belongs to the officer's whole game account, not to one character\. The first time the addon loads with this version, on whichever character logs in first, it blanks the old text in memory, including where the text was part of an internal lookup key\. The game writes the change to the saved file at the next normal save: logout, \/reload or quitting the game\. A crash before then writes nothing\. The game keeps the previous file as a backup copy until the save after that\. The Watcher blanks the old text in its own local copy the next time it starts\.$/.test(p)
+    && init && accountWide && start > 0 && journal > start || { init, accountWide, start, journal, p: p.slice(0, 120) };
+});
+check('policy: the Watcher reports an incomplete cleanup in one fixed line with counts only, no names or text', () => {
+  const watcher = read('watcher/watcher.py');
+  const line = /if not self\._local_correspondence_status280\["complete"\]:\n\s*cleanup = self\._local_correspondence_status280\n\s*log\(f"Local correspondence cleanup incomplete: blanked \{cleanup\['blankedNotes'\]\}, held \{cleanup\.get\('heldRows', 0\)\}, reason \{cleanup\['reason'\]\}\. Unsupported originals stay unchanged and local only\. Verification keeps its normal checks\."\)/.test(watcher);
+  return /When its own cleanup is incomplete, the Watcher says so in one line when it starts, with counts and no names or text\./.test(paragraph('In every case'))
+    && line || 'sentence missing, or the incomplete line not found or no longer counts-only';
+});
+check('policy: the cleanup keeps a checksum a record already had and never creates one; none of the three cleanups computes a hash', () => {
+  const p = paragraph('The kept checksum.'), helper = helperLua(), module = read('watcher/local_correspondence280.py'), server = read('worker/src/treasury-note-maintenance280.ts');
+  const code = helper.replace(/^--.*$/gm, '');
+  const noHash = !/sha256|hmac|hashlib/i.test(code) && !/\bH\.|OlympusHmac/.test(code) && !/hashlib|sha256\(|_canonical_body/.test(module)
+    && (server.match(/UPDATE audit SET details=json_set\(details,'\$\.note',''\)/g) || []).length === 1 && (server.match(/UPDATE audit/g) || []).length === 1;
+  return /^The kept checksum\. Where a record already has a checksum made from the original record, including the old text, the cleanup keeps it\. The cleanup never creates a checksum for a record that had none\. This holds on the server, in the addon's file and in the Watcher's copy\./.test(p)
+    && /A checksum cannot be turned back into the text\./.test(p) && /proves nothing about what the text said/.test(p) && /could still test a guessed short text against it/.test(p)
+    && !/each keep a checksum/.test(section) && noHash || { noHash, p: p.slice(0, 200) };
+});
+
+// ---------- 8. role removals Discord refused, and the guild-wide pause ----------
+// fdf2158 (role-delete-refusal280.ts, role-settlements.ts persistDeleteRefusal280): a closed Discord refusal of a role
+// DELETE turns the original row into state 'held' with a closed reason; a 429 also writes one service setting.
+let roleMod = null;
+try {
+  const { buildSync } = require(require.resolve('esbuild', { paths: [worker] }));
+  const entry = [
+    "export {betaResetReceiptRetentionStatements} from './src/beta-reset-retention.ts';",
+    "export {betaProvenanceRetentionStatements} from './src/qr-beta-fern-data.ts';",
+    "export {qrErasureStatements} from './src/qr-phase1-data.ts';",
+    "export * from './src/role-delete-refusal280.ts';",
+    "export {CANONICAL_RANKS233,CANONICAL_GUILD233} from './src/canonical-ranks233.ts';",
+    "export {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES,DIRECTIVE_CANONICAL_INDEX} from './src/native-rank-constants.ts';",
+  ].join('\n');
+  const out = buildSync({ stdin: { contents: entry, resolveDir: worker, loader: 'ts' }, bundle: true, write: false, format: 'cjs', platform: 'node', target: 'es2022', logLevel: 'silent' });
+  const m = { exports: {} };
+  new Function('module', 'exports', 'require', out.outputFiles[0].text)(m, m.exports, require);
+  roleMod = m.exports;
+} catch (error) { console.log('role bundle failed: ' + String(error).slice(0, 300)); }
+check('policy: a refused role removal stays held; the yearly cleanup leaves it and an account erasure removes it (behaviour, node:sqlite on schema.sql)', () => {
+  if (!roleMod) return 'bundle unavailable';
+  const m = roleMod, db = new DatabaseSync(':memory:');
+  db.exec(read('worker/schema.sql'));
+  const policy = JSON.stringify({ version: 2, enabled: true, profile: m.DIRECTIVE_CANONICAL_PROFILE, guildId: m.CANONICAL_GUILD233, ranks: m.CANONICAL_RANKS233.map(r => ({ ...r, permissions: '0' })) });
+  const env = { GUILD_ID: m.CANONICAL_GUILD233, CANONICAL_RANKS233: policy, NATIVE_RANK_SYNC232: 'off', DB: fakeEnv().DB };
+  const created = now() - 2 * 366 * 86400, rank = 5, role = m.CANONICAL_RANKS233[m.DIRECTIVE_CANONICAL_INDEX[rank]].roleId;
+  const ins = db.prepare(`INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,claim_nonce,subject_generation,request_digest,roster_id,native_guid,native_profile,native_rank,native_rank_name,attempts,created_at,expires_at,checked_at)
+    VALUES(?,?,?,?,?,?,?,'held',?,?,NULL,?,?,?,?,?,?,1,?,?,?)`);
+  const hex = (c, n) => c.repeat(n);
+  const reason = (type, status, code, wait) => JSON.stringify({ version: 1, type, status, code, retryAfterSeconds: wait });
+  const native = [1, 'Player-4613-0ABCDEF1', m.DIRECTIVE_CANONICAL_PROFILE, rank, m.DIRECTIVE_RANK_NAMES[rank]];
+  // The yearly cleanup's own eligible shape (a held removal that was never sent) proves the cleanup ran and matched.
+  ins.run(hex('a', 32), '300000000000000021', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 1, 'canonical233_never_dispatched', hex('b', 32), hex('c', 64), ...native, created, created + 300, created + 1);
+  ins.run(hex('d', 32), '300000000000000022', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 0, reason(m.CANONICAL_DELETE_REFUSAL280, 403, 50013, 0), hex('e', 32), hex('f', 32), ...native, created, created + 300, created + 1);
+  ins.run(hex('1', 32), '300000000000000023', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 0, reason(m.CANONICAL_DELETE_REFUSAL280, 429, null, 30), hex('2', 32), hex('3', 32), ...native, created, created + 300, created + 1);
+  ins.run(hex('4', 32), '300000000000000024', 'canonical_ban_remove_v1', hex('5', 32), m.CANONICAL_GUILD233, role, 0, reason(m.BAN_DELETE_REFUSAL280, 404, 10007, 0), hex('6', 32), hex('7', 64), null, null, 'olympus-ban-rank-removal-20261112-v1', null, null, created, created + 300, created + 1);
+  const refusals = [hex('d', 32), hex('1', 32), hex('4', 32)];
+  // Each refusal row is exactly what Codex's reader recognises as a recorded refusal.
+  const recognised = db.prepare(`SELECT id FROM role_settlements r WHERE (${m.canonicalDeleteRefusalSql280('r')}) OR (${m.banDeleteRefusalSql280('r')}) ORDER BY id`).all().map(r => r.id);
+  for (const st of [...m.betaResetReceiptRetentionStatements(env), ...m.betaProvenanceRetentionStatements(env)]) db.prepare(st.sql).run(...st.args);
+  const afterYearly = db.prepare('SELECT id FROM role_settlements ORDER BY id').all().map(r => r.id);
+  const erased = {};
+  for (const id of refusals) {
+    const subject = db.prepare('SELECT subject FROM role_settlements WHERE id=?').get(id).subject, [admit, del] = m.qrErasureStatements(env, subject);
+    erased[id] = db.prepare(admit.sql).get(...admit.args).admitted === 1 && db.prepare(del.sql).run(...del.args).changes === 1;
+  }
+  const p = paragraph('Guild role synchronization') || /Guild role synchronization\.([^<]*)/.exec(html.replace(/<\/?strong>/g, ''))?.[1] || '';
+  return /A role removal that Discord refused with a complete answer stays as a held record with Discord's status and error code, and no message text; the yearly cleanup does not remove it, so it stays until the account is erased\./.test(p)
+    && JSON.stringify(recognised) === JSON.stringify([...refusals].sort()) && JSON.stringify(afterYearly) === JSON.stringify([...refusals].sort())
+    && Object.values(erased).every(Boolean) && db.prepare('SELECT COUNT(*) AS n FROM role_settlements').get().n === 0
+    && (read('worker/src/role-settlements.ts').match(/UPDATE role_settlements SET state='held',reason=\?\$\{reasonAt\},checked_at=\?\$\{checkedAt\}/g) || []).length === 1
+    || { recognised, afterYearly, erased };
+});
+check('only the yearly cleanup and the erasure delete role records: the source has exactly those four role-record DELETE statements', () => {
+  const dir = path.join(worker, 'src'), hits = [];
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.ts'))) for (const _ of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/DELETE FROM role_settlements/g)) hits.push(f);
+  return /the yearly cleanup does not remove it, so it stays until the account is erased\./.test(html)
+    && JSON.stringify(hits.sort()) === JSON.stringify(['beta-reset-retention.ts', 'beta-reset-retention.ts', 'qr-beta-fern-data.ts', 'qr-phase1-data.ts']) || hits;
+});
+check('policy: after a recorded rate-limit reply, normal rank-role synchronization waits up to a day, in one setting that names no one; erasure does not use the wait (behaviour, node:sqlite)', () => {
+  if (!roleMod) return 'bundle unavailable';
+  const m = roleMod, db = new DatabaseSync(':memory:');
+  db.exec(read('worker/schema.sql'));
+  const allowed = () => db.prepare(`SELECT CASE WHEN ${m.managedRankCooldownAllowedSql280()} THEN 1 ELSE 0 END AS ok`).get().ok;
+  const before = allowed();
+  db.prepare("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES(?,?,?,NULL)").run(m.MANAGED_RANK_COOLDOWN280, JSON.stringify({ version: 1, due: now() + 600 }), now());
+  const during = allowed();
+  db.prepare('UPDATE site_settings SET value=? WHERE key=?').run(JSON.stringify({ version: 1, due: now() - 1 }), m.MANAGED_RANK_COOLDOWN280);
+  const after = allowed();
+  const withName = m.readManagedRankCooldown280(JSON.stringify({ version: 1, due: 5, subject: '300000000000000021' }));
+  const pacing = [m.roleDeletePacing280(1000.5, 86400, null), m.roleDeletePacing280(1000, 86401, null)];
+  const src = read('worker/src/role-settlements.ts'), deletes = fs.readdirSync(path.join(worker, 'src')).filter(f => f.endsWith('.ts')).some(f => /DELETE FROM site_settings[^`]*cooldown280|DELETE FROM site_settings[^`]*MANAGED_RANK_COOLDOWN280/.test(fs.readFileSync(path.join(worker, 'src', f), 'utf8')));
+  const p = /Guild role synchronization\.([^<]*)/.exec(html.replace(/<\/?strong>/g, ''))?.[1] || '';
+  return /When Discord answers a role removal with a complete rate-limit reply and the bot has recorded that reply, the bot's normal automatic rank-role synchronization for the guild waits until the end time Discord asked for, at most one day away; it keeps that end time and when it was set in one setting that names no one\. Account erasure and its role cleanup do not use this wait\. If the reply or its recording could not be confirmed, no wait is set and the change stays held for review\./.test(p) && !/pauses its automatic rank-role changes for the whole guild/.test(p)
+    && before === 1 && during === 0 && after === 1 && withName === null && !/\?\d/.test(m.managedRankCooldownAllowedSql280())
+    && pacing[0] && pacing[0].retryAfterSeconds <= 86401 && pacing[1] === null
+    && /json_object\('version',1,'due',CAST\(\?\$\{dueAt\} AS INTEGER\)\),\$\{DB_NOW\},NULL/.test(src) && !deletes
+    // Not written, because the source does not do it: that the setting itself is deleted after a day.
+    && !/(?:setting|pause)[^.]*(?:deleted|removed|kept at most)[^.]*day/.test(p)
+    || { before, during, after, withName, pacing, deletes };
 });
 
 Promise.all(results).then(done => {
