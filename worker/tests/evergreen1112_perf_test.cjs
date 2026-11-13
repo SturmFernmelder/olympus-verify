@@ -343,6 +343,17 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   check('CL2-076 echo: the ordinary signed-in page is still compressed', again.status === 200 && again.h('Content-Encoding') === 'gzip' && !!bootOf(gunzip(again.bytes)));
   const anonEcho = await raw(null, '/auth/callback?error=' + encodeURIComponent(ECHO), { headers: { 'Accept-Encoding': 'gzip' } });
   check('CL2-076 echo: signed out, the callback error answer is unchanged (sign-in page, not compressed by the Worker, no Vary: Accept-Encoding)', anonEcho.status === gate.status && !anonEcho.h('Content-Encoding') && !/accept-encoding/i.test(anonEcho.h('Vary') || '') && anonEcho.h('Cache-Control') === gate.h('Cache-Control') && /Enter Olympus/.test(anonEcho.bytes.toString('utf8')), anonEcho.status + ' ' + anonEcho.h('Cache-Control'));
+  // Second review (13 Nov 2026), finding 4: the 'fixed' decision covers only what reaches the page through page()'s
+  // extra argument. This pins the assumption that the compressed page reads nothing else from the request: a probe
+  // in the query string ("to" is left out, it is the 303 return target), in request headers and in non-session cookies
+  // (the state cookie among them) must not appear in the decoded document.
+  const PROBE = 'Zq7ProbeEcho' + 'k'.repeat(12) + 'Guess';
+  const probed = await raw(MEMBER, '/?probe=' + PROBE + '&error=' + PROBE + '&view=' + PROBE + '&q=' + PROBE, { headers: {
+    'Accept-Encoding': 'gzip', Cookie: (await cookieFor(MEMBER)) + '; olyprobe=' + PROBE + '; __Host-olg_state=' + PROBE,
+    'X-Probe': PROBE, Referer: 'https://guild.example/' + PROBE, 'User-Agent': 'Mozilla/5.0 ' + PROBE, 'Accept-Language': 'en-' + PROBE.slice(0, 8), 'X-Forwarded-For': PROBE } });
+  const probedHtml = gunzip(probed.bytes), probedBoot = bootOf(probedHtml);
+  report.cl2076.probe = { status: probed.status, contentEncoding: probed.h('Content-Encoding'), decoded: probedHtml.length, signedIn: !!probedBoot && probedHtml.includes('/static/app.js' + V), found: probedHtml.includes(PROBE), foundShort: probedHtml.includes(PROBE.slice(0, 8)) };
+  check('CL2-076 echo: a probe in the query string, request headers and non-session cookies is absent from the compressed signed-in page', probed.status === 200 && probed.h('Content-Encoding') === 'gzip' && report.cl2076.probe.signedIn && !report.cl2076.probe.found && !report.cl2076.probe.foundShort, report.cl2076.probe);
   // Sign-out: the browser may keep its copy of the script (owner-accepted), but nothing it asks for is answered.
   const OUT = '300000000000000008';
   await seedUser(OUT, 'Out Going'); await checkedAt(OUT, now);
