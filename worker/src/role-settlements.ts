@@ -2424,7 +2424,10 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
     const confirmed=read&&!after?.roles.includes(a.role);let receipt=false;
     if(confirmed){try{const r=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='settled',reason='ban_rank1112_delete_acknowledged_and_confirmed',checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching' AND (${g.sql}) RETURNING *,NULL AS beta_window_id`).bind(...a.row),a.checks);a.checks();r.check();receipt=r.intent?.id===a.row[0]&&r.intent.state==='settled';}catch{receipt=false;}}
     if(receipt){removed.push(a.role);continue;}
-    const reason=read&&!confirmed?'ban_rank1112_effect_not_confirmed':interrupted?'ban_rank1112_interrupted_after_ack':!read?'ban_rank1112_confirmation_unknown':'ban_rank1112_receipt_unknown';
+    // Follow-up REV-BAN-2 (12 Nov 2026): a read that confirmed the role absent but whose receipt could not be written is
+    // receipt_unknown whether or not the visit was interrupted; interrupted_after_ack is only for a missing confirming
+    // read. Every branch still records the row unknown (fail-closed); only the reason differs.
+    const reason=read&&!confirmed?'ban_rank1112_effect_not_confirmed':read?'ban_rank1112_receipt_unknown':interrupted?'ban_rank1112_interrupted_after_ack':'ban_rank1112_confirmation_unknown';
     try{await effect.DB.prepare(`UPDATE role_settlements SET state='unknown',reason=?13,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state IN('dispatching','settled')`).bind(...a.row,reason).run();}catch{}
     unknown.push(Object.freeze({role:a.role,reason:reason.replace('ban_rank1112_','')}));
    }
