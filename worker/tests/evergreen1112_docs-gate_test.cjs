@@ -139,7 +139,9 @@ async function budget() {
   // 0984102 ("do not pin the old dfca plan strings"): the promotions target now records scans but fails on none. That is
   // a lost guarantee of the gate, reported to Codex; it is the separate check below and stays red until a current
   // allow-list is enforced again (or the documents stop claiming one).
-  check('the promotions target explains every table and pins each known scan exactly',
+  // Round 5 gate review: renamed from "...explains every table and pins each known scan exactly"; the pin is the
+  // LOST GUARANTEE check below.
+  check('the promotions target explains every table of the page, display and ingest with no unresolved alias, and plans and times the display reads before the ingest writes',
     runtime.includes('await fullScans(genuine, log)') && runtime.includes('result.explained === log.length && result.explained > 0 && result.unresolved.length === 0')
     && ['page', 'display', 'ingest'].every(name => runtime.includes("await explain('" + name + "', " + name + '.log)'))
     && runtime.indexOf("await explain('display'") < runtime.indexOf("call('POST', '/ingest/roster") && runtime.indexOf("timedOriginal('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
@@ -162,7 +164,9 @@ async function budget() {
   // removed with the allow-list (see the lost-guarantee check above). Where the runtime still names the members scan it
   // must attribute it the same way; the documented row is checked as before, against the plan proven above.
   const runtimeNames = /SCAN m\b/.test(runtime);
-  check('the known-scans table and the runtime comment attribute the members scan to BOUND_AND_NOTE_SELECT',
+  // Round 5 gate review: renamed from "the known-scans table and the runtime comment attribute..."; the runtime half
+  // applies only while the runtime names the scan (today it does not, so only the documented row is pinned).
+  check('the known-scans table attributes the members scan to BOUND_AND_NOTE_SELECT, and so does the runtime wherever it names that scan',
     memberRow.includes('BOUND_AND_NOTE_SELECT') && /UNION ALL[^|]*banned=0/.test(memberRow)
     && (!runtimeNames || /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime)));
   check('the promotions target fails unless all sixteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===16'));
