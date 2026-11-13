@@ -1312,7 +1312,7 @@ auditRules("role.backfilled role.blocked role.blocked_removed role.misconfigured
 // four roster writers below include discordId in their detail; this is deliberately not an all-actions ID allowance.
 auditRules("role.remove_failed", "id-or-character");
 // Ban rank-role removal (owner ruling, 12 Nov 2026): counts only, never role IDs or the reason text.
-auditRules("role.ban_rank1112", "id", { state: ["settled", "held", "unknown"], removed: "count", held: "count", unknown: "count", deferred: "count", raced: "boolean", requests: "count" });
+auditRules("role.ban_rank1112", "id", { state: ["settled", "held", "unknown"], removed: "count", held: "count", unknown: "count", deferred: "count", raced: "boolean", requests: "count", dispatched: "count", observed: "count" });
 auditRules("role.add_failed role.deferred role.refused_banned roles.read_failed", "character", { discordId: "id" });
 auditRules("role.backfill_page role.sweep_failed", "none");
 auditRules("role.budget_exhausted", "none", { attempts: "count", calls: "count", retries: "count", limit: "count" });
