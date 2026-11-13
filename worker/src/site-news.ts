@@ -79,6 +79,14 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".280", date: "2026-11-13", lines: [
+      "Guild tools keep verification, roster checks and promotion controls consistent with the current rank rules. Promotions still require fresh evidence and a deliberate officer click.",
+      "Roster discovery remains useful while rank evidence is held. The addon and Watcher must be updated together to 0.6.38.",
+      "Supported older financial correspondence is blanked locally. Unsupported originals remain held, and member downloads leave out mail receipts.",
+      "Roles, governance pages and calendar controls have clearer wording and improved phone layouts.",
+    ],
+  },
+  {
     build: ".279", date: "2026-11-12", lines: [
       "Verify 0.6.37 preserves actual session promotion history at the save boundary and records current native rank observations separately from missing older receipts.",
       "Guild-tab controls distinguish a ready promotion, a needed readiness check and a held prior attempt. Each promotion still needs one deliberate click and a native rank confirmation.",
