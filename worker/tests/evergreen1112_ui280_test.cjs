@@ -26,7 +26,7 @@ const runUi280=String.raw`
  const rows=[R('Synthetic Leader','Player-1-0001',0),R('Synthetic Far Knight','Player-1-0002',9),R('Synthetic Near Knight','Player-1-0003',6),R('Synthetic Initiate','Player-1-0004',9),R('Synthetic Alt','Player-1-0005',8),R('Synthetic Newcomer','Player-1-0006',9,'unverified')];
  const knights=new Map([['Player-1-0002','knight'],['Player-1-0003','knight'],['Player-1-0004','non-knight'],['Player-1-0005','non-knight']]);
  const wire=v=>JSON.parse(JSON.stringify(v));
- const ready=()=>{const d=wire(ops.projectLaunchOperations229({snapshotId:7,snapshotAt:at,memberCount:rows.length,guild:'OLYMPUS PRIME',realm:'Fixture Realm',scopeHash:'a'.repeat(16),nativeRankTable:{version:1,names:[...NAMES]}},rows,knights,at,at+60));d.scan={id:'b'.repeat(32),startedAt:at,expiresAt:at+600};d.pageCursor='synthetic-page0';return d;};
+ const ready=()=>{const d=wire(ops.projectLaunchOperations229({snapshotId:7,snapshotAt:at,memberCount:rows.length,guild:'OLYMPUS PRIME',realm:'Fixture Realm',scopeHash:'a'.repeat(16),nativeRankTable:{version:1,names:[...NAMES]}},rows,knights,at,at+60));d.scan={id:'b'.repeat(32),startedAt:at,expiresAt:at+600};d.pageCursor='synthetic-page0.'+'0'.repeat(64);return d;}; // round 4: in the reader's cursor alphabet
  const heldPage=()=>wire(ops.projectLaunchOperations229(null,[],new Map(),at,at+60));
  const OLD=['Guild Master','Stewart','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Initiate'];
  // The v233 page as the previous producer shaped it (dfca7a2 launch-operations229.ts: targets 6 and 8, no rank fields).
@@ -529,6 +529,56 @@ const runUi280=String.raw`
   const extraHeld=page.app.textContent.includes('could not be confirmed')&&!page.app.querySelector('[data-launch-invite233]');
   check('I3 a page with only a v242 row is shown; a page with an unknown source or a v242 row carrying an extra field is refused as a whole',only242&&unknownHeld&&extraHeld,JSON.stringify({only242,unknownHeld,extraHeld}));
   page.intercept(null);
+ }
+
+ // ---------------------------------------------------------------- Round 4, item 1: the generic page cursor bound
+ console.log('\n== Part J: the launch page cursor bound is the generic reader\'s (round 4) ==');
+ {
+  // The generic admin route reads its cursor with readCursor229 (worker/src/site-launch229.ts); the bound and the
+  // alphabet are read from that source, so the page cannot drift from the reader without this check failing.
+  const READER_SRC=fs.readFileSync(path.join(root,'src','site-launch229.ts'),'utf8');
+  const readerFn=(/async function readCursor229\([\s\S]*?\n\}/.exec(READER_SRC)||[''])[0];
+  const m=/raw\.length>(\d+)\|\|!\/(.+?)\/\.test\(raw\)/.exec(readerFn),READER_MAX=m?Number(m[1]):NaN,READER_RE=m?new RegExp(m[2]):/(?!)/;
+  const DIRECTIVE_MAX=Number((/async function directiveCursor\([\s\S]*?raw\.length>(\d+)/.exec(READER_SRC)||[])[1]);
+  // Codex's evidence (13 Nov 2026): the genuine generic reader on local Workerd/D1, 1,000 members, a late provider 429
+  // after 19 role reads; the partial page it returned, byte for byte.
+  const CODEX_RAW=fs.readFileSync(path.join(__dirname,'evergreen1112_ui280_cursor_page.json'),'utf8'),CODEX=JSON.parse(CODEX_RAW),CODEX_CURSOR=CODEX.pageCursor;
+  const shaped=len=>'A'.repeat(len-65)+'.'+'a'.repeat(64);
+  const SHORT=shaped(200);
+  const outside=[['a plus sign (standard base64)',SHORT.slice(0,10)+'+'+SHORT.slice(11)],['a slash',SHORT.slice(0,10)+'/'+SHORT.slice(11)],['base64 padding',SHORT.slice(0,134)+'='+SHORT.slice(135)],
+   ['a space',SHORT.slice(0,10)+' '+SHORT.slice(11)],['a percent sign',SHORT.slice(0,10)+'%'+SHORT.slice(11)],['an upper-case MAC',SHORT.slice(0,136)+'A'.repeat(64)],
+   ['a 63-character MAC',SHORT.slice(0,-1)],['no MAC',SHORT.slice(0,135)],['a second dot',SHORT.slice(0,10)+'.'+SHORT.slice(11)],['a line break',SHORT+'\n']];
+  const L4=page.window.OlympusLaunch234,has=!!L4&&typeof L4.pageCursorShape==='function';
+  const samples=[CODEX_CURSOR,shaped(4096),shaped(4097),shaped(8192),SHORT,...outside.map(x=>x[1])];
+  check('J0 the page\'s cursor bound and alphabet are the generic reader\'s: 4,096 characters, base64url body, dot, 64-hex MAC (and the directive\'s 8,192 is a different wire)',has&&READER_MAX===4096&&L4.PAGE_CURSOR_MAX===READER_MAX&&DIRECTIVE_MAX===8192&&samples.every(s=>L4.pageCursorShape(s)===(s.length<=READER_MAX&&READER_RE.test(s))),JSON.stringify({READER_MAX,DIRECTIVE_MAX,max:L4&&L4.PAGE_CURSOR_MAX,re:m&&m[2]}));
+  check('J1 the module admits Codex\'s 3,420-character cursor and one of exactly 4,096; it refuses 4,097, 8,192, a non-string and every character outside the alphabet',has&&CODEX_CURSOR.length===3420&&L4.pageCursorShape(CODEX_CURSOR)&&L4.pageCursorShape(shaped(4096))&&shaped(4096).length===4096&&L4.pageCursorShape(SHORT)
+   &&!L4.pageCursorShape(shaped(4097))&&!L4.pageCursorShape(shaped(8192))&&![null,undefined,4096,['x']].some(v=>L4.pageCursorShape(v))&&outside.every(([,s])=>!L4.pageCursorShape(s)),has?JSON.stringify(outside.filter(([,s])=>L4.pageCursorShape(s)).map(([n])=>n)):'no pageCursorShape');
+  // The admin route in the page, with the page clock at Codex's fetch time so the captured page is current as captured.
+  let t0=Date.now(),reads=[],answer=()=>CODEX_RAW;
+  const pg=await openPage(STAFF,{},{clockNow:()=>CODEX.fetchedAt*1000+(Date.now()-t0)});
+  pg.intercept((url,init)=>{if(url.startsWith('/api/admin/launch-operations')){reads.push(url);return new Response(answer(),{status:200});}return null;});
+  const openAt=async body=>{answer=()=>body;reads=[];t0=Date.now();await pg.go('#/');await pg.go('#/admin/launch-operations');if(!pg.window.OlympusLaunch234)await supply(pg);
+   await waitFor(()=>!!pg.app.querySelector('#launch-motd229')||pg.app.textContent.includes('could not be confirmed')||!!pg.app.querySelector('[data-launch234-held]'),'cursor bound page',8000);for(let i=0;i<3;i++)await settle();};
+  const shownPage=()=>!pg.app.textContent.includes('could not be confirmed')&&!!pg.app.querySelector('#launch-motd229')&&pg.app.querySelectorAll('[data-launch-promotion229]').length===19;
+  const heldPage=()=>pg.app.textContent.includes('Current launch evidence could not be confirmed')&&!pg.app.querySelector('#launch-motd229')&&!pg.app.querySelector('[data-launch-promotion229]')&&!pg.app.querySelector('[data-launch-advisory229]')&&reads.length===1;
+  await openAt(CODEX_RAW);
+  const firstView={shown:shownPage(),held:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229]').length,progress:pg.app.querySelector('[data-launch-progress229]')?.textContent||'',rate:!!pg.app.querySelector('[data-launch234-hold="discord-rate-limited"]'),more:byText(pg.app,'button','Load next 20 role checks')?.hidden,recheck:!!pg.app.querySelector('#launch-recheck229-0')&&!pg.app.querySelector('#launch-recheck229-0').disabled,reads:reads.length};
+  check('J2 Codex\'s real partial page (3,420-character cursor after a late 429) renders: 19 current promotions, 20 of 1000 examined, the slow-down hold in plain words, no next page, Recheck available',firstView.shown&&firstView.progress.startsWith('Discovery partial: 20 of 1000')&&firstView.rate&&firstView.more===true&&firstView.recheck&&firstView.reads===1,JSON.stringify({...firstView,text:pg.app.textContent.slice(-500)}));
+  // Discord asked for a 1 s pause (retryAfterSeconds); the retry is the officer's Recheck after it.
+  await new Promise(r=>setTimeout(r,2100));
+  const recheck=pg.app.querySelector('#launch-recheck229-0');if(recheck)recheck.click();for(let i=0;i<6;i++)await settle();await waitFor(()=>reads.length>=2,'the recheck read',4000);for(let i=0;i<3;i++)await settle();
+  const sent=reads[1]||'',sentCursor=sent?new URL('https://fixture.invalid'+sent).searchParams.get('cursor'):null;
+  check('J3 its retry (Recheck this page) sends the original cursor unchanged, byte for byte, in one read, and the page stays shown',reads.length===2&&sent==='/api/admin/launch-operations?cursor='+CODEX_CURSOR&&sentCursor===CODEX_CURSOR&&shownPage(),JSON.stringify({reads:reads.map(r=>r.slice(0,80)+'… ('+r.length+')'),same:sentCursor===CODEX_CURSOR}));
+  const withCursor=c=>JSON.stringify({...CODEX,pageCursor:c});
+  await openAt(withCursor(shaped(4096)));const at4096=shownPage()&&reads.length===1;
+  check('J4 a page whose cursor is exactly 4,096 characters is accepted',at4096,pg.app.textContent.slice(-300));
+  await openAt(withCursor(shaped(4097)));const at4097=heldPage();
+  await openAt(withCursor(shaped(8192)));const at8192=heldPage();
+  check('J5 one character more (4,097) holds the page, and so does a cursor of the directive\'s 8,192: nothing shown, read once',at4097&&at8192,JSON.stringify({at4097,at8192}));
+  const outsideHeld=[];for(const [name,c] of outside){await openAt(withCursor(c));if(!heldPage())outsideHeld.push(name);}
+  await openAt(withCursor(SHORT));const shortShown=shownPage();
+  check('J6 a cursor with a character outside the reader\'s alphabet holds the page ('+outside.length+' cases, each 200 characters or fewer), while the same short cursor in the alphabet is shown',outsideHeld.length===0&&shortShown,JSON.stringify({notHeld:outsideHeld,shortShown}));
+  pg.intercept(null);
  }
  console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;

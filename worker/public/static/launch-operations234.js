@@ -14,6 +14,13 @@
   const TARGETS = Object.freeze({'knight-veteran': {slot: 5, name: 'Veteran', from: [6, 9]}, 'verified-initiate': {slot: 7, name: 'Member', from: [9, 9]}});
   const ROW_KEYS = 'currentSlot,guid,name,reason,targetName,targetSlot';
   const GUID = /^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/;
+  // Round 4 (13 Nov 2026, Codex's counterexample): the page cursor of the generic route exactly as its reader admits
+  // it (worker/src/site-launch229.ts readCursor229: at most 4,096 characters, a base64url body, '.', a 64-hex MAC).
+  // After a late Discord 429 the retry cursor keeps up to 19 identity-bound role reads (3,420 characters in Codex's
+  // 1,000-member run, at most 3,696 under the reader's own field rules), so the old 2,048 bound held real pages.
+  // The selected directive's outer cursor (8,192, directiveCursor) is another wire and is never accepted here.
+  const PAGE_CURSOR_MAX = 4096, PAGE_CURSOR = /^[-_A-Za-z0-9]+\.[a-f0-9]{64}$/;
+  const pageCursorShape = value => typeof value === 'string' && value.length <= PAGE_CURSOR_MAX && PAGE_CURSOR.test(value);
   const plain = value => !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
   const text = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max && !/[\x00-\x1f\x7f]/.test(value);
 
@@ -201,5 +208,5 @@
       promotionTable(of('verified-initiate'), eligible, ui),
     ];
   }
-  window.OlympusLaunch234 = Object.freeze({PROTOCOL, PROFILE, DIGEST, NAMES, INVITE_SOURCES: Object.freeze(Object.keys(INVITE_SOURCES)), assess, promotionShape, inviteShape, inviteWitness, inviteTable, steps, holdText, rowHoldText, heldNotice, holdList, rankFrame, promotionGroups});
+  window.OlympusLaunch234 = Object.freeze({PROTOCOL, PROFILE, DIGEST, NAMES, INVITE_SOURCES: Object.freeze(Object.keys(INVITE_SOURCES)), PAGE_CURSOR_MAX, pageCursorShape, assess, promotionShape, inviteShape, inviteWitness, inviteTable, steps, holdText, rowHoldText, heldNotice, holdList, rankFrame, promotionGroups});
 }());

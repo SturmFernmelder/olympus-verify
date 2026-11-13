@@ -4390,7 +4390,7 @@
         else {
           const e=d.entitlements;
           if(!d.scan||!/^[a-f0-9]{32}$/.test(d.scan.id)||!Number.isSafeInteger(d.scan.startedAt)||!Number.isSafeInteger(d.scan.expiresAt)||d.scan.expiresAt>d.scan.startedAt+600||d.scan.expiresAt>d.snapshotAt+600
-            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||typeof d.pageCursor!=='string'||d.pageCursor.length>2048)throw Error('launch_page_unconfirmed');
+            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||!window.OlympusLaunch234.pageCursorShape(d.pageCursor))throw Error('launch_page_unconfirmed'); // round 4 (13 Nov 2026): the reader's 4,096 bound and alphabet
           for(const r of d.promotions)if(!window.OlympusLaunch234.promotionShape(r))throw Error('launch_target_unconfirmed');
           const inviteIds=new Set(),inviteProofs=new Set();
           // Round 3 (13 Nov 2026): the module admits exactly the two evidence sources the backend projects, each by its own shape.
