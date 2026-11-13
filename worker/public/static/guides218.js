@@ -286,7 +286,8 @@
     function related(id) {
       const items = TOOLS.filter(t => t[0] !== id).map(([tid, name]) => ["#/guides/tools/" + tid, name]);
       if (id === "buffs") items.push(["#/guides/profession/alchemy", "Alchemy guide"], ["#/guides/profession/cooking", "Cooking guide"], ["#/guides/profession/first-aid", "First Aid guide"]);
-      items.push(["#/talents", "Talent calculator"], ["#/addons", "Addons for Forever"], ["#/guides", "Olympus University"]);
+      // The raid team guide names the leaders; their offices are on the Roles page (integrator, 12 Nov 2026).
+      if (id === "raid-structure") items.push(["#/roles/raid_leader", "Raid Leader office"], ["#/roles/class_lead", "Class Lead offices"]);      items.push(["#/talents", "Talent calculator"], ["#/addons", "Addons for Forever"], ["#/guides", "Olympus University"]);
       return el("nav", { class: "card guides218-section", "aria-label": "Related" }, el("h2", { text: "Related" }),
         el("ul", { class: "guides218-list" }, items.map(([href, text]) => el("li", null, link(href, text)))));
     }

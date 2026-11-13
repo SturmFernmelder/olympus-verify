@@ -257,14 +257,43 @@ function answer(box, q, right) {
   box.querySelectorAll('input').find(i => i.id === label.getAttribute('for')).checked = true;
 }
 
-check('renderer: the hub lists classes alphabetically, professions by group, unwritten races, the tools and a scores panel', async () => {
+check('renderer: the hub lists classes Druid to Warrior, races, professions by group, the hub tools, the exam index, scores and resources', async () => {
   const p = await open([]);
   const h2 = p.container.querySelectorAll('h2').map(text), classes = p.container.querySelectorAll('section')[0].querySelectorAll('h3').map(text).map(s => s.trim());
   const groups = p.container.querySelectorAll('h3').map(text).filter(t => ['Primary crafting', 'Gathering', 'Secondary'].includes(t));
-  return text(p.container.querySelector('h1')) === 'Olympus University' && JSON.stringify(classes) === JSON.stringify([...classes].sort())
-    && classes[0] === 'Druid' && classes[8] === 'Warrior' && groups.join() === 'Primary crafting,Gathering,Secondary'
-    && (p.container.textContent.match(/Not written yet\./g) || []).length === 4 && /Warrior is a full course/.test(p.container.textContent) && h2.includes('Your scores') && h2.includes('Raid preparation tools')
-    && p.requests.every(([url, method]) => method === 'GET' && url === '/static/university/index.json') || JSON.stringify({ h2, classes, groups });
+  const hrefs = p.container.querySelectorAll('a').map(a => a.getAttribute('href'));
+  const jumps = p.container.querySelectorAll('button').filter(b => 'data-jump' in b.attrs).map(b => b.getAttribute('data-jump'));
+  const want = ['Class guides', 'Race guides', 'Profession guides', 'Hub tools', 'Mastery exams', 'Your scores', 'More resources'];
+  const ix = json(uni, 'index.json'), exams = ix.guides.reduce((n, g) => n + (g.exams || []).length, 0);
+  return text(p.container.querySelector('h1')) === 'Olympus University' && JSON.stringify(h2) === JSON.stringify(want)
+    && JSON.stringify(classes) === JSON.stringify([...classes].sort()) && classes[0] === 'Druid' && classes[8] === 'Warrior' && groups.join() === 'Primary crafting,Gathering,Secondary'
+    && !/Not written yet\.|Full course with quizzes/.test(p.container.textContent) && new RegExp(exams + ' exams').test(p.container.textContent)
+    && ['#/guides/exams', '#/guides/tools/attunements', '#/guides/tools/buffs', '#/guides/tools/raid-structure', '#/guides/tools/changes', '#/talents', '#/addons', '#/roles', '#/governance'].every(h => hrefs.includes(h))
+    && jumps.length === 5 && jumps.every(id => p.container.querySelector('section[id="' + id + '"]'))
+    && p.requests.every(([url, method]) => method === 'GET' && url === '/static/university/index.json') || JSON.stringify({ h2, classes, groups, jumps });
+});
+check('renderer: the exam index lists every exam in index.json in the hub order, links each one and shows this browser\'s best', async () => {
+  const ix = json(uni, 'index.json');
+  const p = await open(['exams'], undefined, x => x.store.set(KEY, JSON.stringify({ v: 1, q: {}, best: { 'spec:warrior-arms:101': 70 }, x: {} })));
+  const links = p.container.querySelectorAll('a').map(a => a.getAttribute('href')).filter(h => /^#\/guides\/exam\//.test(h));
+  const want = ix.guides.flatMap(g => (g.exams || []).map(x => '#/guides/exam/' + x.scope.replace(':', '-') + '/' + x.tier));
+  const groups = p.container.querySelectorAll('article').map(a => text(a.querySelector('h3')).trim());
+  const classes = groups.slice(0, 9), races = groups.slice(9, 14);
+  const arms = p.container.querySelectorAll('a').find(a => a.getAttribute('href') === '#/guides/exam/spec-warrior-arms/101');
+  return text(p.container.querySelector('h1')) === 'Mastery exams' && links.length === want.length && want.every(h => links.includes(h))
+    && JSON.stringify(classes) === JSON.stringify([...classes].sort()) && classes[0] === 'Druid' && JSON.stringify(races) === JSON.stringify([...races].sort())
+    && /best 70%/.test(text(arms)) && /your best 70%/.test(arms.getAttribute('aria-label'))
+    && p.requests.every(([url]) => url === '/static/university/index.json') || JSON.stringify({ n: links.length, want: want.length, groups });
+});
+check('the exam index in index.json equals the pools the pages draw from (one shared rule in validate.js)', () => {
+  const R = rules(), ix = json(uni, 'index.json'), bad = [];
+  for (const entry of ix.guides.filter(g => g.file)) {
+    const guide = json(uni, entry.file);
+    const b = R.validateBundle({ sources: json(uni, 'sources.json'), factFiles: guide.factFiles.map(f => json(uni, 'facts', f + '.json')), guides: [guide],
+      quizFiles: guide.quizFiles.map(f => json(uni, 'quizzes', f + '.json')), presets: entry.kind === 'class' ? json(uni, 'presets', entry.id + '.json') : undefined });
+    if (JSON.stringify(R.examCatalogue(guide, b.questions)) !== JSON.stringify(entry.exams)) bad.push(entry.id);
+  }
+  return bad.length === 0 || bad.join(', ');
 });
 check('renderer: #/guides/class/warrior shows the class course with "Class course" current, not the first spec (CL2-202)', async () => {
   const p = await open(['class', 'warrior']);
@@ -332,14 +361,31 @@ check('renderer: with storage blocked the quiz still grades and the page says sc
   const hub = await open([], 'throws');
   return box.getAttribute('data-correct') === 'true' && /not keeping scores/.test(hub.container.textContent);
 });
-check('renderer: old deep links still open (#/guides/class/mage/frost, #/guides/profession/first-aid) and migrated courses say so', async () => {
-  const a = await open(['class', 'mage', 'frost']), b = await open(['profession', 'first-aid']), c = await open(['profession', 'alchemy']);
-  return text(a.container.querySelector('h1')) === 'Frost Mage' && /carried over from the earlier guide pages/.test(a.container.textContent)
-    && text(b.container.querySelector('h1')) === 'First Aid guide' && text(c.container.querySelector('h1')) === 'Alchemy guide' && !/carried over/.test(c.container.textContent);
+check('renderer: every .218 class, spec and profession link and every race opens its course with no error', async () => {
+  const g = json(stat, 'guides218.json'), routes = [];
+  for (const c of g.classes) { routes.push(['class', c.id]); for (const sp of c.specs) routes.push(['class', c.id, sp.id]); }
+  for (const pr of g.professions) routes.push(['profession', pr.key]);
+  for (const r of ['dwarf', 'gnome', 'human', 'night-elf', 'skyborne']) routes.push(['race', r]);
+  const bad = [];
+  for (const parts of routes) {
+    const p = await open(parts), h1 = text(p.container.querySelector('h1'));
+    if (!h1 || p.container.querySelector('p[role="alert"]') || /There is no such guide|carried over from the earlier/.test(p.container.textContent)) bad.push(parts.join('/') + ' :: ' + (h1 || text(p.container).slice(0, 80)));
+  }
+  const frost = await open(['class', 'mage', 'frost']);
+  return bad.length === 0 && routes.length === 9 + 27 + 12 + 5 && text(frost.container.querySelector('h1')) === 'Frost Mage' || bad.slice(0, 6).join(' | ') || routes.length;
 });
 check('renderer: an unwritten race says so, and an unknown guide or chapter is refused', async () => {
-  const a = await open(['race', 'dwarf']), b = await open(['class', 'warrior', 'nope']), c = await open(['class', 'warrior', 'arms', '101', 'missing-chapter']), d = await open(['race', 'orc']);
-  return /has not been written yet/.test(a.container.textContent) && [b, c, d].every(x => /There is no such guide\./.test(x.container.textContent));
+  // Every race is written now; a planned index entry must still render "not written yet" and load no course file.
+  const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; x.files.set('index.json', ix); };
+  const a = await open(['race', 'dwarf'], undefined, planned), b = await open(['class', 'warrior', 'nope']), c = await open(['class', 'warrior', 'arms', '101', 'missing-chapter']), d = await open(['race', 'orc']);
+  return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1 && [b, c, d].every(x => /There is no such guide\./.test(x.container.textContent));
+});
+check('renderer: the Related rail links the talent calculator, hub tools, the Class Lead office, the Workshop charter and the exam index (CL2-207)', async () => {
+  const hrefs = async parts => (await open(parts)).container.querySelector('nav[aria-label="Related"]').querySelectorAll('a').map(a => a.getAttribute('href'));
+  const cls = await hrefs(['class', 'druid', 'balance']), prof = await hrefs(['profession', 'tailoring']), race = await hrefs(['race', 'gnome']);
+  return ['#/talents/druid', '#/guides/tools/attunements', '#/guides/tools/buffs', '#/guides/tools/raid-structure', '#/guides/profession/alchemy', '#/roles/class_lead:druid', '#/guides/exams'].every(h => cls.includes(h))
+    && ['#/guides/tools/buffs', '#/roles/artisan', '#/governance/title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord', '#/guides/exams'].every(h => prof.includes(h))
+    && race.filter(h => /^#\/guides\/class\//.test(h)).length === 9 || JSON.stringify({ cls, prof, race });
 });
 check('renderer: a course file that breaks the honesty rule is not shown at all (closed validation)', async () => {
   const p = await open(['race', 'human'], undefined, x => { const q = json(uni, 'quizzes/race-human.json'); q.questions[0].choices[0] = '+5% crit'; x.files.set('quizzes/race-human.json', q); });

@@ -14,7 +14,7 @@
 .uni-lead{margin:0 0 6px;font-size:16px}
 .uni-icon{width:24px;height:24px;vertical-align:middle;border-radius:4px}
 .uni-crumbs{font-size:14px}
-.uni-crumbs a{display:inline-block;min-height:44px;line-height:44px}
+.uni-crumbs a{display:inline-block;min-height:44px;min-width:44px;line-height:44px;text-align:center}
 .uni-section{min-width:0}
 .uni-notice{margin:0;padding:10px 12px;border:1px solid var(--brass);border-radius:8px;background:rgba(0,0,0,.25)}
 .uni-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))}
@@ -79,4 +79,22 @@
 .uni-legend summary{min-height:44px;line-height:44px;cursor:pointer}
 .uni-legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:6px 0 0}
 .uni-legend dd{margin:0}
+/* Hub jump bar, section focus and the exam index (integrator, 12 Nov 2026). */
+.uni-hub-status{margin:0}
+.uni-jump ul{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.uni-section[tabindex="-1"]{scroll-margin-top:72px}
+.uni-section[tabindex="-1"]:focus{outline:none}
+.uni-section[tabindex="-1"]:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.uni-tools li{margin:2px 0}
+.uni-exam-group{padding:6px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);min-width:0}
+.uni-exam-group:last-child{border-bottom:0}
+.uni-exam-group h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+.uni-exam-group h3 a{display:inline-block;min-height:44px;min-width:44px;line-height:44px}
+.uni-group-title{color:var(--gold-soft)}
+.uni-exam-rows{margin:0;padding:0;list-style:none}
+.uni-exam-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:4px 0;min-width:0}
+.uni-exam-label{flex:1 1 180px;min-width:0;font-weight:600}
+.uni-exam-tiers{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.uni-exam-tiers a{display:inline-flex;align-items:center;min-height:44px}
+.uni-exam-meta{font-weight:400}
 @media (max-width:420px){.uni-section{padding-left:12px;padding-right:12px}.uni-head .uni-icon{width:40px;height:40px;flex-basis:40px}}

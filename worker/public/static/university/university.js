@@ -11,9 +11,16 @@
   const KEY = "olympus.university.v1";
   const TRACK_NAMES = { 101: "101 Foundations", 201: "201 Intermediate", 301: "301 Advanced" };
   const TOOLS = [["attunements", "Attunements & pre-raid checklist"], ["buffs", "World buffs & consumables"], ["raid-structure", "Raid team structure & leadership"], ["changes", "What changed in Forever"]];
+  // The same one-line descriptions guides218.js shows on the tool pages.
+  const TOOL_NOTES = { attunements: "Raid access, what Blizzard has announced, and a slot-by-slot gearing checklist.",
+    buffs: "Pick a role and compare recorded effects for different encounters, with every Classic number labelled.",
+    "raid-structure": "Fox’s guide to organizing one roster for 10-, 20- and 40-player raids.", changes: "The systems Forever changes, and each class's talent changes in the calculator's data." };
   const ROLE_ICON = { tank: "role-tank", healer: "role-healer", melee: "role-dps", ranged: "role-dps", caster: "role-dps" };
   const GUIDE_FILE = /^(courses|races|professions)\/[a-z][a-z0-9-]{0,39}\.json$/;
   const SLUG = /^[a-z][a-z0-9-]{0,39}$/;
+  // The governance chapter app.js links as "Title V · Artisans & Heralds".
+  const WORKSHOP_TITLE = "title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord";
+  const EXAM_SCOPE =/^(class|spec|race|profession):[a-z][a-z0-9-]{0,60}$/;
   const CHAPTER_QUIZ_SIZE = 5, EXAM_SIZE = 10;
   const cache = new Map();
 
@@ -60,6 +67,7 @@
     const p = parts.map(x => String(x || "").toLowerCase());
     const tier = x => x === "101" || x === "201" || x === "301";
     if (!p.length) return { view: "hub" };
+    if (p[0] === "exams" && p.length === 1) return { view: "exams" };
     if (p[0] === "exam" && p.length === 3 && /^(class|spec|race|profession)-[a-z][a-z0-9-]{0,60}$/.test(p[1]) && tier(p[2])) return { view: "exam", scope: p[1], tier: p[2] };
     if (!["class", "race", "profession"].includes(p[0]) || !SLUG.test(p[1] || "")) return null;
     const r = { view: "guide", kind: p[0], id: p[1], spec: null, tier: "101", chapter: null, explicitTier: false };
@@ -76,7 +84,10 @@
       && index.guides.every(g => g && ["class", "race", "profession"].includes(g.kind) && SLUG.test(g.id) && typeof g.name === "string" && g.name.length <= 40
         && (g.status === "planned" ? g.file === null : ["complete", "migrated"].includes(g.status) && GUIDE_FILE.test(g.file))
         && (g.kind !== "class" || (Array.isArray(g.specs) && g.specs.length === 3 && g.specs.every(s => s && SLUG.test(s.id) && typeof s.name === "string" && Array.isArray(s.roles))))
-        && (g.kind !== "profession" || ["primary", "gathering", "secondary"].includes(g.type)));
+        && (g.kind !== "profession" || ["primary", "gathering", "secondary"].includes(g.type))
+        // The exam index (built by build/validate.cjs --write-exams): every exam this guide's questions can fill.
+        && (g.status === "planned" ? g.exams === undefined : Array.isArray(g.exams) && g.exams.length <= 12 && g.exams.every(x => x && EXAM_SCOPE.test(x.scope)
+          && ["101", "201", "301"].includes(x.tier) && Number.isInteger(x.questions) && x.questions > 0 && x.questions <= 2000)));
     if (!ok) throw Error("index");
     return index;
   }
@@ -113,7 +124,7 @@
     };
     const uid = prefix => "uni-" + prefix + "-" + (++sequence);
     // Links are fragments of this site's hash router or allow-listed https addresses (validate.js safeUrl).
-    const link = (href, text, cls) => el("a", { href: /^#\/[a-z0-9/._-]*$/.test(href) ? href : "#/guides", text, class: cls });
+    const link = (href, text, cls) => el("a", { href: /^#\/[a-z0-9/._:-]*$/.test(href) ? href : "#/guides", text, class: cls });
     const external = (url, text) => R.safeUrl(url) ? el("a", { href: url, text, target: "_blank", rel: "noopener noreferrer" }) : el("span", { text });
     const icon = (name, alt = "") => el("img", { src: "/static/wow/" + name + ".png", alt, width: 32, height: 32, class: "uni-icon", loading: "lazy" });
     const shell = el("div", { class: "uni" });
@@ -189,30 +200,75 @@
       return (spec ? spec.name + " " : "") + (entry ? entry.name : id) + " " + (TRACK_NAMES[tier] || tier) + " exam";
     }
 
+    // The directive's order (Pillar 2 item 1): classes Druid to Warrior, then races, then professions Primary crafting,
+    // Gathering, Secondary, each alphabetical; the hub tools and the exam index follow.
+    const byName = (a, b) => a.name.localeCompare(b.name, "en");
+    const PROFESSION_GROUPS = [["primary", "Primary crafting"], ["gathering", "Gathering"], ["secondary", "Secondary"]];
+    const ordered = kind => index.guides.filter(g => g.kind === kind).sort(byName);
+    const examHref = (scope, tier) => "#/guides/exam/" + scope.replace(":", "-") + "/" + tier;
+    const examCount = list => list.reduce((n, g) => n + (g.exams ? g.exams.length : 0), 0);
+
     function hub() {
-      const byName = (a, b) => a.name.localeCompare(b.name, "en");
       const card = (entry, kids) => el("article", { class: "uni-card", "data-status": entry.status },
         el("h3", null, iconFor(entry) ? icon(iconFor(entry)) : null, " ", entry.status === "planned" ? el("span", { text: entry.name }) : link(guideHref(entry), entry.name)),
-        entry.status === "planned" ? el("p", { class: "muted small", text: "Not written yet." }) : entry.status === "complete" ? el("p", { class: "small uni-complete", text: "Full course with quizzes and exams" }) : null,
+        entry.status === "planned" ? el("p", { class: "muted small", text: "Not written yet." }) : entry.status === "migrated" ? el("p", { class: "muted small", text: "Carried over from the earlier guide pages; still being written." }) : null,
         kids);
-      // One line per section says which courses are complete; the cards do not repeat it.
-      const progress = list => { const done = list.filter(g => g.status === "complete").map(g => g.name), rest = list.length - done.length;
-        return el("p", { class: "small muted", text: (done.length ? done.join(" and ") + (done.length === 1 ? " is" : " are") + " a full course. " : "") + (rest ? "The other " + rest + " carry over the earlier guide pages while their courses are written." : "") }); };
-      const classes = index.guides.filter(g => g.kind === "class").sort(byName), races = index.guides.filter(g => g.kind === "race").sort(byName);
-      const groups = [["primary", "Primary crafting"], ["gathering", "Gathering"], ["secondary", "Secondary"]];
-      return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever. Each has a 101, 201 and 301 track, with Theory and Praxis in every chapter, quizzes and mastery exams."),
-        section("Class guides", progress(classes), el("div", { class: "uni-grid" }, classes.map(c => card(c, el("ul", { class: "uni-inline small", "aria-label": c.name + " specs" }, c.specs.map(s => el("li", null, link(guideHref(c, s.id), s.name)))))))),
-        section("Race guides", el("p", { class: "small muted", text: "The five Alliance races the Olympus guides name. A race guide is written only from reviewed racial facts." }), el("div", { class: "uni-grid" }, races.map(r => card(r)))),
-        section("Profession guides", progress(index.guides.filter(g => g.kind === "profession")), groups.map(([type, title]) => [el("h3", { text: title }),
-          el("div", { class: "uni-grid" }, index.guides.filter(g => g.kind === "profession" && g.type === type).sort(byName).map(p => card(p)))])),
-        section("Raid preparation tools", el("ul", { class: "uni-list" }, TOOLS.map(([id, name]) => el("li", null, link("#/guides/tools/" + id, name))))),
+      // Course status is said once for the page, not on every card.
+      const all = index.guides, done = all.filter(g => g.status === "complete").length;
+      const status = done === all.length ? "Every course below has its 101, 201 and 301 tracks, chapter quizzes and mastery exams."
+        : done + " of " + all.length + " courses are complete. A card says when its course is still being written.";
+      const classes = ordered("class"), races = ordered("race"), exams = examCount(all);
+      return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever. Every chapter pairs Theory with Praxis and ends with a quiz."),
+        el("p", { class: "small uni-hub-status", text: status }),
+        el("nav", { class: "uni-jump", "aria-label": "On this page" }, el("ul", null, [["uni-classes", "Classes"], ["uni-races", "Races"], ["uni-professions", "Professions"], ["uni-tools", "Hub tools"], ["uni-exams", "Mastery exams"]]
+          // Buttons, not links: the hash belongs to the router, so a jump moves focus to the section instead.
+          .map(([id, text]) => el("li", null, el("button", { type: "button", "data-jump": id, class: "btn small", text, onclick: () => { const target = doc.getElementById(id); if (target) { target.focus(); if (target.scrollIntoView) target.scrollIntoView({ block: "start" }); } } }))))),
+        hubSection("uni-classes", "Class guides", el("div", { class: "uni-grid" }, classes.map(c => card(c, el("ul", { class: "uni-inline small", "aria-label": c.name + " specs" }, c.specs.map(s => el("li", null, link(guideHref(c, s.id), s.name)))))))),
+        hubSection("uni-races", "Race guides", el("p", { class: "small muted", text: "The five Alliance races, each written from reviewed racial facts only." }), el("div", { class: "uni-grid" }, races.map(r => card(r)))),
+        hubSection("uni-professions", "Profession guides", PROFESSION_GROUPS.map(([type, title]) => [el("h3", { text: title }),
+          el("div", { class: "uni-grid" }, ordered("profession").filter(g => g.type === type).map(p => card(p)))])),
+        hubSection("uni-tools", "Hub tools", el("ul", { class: "uni-list uni-tools" },
+          TOOLS.map(([id, name]) => el("li", null, link("#/guides/tools/" + id, name), " — " + TOOL_NOTES[id])),
+          el("li", null, link("#/talents", "Talent calculator"), " — plan a build, compare it with Classic and attach it to your application."),
+          el("li", null, link("#/addons", "Addons for Forever"), " — the curated addon directory."))),
+        hubSection("uni-exams", "Mastery exams", el("p", { text: exams + " exams, one per course and track that has questions: class and spec, race and profession, at 101, 201 and 301 where written. Each draws up to " + EXAM_SIZE + " questions and grades when you submit." }),
+          el("p", null, link("#/guides/exams", "Browse every exam", "btn"))),
         scoresPanel(),
         section("More resources", el("ul", { class: "uni-list" },
-          el("li", null, link("#/talents", "Talent calculator"), " — plan a build and compare it with Classic."),
-          el("li", null, link("#/addons", "Addons for Forever"), " — the curated addon directory."),
           el("li", null, link("#/guides/library", "Publisher library"), " — reviewed guides from other publishers."),
           el("li", null, link("#/updates", "Game updates"), " — Blizzard news and patch notes."),
+          el("li", null, link("#/roles", "Roles and offices"), " — Class Leads, raid leadership and the Guild Workshop's artisans."),
+          el("li", null, link("#/governance", "Governance"), " — the charter, including Title V on the Guild Workshop."),
           el("li", null, link("#/guide/member", "Member guide"), " — how Olympus works.")))];
+    }
+    const hubSection = (id, title, ...kids) => el("section", { class: "card uni-section", id, tabindex: "-1", "aria-labelledby": id + "-h" }, el("h2", { id: id + "-h", text: title }), ...kids);
+
+    // #/guides/exams: every mastery exam, in the hub's order, with this browser's best score.
+    function examsIndex() {
+      const best = store.get().best;
+      const row = (label, exams) => el("li", { class: "uni-exam-row" }, el("span", { class: "uni-exam-label", text: label }),
+        el("ul", { class: "uni-exam-tiers", "aria-label": label + " exams" }, exams.map(x => {
+          const key = x.scope + ":" + x.tier, mine = key in best ? " · best " + best[key] + "%" : "";
+          return el("li", null, el("a", { href: examHref(x.scope, x.tier), class: "btn small", "aria-label": label + ", " + TRACK_NAMES[x.tier] + " exam, " + x.questions + " questions" + (mine ? ", your best " + best[key] + "%" : "") },
+            el("strong", { text: x.tier }), el("span", { class: "uni-exam-meta", text: " · " + x.questions + " questions" + mine })));
+        })));
+      const block = (entry, rows) => el("article", { class: "uni-exam-group" }, el("h3", null, iconFor(entry) ? icon(iconFor(entry)) : null, " ", link(guideHref(entry), entry.name)),
+        rows.length ? el("ul", { class: "uni-exam-rows" }, rows) : el("p", { class: "muted small", text: "No exam yet: this course has no questions." }));
+      const scopeRows = entry => {
+        const by = new Map();
+        for (const x of entry.exams || []) { if (!by.has(x.scope)) by.set(x.scope, []); by.get(x.scope).push(x); }
+        return [...by].map(([scope, list]) => {
+          const spec = scope.startsWith("spec:") ? entry.specs.find(s => "spec:" + entry.id + "-" + s.id === scope) : null;
+          return row(spec ? spec.name + " " + entry.name : entry.kind === "class" ? "Class course" : entry.name + " course", list);
+        });
+      };
+      return [crumbs(["#/guides", "Olympus University"], [null, "Mastery exams"]),
+        header("Mastery exams", null, "Every exam draws up to " + EXAM_SIZE + " questions from its course and track, in a fixed order for each attempt, and grades them when you submit. 101 is Foundations, 201 Intermediate and 301 Advanced."),
+        section("Class exams", el("p", { class: "small muted", text: "A class exam draws on the class course and all three specs; a spec exam on that spec and the class course." }),
+          ordered("class").map(c => block(c, scopeRows(c)))),
+        section("Race exams", ordered("race").map(r => block(r, scopeRows(r)))),
+        section("Profession exams", PROFESSION_GROUPS.map(([type, title]) => [el("h3", { class: "uni-group-title", text: title }), ordered("profession").filter(g => g.type === type).map(p => block(p, scopeRows(p)))])),
+        scoresPanel()];
     }
 
     function presetCard(ctx, entry, p) {
@@ -311,11 +367,8 @@
         chapterQuiz(ctx, chapter));
     }
 
-    function examPool(ctx, scopeKey, tier) {
-      return ctx.questions.filter(q => String(q.tier) === tier && (q.scope === scopeKey
-        || (scopeKey.startsWith("class:") && q.scope.startsWith("spec:" + scopeKey.slice(6) + "-"))
-        || (scopeKey.startsWith("spec:") && q.scope === "class:" + ctx.guide.id)));
-    }
+    // The pool rule lives in validate.js, so the exam index the build writes matches what this page draws from.
+    const examPool = (ctx, scopeKey, tier) => R.examPool(ctx.questions, scopeKey, tier, ctx.guide.kind === "class" ? ctx.guide.id : null);
 
     function trackView(ctx, entry, owner, route, base, scopeKey) {
       const track = owner.tracks[route.tier];
@@ -343,11 +396,15 @@
 
     function related(entry) {
       const items = [];
+      // Cross-links (CL2-207; integrator, 12 Nov 2026): the talent calculator, the hub tools, the courses that feed this
+      // one, the matching office on the Roles page and, for professions, the Guild Workshop's title in the charter.
       if (entry.kind === "class") items.push(["#/talents/" + entry.id, entry.name + " talent calculator"], ["#/guides/tools/attunements", "Attunements & pre-raid checklist"], ["#/guides/tools/buffs", "World buffs & consumables"],
-        ["#/guides/profession/alchemy", "Alchemy guide"], ["#/guides/profession/first-aid", "First Aid guide"], ["#/guides/profession/cooking", "Cooking guide"]);
-      if (entry.kind === "race") items.push(...index.guides.filter(g => g.kind === "class").map(g => [guideHref(g), g.name + " guide"]));
-      if (entry.kind === "profession") items.push(["#/guides/tools/buffs", "World buffs & consumables"], ["#/guides/tools/attunements", "Attunements & pre-raid checklist"]);
-      items.push(["#/addons", "Addons for Forever"], ["#/guides", "All courses"]);
+        ["#/guides/tools/raid-structure", "Raid team structure & leadership"], ["#/guides/profession/alchemy", "Alchemy guide"], ["#/guides/profession/first-aid", "First Aid guide"], ["#/guides/profession/cooking", "Cooking guide"],
+        ["#/roles/class_lead:" + entry.id, entry.name + " Class Lead office"]);
+      if (entry.kind === "race") items.push(...ordered("class").map(g => [guideHref(g), g.name + " guide"]));
+      if (entry.kind === "profession") items.push(["#/guides/tools/buffs", "World buffs & consumables"], ["#/guides/tools/attunements", "Attunements & pre-raid checklist"],
+        ["#/roles/artisan", "Guild Workshop artisan roles"], ["#/governance/" + WORKSHOP_TITLE, "Title V · Artisans & Heralds"]);
+      items.push(["#/guides/exams", "All mastery exams"], ["#/addons", "Addons for Forever"], ["#/guides", "All courses"]);
       return el("nav", { class: "card uni-section uni-related", "aria-label": "Related" }, el("h2", { text: "Related" }), el("ul", { class: "uni-list" }, items.map(([href, text]) => el("li", null, link(href, text)))));
     }
 
@@ -381,7 +438,7 @@
       if (kind === "spec" && !spec) return notFound();
       const scopeKey = kind + ":" + id, examKey = scopeKey + ":" + route.tier, pool = examPool(ctx, scopeKey, route.tier);
       const name = (spec ? spec.name + " " : "") + g.name, back = guideHref(entry, spec && spec.id) + "/" + route.tier;
-      const frag = [crumbs(["#/guides", "Olympus University"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
+      const frag = [crumbs(["#/guides", "Olympus University"], ["#/guides/exams", "Mastery exams"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
         header(name + " · " + TRACK_NAMES[route.tier] + " exam", iconFor(entry), null)];
       if (!pool.length) { frag.push(section("No exam yet", el("p", { text: "This track's chapters have no questions yet." }), link(back, "Back to the course", "btn"))); return frag; }
       const attempt = store.attempt(examKey), picked = R.order(pool, q => q.id, attempt).slice(0, EXAM_SIZE);
@@ -414,6 +471,7 @@
         index = checkIndex(await getJson("index.json"));
         if (!route) { shell.replaceChildren(...notFound()); return; }
         if (route.view === "hub") { shell.replaceChildren(...hub()); return; }
+        if (route.view === "exams") { shell.replaceChildren(...examsIndex()); return; }
         const kind = route.view === "exam" ? (route.scope.startsWith("spec-") ? "class" : route.scope.split("-")[0]) : route.kind;
         const id = route.view === "exam" ? route.scope.slice(route.scope.indexOf("-") + 1) : route.id;
         const entry = index.guides.find(g => g.kind === kind && (g.id === id || (route.view === "exam" && route.scope.startsWith("spec-") && id.startsWith(g.id + "-"))));

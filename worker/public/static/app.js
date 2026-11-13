@@ -1858,6 +1858,7 @@
     if (kind === "race" && own(GUIDE_RACES218, k)) return `${GUIDE_RACES218[k]} guide · ${hub}`;
     if (kind === "profession") { const p = (M().professions || []).find(x => x.key === k || x.key === k.replace("-", "_")); return p ? `${p.label} guide · ${hub}` : hub; }
     if (kind === "exam") return `Mastery exam · ${hub}`;
+    if (kind === "exams") return `Mastery exams · ${hub}`;
     if (kind === "tools" && own(GUIDE_TOOLS218, k)) return `${GUIDE_TOOLS218[k]} · ${hub}`;
     return hub;
   }

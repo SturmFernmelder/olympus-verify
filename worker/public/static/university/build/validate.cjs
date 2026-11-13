@@ -82,6 +82,20 @@ for (const { entry, guide } of guides) {
   const raw = files.reduce((n, f) => n + bytes(f).length, 0), gz = files.reduce((n, f) => n + zlib.gzipSync(bytes(f)).length, 0);
   sizes.push([entry.kind + " " + entry.id, guide.status, own.questions.length, Math.round(raw / 1024), Math.round(gz / 1024)]);
 }
+// The exam index: index.json lists, per guide, every exam with its question count, computed with the page's own pool
+// rule from the questions that guide's page loads. --write-exams rewrites the lists; otherwise a stale list fails.
+let examsChanged = false;
+for (const { entry, guide } of guides) {
+  const own = rules.validateBundle({ sources, factFiles: guide.factFiles.filter(f => exists("facts/" + f + ".json")).map(f => read("facts/" + f + ".json")), guides: [guide],
+    quizFiles: guide.quizFiles.filter(f => exists("quizzes/" + f + ".json")).map(f => read("quizzes/" + f + ".json")), presets: entry.kind === "class" && exists("presets/" + entry.id + ".json") ? read("presets/" + entry.id + ".json") : undefined });
+  const want = rules.examCatalogue(guide, own.questions);
+  if (JSON.stringify(entry.exams) !== JSON.stringify(want)) {
+    if (process.argv.includes("--write-exams")) { entry.exams = want; examsChanged = true; }
+    else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run build/validate.cjs --write-exams)");
+  }
+}
+if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists rewritten"); }
+
 // Quiz questions must belong to a guide that lists their file.
 for (const doc of quizFiles) if (!guides.some(x => x.guide.quizFiles.includes(doc.file))) errors.push("quizzes/" + doc.file + ".json: no guide lists it in quizFiles");
 

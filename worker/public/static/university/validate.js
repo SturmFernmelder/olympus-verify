@@ -298,7 +298,26 @@
     return { errors: c.errors, facts, sources, chapters, questions, presets };
   }
 
-  const api = Object.freeze({ SECTIONS, TRACKS, GRADES, normalize, supports, numbersIn, fnv1a, order, safeUrl, validateBundle });
+  // Mastery exams (integrator, 12 Nov 2026). A guide has one exam scope per course: the class course and each spec, or
+  // the race or profession course. A class exam draws on the class and all its specs; a spec exam on that spec and the
+  // class course. The page and the build use this one definition, so the exam index in index.json matches the pages.
+  const examScopes = guide => guide.kind === "class" ? ["class:" + guide.id, ...(guide.specs || []).map(s => "spec:" + guide.id + "-" + s.id)] : [guide.kind + ":" + guide.id];
+  function examPool(questions, scopeKey, tier, classId) {
+    return questions.filter(q => String(q.tier) === String(tier) && (q.scope === scopeKey
+      || (scopeKey.startsWith("class:") && q.scope.startsWith("spec:" + scopeKey.slice(6) + "-"))
+      || (scopeKey.startsWith("spec:") && classId && q.scope === "class:" + classId)));
+  }
+  // The index lists every exam with at least one question: [{scope, tier, questions}], in course and track order.
+  function examCatalogue(guide, questions) {
+    const out = [];
+    for (const scope of examScopes(guide)) for (const [tier] of TRACKS) {
+      const n = examPool(questions, scope, tier, guide.kind === "class" ? guide.id : null).length;
+      if (n) out.push({ scope, tier, questions: n });
+    }
+    return out;
+  }
+
+  const api = Object.freeze({ SECTIONS, TRACKS, GRADES, normalize, supports, numbersIn, fnv1a, order, safeUrl, validateBundle, examScopes, examPool, examCatalogue });
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.OlympusUniversityRules = api;
 })(typeof window !== "undefined" ? window : globalThis);
