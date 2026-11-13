@@ -56,8 +56,9 @@ const users = new Map([[ADMIN, { id: ADMIN, username: 'fernmelder', global_name:
 // the announcement's channel, self and message calls. Every posted message is kept so a check can count them.
 const OFFICER_ROLE = '1554262223038324840', RAID_CHANNEL = '1554266022444408872', APP_ID = '1550176895671341076';
 const OFF_A = '300000000000000003', OFF_B = '300000000000000004', FORMER = '300000000000000005', COGM = '300000000000000006', TREAS = '300000000000000007',
-  OLD_COGM = '300000000000000008', OLD_TREAS = '300000000000000009', JUSTICE = '300000000000000010', COUNCIL45 = '300000000000000011', BOTH = '300000000000000012', EX_TREAS = '300000000000000013';
-for (const [id, name] of [[OFF_A, 'offa'], [OFF_B, 'offb'], [FORMER, 'former'], [COGM, 'cogm'], [TREAS, 'treas'], [OLD_COGM, 'oldcogm'], [OLD_TREAS, 'oldtreas'], [JUSTICE, 'justice'], [COUNCIL45, 'council'], [BOTH, 'both'], [EX_TREAS, 'extreas']]) users.set(id, { id, username: name, global_name: name, avatar: null });
+  OLD_COGM = '300000000000000008', OLD_TREAS = '300000000000000009', JUSTICE = '300000000000000010', COUNCIL45 = '300000000000000011', BOTH = '300000000000000012', EX_TREAS = '300000000000000013',
+  RANK_TREAS = '300000000000000014', VICE = '300000000000000015'; // round 5 final (13 Nov 2026): the rank_treasurer key and office_92
+for (const [id, name] of [[OFF_A, 'offa'], [OFF_B, 'offb'], [FORMER, 'former'], [COGM, 'cogm'], [TREAS, 'treas'], [OLD_COGM, 'oldcogm'], [OLD_TREAS, 'oldtreas'], [JUSTICE, 'justice'], [COUNCIL45, 'council'], [BOTH, 'both'], [EX_TREAS, 'extreas'], [RANK_TREAS, 'ranktreas'], [VICE, 'vice']]) users.set(id, { id, username: name, global_name: name, avatar: null });
 const rolesOf = new Map([[OFF_A, [OFFICER_ROLE]], [OFF_B, [OFFICER_ROLE]], [FORMER, [OFFICER_ROLE]]]);
 const posted = [];
 const member = id => ({ user: users.get(id), nick: null, avatar: null, joined_at: '2024-01-15T12:00:00.000Z', roles: [...(rolesOf.get(id) || [])], pending: false });
@@ -328,18 +329,30 @@ async function part1b() {
   check('CL2-016', 'round 5: a member still cannot (403 not_organizer)', r.status === 403 && r.data?.error === 'not_organizer', r);
 
   console.log('== CL2-091: the Treasury appointment route reads the Co-Guild Master and Lord High Treasurer seats ==');
-  const holders = [[COGM, 'Cogmseat'], [TREAS, 'Treasseat'], [OLD_COGM, 'Oldcogm'], [OLD_TREAS, 'Oldtreas'], [JUSTICE, 'Justiceseat'], [COUNCIL45, 'Councilseat'], [BOTH, 'Bothkeys'], [EX_TREAS, 'Extreas']];
+  const holders = [[COGM, 'Cogmseat'], [TREAS, 'Treasseat'], [OLD_COGM, 'Oldcogm'], [OLD_TREAS, 'Oldtreas'], [JUSTICE, 'Justiceseat'], [COUNCIL45, 'Councilseat'], [BOTH, 'Bothkeys'], [EX_TREAS, 'Extreas'], [RANK_TREAS, 'Ranktreas'], [VICE, 'Viceseat']];
   for (const [id, name] of holders) { await signIn(id); await confirm(id, name); }
   const appoint = map => call('PUT', '/api/admin/settings', { who: ADMIN, body: { appointed: Object.fromEntries(Object.entries(map).map(([k, id]) => [k, `<@${id}>`])), appointedCharactersConfirmed: true, namesConfirmed: true } });
-  r = await appoint({ office_19: COGM, office_86: EX_TREAS, co_gm: OLD_COGM, treasurer: OLD_TREAS, office_101: JUSTICE, office_45: COUNCIL45, office_97: BOTH });
-  check('CL2-091', 'setup: the admin publishes the seats (office_19, office_86, the old co_gm and treasurer keys, two other Council seats)', r.status === 200, r);
+  // Round 5 final (13 Nov 2026, Codex's d54a954): the appointment route admits five closed keys of the same two seat
+  // families (site-treasury-access.ts TREASURY_APPOINTMENT_SEATS): office_19 with its alias co_gm, office_86 with its
+  // aliases treasurer and rank_treasurer, each only with its own current publication proof (the admin route writes it as
+  // "<key>:publication:<64 hex>" beside the pointer). office_92 is in the co_gm family's source keys but is not a key.
+  r = await appoint({ office_19: COGM, office_86: EX_TREAS, co_gm: OLD_COGM, treasurer: OLD_TREAS, rank_treasurer: RANK_TREAS, office_92: VICE, office_101: JUSTICE, office_45: COUNCIL45, office_97: BOTH });
+  check('CL2-091', 'setup: the admin publishes the seats (office_19, office_86, the co_gm, treasurer and rank_treasurer keys, office_92 and three other Council seats)', r.status === 200, r);
   const access = async who => (await call('GET', '/api/treasury-plan/access', { who })).data;
   const plan = async who => (await call('GET', '/static/treasury-plan207.js', { who })).status;
+  const proved = (key, id) => { let stored = {}; try { stored = JSON.parse(db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get()?.value || '{}'); } catch { /* none */ }
+    return stored[key] === `<@${id}>` && Object.keys(stored).filter(k => k.startsWith(key + ':publication:')).length === 1 && Object.entries(stored).some(([k, v]) => new RegExp('^' + key + ':publication:[0-9a-f]{64}$').test(k) && v === `<@${id}>`); };
   let a = await access(COGM);
   check('CL2-091', 'the holder of the published Co-Guild Master seat (office_19) is admitted', a?.canRead === true, a);
   a = await access(EX_TREAS);
   check('CL2-091', 'the holder of the published Lord High Treasurer seat (office_86) is admitted', a?.canRead === true, a);
-  for (const [id, what] of [[OLD_COGM, 'the old co_gm key alone'], [OLD_TREAS, 'the old treasurer key alone'], [JUSTICE, 'another Council seat (office_101, Justice)'], [COUNCIL45, 'the High Council appointment office_45'], [MEMBER, 'a member with no seat']]) {
+  for (const [id, key, what] of [[OLD_COGM, 'co_gm', 'the co_gm key (office_19\'s alias)'], [OLD_TREAS, 'treasurer', 'the treasurer key (office_86\'s alias)'], [RANK_TREAS, 'rank_treasurer', 'the rank_treasurer key (office_86\'s historical alias)']]) {
+    a = await access(id);
+    check('CL2-091', `${what} published with its own exact publication proof admits its holder`, proved(key, id) && a?.canRead === true, a);
+    const s = await plan(id);
+    check('CL2-091', `  the plan's data file follows the same gate for ${what} (200)`, s === 200, s);
+  }
+  for (const [id, what] of [[VICE, 'the Vice Guild Master seat (office_92, in the co_gm family but not a Treasury key)'], [JUSTICE, 'another Council seat (office_101, Justice)'], [COUNCIL45, 'the High Council appointment office_45'], [MEMBER, 'a member with no seat']]) {
     a = await access(id);
     check('CL2-091', `${what} no longer admits, and the refusal names the two seats`, a?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(a.admits || ''), a);
     const s = await plan(id);
@@ -353,16 +366,25 @@ async function part1b() {
   check('CL2-091', '  and the former holder\'s data-file request is refused', (await plan(EX_TREAS)) === 403, '');
   a = await access(TREAS);
   check('CL2-091', 'the new holder of the Lord High Treasurer seat is admitted', a?.canRead === true, a);
+  // Round 5 final: the second publication withdraws treasurer and rank_treasurer and moves co_gm to BOTH, so each former
+  // key holder's publication is gone and refuses them (access and data file); BOTH is admitted through co_gm alone (its
+  // other seat, office_97, admits nothing).
+  const withdrawn = [];
+  for (const id of [OLD_COGM, OLD_TREAS, RANK_TREAS]) withdrawn.push({ id, access: await access(id), plan: await plan(id) });
   a = await access(BOTH);
-  check('CL2-091', 'the old co_gm key plus another Council seat still does not admit', a?.canRead === false, a);
+  check('CL2-091', 'a withdrawn co_gm, treasurer or rank_treasurer publication refuses its former holder, and the new co_gm holder (also on another Council seat) is admitted through co_gm',
+    withdrawn.every(w => w.access?.canRead === false && w.plan === 403) && proved('co_gm', BOTH) && a?.canRead === true, { withdrawn, a });
   r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH });
   a = await access(BOTH);
   check('CL2-091', 'the same person on co_gm and on the Co-Guild Master seat is admitted (through the seat)', r.status === 200 && a?.canRead === true, a);
   a = await access(COGM);
   check('CL2-091', 'the replaced Co-Guild Master seat holder is refused', a?.canRead === false, a);
   const treasury = load('./site-treasury-access');
-  check('CL2-091', 'the gate exports exactly the two seats, and both are the role directory\'s family primary keys', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86"]'
-    && (() => { const src = fs.readFileSync(path.join(ROOT, 'src/site-role-directory203.ts'), 'utf8'); return /key: 'co_gm'[^\n]*primaryKey: 'office_19'/.test(src) && /key: 'treasurer'[^\n]*primaryKey: 'office_86'/.test(src); })(), treasury.TREASURY_APPOINTMENT_SEATS);
+  // Round 5 final: five closed keys, all of the two families: the primary keys office_19 and office_86, the family keys
+  // co_gm and treasurer themselves, and rank_treasurer, catalogued as an alias of office_86. No other key (office_92 included).
+  check('CL2-091', 'the gate exports exactly the five keys of the Co-Guild Master and Lord High Treasurer families', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86","co_gm","treasurer","rank_treasurer"]' && Object.isFrozen(treasury.TREASURY_APPOINTMENT_SEATS)
+    && (() => { const src = fs.readFileSync(path.join(ROOT, 'src/site-role-directory203.ts'), 'utf8'), offices = fs.readFileSync(path.join(ROOT, 'src/governance-offices.ts'), 'utf8');
+      return /key: 'co_gm'[^\n]*primaryKey: 'office_19'/.test(src) && /key: 'treasurer'[^\n]*primaryKey: 'office_86'/.test(src) && /"key": "rank_treasurer",\s*"label": "[^"]*",\s*"group": "office",\s*"aliasOf": "office_86"/.test(offices); })(), treasury.TREASURY_APPOINTMENT_SEATS);
   EXTRA = {};
 }
 
