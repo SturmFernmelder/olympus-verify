@@ -202,7 +202,7 @@ class TransportBehavior(Harness):
     def _sticky_current_policy_recovery(self, mode, expected):
         # Only the constructor's synthetic dictionary changes; no operator config
         # or live state is read. Original body/MAC/hash/clock stay frozen.
-        at=NOW;body=current()
+        at=int(time.time());body=current()
         if mode == "future-clock":
             body["requestedAt"]=at+120
             body["evidence"]["mac"]=intake_schema280.tithe_mac("synthetic-key",body)
