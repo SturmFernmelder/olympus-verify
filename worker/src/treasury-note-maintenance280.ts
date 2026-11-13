@@ -30,22 +30,31 @@ const balancedOr=(parts:readonly string[]):string=>{
 };
 const INVALID_NOTE_UNICODE=`(json_type(${SAFE},'$.note')='text' AND (${balancedOr(Array.from({length:32},(_v,n)=>
  `instr(CAST(json_extract(${SAFE},'$.note') AS BLOB),X'ED${(160+n).toString(16).toUpperCase()}')>0`))}))`;
+// A different stored JSON spelling may not satisfy the original note-only
+// length manifest. Classify that bounded representation before offering apply;
+// never rewrite/canonicalize old rows to make them pass.
+const INVALID_NOTE_REPRESENTATION=`(json_type(${SAFE},'$.note')='text' AND
+ length(json_set(${SAFE},'$.note',''))+length(json_quote(json_extract(${SAFE},'$.note')))-2<>length(${SAFE}))`;
 const FAMILY="action='treasury.receipt242' AND id<=?1";
+const INVALID=`typeof(details) IS NOT 'text' OR length(CAST(details AS BLOB))>65536 OR NOT json_valid(details) OR CASE WHEN json_valid(details) THEN
+ json_type(${SAFE})<>'object' OR json_type(${SAFE},'$.source') IS NOT 'text'
+ OR EXISTS(SELECT 1 FROM json_each(${SAFE}) GROUP BY key HAVING COUNT(*)>1)
+ OR (json_type(details,'$.note') IS NOT NULL AND json_type(details,'$.note')<>'text')
+ OR ${INVALID_NOTE_UNICODE}
+ OR ${INVALID_NOTE_REPRESENTATION}
+ OR (${NONEMPTY} AND NOT ${COVERED}) ELSE 0 END`;
 // The non-note projection never returns the note text to application code.
 // Length plus non-note JSON equality detects value changes as well as length drift.
 const PROJECTION=`json_array(id,ts,actor,action,subject,
  json_remove(${SAFE},'$.note'),
  CASE WHEN json_type(${SAFE},'$.note')='text'
  THEN length(details)-length(json_quote(json_extract(${SAFE},'$.note'))) ELSE length(details) END)`;
-const BOUNDED_ROWS=`SELECT ${PROJECTION} AS row FROM audit WHERE ${FAMILY} ORDER BY id LIMIT ${MAX_ROWS+1}`;
+// Keep the original first1001-row input bound before classification/filtering;
+// filtering the whole family first could scan beyond that admitted scope.
+const BOUNDED_ROWS=`SELECT ${PROJECTION} AS row FROM(SELECT * FROM audit WHERE ${FAMILY} ORDER BY id LIMIT ${MAX_ROWS+1})
+ WHERE NOT (${INVALID}) ORDER BY id`;
 const MANIFEST=`SELECT CASE WHEN (SELECT COALESCE(SUM(length(CAST(row AS BLOB))+1),0)+2 FROM(${BOUNDED_ROWS}))<=131072
  THEN (SELECT COALESCE(json_group_array(json(row)),'[]') FROM(${BOUNDED_ROWS})) ELSE NULL END AS manifest`;
-const INVALID=`typeof(details) IS NOT 'text' OR length(CAST(details AS BLOB))>65536 OR NOT json_valid(details) OR CASE WHEN json_valid(details) THEN
- json_type(${SAFE})<>'object' OR json_type(${SAFE},'$.source') IS NOT 'text'
- OR EXISTS(SELECT 1 FROM json_each(${SAFE}) GROUP BY key HAVING COUNT(*)>1)
- OR (json_type(details,'$.note') IS NOT NULL AND json_type(details,'$.note')<>'text')
- OR ${INVALID_NOTE_UNICODE}
- OR (${NONEMPTY} AND NOT ${COVERED}) ELSE 0 END`;
 type Census={ceiling:number;rows:number;covered:number;nonempty:number;invalid:number;manifest:string};
 type Review={actor:string;version:number;generation:string|null;birth:string;epoch:string;id:string;created:number;expires:number;ceiling:number};
 const refused=(invalidRows?:number)=>apiJson({error:'receipt_note_cleanup_held',message:'The cleanup is held or its outcome is unconfirmed. Check cleanup status before any further action.',nextAction:'status',
@@ -96,14 +105,16 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
  const session=await readSession(env,request);
  if(!session||session.u!==actor)return apiJson({error:'signed_out'},401);
  assertOriginalSiteSessionRead(session);
- if(body.action==='status')return status(env);
+ try{
+ if(body.action==='status')return await status(env);
  if(body.action==='preview'){
   const completed=await env.DB.prepare('SELECT 1 AS yes FROM site_settings WHERE key=?1').bind(KEY).first();
-  if(completed)return status(env);
+  if(completed)return await status(env);
   const max=await env.DB.prepare("SELECT COALESCE(MAX(id),0) AS ceiling FROM audit WHERE action='treasury.receipt242'").first<{ceiling:number}>();
   if(!max||!whole(max.ceiling))return refused();
   const scope=await census(env,max.ceiling);
-  if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused(scope?.invalid);
+  if(!scope||scope.rows>MAX_ROWS)return refused();
+  if(scope.invalid)return refused(scope.invalid);
   const at=clock(),review:Review={actor,version:session.v,generation:session.g,birth:session.n,epoch:env.PRIVACY_WRITE_ADMISSION_EPOCH??'',
    id:crypto.randomUUID(),created:at,expires:Math.min(session.e,at+600),ceiling:scope.ceiling};
   if(!/^[a-f0-9]{32}$/.test(review.epoch))return refused();
@@ -117,7 +128,7 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
  // This is a read of the owner's already recorded result, not a renewed apply.
  // An expired old review must not deny that the one-time operation completed.
  const existing=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?1').bind(KEY).first<{value:string}>();
- if(existing)return status(env);
+ if(existing)return await status(env);
  const dot=body.review.lastIndexOf('.');if(dot<1)return refused();
  const raw=body.review.slice(0,dot),signature=body.review.slice(dot+1);
  if(!await verify(env.COOKIE_SECRET,PURPOSE,raw,signature))return refused();
@@ -132,12 +143,13 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
  // historical43/58 count. A ceiling cannot be supplied or expanded by the client.
  const max=await env.DB.prepare("SELECT COALESCE(MAX(id),0) AS ceiling FROM audit WHERE action='treasury.receipt242'").first<{ceiling:number}>();
  if(!max||!whole(max.ceiling)||max.ceiling<review.ceiling)return refused();
- const scope=await census(env,max.ceiling);if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused(scope?.invalid);
+ const scope=await census(env,max.ceiling);if(!scope||scope.rows>MAX_ROWS)return refused();
+  if(scope.invalid)return refused(scope.invalid);
  const completedAt=clock(),marker=JSON.stringify({version:1,operationId:review.id,ceiling:scope.ceiling,blanked:scope.nonempty,completedAt});
  const equalManifest=`(${MANIFEST})=?2 COLLATE BINARY`;
  const assertions=`${equalManifest} AND NOT EXISTS(SELECT 1 FROM audit WHERE ${FAMILY} AND (${INVALID}))`;
  const sqlHold="json_extract('receipt_note_redaction_scope_held','$')";
- try{await env.DB.batch([
+ await env.DB.batch([
   env.DB.prepare(`SELECT CASE WHEN ${assertions} AND NOT EXISTS(SELECT 1 FROM site_settings WHERE key=?3)
    AND CAST(strftime('%s','now') AS INTEGER)<?4 AND (SELECT COUNT(*) FROM audit WHERE ${FAMILY} AND ${COVERED} AND ${NONEMPTY})=?5
    THEN 1 ELSE ${sqlHold} END AS admitted`).bind(scope.ceiling,scope.manifest,KEY,review.expires,scope.nonempty),
@@ -149,10 +161,12 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
   env.DB.prepare('INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES(?1,?2,?3,NULL)').bind(KEY,marker,completedAt),
   env.DB.prepare('INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,?2,?3,NULL,?4)').bind(completedAt,actor,ACTION,JSON.stringify({ceiling:scope.ceiling,blanked:scope.nonempty})),
   env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_settings WHERE key=?1 AND value=?2) THEN 1 ELSE ${sqlHold} END AS recorded`).bind(KEY,marker),
- ]);}catch{
-  // The transaction may have committed before its answer was lost. A fresh
-  // status request must resolve that; this response never repeats the write.
+ ]);
+ return await status(env);
+ }catch{
+  // A batch may have committed before its answer or final status was lost.
+  // Read/status failures stay scoped to this cleanup; no call is retried and
+  // this response does not determine the outcome of any earlier request.
   return unconfirmed();
  }
- return status(env);
 }

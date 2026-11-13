@@ -1,3 +1,5 @@
+import {receiptNoteMaintenance280} from '../src/treasury-note-maintenance280.ts';
+import {runReceiptNotesResidual280} from './receipt_notes_residual280_runtime_test.mjs';
 // Actual index/OAuth/Native writer. All actors, receipts and mail text are synthetic.
 import worker from '../src/index.ts';
 import {ADMISSION_EXPECTED_JSON,ADMISSION_PROTOCOL,ADMISSION_COOKIE_PRE_SEAL_SOURCES_JSON} from '../src/privacy-write-admission-catalogue.ts';
@@ -29,6 +31,7 @@ async function setup(db,layout){
  while(triggers.length){const chunk=triggers.splice(0,40);try{await db.batch(chunk);}catch(error){throw Error('fixture trigger batch starting'+installed+': '+String(error));}installed+=chunk.length;}
 }
 async function run(_request,bindings){
+ if(new URL(_request.url).searchParams.has('scenario'))return runReceiptNotesResidual280(_request,bindings,{worker,setup,config,cookieOf,createPrivacyWriteAdmissionDatabase,receiptNoteMaintenance280});
  const layout=new URL(_request.url).searchParams.get('layout')==='recorded-live-pre-seal-20261017'?'recorded-live-pre-seal-20261017':'canonical';
  await setup(bindings.DB,layout);
  const raw=bindings.DB,env={...config,PRIVACY_WRITE_ADMISSION_LAYOUT:layout,DB:raw},writer=createPrivacyWriteAdmissionDatabase(raw,'writer',layout,EPOCH),cases=[];
@@ -59,7 +62,7 @@ async function run(_request,bindings){
  check('fixture has58 receipts and43 covered nonempty notes',before.filter(x=>x.action==='treasury.receipt242').length===58&&before.filter(x=>x.action==='treasury.receipt242'&&JSON.parse(x.details).note!=='').length===43);
  let directHeld=false;try{await raw.prepare("UPDATE audit SET details=json_set(details,'$.note','') WHERE action='treasury.receipt242'").run();}catch{directHeld=true;}
  check('raw UPDATE is refused by the actual Native trigger',directHeld&&JSON.stringify(await rows())===JSON.stringify(before));
- for(const[label,options]of [['anonymous',{}],['ordinary member',{cookie:member}],['other staff',{cookie:staff}],['foreign Origin',{cookie:owner,headers:{Origin:'https://other.invalid'}}],['stale page',{cookie:owner,headers:{'X-Olympus':'old'}}]]){
+ for(const[label,options]of [['anonymous',{}],['ordinary member',{cookie:member}],['other staff',{cookie:staff}],['foreign Origin',{cookie:owner,headers:{Origin:'https://other.invalid'}}],['stale page',{cookie:owner,headers:{'X-Olympus':'1'}}]]){
   const response=await call('preview',options);
   check(label+' cannot obtain or apply this owner maintenance',response.status!==200&&JSON.stringify(await rows())===JSON.stringify(before),{status:response.status});
  }
