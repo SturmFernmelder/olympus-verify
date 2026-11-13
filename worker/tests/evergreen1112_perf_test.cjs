@@ -312,7 +312,7 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   // Review finding 1 (13 Nov 2026): text the requester chose is never compressed next to the member's data and the
   // per-session proof (BREACH). The decision is made where the page is built (site.ts pageText), from what the caller
   // put into the page, and memberDocument sends anything but 'fixed' uncompressed.
-  const site = load('./site'), transport = load('./member-transport');
+  const site = load('./site'), transport = fs.existsSync(path.join(ROOT, 'src', 'member-transport.ts')) ? load('./member-transport') : null; // the base has none
   const shapes = [[{}, 'fixed'], [{ flash: { kind: 'updating' } }, 'fixed'], [{ flash: { kind: 'cancelled', detail: undefined } }, 'fixed'], [{ flash: { kind: 'expired', detail: undefined } }, 'fixed'],
     [{ flash: { kind: 'discord_error', detail: 'zq-guess' } }, 'from-request'], [{ flash: { kind: 'discord_error', detail: 'token 502' } }, 'from-request'], [{ flash: { kind: 'not_configured', detail: 'COOKIE_SECRET' } }, 'from-request'],
     [{ flash: { kind: 'no_such_kind' } }, 'from-request'], [{ flash: { kind: 'updating', extra: 'x' } }, 'from-request'], [{ flash: { kind: 'updating' }, q: 'x' }, 'from-request'], [{ q: 'x' }, 'from-request'], [{ flash: 'text' }, 'from-request']];
@@ -323,6 +323,7 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   const SAMPLE = '<!doctype html><title>t</title>' + 'x'.repeat(4000);
   const outs = {};
   for (const [label, text, method] of [['fixed', 'fixed', 'GET'], ['from-request', 'from-request', 'GET'], ['from-request HEAD', 'from-request', 'HEAD'], ['no decision', undefined, 'GET']]) {
+    if (!transport) { outs[label] = { encoding: 'no member-transport.ts' }; continue; }
     const r = await transport.memberDocument(docReq(method), SAMPLE, 200, docHeaders(), text), b = Buffer.from(await r.arrayBuffer());
     outs[label] = { encoding: r.headers.get('Content-Encoding'), vary: r.headers.get('Vary'), bytes: b.length, same: b.toString('utf8') === (method === 'HEAD' ? '' : SAMPLE) };
   }
@@ -353,6 +354,20 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   check('CL2-076 sign-out: sign-out succeeds and clears the session cookie', signedOff.status === 200 && /__Host-olg=;/.test(signedOff.h('Set-Cookie') || ''));
   check('CL2-076 sign-out: the old session cookie gets no API answer (401) and no script from the Worker', meAfter.status === 401 && pubAfter.status === 401 && jsAfter.status === 401 && jsAfter.h('Cache-Control') === 'no-store, no-transform', report.cl2076.signOut.after);
   check('CL2-076 sign-out: the page is the sign-in page, which loads no app.js', pageAfter.status === 200 && /Enter Olympus/.test(pageAfter.bytes.toString('utf8')) && !pageAfter.bytes.toString('utf8').includes('/static/app.js'));
+  // Review finding 4 (13 Nov 2026): a signed-in account the gate does not admit (here one that left the server) still
+  // makes its three own-record reads; they lose no-transform like every member /api answer and stay no-store.
+  const DEPARTED = '300000000000000009';
+  await seedUser(DEPARTED, 'De Parted'); await checkedAt(DEPARTED, now); await cookieFor(DEPARTED);
+  await fixtureRun('UPDATE site_users SET in_server = 0 WHERE discord_id = ?', DEPARTED);
+  const ownReads = {};
+  const GATE_REFUSAL = 'This account cannot enter the guild site.';
+  for (const p of ['/api/me', '/api/application', '/api/community/context']) { const r = await raw(DEPARTED, p), body = r.bytes.toString('utf8'); ownReads[p] = { status: r.status, cache: r.h('Cache-Control'), gate: body.includes(GATE_REFUSAL) }; }
+  const refusedPage = await raw(DEPARTED, '/api/public'), refusedBody = refusedPage.bytes.toString('utf8');
+  report.cl2076.ownReads = { ...ownReads, '/api/public': { status: refusedPage.status, cache: refusedPage.h('Cache-Control'), gate: refusedBody.includes(GATE_REFUSAL) } };
+  // /api/application has no GET answer of its own: the API answers it 403 itself, after the gate let it through.
+  check('CL2-076: a signed-in account that is not admitted passes the gate for its three own-record reads, each answered no-store without no-transform; the gate refuses anything else (no-store, no-transform)',
+    Object.values(ownReads).every(v => !v.gate && v.cache === 'no-store') && ownReads['/api/me'].status === 200 && ownReads['/api/community/context'].status === 200
+    && refusedPage.status === 403 && report.cl2076.ownReads['/api/public'].gate && refusedPage.h('Cache-Control') === 'no-store, no-transform', report.cl2076.ownReads);
   // A new build: the same Worker with only its BUILD string changed (in memory, as a deployment of the next build
   // would be), over the same modules and database. Its page names the new version, and the old version is not kept.
   const NEXT = '2026-11-14.281 Next build', VN = '?v=' + encodeURIComponent(NEXT);
