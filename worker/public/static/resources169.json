@@ -283,7 +283,7 @@
       "category": "Guild tools",
       "rationale": "A shared in-game view of Olympus guilds, leaders and census reports.",
       "status": "Author lists Forever file",
-      "version": "1.5.7 or later (the project page offers the current file)",
+      "minimumVersion": "1.5.7",
       "url": "https://www.curseforge.com/wow/addons/olympus-guild",
       "sourceKind": "Publisher project page; addon API reviewed 2026-10-21",
       "limitations": [
@@ -758,8 +758,8 @@
     "version": 1,
     "title": "The most trusted World of Warcraft: Forever guides and addons",
     "sourceCheckedAt": "2026-10-18",
-    "reconciledAt": "2026-10-23T15:29:40.991Z",
-    "scopeNote": "The October 18 shortlist records the beta limits and dates known at the time. The October 23 follow-up could not open Warcraft Tavern articles or recover The Forever Era’s BiS method, so those entries retain October 18 evidence. Publisher coverage, independent testing and installed-client compatibility each have their own evidence. “Most trusted” describes the shortlist.",
+    "reconciledAt": "2026-11-12",
+    "scopeNote": "The October 18 shortlist records the beta limits and dates known at the time. The October 23 follow-up could not open Warcraft Tavern articles or recover The Forever Era’s BiS method, so those entries retain October 18 evidence. The November 12 follow-up rechecked Zygor and Olympus Guild after launch. Publisher coverage, independent testing and installed-client compatibility each have their own evidence. “Most trusted” describes the shortlist.",
     "sections": [
       {
         "id": "main-websites",

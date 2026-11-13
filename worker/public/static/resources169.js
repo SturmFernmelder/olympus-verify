@@ -177,7 +177,8 @@
         if (typeof url === "string") { const row = el("p"); row.append(link(label, url)); provenance.append(row); }
       }
       if (typeof item.integrationNote === "string") provenance.append(el("p", item.integrationNote, "resources169-meta"));
-      for (const [label, value] of [["Published file", item.version], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
+      // An entry that names only a floor (Olympus Guild, 12 Nov 2026) says so, instead of calling it the published file.
+      for (const [label, value] of [["Published file", item.version], ["Minimum version", item.minimumVersion], ["Publisher release date", item.releasedAt], ["Advertised client", item.gameBuild], ["Guide scope", item.scope]]) {
         if (typeof value === "string") provenance.append(el("p", `${label}: ${value}`, "resources169-meta"));
       }
       if (Array.isArray(item.limitations)) {

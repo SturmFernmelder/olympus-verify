@@ -247,7 +247,8 @@ async function launchTransition228(){
   check('  the guide replies’ evidence footer is tense-neutral',!util.includes('Launch may change beta details')&&util.includes('Pinned data comes from the beta; the released game can differ.'));
   check('  the /olympus guides section is tense-neutral',!hub.includes('launch behavior is not inferred')&&hub.includes('the released game can differ'));
   const intro=load('./intros').INTROS.find(x=>x.key==='olympus-info'),reservation=intro.embeds[1].fields.find(f=>f.name==='Early name reservation'),guides=intro.embeds[2].description;
-  check('the #olympus-info reservation field is dated and in the past tense',!!reservation&&reservation.value.includes('(closed)')&&reservation.value.includes('North America opened October 27')&&!/\bopens\b/.test(reservation.value),reservation&&reservation.value);
+  // Evergreen 12 Nov 2026 (CL2-174): after launch the reservation field is retired and the intro leads with the launch.
+  check('the #olympus-info reservation field is retired after launch and the intro says Forever launched',!reservation&&intro.embeds[1].fields.some(f=>f.name==='Launched'),reservation&&reservation.value);
   check('  its community-guides note is tense-neutral',!guides.includes('before launch')&&guides.includes('the released game can differ'));
  });
 
