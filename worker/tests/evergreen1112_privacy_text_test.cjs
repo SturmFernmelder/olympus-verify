@@ -535,12 +535,14 @@ check('policy: a refused role removal stays held; the yearly cleanup leaves it a
     VALUES(?,?,?,?,?,?,?,'held',?,?,NULL,?,?,?,?,?,?,1,?,?,?)`);
   const hex = (c, n) => c.repeat(n);
   const reason = (type, status, code, wait) => JSON.stringify({ version: 1, type, status, code, retryAfterSeconds: wait });
+  // A ban refusal is a closed version 2 reason with the ban's 32-hex mandate as its sixth key (Codex 9a66048).
+  const banReason = (status, code, wait) => JSON.stringify({ version: 2, type: m.BAN_DELETE_REFUSAL280, status, code, retryAfterSeconds: wait, mandate: hex('8', 32) });
   const native = [1, 'Player-4613-0ABCDEF1', m.DIRECTIVE_CANONICAL_PROFILE, rank, m.DIRECTIVE_RANK_NAMES[rank]];
   // The yearly cleanup's own eligible shape (a held removal that was never sent) proves the cleanup ran and matched.
   ins.run(hex('a', 32), '300000000000000021', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 1, 'canonical233_never_dispatched', hex('b', 32), hex('c', 64), ...native, created, created + 300, created + 1);
   ins.run(hex('d', 32), '300000000000000022', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 0, reason(m.CANONICAL_DELETE_REFUSAL280, 403, 50013, 0), hex('e', 32), hex('f', 32), ...native, created, created + 300, created + 1);
   ins.run(hex('1', 32), '300000000000000023', 'canonical_routine233', null, m.CANONICAL_GUILD233, role, 0, reason(m.CANONICAL_DELETE_REFUSAL280, 429, null, 30), hex('2', 32), hex('3', 32), ...native, created, created + 300, created + 1);
-  ins.run(hex('4', 32), '300000000000000024', 'canonical_ban_remove_v1', hex('5', 32), m.CANONICAL_GUILD233, role, 0, reason(m.BAN_DELETE_REFUSAL280, 404, 10007, 0), hex('6', 32), hex('7', 64), null, null, 'olympus-ban-rank-removal-20261112-v1', null, null, created, created + 300, created + 1);
+  ins.run(hex('4', 32), '300000000000000024', 'canonical_ban_remove_v1', hex('5', 32), m.CANONICAL_GUILD233, role, 0, banReason(404, 10007, 0), hex('6', 32), hex('7', 64), null, null, 'olympus-ban-rank-removal-20261112-v1', null, null, created, created + 300, created + 1);
   const refusals = [hex('d', 32), hex('1', 32), hex('4', 32)];
   // Each refusal row is exactly what Codex's reader recognises as a recorded refusal.
   const recognised = db.prepare(`SELECT id FROM role_settlements r WHERE (${m.canonicalDeleteRefusalSql280('r')}) OR (${m.banDeleteRefusalSql280('r')}) ORDER BY id`).all().map(r => r.id);
