@@ -798,6 +798,17 @@ async function round4Checks(cdp) {
     const refusal = await cdp.eval(toasts);
     check('R4-1', 'control: a refusal the Worker answered with a message still shows that message', refusal === 'Synthetic refusal from the Worker.', refusal);
   }
+  if (want('R4-2')) {
+    // The Apply section H2s share one size, smaller than the page H1, at desktop and phone widths.
+    const sizes = {};
+    for (const width of [1280, 375]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 768 });
+      await open(cdp, 'member', 'apply', 'document.querySelector("section.field[data-field=talentBuilds] > h2")');
+      sizes[width] = await cdp.eval(`(() => { const px = el => parseFloat(getComputedStyle(el).fontSize); const h1 = document.querySelector('main h1'); const talent = document.querySelector('section.field[data-field=talentBuilds] > h2'); const siblings = [...document.querySelectorAll('main .section-title h2')].map(px); return { h1: h1 && px(h1), talent: talent && px(talent), siblings: [...new Set(siblings)] }; })()`);
+    }
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
+    check('R4-2', '/#/apply at 1280 and 375 px: "Character talent builds (optional)" has the section-title size of its sibling H2s, below the H1', Object.values(sizes).every(s => s.talent && s.siblings.length === 1 && s.talent === s.siblings[0] && s.talent < s.h1), JSON.stringify(sizes));
+  }
 }
 
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
