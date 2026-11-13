@@ -78,8 +78,9 @@ check217('board Native full body and wrong input type are refused',()=>{assert21
 const treasuryHistorical217=historicalTreasuryNativeFixture217(nativeSource217);
 const treasuryEntryStart217=nativeSource217.indexOf(' {const f=fixture(),entryPage='),treasuryEntryEnd217=nativeSource217.indexOf("  check('real privacy OAuth requests identify only'",treasuryEntryStart217);
 assert217.ok(treasuryEntryStart217>nativeCuts217[0].index&&treasuryEntryEnd217>treasuryEntryStart217);
-const treasuryContexts217=[nativeLine217,nativeSource217.slice(treasuryEntryStart217,treasuryEntryEnd217)];
-check217('Treasury whole current fixture maps to exact original authority only as data',()=>{assert217.equal(hash217(nativeSource217),'e0242a0b2640c3c2770d2a0605b5ce267728624b7bdddf1b54e38bc646f6747c');assert217.equal(hash217(treasuryHistorical217),'0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e');assert217.equal(Buffer.byteLength(treasuryHistorical217),38099);});
+const treasuryDetail217=nativeSource217.split('\n').find(line=>line.includes("check('the application detail forbids an ordinary signed-in non-admin cookie'"))+'\n';
+const treasuryContexts217=[nativeLine217,nativeSource217.slice(treasuryEntryStart217,treasuryEntryEnd217),treasuryDetail217];
+check217('Treasury whole current fixture maps to exact original authority only as data',()=>{assert217.equal(hash217(nativeSource217),'4cc83b109bb583dca0124e2678d9bcd5e57b5a658acad20a178e6120fb2f39af');assert217.equal(hash217(treasuryHistorical217),'0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e');assert217.equal(Buffer.byteLength(treasuryHistorical217),38099);});
 check217('Treasury each duplicate whole-fixture context is refused',()=>{for(const context of treasuryContexts217)assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217+context),/native_context_not_unique/);});
 check217('Treasury each missing whole-fixture context is refused',()=>{for(const context of treasuryContexts217)assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217.replace(context,'')),/native_context_not_unique/);});
 check217('Treasury unrelated compiled setup drift is refused',()=>assert217.throws(()=>historicalTreasuryNativeFixture217(nativeSource217.replace('function fixture(){','function fixture() {')),/native_current_fixture_drift/));

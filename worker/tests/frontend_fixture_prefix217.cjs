@@ -60,14 +60,21 @@ const TREASURY_NATIVE_ENTRY217=Object.freeze({
  "current": " {const f=fixture(),entryPage=await f.call('GET','/privacy/signin'),entryHtml=await entryPage.text(),entryToken=/name=\"csrf\" value=\"([^\"]+)\"/.exec(entryHtml)[1],entryCookie=Object.entries(cookies(entryPage)).map(([k,v])=>k+'='+v).join('; ');\n const start=await f.call('POST','/privacy/signin',{cookie:entryCookie,form:{csrf:entryToken}}),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n",
  "historical": " {const f=fixture(),start=await f.call('GET','/privacy/signin'),u=new URL(start.headers.get('Location')),flow=cookies(start),flowCookie=Object.entries(flow).map(([k,v])=>k+'='+v).join('; ');\n"
 });
+// 7282fc6 (Codex, 12 Nov 2026) changed one assertion in the fixture's body, after the compiled
+// setup boundary: a signed-in non-admin now gets 403 from the application detail, not 401. That body
+// is never compiled by these consumers; the inverse maps the line back so the original authority hash holds.
+const TREASURY_NATIVE_DETAIL217=Object.freeze({
+ "current": "   check('the application detail forbids an ordinary signed-in non-admin cookie',(await f.call('GET','/api/admin/applications/'+ID,{cookie})).status===403);\n",
+ "historical": "   check('the application detail still refuses an ordinary non-admin cookie',(await f.call('GET','/api/admin/applications/'+ID,{cookie})).status===401);\n"
+});
 function historicalTreasuryNativeFixture217(current){
  if(typeof current!=='string')throw Error('treasury217_native_fixture_type');
  let historical=current;
- for(const edit of [BOARD_NATIVE217,TREASURY_NATIVE_ENTRY217]){
+ for(const edit of [BOARD_NATIVE217,TREASURY_NATIVE_ENTRY217,TREASURY_NATIVE_DETAIL217]){
   if(historical.split(edit.current).length!==2)throw Error('treasury217_native_context_not_unique');
   historical=historical.replace(edit.current,edit.historical);
  }
- if(Buffer.byteLength(current,'utf8')!==38590||hash217(current)!=='e0242a0b2640c3c2770d2a0605b5ce267728624b7bdddf1b54e38bc646f6747c')throw Error('treasury217_native_current_fixture_drift');
+ if(Buffer.byteLength(current,'utf8')!==38594||hash217(current)!=='4cc83b109bb583dca0124e2678d9bcd5e57b5a658acad20a178e6120fb2f39af')throw Error('treasury217_native_current_fixture_drift');
  if(Buffer.byteLength(historical,'utf8')!==38099||hash217(historical)!=='0f2fec9685d3a22ceb3f8684ec72d913a749d5ad33cb9b07bc62d9c96d87e98e')throw Error('treasury217_native_historical_fixture_drift');
  return historical;
 }
