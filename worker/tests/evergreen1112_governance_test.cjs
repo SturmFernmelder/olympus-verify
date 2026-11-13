@@ -77,14 +77,24 @@ check('REV-GOV-4', 'the standalone operational charter carries the same O15 head
 // ---------------------------------------------------------------- REV-GOV-2 a dated record of the 12 November reconciliation
 const readingGuide = chapter('Reading and Adopting This Book');
 const reconciled = (/On 12 November 2026 the text was editorially reconciled[^\n]*?restored exactly\./.exec(readingGuide) || [''])[0];
-// Round 3 item 6c: the paragraph bridge refuses an inserted paragraph that keeps the 18 October text inside it, so the
-// record stays in that paragraph, shortened from about 95 words in one sentence to two plain sentences.
+// Round 3 item 6c shortened the record to plain sentences inside the 18 October paragraph; round 4 item 5 makes it its own
+// paragraph through a manifest pair that spans the 18 October paragraph and the next one whole.
 const reconciledWords = reconciled.split(/\s+/).filter(Boolean).length, reconciledSentences = reconciled.split(/(?<=\.)\s+(?=[A-Z])/).length;
 check('REV-GOV-2', 'the reading guide records the 12 November 2026 reconciliation in two or three dated sentences of at most 70 words', !!reconciled && reconciledSentences >= 2 && reconciledSentences <= 3 && reconciledWords <= 70,
   reconciledWords + ' words, ' + reconciledSentences + ' sentence(s)');
 check('REV-GOV-2', 'the record names every kind of change and what did not change',
   ['cross-references', 'Council compositions', 'build numbers', 'headings', 'duel-escrow clauses', 'suspended proposal', 'tithe tiers',
     'No rule, amount, eligibility condition, decision or named holder changed', 'editorial manifest'].every(x => reconciled.includes(x)), reconciled.slice(0, 80));
+// R4-GOV-5: the 18 October paragraph carries only its own clarification; the 12 November record is the next paragraph,
+// and it is the whole of that paragraph.
+{
+  const paras = readingGuide.split('\n\n').map(p => p.trim());
+  const at = paras.findIndex(p => p.startsWith('**Operative clarification · 18 October 2026.**'));
+  const own = paras[at] || '', following = paras[at + 1] || '';
+  check('R4-GOV-5', 'the 12 November 2026 record is its own paragraph right after the 18 October clarification, which no longer contains it',
+    at >= 0 && !own.includes('12 November') && following === reconciled && following.startsWith('On 12 November 2026 '),
+    JSON.stringify({ octoberHas12Nov: own.includes('12 November'), next: following.slice(0, 60) }));
+}
 
 // ---------------------------------------------------------------- REV-GOV-3 every in-book section link lands on a generated id
 // The ids exactly as app.js parseGovernanceBook and governanceBlocks generate them.
