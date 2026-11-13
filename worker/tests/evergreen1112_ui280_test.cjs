@@ -329,7 +329,8 @@ const runUi280=String.raw`
   pa.intercept(null);
   // The admin appointment search (no typed fallback) is unchanged with the real reply, and an empty-result message
   // about site profiles appears only when the reply permits profiles.
-  await pa.go('#/admin/settings');await waitFor(()=>!!pickerFor(pa,t=>t.endsWith(': associate Discord account')),'the appointment picker',8000);
+  // Round 5: CL2-014 (a6f591d) moved the appointed holders from Settings onto Admin, Appointed roles; the picker is the same.
+  await pa.go('#/admin/appointments');await waitFor(()=>!!pickerFor(pa,t=>t.endsWith(': associate Discord account')),'the appointment picker',8000);
   const fp=pickerFor(pa,t=>t.endsWith(': associate Discord account'));await search(pa,fp,'Synthetic Pick',()=>rowsOf(fp).length===3);
   const apptReply=await searchAs(STAFF,'Synthetic Pick','appointment');
   const apptBefore={rows:rowsOf(fp).length,hidden:fp.tools.hidden,badges:badges(fp),hints:fp.root.querySelectorAll('[role="option"] .sub').length};
