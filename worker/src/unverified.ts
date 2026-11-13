@@ -17,6 +17,7 @@ import { intVar } from "./env";
 import { linksNotBefore, now } from "./db";
 import type { LaunchVerificationCapture } from "./launch-verification227";
 import { captureRosterLineage275,rosterVerificationSql275 } from "./roster-verification275";
+import { nativeMembershipSourceSql } from './native-rank-schemes';
 
 export const STRICT_ROSTER_DISPLAY_PROTOCOL = "launch-roster-display-v1";
 export const STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = "launch-roster-display-v2";
@@ -32,7 +33,7 @@ export async function strictRosterDisplay(env: Env, launch: LaunchVerificationCa
   const verification = rosterVerificationSql275('?2','?3','?5','?6','?4');
   const rows = await env.DB.prepare(`WITH snapshot AS MATERIALIZED (
     SELECT id, exported_at, member_count FROM roster_snapshots
-    WHERE id = (SELECT MAX(id) FROM roster_snapshots) AND source = ?1
+    WHERE id = (SELECT MAX(id) FROM roster_snapshots) AND ${nativeMembershipSourceSql('source','?1')}
       AND complete = 1 AND trusted = 1 AND member_count BETWEEN 1 AND 1000
       AND exported_at BETWEEN MAX(?3, ?2 - ${STRICT_ROSTER_DISPLAY_AGE}) AND ?2
       AND member_count = (SELECT COUNT(*) FROM roster_members WHERE snapshot_id = roster_snapshots.id)
