@@ -2322,25 +2322,62 @@ function banRank1112KnownReceipt(a:string):string{
   `typeof(${a}.checked_at)='integer'`,`${a}.checked_at>=${a}.created_at`,
   `((${a}.state='settled' AND ${a}.reason='ban_rank1112_delete_acknowledged_and_confirmed') OR (${a}.state='held' AND ${a}.reason IN(${BAN_RANK1112_NO_EFFECT.map(r=>"'"+r+"'").join(',')})))`]);
 }
+/** Unresolved rows of this purpose (a DELETE was claimed and its outcome is not known), whatever their claim window. */
+const banRank1112UnresolvedWhere=(subject:string,guild:string)=>`subject=${subject} AND guild_id=${guild} AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}'
+ AND role_id IN(${BAN_RANK_ROLE_IDS1112.map(r=>"'"+r+"'").join(',')}) AND desired=0 AND attempts=1 AND state IN('dispatching','unknown')`;
 /** Unresolved rows of this purpose whose claim window has passed. Observation only (successor, 12 Nov 2026): a later
  * member read of their roles is reported as data and never changes these rows' state, reason, nonce, digest or clocks. */
-const banRank1112DebtWhere=(subject:string,guild:string,at:string)=>`subject=${subject} AND guild_id=${guild} AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}'
- AND role_id IN(${BAN_RANK_ROLE_IDS1112.map(r=>"'"+r+"'").join(',')}) AND desired=0 AND attempts=1 AND state IN('dispatching','unknown') AND expires_at<=${at}`;
+const banRank1112DebtWhere=(subject:string,guild:string,at:string)=>`${banRank1112UnresolvedWhere(subject,guild)} AND expires_at<=${at}`;
+/**
+ * The rank roles that stay blocked for this member by an unresolved row of this purpose, for the unban reply (repair
+ * round, 13 Nov 2026). The claim window is not applied: a DELETE whose answer was lost blocks its role from that moment.
+ * Read only; null when the read fails, so the caller says it could not tell rather than "none".
+ */
+export async function banRankBlockedRoles1112(env:Env,subject:string):Promise<readonly string[]|null>{
+ if(!ID.test(subject))return Object.freeze([]);
+ try{
+  const rows=(await env.DB.prepare(`SELECT DISTINCT role_id FROM role_settlements WHERE ${banRank1112UnresolvedWhere('?1',`'${CANONICAL_GUILD233}'`)}`).bind(subject).all<{role_id:string}>()).results;
+  const set=new Set(rows.map(r=>r.role_id));return Object.freeze(BAN_RANK_ROLE_IDS1112.filter(id=>set.has(id)));
+ }catch{return null;}
+}
+/**
+ * Closed pre-.233 outcomes that the ban writer's own barrier counts as known (repair round, 13 Nov 2026, independent
+ * review of the successor at 4951e61). Owner ruling (12 Nov 2026): a ban removes the rank role "whether the bot or a
+ * staff member granted it, as bans did before .233", so a role the old bot lanes granted with a confirmed receipt must not
+ * be fenced for good. Each branch is an acknowledged Discord answer followed by a confirming member read, as the writers
+ * in this tree and its history record it:
+ *  - the old fresh/staff lane receipts, the exact predicate the non-canonical routine barrier uses (oldLaneAck in
+ *    runNativeSubject232; full-release-roles.ts: "Only acknowledged closes (removed, effect_and_current_server_confirmed)");
+ *  - 'removed' on a legacy removal (the membership removal batch, grant compensation and account erasure write it only
+ *    after the DELETE was answered and a fresh read showed the role absent, or after a fresh claim found it absent).
+ * GET-only closes ('absent', 'fresh_absence_only', 'fresh_server_absence_batch' and similar) and every dispatching or
+ * unknown row stay unresolved. Used only by banRank1112PhysicalUnresolved, never by a grant writer.
+ */
+function banRank1112LegacyKnown(a:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('ban_rank1112_alias');
+ const acked=`${a}.state='settled' AND ${a}.attempts=1 AND ${a}.claim_nonce IS NOT NULL`;
+ return `((${acked} AND ${a}.reason IN('effect_and_current_server_confirmed','removed') AND ${a}.purpose IN('fresh_roster_rank','staff_roster_rank','fresh_removal_ban','fresh_removal_departure','fresh_removal_rename_hold','fresh_removal_blocking_role','staff_removal_ban','staff_removal_departure'))
+  OR (${acked} AND ${a}.desired=0 AND ${a}.reason='removed' AND ${a}.purpose IN('ban','rename_hold','blocking_role','guild_departure','grant_compensation','account_erasure')))`;
+}
 /**
  * The same-role, all-generation physical barrier, here for the ban writer's own dispatch (successor, 12 Nov 2026). An
  * earlier row of ANY purpose or generation on the same member and role holds that role while it is dispatching or
  * unknown, while it was attempted and is not one of the closed known outcomes (the same recognizers the routine, shared
- * membership and migration barriers use, this purpose's included), or while an unattempted claim on it is still live.
+ * membership and migration barriers use, this purpose's included, plus the closed pre-.233 acknowledged receipts of
+ * banRank1112LegacyKnown), or while an unattempted claim on it is still live.
  * `legacy` is the grouped legacy shared-member ACK predicate for alias `a`.
  */
 function banRank1112PhysicalUnresolved(a:string,legacy:string):string{
  if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('ban_rank1112_alias');
- return `(${a}.state IN('dispatching','unknown') OR (${a}.attempts<>0 AND NOT(CASE WHEN (${launch230KnownReceipt(a)}) OR (${native232KnownReceipt(a)}) OR (${canonical233KnownReceipt(a)}) OR (${canonical233MigrationKnownReceipt(a)}) OR (${banRank1112KnownReceipt(a)}) OR (${legacy}) THEN 1 ELSE 0 END))
+ return `(${a}.state IN('dispatching','unknown') OR (${a}.attempts<>0 AND NOT(CASE WHEN (${launch230KnownReceipt(a)}) OR (${native232KnownReceipt(a)}) OR (${canonical233KnownReceipt(a)}) OR (${canonical233MigrationKnownReceipt(a)}) OR (${banRank1112KnownReceipt(a)}) OR (${legacy}) OR (${banRank1112LegacyKnown(a)}) THEN 1 ELSE 0 END))
   OR (${a}.attempts=0 AND ${a}.state IN('pending','dispatching') AND ${a}.expires_at>${DB_NOW}))`;
 }
 export type BanRankRole1112=Readonly<{role:string;reason:string}>;
 export type BanRankOrigin1112=Readonly<{kind:'command';banEvent:number}>|Readonly<{kind:'sweep'}>;
-export type BanRankOutcome1112=Readonly<{state:'settled'|'held'|'unknown';reason:string;inServer:boolean|null;removed:readonly string[];held:readonly BanRankRole1112[];unknown:readonly BanRankRole1112[];deferred:readonly string[];raced:boolean;requests:number;dispatched:number;observed:number}>;
+/** Why roles were left for a later visit (repair round, 13 Nov 2026): the request budget, Discord's 429, an unconfirmed
+ * result that stopped the visit, or the sweep's one-role-per-visit limit. The officer's reply names the actual cause. */
+export type BanRankDeferral1112='budget'|'rate_limit'|'unconfirmed'|'one_per_visit';
+export type BanRankOutcome1112=Readonly<{state:'settled'|'held'|'unknown';reason:string;inServer:boolean|null;removed:readonly string[];held:readonly BanRankRole1112[];unknown:readonly BanRankRole1112[];deferred:readonly string[];deferredBy:readonly BanRankDeferral1112[];raced:boolean;requests:number;dispatched:number;observed:number}>;
 /**
  * Remove every fixed Olympus rank role a banned account holds, manual grants included. `generation` is the caller's
  * original privacy capture (undefined holds). `b` is the caller's request budget, shared with its other role work.
@@ -2348,12 +2385,12 @@ export type BanRankOutcome1112=Readonly<{state:'settled'|'held'|'unknown';reason
  * the specific role (or the whole visit), never widens.
  */
 export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRankOrigin1112,generation:string|null|undefined,b:AttemptBudget,removalDispatch?:RemovalDispatch):Promise<BanRankOutcome1112>{
- const removed:string[]=[],held:BanRankRole1112[]=[],unknown:BanRankRole1112[]=[],deferred:string[]=[],start=b.attempts;let inServer:boolean|null=null,raced=false,dispatched=0,observed=0;
+ const removed:string[]=[],held:BanRankRole1112[]=[],unknown:BanRankRole1112[]=[],deferred:string[]=[],deferredBy=new Set<BanRankDeferral1112>(),start=b.attempts;let inServer:boolean|null=null,raced=false,dispatched=0,observed=0;
  // Repair round (12 Nov 2026): every DELETE Discord acknowledged and every role this visit planned live outside the
  // try, so an error after an acknowledgement still confirms that removal (or records it unknown) and reports it. The
  // officer is never told "no rank role was removed" after a DELETE was sent.
  const acked:{role:string;row:(string|number|null)[];checks:()=>void}[]=[];let plan:readonly string[]=[],confirm:((interrupted:boolean)=>Promise<void>)|null=null;
- const done=(state:BanRankOutcome1112['state'],reason:string):BanRankOutcome1112=>Object.freeze({state,reason,inServer,removed:Object.freeze(removed.slice()),held:Object.freeze(held.slice()),unknown:Object.freeze(unknown.slice()),deferred:Object.freeze(deferred.slice()),raced,requests:b.attempts-start,dispatched,observed});
+ const done=(state:BanRankOutcome1112['state'],reason:string):BanRankOutcome1112=>Object.freeze({state,reason,inServer,removed:Object.freeze(removed.slice()),held:Object.freeze(held.slice()),unknown:Object.freeze(unknown.slice()),deferred:Object.freeze(deferred.slice()),deferredBy:Object.freeze([...deferredBy]),raced,requests:b.attempts-start,dispatched,observed});
  const finish=(reason:string)=>done(unknown.length?'unknown':held.length||deferred.length?'held':'settled',reason);
  const removal=originalRemovalDispatch(env,removalDispatch);let currentCause:(()=>Promise<boolean>)|null=null;
  try{
@@ -2424,7 +2461,8 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
    for(const f of fenced){const at=admitted.indexOf(f.role_id);if(at<0)continue;admitted.splice(at,1);(f.unresolved?unknown:held).push(Object.freeze({role:f.role_id,reason:f.unresolved?'earlier_role_change_unresolved':'role_change_in_progress'}));}
   }
   // Each admitted DELETE reserves its own request plus one shared confirming read; the rest is left for a later visit.
-  const room=Math.max(0,b.limit-b.attempts-1),take=Math.min(admitted.length,room,origin.kind==='sweep'?BAN_RANK1112_SWEEP_ROLES:admitted.length);
+  const room=Math.max(0,b.limit-b.attempts-1),cap=origin.kind==='sweep'?BAN_RANK1112_SWEEP_ROLES:admitted.length,take=Math.min(admitted.length,room,cap);
+  if(take<admitted.length)deferredBy.add(room<Math.min(admitted.length,cap)?'budget':'one_per_visit');
   deferred.push(...admitted.slice(take));plan=Object.freeze(admitted.slice(0,take));
   const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND proof_id=?6 AND request_digest=?7 AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}' AND desired=0`;
   const guard=canonical239And([base,physical]);
@@ -2474,7 +2512,7 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
     (state==='unknown'?unknown:held).push(Object.freeze({role,reason:reason.replace('ban_rank1112_','')}));
     if(!started){if(!await current()){stopAll(index+1,'removal_cause_withdrawn');break;}continue;}
     // A rate limit or an unknown outcome stops this visit; the remaining roles wait for a later visit.
-    if(status===429||state==='unknown'){for(const later of admitted.slice(index+1,take))deferred.push(later);break;}
+    if(status===429||state==='unknown'){const later=admitted.slice(index+1,take);if(later.length)deferredBy.add(status===429?'rate_limit':'unconfirmed');deferred.push(...later);break;}
    }
   }
   await confirm(false);
