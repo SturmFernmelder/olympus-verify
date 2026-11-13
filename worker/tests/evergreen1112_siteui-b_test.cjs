@@ -246,6 +246,19 @@ async function browserChecks() {
       const r = await ev(`const a=[...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length);return a.map(x=>Math.round(x.getBoundingClientRect().height))`);
       check('CL2-322', '"Role guide" links on /#/apply are at least 24 px tall', r.length > 0 && Math.min(...r) >= 24, r);
     }
+    if (want('REV-SITEB-2')) {
+      // REV-SITEB-2 (12 Nov 2026): both kinds of "Role guide" link (application badges; the See-also strip on Vote) share one
+      // 44 px target from the stylesheet. The inline CSSOM size on See-also links is removed before measuring, so the check
+      // reads the stylesheet's rule, not the script's.
+      const sizes = {};
+      for (const [who, route] of [['member', 'vote'], ['applicant', 'apply'], ['admin', 'admin/applications']]) {
+        for (const w of [1280, 390]) {
+          await open(who, w, route); await sleep(600);
+          sizes[`${route}@${w}`] = await ev(`return [...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length).map(a=>{a.style.removeProperty('min-height');a.style.removeProperty('display');return Math.round(a.getBoundingClientRect().height)})`);
+        }
+      }
+      check('REV-SITEB-2', 'every "Role guide" link on Vote, Apply and Admin applications is at least 44 px tall at 1280 and 390 px, from the stylesheet', Object.values(sizes).every(x => x.length > 0 && Math.min(...x) >= 44), sizes);
+    }
     if (want('CL2-321')) {
       await open('admin', 390, '');
       const r = await ev(`const s=[...document.querySelectorAll('nav.nav details.nav-group > summary')].find(x=>x.textContent==='Community');s.click();await new Promise(r=>setTimeout(r,200));const m=s.parentElement.querySelector('.nav-menu');return {heights:[...m.querySelectorAll('a')].map(a=>Math.round(a.getBoundingClientRect().height))}`);
