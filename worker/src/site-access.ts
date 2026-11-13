@@ -31,7 +31,9 @@ export function siteSignIn(request: Request, status = 200, flash?: string, cooki
   const note = flash && Object.hasOwn(FLASH, flash) ? `<p role="status">${FLASH[flash]}${privacyLink}</p>` : '';
   // Direct owner answer, 23 Oct 2026: approved .173 stills remain the default.
   // The optional animation is a client-model render, not a publisher-issued video.
-  const still = `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
+  // Owner ruling of 13 Nov 2026 (CL2-074): browsers that support WebP load the same stills as WebP copies
+  // (quality 0.82, same pixel size); the PNG sources stay as the fallback, with the same media, sizes and alt text.
+  const still = `<picture class="login-portal-art"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.webp" type="image/webp" width="852" height="1847"><source media="(max-aspect-ratio: 6/5)" srcset="/static/wow/login/olympus-dark-portal-portrait.png" width="852" height="1847"><source srcset="/static/wow/login/olympus-dark-portal-wide.webp" type="image/webp" width="1916" height="821"><img class="login-portal-poster" src="/static/wow/login/olympus-dark-portal-wide.png" alt="" aria-hidden="true" width="1916" height="821"></picture>`;
   const motion = animation && request.headers.get('Save-Data')?.trim().toLowerCase() !== 'on'
     ? `<details class="login-motion" open><summary><span class="motion-hide">Hide animated background</span><span class="motion-show">Show animated background</span></summary><video class="login-portal-video" aria-hidden="true" width="960" height="540" autoplay loop muted playsinline preload="metadata"><source src="/static/wow/login/dark-portal.webm" type="video/webm" media="(prefers-reduced-motion: no-preference)"></video></details>` : '';
   const login = siteLoginLocation(siteEntryReturn(new URL(request.url)));

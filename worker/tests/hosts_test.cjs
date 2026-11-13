@@ -183,11 +183,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const loginEnv = env({ DB: d1(db, { trap: () => { loginTouches++; throw Error('public login media must not touch D1'); } }), ASSETS: { fetch: async request => {
     const path = new URL(request.url).pathname;
     loginCalls.push({ path, method: request.method, range: request.headers.get('Range') });
-    return new Response('exact-login-media', { status: 200, headers: { 'Content-Type': path.endsWith('.webm') ? 'video/webm' : path.endsWith('.png') ? 'image/png' : 'image/jpeg', ETag: '"login-media-test"' } });
+    return new Response('exact-login-media', { status: 200, headers: { 'Content-Type': path.endsWith('.webm') ? 'video/webm' : path.endsWith('.png') ? 'image/png' : path.endsWith('.webp') ? 'image/webp' : 'image/jpeg', ETag: '"login-media-test"' } });
   } } });
   // Direct owner choice retains both .173 stills and permits the existing optional video/poster.
   // Every approved asset receives the entire original positive security/verb matrix.
-  for (const [path, mime] of [['/static/wow/login/dark-portal.webm', 'video/webm'], ['/static/wow/login/dark-portal-poster.jpg', 'image/jpeg'], ['/static/wow/login/olympus-dark-portal-wide.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-portrait.png', 'image/png']]) {
+  for (const [path, mime] of [['/static/wow/login/dark-portal.webm', 'video/webm'], ['/static/wow/login/dark-portal-poster.jpg', 'image/jpeg'], ['/static/wow/login/olympus-dark-portal-wide.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-portrait.png', 'image/png'], ['/static/wow/login/olympus-dark-portal-wide.webp', 'image/webp'], ['/static/wow/login/olympus-dark-portal-portrait.webp', 'image/webp']]) {
     let before = loginCalls.length;
     res = await get('https://guild.example' + path, loginEnv);
     check('signed-out GET serves only this exact login asset without session/D1: ' + path, res.status === 200 && await res.text() === 'exact-login-media' && loginCalls.length === before + 1 && loginTouches === 0 && res.headers.get('Content-Type') === mime);
@@ -230,6 +230,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const projection = JSON.parse(fs.readFileSync(path.join(root, "..", "scripts", "official_asset_reference.json"), "utf8"));
   const digest = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
   const immutable = "public, max-age=31536000, immutable, no-transform";
+  const webpCopies074 = { "/static/wow/login/olympus-dark-portal-wide.webp": { sha256: "3898651551731cd1585a5682636d457e8200183504c23c633c8aaa1dd3fddbc9", bytes: 362622 }, "/static/wow/login/olympus-dark-portal-portrait.webp": { sha256: "cd908960637f06c5dc509bf4315ba55859f984bb7e523f73dfdc47cd40462fe1", bytes: 342624 } };
   const files = new Map([...cache.POLICY_ASSETS, ...cache.LOGIN_ASSETS].map(assetPath => [assetPath, fs.readFileSync(path.join(root, "public", assetPath))]));
   const digestedCalls = [];
   const exactEnv = env({ DB: d1(db, { trap: () => { throw Error("The public asset closure is database-free"); } }), ASSETS: { fetch: async request => {
@@ -242,10 +243,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
     if (request.headers.get("Range") === "bytes=0-3") return new Response(file.subarray(0, 4), { status: 206, headers: { ...headers, "Content-Range": "bytes 0-3/" + file.length } });
     return new Response(request.method === "HEAD" ? null : file, { status: 200, headers });
   } } });
-  check("the immutable inventory is limited to 13 policy and four login assets", cache.POLICY_ASSETS.length === 13 && cache.LOGIN_ASSETS.length === 4 && files.size === 17);
+  check("the immutable inventory is limited to 13 policy and six login assets", cache.POLICY_ASSETS.length === 13 && cache.LOGIN_ASSETS.length === 6 && files.size === 19);
   for (const [assetPath, file] of files) {
     const sha = digest(file), alias = cache.immutablePolicyAssetUrl(assetPath);
-    const pin = projection.assets.find(row => row.path === "worker/public" + assetPath);
+    // CL2-074 (owner ruling of 13 Nov 2026): the two WebP copies are pinned here; the retired publication reference predates them.
+    const pin = projection.assets.find(row => row.path === "worker/public" + assetPath) ?? webpCopies074[assetPath];
     const served = await get("https://guild.example" + alias, exactEnv, { headers: { Cookie: "session=fixture", Authorization: "Bearer fixture" } });
     const headers = served.headers;
     const bytes = Buffer.from(await served.arrayBuffer());
