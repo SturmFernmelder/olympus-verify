@@ -36,10 +36,12 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
     if(table.name==='roster_members'){row.rank=NATIVE_RANK_NAMES232[rank];row.rank_index=rank;}
     const names=Object.keys(row);await db.prepare('INSERT INTO "'+table.name+'"('+names.map(n=>'"'+n+'"').join(',')+')VALUES('+names.map(()=>'?').join(',')+')').bind(...names.map(n=>row[n])).run();}
    const triggers=seed.objects.filter(x=>x.type==='trigger').map(x=>db.prepare(x.sql));while(triggers.length)await db.batch(triggers.splice(0,40));
-   const control={failD1:null},wires=[],fetcher=Object.getOwnPropertyDescriptor(db,'fetcher').value,send=method(fetcher,'fetch');
+   const control={failD1:[]},wires=[],fetcher=Object.getOwnPropertyDescriptor(db,'fetcher').value,send=method(fetcher,'fetch');
    Object.defineProperty(fetcher,'fetch',{configurable:true,writable:false,value:async function(input,init){
-    // A one-shot lost D1 answer (repair round): the request never reaches D1 and the caller sees an error.
-    if(control.failD1&&String(init?.body).includes(control.failD1)){control.failD1=null;throw Error('synthetic lost D1 answer');}
+    // One-shot lost D1 answers (repair round; a list since the follow-up pass): the first request whose body contains a
+    // listed text never reaches D1 and the caller sees an error; that text is then spent.
+    const lost=control.failD1.findIndex(m=>String(init?.body).includes(m));
+    if(lost>=0){control.failD1.splice(lost,1);throw Error('synthetic lost D1 answer');}
     const w={requestBody:init?.body,status:null,responseBody:null};wires.push(w);const r=await Reflect.apply(send,fetcher,[input,init]);w.status=r.status;w.responseBody=await r.clone().text();return r;}});
    const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};
    await env.DB.batch([env.DB.prepare('INSERT INTO members(discord_id)VALUES(?1)').bind(OTHER)]);
@@ -48,7 +50,7 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
   const c=cases.get(kind);if(!c)return new Response(null,{status:404});
   const {db,env,subject,wires}=c,start=wires.length;
   const finish=async extraOut=>{const end=wires.length,rows=(await db.prepare('SELECT id,subject,purpose,proof_id,role_id,desired,state,reason,attempts,claim_nonce,subject_generation,request_digest,native_profile,created_at,expires_at,checked_at FROM role_settlements ORDER BY created_at,rowid').all()).results;
-   const member=await db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject).first(),audits=(await db.prepare("SELECT action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed') ORDER BY id").all()).results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
+   const member=await db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject).first(),audits=(await db.prepare("SELECT action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed','role.sweep') ORDER BY id").all()).results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
    const statements=wires.slice(start,end).reduce((n,w)=>{try{const x=JSON.parse(w.requestBody);return n+(Array.isArray(x)?x.length:1);}catch{return n+1;}},0);
    return json({ok:true,rows,member,audits,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
   const command=async(sub,options)=>{const pending=[],defer=(label,work)=>{pending.push(Promise.resolve().then(work));};
@@ -77,7 +79,7 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
    if(extra==='unban-reban'){await env.DB.prepare('UPDATE members SET banned=1,ban_reason=?2 WHERE discord_id=?1').bind(subject,'qualification').run();await audit(env,ACTOR,'admin.ban',subject,{reason:'qualification'});}
    return json({ok:true});
   }
-  if(action==='faild1'){c.control.failD1=String(body.match);return json({ok:true});}
+  if(action==='faild1'){c.control.failD1=[].concat(body.match).map(String);return json({ok:true});}
   // Time passing for the 300-second claim window (as 'age' does for the roster): only unresolved ban rows move back.
   if(action==='expire'){await env.DB.batch([env.DB.prepare("UPDATE role_settlements SET created_at=created_at-400,expires_at=expires_at-400 WHERE purpose='canonical_ban_remove_v1' AND state IN('dispatching','unknown')")]);return finish({});}
   if(action==='receipt'){const budget={limit:8,attempts:0,retries:0},result=await reconcileRemovalReceipt(env,String(body.id),budget);return finish({result,attempts:budget.attempts});}

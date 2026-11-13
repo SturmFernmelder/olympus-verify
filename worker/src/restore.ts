@@ -379,7 +379,9 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls,roleDispatch);
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
   if (banned.revoked.length) {
-    await logLine(env, `🚫 role sweep: ${banned.rank ? "Olympus rank role removed from" : "Guild Member removed from"} ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);
+    // REV-BAN-1 (12 Nov 2026): a removal that leaves rank roles for later runs says so here instead of as a failure.
+    const left = banned.remaining > 0 ? ` ${banned.remaining} more rank ${banned.remaining === 1 ? "role is" : "roles are"} left; the role sweep removes one per run.` : "";
+    await logLine(env, `🚫 role sweep: ${banned.rank ? "Olympus rank role removed from" : "Guild Member removed from"} ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.${left}`);
   }
   if (banned.held.length) {
     await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114

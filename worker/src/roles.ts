@@ -348,11 +348,12 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
-export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean }> {
+export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean; remaining: number }> {
   const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
   const captureGeneration=membershipTransitionEnabled(env)||durableServingRoles(env);
   const role = env.ROLE_GUILD_MEMBER;
-  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false };
+  // remaining: rank roles a standing ban still has to lose after this run's visit (one per run; REV-BAN-1, 12 Nov 2026).
+  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false, remaining: 0 };
   if (!role) return out;
   // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
   // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
@@ -380,11 +381,15 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
       const banned=await central.removeBanRankRoles1112(env,r.discord_id,{kind:'sweep'},generation,budget,dispatch);
       out.checked.push(r.discord_id);out.rank=true;
       if(banned.removed.length)out.revoked.push(r.discord_id);
-      if(banned.state!=='settled')out.failed.push(r.discord_id);
+      // Follow-up REV-BAN-1, 12 Nov 2026: a visit that removed a role and only left the rest for later runs is progress,
+      // not a failure ("revoke failed" in the sweep audit). Any held or unconfirmed role, or a visit that removed
+      // nothing, is still reported as failed.
+      const progressing=banned.removed.length>0&&!banned.held.length&&!banned.unknown.length;
+      if(banned.state!=='settled'&&!progressing)out.failed.push(r.discord_id);
       // Repair round, 12 Nov 2026: a standing ban stays at the head of the rotation while each visit removes a role and
       // admitted roles remain, so its rank roles go one per run instead of one per pass over every banned account. A
       // visit that removes nothing (a 429, an unknown outcome, a hold) rotates on, so no account can stall the others.
-      if(banned.removed.length&&banned.deferred.length){out.cursor=before;stopped=true;break;}
+      if(banned.removed.length&&banned.deferred.length){out.remaining+=banned.deferred.length;out.cursor=before;stopped=true;break;}
       continue;
     }
     if(central&&budget&&!(await reapplyHeld(env,r.discord_id))){
