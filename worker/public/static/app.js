@@ -2448,7 +2448,9 @@
     return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
       // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
       // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
-      h("p", { text: "The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord Guild Leader and Officer roles; the published Co-Guild Master and Treasurer appointments; and site administrators." }),
+      // The Discord list follows site-treasury-access.ts discordOfficerRole: Guild Master (ROLE_GUILD_LEADER is the same ID),
+      // Officer and Raid Leader, plus the Discord roles of the first five ranks when the canonical rank roles are switched on.
+      h("p", { text: "The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord Guild Master, Officer and Raid Leader roles, and the Discord roles of those five ranks when rank roles are switched on; the published Co-Guild Master and Treasurer appointments; and site administrators." }),
       h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
@@ -6377,16 +6379,25 @@
   const codeOf = (e) => (e && e.data && e.data.error) || (e && e.code) || "";
   const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
   // CL2-017 (Evergreen 12 Nov 2026): an answer without a message or a known code used to read "Request failed (500)." and
-  // hid the page's own fallback. Such an answer now gives the fallback plus what the status means, in words.
+  // hid the page's own fallback. explain() serves writes too, where a bare 5xx leaves the outcome unknown and the caller's
+  // fallback says how to check it, so explain() now returns that fallback alone and never invites a retry. Only the read
+  // helpers below (readFailureBox/readFailureLine, GET reads with a Try again button) add what the status means.
   const bareApiFailure = (e) => e instanceof ApiError && !(e.data && e.data.message) && e.message === `Request failed (${e.status}).`;
-  const statusWords = (e) => e.status === 429 ? COMMUNITY_ERRORS.slow_down
-    : e.status >= 500 ? "The site had a problem answering. Try again in a moment."
+  /** Words for a bare failure with no fallback from the caller: neutral, since the call may have been a write. */
+  const neutralStatusWords = (e) => e.status === 429 ? COMMUNITY_ERRORS.slow_down
+    : e.status >= 500 ? "The site had a problem answering, so the outcome is not known. Check the current state before acting again."
     : e.status === 404 ? "The site could not find it; it may have been removed."
-    : e.status === 403 ? "Your account cannot open this right now. Reload the page to check your current access."
+    : e.status === 403 ? "Your account cannot do this right now. Reload the page to check your current access."
     : e.status === 401 ? "You are signed out. Sign in again to continue."
-    : "The site did not accept the request. Reload the page and try again.";
+    : "The site did not accept the request. Reload the page to see the current state.";
+  /** Words for a failed read, after the read's own fallback. A read changes nothing, so a retry is safe. */
+  const readStatusWords = (e) => e.status >= 500 ? "The site had a problem answering. Try again in a moment."
+    : e.status === 403 ? "Your account cannot open this right now. Reload the page to check your current access."
+    : neutralStatusWords(e);
   const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)]
-    || (bareApiFailure(e) ? [fallback, statusWords(e)].filter(Boolean).join(" ") : (e && e.message) || fallback || "That did not work. Try again in a moment.");
+    || (bareApiFailure(e) ? fallback || neutralStatusWords(e) : (e && e.message) || fallback || "Something went wrong.");
+  /** CL2-017: explain() for a GET read: a bare failure gives the read's fallback plus what the status means. */
+  const explainRead = (e, fallback) => bareApiFailure(e) && !COMMUNITY_ERRORS[codeOf(e)] ? [fallback, readStatusWords(e)].filter(Boolean).join(" ") : explain(e, fallback);
   /** CL2-017: a read that failed for a reason a second attempt can cure offers "Try again"; a refusal of access does not. */
   const retryableRead = (e) => !e || !(e.status === 401 || e.status === 403 || e.status === 404 || (e.status === 409 && codeOf(e) === "reload") || ["contributions_disabled", "feature_disabled", "not_member", "denied"].includes(codeOf(e)));
   function readRetryButton(e, retry) {
@@ -6396,9 +6407,9 @@
     return button;
   }
   const readFailureBox = (e, fallback, retry) => noticeBox(codeOf(e) === "contributions_disabled" ? "info" : "warn", codeOf(e) === "contributions_disabled" ? "icon-clock" : "icon-warning",
-    h("p", { text: explain(e, fallback) }), readRetryButton(e, retry));
+    h("p", { text: explainRead(e, fallback) }), readRetryButton(e, retry));
   /** A status line keeps its words and gains the button after them. */
-  const readFailureLine = (status, e, fallback, retry) => { status.textContent = explain(e, fallback); const button = readRetryButton(e, retry); if (button) status.append(" ", button); };
+  const readFailureLine = (status, e, fallback, retry) => { status.textContent = explainRead(e, fallback); const button = readRetryButton(e, retry); if (button) status.append(" ", button); };
   const PUBLIC_ROUTES = new Set(["request", "data"]); // only privacy identity redirects survive sign-out
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
@@ -7875,7 +7886,11 @@
         // CL2-290 (Evergreen 12 Nov 2026): with no week counted there is nothing to pay; weeks are counted for accounts with
         // a roster-confirmed character (community-contributions.ts, the weekly cron), so say that instead of "pay now".
         frame("My dues", h("span", { class: "badge " + (!L.obligations.length ? "muted" : data.writable ? "green" : "muted"), text: !L.obligations.length ? "nothing owed" : data.writable ? "ledger open" : "read-only" }),
-          L.obligations.length ? null : noticeBox("info", "icon-clock", h("p", { text: "You owe nothing. Dues weeks are counted once you have a roster-confirmed character in the guild, and new members start exempt." })),
+          // A confirmed member already has that character: the weekly count (openWeeklyObligations, in batches) has not reached
+          // them yet. It records exempt weeks too, so the exemption is not why the list is empty.
+          L.obligations.length ? null : noticeBox("info", "icon-clock", h("p", { text: can("confirmedGuildData")
+            ? "You owe nothing. No dues week has been counted for you yet. The weekly count adds each week as a record, and a new member's first weeks are marked exempt."
+            : "You owe nothing. Dues weeks are counted once you have a roster-confirmed character in the guild, and new members start exempt." })),
           h("div", { class: "grid two" },
             h("div", { class: "card" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "The policy" })),
               h("p", { class: "small", text: `Weekly dues of ${gold(P.amountCopper)} (policy ${P.version}). A week starts on ${WEEKDAYS[P.anchorWeekday] || "Monday"} at ${String(P.anchorHourUtc).padStart(2, "0")}:00 UTC and is due a week later, with ${plural(P.graceHours, "hour")} of grace. New members are exempt for their first ${plural(P.newMemberExemptDays, "day")}.` }),
@@ -8123,8 +8138,12 @@
       const v = collect();
       if (!v.title) return report("ev-title", ORGANIZER_ERRORS.invalid_title);
       if (!v.startsAt) return report(time.errorField(), time.error() || ORGANIZER_ERRORS.invalid_starts_at);
-      if (Number.isInteger(v.capacity) && v.roleTargets && Object.values(v.roleTargets).every(Number.isInteger)
-        && Object.values(v.roleTargets).reduce((a, b) => a + b, 0) > v.capacity) return report("ev-capacity", ORGANIZER_ERRORS.role_targets_over_capacity); // CL2-139
+      // CL2-139: the server judges places against wanted roles only on a new event or when either changes
+      // (community-events.ts), so an older event whose roles already exceed its places stays editable for its other fields.
+      const rolesText = (t) => t ? targets.map((x) => String(t[x.dataset.role])).join(",") : "none";
+      const placesOrRolesChanged = !initial || v.capacity !== (initial.capacity || null) || rolesText(v.roleTargets) !== rolesText(initial.roleTargets);
+      if (placesOrRolesChanged && Number.isInteger(v.capacity) && v.roleTargets && Object.values(v.roleTargets).every(Number.isInteger)
+        && Object.values(v.roleTargets).reduce((a, b) => a + b, 0) > v.capacity) return report("ev-capacity", ORGANIZER_ERRORS.role_targets_over_capacity);
       save.disabled = true;
       time.freeze(true);
       try {

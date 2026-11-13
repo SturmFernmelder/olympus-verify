@@ -329,11 +329,18 @@ async function saveSettings(env: Env, actor: string, body: Record<string, unknow
     // CL2-122 (Evergreen 12 Nov 2026): the publication tick was demanded for every save of a map that held any Discord
     // association, so typing or clearing a plain-text holder needed it too. It is now demanded only when this save would
     // publish something new: an association added or changed here refuses at once (before any provider call), and an
-    // unchanged one passes only if prepareAppointmentPublication below reuses its exact original proof. A legacy or
-    // requalified association that would be signed afresh still needs the tick (checked after prepare, before any write).
+    // unchanged one passes only if prepareAppointmentPublication below reuses its exact original proof. A legacy
+    // association (no stored proof key for its pointer at all) also refuses here, before any provider call. One whose
+    // stored proof no longer verifies (a requalified account) is found only inside prepare, after its Discord member read,
+    // and still needs the tick (checked after prepare, before any write). Nothing is written on either path.
     if (!appointmentPublicationConfirmation(appointedObj, body)) {
       const changedAssociation = Object.entries(appointedObj).some(([key, who]) => appointmentAccountId(who) !== null && !(Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === who));
       if (changedAssociation) return publicationConsentRefusal();
+      let raw: Record<string, unknown> = {};
+      try { const parsed: unknown = JSON.parse(storedValues.get('appointed') ?? '{}'); if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) raw = parsed as Record<string, unknown>; } catch { /* no stored proof */ }
+      // A necessary condition only (some proof key holds this pointer); prepare verifies the proof itself.
+      const proofKeyFor = (who: string) => Object.entries(raw).some(([key, value]) => value === who && containsInternalAppointmentProof({ [key]: value }));
+      if (Object.values(appointedObj).some(who => appointmentAccountId(who) !== null && !proofKeyFor(who))) return publicationConsentRefusal();
       reusedProofsOnly = true;
     }
   }
