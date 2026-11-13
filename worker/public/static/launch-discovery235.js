@@ -222,7 +222,7 @@
       // keep granting and removing rank roles; only this page's ranks and recommendations wait for the 12 November ladder.
       // Said for this reason only: with the 12 November settings in force and an export that does not match, role
       // changes are held as well.
-      reason === 'directive-rank-policy-held' ? ui.h('p', {'data-launch235-rank-roles': '', text: 'This hold is about the ranks and the promotion recommendations on this page. Rank roles in Discord are not held by it: they keep following the site’s current rank settings.'}) : null,
+      reason === 'directive-rank-policy-held' ? ui.h('p', {'data-launch235-rank-roles': '', text: 'This hold is about the ranks and the promotion recommendations on this page. Rank roles in Discord are not held by it: they keep following the site’s current rank settings. If the in-game ranks are renamed first, automatic rank grants, promotions and demotions wait until the site’s settings match. Departures and bans can still remove roles.'}) : null,
       ui.h('p', {text: 'Promotion recommendations are held until ranks are confirmed. This does not mean that nobody is due for a promotion. Roster discovery, the invite queue and the message of the day work as usual.'}),
       ui.h('p', {class: 'muted small', text: 'The Initiate space buffer needs ranks, so it stays empty while ranks are held.'}));
   }
