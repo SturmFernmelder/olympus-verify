@@ -231,10 +231,12 @@ function splitFixtureSchema(source) {
     try { for (const sql of statements) { await legacy.prepare(sql).run(); applied++; } } catch (e) { schemaErr = String(e.message).slice(0, 200); }
     const compoundTriggers = statements.filter(sql => /^CREATE\s+TRIGGER\b/i.test(sql.trimStart())).length;
     const legacyExpiryControl = await legacy.prepare("SELECT singleton,protocol,observed_at,selected_count FROM privacy_rejection_expiry_control").all();
-    const legacyIntegrity = await legacy.prepare("PRAGMA integrity_check").all(), legacyForeignKeys = await legacy.prepare("PRAGMA foreign_key_check").all();
+    // D1 supports quick_check; full integrity_check belongs to the separate
+    // SQLite backup-restore gate, which remains required before deployment.
+    const legacyQuickCheck = await legacy.prepare("PRAGMA quick_check").all(), legacyForeignKeys = await legacy.prepare("PRAGMA foreign_key_check").all();
     check(`schema.sql complete statements apply to separate legacy D1 (${statements.length} statements)`, applied === statements.length && !schemaErr && compoundTriggers === 5 &&
       JSON.stringify(legacyExpiryControl.results) === JSON.stringify([{ singleton: 1, protocol: "original-guild-rejection-expiry-v1", observed_at: 0, selected_count: 0 }]) &&
-      legacyIntegrity.results.length === 1 && legacyIntegrity.results[0].integrity_check === "ok" && legacyForeignKeys.results.length === 0, applied, schemaErr, compoundTriggers, legacyExpiryControl.results, legacyIntegrity.results, legacyForeignKeys.results);
+      legacyQuickCheck.results.length === 1 && legacyQuickCheck.results[0].quick_check === "ok" && legacyForeignKeys.results.length === 0, applied, schemaErr, compoundTriggers, legacyExpiryControl.results, legacyQuickCheck.results, legacyForeignKeys.results);
     const oldDetails = JSON.stringify({ votingOpen: "1", notice: "Raid at eight", appointed: JSON.stringify({ treasurer: "Zed Holder", "class_lead:priest": "Quill Holder" }) });
     await legacy.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000000, oldDetails).run();
     await legacy.prepare("INSERT INTO audit (ts, actor, action, details) VALUES (?1, 'admin', 'site.settings', ?2)").bind(1790000001, "not json").run();
