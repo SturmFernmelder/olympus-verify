@@ -61,7 +61,7 @@ let mf;const providerGate={arrived:false,released:false};
   }else if(kind.startsWith('malformed-')||kind==='unknown-lane'){
    const names=kind.startsWith('malformed-ban')?['ban','ordinary']:['ordinary','ban'];for(const name of names)completed.push(await lane(kind,name));after=await json(kind,'/inspect');
    const original=initial.initial.rows.at(-1);check(kind+' malformed raw original remains exact',after.rows.some(r=>r.id===original.id&&r.ts===original.ts&&r.details===original.details));
-   const own=completed[0],other=completed[1];check(kind+' invalid own progress is visibly held without fallback audit',own.result?.progress?.state==='held'&&after.failures.length===0,{completed,failures:after.failures});
+   const own=completed[0],other=completed[1],held=completed.filter(run=>run.result?.progress?.state==='held').length;check(kind+' invalid own progress preserves the head and publishes one id-free throttle per held lane',own.result?.progress?.state==='held'&&after.failures.length===held&&after.failures.every(row=>!JSON.stringify(row.details).match(/[0-9]{17,20}/)),{completed,failures:after.failures});
    check(kind+' confirmed corruption only holds progress and retains independent work',kind.startsWith('malformed-ordinary')?other.result?.progress?.state==='recorded'&&other.result.checked===1:kind.startsWith('malformed-ban')?other.result?.progress?.state==='recorded'&&other.result.checked===1:other.result?.progress?.state==='held'&&other.result.checked===1,{completed});
   }else if(kind.startsWith('wrap-')){
    const name=kind.slice(5);completed.push(await lane(kind,name));middle=await json(kind,'/inspect');completed.push(await lane(kind,name));after=await json(kind,'/inspect');

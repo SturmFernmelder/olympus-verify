@@ -20,14 +20,15 @@ says what runs today and where it still falls short of the directive's wording.
    behavior. Mock external Discord HTTP only; do not replace D1 with an imitation
    or require the code to contain historical strings or file hashes.
 4. **D1 statement ceilings and query plans (12 November 2026):** on its own
-   1,000-member genuine D1 database, the promotions target sends three requests
+   1,000-member genuine D1 database, the promotions target measures five requests
    through the actual Worker entry (host routing, watcher bearer, members-only
    protocol, schema proof and the write-admission layer) with a counter in the
    place of the D1 binding (`worker/tests/d1_statement_budget.mjs`). The counter
    counts every physical statement, each batch element and each admission proof
    included, and refuses a statement it did not prepare. The target asserts:
    - `GET /queue/launch-operations` (the officer launch-operations page): under
-     100 physical statements (5 on 12 November 2026);
+     100 physical statements. Current235 qualified discovery, current235 rank-held
+     discovery and the separate legacy234 read are measured individually;
    - `GET /queue/unverified` (the strict roster display): under 100 (3);
    - `POST /ingest/roster` with a changed 1,000-member export: at most
      `ROSTER_INGEST_STATEMENTS` (494), the shipped per-invocation admission model
@@ -35,23 +36,22 @@ says what runs today and where it still falls short of the directive's wording.
      open owner question;
    - `EXPLAIN QUERY PLAN` for every physical statement those requests sent, and
      for both Native sweep selectors, against every table in the database: each
-     full scan must match an entry of `KNOWN_REQUEST_SCANS` or
-     `KNOWN_SWEEP_SCANS` (in `worker/tests/launch_roster_pacing271_runtime.mjs`)
-     by exact plan text and count. A full scan is a `SCAN` row, or a
+     full scan is recorded with its actual table, plan text and count for current
+     source review. There is no historical plan-string allow-list. A full scan is a `SCAN` row, or a
      `SEARCH ... USING AUTOMATIC [PARTIAL] [COVERING] INDEX` row, on a table or
      a table alias: an automatic index is what SQLite plans for a join on an
      unindexed column, and it is built by reading the whole table on every run.
      Rows on a common table expression, a derived table or an unnamed subquery
      are not table reads (the reads inside them are plan rows of their own). A
-     new scan, a changed one or one more occurrence fails the target, and so
-     does a scan target the check cannot resolve to a table. The pinned scans
-     are the shipped plans, not a pass: they are listed under "Known full
-     scans" below (the shipped plans have no automatic index on a table);
-   - every read statement of the page and the display, and both sweep selectors,
-     re-run alone on the same data the requests read (before the ingest writes a
-     new snapshot), finishes in under one second. Locally the slowest takes tens
-     of milliseconds. The fixture holds no role settlements, so the sweep timing
-     covers the 1,000 members and characters only.
+     scan target the check cannot resolve to a table fails the target. A resolved
+     full scan remains a disclosed cost requiring source review, not evidence of
+     an indexed lookup. The table below is a dated baseline, not today's oracle;
+   - every original physical read call or atomic batch of the four page/display
+     requests finishes in under one second. A batch is timed whole, never divided
+     into invented per-statement latency; guarded admission reads are not replayed.
+     Both read-only sweep selectors are also timed before ingest. The fixture
+     holds no role settlements, so selector timing covers the 1,000 members and
+     characters only, not a production receipt-history latency claim.
 
    Not asserted yet: the identify-only account copy's under-100 budget (it needs
    the OAuth identify-only grant flow inside Workerd; its 98-statement count is
@@ -63,7 +63,8 @@ says what runs today and where it still falls short of the directive's wording.
    inherent and stay: `sqlite_master`, the schema catalogue that the admission
    schema proof reads on every request, and `privacy_write_admission`, a one-row
    control table. The rest are defects, each handed to its runtime owner; remove
-   the entry from the allow-list in the same change that fixes the query.
+   corresponding recorded cost when reviewing a query change. Current receipts,
+   not this historical table, describe the candidate's plans.
 
    | Where | Request | Scan | Count |
    |---|---|---|---|
@@ -75,13 +76,13 @@ says what runs today and where it still falls short of the directive's wording.
    | `roster.ts` latest-snapshot status read (about line 1211) | ingest | `SCAN s`, `SCAN a` (roster_snapshots); `SCAN d`, `SCAN u` (roster_effect_runs) | 1 each |
    | `full-release-roles.ts` `CANONICAL233_SWEEP249_SELECT` | canonical sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN r USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord`, `SCAN roster_snapshots` | 1 each |
    | `full-release-roles.ts` `NATIVE232_SWEEP249_SELECT` | Native sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord` | 1 each |
-5. **Lua addon suites:** every suite that needs no external archive, 41 of the 42
-   registered (`run_lua_suites.py --all-offline`). That includes the 1,000-member
+5. **Lua addon suites:** every currently registered suite that needs no external
+   archive (`run_lua_suites.py --all-offline`). That includes the 1,000-member
    performance benchmark (`performance235`, synthetic native APIs at 920 and
    1,000 members; not a native FPS claim) and the targeted roster, Guild tab and
    promotion suites. Only `dan155_census` stays opt-in: it needs Daniel's 1.5.5
    archive (`--suite dan155_census --dan-archive <zip>`).
-6. **Python Watcher suites:** the complete `watcher/tests` folder, 391 tests,
+6. **Python Watcher suites:** the complete current `watcher/tests` folder,
    with `OLYMPUS_REQUIRE_LUA=1` so the two Lua round trips fail instead of
    skipping when Lupa is missing.
 7. **D1 SQLite backup integrity:** immediately before an authorized production

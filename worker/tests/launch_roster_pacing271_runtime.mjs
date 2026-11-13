@@ -4,7 +4,7 @@ import {captureLaunchVerification} from '../src/launch-verification227.ts';
 import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {strictRosterDisplay} from '../src/unverified.ts';
-import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
+import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233,captureCanonicalRankConfig233} from '../src/canonical-ranks233.ts';
 import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import worker from '../src/index.ts';
 import {countingD1, fullScans, scanCounts} from './d1_statement_budget.mjs';
@@ -269,11 +269,29 @@ async function budget(genuine, ctx) {
   own('legacy234 read remains qualified on its separate unchanged protocol', legacy.status === 200 && legacy.json.protocol === 'officer-operations-v234' && legacy.json.memberCount === 1000 && legacy.json.entitlements?.total === 1000);
   own('legacy234 read stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', legacy.statements > 0 && legacy.statements < DIRECTIVE_STATEMENT_LIMIT);
   const policy = env.CANONICAL_RANKS233;
-  let rankHeld;
+  // Fixture-only authenticated contradictory-mode vectors. The actual policy is
+  // part of the MAC domain, so a real cross-policy replay is rejected even before
+  // the explicit rank-mode seal. Re-sign only these synthetic data boundaries to
+  // exercise that additional seal; none is claimed as an original server cursor.
+  const modeBoundary = async (cursor, rankMode, innerCursor) => {
+    const value = JSON.parse(atob(cursor.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')));
+    value.rankMode = rankMode; value.innerCursor = innerCursor;
+    const captured = captureCanonicalRankConfig233(env), secret = JSON.stringify(['officer-discovery-seal',235,env.VERIFY_SECRET,env.SITE_GUILD_ID,env.DISCORD_BOT_TOKEN,captured.present,captured.mode,captured.raw]);
+    const body = btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const key = await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    const mac = Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('officer-discovery-cursor|235|'+body))),b=>b.toString(16).padStart(2,'0')).join('');
+    return body+'.'+mac;
+  };
+  let rankHeld, qualifiedOnHeld;
   try {
     env.CANONICAL_RANKS233 = 'off';
     rankHeld = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v235');
+    const original = JSON.parse(atob(page.json.pageCursor.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')));
+    qualifiedOnHeld = await call('GET','/queue/launch-operations?keyVersion=officer-operations-v235&cursor='+encodeURIComponent(await modeBoundary(rankHeld.json.pageCursor,'qualified',original.innerCursor)));
   } finally { env.CANONICAL_RANKS233 = policy; }
+  own('235 authenticated qualified cursor cannot enter rank-held discovery',qualifiedOnHeld.status===409&&qualifiedOnHeld.json.error==='launch_cursor_source_changed');
+  const heldOnQualified = await call('GET','/queue/launch-operations?keyVersion=officer-operations-v235&cursor='+encodeURIComponent(await modeBoundary(page.json.pageCursor,'held',null)));
+  own('235 authenticated held cursor cannot enter qualified discovery',heldOnQualified.status===409&&heldOnQualified.json.error==='launch_cursor_source_changed');
   own('current235 rank-held launch page remains data only for the complete 1,000-member native roster', rankHeld.status === 200 && rankHeld.json.protocol === 'officer-operations-v235' && rankHeld.json.status === 'partial' && rankHeld.json.rankProfile === null && rankHeld.json.rankSchemeDigest === null && rankHeld.json.rankNames === null && rankHeld.json.promotions.length === 0 && rankHeld.json.riskBuffer.length === 0 && rankHeld.json.held.length === 20 && rankHeld.json.heldReasons.includes('directive-rank-policy-held') && rankHeld.json.memberCount === 1000 && rankHeld.json.entitlements?.total === 1000);
   own('current235 rank-held launch page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', rankHeld.statements > 0 && rankHeld.statements < DIRECTIVE_STATEMENT_LIMIT);
   const display = await call('GET', '/queue/unverified?keyVersion=launch-roster-display-v2');
@@ -308,7 +326,7 @@ async function budget(genuine, ctx) {
   own('the 1,000-member roster ingest stays within the shipped per-invocation admission model of ' + ROSTER_INGEST_STATEMENTS + ' physical D1 statements', ingest.statements > 0 && ingest.statements <= ROSTER_INGEST_STATEMENTS && ingest.allDeferredDrained && ingest.deferredTasks.length > 0);
   await explain('ingest', ingest.log);
   const brief = r => ({status: r.status, statements: r.statements, atResponseCompletedStatements: r.atResponseCompletedStatements, afterResponseOrInFlightStatements: r.afterResponseOrInFlightStatements, deferredTasks: r.deferredTasks, allDeferredDrained: r.allDeferredDrained, milliseconds: r.milliseconds});
-  return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), legacy: brief(legacy), rankHeld: brief(rankHeld), display: brief(display), ingest: brief(ingest),
+  return {complete: true, actualLocalWorkerdD1: true, checks: local, modeBoundaries: {qualifiedOnHeld:{status:qualifiedOnHeld.status,json:qualifiedOnHeld.json},heldOnQualified:{status:heldOnQualified.status,json:heldOnQualified.json}}, page: brief(page), legacy: brief(legacy), rankHeld: brief(rankHeld), display: brief(display), ingest: brief(ingest),
     ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS, readMilliseconds: TIMING_CEILING_MS}, timings, plans};
 }
 
