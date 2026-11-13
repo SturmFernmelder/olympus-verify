@@ -1978,7 +1978,7 @@ type Native232Parent=Readonly<{canonical?:boolean;profile?:string;id:string;nonc
 export type NativeRankSettlement232=Readonly<{state:Settlement['state'];reason:string;outcomes:readonly Settlement[]}>;
 /** Same central request/CAS/Native result custody as the existing lane. A JSON
  * plan, old queued row, member status or a GET result cannot mint this mandate. */
-async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:RuntimeVenue230,role:string,desired:0|1,purpose:string,b:AttemptBudget,canonical233=false):Promise<Settlement>{
+async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:RuntimeVenue230,role:string,desired:0|1,purpose:string,b:AttemptBudget,canonical233=false,observationOnly=false):Promise<Settlement>{
  let id:string|null=null,parent:Native232Parent|null=null,started=false,acknowledged=false;
  try{
   const I=await import('./routine-membership-authority232');
@@ -2053,6 +2053,10 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   if(desired===0&&restriction){restriction.check();if(!target||!launch230Blocker(env,target))return result('held','native232_restriction_withdrawn',id);const graph=launch230MemberWitness(target,f.subject),at=now();restrictionCheck=()=>{restriction.check();graph();if(now()<at||now()-at>=60||!launch230Blocker(env,target))throw Error('native232_restriction_changed');};restrictionCheck();}
   if(!canonical233&&!base&&desired===1&&!target?.roles.includes(SHARED_MEMBER232))return result('held','native232_shared_access_required_first',id);
   if(canonical233&&desired===1&&target?.roles.some(r=>r!==role&&CANONICAL_MIGRATION_ROLE_IDS233.includes(r)))return result('held','canonical233_existing_rank_requires_reconciliation',id);
+  if(observationOnly&&target?.roles.includes(role)){
+   const held=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='held',reason='canonical233_observation_not_absent',checked_at=${DB_NOW} WHERE ${grouped(`${row} AND attempts=0 AND state='pending' AND ${guard}`,[...rowClauses,'attempts=0',"state='pending'"])} RETURNING id`).bind(...values).first();allCheck();
+   return result('held',held?'canonical233_observation_not_absent':'canonical233_observation_held',id);
+  }
   if(!!target?.roles.includes(role)===(desired===1)){
    const r=await env.DB.prepare(`${facts}UPDATE role_settlements SET state='settled',reason='${canonical233?'canonical233_observed_without_dispatch':'native232_observed_without_dispatch'}',checked_at=${DB_NOW} WHERE ${grouped(`${row} AND attempts=0 AND state='pending' AND ${guard}`,[...rowClauses,'attempts=0',"state='pending'"])} RETURNING id`).bind(...values).first();allCheck();return r?result('settled','native232_observed_without_dispatch',id,now()):result('held','native232_observation_held',id);
   }
@@ -2143,6 +2147,17 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
    AND NOT EXISTS(SELECT 1 FROM role_settlements child WHERE child.request_digest=own.id AND child.desired=0 AND NOT(${canonical233AliasRemoval('child','own')}) AND (child.state IN('dispatching','unknown','settled') OR child.attempts<>0 AND NOT(${native232NoSend('child')}))) UNION ALL SELECT '',1 WHERE NOT(${canonical239NoAmbiguousOwnership('?1','?2','?3')}) ORDER BY ambiguous DESC,role_id LIMIT 32`).bind(f.subject,c.policy.guildId,f.subjectGeneration,JSON.stringify(family)).all<{role_id:string;ambiguous:number}>()).results;
   I.assertRoutineMembership232(env,cap);if(!c.current()||!old.current()||!entitlements.current())return done('held','canonical233_configuration_changed');if(rows.some(r=>r.ambiguous===1))return done('held','canonical239_ownership_history_ambiguous');
   const jobs=[...rows.filter(r=>r.role_id!==wanted).map(r=>({role:r.role_id,desired:0 as const})),...wanted?[{role:wanted,desired:1 as const}]:[]];
+  if(maxJobs===2&&f.cause==='eligible'&&!restriction&&wanted&&jobs.length>maxJobs){
+   if(!Number.isSafeInteger(b.limit)||!Number.isSafeInteger(b.attempts)||b.limit-b.attempts<5)return done('held','role_request_budget');
+   if(f.deadline-now()<40)return done('held','canonical233_absence_observation_deadline_insufficient');
+   const observed=await member(env,b,f.subject);I.assertRoutineMembership232(env,cap);
+   if(!c.current()||!old.current()||!entitlements.current()||!observed||!launch230Member(observed,f.subject))return done('held','canonical233_absence_observation_held');
+   const absent=rows.find(r=>r.role_id!==wanted&&!observed.roles.includes(r.role_id));
+   if(absent){
+    const progress=await settleRoutineTarget232(env,cap,venue,absent.role_id,0,'canonical_routine233',b,true,true);outcomes.push(progress);
+    return done(progress.state==='unknown'?'unknown':'held',progress.state==='settled'&&progress.reason==='native232_observed_without_dispatch'?'canonical233_absent_owned_parent_progress':progress.reason);
+   }
+  }
   if(f.cause==='eligible'&&!restriction&&wanted){
    // A conversion must fit before its first removal. Each target can use four
    // inventory GETs, one effect and its confirmation; each new grant also keeps
