@@ -32,7 +32,7 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
  const kind=name;if(request.method!=='POST'||spent.has(kind))return new Response(null,{status:404});spent.add(kind);
  const db=bindings['DB_'+kind.replaceAll('-','_')];if(!db)return new Response(null,{status:404});
  const subject=seed.tables.find(t=>t.name==='pending').rows[0].discord_id,oldPolicy=kind.startsWith('old-policy'),oldSource=oldPolicy||kind.startsWith('old-source');
- const index=kind.startsWith('transition-removal-')?0:kind==='integrity-controls'||kind.startsWith('transition-')?5:kind==='entitlement'?5:kind.startsWith('own-replace-')?0:/^[a-z-]+[0-9]$/.test(kind)?Number(kind.at(-1)):0,names=oldSource?NATIVE_RANK_NAMES232:DIRECTIVE_RANK_NAMES;
+ const index=kind==='transition-manual-cycle'?2:kind.startsWith('transition-removal-')?0:kind==='integrity-controls'||kind.startsWith('transition-')?5:kind==='entitlement'?5:kind.startsWith('own-replace-')?0:/^[a-z-]+[0-9]$/.test(kind)?Number(kind.at(-1)):0,names=oldSource?NATIVE_RANK_NAMES232:DIRECTIVE_RANK_NAMES;
  const closure={...JSON.parse(seed.config.SHARED_MEMBERSHIP230_CLOSURE_JSON),debtPredicateSHA256:OLD230_DEBT,createdAt:seed.now-3600,expiresAt:seed.now-3300},closureJSON=JSON.stringify(closure),scope={version:1,...NATIVE_SCOPE232};
  const policy=JSON.stringify({version:oldPolicy?1:2,enabled:true,profile:oldPolicy?CANONICAL_PROFILE233:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
  const config={...seed.config,VERIFY_NATIVE_SCOPE:JSON.stringify(scope),NATIVE_RANK_SYNC232:'off',QR_NATIVE_ROLE_MAP:'off',FULL_RELEASE_ROLES:'off',CANONICAL_RANKS233:policy,SHARED_MEMBERSHIP230_CLOSURE_JSON:closureJSON,SHARED_MEMBERSHIP230_CLOSURE_SHA256:await H(closureJSON),DISCORD_BOT_TOKEN:seed.config.DISCORD_BOT_TOKEN+'-'+kind};
@@ -61,14 +61,14 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
   const w={requestBody:init?.body,status:null,responseBody:null};wires.push(w);const q=JSON.parse(init.body),pack=Array.isArray(q)?q:[q];
   if(kind==='transition-replay429-persist-lost'&&flags280.refusalAnswerLost&&pack.some(x=>x.sql.startsWith('UPDATE role_settlements SET state=?')&&x.params?.includes('native232_provider_outcome_unknown'))){flags280.fallbackUnknownFailedBeforeCommit=true;w.failedBeforeCommit=true;throw Error('synthetic_fallback_unknown_before_commit');}
   const r=await Reflect.apply(send,fetcher,[input,init]);w.status=r.status;w.responseBody=await r.clone().text();
-  if(kind==='transition-replay429-persist-lost'&&!flags280.refusalAnswerLost&&pack.some(x=>x.sql.startsWith("UPDATE role_settlements SET state='held',reason=?")&&typeof x.params?.[21]==='string'&&x.params[21].includes('canonical-routine-delete-refusal-v1'))){flags280.refusalAnswerLost=true;w.originalCommittedAnswerLost=true;throw Error('synthetic_original_noeffect_answer_lost_after_commit');}
+  if(kind==='transition-replay429-persist-lost'&&!flags280.refusalAnswerLost&&pack.some(x=>x.sql.includes("UPDATE role_settlements SET state='held',reason=?")&&x.sql.includes("original_refusal_source280")&&typeof x.params?.[21]==='string'&&x.params[21].includes('canonical-routine-refusal-v1'))){flags280.refusalAnswerLost=true;w.originalCommittedAnswerLost=true;throw Error('synthetic_original_noeffect_answer_lost_after_commit');}
   if(kind==='transition-receipt-lost'&&!flags280.receiptAnswerLost&&pack.some(x=>x.sql.includes("UPDATE role_settlements SET state='settled',reason=?")&&x.sql.includes('proof_id IS ?')&&x.sql.includes('checked_at IS ?')&&x.params?.[9]===0)){flags280.receiptAnswerLost=true;w.originalAnswerLost=true;throw Error('synthetic_original_native_receipt_answer_lost');}
   if(kind==='transition-late'&&!flags280.finalGuardDelayed&&pack.some(x=>x.sql.includes('SELECT 1 FROM role_settlements WHERE')&&x.params?.[9]===0)){
    flags280.finalGuardDelayed=true;const row=await db.prepare("SELECT expires_at FROM role_settlements WHERE desired=0 AND state='dispatching' ORDER BY created_at DESC LIMIT 1").first();if(!row)throw Error('original_dispatch_deadline_missing');flags280.originalDeadline=row.expires_at;const ms=Math.max(0,row.expires_at*1000-Date.now()-2500);flags280.finalGuardDelayMilliseconds=ms;await new Promise(resolve=>setTimeout(resolve,ms));
   }
   return r;
  }});
- const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};active.set(kind,{env,subject,scope,raw:db,flags:flags280,sourceGraph:()=>sourceGraph});let result,error=null,repeat=null,visits280=[],visitCosts280=[],prelude280=null,retention=null,original=null,originalAfter=null,selector=null,integrity280=[];const start=wires.length;
+ const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};active.set(kind,{env,subject,scope,raw:db,flags:flags280,sourceGraph:()=>sourceGraph});let result,error=null,repeat=null,visits280=[],visitCosts280=[],prelude280=null,manualOriginal280=null,manualAfter280=null,retention=null,original=null,originalAfter=null,selector=null,integrity280=[];const start=wires.length;
  try{
   if(kind==='transition-consumed-due'||kind==='transition-consumed-malformed')await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES('role.managed.cooldown280',?1,CAST(strftime('%s','now') AS INTEGER),NULL)").bind(kind.endsWith('malformed')?'{"version":1,"due":false}':JSON.stringify({version:1,due:Math.floor(Date.now()/1000)+60})).run();
   if(kind==='legacy-anchor'){original=await db.prepare("SELECT * FROM role_settlements WHERE id=?1").bind('a'.repeat(32)).first();result=await runNativeSubject232(env,subject,callBudget(env));originalAfter=await db.prepare("SELECT * FROM role_settlements WHERE id=?1").bind('a'.repeat(32)).first();}
@@ -111,7 +111,28 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
    if(kind==='cleanup-departure'){await env.DB.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(subject).run();await env.DB.batch([env.DB.prepare('DELETE FROM roster_members'),env.DB.prepare('UPDATE roster_snapshots SET member_count=0,source=?1').bind('addon-native-v1:'+JSON.stringify(scope))]);}
    if(kind==='transition-late')await env.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now') AS INTEGER)-480").run();
    original=await db.prepare('SELECT * FROM role_settlements WHERE desired=1 AND attempts=1').all();const calls=callBudget(env);if(kind.startsWith('own-replace-budget'))calls.limit=Number(kind.slice('own-replace-budget'.length));
-   if(kind.startsWith('transition-removal-')){
+   if(kind==='transition-manual-cycle'||kind==='transition-ban-manual-cycle'){
+    const set=async(rank,index)=>env.DB.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-12345678'").bind(rank,index).run();
+    const mock=async(action,role)=>{const response=await fetch('https://discord.com/api/v10/__fixture/'+action+'/'+role,{method:'POST',headers:{authorization:'Bot '+config.DISCORD_BOT_TOKEN}});if(response.status!==204)throw Error('fixture_provider_state_change_failed');};
+    const visit=async(origin)=>{const first=wires.length,calls=callBudget(env),answer=origin?await removeBanRankRoles1112(env,subject,origin,null,calls):await runNativeSubject232(env,subject,calls,2),last=wires.length;visits280.push(answer);visitCosts280.push({first,last,http:calls.attempts,physical:wires.slice(first,last).reduce((n,w)=>{const q=JSON.parse(w.requestBody);return n+(Array.isArray(q)?q.length:1);},0)});return answer;};
+    const originalRefusal=()=>db.prepare("SELECT * FROM role_settlements WHERE desired=0 AND attempts=1 AND state='held' ORDER BY created_at,id LIMIT 1").first();
+    if(kind==='transition-manual-cycle'){
+     const role=CANONICAL_RANKS233[2].roleId;
+     await visit();manualOriginal280=await originalRefusal();
+     const before=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();await visit();const after=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();flags280.noHeldGrowth=before.n===after.n;
+     await mock('strip',role);await visit();await set('Officer',2);await visit();await set('Member',7);repeat=await visit();
+    }else{
+     await env.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
+     const event=await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.ban','system',?1,NULL)RETURNING id").bind(subject).first();
+     const origin={kind:'command',banEvent:event.id};await visit(origin);manualOriginal280=await originalRefusal();
+     const before=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();await visit(origin);const after=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();flags280.noHeldGrowth=before.n===after.n;
+     await mock('strip',CANONICAL_RANKS233[7].roleId);await env.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(subject).run();
+     await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.unban','system',?1,NULL)").bind(subject).run();
+     await mock('restore',CANONICAL_RANKS233[7].roleId);await env.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
+     const next=await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.ban','system',?1,NULL)RETURNING id").bind(subject).first();repeat=await visit({kind:'command',banEvent:next.id});
+    }
+    manualAfter280=manualOriginal280?await db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(manualOriginal280.id).first():null;
+   }else if(kind.startsWith('transition-removal-')){
     const GM=CANONICAL_RANKS233[0].roleId,OFFICER=CANONICAL_RANKS233[2].roleId;
     const set=async(rank,index)=>env.DB.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-12345678'").bind(rank,index).run();
     const mock=async(action,role)=>{const response=await fetch('https://discord.com/api/v10/__fixture/'+action+'/'+role,{method:'POST',headers:{authorization:'Bot '+config.DISCORD_BOT_TOKEN}});if(response.status!==204)throw Error('fixture_provider_state_change_failed');};
@@ -136,5 +157,5 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
  }catch(e){error=String(e?.stack||e);}
  originalAfter=await db.prepare('SELECT * FROM role_settlements WHERE desired=1 AND attempts=1').all();const end=wires.length,service280=await db.prepare("SELECT key,value,updated_at,updated_by FROM site_settings WHERE key='role.managed.cooldown280'").all(),rows=await db.prepare('SELECT * FROM role_settlements ORDER BY created_at,id').all(),characters=await db.prepare('SELECT status,guid FROM characters WHERE discord_id=?1').bind(subject).all(),control=await db.prepare('SELECT epoch,mode,active,nonce,purpose FROM privacy_write_admission').first(),after=await db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name').all();
  const planner=oldPolicy?null:DIRECTIVE_RANK_NAMES.map((name,i)=>CANONICAL_RANKS233.findIndex(r=>r.roleId===canonicalNativeRole233(parseCanonicalRankPolicy233(policy),i,name)?.roleId));
- return Response.json({kind,index,actualLocalWorkerdD1:true,clockOverride:false,result,error,repeat,visits280,visitCosts280,prelude280,retention,rows:rows.results,service280:service280.results,characters:characters.results,wires,start,end,rosterRows:907,schemaUnchanged:JSON.stringify(schema.results)===JSON.stringify(after.results),control,original,originalAfter,selector,changedReceipt,planner,expectedMapping:DIRECTIVE_CANONICAL_INDEX,providerCalls:0,integrity280,flags280,actualCompletedAt:Math.floor(Date.now()/1000)});
+ return Response.json({kind,index,actualLocalWorkerdD1:true,clockOverride:false,result,error,repeat,visits280,visitCosts280,prelude280,manualOriginal280,manualAfter280,retention,rows:rows.results,service280:service280.results,characters:characters.results,wires,start,end,rosterRows:907,schemaUnchanged:JSON.stringify(schema.results)===JSON.stringify(after.results),control,original,originalAfter,selector,changedReceipt,planner,expectedMapping:DIRECTIVE_CANONICAL_INDEX,providerCalls:0,integrity280,flags280,actualCompletedAt:Math.floor(Date.now()/1000)});
 }};}
