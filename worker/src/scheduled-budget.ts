@@ -89,17 +89,31 @@ const C = SCHEDULED_CAPS;
 
 /**
  * Ban lane, repair round (12 Nov 2026): the most physical D1 statements one banned-account visit of the role sweep may
- * spend with the canonical ranks selected (removeBanRankRoles1112 at its one-DELETE maximum path, including its
- * GET-only reconciliation of earlier unresolved rows, or observeBanRankDebt1112 after an unban), admission controls
- * included. tests/evergreen1112_ban_workerd_test.cjs measures every visit path on genuine Workerd/D1 and holds each to
- * it: the largest measured is 45 (reconcile an expired row, one DELETE, its confirmation); 50 leaves one admitted write
- * group for the branches the fixture does not reach. This path needs the admitted runtime venue
- * (captureRuntimeVenue230: write admission on, recorded-live layout), so it is charged in ADMISSION_SCHEDULED_BUDGET's
- * role slice, never in the ordinary table's legacy 12. The same test measures the whole canonical role slice (one bound
- * account, then the banned visit at that path) at 60 of the slice's 120; the member rotation's own maximum (117/118
- * measured, below) has not been measured together with this visit on the whole-schedule fixture.
+ * spend with the canonical ranks selected (removeBanRankRoles1112 at its one-DELETE maximum path, or the GET-only
+ * observeBanRankDebt1112 after an unban), admission controls included. tests/evergreen1112_ban_workerd_test.cjs
+ * measures every visit path on genuine Workerd/D1 and holds each to it; 50 leaves one admitted write group for the
+ * branches the fixture does not reach. This path needs the admitted runtime venue (captureRuntimeVenue230: write
+ * admission on, recorded-live layout), so it is charged in ADMISSION_SCHEDULED_BUDGET's role slice, never in the
+ * ordinary table's legacy 12. Successor (12 Nov 2026): with the canonical ranks selected this visit runs only in the
+ * role sweep's "ban" lane (roleSweepLane1112), never after the member walk in the same run, so the role slice holds
+ * either the walk (117/118 measured, below) or one banned visit plus the sweep's common reads and receipt. The exact
+ * whole-schedule measurement of both lanes is Codex's.
  */
 export const BAN_RANK1112_SWEEP_VISIT_STATEMENTS = 50;
+
+/** The two role-sweep lanes in canonical mode (restore.ts sweepMemberRoles). */
+export type RoleSweepLane1112 = "ordinary" | "ban";
+/**
+ * Ban lane successor (12 Nov 2026, the plan agreed with Codex): the lane a canonical role sweep runs, from the schedule's
+ * captured quarter-hour phase (originalRosterScheduleFacts(...).phase, read once before any await). The news phase runs
+ * the ordinary member and promotion walk, the roster phase the banned rotation, so with the 15-minute cron each lane gets
+ * one opportunity about every 30 minutes. Pure: a scheduling fact only, never account, role or dispatch authority. The
+ * callers in index.ts use it so the branch runs end to end; Codex owns that wiring (and any cursor merge between
+ * concurrent callers) and may replace it.
+ */
+export function roleSweepLane1112(phase: "news" | "roster"): RoleSweepLane1112 {
+  return phase === "news" ? "ordinary" : "ban";
+}
 
 /**
  * Worst case per job, in statements, in the order scheduled() starts them. `rule` says what is counted. The fixed costs

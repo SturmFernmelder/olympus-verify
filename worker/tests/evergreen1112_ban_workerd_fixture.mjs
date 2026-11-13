@@ -6,7 +6,10 @@ import {postVerify} from '../src/ingest.ts';
 import {reconcileBanned,callBudget} from '../src/roles.ts';
 import {sweepMemberRoles,forgetLocalThrottle} from '../src/restore.ts';
 import {audit} from '../src/db.ts';
-import {reconcileRemovalReceipt} from '../src/role-settlements.ts';
+import {reconcileRemovalReceipt,migrateCanonicalRank233} from '../src/role-settlements.ts';
+import {captureRuntimeVenue230,runtimeVenue230Facts} from '../src/shared-membership-cutover230.ts';
+import {CANONICAL_MIGRATION_PROFILE233} from '../src/canonical-migration233.ts';
+import {randomNonce,ticketFor,dayBucket} from '../src/codes.ts';
 import {runNativeSubject232} from '../src/full-release-pass.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {NATIVE_RANK_NAMES232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
@@ -34,6 +37,9 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
     if(table.name==='site_settings'&&row.key==='membership230:closure:'+closure.operationId)row.value=closureJSON;
     if(table.name==='roster_snapshots'){row.source='addon-native-v1:'+JSON.stringify(scope);if(!fresh){row.exported_at=seed.now-700;row.received_at=seed.now-700;row.first_received_at=seed.now-700;}}
     if(table.name==='roster_members'){row.rank=NATIVE_RANK_NAMES232[rank];row.rank_index=rank;}
+    // Successor (12 Nov 2026): many cases verify, some late in the run; the seed's one open code keeps its 120 s TTL
+    // from this case's setup instead of from seed creation. Its creation time, and so the code itself, are unchanged.
+    if(table.name==='pending'&&row.consumed_at===null)row.expires_at=Math.max(row.expires_at,Math.floor(Date.now()/1000)+120);
     const names=Object.keys(row);await db.prepare('INSERT INTO "'+table.name+'"('+names.map(n=>'"'+n+'"').join(',')+')VALUES('+names.map(()=>'?').join(',')+')').bind(...names.map(n=>row[n])).run();}
    const triggers=seed.objects.filter(x=>x.type==='trigger').map(x=>db.prepare(x.sql));while(triggers.length)await db.batch(triggers.splice(0,40));
    const control={failD1:[]},wires=[],fetcher=Object.getOwnPropertyDescriptor(db,'fetcher').value,send=method(fetcher,'fetch');
@@ -59,12 +65,39 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
    const response=await handleInteraction(env,interaction,defer),initial=await response.json();while(pending.length)await pending.shift();return initial;};
   if(action==='ban')return finish({initial:await command('ban',[{name:'user',type:6,value:body.target??subject},{name:'reason',type:3,value:body.reason??'qualification'}])});
   if(action==='unban')return finish({initial:await command('unban',[{name:'user',type:6,value:body.target??subject}])});
-  // The whole role slice of a scheduled run (member rotation, then the banned rotation), as the cron calls it.
-  if(action==='rolesweep'){forgetLocalThrottle();const budget=callBudget(env),result=await sweepMemberRoles(env,'cron',budget);return finish({result,attempts:budget.attempts});}
+  // The scheduled role sweep as the cron calls it. Successor (12 Nov 2026): in canonical mode the caller names one lane
+  // ('ordinary' or 'ban'); body.lane is passed through unchanged, so a missing lane is exercised too.
+  if(action==='rolesweep'){forgetLocalThrottle();const budget=callBudget(env),result=await sweepMemberRoles(env,'cron',budget,undefined,body.lane);
+   const failedAudit=await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 1").first();return finish({result,attempts:budget.attempts,failedAudit:failedAudit?.details??null});}
+  // Repair round (13 Nov 2026): the Watcher's call, with its in-memory throttle kept unless body.forget (a fresh isolate).
+  if(action==='watchersweep'){if(body.forget)forgetLocalThrottle();const result=await sweepMemberRoles(env,'watcher',callBudget(env),undefined,body.lane);
+   const failedAudit=await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 1").first(),count=await db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action='role.sweep_failed'").first();
+   return finish({result,failedAudit:failedAudit?.details??null,failedCount:Number(count?.n??0)});}
+  // A role.sweep receipt with chosen cursors, written through the same admitted audit writer the sweep uses.
+  if(action==='sweepstate'){await audit(env,'system','role.sweep','cron',body.details);return finish({});}
+  // Synthetic earlier role_settlements rows (cross-purpose, cross-generation and malformed-reason controls). Test data only.
+  if(action==='insert'){for(const row of [].concat(body.rows)){const names=Object.keys(row);await env.DB.prepare('INSERT INTO role_settlements('+names.join(',')+')VALUES('+names.map((_,i)=>'?'+(i+1)).join(',')+')').bind(...names.map(n=>row[n])).run();}return finish({});}
+  if(action==='clock')return json({ok:true,now:Number((await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at)});
+  // The canonical migration writer, from an operator plan bound to this run's actual venue, epoch, seal and policy.
+  if(action==='migrate'){
+   const selected=await captureRuntimeVenue230(env);if(selected.mode!=='enabled')return finish({result:{state:'held',reason:'fixture_venue_held'}});
+   const v=runtimeVenue230Facts(selected.venue),issued=Number((await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at),generation=(await db.prepare('SELECT generation FROM privacy_subjects WHERE subject_id=?1').bind(subject).first())?.generation??null;
+   const plan={version:1,profile:CANONICAL_MIGRATION_PROFILE233,guildId:env.GUILD_ID,operationId:(await H('ban1112-migrate|'+kind+'|'+issued)).slice(0,32),epoch:v.epoch,seal:await H(v.sealJSON),sourceTree:'2'.repeat(40),policySHA256:await H(env.CANONICAL_RANKS233),packetSHA256:'3'.repeat(64),issuedAt:issued,expiresAt:issued+120,entries:[{subject,generation,currentRoles:[...(body.currentRoles??[])].sort(),targetRole:body.target}]};
+   const menv={...env,CANONICAL_MIGRATION233:JSON.stringify(plan),CANONICAL_MIGRATION_SOURCE_TREE233:plan.sourceTree},result=await migrateCanonicalRank233(menv,subject,callBudget(menv));
+   return finish({result:{state:result.state,reason:result.reason,outcomes:result.outcomes.map(o=>({state:o.state,reason:o.reason}))}});
+  }
   if(action==='sweep'){const budget=callBudget(env),result=await reconcileBanned(env,'',1,budget);return finish({result,attempts:budget.attempts});}
+  // Successor (12 Nov 2026): a ban closes the account's open codes, so fresh verification evidence after an unban needs a
+  // new open request. This writes one exactly as /verify's ticket path stores it (a fresh nonce; the code is the ticket
+  // of that nonce and day) and returns the code. Test data only: the command's own once-a-day rule is not exercised here.
+  if(action==='newcode'){
+   const at=Number((await db.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) AS at").first()).at),open=seed.tables.find(t=>t.name==='pending').rows[0],nonce=randomNonce();
+   await env.DB.prepare('INSERT INTO pending(discord_id,name_key,name,created_at,expires_at,nonce)VALUES(?1,?2,?3,?4,?5,?6)').bind(subject,open.name_key,open.name,at,at+120,nonce).run();
+   return json({ok:true,code:await ticketFor(env.VERIFY_SECRET,nonce,dayBucket(new Date(at*1000))),at});
+  }
   if(action==='verify'){
-   const now=seed.now,guid='Player-4613-12345678',scope=c.scope,scopeHash=(await H('native-scope|1|'+scope.guild+'|'+scope.realm)).slice(0,16),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.VERIFY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']),mac=hex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('membership|1|fern melder|'+guid+'|'+seed.code+'|1|'+now+'|'+scopeHash))).slice(0,32);
-   const response=await postVerify(env,{character:'Fern Melder',code:seed.code,source:'whisper',guid,nativeMembership:{version:1,member:true,observedAt:now,scopeHash,mac}});return finish({verify:{status:response.status,body:await response.json()}});
+   const code=typeof body.code==='string'?body.code:seed.code,now=Number.isSafeInteger(body.at)?body.at:seed.now,guid='Player-4613-12345678',scope=c.scope,scopeHash=(await H('native-scope|1|'+scope.guild+'|'+scope.realm)).slice(0,16),key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.VERIFY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']),mac=hex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('membership|1|fern melder|'+guid+'|'+code+'|1|'+now+'|'+scopeHash))).slice(0,32);
+   const response=await postVerify(env,{character:'Fern Melder',code,source:'whisper',guid,nativeMembership:{version:1,member:true,observedAt:now,scopeHash,mac}});return finish({verify:{status:response.status,body:await response.json()}});
   }
   if(action==='age'){await env.DB.batch([env.DB.prepare("UPDATE roster_snapshots SET exported_at=exported_at-700,received_at=received_at-700,first_received_at=first_received_at-700")]);return finish({roster:await db.prepare('SELECT exported_at,CAST(strftime(\'%s\',\'now\') AS INTEGER) AS now FROM roster_snapshots ORDER BY id DESC LIMIT 1').first()});}
   if(action==='refresh'){
