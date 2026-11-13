@@ -171,8 +171,39 @@ function docs() {
   check('README names the current site host', !readme.includes('guild.roachcouncil.com') || /former|legacy|old/i.test(readme.slice(Math.max(0, readme.indexOf('guild.roachcouncil.com') - 200), readme.indexOf('guild.roachcouncil.com') + 200)));
 }
 
+// 12 Nov 2026 follow-up (route cases): every file under the member-gated talent archive has an anonymous post-deployment
+// case, and each recorded expectation is what the actual Worker entry answers an anonymous caller (asset and database
+// bindings are traps, so the check also proves the 401 comes before any read).
+async function routes() {
+  const crypto = require('node:crypto'), cases = JSON.parse(read('tools/public-route-cases.json')).cases;
+  const expected = Number((read('tools/check-public-routes.cjs').match(/const EXPECTED_CASES=(\d+);/) || [])[1]);
+  check('the post-deployment replay expects exactly the recorded number of route cases (' + cases.length + ')', expected === cases.length);
+  const site = 'https://olympus.roachcouncil.com', dir = 'worker/public/static/talents/archive';
+  const files = [];
+  const walk = rel => { for (const e of fs.readdirSync(path.join(root, rel), {withFileTypes: true})) e.isDirectory() ? walk(rel + '/' + e.name) : files.push(rel.slice('worker/public'.length) + '/' + e.name); };
+  if (fs.existsSync(path.join(root, dir))) walk(dir);
+  const archive = cases.filter(c => c.url.startsWith(site + '/static/talents/archive/'));
+  check('every talent archive file has exactly one anonymous GET route case (' + files.length + ' files)',
+    files.length > 0 && files.every(file => archive.filter(c => c.method === 'GET' && c.url === site + file).length === 1) && archive.length === files.length);
+  const {load} = require('./helpers/privacy129_fixture.cjs');
+  const index = load('index').default;
+  let touched = 0;
+  const env = {PUBLIC_BASE_URL: 'https://olympus-verify.roach-council.workers.dev', SITE_HOST: 'olympus.roachcouncil.com',
+    ASSETS: {fetch: async () => { touched++; return new Response('asset', {status: 200}); }}};
+  Object.defineProperty(env, 'DB', {get() { touched++; throw Error('anonymous static request touched the database'); }});
+  const answers = [];
+  for (const c of archive) {
+    const response = await index.fetch(new Request(c.url, {method: c.method}), env, {waitUntil() {}, passThroughOnException() {}});
+    const body = Buffer.from(await response.arrayBuffer());
+    answers.push(response.status === c.status && crypto.createHash('sha256').update(body).digest('hex') === c.bodySHA256
+      && c.headers.every(h => { const v = response.headers.get(h.name); return h.mode === 'absent' ? v === null : h.mode === 'equals' ? v === h.value : typeof v === 'string' && v.includes(h.value); }));
+  }
+  check('the actual Worker entry answers each talent archive case exactly as recorded (401, before any asset or database read)',
+    archive.length > 0 && answers.length === archive.length && answers.every(Boolean) && archive.every(c => c.status === 401) && touched === 0);
+}
+
 (async () => {
-  await budget(); ci(); docs();
+  await budget(); ci(); docs(); await routes();
   console.log(`\n${passed}/${passed + failed} docs-gate checks passed`);
   process.exitCode = failed ? 1 : 0;
 })().catch(error => { console.error(error); process.exitCode = 1; });

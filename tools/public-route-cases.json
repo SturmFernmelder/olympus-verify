@@ -1,6 +1,6 @@
 {
   "schema": "olympus-public-routes-v1",
-  "scope": "Existing90 owner-approved anonymous postdeployment behaviors; static source digests are computed from the supplied current commit, not frozen here.",
+  "scope": "Ninety-two anonymous postdeployment behaviors: the existing 90 owner-approved ones plus, since 12 November 2026, the two member-gated talent archive files (/static/talents/archive/260cf99b52db/), which answer 401 to an anonymous caller like every other member-only static file. Static source digests are computed from the supplied current commit, not frozen here.",
   "cases": [
     {
       "method": "GET",
@@ -2357,6 +2357,118 @@
     {
       "method": "GET",
       "url": "https://olympus.roachcouncil.com/static/talents/analysis.js",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/archive/260cf99b52db/art.json",
+      "status": 401,
+      "headers": [
+        {
+          "name": "content-type",
+          "mode": "includes",
+          "value": "application/json"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-store"
+        },
+        {
+          "name": "cache-control",
+          "mode": "includes",
+          "value": "no-transform"
+        },
+        {
+          "name": "x-content-type-options",
+          "mode": "equals",
+          "value": "nosniff"
+        },
+        {
+          "name": "x-frame-options",
+          "mode": "equals",
+          "value": "DENY"
+        },
+        {
+          "name": "x-robots-tag",
+          "mode": "includes",
+          "value": "noindex"
+        },
+        {
+          "name": "cross-origin-opener-policy",
+          "mode": "equals",
+          "value": "same-origin"
+        },
+        {
+          "name": "strict-transport-security",
+          "mode": "includes",
+          "value": "max-age=31536000"
+        },
+        {
+          "name": "set-cookie",
+          "mode": "absent"
+        },
+        {
+          "name": "location",
+          "mode": "absent"
+        }
+      ],
+      "bodySHA256": "cc2a0f92fe6b0a8a835d139f3e827defc0ed73eca156e7ee7cdeec9a79dd0822"
+    },
+    {
+      "method": "GET",
+      "url": "https://olympus.roachcouncil.com/static/talents/archive/260cf99b52db/data.json",
       "status": 401,
       "headers": [
         {
