@@ -108,8 +108,11 @@
     const previewButton = () => button('Count the notes', previewNow, {action: 'preview'});
     const countsList = (items) => h('ul', {class: 'note-redaction280-counts'}, items.map(([label, value]) => h('li', null, label + ': ', h('strong', {text: value === null ? 'not known' : String(value)}))));
 
+    const statusItems = s => [['Notes still present on covered receipts', s.remaining], ['Receipt rows the cleanup cannot classify', s.unclassified]];
+
+    // Every step returns its heading, so each change of step can move focus to it (round 2, 12 Nov 2026).
     function idle(note) {
-      show('idle', 'Start with a count', h('p', {text: 'The count reads how many stored receipts have a note. Nothing is changed until you confirm on the next step.'}),
+      return show('idle', 'Start with a count', h('p', {text: 'The count reads how many stored receipts have a note. Nothing is changed until you confirm on the next step.'}),
         note ? h('p', {class: 'small', text: note}) : null, h('div', {class: 'btn-row'}, previewButton(), statusButton()));
     }
     function confirm(p) {
@@ -124,7 +127,7 @@
         countsList([['Receipt rows stored', p.receiptRows], ['Receipts of the kinds this cleanup covers (mail and whisper declarations)', p.coveredRows], ['Notes that will be blanked', p.notesToBlank]]),
         h('p', null, h('strong', {text: 'What will be removed: '}), 'the free-text note on each of those ' + plural(p.notesToBlank, 'receipt', 'receipts') + '. Each note becomes empty.'),
         h('p', null, h('strong', {text: 'What stays: '}), 'every receipt row, with its donor, character, amount, items, times and original checksum, and every other kind of record.'),
-        h('p', null, h('strong', {text: 'This cannot be undone. '}), 'The site keeps no copy of the notes, and the cleanup is recorded once and cannot be run again. It changes the site’s database only: backups and the officers’ own Watcher files are not changed.'),
+        h('p', null, h('strong', {text: 'This cannot be undone. '}), 'The site’s database keeps no copy of the notes. Earlier backups and the officers’ Watcher files are not changed by this step. The cleanup is recorded once and cannot be run again.'),
         h('p', {class: 'small muted', text: 'If a new receipt arrives before you confirm, the server counts again and includes it; the result shows the final number. This count is valid until ' + fmtDateTime(p.expiresAt) + '.'}),
         h('label', {class: 'note-redaction280-check', for: 'note-redaction280-understood'}, tick, ' I understand that ' + plural(p.notesToBlank, 'note', 'notes') + ' will be blanked and cannot be restored from the site.'),
         h('div', {class: 'btn-row'}, apply, cancel));
@@ -132,24 +135,30 @@
       expiryTimer = setTimeout(() => { if (current() && lastPreview === p && !busy) focusOn(idle('That count expired before it was confirmed. Nothing was changed. Count the notes again.')); }, Math.max(0, Math.min(left, 2147483647)));
       return heading;
     }
-    function unconfirmed(a, why) {
+    // `s`: a "not recorded" status read while the request could still be processed. The unconfirmed heading and
+    // the exact request stay on screen, with the status counts under them (round 2, 12 Nov 2026).
+    function unconfirmed(a, why, s) {
       const request = JSON.stringify({method: a.request.method, path: a.request.path, body: a.request.body}, null, 2);
       const kept = h('textarea', {id: 'note-redaction280-request', rows: '8', readonly: '', spellcheck: 'false', 'aria-describedby': 'note-redaction280-request-help'});
       kept.value = request; kept.readOnly = true;
+      const until = fmtDateTime(a.expiresAt + 60);
       return show('unconfirmed', 'Outcome not confirmed',
-        h('p', {text: why + ' It is not known whether the notes were blanked. The request will not be sent again. Read the stored status to find out.'}),
-        h('label', {class: 'lab small', for: 'note-redaction280-request', text: 'The request sent at ' + fmtDateTime(a.sentAt) + ', exactly as sent'}),
-        kept, h('p', {id: 'note-redaction280-request-help', class: 'small muted', text: 'Keep this for the record. It holds the signed approval from your count and no note text.'}),
+        h('p', {text: s ? 'No cleanup is recorded yet, but this request could still be processed until about ' + until + '. The request will not be sent again.'
+          : why + ' It is not known whether the notes were blanked. The request will not be sent again. Read the stored status to find out.'}),
+        h('label', {class: 'lab small', for: 'note-redaction280-request', text: 'The request sent at ' + fmtDateTime(a.sentAt)}),
+        kept, h('p', {id: 'note-redaction280-request-help', class: 'small muted', text: 'This is the request exactly as it was sent: the signed approval from your count, and no note text.'}),
+        s ? h('div', {class: 'stack', 'data-note-redaction280-status': 'not-recorded'},
+          h('p', {text: 'Stored status, just read: no cleanup recorded.'}), countsList(statusItems(s)),
+          h('p', {class: 'small', text: 'Read the stored status again after ' + until + ' before counting again.'})) : null,
         h('div', {class: 'btn-row'}, statusButton()));
     }
     function result(s, origin) {
-      const items = [['Notes still present on covered receipts', s.remaining], ['Receipt rows the cleanup cannot classify', s.unclassified]];
+      const items = statusItems(s);
       if (!s.recorded) {
-        const pending = attempt && now() < attempt.expiresAt + 60;
-        if (attempt && !pending) { attempt = null; writeAttempt(storage, null); }
+        if (attempt && now() < attempt.expiresAt + 60) return unconfirmed(attempt, '', s);
+        if (attempt) { attempt = null; writeAttempt(storage, null); }
         return show('not-recorded', 'No cleanup recorded', h('p', {text: 'No cleanup has been recorded, so no note has been blanked by it.'}), countsList(items),
-          pending ? h('p', {text: 'The earlier request could still be processed until about ' + fmtDateTime(attempt.expiresAt + 60) + '. Read the stored status again after that before counting again.'}) : null,
-          h('div', {class: 'btn-row'}, pending ? null : previewButton(), statusButton()));
+          h('div', {class: 'btn-row'}, previewButton(), statusButton()));
       }
       const mine = origin && origin.operationId && origin.operationId === s.operationId;
       const earlier = origin && origin.operationId && origin.operationId !== s.operationId;

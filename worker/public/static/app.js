@@ -6818,7 +6818,7 @@
           kv(pair({ day: f.applications.day.firstSaved, week: f.applications.week.firstSaved }).map(([k, v]) => [k, fewer(v)])),
           h("h4", { text: "Decisions saved" }),
           kv(pair({ day: f.applications.day.decided, week: f.applications.week.decided }).map(([k, v]) => [k, fewer(v)])),
-          h("p", { class: "muted small", text: `As of ${fmtDateTime(f.asOf)}. Joined and left compare complete, checked roster exports, so a rename counts as one of each. Applications count the accounts whose application was first saved in that time, and the decisions (accepted or declined) last saved in it.` }),
+          h("p", { class: "muted small", text: `Joined and left compare complete, checked roster exports, so a rename counts as one of each. Applications count the accounts whose application was first saved in that time, and the decisions (accepted or declined) last saved in it.` }),
         ];
     const launchAt = d.beta && d.beta.launchAt; // Olympus invite scheduling only; never Blizzard’s global launch.
     add(body, [

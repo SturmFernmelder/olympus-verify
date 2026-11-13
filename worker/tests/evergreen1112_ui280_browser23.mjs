@@ -12,6 +12,8 @@ const ORIGIN = process.env.UI280_ORIGIN || 'http://127.0.0.1:63720', PORT = Numb
 const HELPER = process.env.UI280_CDP_HELPER || 'C:/Users/vikto/olympus-claude-candidates/audit279/tools/cdp.mjs';
 const OUT = process.env.UI280_OUT || path.join(process.env.TEMP || '.', 'ui280-browser23');
 const BASE_APP = process.env.UI280_BASE_APP ? fs.readFileSync(process.env.UI280_BASE_APP) : null;
+// Round 2: with UI280_BASE_NR=<file> the cleanup module is replaced too (fail-before of the module's own changes).
+const BASE_NR = process.env.UI280_BASE_NR ? fs.readFileSync(process.env.UI280_BASE_NR) : null;
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(ORIGIN)) throw Error('ui280 browser checks run against a local harness only');
 const { launch, instrument, viewport, screenshot, key, sleep } = await import(pathToFileURL(HELPER).href);
 const NR_PATH = '/api/admin/treasury/ledger/note-redaction', NOTE = 'QA SYNTHETIC RECEIPT NOTE';
@@ -29,10 +31,11 @@ fs.mkdirSync(OUT, { recursive: true });
 const cdp = await launch({ port: PORT, profile: path.join(OUT, 'profile') });
 const state = await instrument(cdp);
 let mode = { kind: 'real' }; const sent = [];
-await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*' + NR_PATH + '*', requestStage: 'Request' }, ...(BASE_APP ? [{ urlPattern: '*/static/app.js*', requestStage: 'Request' }] : [])] });
+await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*' + NR_PATH + '*', requestStage: 'Request' }, ...(BASE_APP ? [{ urlPattern: '*/static/app.js*', requestStage: 'Request' }] : []), ...(BASE_NR ? [{ urlPattern: '*/static/note-redaction280.js*', requestStage: 'Request' }] : [])] });
 cdp.on('Fetch.requestPaused', async p => {
   try {
     if (/\/static\/app\.js/.test(p.request.url)) return await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }, { name: 'Cache-Control', value: 'no-store' }], body: BASE_APP.toString('base64') });
+    if (/\/static\/note-redaction280\.js/.test(p.request.url)) return await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/javascript; charset=utf-8' }, { name: 'Cache-Control', value: 'no-store' }], body: BASE_NR.toString('base64') });
     const body = p.request.postData || '';
     sent.push(body);
     if (mode.kind === 'lost-apply' && body.includes('"apply"')) return await cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionClosed' });
@@ -87,6 +90,10 @@ try {
   const exact = F ? [F.roster.day?.joined, F.roster.week?.joined, F.roster.day?.left, F.roster.week?.left, F.applications.day.firstSaved, F.applications.week.firstSaved, F.applications.day.decided, F.applications.week.decided].filter(v => Number.isSafeInteger(v)) : [];
   check('News: bars only for exact numbers, scaled to the largest, hidden from assistive technology', !!shown && shown.meters.length === exact.length && shown.meters.every((m, i) => m[0] === exact[i] && m[1] === Math.max(1, ...exact) && m[2] === 'true'), shown && shown.meters);
   check('News: the day and week lists are replaced, the source explanation stays, headings run h2 then h3', !!shown && shown.lists === 0 && shown.explanation && JSON.stringify(shown.headings) === JSON.stringify(['H2:The guild in figures', 'H3:Activity at a glance']), shown);
+  // Round 2 (12 Nov): outside the renderer's caption the frame states the count time once (in its source strip).
+  const timeOnce = await evalJ(`(() => { const s = document.querySelector('[data-activity-comparison="news"]'), frame = s.closest('section.frame'), strip = frame.querySelector('[data-source-strip]'); const m = strip && /Counted (.+?); refreshed/.exec(strip.textContent); if (!m) return { n: -1 };
+    const own = frame.textContent.replace(s.querySelector('caption')?.textContent || '\\u0000', ''); return { t: m[1], n: own.split(m[1]).length - 1, sentence: [...frame.querySelectorAll('p')].map(p => p.textContent).find(t => t.includes('Joined and left compare')) }; })()`);
+  check('News: the count time appears once outside the table caption, and the retained sentence says only how the figures are counted', timeOnce.n === 1 && typeof timeOnce.sentence === 'string' && timeOnce.sentence.startsWith('Joined and left compare'), timeOnce);
   const newsLayout = [];
   for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); newsLayout.push({ w, ...(await measure('[data-activity-comparison="news"]')) }); if ([320, 390, 1280].includes(w)) await screenshot(cdp, path.join(OUT, `news-${w}.png`), true); }
   check('News: no page overflow, nothing past the viewport and no sideways scroll inside the table at all six widths', newsLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && x.wraps.every(v => v <= 0)), newsLayout.map(x => ({ w: x.w, o: x.docOverflowPx, out: x.outside, wraps: x.wraps })));
@@ -155,12 +162,29 @@ try {
   check('Ledger: the dropped request changed nothing on the server', statusAfterLoss.status === 200 && statusAfterLoss.json?.state === 'not_recorded' && statusAfterLoss.json?.remainingCoveredNotes === 9, statusAfterLoss);
   mode = { kind: 'real' };
   await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Read the stored status')?.click(); true`);
-  for (let i = 0; i < 60 && (await stage()) === 'unconfirmed'; i++) await sleep(150);
-  check('Ledger: reading the status after the loss says nothing is recorded and offers no new count while the request could still land', (await stage()) === 'not-recorded' && (await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent).join('|')`)) === 'Read the stored status');
+  for (let i = 0; i < 60 && !(await evalJ(`!!document.querySelector('[data-note-redaction280-status="not-recorded"]')`)); i++) await sleep(150);
+  // Round 2 (12 Nov): inside the window the unconfirmed heading and the exact request stay, with the counts under them.
+  const pending = await evalJ(`({ head: ${CTL}?.querySelector('h3')?.textContent, focus: document.activeElement === ${CTL}?.querySelector('h3'), kept: document.querySelector('#note-redaction280-request')?.value || '', counts: document.querySelector('[data-note-redaction280-status="not-recorded"]')?.textContent || '', buttons: [...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent).join('|') })`);
+  check('Ledger: reading the status after the loss keeps "Outcome not confirmed" and the exact request, shows the counts under them (nothing recorded, 9 notes) and offers no new count while the request could still land', (await stage()) === 'unconfirmed' && pending.head === 'Outcome not confirmed' && pending.focus && pending.kept === lost.kept && pending.counts.includes('no cleanup recorded') && pending.counts.includes('Notes still present on covered receipts: 9') && pending.buttons === 'Read the stored status', pending);
+  const pendingLayout = [];
+  for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); pendingLayout.push({ w, ...(await measure('[data-note-redaction280]')) }); if (w === 320) await screenshot(cdp, path.join(OUT, 'ledger-pending-320.png'), true); }
+  await viewport(cdp, 1280, 900);
+  // The text label of the read-only request box is not a control of its own (the box is the target), so it is not sized.
+  const controlsOnly = x => x.small.filter(s => !(s.t === 'LABEL' && s.text.startsWith('The request sent at')));
+  check('Ledger: the pending state with its counts has no overflow and 44 px controls at all six widths', pendingLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && controlsOnly(x).length === 0), pendingLayout.map(x => ({ w: x.w, o: x.docOverflowPx, out: x.outside, small: controlsOnly(x) })));
 
   // A hung apply in a new tab session: the page gives up after its own 30 s and shows it as not confirmed.
   await evalJ(`sessionStorage.clear(); true`);
   await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
+  // Round 2 (12 Nov): Cancel from the keyboard moves focus to the start heading, and its copy says what the backups keep.
+  const confirmCopy = await evalJ(`${CTL}?.textContent || ''`);
+  const toCancel = await tabTo(`a => a.tagName === 'BUTTON' && a.textContent === 'Cancel'`, 8);
+  if (toCancel.f) await press('Enter', 'Enter', 13);
+  await sleep(300);
+  const afterCancel = await evalJ(`({ state: ${CTL}?.getAttribute('data-note-redaction280-state'), focus: document.activeElement === ${CTL}?.querySelector('h3') ? document.activeElement.textContent : document.activeElement?.tagName + ':' + (document.activeElement?.textContent || '').slice(0, 30), ring: getComputedStyle(document.activeElement).outlineStyle })`);
+  check('Ledger keyboard: Cancel moves focus to the "Start with a count" heading; the confirmation says the site database keeps no copy and earlier backups and Watcher files are not changed', !!toCancel.f && afterCancel.state === 'idle' && afterCancel.focus === 'Start with a count' && confirmCopy.includes('The site’s database keeps no copy of the notes.') && confirmCopy.includes('Earlier backups and the officers’ Watcher files are not changed by this step.') && !confirmCopy.includes('The site keeps no copy'), { afterCancel, trail: toCancel.trail });
   await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
   for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
   mode = { kind: 'hang-apply' };

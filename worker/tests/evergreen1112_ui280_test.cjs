@@ -237,8 +237,9 @@ const runUi280=String.raw`
  const kept=o1.app.querySelector('#note-redaction280-request');
  check('D9 the apply sent exactly {action, review, confirm} with the preview’s signed review and the fixed confirmation, nothing invented',!!sentBody&&Object.keys(sentBody).join(',')==='action,review,confirm'&&sentBody.action==='apply'&&sentBody.confirm==='BLANK RECEIPT NOTES'&&typeof sentBody.review==='string'&&sentBody.review.includes('.'),applies()[0]);
  check('D10 a lost apply reply shows "Outcome not confirmed", keeps the exact request on screen, offers only a status read and is never resent',stageOf(o1)==='unconfirmed'&&applies().length===1&&!!kept&&JSON.stringify(JSON.parse(kept.value).body)===applies()[0]&&JSON.parse(kept.value).path===NR_PATH&&ctlButtons(o1)==='Read the stored status'&&noNote(o1),ctlButtons(o1));
- await clickIn(o1,'Read the stored status');await waitFor(()=>stageOf(o1)==='not-recorded','status after loss',8000);
- check('D11 the status read says nothing was recorded, keeps the earlier request pending until its approval expires and offers no new count yet',stageOf(o1)==='not-recorded'&&ctl(o1).textContent.includes('could still be processed until')&&ctlButtons(o1)==='Read the stored status'&&requests[requests.length-1]==='{"action":"status"}'&&applies().length===1&&JSON.stringify(auditRows())===JSON.stringify(seeded));
+ await clickIn(o1,'Read the stored status');await waitFor(()=>!!o1.app.querySelector('[data-note-redaction280-status="not-recorded"]'),'status after loss',8000);
+ // Round 2 (12 Nov): while the request could still land, the unconfirmed heading and the request stay, with the counts under them.
+ check('D11 the status read says nothing was recorded, keeps the earlier request pending until its approval expires and offers no new count yet',stageOf(o1)==='unconfirmed'&&!!o1.app.querySelector('#note-redaction280-request')&&ctl(o1).textContent.includes('could still be processed until')&&ctlButtons(o1)==='Read the stored status'&&requests[requests.length-1]==='{"action":"status"}'&&applies().length===1&&JSON.stringify(auditRows())===JSON.stringify(seeded));
  await o1.go('#/admin');await o1.go('#/admin/donation-ledger');await waitFor(()=>stageOf(o1)==='unconfirmed','the kept attempt after navigation',8000);await new Promise(r=>setTimeout(r,300));
  check('D12 leaving and coming back shows the same unconfirmed request again and sends nothing on its own',stageOf(o1)==='unconfirmed'&&JSON.stringify(JSON.parse(o1.app.querySelector('#note-redaction280-request').value).body)===applies()[0]&&applies().length===1&&requests.filter(r=>r==='{"action":"status"}').length===1);
  // Definite refusals and unreadable replies, on fresh pages (a fresh tab has its own session storage).
@@ -342,6 +343,61 @@ const runUi280=String.raw`
   const appointmentNonAdmin=await searchAs(MEMBER,'Synthetic Pick','appointment');
   check('E9 an ordinary member asking for the appointment purpose still gets the ordinary reply (no onSite, siteProfilesVisible false)',appointmentNonAdmin.status===200&&appointmentNonAdmin.body.siteProfilesVisible===false&&appointmentNonAdmin.body.results.every(r=>!Object.hasOwn(r,'onSite')&&!Object.hasOwn(r,'appointmentStatus')));
  }finally{originalTestFetch=fetchBefore;}
+
+ // ---------------------------------------------------------------- Round 2, items 2 to 4: the cleanup control
+ console.log('\n== Part F: receipt-note cleanup after a lost apply, its copy and its focus (round 2) ==');
+ if(NR){
+  let clock=now;const w2=makeWindow('{}'),d2=w2.document,sent2=[];
+  const hf=(tag,props,...kids)=>{const el=d2.createElement(tag);for(const [k,v] of Object.entries(props||{})){if(v===undefined||v===null||v===false)continue;if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else if(k.startsWith('on')&&typeof v==='function')el.addEventListener(k.slice(2),v);else if(k==='disabled')el.disabled=!!v;else el.setAttribute(k,v===true?'':String(v));}for(const c of kids.flat(9)){if(c===null||c===undefined||c===false||c==='')continue;el.appendChild(typeof c==='object'?c:d2.createTextNode(String(c)));}return el;};
+  const PV=over=>({state:'preview',ceiling:90,receiptRows:11,coveredRows:10,notesToBlank:8,review:'{"id":"0123abcd-0123-4abc-8def-0123456789ab"}.sig',expiresAt:clock+600,confirmation:'BLANK RECEIPT NOTES',scope:'s',...over});
+  const NOT={state:'not_recorded',completion:null,remainingCoveredNotes:8,unclassifiedReceiptRows:0,scope:'s'};
+  let nextPreview=PV();
+  const api2=(method,p,body)=>{sent2.push(JSON.stringify(body));if(body.action==='preview')return Promise.resolve(nextPreview);if(body.action==='status')return Promise.resolve(NOT);return Promise.reject({status:0});};
+  const fmt=t=>'T'+t;
+  const mountF=()=>{const box=d2.body.appendChild(d2.createElement('div'));NR.mount(box,{h:hf,api:api2,user:{id:NR.OWNER,isAdmin:true},live:()=>true,now:()=>clock,fmtDateTime:fmt,storage:()=>w2.sessionStorage});return box;};
+  const stageF=box=>box.querySelector('[data-note-redaction280-stage]');
+  const heading=box=>stageF(box).querySelector('h3');
+  const focusedHeading=box=>{const a=d2.activeElement,hd=heading(box);return !!hd&&a===hd&&hd.getAttribute('tabindex')==='-1'?hd.textContent:'(focus elsewhere: '+(a?a.tagName+':'+String(a.textContent).slice(0,40):'none')+')';};
+  const press=async(box,text)=>{const b=byText(box,'button',text);if(!b)return false;b.click();for(let i=0;i<6;i++)await settle();return true;};
+  const trail=[];
+  // Cancel: focus goes to the idle heading.
+  const b1=mountF();await press(b1,'Count the notes');trail.push(['count',focusedHeading(b1)]);
+  await press(b1,'Cancel');trail.push(['cancel',focusedHeading(b1)]);
+  check('F1 Cancel returns to the start and moves focus to its heading',trail[0][1]==='Confirm the cleanup'&&trail[1][1]==='Start with a count'&&b1.textContent.includes('The count was set aside'),JSON.stringify(trail));
+  // An expired count: focus goes to the idle heading.
+  d2.body.removeChild(b1);w2.sessionStorage.removeItem(NR.STORE);nextPreview=PV({expiresAt:clock+1});
+  const b2=mountF();await press(b2,'Count the notes');await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();
+  check('F2 a count that expires returns to the start and moves focus to its heading',stageF(b2).getAttribute('data-note-redaction280-state')==='idle'&&focusedHeading(b2)==='Start with a count'&&b2.textContent.includes('That count expired'),focusedHeading(b2));
+  // Copy of the confirmation.
+  d2.body.removeChild(b2);nextPreview=PV();
+  const b3=mountF();await press(b3,'Count the notes');const ct=stageF(b3).textContent;
+  check('F3 the confirmation says the site database keeps no copy and that earlier backups and Watcher files are not changed, without contradiction',ct.includes('The site’s database keeps no copy of the notes.')&&ct.includes('Earlier backups and the officers’ Watcher files are not changed by this step.')&&!ct.includes('The site keeps no copy')&&!ct.includes('changes the site’s database only')&&b3.querySelector('label[for="note-redaction280-understood"]')?.textContent.includes('cannot be restored from the site'),ct.slice(0,900));
+  // A lost apply, then a status read inside the window, then one after it.
+  const tk=b3.querySelector('#note-redaction280-understood');tk.checked=true;tk.dispatchEvent(new Event('change'));await press(b3,'Blank 8 notes');
+  const lostT=stageF(b3).textContent,lostFocus=focusedHeading(b3),help=b3.querySelector('#note-redaction280-request-help')?.textContent||'';
+  const keptBefore=b3.querySelector('#note-redaction280-request')?.value;
+  check('F4 the kept request is described neutrally: the request exactly as sent, with the signed approval and no note text',help==='This is the request exactly as it was sent: the signed approval from your count, and no note text.'&&!lostT.includes('Keep this for the record'),help);
+  clock=now+400;await press(b3,'Read the stored status');
+  const pend={state:stageF(b3).getAttribute('data-note-redaction280-state'),head:heading(b3)?.textContent,focus:focusedHeading(b3),kept:b3.querySelector('#note-redaction280-request')?.value,counts:b3.querySelector('[data-note-redaction280-status="not-recorded"]')?.textContent||'',buttons:b3.querySelectorAll('button').map(b=>b.textContent).join('|'),stored:w2.sessionStorage.getItem(NR.STORE)!==null};
+  check('F5 a "not recorded" status while the request could still be processed keeps "Outcome not confirmed" and the exact request, with the status counts under them',pend.state==='unconfirmed'&&pend.head==='Outcome not confirmed'&&!!keptBefore&&pend.kept===keptBefore&&pend.counts.includes('Notes still present on covered receipts: 8')&&pend.counts.includes('no cleanup recorded')&&pend.buttons==='Read the stored status'&&pend.stored&&!stageF(b3).textContent.includes('No cleanup recorded')&&sent2.filter(x=>x.includes('"apply"')).length===1,JSON.stringify(pend));
+  clock=now+600+61;await press(b3,'Read the stored status');
+  const past={state:stageF(b3).getAttribute('data-note-redaction280-state'),head:heading(b3)?.textContent,focus:focusedHeading(b3),buttons:b3.querySelectorAll('button').map(b=>b.textContent).join('|'),stored:w2.sessionStorage.getItem(NR.STORE)};
+  check('F6 once the window has passed, the same read switches to "No cleanup recorded" and offers a new count',past.state==='not-recorded'&&past.head==='No cleanup recorded'&&past.buttons==='Count the notes|Read the stored status'&&past.stored===null&&!b3.querySelector('#note-redaction280-request'),JSON.stringify(past));
+  check('F7 every change of step moved focus to the new step’s heading (count, lost apply, status inside and after the window)',lostFocus==='Outcome not confirmed'&&pend.focus==='Outcome not confirmed'&&past.focus==='No cleanup recorded',JSON.stringify([lostFocus,pend.focus,past.focus]));
+  d2.body.removeChild(b3);
+ } else for(const name of ['F1','F2','F3','F4','F5','F6','F7'])check(name+' (module unavailable)',false);
+
+ // ---------------------------------------------------------------- Round 2, item 5: the News figures frame
+ console.log('\n== Part G: the count time appears once from the page side of the figures frame (round 2) ==');
+ {
+  await putFigures(FIG);
+  const timeOnce=f=>{const strip=f&&f.querySelector('[data-source-strip]'),m=strip&&/Counted (.+?); refreshed/.exec(strip.textContent);if(!m)return {n:-1};const caption=f.querySelector('caption');const own=f.textContent.replace(caption?caption.textContent:'\u0000','');return {n:own.split(m[1]).length-1,t:m[1]};};
+  const g1=await openNews();await supplyScript(g1,ACT_SEL,installActivity);const gf1=figFrame(g1),o1=timeOnce(gf1);
+  const g2=await openNews();await supplyScript(g2,ACT_SEL,installActivity,true);const gf2=figFrame(g2),o2=timeOnce(gf2);
+  const sentence=f=>f?f.querySelectorAll('p.muted.small').map(p=>p.textContent).find(t=>t.includes('Joined and left compare'))||'':'';
+  check('G1 with the table, the frame states the count time once outside the renderer’s caption (the source strip)',o1.n===1&&!!gf1.querySelector('caption'),JSON.stringify(o1));
+  check('G2 without the table (script unavailable), the time is stated once, and the retained sentence says only how the figures are counted',o2.n===1&&sentence(gf2).startsWith('Joined and left compare complete, checked roster exports')&&!sentence(gf2).includes('As of'),JSON.stringify({o2,s:sentence(gf2)}));
+ }
  console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
