@@ -53,12 +53,33 @@ async function budget() {
   check('a full scan is reported through a table alias', scans.scans.some(s => s.table === 'roster_members' && /^SCAN rm/.test(s.detail)));
   check('a full walk of an index is reported as a full scan', scans.scans.some(s => s.table === 'role_settlements' && /^SCAN r USING (?:COVERING )?INDEX role_settlement_subject/.test(s.detail)));
   check('an unindexed filter is reported as a full scan', scans.scans.some(s => s.table === 'role_settlements' && /^SCAN role_settlements/.test(s.detail)));
+  // 12 Nov review of CL2-024: with no table list every table is checked, comma joins resolve, a repeated statement counts
+  // each time, CTE and derived-table scans are not table reads, and a SCAN target that cannot be resolved is reported.
+  db.exec("CREATE TABLE members(discord_id TEXT PRIMARY KEY, banned INTEGER); CREATE TABLE audit(id INTEGER PRIMARY KEY, action TEXT);");
+  const every = await mod.fullScans(genuine, [
+    {sql: 'SELECT * FROM audit WHERE action = ?1', values: ['x']},
+    {sql: 'SELECT * FROM audit WHERE action = ?1', values: ['x']},
+    {sql: 'SELECT m.banned FROM role_settlements r, members m WHERE r.subject = ?1 AND m.banned = 1', values: ['x']},
+    {sql: 'SELECT m.banned FROM role_settlements r,members m WHERE r.subject = ?1 AND m.banned = 1', values: ['x']},
+    {sql: 'WITH recent AS MATERIALIZED (SELECT * FROM roster_members WHERE snapshot_id = ?1) SELECT COUNT(*) FROM recent x, (SELECT 1 AS one) AS d', values: [1]},
+  ]);
+  check('every table is checked when no table list is given: scans of audit and members are reported',
+    every.explained === 5 && every.scans.filter(s => s.table === 'audit').length === 2 && every.scans.filter(s => s.table === 'members' && /^SCAN m\b/.test(s.detail)).length === 2);
+  check('a comma join, with or without a space, resolves its alias', every.scans.filter(s => s.table === 'members').length === 2 && every.unresolved.length === 0);
+  check('a scan of a CTE, an alias of it or a derived table is not counted as a table read', !every.scans.some(s => /^SCAN (?:recent|x|d)\b/.test(s.detail)));
+  check('scanCounts gives exact per-plan counts for the allow-list comparison', typeof mod.scanCounts === 'function' && mod.scanCounts(every.scans)['audit: SCAN audit'] === 2);
+  const masked = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SCAN zz'}]})} : genuine.prepare(sql)};
+  const closed = await mod.fullScans(masked, [{sql: 'SELECT * FROM members', values: []}]);
+  check('a SCAN target that cannot be resolved to a table is reported, so the gate fails closed', closed.unresolved.length === 1 && closed.scans.length === 0);
   db.close();
   const runtime = read('worker/tests/launch_roster_pacing271_runtime.mjs'), target = read('worker/tests/launch_roster_pacing271_workerd_test.cjs');
   check('the promotions target measures the page, the strict display and a 1,000-member ingest through worker.fetch',
     runtime.includes("call('GET', '/queue/launch-operations?keyVersion=officer-operations-v233')") && runtime.includes("call('POST', '/ingest/roster?keyVersion=launch-membership-v1'")
     && runtime.includes('page.statements < DIRECTIVE_STATEMENT_LIMIT') && runtime.includes('ingest.statements <= ROSTER_INGEST_STATEMENTS'));
-  check('the promotions target fails unless all thirteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===13'));
+  check('the promotions target explains every table and pins each known scan exactly',
+    runtime.includes('await fullScans(genuine, log)') && runtime.includes('KNOWN_REQUEST_SCANS') && runtime.includes("'privacy_subjects: SCAN ps': 40")
+    && runtime.includes('result.unresolved.length === 0') && runtime.indexOf("await timed('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
+  check('the promotions target fails unless all sixteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===16'));
 }
 
 function ci() {
@@ -83,11 +104,16 @@ function docs() {
   check('CLAUDE.md names the flagship guild OLYMPUS PRIME, never Olympus I as its name', claude.includes('OLYMPUS PRIME') && !/Seats[^\n]*Olympus I\b/.test(claude));
   check('CLAUDE.md no longer says npm test runs check:policies', !/check:policies[^\n]*(?:part of|in) `?npm test/.test(claude));
   check('CLAUDE.md no longer says the schema proof runs once per isolate', !/once per isolate/i.test(claude));
+  check('CLAUDE.md marks frontend_check and the hosts suite as historical diagnostics outside the gate',
+    !claude.includes('add a check there with every') && !claude.includes('the hosts suite fails on a bare one')
+    && /frontend_check\.cjs[\s\S]{0,700}historical\s+diagnostic/.test(claude) && /Nothing in the gate enforces this now: `tests\/hosts_test\.cjs`/.test(claude));
+  check('CLAUDE.md says ROLE_GUILD_MEMBER is the Member rank role with two write paths',
+    !claude.includes('legacy Guild Member writer') && /ROLE_GUILD_MEMBER[\s\S]{0,200}same\s+role,\s+`1552077551839617104`/.test(claude) && claude.includes('two write paths'));
   const rq = read('docs/release-qualification.md');
   check('release qualification documents the offline Lua run, the Watcher suite and the D1 assertions', rq.includes('--all-offline') && rq.includes('unittest discover -s watcher/tests') && rq.includes('ROSTER_INGEST_STATEMENTS') && rq.includes('role_settlements'));
   check('release qualification states the current D1 catalogue', rq.includes('444 live') && rq.includes('443 portable'));
   const history = read('docs/owner-instruction-history.md');
-  check('owner instruction history has the 12 November rulings', history.includes('12 November 2026') && history.includes('No "Stewart" rank') && history.includes('one localStorage key'));
+  check('owner instruction history has the 12 November rulings', history.includes('12 November 2026') && /There is no\s+"Stewart" rank/.test(history) && !history.includes('Any member-facing text you write') && history.includes('one localStorage key'));
   check('owner instruction history no longer heads superseded instructions "Current"', !/^#+ Current/m.test(history));
   const checklist = read('docs/deploy-checklist.md');
   const missing = [];

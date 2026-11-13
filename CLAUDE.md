@@ -72,7 +72,7 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 
 | Path | Contents |
 |---|---|
-| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether the flagship guild, OLYMPUS PRIME, has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (the legacy Guild Member writer, `grantMemberRole`), `role-settlements.ts` (the lane block every Native, canonical-rank and Member-rank role request goes through), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `community-context.ts` is the fence every write goes through, `community-names.ts` the identity rule), `schema.ts` (self-applied migrations) |
+| `worker/src/` | The Worker. Entry `index.ts` (routes, cron, `BUILD`), `env.ts` (bindings and vars), `discord.ts` (REST, interactions), `interactions.ts` (commands), `ingest.ts`/`roster.ts`/`restore.ts`/`unverified.ts` (watcher endpoints, roster diff, role sweep), `oauth.ts` (Linked Role, Battle.net login), `bnet-retention.ts` (the 29-day purge, `bnetFresh`), `intros.ts`/`lookup.ts`/`guide.ts` (Asmongold's server), `site*.ts` (the guild site; `site-news.ts` is News since .115), `guild-seats.ts` (.115: whether the flagship guild, OLYMPUS PRIME, has room; informational only), `scheduled-budget.ts` (.115: the cron's D1 statement budget and the per-run caps), `roster-effects.ts` (.115: the roster's member effects as a durable worklist; the statement counter and the worst cases), `roles.ts` (`grantMemberRole`, one of the two writers of the Member role `ROLE_GUILD_MEMBER`), `role-settlements.ts` (the lane block every Native, canonical-rank and Member-rank role request goes through), `community-*.ts` (the Forever modules behind `COMMUNITY_FEATURES`: `community-context.ts` is the fence every write goes through, `community-names.ts` the identity rule), `schema.ts` (self-applied migrations) |
 | `worker/schema.sql`, `worker/migrations/` | The canonical schema and the same statements as dated files. Additive only. |
 | `worker/public/static/` | The site's script (`app.js`: the whole site, including the community member, organizer and staff pages since .93-.100), stylesheet, the game art (`tools/build-site-assets.py`), the Olympus crest `olympus-icon.png` (the brand and tab icon, the website's one non-game image since .111) and the rank planner. |
 | `worker/tests/` | The bounded qualification's genuine Workerd/D1 runtimes (`qualification_runtime_test.mjs`, `launch_roster_pacing271_*`, `d1_statement_budget.mjs`), run by `npm run qualify`. Everything else here (`*_test.cjs` suites that transpile `src/*.ts` into SQLite behind a D1-shaped shim, and the Python SQL suites) is a historical diagnostic since the owner's 10 November 2026 mandate: useful to run by hand, never a release gate. |
@@ -117,13 +117,16 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   at its worst case against the invocation's counted statements before it starts and claimed in the transaction of its
   change; a newer run supersedes an older one; `done_at` on the run, never `complete`, says the backlog is empty; a sync
   admits the same way and says "Not applied yet". Links are pinned to
-  character GUIDs. Since .55 `src/roles.ts` is the legacy Guild Member writer: its grants go through
-  `grantMemberRole` (blocking-role guard, fail-closed config check); only the sweep (`removeIfBlocked`), a roster
-  departure and a ban remove that role. Since the Native and canonical-rank work (.232 and .233) the rank roles,
-  including the Member rank role (the shared membership role `1552077551839617104`, per Codex's .233 record), are
-  written outside `grantMemberRole`: every such PUT or DELETE goes through the lane block in `src/role-settlements.ts`,
-  reached from `full-release-pass.ts` (the canonical minute and the fresh pass) and `role-reconcile242.ts` (signed
-  continuations). New modules never call `addRole`. Since
+  character GUIDs. Since .233 `ROLE_GUILD_MEMBER` (`wrangler.toml`) and the canonical Member rank role are the same
+  role, `1552077551839617104` (Olympus Member, per Codex's .233 record), so that one role has two write paths.
+  (1) `grantMemberRole` in `src/roles.ts` (since .55; blocking-role guard, fail-closed config check) grants it from the
+  link, roster, restore and backfill paths (callers in `roster.ts`, `roster-effects.ts`, `restore.ts`,
+  `backfill.ts`); only the sweep (`removeIfBlocked`), a roster departure and a ban remove it on this path. On the Olympus
+  guild this path is held whenever the .230 shared-membership cutover is configured (`oldSharedMemberProducerHeld230`
+  in `src/shared-membership-cutover230.ts`). (2) When canonical ranks are enabled (`CANONICAL_RANKS233`, .232 and .233),
+  every rank role, the Member rank role included, is written outside `grantMemberRole`: each PUT or DELETE goes
+  through the lane block in `src/role-settlements.ts`, reached from `full-release-pass.ts` (the canonical minute and
+  the fresh pass) and `role-reconcile242.ts` (signed continuations). New modules never call `addRole`. Since
   .114 a rename Blizzard required (`src/rename-review.ts`) holds every grant while a `rename_holds` row is `reapply`
   (`"held"`), and `revokeForReapply` is the one remover added since .55 (at the decision; the hold is re-read after the
   member GET and after a grant's PUT, and held accounts join the sweep's banned reconciliation).
@@ -169,8 +172,9 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
   lose a handled answer (`page.drop`), slow a request (`page.delay`), make a handled answer unreadable (`page.garble`) or
   readable but wrong (`page.answer`), fail a request before the Worker (`page.before`), and act between one request's
   complete batches (`HOOKS.afterBatch`; since .161 frontend races run only between complete Native transactions, and a
-  statement-level `afterStatement` hook exists only in the `community_event_*` suites); add a check there with every
-  page change.
+  statement-level `afterStatement` hook exists only in the `community_event_*` suites). It is a historical
+  diagnostic: neither `npm run qualify` nor CI runs it, so nothing in the gate checks page behaviour. Run it by hand
+  for a page change and extend a bounded Workerd check when the change is material.
 - **Community modules** (`community-*.ts`, since .56): one identity (the site session), facts from keeper tables only,
   capabilities that name requirements (`applicantWrite`, `confirmedGuildData`, `communityStaff` = `SITE_ADMINS`); a
   write is one batch whose first statement carries `fenceSql` (id, session version and the cookie's expiry, judged by
@@ -219,7 +223,9 @@ anything that reads `watcher/config.json`, `worker/.dev.vars` or `Config.lua`.
 - **Logging hygiene:** never log URLs with query strings, tokens, codes, cookies, BattleTags or IPs. Discord errors
   keep the path without the query. Audit rows carry no secrets. Since .51 every `console.*` call that reports a
   failure goes through `log.ts errorRef` (a fixed category and a bounded status; never the message, the name or a
-  digest of either); the hosts suite fails on a bare one. Workers Logs keep what is printed.
+  digest of either). Nothing in the gate enforces this now: `tests/hosts_test.cjs`, which fails on a bare one, is a
+  historical diagnostic that neither `npm run qualify` nor CI runs, so check new failure logging by hand in review.
+  Workers Logs keep what is printed.
 - **The entry exports functions only.** `src/index.ts` may export the default handler and functions; a scalar export
   makes Workerd refuse the bundle at startup (.47 to .50 did not start). The bounded qualification imports the current
   `src/index.ts` into a test entry, bundles that with esbuild and runs it in Workerd with `nodejs_compat` only. It does

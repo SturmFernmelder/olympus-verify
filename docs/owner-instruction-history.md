@@ -196,17 +196,19 @@ the Lua 1,000-member benchmark with the Lua addon suites and the Python Watcher 
 and the Zero Hostage Rule (stale test fixtures are updated or retired at once so CI passes). What runs today, and what
 does not yet, is in [release-qualification.md](release-qualification.md).
 
-The owner's rulings to Claude on 12 November 2026, quoted exactly as recorded in Claude's Stage 2 rules
-(`evergreen-2026-11-12/claude/stage2/STAGE2-RULES.md`, outside this repository; the rank-ladder entry's closing note
-about the runtime's mapping is a working note for the agents and is left out):
+The owner's rulings of 12 November 2026, as recorded in Claude's Stage 2 rules
+(`evergreen-2026-11-12/claude/stage2/STAGE2-RULES.md`, outside this repository), stated as plain facts:
 
-> **Rank ladder (12 Nov):** the directive's ladder is authoritative: 1 Leader (Guild Master), 2 High Council, 3 Officer, 4 Officer Alt, 5 Raid Leader, 6 Veteran, 7 Raider, 8 Member, 9 Alt, 10 Initiate (slots 0–9). No "Stewart" rank. Any member-facing text you write uses this ladder.
+- **Rank ladder.** The directive's ladder is authoritative: 1 Leader (Guild Master), 2 High Council, 3 Officer,
+  4 Officer Alt, 5 Raid Leader, 6 Veteran, 7 Raider, 8 Member, 9 Alt, 10 Initiate (slots 0 to 9). There is no
+  "Stewart" rank. Member-facing text uses this ladder.
+- **Talent data.** The talent calculator moves to the newest available data export (10 November 2026), the stale
+  presets are rewritten, and older build codes stay readable as an archive.
+- **Quiz scores.** Scores are kept in the browser only, under one localStorage key; nothing is sent to the server, and
+  the member can clear and export them.
 
-> **Talent data (12 Nov):** move the calculator to the newest available data export (10 November), rewrite the stale presets, keep older build codes readable as an archive.
-
-> **Quiz scores (12 Nov):** in the browser only (one localStorage key), nothing sent to the server, clearable and exportable.
-
-> **Addon capture and bans (12 Nov):** decided, but they are Codex's lanes.
+The same rules record that the owner also decided addon capture and bans on 12 November 2026, but they do not state
+the decision; it is not recorded here.
 
 Rulings that still bind and are dated earlier: GDKP is dropped, wagering and lotteries are inactive proposals, and other
 paid services are "subject to Blizzard policy" (31 October 2026); the approved static login stills stay the default
