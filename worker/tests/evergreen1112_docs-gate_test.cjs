@@ -169,9 +169,9 @@ async function budget() {
   check('the known-scans table attributes the members scan to BOUND_AND_NOTE_SELECT, and so does the runtime wherever it names that scan',
     memberRow.includes('BOUND_AND_NOTE_SELECT') && /UNION ALL[^|]*banned=0/.test(memberRow)
     && (!runtimeNames || /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime)));
-  // Round 5 gate2 (13 Nov 2026): Codex's 179906a added the legacy and rank-held budget records, and the target now asserts
-  // 24 budget checks (was 16). The check also pins the loop that fails the target on any one of them.
-  check('the promotions target fails unless all twenty-four budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===24')
+  // Round 5 gate2 (13 Nov 2026): Codex's 179906a added the legacy and rank-held budget records (24 budget checks, was 16);
+  // its 8b00e04 added the two rank-mode seal replays (26). The check also pins the loop that fails the target on any one.
+  check('the promotions target fails unless all twenty-six budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===26')
     && target.includes('for(const item of budget.checks){assert(item.passed,item.name);'));
 }
 
