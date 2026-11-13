@@ -201,6 +201,10 @@ async function unitChecks() {
 
   // REV-SITEA-3 (12 Nov 2026): the Treasury refusal sentence is treasuryGateDescription, built from the gate's own reads.
   const treasury = loadTs('worker/src/site-treasury-access.ts');
+  if (typeof treasury.treasuryGateDescription !== 'function' || typeof treasury.treasuryDiscordRoles !== 'function') {
+    check('REV-SITEA-3', 'site-treasury-access.ts exports the gate description and the Discord role list the gate reads', false, 'not exported');
+    return;
+  }
   const wrangler = read('worker/wrangler.toml');
   const tomlValue = key => { const m = new RegExp(`^${key} = (?:'([^']*)'|"([^"]*)")`, 'm').exec(wrangler); return m ? (m[1] ?? m[2]) : undefined; };
   const configured = Object.fromEntries(['GUILD_ID', 'SITE_GUILD_ID', 'ROLE_GUILD_MASTER', 'ROLE_GUILD_LEADER', 'ROLE_OFFICER', 'ROLE_RAID_LEADER', 'CANONICAL_RANKS233', 'QR_NATIVE_ROLE_MAP'].map(k => [k, tomlValue(k)]));

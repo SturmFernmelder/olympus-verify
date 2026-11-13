@@ -350,11 +350,13 @@ async function browserChecks() {
     }
     if (want('CL2-281')) {
       const out = {};
-      for (const route of ['resources', 'guides/class/warrior']) {
+      // INT-SITE-1 (12 Nov 2026): after the merge /#/resources and the class guides are university pages (.uni-head, area
+      // uni); the tools keep the guides218 hero, where the CL2-281 wrap rule lives. Every hero must stay inside the viewport.
+      for (const route of ['resources', 'guides/class/warrior', 'guides/tools/changes']) {
         await open('member', 160, route, 400); await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false }); await cdp.send('Page.reload', {}); await idle(st); await sleep(900);
-        out[route] = await ev(`const h=document.querySelector('.guides218-head');const vw=document.documentElement.clientWidth;const kids=[...h.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right));const c=getComputedStyle(h);return {right:Math.max(...kids),vw,wrap:c.flexWrap,textMin:getComputedStyle(h.querySelector(':scope > div')).minWidth}`);
+        out[route] = await ev(`const h=document.querySelector('.guides218-head, .uni-head');if(!h)return null;const vw=document.documentElement.clientWidth;const kids=[...h.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right));const c=getComputedStyle(h);return {hero:h.className,right:Math.max(...kids),vw,wrap:c.flexWrap,textMin:getComputedStyle(h.querySelector(':scope > div')).minWidth}`);
       }
-      check('CL2-281', 'at 160 CSS px the guide hero wraps, its text may shrink, and nothing passes the viewport', Object.values(out).every(x => x.right <= x.vw && x.wrap === 'wrap' && x.textMin === '0px'), out);
+      check('CL2-281', 'at 160 CSS px every guide hero stays inside the viewport, and the tools hero wraps with shrinkable text', Object.values(out).every(x => x && x.right <= x.vw && (x.hero !== 'guides218-head' || (x.wrap === 'wrap' && x.textMin === '0px'))) && out['guides/tools/changes']?.hero === 'guides218-head', out);
     }
     if (want('CL2-102')) {
       const hdr = {};
@@ -379,7 +381,8 @@ async function browserChecks() {
       await open('member', 1280, 'addons'); await sleep(800);
       const t = await ev(`return document.querySelector('.resources169-featured')?.textContent||''`);
       check('CL2-071x', 'the Olympus Guild card says "Minimum version: 1.5.7", not a "Published file"', /Minimum version: 1\.5\.7/.test(t) && !/Published file/.test(t));
-      await open('member', 1280, 'guides'); await sleep(800);
+      // INT-SITE-1 (12 Nov 2026): /#/guides is the university hub after the merge; the publisher library moved to /#/guides/library.
+      await open('member', 1280, 'guides/library'); await sleep(800);
       const g = await ev(`return [...document.querySelectorAll('main p')].map(p=>p.textContent).find(x=>/Follow-up dated/.test(x))||''`);
       check('CL2-178', 'the publisher library shows the 12 November follow-up date', /Follow-up dated 12 November 2026/.test(g), g);
     }
