@@ -18,7 +18,9 @@ new Function('module', 'exports', 'require', brandCompiled.outputText)(brand, br
 const moduleCache = new Map();
 function loadRankSource(name) {
   if (moduleCache.has(name)) return moduleCache.get(name).exports;
-  assert.ok(['./governance-offices', './site-role-directory203', './policy-render', './policy-asset-cache'].includes(name), 'Unexpected planner import: ' + name);
+  // Our 9f866bd (CL2-036): the role directory computes each family's eligibility with the Worker's own pure
+  // application checks (application-track199, which imports only governance-offices). No other import is allowed.
+  assert.ok(['./governance-offices', './site-role-directory203', './application-track199', './policy-render', './policy-asset-cache'].includes(name), 'Unexpected planner import: ' + name);
   const module = { exports: {} };
   moduleCache.set(name, module);
   const output = ts.transpileModule(read(path.join(worker, 'src', name.slice(2) + '.ts')), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
