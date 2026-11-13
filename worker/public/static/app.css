@@ -812,6 +812,14 @@ code.case-value { font-size: 1.05rem; letter-spacing: 0.04em; word-break: break-
 .card.event .card-head { flex-wrap: wrap; }
 .dues table.data td.wrap { min-width: 200px; }
 .dues .case-value { user-select: all; }
+/* Round 5 (calendar, 13 Nov 2026): on touch screens and phones every calendar, event, roster and scheduling control is a
+   44 x 44 px target (WCAG 2.5.8). Scoped to the calendar pages (app.js adds .calendar-view); desktop pointers keep their density. */
+@media (pointer: coarse), (max-width: 720px) {
+  .calendar-view .btn, .calendar-view button, .calendar-view select, .calendar-view textarea,
+  .calendar-view input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: 44px; }
+  .calendar-view .btn, .calendar-view button { min-width: 44px; }
+  .calendar-view input[type="checkbox"], .calendar-view input[type="radio"] { min-width: 44px; min-height: 44px; }
+}
 
 /* ---------- community (.98): the organizer and staff pages ---------- */
 .card.muted-card { opacity: 0.8; }

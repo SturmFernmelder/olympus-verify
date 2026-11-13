@@ -164,7 +164,8 @@ async function deleteThroughOriginalRoute(target,actor) {
   check("publication defaults OFF, without provider reads/effects or claim", r.status === 503 && requests.length === 0 && !row());
   r = await call("POST", "/api/community/events/discord/publish", {}, null); check("unauthenticated refuses without effects", r.status === 401 && effects().length === 0);
   r = await call("POST", "/api/community/events/discord/publish", {}, MEMBER); check("confirmed non-organizer refuses", r.status === 403 && effects().length === 0);
-  r = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, OTHER); check("another organizer cannot preview another owner's event", r.status === 404);
+  r = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, OTHER); // Round 5 follow-up (13 Nov 2026): the refusal now says whose event it is (403, by role, no names) instead of 404.
+  check("another organizer cannot preview another owner's event", r.status === 403 && r.body?.error === "not_event_organizer" && /belongs to another organizer/.test(r.body?.message || "") && !("payload" in r.body));
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { Origin: "https://attacker.example" }); check("foreign origin refused", r.status === 403);
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { "X-Olympus": "1" }); check("old page refused", r.status === 409);
   r = await call("POST", "/api/community/events/discord/publish", { eventId: EVENT, revision: 1, opId: OP, payloadHash: p.payloadHash, content: "private" }); check("client content/destination fields are rejected", r.status === 400 && !row());
@@ -418,7 +419,7 @@ async function deleteThroughOriginalRoute(target,actor) {
   const otherPreview = await call("GET", `/api/community/events/discord?eventId=${EVENT}`, undefined, OTHER);
   const orgSession = await core.readSession(env(), new Request("https://guild.example", { headers: { Cookie: await originalOrgCookie } }));
   const otherSession = await core.readSession(env(), new Request("https://guild.example", { headers: { Cookie: await sessionCookies.get(OTHER) } }));
-  check("different actors keep separate genuinely signed original browser sessions", otherPreview.status === 404 && orgSession.u === ORG && otherSession.u === OTHER && (await originalOrgCookie) !== (await sessionCookies.get(OTHER)));
+  check("different actors keep separate genuinely signed original browser sessions", otherPreview.status === 403 && otherPreview.body?.error === "not_event_organizer" && orgSession.u === ORG && otherSession.u === OTHER && (await originalOrgCookie) !== (await sessionCookies.get(OTHER)));
   requests = []; await fixtureRun("UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?",ORG);
   r = await call("GET", `/api/community/events/discord?eventId=${EVENT}`);
   check("changed session authority refuses instead of silently issuing a new cookie", r.status === 401 && requests.length === 0 && sessionCookies.get(ORG) === originalOrgCookie);

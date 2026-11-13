@@ -58,9 +58,14 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
   const c=cases.get(kind);if(!c)return new Response(null,{status:404});
   const {db,env,subject,wires}=c,start=wires.length;
   const finish=async extraOut=>{const end=wires.length,rows=(await db.prepare('SELECT id,subject,purpose,proof_id,role_id,desired,state,reason,attempts,claim_nonce,subject_generation,request_digest,native_profile,created_at,expires_at,checked_at FROM role_settlements ORDER BY created_at,rowid').all()).results;
-   const member=await db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject).first(),audits=(await db.prepare("SELECT action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed','role.sweep') ORDER BY id").all()).results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
+   // Round 5 gate2 (13 Nov 2026): the audit id is returned so the driver can name each sweep lane's head row (the
+   // progress is lane-owned since Codex's 42e36b7), and the guild-wide managed-rank cooldown row (fdf2158) is returned
+   // as stored. Both are read after the measured statements, so `statements` is unchanged.
+   const member=await db.prepare('SELECT banned,ban_reason FROM members WHERE discord_id=?1').bind(subject).first(),audits=(await db.prepare("SELECT id,action,details FROM audit WHERE action IN('role.ban_rank1112','role.remove_failed','role.sweep') ORDER BY id").all()).results,failed=wires.slice(start,end).filter(w=>w.status!==200).length;
    const statements=wires.slice(start,end).reduce((n,w)=>{try{const x=JSON.parse(w.requestBody);return n+(Array.isArray(x)?x.length:1);}catch{return n+1;}},0);
-   return json({ok:true,rows,member,audits,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
+   const cooldown=(await db.prepare("SELECT value FROM site_settings WHERE key='role.managed.cooldown280'").first())?.value??null;
+   const sweepFailed=(await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id").all()).results.map(r=>r.details);
+   return json({ok:true,rows,member,audits,cooldown,sweepFailed,trips:end-start,statements,failedTrips:failed,actualLocalWorkerdD1:true,...extraOut});};
   const command=async(sub,options)=>{const pending=[],defer=(label,work)=>{pending.push(Promise.resolve().then(work));};
    const interaction={type:2,id:'9'.repeat(18),token:'interaction-token-'+kind,application_id:env.DISCORD_APP_ID,guild_id:env.GUILD_ID,channel_id:'444444444444444444',member:{user:{id:ACTOR,username:'qualification-officer'},roles:[HIGH_COUNCIL]},
     data:{name:'olympus-admin',type:1,options:[{name:sub,type:1,options}]}};
@@ -117,6 +122,9 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
   if(action==='faild1'){c.control.failD1=[].concat(body.match).map(String);return json({ok:true});}
   // Time passing for the 300-second claim window (as 'age' does for the roster): only unresolved ban rows move back.
   if(action==='expire'){await env.DB.batch([env.DB.prepare("UPDATE role_settlements SET created_at=created_at-400,expires_at=expires_at-400 WHERE purpose='canonical_ban_remove_v1' AND state IN('dispatching','unknown')")]);return finish({});}
+  // Round 5 gate2 (13 Nov 2026): time passing for Discord's retry window (as 'expire' does for the claim window): only
+  // the stored deadline of the guild-wide managed-rank cooldown (fdf2158) moves back by `seconds`; its shape is kept.
+  if(action==='cooldownpass'){const seconds=Number.isSafeInteger(body.seconds)?body.seconds:0;await env.DB.batch([env.DB.prepare("UPDATE site_settings SET value=json_object('version',1,'due',CAST(json_extract(value,'$.due')-?1 AS INTEGER)) WHERE key='role.managed.cooldown280'").bind(seconds)]);return finish({});}
   if(action==='receipt'){const budget={limit:8,attempts:0,retries:0},result=await reconcileRemovalReceipt(env,String(body.id),budget);return finish({result,attempts:budget.attempts});}
   if(action==='rows')return finish({});
   return new Response(null,{status:404});

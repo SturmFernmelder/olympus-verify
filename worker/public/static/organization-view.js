@@ -26,6 +26,27 @@ export function renderOrganization(main, data, ui) {
   }
   const byId = new Map(data.nodes.map(n => [n.id, n])), buttons = new Map(), rows = new Map();
   const position = new Map(), visible = data.nodes.filter(n => n.relation !== "classification");
+  // CL2-039, owner ruling of 13 Nov 2026: the Co-Guild Master sits in the top tier beside the Guild Master, and the
+  // Lord High Justiciar reports directly to both. The top tier is every chart root (the model links its members by a
+  // coordination line); alsoReportsTo names a second authority a node answers to. Placement and reporting only.
+  const topTier1113 = visible.filter(n => n.parent === null);
+  const topPeers1113 = n => n.parent === null ? topTier1113.filter(o => o !== n && (o.coordinates.includes(n.id) || n.coordinates.includes(o.id))) : [];
+  const reportsTo1113 = n => [n.parent, ...(n.alsoReportsTo || [])].filter(id => id && byId.has(id)).map(id => byId.get(id));
+  // The top tier is named the way the overview and the book name it ("the Guild Master and the Co-Guild Master"), with the
+  // card title in brackets where it differs, so the chart's text alternative and the prose say the same thing.
+  const TOP_NAMES1113 = { "gm-chair": "the Guild Master", "co-gm": "the Co-Guild Master" };
+  const topName1113 = n => {
+    const seat = (data.councilComposition?.currentSeats || []).find(s => s.nodeId === n.id), name = seat && TOP_NAMES1113[seat.id], shown = nodeTitle218(n);
+    return !name ? shown : shown.includes(name.slice(4)) ? name : `${name} (${shown})`;
+  };
+  const topList1113 = list => list.every(o => o.parent === null) && topTier1113.length > 1 ? list.map(topName1113).join(" and ") : list.map(nodeTitle218).join(" and ");
+  // Text alternative of a node's place, the same words in the inspector and in List.
+  const relationText1113 = n => {
+    const up = reportsTo1113(n), peers = topPeers1113(n);
+    if (!up.length) return peers.length ? `Top tier, beside ${topList1113(peers)}; no reporting parent in this model.` : "Constitutional root; no reporting parent in this model.";
+    const verb = n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through";
+    return up.length > 1 && up.every(o => o.parent === null) ? `${verb} the top tier: ${topList1113(up)}.` : `${verb}: ${up.map(nodeTitle218).join(" and ")}.`;
+  };
   // CL2-062: the High Council's children follow the seat protocol order (a department ranks by the first seat it holds);
   // units without a seat keep their model order after them.
   const seatRank1112 = id => { let best = Infinity;
@@ -42,16 +63,22 @@ export function renderOrganization(main, data, ui) {
   // .176: wrap each level in family order instead of reserving a horizontal column for every leaf.
   // Parentage, directed links and the complete reading order remain the unchanged charter model.
   function cardHeight() { return Math.max(124, ...[...buttons.values()].map(button => button.offsetHeight || 124)); }
+  // CL2-039: a Council seat that reports straight to the top tier is drawn in the Cabinet column (the High Council's
+  // portfolios), not beside the High Council node.
+  const cabinetSkip1113 = n => n.parent && byId.get(n.parent)?.parent === null && n.id !== "council" && seatNode1112.has(n.id) ? 1 : 0;
   // Reserve one vertical span per subtree; cards and paths share coordinates.
   function compactLayout() {
     const pitch = cardHeight() + 42; let cursor = 30, depthMax = 0;
     position.clear();
     function place(node, depth) {
       depthMax = Math.max(depthMax, depth); const own = children(node.id);
-      if (own.length) { const points = own.map(n => place(n, depth + 1)); const y = (points[0] + points[points.length - 1]) / 2; position.set(node.id, { x: 145 + depth * 340, y }); return y; }
+      if (own.length) { const points = own.map(n => place(n, depth + 1 + cabinetSkip1113(n))); const y = (points[0] + points[points.length - 1]) / 2; position.set(node.id, { x: 145 + depth * 340, y }); return y; }
       const y = cursor; cursor += pitch; position.set(node.id, { x: 145 + depth * 340, y }); return y;
     }
     visible.filter(n => n.parent === null).forEach(n => place(n, 0));
+    // CL2-039: the top tier shares one column; each later member sits directly below the first one.
+    const first = topTier1113[0] && position.get(topTier1113[0].id);
+    if (first) topTier1113.slice(1).forEach((n, i) => position.set(n.id, { x: first.x, y: first.y + (i + 1) * pitch }));
     return { width: (depthMax + 1) * 340, height: cursor + cardHeight() };
   }
   const { width, height } = compactLayout(850);
@@ -74,6 +101,7 @@ export function renderOrganization(main, data, ui) {
   }
   for (const node of visible) {
     if (node.parent) edge(node.id, node.parent, node.relation, data.legend[node.relation]);
+    for (const other of node.alsoReportsTo || []) if (other !== node.parent) edge(node.id, other, node.relation, data.legend[node.relation]);
     for (const peer of node.coordinates) if (peer !== node.parent) edge(node.id, peer, "coordination", "liaison; no command authority");
   }
   const detail = h("section", { class: "org-inspector", "aria-label": "Office mandate", "aria-live": "polite", tabindex: "-1" });
@@ -121,25 +149,27 @@ export function renderOrganization(main, data, ui) {
   }
   function branchLayout() {
     const n = byId.get(selected); if (!n || !fullPosition.has(selected)) return null;
-    const parent = n.parent && fullPosition.has(n.parent) ? byId.get(n.parent) : null;
-    const related = bySeat1112(visible.filter(o => o.id !== selected && o.id !== parent?.id && (o.parent === selected || n.coordinates.includes(o.id) || o.coordinates.includes(selected))));
+    // CL2-039: every authority the office reports to forms the first column; a top-tier peer stays in the office's column.
+    const ups = reportsTo1113(n).filter(o => fullPosition.has(o.id)), parent = ups[0] || null, peers = topPeers1113(n);
+    const related = bySeat1112(visible.filter(o => o.id !== selected && !ups.includes(o) && !peers.includes(o) && (o.parent === selected || (o.alsoReportsTo || []).includes(selected) || n.coordinates.includes(o.id) || o.coordinates.includes(selected))));
     // Only presentation changes: relationship direction, kind and mandate text still come from the unchanged model.
     // REV-GOV-6 (12 Nov 2026): a chart viewport narrower than 600 px (phones, and the 768 px column beside the details)
     // showed one card at the readable scale. There the branch stacks in one column: parent, the selected office, then its
     // children, with every line on the right-hand side, so the office and its first children share the first screen.
+    const tier = peers.length ? topTier1113.filter(o => o === n || peers.includes(o)) : [n];
     if (stacked1112()) {
-      const pitch = cardHeight() + 26, column = [...(parent ? [parent] : []), n, ...related];
+      const pitch = cardHeight() + 26, column = [...ups, ...tier, ...related];
       position.clear(); column.forEach((o, i) => position.set(o.id, { x: 120, y: 12 + i * pitch }));
       drawLayout(new Set(position.keys()), 274, column.length * pitch + 12); return { width: 274, height: column.length * pitch + 12, stacked: true };
     }
     const pitch = cardHeight() + 42, chartWidth = parent ? 1020 : 680;
-    const count = Math.max(1, related.length), chartHeight = count * pitch + 60;
+    const count = Math.max(1, related.length, ups.length, tier.length), chartHeight = count * pitch + 60;
     // CL2-042: a tall branch (the Council has thirteen children) starts at the top, so the first paint shows the office,
     // its parent and its first children rather than the middle of the list.
-    const centerY = chartHeight > 900 ? 30 : (chartHeight - cardHeight()) / 2;
-    position.clear(); if (parent) position.set(parent.id, { x: 145, y: centerY });
+    const centerY = chartHeight > 900 || ups.length > 1 || tier.length > 1 ? 30 : (chartHeight - cardHeight()) / 2;
+    position.clear(); ups.forEach((o, i) => position.set(o.id, { x: 145, y: centerY + i * pitch }));
     const selectedX = parent ? 485 : 145;
-    position.set(selected, { x: selectedX, y: centerY });
+    tier.forEach((o, i) => position.set(o.id, { x: selectedX, y: centerY + i * pitch }));
     related.forEach((o, i) => position.set(o.id, { x: selectedX + 340, y: 30 + i * pitch }));
     drawLayout(new Set(position.keys()), chartWidth, chartHeight); return { width: chartWidth, height: chartHeight };
   }
@@ -195,7 +225,7 @@ export function renderOrganization(main, data, ui) {
       term ? officeBadges(term) : null,
       term ? seatLink(term) : null,
       h("h3", { text: "Purpose" }), h("p", { text: n.remit }), h("h3", { text: "Authority and boundaries" }), h("p", { text: n.limits }),
-      h("p", { class: "org-relation", text: n.parent ? `${n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through"}: ${nodeTitle218(byId.get(n.parent))}.` : "Constitutional root; no reporting parent in this model." }),
+      h("p", { class: "org-relation", text: relationText1113(n) }),
       // CL2-041: a long mandate list (the ten Class Heads) is collapsed behind one summary line.
       offices.length ? (() => { const cards = offices.map(o => h("article", { class: "org-mandate" }, h("h4", { text: o.title }), h("p", { text: o.duty }), h("p", { class: "small", text: "Record of work: " + o.output }), h("p", { class: "small muted", text: "Appointment and limits: " + o.boundary })));
         return offices.length > 3 ? h("details", { class: "org-mandates1112" }, h("summary", { text: offices.length + " offices and working mandates" }), cards) : h("div", null, h("h3", { text: "Offices and working mandates" }), cards); })() : null,
@@ -219,7 +249,7 @@ export function renderOrganization(main, data, ui) {
   }
   const list = h("section", { class: "org-list", "aria-label": "All offices in reading order" });
   for (const n of data.nodes) {
-    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: nodeKind1112(n) }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${nodeTitle218(byId.get(n.parent))}` : "Separate root" }));
+    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: nodeKind1112(n) }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${reportsTo1113(n).length > 1 ? topList1113(reportsTo1113(n)) : nodeTitle218(byId.get(n.parent))}` : topPeers1113(n).length ? `Top tier, beside ${topList1113(topPeers1113(n))}` : "Separate root" }));
     rows.set(n.id, row); list.append(row);
   }
   const chartButton = h("button", { type: "button", class: "btn small", "aria-pressed": "true", text: "Chart", onclick: () => view(false) });

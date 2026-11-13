@@ -223,9 +223,12 @@
     if (!royalWritsVisible200()) return null;
     const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
     const ordinary = rows.filter(row => !row.activation), proposals = rows.filter(row => row.activation);
+    // CL2-291 (owner ruling, 13 Nov 2026): a paused statutory proposal shows its status verbatim and only a proposed price.
+    const price = row => row.goldMin === 0 && row.goldMax === 0 ? (row.status ? "No price set" : "In-game gold quote required") : (row.status ? "Proposed price: " : "") + `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g`;
     const card = row => h("article", { class: "card writ199", "data-writ-key": row.key, ...(row.activation ? {"data-writ-activation": row.activation} : {}) },
-      h("h3", { text: row.label }), row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
-      h("p", null, h("strong", { text: row.goldMin === 0 && row.goldMax === 0 ? "In-game gold quote required" : `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g` }), " · ", row.term),
+      // The status is a wrapping line, not a one-line badge, so the long label fits a 320 px card.
+      h("h3", { text: row.label }), row.status ? h("p", { class: "small" }, "Status: ", h("strong", { "data-writ-status": "paused", text: row.status })) : row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
+      h("p", null, h("strong", { text: price(row) }), " · ", row.term),
       h("p", { text: row.outcome }), h("p", { class: "muted small", text: row.limits }));
     return h("section", { class: "royal-writs199", "data-royal-writ-page": page }, goldBanner199(),
       h("details", { class: "card", open: checklist }, h("summary", { text: checklist ? "Stockades Appeals & Royal Pardons — operator reference" : "Schedule of Royal Writs, Indulgences & Guild Services" }),
@@ -2254,8 +2257,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "794ce6b3304eac706681eee016cbd7eef1a97152778c491d3b5e7aa28263ff31";
-  const GOVERNANCE_BYTES = 267459;
+  const GOVERNANCE_SHA256 = "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da";
+  const GOVERNANCE_BYTES = 268133;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -2285,7 +2288,9 @@
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
       const ids = new Set(data.nodes.map((n) => n.id));
       if (ids.size !== data.nodes.length || data.nodes.some((n) => !/^[a-z][a-z0-9-]*$/.test(n.id) || (n.parent !== null && !ids.has(n.parent)) ||
-          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id))) ||
+          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id)) ||
+          // CL2-039 (13 Nov 2026): a second authority a node reports to must be another existing node.
+          (n.alsoReportsTo !== undefined && (!Array.isArray(n.alsoReportsTo) || n.alsoReportsTo.some((id) => !ids.has(id) || id === n.id || id === n.parent)))) ||
           data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 103) throw new Error("The organization model has an invalid relation.");
       // A corrupt static file must not turn recursive rendering into a loop.
       for (const n of data.nodes) {
@@ -4778,21 +4783,30 @@
   }
   async function adminLaunchOperations229(body) {
     const owner = S.user, route = currentRoute(), pages = new Map();
-    let busy = false, scanning = false, sequence = 0, model = null, expiryTimer = null, retryAt = 0, nextCursor = null, lastOffset = -1;
+    let busy = false, scanning = false, sequence = 0, model = null, expiryTimer = null, retryAt = 0, nextCursor = null, lastOffset = -1, endedOn = null;
     const live = () => S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route && app.contains(body);
     const monotonic = () => typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const status = h('p', {role:'status', 'aria-live':'polite', text:'Reading current launch evidence…'}), output = h('div', {class:'stack mt'});
     const refresh = h('button', {type:'button', class:'btn', text:'Refresh first page', onclick:() => {scanning=false; load(null);}});
     const scan = h('button', {type:'button',class:'btn',text:'Scan entire roster',onclick:() => {scanning=true; load(null);}});
     const stop = h('button', {type:'button',class:'btn',text:'Stop scan',disabled:true,onclick:() => {scanning=false;stop.disabled=true;status.textContent=busy?'Stopping after the current bounded page; no further page will be read.':'Scan stopped. Unscanned and stale evidence stays held.';}});
-    const more = h('button', {type:'button', class:'btn', text:'Load next 20 role checks', hidden:true, onclick:() => nextCursor && load(nextCursor)});
+    const MORE234 = 'Load next 20 role checks', INTRO234 = 'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.';
+    const more = h('button', {type:'button', class:'btn', text:MORE234, hidden:true, onclick:() => nextCursor && load(nextCursor,lastOffset+20)});
+    const intro = h('p', {text:INTRO234});
+    // Item 6 (13 Nov 2026, Codex's reading of the reader): a rank-held v235 page names its roster page in the view's own
+    // words (launch-discovery235.js rosterPage); every other page, and a cleared view, keeps the v234 words.
+    const wording = words => {intro.textContent=words?.intro||INTRO234;more.textContent=words?.more||MORE234;};
     const dispose = () => {if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;sequence++;scanning=false;model=null;pages.clear();clear(output);if(disposeTool===dispose)disposeTool=null;};
     disposeTool = dispose;
     body.setAttribute('data-launch234',''); // v234 rank view (owner ladder 12 Nov 2026): /static/launch-operations234.js
     clear(body); add(body, [h('h1', {text:'Launch operations & MOTD'}),
-      h('p', {text:'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.'}),
+      intro,
       h('div', {class:'btn-row'}, refresh, scan, stop, more), status, output]);
     const identity = d => JSON.stringify([d.snapshotId,d.snapshotAt,d.guild,d.canonicalGuild,d.realm,d.scopeHash,d.scan?.id,d.scan?.startedAt,d.scan?.expiresAt]);
+    // Round 5 (13 Nov 2026, Codex's discovery contract CONTRACT-01): the family a reply declares picks its reader. Only
+    // officer-operations-v235 has its own (/static/launch-discovery235.js, loaded once a reply declares it); every other
+    // reply, v234 or unknown, goes to the unchanged v234 view and its refusals.
+    const DISCOVERY235 = 'officer-operations-v235', launchView235 = d => d && typeof d === 'object' && d.protocol === DISCOVERY235 && window.OlympusDiscovery235 ? window.OlympusDiscovery235 : window.OlympusLaunch234;
     function copyControl(text, label, area, id) {
       return h('button', {id,type:'button',class:'btn small',text:label,onclick:async() => {
         if(!live()||!output.contains(area))return;
@@ -4801,8 +4815,9 @@
       }});
     }
     function draw(d) {
-      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=window.OlympusLaunch234, ui234={h,frame};
-      clear(output);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
+      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=launchView235(d), ui234={h,frame}, words=L234.rosterPage?.(d)||null;
+      clear(output);wording(words);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
+      if(endedOn===d&&L234.scanEndedNotice)add(output,L234.scanEndedNotice(ui234)); // review of 13 Nov 2026: a held later page ends a v235 scan
       const short=h('textarea',{id:'launch-motd229',rows:'2',value:d.motd.short}),bulletin=h('textarea',{id:'launch-bulletin229',rows:'8',value:d.motd.bulletin});
       short.readOnly=true;bulletin.readOnly=true;short.setAttribute('readonly','');bulletin.setAttribute('readonly','');
       add(output,frame('Guild message of the day',h('span',{class:'badge',text:d.motd.bytes+'/128 bytes'}),
@@ -4811,10 +4826,10 @@
       const examined=[...pages.values()].reduce((sum,p)=>sum+p.dto.entitlements.scanned,0),total=d.entitlements.total,complete=pages.size>0&&examined===total&&!nextCursor;
       let fresh=0,stale=0;for(const p of pages.values()){if(p.deadline>clock&&!scanExpired)fresh+=p.dto.promotions.length;else stale+=p.dto.promotions.length;}
       add(output,frame('Discovery and current eligibility',null,
-        h('p',{text:d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.'}),
-        h('p',{role:'status','data-launch-progress229':'',text:(complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.'}),
-        h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.':'No confirmed native scan.'}),
-        L234.holdList(d.heldReasons||[],ui234)));
+        h('p',{text:L234.scopeLine?.(d)||(d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.')}),
+        h('p',{role:'status','data-launch-progress229':'',text:L234.progressLine?.(d,{complete,examined,total})||((complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.')}),
+        h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?(words?words.scan(fmtDateTime(d.scan.expiresAt)):'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.'):'No confirmed native scan.'}),
+        L234.holdList(d.heldReasons||[],ui234,d)));
       add(output,L234.rankFrame(d,ui234));
       const table=(head,rows)=>h('div',{class:'table-wrap'},h('table',null,h('thead',null,h('tr',null,head.map(text=>h('th',{scope:'col',text})))),h('tbody',null,rows)));
       const inviteRows=[...pages.values()].flatMap(p=>p.dto.invites.map(r=>({r,current:p.deadline>clock&&!scanExpired&&nowSec()<r.expiresAt})));
@@ -4822,9 +4837,9 @@
         h('p',{text:'An invite requires explicit current native unguilded evidence and the same character identity. Use Next Officer Action in-game; unknown evidence stays held.'}),
         L234.inviteTable(inviteRows,fmtDateTime,ui234)));
       for(const [offset,p] of [...pages].sort((a,b)=>a[0]-b[0])){
-        const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor);}});
-        add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:eligible?'Role evidence current':'Stale advisory'}),
-          h('p',{text:'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
+        const eligible=p.deadline>clock&&!scanExpired,pw=L234.rosterPage?.(p.dto)||null,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor,offset);}});
+        add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:pw?pw.badge(eligible):eligible?'Role evidence current':'Stale advisory'}),
+          h('p',{text:pw?pw.page(p.dto.entitlements,fmtDateTime(p.dto.expiresAt),eligible,!scanExpired):'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
           L234.promotionGroups(p.dto,eligible,ui234)));
       }
       const risks=[...pages.values()].flatMap(p=>p.dto.riskBuffer),held=[...pages.values()].flatMap(p=>p.dto.held);
@@ -4833,31 +4848,39 @@
         table(['Character','Level','Last online'],risks.sort((a,b)=>(b.lastOnlineDays??-1)-(a.lastOnlineDays??-1)||(a.level??Infinity)-(b.level??Infinity)||a.name.localeCompare(b.name)).map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:r.level??'Unknown'}),h('td',{text:r.lastOnlineDays===null?'Unknown':Math.round(r.lastOnlineDays*10)/10+' days'}))))));
       if(held.length)add(output,frame('Held evidence',null,table(['Character','Reason'],held.map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:L234.rowHoldText(r.reason)}))))));
       const remaining=[...pages.values()].map(p=>p.deadline-clock).filter(n=>n>0);for(const {r,current}of inviteRows)if(current)remaining.push((r.expiresAt-nowSec())*1000);if(d.scan?.expiresAt&&!scanExpired)remaining.push((d.scan.expiresAt-nowSec())*1000);
-      if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent='A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
+      if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent=words?words.expired:'A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
       if(focused){const field=document.getElementById(focused);if(field)field.focus({preventScroll:true});}
     }
-    async function load(cursor) {
+    async function load(cursor,expectedOffset=0) { // round 5 build: where the link points (v235 checks each page starts there)
       if(!live()||busy)return;
       if(nowSec()<retryAt){scanning=false;status.textContent='Discord asked for a pause. Retry after '+fmtDateTime(retryAt)+'. No read was sent.';return;}
       busy=true;refresh.disabled=true;scan.disabled=true;more.disabled=true;stop.disabled=!scanning;
       const serial=++sequence,started=monotonic(),focused=output.contains(document.activeElement)?document.activeElement.id:null,current=()=>live()&&serial===sequence;
       if(!cursor){model=null;pages.clear();nextCursor=null;lastOffset=-1;clear(output);if(expiryTimer)clearTimeout(expiryTimer);}
-      status.textContent='Reading at most 20 current Discord role records…';
+      status.textContent=cursor&&model&&launchView235(model).rosterPage?.(model)?.reading||'Reading at most 20 current Discord role records…';
       try {
         await loadMemberScript('OlympusLaunch234','/static/launch-operations234.js');if(!current())return;
         const d=await api('GET','/api/admin/launch-operations'+(cursor?'?cursor='+encodeURIComponent(cursor):''),undefined,{live:current});
         if(!current())return;
-        const verdict234=window.OlympusLaunch234.assess(d,cursor&&model?model:null);
-        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,window.OlympusLaunch234.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
-        if(!d||d.protocol!==window.OlympusLaunch234.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
+        if(d&&typeof d==='object'&&d.protocol===DISCOVERY235){await loadMemberScript('OlympusDiscovery235','/static/launch-discovery235.js');if(!current())return;}
+        const view=launchView235(d);
+        // A continued page must keep the family of the page it continues (a v234 scan never continues as v235, or back).
+        if(cursor&&model&&(model.protocol===DISCOVERY235)!==(d?.protocol===DISCOVERY235))throw Error('launch_family_changed');
+        const verdict234=view.assess(d,cursor&&model?model:null,expectedOffset);
+        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;wording(null);add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
+        // Round 5 item 2: a next-page link gets the continuation link's shape check (its family's bound) before any request is built from it.
+        if(d.nextCursor!==null&&!view.pageCursorShape(d.nextCursor))throw Error('launch_next_cursor_unconfirmed');
+        if(!d||d.protocol!==view.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
           ||!Array.isArray(d.promotions)||!Array.isArray(d.riskBuffer)||!Array.isArray(d.held)||!Array.isArray(d.invites)||d.invites.length>3||d.promotions.length>1000||d.riskBuffer.length>1000||d.held.length>1000
           ||d.status==='held'&&(d.promotions.length||d.riskBuffer.length||d.invites.length)||!Number.isSafeInteger(d.fetchedAt)||!Number.isSafeInteger(d.expiresAt)
-          ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
+          ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&verdict234.scanEnded!==true&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
+        // Review of 13 Nov 2026 (finding 1): the v235 reader admits a held later page as the end of its scan (it has no scan to compare); a v234 scan is unchanged.
+        endedOn=verdict234.scanEnded===true?d:null;
         if(d.status==='held'){pages.clear();nextCursor=null;scanning=false;}
         else {
           const e=d.entitlements;
           if(!d.scan||!/^[a-f0-9]{32}$/.test(d.scan.id)||!Number.isSafeInteger(d.scan.startedAt)||!Number.isSafeInteger(d.scan.expiresAt)||d.scan.expiresAt>d.scan.startedAt+600||d.scan.expiresAt>d.snapshotAt+600
-            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||!window.OlympusLaunch234.pageCursorShape(d.pageCursor))throw Error('launch_page_unconfirmed'); // round 4 (13 Nov 2026): the reader's 4,096 bound and alphabet
+            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||!view.pageCursorShape(d.pageCursor))throw Error('launch_page_unconfirmed'); // round 4 (13 Nov 2026): the reader's 4,096 bound and alphabet; round 5: 8,192 for the v235 family only
           for(const r of d.promotions)if(!window.OlympusLaunch234.promotionShape(r))throw Error('launch_target_unconfirmed');
           const inviteIds=new Set(),inviteProofs=new Set();
           // Round 3 (13 Nov 2026): the module admits exactly the two evidence sources the backend projects, each by its own shape.
@@ -4869,10 +4892,14 @@
           if(e.offset>=lastOffset){nextCursor=d.nextCursor;lastOffset=e.offset;}
         }
         model=d;retryAt=d.entitlements.retryAfterSeconds?nowSec()+d.entitlements.retryAfterSeconds:0;if(retryAt)scanning=false;
-        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':'Read complete. Discovery and current action eligibility are shown separately.';
-      } catch(error){if(current()){model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';}}
+        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=endedOn===d?view.SCAN_ENDED_STATUS:d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':view.rosterPage?.(d)?.done||'Read complete. Discovery and current action eligibility are shown separately.';
+      } catch(error){if(current()){const family=model?model.protocol:DISCOVERY235;model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;wording(null);status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';
+        // Round 5 build (13 Nov 2026, codex-reviews-r5/discovery235.md section 5): on the v235 route a page link the server
+        // no longer accepts means "start again from the first page", said plainly. A v234 scan keeps its message.
+        if(family===DISCOVERY235&&(error?.status===400||error?.status===409)&&/^[a-z_]{1,64}$/.test(codeOf(error))){try{await loadMemberScript('OlympusDiscovery235','/static/launch-discovery235.js');}catch{}
+          const restart=current()&&window.OlympusDiscovery235?window.OlympusDiscovery235.restartCode(error):null;if(restart){add(output,window.OlympusDiscovery235.restartNotice(restart,{h,frame}));status.textContent=window.OlympusDiscovery235.restartText(restart);}}}}
       finally{if(current()){busy=false;refresh.disabled=false;scan.disabled=false;more.disabled=false;stop.disabled=!scanning;for(const button of output.querySelectorAll('button[id]'))if(button.id.startsWith('launch-recheck229-'))button.disabled=!!model?.scan?.expiresAt&&nowSec()>=model.scan.expiresAt;const field=focused&&document.getElementById(focused);if(field&&!field.disabled)field.focus({preventScroll:true});}}
-      if(current()&&scanning&&nextCursor&&pages.size<50)await load(nextCursor);
+      if(current()&&scanning&&nextCursor&&pages.size<50)await load(nextCursor,lastOffset+20);
       else if(current()){scanning=false;stop.disabled=true;}
     }
     await load(null);
@@ -7114,6 +7141,7 @@
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
+      if (body && body.classList) body.classList.add("calendar-view"); // round 5: the calendar pages' phone target sizes (app.css, community .96 block)
       // .98: the organizer's pages live beside the member's (the Worker decides who may write; the page shows the refusal)
       if (parts[1] === "new") return organizerNewEvent(body);
       if (parts[1] && parts[2] === "edit") return organizerEditEvent(body, parts[1]);
@@ -7905,6 +7933,8 @@
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     const range = h("span", { class: "muted small" });
     let cursor = null, generation = 0; // .102 (F96-1): every load is bound to the window it asked for; a reply to a window the viewer has left is discarded
+    // Calendar round 5 (owner ruling, 13 Nov 2026): officers schedule events too. The list answers canCreate; the create write proves the role again.
+    const scheduleLink = h("a", { class: "btn small", href: "#/community/calendar/new", text: "Schedule an event", hidden: !can("organizer") });
     const load = async (restart) => {
       const gen = ++generation;
       const win = { from, to };
@@ -7915,6 +7945,7 @@
         const params = cursor ? `cursor=${encodeURIComponent(cursor)}` : `from=${encodeURIComponent(isoOf(win.from))}&to=${encodeURIComponent(isoOf(win.to))}`;
         const data = await api("GET", `/api/community/events?${params}`);
         if (gen !== generation) return; // Earlier or Later was pressed meanwhile: these rows belong to the window that was left
+        if (data.canCreate === true) scheduleLink.hidden = false;
         for (const e of data.events) list.appendChild(eventCard(e, true));
         cursor = data.nextCursor;
         more.hidden = !cursor;
@@ -7928,7 +7959,7 @@
     };
     more.addEventListener("click", () => load(false));
     const shift = (d) => { from += d; to += d; load(true); };
-    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), can("organizer") ? h("a", { class: "btn small", href: "#/community/calendar/new", text: "Schedule an event" }) : null),
+    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
       h("p", { class: "muted small", text: "Guild events as the organizers scheduled them, with the answers of confirmed members. Open an event to answer. Times are shown in your own time zone." }),
       status, list, h("div", { class: "btn-row" }, more)));
     if (feat("attendance")) add(body, myAttendancePanel());
@@ -7994,7 +8025,7 @@
     // The page asks the Worker whether this viewer manages the event (canManage); the Worker decides every request again.
     let manages = can("organizer");
     if (!manages && can("confirmedGuildData")) { try { const d = await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`); manages = !!(d && d.event && d.event.id === id && d.event.canManage === true); } catch { manages = false; } }
-    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
+    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event's organizer, the High Council, the War Heads or a site administrator can manage its announcement." }))); return; }
     const key = "olympus.eventDelivery." + id;
     const opPattern = /^[A-Za-z0-9_-]{22}$/;
     const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
@@ -8099,8 +8130,14 @@
         forget(); message.value = "";
       } catch (ex) {
         // These are definite pre-effect refusals. Every other answer remains bound to its operation until a durable read proves it.
-        if (!uncertain(ex) && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
-        status.textContent = uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
+        // Round 5 follow-up (13 Nov 2026): the Worker answers feature_disabled and delivery_not_configured with 503 before
+        // any effect, and the shared uncertain() counts every coded 5xx as unknown. So a DECODED answer (the Worker's own
+        // JSON, not a lost or unreadable one) whose code is in this list is a refusal whatever its status; any other coded
+        // 5xx, an unreadable answer and a network failure stay unknown.
+        const decoded = ex instanceof ApiError && ex.status > 0 && !!ex.data && typeof ex.data.error === "string" && ex.data.error !== "unreadable_answer";
+        const refused = decoded && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(ex.data.error);
+        if (refused) forget();
+        status.textContent = refused ? explain(ex, ex.data.error === "delivery_not_configured" ? "Discord announcements are not set up on this site. Nothing was sent." : "The announcement could not be completed.") : uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
       } finally { busy = false; buttons(); }
       await load();
     };
@@ -8519,8 +8556,9 @@
   }
   const ATTENDANCE_STATES = ["present", "absent", "excused", "unknown"];
   const ORGANIZER_ERRORS = {
-    not_organizer: "Only guild organizers can do that.",
-    not_event_organizer: "Only the organizer who scheduled this event (or a site admin) can change it.",
+    not_organizer: "Events are managed by the officer or organizer who scheduled them, and by the High Council, the War Heads and site administrators.",
+    not_event_organizer: "This event belongs to another organizer. Only that organizer, the High Council, the War Heads or a site administrator can change it.",
+    not_creator: "Scheduling events is for officers (the Leader, the High Council, Officers and Raid Leaders), guild organizers and site administrators.",
     capacity_below_signups: "The capacity cannot go below the places already taken. Lower it after the answers change.", capacity_below_accepted: "The capacity cannot go below the members already accepted on the roster. Bench or decline someone first.",
     op_conflict: "A different event was already created from this form. Reload the page to start a new one.",
     invalid_title: "Give the event a title of 1 to 80 characters, without control or text-direction characters.", // CL2-135
@@ -8713,7 +8751,11 @@
     return form;
   }
   async function organizerNewEvent(body) {
-    if (!can("organizer")) { add(body, frame("Schedule an event", null, noticeBox("info", "icon-shield", h("p", { text: ORGANIZER_ERRORS.not_organizer })))); return; }
+    // Round 5: an officer who is not a listed organizer gets the form when the calendar list says canCreate (no extra provider call there).
+    let allowed = can("organizer");
+    if (!allowed && can("confirmedGuildData")) { try { const d = await api("GET", "/api/community/events"); allowed = !!d && d.canCreate === true; } catch { allowed = false; } }
+    if (!body.isConnected) return;
+    if (!allowed) { add(body, frame("Schedule an event", null, noticeBox("info", "icon-shield", h("p", { text: ORGANIZER_ERRORS.not_creator })))); return; }
     const opId = b64url(16); // fixed for this form: a retry after a lost answer replays the same creation (the event's id is this id)
     const pending = h("div");
     let frozen = null; // .103: the exact payload whose answer was lost

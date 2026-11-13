@@ -1,6 +1,7 @@
 // Evergreen 12 Nov 2026, lane ui280, Piece 1: browser checks of the v234 launch view on a local QA harness.
 // Needs a running synthetic harness (in-memory DB, no provider) and headless Edge through the audit CDP helper.
-// The real Worker page is used where it exists (held); ready, legacy and malformed pages are made by the real
+// The real Worker page is used where it exists (held; since round 5 it is a v235 page, read by the v235 reader); the
+// v234 ready, legacy and malformed pages, still read by the strict v234 reader alone, are made by the real
 // producer (worker/src/launch-operations229.ts) and supplied through CDP Fetch interception. With
 // UI280_BASE_APP=<file> the page script is replaced by that file (fail-before on the base commit).
 // Usage: node tests/evergreen1112_ui280_browser.mjs   (env: UI280_ORIGIN, UI280_CDP_PORT, UI280_CDP_HELPER, UI280_OUT)
@@ -60,12 +61,14 @@ try {
   await cdp.send('Page.navigate', { url: ORIGIN + '/__qa/admin?to=' + encodeURIComponent('/#/admin') });
   await sleep(2500);
 
-  // 1. The harness's real Worker page: held with null rank fields.
+  // 1. The harness's real Worker page: held with null rank fields. Round 5 build (13 Nov 2026): the real admin route
+  // answers only officer-operations-v235 (site-launch229.ts handleDiscoveryOperations235), read by the v235 reader; the
+  // page lists each hold once (the held reply repeats native-snapshot-unavailable when that is its reason).
   mode = { kind: 'real' };
   await go('#/admin/launch-operations', SETTLED);
-  const real = await cdp.eval(`({holds:[...document.querySelectorAll('[data-launch234-hold]')].map(li=>[li.dataset.launch234Hold,li.textContent]),ranks:document.querySelector('[data-launch234-ranks]')?.dataset.launch234Ranks||null,motd:!!document.querySelector('#launch-motd229'),promotions:document.querySelectorAll('[data-launch-promotion229]').length,module:!!document.querySelector('script[src="/static/launch-operations234.js"]')})`);
+  const real = await cdp.eval(`({holds:[...document.querySelectorAll('[data-launch234-hold]')].map(li=>[li.dataset.launch234Hold,li.textContent]),ranks:document.querySelector('[data-launch234-ranks]')?.dataset.launch234Ranks||null,motd:!!document.querySelector('#launch-motd229'),promotions:document.querySelectorAll('[data-launch-promotion229]').length,module:!!document.querySelector('script[src="/static/launch-operations234.js"]'),module235:!!document.querySelector('script[src="/static/launch-discovery235.js"]'),refused:document.querySelector('[data-launch234-held]')?.dataset.launch234Held||null})`);
   const realApi = await (await fetch(ORIGIN + '/api/admin/launch-operations', { headers: { Cookie: 'QA209_persona=admin', 'X-Olympus': '1' } })).json();
-  check('the harness Worker page (v234, held) shows each of its holds in plain words and no promotion', real.motd && real.ranks === 'unconfirmed' && real.promotions === 0 && real.module && realApi.protocol === 'officer-operations-v234' && realApi.status === 'held' && JSON.stringify(real.holds.map(x => x[0])) === JSON.stringify(realApi.heldReasons) && real.holds.every(x => !x[1].includes(x[0])), { real, heldReasons: realApi.heldReasons });
+  check('the harness Worker page (v235, held) is read by the v235 reader and shows each of its holds once in plain words and no promotion', real.motd && real.ranks === 'unconfirmed' && real.promotions === 0 && real.module && real.module235 && real.refused === null && realApi.protocol === 'officer-operations-v235' && realApi.status === 'held' && JSON.stringify(real.holds.map(x => x[0])) === JSON.stringify([...new Set(realApi.heldReasons)]) && real.holds.every(x => !x[1].includes(x[0]) && !x[1].startsWith('Held for a reason')), { real, heldReasons: realApi.heldReasons });
 
   // 2. A current page at six widths.
   mode = { kind: 'page', make: ready };
@@ -93,8 +96,10 @@ try {
   check('round 3: the invite queue shows the v233 and the v242 row, each with how it was seen in plain words, with no sideways scrolling inside its table at all six widths', layout.every(x => x.invites.length === 2 && x.invites.map(r => r.source).join('|') === 'native-who-unit-v233|native-who-whisper-v242' && x.invites.every(r => r.cells[1] === witness[r.source] && r.cells[3] === 'Recheck and invite in-game') && x.wraps.filter(w => w.invites).every(w => w.inner <= 0)), layout.map(x => ({ w: x.width, invites: x.invites, wraps: x.wraps.filter(w => w.invites) })));
   check('every control in the view is at least 44 px in both directions at all six widths', layout.every(x => x.small.length === 0), layout.map(x => ({ w: x.width, small: x.small })));
   // The admin section navigation above the view is another lane's (admin navigation and headings); check the view's own outline.
-  const heads = layout[1].headings.slice(layout[1].headings.indexOf('H1:Launch operations & MOTD'));
-  check('the view headings run h1, then h2 per frame, then h3 inside the examined page', heads[0] === 'H1:Launch operations & MOTD' && heads.slice(1).every(h => /^H[23]:/.test(h)) && heads.indexOf('H3:Holds on this read') > heads.indexOf('H2:Discovery and current eligibility') && heads.includes('H2:Rank table in force') && heads.includes('H3:Knights to Veteran (slot 5)') && heads.includes('H3:Verified Initiates to Member (slot 7), by way of Alt') && heads.filter(h => h.startsWith('H1:')).length === 1, heads);
+  // Round 5: CL2-099 (12 Nov 2026) keeps one H1 per view, the Admin heading; an admin tool's own H1 becomes an H2
+  // (pageHeading218 in app.js), so the view title is now an H2 under "Admin". The order inside the view is unchanged.
+  const heads = layout[1].headings.slice(layout[1].headings.indexOf('H2:Launch operations & MOTD'));
+  check('the view headings run: one H1 (Admin), the view title as h2, then h2 per frame, then h3 inside the examined page', heads[0] === 'H2:Launch operations & MOTD' && heads.slice(1).every(h => /^H[23]:/.test(h)) && heads.indexOf('H3:Holds on this read') > heads.indexOf('H2:Discovery and current eligibility') && heads.includes('H2:Rank table in force') && heads.includes('H3:Knights to Veteran (slot 5)') && heads.includes('H3:Verified Initiates to Member (slot 7), by way of Alt') && JSON.stringify(layout[1].headings.filter(h => h.startsWith('H1:'))) === '["H1:Admin"]', layout[1].headings);
 
   // 3. Exact values against the page that was served.
   await viewport(cdp, 1280, 900);

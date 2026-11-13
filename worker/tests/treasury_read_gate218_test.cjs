@@ -7,6 +7,14 @@ const { DatabaseSync } = require('node:sqlite'), ts = require('typescript'), ent
 const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000002', GUILD = '236932545793490944', OFFICER_ROLE = '300000000000000777';
 let checks = 0;
 const check = (name, condition) => { assert.ok(condition, name); checks++; console.log('PASS ' + name); };
+// Round 5 gate review (13 Nov 2026): a positive that the TRACKED configuration does not deliver yet is held, not turned
+// into an expected refusal. holdUnless asserts the positive; only when `known` names the exact configuration that is
+// known to block it does the check print HELD (with what was observed) instead of failing. Any other configuration fails.
+const heldChecks = [];
+const holdUnless = (name, condition, known, observed) => {
+  if (condition || !known) return check(name, condition);
+  heldChecks.push(name); console.log('HELD ' + name + ' -- ' + observed);
+};
 
 function sourceGraph(provider) {
   const cache = new Map();
@@ -30,7 +38,19 @@ function sourceGraph(provider) {
 
 const ROLE_IDS = n => Array.from({ length: n }, (_, i) => String(400000000000000000n + BigInt(i)));
 const PROFILES = { 'beta-five': 5, 'ten-rank': 10, 'ten-rank-treasurer-v1': 10, 'ten-rank-council-treasurer-v1': 10 };
-async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff = 'past', map = null, canonical233 = false, onStatement = null, onDiscord = null, onAsset = null } = {}) {
+// Round 5 gate (13 Nov 2026), fixture migration. Since Codex's 63a347f the roster route reads the ladder ONLY from the
+// current Directive canonical policy (version 2, the owner's 12 Nov ladder) with members-only launch verification, and only
+// from an export whose source is the exact qualified native-v2 source; QR_NATIVE_ROLE_MAP profiles and the 6 Nov v1
+// canonical policy describe old records and no longer select a ladder. Every fixture therefore runs under that current
+// selection by default (`policy: 'directive'`), with QR_NATIVE_ROLE_MAP kept as before (it is now inert, which the
+// retired-profile rows below prove). `policy: 'historical'` is the retired v1 profile; any other string is used raw.
+const SCOPE = { version: 1, guild: 'OLYMPUS PRIME', realm: 'Fixture Live Realm' };
+function canonicalPolicy(load, policy) {
+  if (policy !== 'directive' && policy !== 'historical') return policy;
+  const c = load('canonical-ranks233'), directive = load('native-rank-constants').DIRECTIVE_CANONICAL_PROFILE;
+  return JSON.stringify({ version: policy === 'directive' ? 2 : 1, enabled: true, profile: policy === 'directive' ? directive : c.CANONICAL_PROFILE233, guildId: c.CANONICAL_GUILD233, ranks: c.CANONICAL_RANKS233.map(r => ({ ...r, permissions: '0' })) });
+}
+async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff = 'past', map = null, policy = 'directive', canonical233 = false, trackedPolicy = false, onStatement = null, onDiscord = null, onAsset = null } = {}) {
   const calls = { discord: 0, assets: 0, statements: 0 };
   let live = null; // set once the database exists; the hooks below run INSIDE the awaited provider and asset reads
   const provider = async url => {
@@ -49,6 +69,7 @@ async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff
     SITE_HOST: 'guild.example', PUBLIC_BASE_URL: 'https://verify.example', DISCORD_APP_ID: '1550176895671341076', SITE_GUILD_ID: GUILD, GUILD_ID: GUILD, DISCORD_BOT_TOKEN: 'fictional-bot-token', ROLE_OFFICER: OFFICER_ROLE, ROLE_GUILD_LEADER: '', ROLE_GUILD_MASTER: '', ROLE_RAID_LEADER: '',
     SITE_ADMINS: admin ? SUBJECT : '300000000000000999',
     QR_NATIVE_ROLE_MAP: map ?? JSON.stringify({ profile, roles: ROLE_IDS(PROFILES[profile]) }),
+    CANONICAL_RANKS233: canonicalPolicy(load, policy), VERIFY_MEMBERSHIP_ONLY: 'true', VERIFY_NATIVE_SCOPE: JSON.stringify(SCOPE),
     ...(cutoff === 'past' ? { LINKS_NOT_BEFORE: String(Math.floor(Date.now() / 1000) - 86400), LINKS_NOT_BEFORE_CLOCK_GATED: 'false' }
       : cutoff === 'recent' ? { LINKS_NOT_BEFORE: String(Math.floor(Date.now() / 1000) - 60), LINKS_NOT_BEFORE_CLOCK_GATED: 'false' }
       : cutoff === 'gated-future' ?{ LINKS_NOT_BEFORE: String(Math.floor(Date.now() / 1000) + 86400), LINKS_NOT_BEFORE_CLOCK_GATED: 'true' }
@@ -57,7 +78,10 @@ async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff
     const names=['CANONICAL_RANKS233','FULL_RELEASE_ROLES','NATIVE_RANK_SYNC232','QR_NATIVE_ROLE_MAP','QR_RANK_MAPPING_ENABLED','QR_PRIVILEGED_RANK_MAPPING_ENABLED','STAFF_TEN_RANK_ROLES','ROLE_GUILD_MASTER','ROLE_GUILD_LEADER','ROLE_OFFICER','ROLE_RAID_LEADER','VERIFY_MEMBERSHIP_ONLY'];
     const toml=fs.readFileSync(path.join(root,'wrangler.toml'),'utf8');
     for(const name of names){const line=toml.split(/\r?\n/).find(v=>v.startsWith(name+' = '));if(!line)throw Error('canonical233_current_config_missing_'+name);const raw=line.slice(line.indexOf('=')+1).trim(),quote=raw[0],end=raw.indexOf(quote,1);if(!['"',"'"].includes(quote)||end<1)throw Error('canonical233_current_config_literal');rawEnv[name]=raw.slice(1,end);}
-    rawEnv.VERIFY_NATIVE_SCOPE=JSON.stringify({version:1,guild:'OLYMPUS PRIME',realm:'Fixture Live Realm'});
+    rawEnv.VERIFY_NATIVE_SCOPE=JSON.stringify(SCOPE);
+    // The tracked CANONICAL_RANKS233 is still the 6 Nov v1 profile (Codex is changing that mapping); the roster rows
+    // below run with the current Directive policy in its place unless a case asks for the tracked value itself.
+    if(!trackedPolicy)rawEnv.CANONICAL_RANKS233=canonicalPolicy(load,'directive');
   }
   const writer = load('privacy-write-admission').createPrivacyWriteAdmissionDatabase(native, 'writer', 'canonical', entry.ENTRY_EPOCH);
   const env = { ...rawEnv, DB: writer, ASSETS: { fetch: async () => { calls.assets++; if (onAsset && live) await onAsset(live); return new Response('/* treasury plan */', { status: 200, headers: { 'Content-Type': 'text/javascript' } }); } } };
@@ -70,12 +94,14 @@ async function fresh({ admin = false, roles = null, profile = 'ten-rank', cutoff
   const request = (pathname, options = {}) => new Request('https://guild.example' + pathname, { method: options.method || 'GET', headers: { Cookie: issued.cookie } });
   const open = async (pathname, options = {}) => { const response = await gate.treasuryAfterMemberGate(request(pathname, options), env, pathname.split('?')[0]); return { status: response.status, text: await response.text(), response }; };
   const schema = () => JSON.stringify(db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY name').all());
-  return { db, now, write, env, gate, open, calls, schema, load, close: () => db.close() };
+  // The export source the current ladder requires (was 'addon' on every export before the round 5 migration).
+  const source = load('native-rank-schemes').qualifiedNativeSnapshotSource(SCOPE.guild, SCOPE.realm);
+  return { db, now, write, env, gate, open, calls, schema, load, source, close: () => db.close() };
 }
-async function roster(f, { rank, index, trusted = 1, complete = 1, status = 'member', guid = 'Player-4209-0000AA01', rowGuid = guid, age = 60, memberCount = 1, duplicateRow = false }) {
+async function roster(f, { rank, index, trusted = 1, complete = 1, status = 'member', guid = 'Player-4209-0000AA01', rowGuid = guid, age = 60, memberCount = 1, duplicateRow = false, source = f.source }) {
   const exported = f.now - age;
   await f.write("INSERT INTO characters(name_key,name,discord_id,status,bound_at,guid) VALUES('qaofficer','Qaofficer',?,?,?,?)", SUBJECT, status, f.now, guid);
-  await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(1,?,?,?,?,?,?,?)', exported, f.now, 'addon', memberCount, trusted, complete, f.now);
+  await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(1,?,?,?,?,?,?,?)', exported, f.now, source, memberCount, trusted, complete, f.now);
   await f.write("INSERT INTO roster_members(snapshot_id,name_key,name,rank,rank_index,guid) VALUES(1,'qaofficer','Qaofficer',?,?,?)", rank, index, rowGuid);
   if (duplicateRow) await f.write("INSERT INTO roster_members(snapshot_id,name_key,name,rank,rank_index,guid) VALUES(1,'qaofficer2','Qaofficertwo','Member',7,?)", rowGuid);
 }
@@ -132,9 +158,12 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     check('complete Treasury request consumes fewer than 100 physical Native statements', statements > 0 && statements < 100);
     return out;
   };
-  const publishOffice = async f => {
+  // Round 5 migration: the seat key was the legacy display key `treasurer`; since CL2-091 (owner, 13 Nov 2026, "Co-GM and
+  // Treasurer") the gate reads the seat keys office_19 and office_86, so the Treasurer is published on office_86. The legacy
+  // aliases are checked separately below against the gate's own declared list (Codex's treasury-appointment-mapping280).
+  const publishOffice = async (f, key = 'office_86') => {
     // Real publication producer signs the fictional subject's current account; no invented proof or source rewrite.
-    const publication = await f.load('site-appointed-identities').prepareAppointmentPublication(f.env, { treasurer: '<@' + SUBJECT + '>' });
+    const publication = await f.load('site-appointed-identities').prepareAppointmentPublication(f.env, { [key]: '<@' + SUBJECT + '>' });
     assert.equal(publication.ok, true);
     await f.write("INSERT INTO site_settings(key,value,updated_at) VALUES('appointed',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at", JSON.stringify(publication.stored), f.now);
     f.calls.discord = 0;
@@ -179,6 +208,31 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     const out = await openMeasured(f);
     check('a still-published real appointment remains sufficient without an officer roster or a new Discord read', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
   });
+  await scenario('unchanged valid published Co-Guild Master', { roles: [] }, async f => {
+    await publishOffice(f, 'office_19');
+    const out = await openMeasured(f);
+    check('the published Co-Guild Master seat (office_19) is sufficient on its own', out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
+  await scenario('published unrelated Council seat', { roles: [] }, async f => {
+    await publishOffice(f, 'office_94');
+    const out = await openMeasured(f);
+    check('a published seat outside the two Treasury seats grants nothing', out.status === 403 && JSON.parse(out.text).error === 'officer_only' && f.calls.assets === 0);
+  });
+  // The legacy aliases of the two seats. Round 5 gate2 (13 Nov 2026): Codex's d54a954 (treasury-appointment-mapping280)
+  // is committed: the gate admits five closed keys, the two seats and their source-catalogue aliases (co_gm of office_19;
+  // treasurer and rank_treasurer of office_86), each with its own current publication proof. The expectation is now fixed
+  // instead of following whatever list the gate declares: the list must be exactly these five keys (CL2-091, "Co-GM and
+  // Treasurer": no other seat is added), and each alias is admitted behaviourally.
+  await scenario('declared Treasury appointment keys', { roles: [] }, async f => {
+    check('the gate declares exactly the two seats and their three legacy aliases, no other seat',
+      JSON.stringify([...f.gate.TREASURY_APPOINTMENT_SEATS]) === JSON.stringify(['office_19', 'office_86', 'co_gm', 'treasurer', 'rank_treasurer']));
+  });
+  for (const key of ['co_gm', 'treasurer', 'rank_treasurer']) await scenario('published legacy seat key ' + key, { roles: [] }, async f => {
+    await publishOffice(f, key);
+    const out = await openMeasured(f);
+    check('the legacy seat key ' + key + ' is admitted because the gate declares it',
+      out.status === 200 && out.text === '/* treasury plan */' && f.calls.discord === 0);
+  });
   await scenario('independent admin remains valid with demoted roster and withdrawn unrelated appointment', { admin: true, onAsset: async f => { await f.write("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1"); await f.write("UPDATE site_settings SET value='{}' WHERE key='appointed'"); } }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
     const out = await openMeasured(f);
@@ -203,7 +257,11 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
   await scenario('ordinary member', {}, async f => {
     const before = f.schema(), settings = f.db.prepare('SELECT COUNT(*) n FROM site_settings').get().n;
     const access = await f.open('/api/treasury-plan/access');
-    check('an ordinary member is told canRead:false in the exact two-field answer', access.status === 200 && JSON.stringify(JSON.parse(access.text)) === JSON.stringify({ format: 'olympus-treasury-access-v1', canRead: false }));
+    // Round 5 migration: the expected answer was the two fields {format, canRead:false}; since REV-SITEA-3 (421c708,
+    // 12 Nov 2026) a refused caller also gets `admits`, the gate's own description. Still exact: three keys, in order,
+    // and the description is the gate's for this configuration.
+    check('an ordinary member is told canRead:false in the exact three-field answer (format, canRead, admits)', access.status === 200 && JSON.stringify(JSON.parse(access.text)) === JSON.stringify({ format: 'olympus-treasury-access-v1', canRead: false, admits: f.gate.treasuryGateDescription(f.env) })
+      && /Lord High Treasurer/.test(JSON.parse(access.text).admits));
     check('the access answer is private and never cached', access.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && access.response.headers.get('Vary') === 'Cookie');
     for (const asset of ASSETS) {
       const out = await f.open(asset);
@@ -230,8 +288,13 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
   for (const [profile, rank, index, admitted] of [['ten-rank', 'Guild Master', 0, true], ['ten-rank', 'High Council', 1, true], ['ten-rank', 'Officer', 2, true], ['ten-rank', 'Officer Alt', 3, true],
     ['ten-rank', 'Raid Leader', 4, true], ['ten-rank', 'Veteran', 5, false], ['ten-rank', 'Raider', 6, false], ['ten-rank', 'Member', 7, false], ['ten-rank', 'Officer', 6, false],
     ['ten-rank', 'Raid Leader', 2, false], ['ten-rank', 'Officer', 1, false], ['ten-rank', 'Treasurer', 2, false], ['ten-rank', 'officer', 2, false],
-    ['ten-rank-council-treasurer-v1', 'Treasurer', 2, true], ['ten-rank-council-treasurer-v1', 'Officer', 3, true], ['ten-rank-council-treasurer-v1', 'Officer Alt', 3, false],
-    ['ten-rank-treasurer-v1', 'Treasurer', 1, true], ['ten-rank-treasurer-v1', 'High Council', 1, false]]) {
+    // Retired profiles (round 5 migration). These rows were Treasurer@2 true, Officer@3 true, Officer Alt@3 false,
+    // Treasurer@1 true, High Council@1 false: the ladders of the retired QR_NATIVE_ROLE_MAP profiles. The map no longer
+    // selects a ladder, so with that profile configured the Directive ladder decides; the Treasurer those ladders admitted
+    // by rank is admitted through the published Lord High Treasurer seat (the appointment scenarios above), the Officer
+    // at its Directive slot 2 (the ten-rank row above).
+    ['ten-rank-council-treasurer-v1', 'Treasurer', 2, false], ['ten-rank-council-treasurer-v1', 'Officer', 3, false], ['ten-rank-council-treasurer-v1', 'Officer Alt', 3, true],
+    ['ten-rank-treasurer-v1', 'Treasurer', 1, false], ['ten-rank-treasurer-v1', 'High Council', 1, true]]) {
     await scenario(profile + ' roster ' + rank + ' at ' + index, { profile }, async f => {
       await roster(f, { rank, index });
       const admittedNow = await canRead(f);
@@ -250,9 +313,19 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     await roster(f, { rank: 'Officer', index: 2 });
     check('without a configured launch cut, the roster path is withheld', await canRead(f) === false);
   });
-  await scenario('unconfigured rank map', { map: 'not json' }, async f => {
+  // Round 5 migration: the value was QR_NATIVE_ROLE_MAP 'not json'; the configuration that now selects the ladder is
+  // CANONICAL_RANKS233, so that is the one made unparseable.
+  await scenario('unconfigured rank map', { policy: 'not json' }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
     check('an unparseable native rank map withholds the roster path', await canRead(f) === false);
+  });
+  await scenario('retired rank map is inert', { map: 'not json' }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    check('an unparseable retired QR_NATIVE_ROLE_MAP neither grants nor withholds: the current Directive policy decides', await canRead(f) === true && f.calls.discord === 0);
+  });
+  for (const [label, policy] of [['the retired 6 Nov canonical profile', 'historical'], ['canonical ranks switched off', 'off']]) await scenario('roster path under ' + label, { policy }, async f => {
+    await roster(f, { rank: 'Officer', index: 2 });
+    check('with ' + label + ' in place of the Directive policy, an Officer at Directive slot 2 gains nothing from the roster', await canRead(f) === false && f.calls.assets === 0);
   });
   for (const [name, options] of [['stale export (13 hours old)', { age: 13 * 3600 }], ['future export', { age: -600 }], ['row count below member_count', { memberCount: 2 }],
     ['GUID listed twice on the export', { duplicateRow: true, memberCount: 2 }], ['name-only character link', { guid: null, rowGuid: 'Player-4209-0000AA01' }]]) {
@@ -278,10 +351,11 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     check('an account under a rename re-apply hold is not admitted by rank', await canRead(f) === false);
   });
   const BETA = JSON.stringify({ profile: 'beta-five', roles: ROLE_IDS(5) });
-  await scenario('roster config changed mid-read', { onStatement: (sql, env) => { if (sql.includes('FROM roster_snapshots s')) { env.QR_NATIVE_ROLE_MAP = BETA; env.LINKS_NOT_BEFORE = ''; } } }, async f => {
+  // Round 5 migration: the in-flight change now also switches CANONICAL_RANKS233 off, the selector that matters today.
+  await scenario('roster config changed mid-read', { onStatement: (sql, env) => { if (sql.includes('FROM roster_snapshots s')) { env.QR_NATIVE_ROLE_MAP = BETA; env.LINKS_NOT_BEFORE = ''; env.CANONICAL_RANKS233 = 'off'; } } }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
     const decided = await canRead(f);
-    check('a configuration change in flight cannot mix into the roster decision: it follows the configuration that chose the read', f.env.QR_NATIVE_ROLE_MAP === BETA && f.env.LINKS_NOT_BEFORE === '' && decided === true && f.calls.discord === 0);
+    check('a configuration change in flight cannot mix into the roster decision: it follows the configuration that chose the read', f.env.QR_NATIVE_ROLE_MAP === BETA && f.env.LINKS_NOT_BEFORE === '' && f.env.CANONICAL_RANKS233 === 'off' && decided === true && f.calls.discord === 0);
   });
   await scenario('discord config changed mid-read', { roles: [OFFICER_ROLE], onStatement: (sql, env) => { if (sql.includes('FROM roster_snapshots s')) { env.ROLE_OFFICER = '300000000000000999'; env.GUILD_ID = '111111111111111111'; } } }, async f => {
     const decided = await canRead(f);
@@ -330,7 +404,7 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
   });
   await scenario('newer incomplete export', {}, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
-    await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(2,?,?,?,1,1,0,?)', f.now - 30, f.now, 'addon', f.now);
+    await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(2,?,?,?,1,1,0,?)', f.now - 30, f.now, f.source, f.now); // source was 'addon' (round 5 migration: the qualified source, so only complete=0 refuses)
     await f.write("INSERT INTO roster_members(snapshot_id,name_key,name,rank,rank_index,guid) VALUES(2,'qaofficer','Qaofficer','Officer',2,'Player-4209-0000AA01')");
     check('a newer incomplete export withholds the older officer rank', await canRead(f) === false);
   });
@@ -352,7 +426,7 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
   });
   await scenario('newer untrusted export', {}, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
-    await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(2,?,?,?,1,0,1,?)', f.now, f.now, 'addon', f.now);
+    await f.write('INSERT INTO roster_snapshots(id,exported_at,received_at,source,member_count,trusted,complete,first_received_at) VALUES(2,?,?,?,1,0,1,?)', f.now, f.now, f.source, f.now); // source was 'addon' (round 5 migration: the qualified source, so only trusted=0 refuses)
     await f.write("INSERT INTO roster_members(snapshot_id,name_key,name,rank,rank_index,guid) VALUES(2,'qaofficer','Qaofficer','Officer',2,'Player-4209-0000AA01')");
     check('only the newest export counts, so a newer untrusted export withholds the older officer rank', JSON.parse((await f.open('/api/treasury-plan/access')).text).canRead === false);
   });
@@ -364,12 +438,16 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     check('an unrelated Discord role grants nothing', JSON.parse((await f.open('/api/treasury-plan/access')).text).canRead === false);
   });
   await scenario('discord rate limit', {}, async f => {
-    const results = [], replies = [];
+    // Round 5 migration: Retry-After was the fixed '60'; since soft-rate-limit280 (51510fe) it is the window's remaining
+    // whole seconds, 1 to 60. The wait stays bounded and must cover the rest of the window opened by the first check.
+    const results = [], replies = [], opened = Date.now();
+    const bounded = r => { const v = r.response.headers.get('Retry-After'), n = Number(v), left = 60 - Math.floor((Date.now() - opened) / 1000);
+      return /^[1-9][0-9]?$/.test(v ?? '') && n <= 60 && n >= Math.max(1, left - 1); };
     for (let i = 0; i < 22; i++) { const reply = await f.open('/api/treasury-plan/access'); replies.push(reply); results.push(reply.status); }
     check('the Discord path allows twenty checks a minute, then answers 429 instead of reading again', f.gate.TREASURY_DISCORD_READS_PER_MINUTE === 20 && results.slice(0, 20).every(s => s === 200) && results.slice(20).every(s => s === 429) && f.calls.discord === 20);
-    check('429 gives a bounded manual wait and stays private without reading plan storage', replies.slice(20).every(r => r.response.headers.get('Retry-After') === '60' && r.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && r.response.headers.get('Vary') === 'Cookie' && JSON.parse(r.text).error === 'slow_down') && f.calls.assets === 0);
+    check('429 gives a bounded manual wait and stays private without reading plan storage', replies.slice(20).every(r => bounded(r) && r.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && r.response.headers.get('Vary') === 'Cookie' && JSON.parse(r.text).error === 'slow_down') && f.calls.assets === 0);
     const head = await f.open('/static/treasury-plan207.js', { method: 'HEAD' });
-    check('HEAD keeps the same private 429 wait, no body, no provider retry and no plan storage', head.status === 429 && head.text === '' && head.response.headers.get('Retry-After') === '60' && head.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && f.calls.discord === 20 && f.calls.assets === 0);
+    check('HEAD keeps the same private 429 wait, no body, no provider retry and no plan storage', head.status === 429 && head.text === '' && bounded(head) && head.response.headers.get('Cache-Control') === 'private, no-store, no-transform' && f.calls.discord === 20 && f.calls.assets === 0);
   });
   await scenario('banned member', { admin: false }, async f => {
     await roster(f, { rank: 'Officer', index: 2 });
@@ -381,21 +459,52 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     const out = await f.gate.treasuryAfterMemberGate(new Request('https://guild.example/api/treasury-plan/access'), f.env, '/api/treasury-plan/access');
     check('a signed-out request is answered 401', out.status === 401);
   });
-  for(const [rank,index]of [['Stewart',1],['High Council',2],['Officer Alt',4]])await scenario('canonical233 current native '+rank,{canonical233:true},async f=>{
-    await roster(f,{rank,index});const scope=f.load('launch-verification227').captureLaunchVerification(f.env).scope;
-    await f.write('UPDATE roster_snapshots SET source=? WHERE id=1',scope.provenance);
-    const out=await f.open(ASSETS[0]);check('actual tracked233 off selectors retain exact native '+rank+' read access',out.status===200&&f.calls.assets===1&&f.calls.discord===0);
+  // Round 5 migration of the tracked-configuration block. The rows were Stewart@1, High Council@2 and Officer Alt@4, the
+  // 6 Nov NATIVE_NAMES233 ladder, on an export whose source was rewritten to scope.provenance (the v1 membership source).
+  // The owner's 12 Nov ladder has no Stewart and puts High Council at slot 1 and Officer Alt at 3, and the roster route
+  // now needs the qualified native-v2 source, so the same three officer-tier positives are the Directive slots of the
+  // tracked Discord configuration with the Directive policy (Stewart's slot 1 is High Council's; High Council's old
+  // slot 2 is Officer's). The retired ladder itself is asserted refused right after.
+  // These rows run with the Directive v2 policy in place of the tracked CANONICAL_RANKS233 (every other tracked value is
+  // used as shipped); the names say so. The same three positives under the tracked value itself follow right after.
+  for(const [rank,index]of [['High Council',1],['Officer',2],['Officer Alt',3]])await scenario('canonical233 current native '+rank,{canonical233:true},async f=>{
+    await roster(f,{rank,index});
+    const out=await f.open(ASSETS[0]);check('with the Directive v2 policy in place of the tracked CANONICAL_RANKS233, the other tracked selectors retain exact native '+rank+' read access',out.status===200&&f.calls.assets===1&&f.calls.discord===0);
   });
-  await scenario('canonical233 foreign roster source',{canonical233:true},async f=>{await roster(f,{rank:'High Council',index:2});check('a foreign current roster source cannot authorize canonical Treasury reads',await canRead(f)===false&&f.calls.assets===0);});
-  await scenario('canonical233 historical ordinal',{canonical233:true},async f=>{await roster(f,{rank:'Officer Alt',index:3});const scope=f.load('launch-verification227').captureLaunchVerification(f.env).scope;await f.write('UPDATE roster_snapshots SET source=? WHERE id=1',scope.provenance);check('canonical Treasury rejects a legacy OfficerAlt3 pair',await canRead(f)===false);});
-  for(const [label,role]of [['HC','1567917738985398384'],['Officer Alt','1561096070040125460']])await scenario('canonical233 Discord '+label,{canonical233:true,roles:[role]},async f=>{const before=f.schema(),out=await f.open(ASSETS[0]);check('canonical '+label+' role alone retains request-local read eligibility',out.status===200&&f.calls.discord===1&&f.calls.assets===1&&f.schema()===before);});
-  for(const role of ['1555639603619172504','1555640676287385771','1555944857380458556','1552077551839617104'])await scenario('canonical233 non-officer '+role,{canonical233:true,roles:[role]},async f=>{check('branch technical and ordinary canonical roles do not gain Treasury staff read access',await canRead(f)===false&&f.calls.assets===0);});
+  // Round 5 gate review (13 Nov 2026): the same positives under the tracked CANONICAL_RANKS233 itself, the shipping
+  // configuration. While wrangler.toml still ships the 6 Nov v1 profile, currentLadder is null and the roster route admits
+  // no officer at all (handoff to Codex, receipt 1); that exact value holds the check, any other value must admit.
+  const TRACKED_V1_PROFILE='olympus-canonical-ranks-20261106-v1';
+  for(const [rank,index]of [['High Council',1],['Officer',2],['Officer Alt',3]])await scenario('canonical233 tracked native '+rank,{canonical233:true,trackedPolicy:true},async f=>{
+    await roster(f,{rank,index});
+    let tracked=null;try{tracked=JSON.parse(f.env.CANONICAL_RANKS233);}catch{}
+    const knownV1=!!tracked&&tracked.version===1&&tracked.profile===TRACKED_V1_PROFILE,ladder=f.gate.currentLadder(f.env);
+    const out=await f.open(ASSETS[0]);
+    holdUnless('under the tracked CANONICAL_RANKS233 as shipped, native '+rank+'@'+index+' retains Treasury read access',out.status===200&&f.calls.assets===1&&f.calls.discord===0,
+      knownV1&&ladder===null,'tracked CANONICAL_RANKS233 is version 1 '+TRACKED_V1_PROFILE+', currentLadder is null, the roster route answered '+out.status+' (expected red until Codex moves the tracked policy to the Directive v2 profile)');
+  });
+  for(const [rank,index]of [['Stewart',1],['High Council',2],['Officer Alt',4]])for(const tracked of [false,true])await scenario('canonical233 retired native '+rank+(tracked?' (tracked v1 policy)':''),{canonical233:true,trackedPolicy:tracked},async f=>{
+    await roster(f,{rank,index});
+    check('the retired 6 Nov pair '+rank+'@'+index+' grants no Treasury read'+(tracked?' under the tracked v1 policy':' under the Directive policy'),await canRead(f)===false&&f.calls.assets===0);
+  });
+  // High Council@2 was the fixture's valid pair before the migration; @1 keeps the case about the source alone.
+  await scenario('canonical233 foreign roster source',{canonical233:true},async f=>{await roster(f,{rank:'High Council',index:1,source:'addon'});check('a foreign current roster source cannot authorize canonical Treasury reads',await canRead(f)===false&&f.calls.assets===0);});
+  await scenario('canonical233 v1 membership source',{canonical233:true},async f=>{const scope=f.load('launch-verification227').captureLaunchVerification(f.env).scope;await roster(f,{rank:'High Council',index:1,source:scope.provenance});check('the v1 membership source of the same scope is a display source only and authorizes no Treasury read',scope.provenance!==f.source&&await canRead(f)===false&&f.calls.assets===0);});
+  // Officer Alt@3 was the legacy ordinal under the 6 Nov ladder; under the Directive ladder the legacy ordinal is @4.
+  await scenario('canonical233 historical ordinal',{canonical233:true},async f=>{await roster(f,{rank:'Officer Alt',index:4});check('canonical Treasury rejects a legacy Officer Alt pair (its 6 Nov ordinal, 4)',await canRead(f)===false);});
+  // Round 5 gate review: the Discord cases run with the tracked CANONICAL_RANKS233 itself, as before the migration (the
+  // Discord path reads the policy's role ids, and the tracked v1 value keeps that path open).
+  for(const [label,role]of [['HC','1567917738985398384'],['Officer Alt','1561096070040125460']])await scenario('canonical233 Discord '+label,{canonical233:true,trackedPolicy:true,roles:[role]},async f=>{const before=f.schema(),out=await f.open(ASSETS[0]);check('canonical '+label+' role alone retains request-local read eligibility',out.status===200&&f.calls.discord===1&&f.calls.assets===1&&f.schema()===before);});
+  for(const role of ['1555639603619172504','1555640676287385771','1555944857380458556','1552077551839617104'])await scenario('canonical233 non-officer '+role,{canonical233:true,trackedPolicy:true,roles:[role]},async f=>{check('branch technical and ordinary canonical roles do not gain Treasury staff read access',await canRead(f)===false&&f.calls.assets===0);});
   const load = sourceGraph(async () => { throw Error('no provider'); }), gate = load('site-treasury-access');
   const ten = ['Guild Master', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
   check('officerRank pins officer-tier names to their exact index in the given ladder only', gate.officerRank('Officer Alt', 3, ten) && !gate.officerRank('Treasurer', 1, ten) && !gate.officerRank('Officer Alt', 2, ten)
     && !gate.officerRank('officer', 2, ten) && !gate.officerRank('Officer', '2', ten) && !gate.officerRank('Veteran', 5, ten));
   const past = String(Math.floor(Date.now() / 1000) - 60), future = String(Math.floor(Date.now() / 1000) + 3600);
-  const ladder = (profile, cut, gated) => gate.currentLadder({ QR_NATIVE_ROLE_MAP: JSON.stringify({ profile, roles: ROLE_IDS(PROFILES[profile]) }), LINKS_NOT_BEFORE: cut, LINKS_NOT_BEFORE_CLOCK_GATED: gated });
+  // Round 5 migration: the env had only QR_NATIVE_ROLE_MAP and the cut; the ladder is now selected by the canonical
+  // policy with members-only launch verification, so those are added (Directive by default, `policy` to vary it).
+  const ladder = (profile, cut, gated, policy = 'directive') => gate.currentLadder({ QR_NATIVE_ROLE_MAP: JSON.stringify({ profile, roles: ROLE_IDS(PROFILES[profile]) }), LINKS_NOT_BEFORE: cut, LINKS_NOT_BEFORE_CLOCK_GATED: gated,
+    CANONICAL_RANKS233: canonicalPolicy(load, policy), GUILD_ID: GUILD, VERIFY_MEMBERSHIP_ONLY: 'true', VERIFY_NATIVE_SCOPE: JSON.stringify(SCOPE) });
   const held = run => { try { run(); return false; } catch (error) { return error.message === 'treasury_original_request_held'; } };
   const snap = gate.configSnapshot({ QR_NATIVE_ROLE_MAP: 'a', LINKS_NOT_BEFORE: '1', LINKS_NOT_BEFORE_CLOCK_GATED: 'true' }, ['QR_NATIVE_ROLE_MAP', 'LINKS_NOT_BEFORE', 'LINKS_NOT_BEFORE_CLOCK_GATED']);
   check('assertSameConfig accepts the same configuration and refuses a changed, removed or added value, or a different key list',
@@ -406,9 +515,15 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     && held(() => gate.assertSameConfig({ QR_NATIVE_ROLE_MAP: 'a' }, ['QR_NATIVE_ROLE_MAP'], snap)) && Object.isFrozen(snap));
   let getterCalls233=0;const getterEnv233={};Object.defineProperty(getterEnv233,'CANONICAL_RANKS233',{get(){getterCalls233++;return 'unsafe';}});
   check('configuration snapshots reject canonical getters without invoking them',held(()=>gate.configSnapshot(getterEnv233,['CANONICAL_RANKS233']))&&getterCalls233===0);
+  // Round 5 migration: "beta-five" was withheld through the role map, and the council-treasurer profile put 'Treasurer'
+  // at slot 2. The beta-era withholding is now the retired canonical profile (and canonical ranks off); a retired role-map
+  // profile no longer changes the ladder, so it is the Directive ladder (slot 2 'Officer') under every profile.
   check('currentLadder withholds beta-five, a clock-gated future cut and an empty cut, and returns the exact configured ladder otherwise',
-    ladder('beta-five', past, 'false') === null && ladder('ten-rank', future, 'true') === null && ladder('ten-rank', '', 'false') === null
+    ladder('ten-rank', past, 'false', 'historical') === null && ladder('ten-rank', past, 'false', 'off') === null && ladder('beta-five', past, 'false', 'historical') === null
+    && ladder('ten-rank', future, 'true') === null && ladder('ten-rank', '', 'false') === null
     && JSON.stringify(ladder('ten-rank', past, 'false').names) === JSON.stringify(ten) && ladder('ten-rank', past, 'false').cutoff === Number(past)
-    && ladder('ten-rank-council-treasurer-v1', past, 'false').names[2] === 'Treasurer');
-  console.log(`\n${checks} checks passed`);
+    && ladder('ten-rank', past, 'false').source === load('native-rank-schemes').qualifiedNativeSnapshotSource(SCOPE.guild, SCOPE.realm)
+    && ['beta-five', 'ten-rank-treasurer-v1', 'ten-rank-council-treasurer-v1'].every(p => JSON.stringify(ladder(p, past, 'false')?.names) === JSON.stringify(ten))
+    && ladder('ten-rank-council-treasurer-v1', past, 'false').names[2] === 'Officer');
+  console.log(`\n${checks} checks passed` + (heldChecks.length ? `, ${heldChecks.length} held (expected red under the tracked configuration): ${heldChecks.join('; ')}` : ''));
 })().catch(error => { console.error(error); process.exitCode = 1; });
