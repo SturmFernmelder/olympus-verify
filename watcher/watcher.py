@@ -647,6 +647,10 @@ class Watcher:
         except (OSError, ValueError, TypeError, OverflowError, RecursionError):
             self._custody_halted = True
             raise
+        if not self._local_correspondence_status280["complete"]:
+            log("Local correspondence cleanup is incomplete. The original local data is retained; retired financial records are not uploaded. Verification keeps its normal checks.")
+        elif self._local_correspondence_status280["blankedNotes"]:
+            log("Old local financial correspondence was blanked. Its records and original delivery outcomes are retained and are not uploaded.")
         # Local unclassified receipts are independent of network/role dispatch and
         # commit before the chat/SavedVariables cursor. The owner named this exact
         # collector (3 Nov 2026); neither branch names nor a Discord ID are inferred.
