@@ -197,7 +197,34 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   const leftAudits = db.prepare("SELECT COUNT(*) AS n FROM audit WHERE actor = ? AND action = 'site.left_server'").get(LEAVER).n;
   check('Discord says gone: every due request is refused (403) after one shared call', gone.every(r => r.status === 403) && discord.memberGets - leaverBefore === 1, JSON.stringify({ statuses: gone.map(r => r.status), calls: discord.memberGets - leaverBefore }));
   check('Discord says gone: the account leaves once (one audit row, sessions ended)', leaverRow.in_server === 0 && leftAudits === 1, JSON.stringify({ leaverRow, leftAudits }));
+  // An expired share: two requests that read the same expired entry in the same tick start one new flight between
+  // them, not one each (Stage 2 review of 12 Nov 2026: the base head awaited before replacing, so the second deleted
+  // the first's new flight). Called directly so both reads of the map happen before any await.
+  const api = load('./site-api');
+  const flakyUser = db.prepare('SELECT * FROM site_users WHERE discord_id = ?').get(FLAKY);
+  const directEnv = env(entry.originalNativePort(db));
+  await api.stillMember(directEnv, { ...flakyUser }); // settles an 'unavailable' share for this key (5 s)
+  const realNow = Date.now;
+  Date.now = () => realNow() + 6000; // the share has expired
+  try {
+    const raceBefore = discord.memberGets;
+    const raced = await Promise.all([api.stillMember(directEnv, { ...flakyUser }), api.stillMember(directEnv, { ...flakyUser }), api.stillMember(directEnv, { ...flakyUser })]);
+    const raceCalls = discord.memberGets - raceBefore;
+    report.expiredShare = { calls: raceCalls, statuses: raced.map(r => r && r.status) };
+    check('an expired share: three concurrent checks start one new Discord read, not one each', raceCalls === 1, JSON.stringify(report.expiredShare));
+    check('an expired share: every one of them is still held (503)', raced.every(r => r && r.status === 503), JSON.stringify(report.expiredShare.statuses));
+  } finally { Date.now = realNow; }
   discord.delayMs = 0;
+
+  // page(): a throw while shaping the community context hides the community pages (community: null) and the page
+  // still loads, as the base's try/catch around communityContext and contextDto did (Stage 2 review, 12 Nov 2026).
+  const communityMod = load('./community-context');
+  const realDto = communityMod.contextDto;
+  communityMod.contextDto = () => { throw new Error('contextDto failed in test'); };
+  let failedDto;
+  try { failedDto = await request(MEMBER, '/'); } catch (e) { failedDto = { status: 'threw: ' + e.message, text: '' }; } finally { communityMod.contextDto = realDto; }
+  const failedBoot = failedDto.status === 200 ? bootOf(failedDto.text) : null;
+  check('a throw in contextDto still serves the page with community: null', failedDto.status === 200 && !!failedBoot && failedBoot.community === null, 'status=' + failedDto.status);
 
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(report, null, 2) + '\n');
   console.log(`${ok}/${n} checks passed`);

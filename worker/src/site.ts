@@ -156,7 +156,8 @@ async function page(env: Env, request: Request, build: string, extra: Record<str
     }
     // .93: the community flags and the viewer's capabilities, so the page draws its navigation from what the Worker
     // admits. Read beside the account's data rather than after it; a failure still only hides the community pages.
-    communityRead = communityContext(env, request, { guildRoleRead: true }).then(contextDto, () => null);
+    // .catch after .then, so a throw in contextDto also hides the community pages, as the base's try/catch did.
+    communityRead = communityContext(env, request, { guildRoleRead: true }).then(contextDto).catch(() => null);
     // The account's own reads carry the session fence inside their batch (as /api/me does), so a reused gate row
     // cannot stand in for a session that ended in between.
     const own = await meDataWithState(privacyBoundSiteEnv(env, originalUserSession(user)), user);

@@ -1182,7 +1182,8 @@ export function membershipRecheckDue(user: { checked_at: number | null }): boole
 type MemberCheck = "member" | "not_member" | "unavailable";
 const MEMBER_CHECK_SHARE_S: Record<MemberCheck, number> = { member: 30, not_member: 30, unavailable: 5 };
 const MEMBER_CHECK_WAIT_MS = 10_000; // credentialFetch gives up after 8 s; the D1 write then needs a moment more
-const memberChecks = new Map<string, { at: number; settled: number | null; outcome: Promise<MemberCheck> }>();
+type MemberCheckFlight = { at: number; settled: number | null; result: MemberCheck | null; outcome: Promise<MemberCheck> };
+const memberChecks = new Map<string, MemberCheckFlight>();
 const memberCheckKey = (user: SiteUser) =>
   JSON.stringify([user.discord_id, user.account_incarnation, user.session_version, user.privacyGeneration ?? null]);
 
@@ -1194,16 +1195,19 @@ export async function stillMember(env: Env, user: SiteUser): Promise<Response | 
     return apiJson({ error: 'membership_unavailable', message: 'Discord membership must be confirmed before protected access. Please try again shortly.' }, 503);
   }
   const key = memberCheckKey(user);
+  // The expiry test is synchronous (no await between reading the entry and replacing it), so two requests that both
+  // see an expired share cannot each start a flight or delete the other's newer one (Stage 2 review, 12 Nov 2026).
   let entry = memberChecks.get(key);
-  if (entry && entry.settled !== null) {
-    const outcome = await entry.outcome; // settled: resolves at once
-    if (now() - entry.settled >= MEMBER_CHECK_SHARE_S[outcome] || entry.settled > now()) { memberChecks.delete(key); entry = undefined; }
+  if (entry && entry.settled !== null && entry.result !== null
+    && (now() - entry.settled >= MEMBER_CHECK_SHARE_S[entry.result] || entry.settled > now())) {
+    memberChecks.delete(key);
+    entry = undefined;
   }
   if (!entry) {
     if (memberChecks.size > 2000) for (const [k, v] of memberChecks) if (v.settled !== null) memberChecks.delete(k);
-    const created: { at: number; settled: number | null; outcome: Promise<MemberCheck> } = { at: now(), settled: null, outcome: Promise.resolve("unavailable") };
+    const created: MemberCheckFlight = { at: now(), settled: null, result: null, outcome: Promise.resolve("unavailable") };
     created.outcome = checkMembership(env, user).then(
-      (outcome) => { created.settled = now(); return outcome; },
+      (outcome) => { created.result = outcome; created.settled = now(); return outcome; },
       (error) => { if (memberChecks.get(key) === created) memberChecks.delete(key); throw error; },
     );
     memberChecks.set(key, created);
