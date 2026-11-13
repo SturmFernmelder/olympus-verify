@@ -1,5 +1,6 @@
 """Selected promotion reads: actual Python modules, synthetic HTTP and temporary files."""
 import copy
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -12,6 +13,7 @@ import launch_operations229 as launch
 import savedvars
 import watcher
 from test_launch_operations229 import page
+from native_rank_schemes import NAMES, NATIVE_PROFILE, SCHEME_DIGEST
 
 
 class SelectedReads(unittest.TestCase):
@@ -19,26 +21,43 @@ class SelectedReads(unittest.TestCase):
         self.at=1900000000
         self.clock=float(self.at)
         self.roster=dict(exportedAt=self.at,total=40,online=1,nativeGuild='OLYMPUS PRIME',nativeRealm='Native Realm',
+            nativeRankTable=dict(version=1,names=list(NAMES)),
             members=[dict(guid=f'Player-1-{i:08X}',name='Fern Melder' if i==1 else 'Member '+str(i),full='Member '+str(i),
                           rank='Initiate',rankIndex=9,level=60,**{'class':'MAGE'},note='',onote='',lastOnline=0) for i in range(1,41)])
-        self.control=dict(version=2,action='select',id=str(self.at)+':1',observedAt=self.at,scopeHash=page(self.at)['scopeHash'],
-                          guid=self.roster['members'][0]['guid'],targetGuid=self.roster['members'][20]['guid'])
+        self.target=self.roster['members'][20]['guid']
+        self.control=dict(version=4,action='select-directive',id=str(self.at)+':1',observedAt=self.at,scopeHash=page(self.at)['scopeHash'],
+                          guid=self.roster['members'][0]['guid'],targetGuids=[self.target],confirmations='[]')
         self.control['mac']=launch.selected_control_mac('synthetic-secret',self.control)
         self.accepted=dict(snapshot=12,exportedAt=self.at,digest=launch.complete_roster_digest(self.roster))
         self.selected=launch.SelectedRead(lambda:self.clock)
         self.selected.request(self.control,self.accepted,self.roster,self.clock)
         self.calls=[]
 
-    def reply(self,offset=20,retry=None,*,protocol=None,ttl=60):
+    def promotion(self,guid,snapshot_at=None):
+        name=next(row['name'] for row in self.roster['members'] if row['guid']==guid)
+        source=self.at if snapshot_at is None else snapshot_at
+        # This transport fixture checks the real consumer's closed shape, not server signing authority.
+        intent=dict(version=1,id='synthetic-intent-'+guid,actorGuid=self.control['guid'],targetGuid=guid,name=name,
+            subjectDigest='b'*64,rankProfile=NATIVE_PROFILE,rankSchemeDigest=SCHEME_DIGEST,
+            originSnapshotId=12,originSnapshotAt=source,originContext='a'*32,startSlot=9,finalSlot=7,
+            reason='verified-initiate',issuedAt=self.at,expiresAt=self.at+600,acknowledgedSteps=0,
+            lastSnapshotId=12,lastObservedAt=source)
+        return dict(guid=guid,name=name,currentSlot=9,targetSlot=7,targetName='Member',reason='verified-initiate',
+                    intent=intent,intentToken='c3ludGhldGlj.'+'1'*64)
+
+    def reply(self,offset=0,retry=None,*,protocol=None,ttl=60):
         p=page(int(self.clock),offset,40,self.at)
         p.update(snapshotAt=self.at,nextCursor=None,pageCursor='opaque-private-v4-context',invites=[],riskBuffer=[])
         p['scan'].update(startedAt=self.at,expiresAt=self.at+600)
         p['expiresAt']=min(int(self.clock)+ttl,self.at+600)
+        p['status']='partial'
+        p['entitlements'].update(scanned=1,unscanned=39)
+        p['promotions']=[self.promotion(self.target)]
         p['entitlements']['retryAfterSeconds']=retry
         if retry is not None:p['status']='partial';p['heldReasons'].append('discord-rate-limited')
-        covered=[row['guid'] for row in self.roster['members'][offset:offset+20]]
-        return dict(version=1,protocol=protocol or launch.SELECTED_PROTOCOL,controlId=self.control['id'],
-                    targetGuid=self.control['targetGuid'],coveredGuids=covered,page=p)
+        covered=list(self.control['targetGuids'])
+        return dict(version=2,protocol=protocol or launch.DIRECTIVE_PROTOCOL,coverageKind='selected-guids',actorGuid=self.control['guid'],
+                    controlId=self.control['id'],targetGuids=covered,targetsDigest=launch.targets_digest276(covered),coveredGuids=covered[:],page=p)
 
     def call(self,response=None):
         def transport(method,path,retries):
@@ -52,7 +71,7 @@ class SelectedReads(unittest.TestCase):
         self.clock=max(self.clock,self.selected.next_at)
         return self.selected.step(transport,self.clock)
 
-    def test_control_v2_exact_mac_actor_target_clock_and_legacy_separation(self):
+    def test_control_v4_exact_mac_actor_target_clock_and_legacy_separation(self):
         args=('synthetic-secret',self.control,self.at,self.control['guid'],'OLYMPUS PRIME','Native Realm')
         self.assertTrue(launch.validate_selected_control(*args))
         for change in (dict(version=1),dict(action='recheck'),dict(id=str(self.at-1)+':1'),dict(targetGuid='Player-1-00000002'),
@@ -61,13 +80,18 @@ class SelectedReads(unittest.TestCase):
                 changed={**self.control,**change}
                 self.assertFalse(launch.validate_selected_control(args[0],changed,*args[2:]))
         self.assertFalse(launch.validate_control(*args))
+        legacy={key:value for key,value in self.control.items() if key not in ('targetGuids','confirmations','mac')}
+        legacy.update(version=2,action='select',targetGuid=self.target)
+        legacy['mac']=launch.selected_control_mac('synthetic-secret',legacy)
+        self.assertTrue(launch.validate_legacy_selected_control(args[0],legacy,*args[2:]))
+        self.assertFalse(launch.validate_selected_control(args[0],legacy,*args[2:]))
 
     def test_success_is_separate_bounded_observation_and_cursor_never_reaches_lua(self):
         self.assertTrue(self.tick(self.call()))
         r=self.selected.record
         self.assertEqual((r['attempts'],r['completed'],r['running'],r['stoppedReason']),(1,True,False,None))
-        self.assertEqual(r['page']['entitlements']['offset'],20)
-        self.assertIn(self.control['targetGuid'],r['coveredGuids'])
+        self.assertEqual(r['page']['entitlements']['offset'],0)
+        self.assertIn(self.target,r['coveredGuids'])
         self.assertEqual(r['startedAt'],self.control['observedAt'])
         self.assertEqual(r['expiresAt'],self.at+600)
         self.assertEqual(r['page']['expiresAt'],int(self.clock)+60)
@@ -82,7 +106,7 @@ class SelectedReads(unittest.TestCase):
     def test_v274_long_selected_observation_never_loosens_generic_or_historical_v273(self):
         self.assertTrue(self.tick(self.call(lambda:(True,self.reply(ttl=600)))))
         r=self.selected.record
-        self.assertTrue(r['completed']);self.assertEqual(r['protocol'],launch.SELECTED_PROTOCOL)
+        self.assertTrue(r['completed']);self.assertEqual(r['protocol'],launch.DIRECTIVE_PROTOCOL)
         self.assertEqual(r['page']['expiresAt'],self.at+600)
         self.assertFalse(launch.validate_page(r['page'],int(self.clock)))
         self.assertTrue(launch._selected_page(r['page'],r,r['coveredGuids'],self.at+120))
@@ -95,16 +119,15 @@ class SelectedReads(unittest.TestCase):
         self.assertNotIn('pageCursor',output['page'])
         legacy={**r,'protocol':launch.SELECTED_LEGACY_PROTOCOL}
         self.assertIsNone(launch.render_selected(legacy,int(self.clock)))
-        for protocol,ttl,complete in ((launch.SELECTED_LEGACY_PROTOCOL,60,True),
-                                      (launch.SELECTED_LEGACY_PROTOCOL,600,False)):
+        for protocol,ttl,complete in ((launch.SELECTED_LEGACY_PROTOCOL,60,False),
+                                      (launch.SELECTED_LEGACY_PROTOCOL,600,False),
+                                      (launch.SELECTED_PROTOCOL,600,False)):
             with self.subTest(protocol=protocol,ttl=ttl):
                 self.clock=float(self.at);self.selected.request(self.control,self.accepted,self.roster,self.clock)
                 self.tick(self.call(lambda:(True,self.reply(protocol=protocol,ttl=ttl))))
                 self.assertEqual(self.selected.record['completed'],complete)
-                if complete:
-                    self.assertEqual(self.selected.record['protocol'],launch.SELECTED_LEGACY_PROTOCOL)
-                    self.assertEqual(self.selected.record['page']['expiresAt'],int(self.clock)+60)
-                    self.assertEqual(savedvars.parse(launch.render_selected(self.selected.record,int(self.clock)))['OlympusLaunchSelected']['protocol'],launch.SELECTED_LEGACY_PROTOCOL)
+                self.assertEqual(self.selected.record['stoppedReason'],'invalid-selected-page')
+                self.assertIsNone(self.selected.record['page'])
 
     def test_extended_selected_deadline_stays_clipped_to_original_native_source_and_promotion_only(self):
         roster={**self.roster,'exportedAt':self.at-500}
@@ -114,6 +137,7 @@ class SelectedReads(unittest.TestCase):
             value=self.reply(ttl=600)
             value['page'].update(snapshotAt=self.at-500,expiresAt=self.at+100)
             value['page']['scan']['expiresAt']=self.at+100
+            value['page']['promotions']=[self.promotion(self.target,self.at-500)]
             return True,value
         self.tick(self.call(response))
         r=self.selected.record
@@ -137,7 +161,7 @@ class SelectedReads(unittest.TestCase):
                 self.assertEqual((r['attempts'],r['running'],r['completed'],r['page'],r['coveredGuids']),(0,False,False,None,[]))
                 self.assertIsNone(r['snapshotId']);self.assertIsNone(r['snapshotAt']);self.assertIsNone(r['expiresAt'])
                 self.assertIsNotNone(launch.render_selected(r,int(self.clock)))
-        missing={**self.control,'targetGuid':'Player-1-0000FFFF'}
+        missing={**self.control,'targetGuids':['Player-1-0000FFFF']}
         self.selected.request(missing,self.accepted,self.roster,self.clock)
         self.assertEqual(self.selected.record['stoppedReason'],'selected-target-unavailable')
         self.assertFalse(self.tick(self.call()));self.assertEqual(self.calls,[])
@@ -164,7 +188,7 @@ class SelectedReads(unittest.TestCase):
         self.assertEqual(self.calls[1],initial)
         for query in self.calls:
             self.assertEqual(query['selectionId'],[self.control['id']]);self.assertEqual(query['snapshotId'],['12'])
-            self.assertEqual(query['snapshotAt'],[str(self.at)]);self.assertEqual(query['targetGuid'],[self.control['targetGuid']])
+            self.assertEqual(query['snapshotAt'],[str(self.at)]);self.assertEqual(json.loads(query['targetGuids'][0]),[self.target])
         self.assertEqual(self.calls[2]['cursor'],['opaque-private-v4-context'])
         self.assertNotIn('cursor',self.calls[1])
 
@@ -211,13 +235,20 @@ class SelectedReads(unittest.TestCase):
 
     def test_invalid_wrappers_coverage_scope_dates_and_nonpromotion_data_hold(self):
         changes=[lambda r:r.update(controlId=str(self.at)+':99'),lambda r:r.update(targetGuid='Player-1-00000002'),
+                 lambda r:r.update(actorGuid='Player-1-00000002'),
+                 lambda r:r['page']['promotions'][0]['intent'].update(actorGuid='Player-1-00000002'),
+                 lambda r:r['page']['promotions'][0].pop('intentToken'),
+                 lambda r:r['page']['promotions'][0]['intent'].update(finalSlot=8),
+                 lambda r:r['page']['promotions'][0]['intent'].update(rankSchemeDigest='0'*64),
                  lambda r:r.update(coveredGuids=r['coveredGuids'][:-1]),lambda r:r['coveredGuids'].__setitem__(0,'Player-1-0000FFFF'),
                  lambda r:r['page'].update(snapshotAt=self.at-1),lambda r:r['page'].update(scopeHash='0'*16),
                  lambda r:r['page']['scan'].update(startedAt=self.at+1),lambda r:r['page'].update(nextCursor='no-traversal'),
                  lambda r:r['page']['riskBuffer'].append(dict(guid='Player-1-00000023',name='Other',currentSlot=9,level=60,lastOnlineDays=1,reason='unverified-initiate',reviewOnly=True))]
         for mutate in changes:
             with self.subTest(mutate=mutate):
-                self.selected.request(self.control,self.accepted,self.roster,self.at);self.clock=float(self.at)
+                self.clock=float(self.at)
+                self.selected=launch.SelectedRead(lambda:self.clock)
+                self.selected.request(self.control,self.accepted,self.roster,self.at)
                 reply=self.reply();mutate(reply)
                 self.tick(self.call((True,reply)))
                 self.assertFalse(self.selected.record['completed']);self.assertEqual(self.selected.record['page'],None)
@@ -238,7 +269,7 @@ class SelectedReads(unittest.TestCase):
         w=watcher.Watcher(dict(wow_dir=str(root),account='synthetic',worker_url='https://test.invalid',watcher_token='synthetic-token',
             verify_secret='synthetic-secret',officer_character='Fern Melder',membership_only=True,state_file=str(root/'state.json')))
         w.queue_file.parent.mkdir(parents=True);w.sv_file.parent.mkdir(parents=True,exist_ok=True)
-        original=launch.render_pages(dict(version=2,controlId=str(self.at-1200)+':1',scanComplete=True,running=False,stoppedReason='scan-expired',
+        original=launch.render_pages(dict(version=3,controlId=str(self.at-1200)+':1',scanComplete=True,running=False,stoppedReason='scan-expired',
             discoveredPages=49,refreshedPages=11,pages=[page(self.at-1200+i*5,i*20,963,self.at-1200) for i in range(49)]),self.at)
         self.assertIsNotNone(original);w.launch_operations_file.write_text(original,encoding='utf-8')
         db=dict(lastCharacterGuid=self.control['guid'],launchControl=self.control,roster=self.roster)
@@ -316,7 +347,7 @@ class SelectedReads(unittest.TestCase):
                 w._launch_accepted_roster=copy.deepcopy(self.accepted)
                 if outcome=='same-second':
                     w.state.d['roster_sent']=self.at
-                    scope={key:self.roster[key] for key in ('nativeGuild','nativeRealm')}
+                    scope={key:self.roster[key] for key in ('nativeGuild','nativeRealm','nativeRankTable')}
                     import hashlib,json
                     w.state.d['roster_scope_hash']=hashlib.sha256(json.dumps(scope,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
                 else:w.worker.call=lambda *a,**k:(False,'unknown')
@@ -391,7 +422,7 @@ class SelectedReads(unittest.TestCase):
             w,db,_=self.watcher(Path(temporary))
             pages=[page(self.at-10,i*20,963,self.at-20) for i in range(49)]
             for p in pages:p['snapshotAt']=self.at-20
-            history=dict(version=2,controlId=str(self.at-20)+':9',scanComplete=True,running=False,stoppedReason=None,
+            history=dict(version=3,controlId=str(self.at-20)+':9',scanComplete=True,running=False,stoppedReason=None,
                          discoveredPages=49,refreshedPages=11,pages=pages)
             original=launch.render_pages(history,self.at).encode()
             w.launch_operations_file.write_bytes(original)
