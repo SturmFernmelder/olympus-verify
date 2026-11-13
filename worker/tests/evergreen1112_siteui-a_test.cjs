@@ -776,6 +776,8 @@ async function round4Checks(cdp) {
     const n = await lostAfterProcessing('*/api/votes',
       `(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); const b = [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save nominations' && !x.disabled); if (!b) return false; b.click(); return true; })()`, toasts);
     check('R4-1', '/#/vote: Save nominations with its answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', n.seen.length === 1 && n.seen[0].method === 'PUT' && n.seen[0].status === 200 && unknownWords(n.said), JSON.stringify(n));
+    // Review of round 4 (13 Nov 2026): the generic sentence also serves withdrawals, sign-out and status calls, so its verb is neutral.
+    check('R4-1', 'the generic lost-write sentence uses a neutral verb ("took effect"), not "saved", since it also serves withdrawals and sign-out', /not known whether this took effect/.test(n.said) && !/was saved/.test(n.said), n.said);
 
     await open(cdp, 'member', '', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save friends")');
     const f = await lostAfterProcessing('*/api/friends',
@@ -818,6 +820,12 @@ async function round4Checks(cdp) {
       bare400: reply(400, '{}'),
       bare500: reply(500, 'synthetic failure', 'text/plain'),
       worded400: reply(400, JSON.stringify({ error: 'invalid', message: 'Synthetic worded refusal.' })),
+      // The Worker's real answers (review of round 4, 13 Nov 2026): its unhandled-error 500 and its serving-held 503 both carry
+      // a code; the name check's 400 carries its reason in `content`; the held-account 403 carries only a code.
+      internal500: reply(500, JSON.stringify({ error: 'internal', requestId: 'x' })),
+      held503: reply(503, JSON.stringify({ error: 'original_serving_held' })),
+      nameRequired400: reply(400, JSON.stringify({ error: 'full_character_name_required', content: 'Enter your full in-game name as First Last.' })),
+      accountHeld403: reply(403, JSON.stringify({ error: 'account_held' })),
       lost: p => cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' }),
     };
     const said = {};
@@ -835,6 +843,8 @@ async function round4Checks(cdp) {
     check('R4-4', 'a bare 500 says the site had a problem answering and that it is not known whether a code was issued', /had a problem answering/.test(said.bare500) && /not known whether a code was issued/.test(said.bare500) && !/did not arrive/.test(said.bare500) && advice.test(said.bare500), said.bare500);
     check('R4-4', 'a lost answer says it did not arrive and that it is not known whether a code was issued', /did not arrive/.test(said.lost) && /not known whether a code was issued/.test(said.lost) && advice.test(said.lost) && !/try again/i.test(said.lost), said.lost);
     check('R4-4', 'control: a refusal with a message still shows the Worker\'s own words', said.worded400 === 'Synthetic worded refusal.', said.worded400);
+    check('R4-4', 'the Worker\'s own 500 {error:"internal"} and 503 {error:"original_serving_held"} say the outcome is unknown, never that the site refused', ['internal500', 'held503'].every(k => /had a problem answering/.test(said[k]) && /not known whether a code was issued/.test(said[k]) && !/refused/.test(said[k]) && advice.test(said[k]) && !/try again/i.test(said[k])), JSON.stringify({ internal500: said.internal500, held503: said.held503 }));
+    check('R4-4', 'a 4xx refusal that carries a reason shows it: the name check\'s `content`, and a sentence of its own for a held account', said.nameRequired400 === 'Enter your full in-game name as First Last.' && /cannot request a code right now, so none was issued/.test(said.accountHeld403) && !/without giving a reason|not known whether/.test(said.accountHeld403), JSON.stringify({ nameRequired400: said.nameRequired400, accountHeld403: said.accountHeld403 }));
   }
 }
 

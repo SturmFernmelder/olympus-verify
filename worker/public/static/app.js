@@ -930,7 +930,7 @@
   // This page's version, sent with every call. The Worker refuses saves from a page older than itself (a page opened
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
-  const WRITE_ANSWER_LOST = "The answer did not arrive, so it is not known whether this was saved. Reload the page and check before you repeat it.";
+  const WRITE_ANSWER_LOST = "The answer did not arrive, so it is not known whether this took effect. Reload the page and check before you repeat it.";
   let boardSummaryRead = null; // Session-memory counts only, never candidate records or write authority.
   const SESSION_ENDED_ENTRY = "/?entry=session-ended";
   let endingSiteSession = false;
@@ -7002,13 +7002,17 @@
       } catch (error) {
         // RC-017 (round 3, 12 Nov 2026): since CL2-017 a bare failure shows this fallback, and a lost answer may already have
         // issued a code, so it asks for a status check before a second request instead of inviting a retry.
-        // Round 4 item 4 (13 Nov 2026): each case says what happened. A lost answer, an unreadable one and a bare 5xx leave the
-        // outcome unknown; a refusal the Worker answered keeps its own words, and one without a message says so.
+        // Round 4 item 4 (13 Nov 2026): each case says what happened. A lost answer, an unreadable one and any 5xx leave the
+        // outcome unknown; a refusal the Worker answered (4xx) keeps its own words, and one without a message says so.
+        // Round 4 review (13 Nov 2026): every 5xx counts, with or without a code: the Worker's own {error:"internal"} (500) and
+        // {error:"original_serving_held"} (503) prove nothing about whether a code was issued. A 4xx's `content` is its reason.
         const statusCheck = " Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.";
+        const worded = error && error.data && [error.data.message, error.data.content].find(text => typeof text === "string" && text.trim());
         const said = error && error.status === 0 ? "The answer did not arrive, so it is not known whether a code was issued." + statusCheck
-          : error && error.data && error.data.message ? explain(error)
           : codeOf(error) === "unreadable_answer" ? "The answer could not be read, so it is not known whether a code was issued." + statusCheck
-          : uncertain(error) ? "The site had a problem answering, so it is not known whether a code was issued." + statusCheck
+          : error && error.status >= 500 ? "The site had a problem answering, so it is not known whether a code was issued." + statusCheck
+          : worded ? worded
+          : codeOf(error) === "account_held" ? "Your account cannot request a code right now, so none was issued. Ask High Council to use /olympus check."
           : explain(error, "The site refused the request without giving a reason." + statusCheck);
         if (live()) add(result, h("p", {class:"err",text:said}));
       } finally { if (live()) submit.disabled = false; }
