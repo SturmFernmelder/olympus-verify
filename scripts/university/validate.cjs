@@ -35,6 +35,7 @@ quizFiles.forEach((doc, i) => { if (doc.file + ".json" !== listDir("quizzes")[i]
 // Index: every listed guide exists, every guide file is listed, races are only those the site's data names.
 const RACES = new Map([["dwarf", "Dwarf"], ["gnome", "Gnome"], ["human", "Human"], ["night-elf", "Night Elf"], ["skyborne", "Skyborne (High Order)"]]);
 if (index.schema !== "olympus-university-index-v1" || !Array.isArray(index.guides)) errors.push("index.json: schema");
+if (typeof index.schedule !== "string" || !/launched/.test(index.schedule) || !/Raid unlock date: 9 December 2026/i.test(index.schedule)) errors.push("index.json: schedule must say when Forever launched and give the first raid unlock date");
 const guides = [];
 for (const entry of index.guides || []) {
   const where = "index " + entry.kind + " " + entry.id;
@@ -106,6 +107,16 @@ for (const { entry, guide } of guides) {
   }
 }
 if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists and chapter counts rewritten"); }
+
+// Schedule wording (INT-UNI-2, 12 Nov 2026): every string of every university file, by the rule validate.js shares.
+{
+  const walk = (value, where) => {
+    if (typeof value === "string") { const why = rules.scheduleWording(value); if (why) errors.push(where + ": stale schedule wording (" + why + "): " + value.slice(0, 120)); }
+    else if (Array.isArray(value)) value.forEach((v, i) => walk(v, where + "[" + i + "]"));
+    else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) walk(v, where + "." + k);
+  };
+  for (const dir of ["", "courses", "races", "professions", "facts", "quizzes", "presets"]) for (const f of listDir(dir || ".")) walk(read((dir ? dir + "/" : "") + f), (dir ? dir + "/" : "") + f);
+}
 
 // Quiz questions must belong to a guide that lists their file.
 for (const doc of quizFiles) if (!guides.some(x => x.guide.quizFiles.includes(doc.file))) errors.push("quizzes/" + doc.file + ".json: no guide lists it in quizFiles");

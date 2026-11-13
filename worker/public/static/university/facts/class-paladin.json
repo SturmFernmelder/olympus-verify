@@ -648,7 +648,7 @@
    "grade": "U",
    "label": "Raid tanking at 60",
    "value": null,
-   "note": "Untested: the beta capped at level 30, and raids open on 9 Dec 2026.",
+   "note": "Untested: the beta capped at level 30. First raid unlock date: 9 December 2026.",
    "sources": [],
    "reviewedAt": "2026-11-04",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
@@ -973,7 +973,7 @@
    "kind": "theory",
    "grade": "B",
    "label": "Launch raids",
-   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "value": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40), all planned to reset weekly.",
    "sources": [
     "g218-2"
    ],

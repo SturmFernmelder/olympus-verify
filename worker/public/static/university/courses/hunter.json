@@ -535,7 +535,7 @@
         ]
        },
        {
-        "text": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+        "text": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
         "facts": [
          "class-hunter.launch-raids"
         ]
@@ -970,7 +970,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "hunter-beast-mastery-201-consumables",
@@ -1245,7 +1245,7 @@
        "theory": [
         "class-hunter.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "hunter-beast-mastery-301-duels",
@@ -1631,7 +1631,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "hunter-marksmanship-201-consumables",
@@ -1876,7 +1876,7 @@
        "theory": [
         "class-hunter.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "hunter-marksmanship-301-duels",
@@ -2263,7 +2263,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "hunter-survival-201-consumables",
@@ -2522,7 +2522,7 @@
        "theory": [
         "class-hunter.launch-raids-2"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "hunter-survival-301-duels",

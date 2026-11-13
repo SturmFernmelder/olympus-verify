@@ -36,7 +36,7 @@
     ]
    },
    {
-    "text": "The first raids open on 9 December 2026: The Barrow Deeps, Hyjal Summit and Onyxia's Lair.",
+    "text": "First raid unlock date: 9 December 2026, for The Barrow Deeps, Hyjal Summit and Onyxia's Lair.",
     "facts": [
      "class-mage.launch-raids"
     ]
@@ -465,7 +465,7 @@
         ]
        },
        {
-        "text": "The first raids open on 9 December 2026: The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
+        "text": "First raid unlock date: 9 December 2026, for The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
         "facts": [
          "class-mage.launch-raids"
         ]
@@ -937,7 +937,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "mage-arcane-201-consumables",
@@ -1190,7 +1190,7 @@
         "class-mage.launch-raids",
         "class-mage.dps-rankings"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "mage-arcane-301-duels",
@@ -1582,7 +1582,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "mage-fire-201-consumables",
@@ -1831,7 +1831,7 @@
         "class-mage.launch-raids",
         "class-mage.dps-rankings"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "mage-fire-301-duels",
@@ -2224,7 +2224,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "mage-frost-201-consumables",
@@ -2471,7 +2471,7 @@
         "class-mage.launch-raids",
         "class-mage.dps-rankings"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "mage-frost-301-duels",

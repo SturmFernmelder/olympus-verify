@@ -12,7 +12,7 @@
   const TRACK_NAMES = { 101: "101 Foundations", 201: "201 Intermediate", 301: "301 Advanced" };
   const TOOLS = [["attunements", "Attunements & pre-raid checklist"], ["buffs", "World buffs & consumables"], ["raid-structure", "Raid team structure & leadership"], ["changes", "What changed in Forever"]];
   // The same one-line descriptions guides218.js shows on the tool pages.
-  const TOOL_NOTES = { attunements: "Raid access, what Blizzard has announced, and a slot-by-slot gearing checklist.",
+  const TOOL_NOTES = { attunements: "Raid unlock dates, what each raid requires, and a slot-by-slot gearing checklist.",
     buffs: "Pick a role and compare recorded effects for different encounters, with every Classic number labelled.",
     "raid-structure": "Fox’s guide to organizing one roster for 10-, 20- and 40-player raids.", changes: "The systems Forever changes, and each class's talent changes in the calculator's data." };
   const ROLE_ICON = { tank: "role-tank", healer: "role-healer", melee: "role-dps", ranged: "role-dps", caster: "role-dps" };
@@ -85,6 +85,7 @@
   const count = n => Number.isInteger(n) && n >= 0 && n <= 5000;
   function checkIndex(index) {
     const ok = index && index.schema === "olympus-university-index-v1" && Array.isArray(index.guides) && index.guides.length <= 80 && index.grades && typeof index.scopeNote === "string"
+      && (index.schedule === undefined || (typeof index.schedule === "string" && index.schedule.length <= 240))
       && ["A", "B", "C", "D", "E", "U"].every(g => typeof index.grades[g] === "string")
       && index.guides.every(g => g && ["class", "race", "profession"].includes(g.kind) && SLUG.test(g.id) && typeof g.name === "string" && g.name.length <= 40
         && (g.status === "planned" ? g.file === null : ["complete", "migrated"].includes(g.status) && GUIDE_FILE.test(g.file))
@@ -231,6 +232,8 @@
         + (waiting301 ? ", " + waiting301 + " of them in the 301 tracks" : "") + ", and each says what it is waiting for." : "");
       const classes = ordered("class"), races = ordered("race"), exams = examCount(all);
       return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever, in 101, 201 and 301 tracks. Each written chapter pairs Theory with Praxis, and most end with a quiz."),
+        // INT-UNI-2 (12 Nov 2026): the hub states the schedule as dated facts: the launch is past, the raid unlock is next.
+        index.schedule ? el("p", { class: "small uni-hub-schedule", text: index.schedule }) : null,
         el("p", { class: "small uni-hub-status", text: status }),
         el("nav", { class: "uni-jump", "aria-label": "On this page" }, el("ul", null, [["uni-classes", "Classes"], ["uni-races", "Races"], ["uni-professions", "Professions"], ["uni-tools", "Hub tools"], ["uni-exams", "Mastery exams"]]
           // Buttons, not links: the hash belongs to the router, so a jump moves focus to the section instead.
@@ -501,7 +504,7 @@
       try {
         index = checkIndex(await getJson("index.json"));
         if (route.view === "missing") { shell.replaceChildren(...notFound(route.what)); return; }
-        if (route.view === "hub") { shell.replaceChildren(...hub()); return; }
+        if (route.view === "hub") { shell.replaceChildren(...hub().filter(Boolean)); return; }
         if (route.view === "exams") { shell.replaceChildren(...examsIndex()); return; }
         const kind = route.view === "exam" ? (route.scope.startsWith("spec-") ? "class" : route.scope.split("-")[0]) : route.kind;
         const id = route.view === "exam" ? route.scope.slice(route.scope.indexOf("-") + 1) : route.id;

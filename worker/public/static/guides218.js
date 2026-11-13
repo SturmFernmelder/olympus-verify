@@ -18,7 +18,7 @@
   const ROLE_ICON = { tank: "role-tank", healer: "role-healer", melee: "role-dps", ranged: "role-dps", caster: "role-dps" };
   const BUFF_ROLES = [["tank", "Tank"], ["healer", "Healer"], ["melee", "Melee"], ["ranged", "Ranged"], ["caster", "Caster"]];
   const TOOLS = [
-    ["attunements", "Attunements & pre-raid checklist", "Raid access, what Blizzard has announced, and a slot-by-slot gearing checklist."],
+    ["attunements", "Attunements & pre-raid checklist", "Raid unlock dates, what each raid requires, and a slot-by-slot gearing checklist."],
     ["buffs", "World buffs & consumables", "Pick a role and compare recorded effects for different encounters, with every Classic number labelled."],
     ["raid-structure", "Raid team structure & leadership", "Fox’s guide to organizing one roster for 10-, 20- and 40-player raids."],
     ["changes", "What changed in Forever", "The systems Forever changes, and each class's talent changes in the calculator's data."],

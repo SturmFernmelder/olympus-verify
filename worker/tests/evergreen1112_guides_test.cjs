@@ -534,6 +534,37 @@ check('renderer: the hub says how many chapters are written and waiting, compute
     && !/Every course below has|Every chapter pairs Theory with Praxis and ends with a quiz/.test(p.container.textContent) && /Each written chapter pairs Theory with Praxis/.test(lead) || JSON.stringify({ status, lead });
 });
 
+// INT-UNI-2 / CL2-173, CL2-177 (12 Nov 2026): schedule lines are dated facts in guides218.json's wording, and the hub
+// says Forever launched (4 November 2026) and gives the first raid unlock date. The shared rule is checked, and the
+// files are scanned with an independent pattern so a weakened rule cannot pass.
+const uniStrings = () => {
+  const out = [], walk = (v, where) => { if (typeof v === 'string') out.push([where, v]); else if (Array.isArray(v)) v.forEach((x, i) => walk(x, where + '[' + i + ']')); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, where + '.' + k); };
+  for (const dir of ['', 'courses', 'races', 'professions', 'facts', 'quizzes', 'presets']) for (const f of fs.readdirSync(path.join(uni, dir)).filter(x => x.endsWith('.json'))) walk(json(uni, dir, f), (dir ? dir + '/' : '') + f);
+  return out;
+};
+check('INT-UNI-2: no university string says the raids "open on" a date, uses "9 Dec" shorthand or calls the launch upcoming or announced', () => {
+  const R = rules(), STALE = /\b9 Dec\b(?!ember)|\bopens? (?:on |from )?9 Dec|\braids? (?:that )?open\b|\bFrom 9 Dec|announced (?:global )?launch|upcoming launch/i;
+  const bad = uniStrings().filter(([, s]) => STALE.test(s) || (R.scheduleWording && R.scheduleWording(s)));
+  const raid = uniStrings().filter(([, s]) => /Raid unlock date: 9 December 2026/.test(s)).length;
+  return typeof R.scheduleWording === 'function' && bad.length === 0 && raid >= 40 || JSON.stringify({ rule: typeof R.scheduleWording, bad: bad.slice(0, 4).map(([w, s]) => w + ': ' + s.slice(0, 90)), nBad: bad.length, raid });
+});
+check('INT-UNI-2: the shared rule refuses "open on 9 Dec", "From 9 Dec", a date with no year and an announced launch, and accepts the dated wording', () => {
+  const R = rules();
+  if (typeof R.scheduleWording !== 'function') return 'validate.js exports no scheduleWording rule';
+  const refused = ['Barrow Deeps, Hyjal Summit and Onyxia\'s Lair open on 9 December 2026.', 'The first raids open on 9 Dec 2026.', 'From 9 Dec 2026: The Barrow Deeps',
+    'Molten Core is not one of the raids that open on 9 December.', 'The guides record the announced global launch for 4 November 2026.', 'Phase tables wait for the raids on 9 December.'];
+  const accepted = ['Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia\'s Lair.', 'First raid unlock date: 9 December 2026.', 'Forever launched worldwide on 4 November 2026 at 23:00 UTC.',
+    'Insect Swarm gives you a way out when they open on you.', 'No raid-wide Bloodlust has been announced.'];
+  const a = refused.filter(t => !R.scheduleWording(t)), b = accepted.filter(t => R.scheduleWording(t));
+  return a.length === 0 && b.length === 0 || JSON.stringify({ notRefused: a, wronglyRefused: b });
+});
+check('INT-UNI-2: the hub says Forever launched on 4 November 2026 and gives the first raid unlock date, and never says "announced"', async () => {
+  const p = await open([]), t = p.container.textContent;
+  const hunter = await open(['class', 'hunter', '201']);
+  return /Forever launched worldwide on 4 November 2026 at 23:00 UTC\. First raid unlock date: 9 December 2026\./.test(t) && !/announced|upcoming/i.test(t)
+    && /Raid unlock date: 9 December 2026/.test(hunter.container.textContent) && !/open on 9 Dec/.test(hunter.container.textContent) || JSON.stringify({ hub: t.slice(0, 400) });
+});
+
 (async () => {
   for (const run of pending) {
     const [name, ok, detail] = await run();

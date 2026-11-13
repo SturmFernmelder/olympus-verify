@@ -32,7 +32,7 @@
     ]
    },
    {
-    "text": "The first raids open on 9 Dec 2026: The Barrow Deeps, Hyjal Summit and Onyxia's Lair.",
+    "text": "First raid unlock date: 9 December 2026, for The Barrow Deeps, Hyjal Summit and Onyxia's Lair.",
     "facts": [
      "class-priest.launch-raids"
     ]
@@ -264,7 +264,7 @@
         ]
        },
        {
-        "text": "Read Benediction and Anathema as a Classic quest. It needs the Eye of Divinity from Majordomo Executus in Molten Core, and Molten Core is not one of the raids that open on 9 Dec.",
+        "text": "Read Benediction and Anathema as a Classic quest. It needs the Eye of Divinity from Majordomo Executus in Molten Core, and Molten Core is not one of the raids with the 9 December 2026 unlock date.",
         "facts": [
          "class-priest.quest-benediction-and-anathema-classic"
         ]
@@ -273,7 +273,7 @@
       "mistakes": [
        {
         "mistake": "Planning a Benediction run from a Classic guide.",
-        "fix": "The Classic chain needs Majordomo Executus in Molten Core, which is not a 9 Dec raid, so it is unconfirmed in Forever.",
+        "fix": "The Classic chain needs Majordomo Executus in Molten Core, which is not one of the raids with the 9 December 2026 unlock date, so it is unconfirmed in Forever.",
         "facts": [
          "class-priest.quest-benediction-and-anathema-classic"
         ]
@@ -504,7 +504,7 @@
         ]
        },
        {
-        "text": "The first raids open on 9 Dec 2026: The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
+        "text": "First raid unlock date: 9 December 2026, for The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
         "facts": [
          "class-priest.launch-raids"
         ]
@@ -943,7 +943,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "priest-discipline-201-consumables",
@@ -1142,7 +1142,7 @@
        "theory": [
         "class-priest.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "priest-discipline-301-duels",
@@ -1508,7 +1508,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "priest-holy-201-consumables",
@@ -1702,7 +1702,7 @@
        "theory": [
         "class-priest.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "priest-holy-301-duels",
@@ -2069,7 +2069,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "priest-shadow-201-consumables",
@@ -2264,7 +2264,7 @@
        "theory": [
         "class-priest.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "priest-shadow-301-duels",
