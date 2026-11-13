@@ -17,15 +17,27 @@ const RANKS=[['Olympus Guild Master','1554261979684933742'],['Olympus High Counc
 const LEGACY=['1561095726115725373','1561095748039221339','1561095893007073371','1561096328409251880','1561096679778947113','1568117859970842735'];
 const ALL=[...RANKS.map(r=>r[1]),...LEGACY],ID=Object.fromEntries(RANKS.map(([name,id])=>[name.replace('Olympus ','').replace(' ','').toLowerCase(),id]));
 const MEMBER=ID.member,VETERAN=ID.veteran,OFFICER=ID.officer,RAIDER=ID.raider,RETIRED=LEGACY[0],OTHER='222222222222222222',SUBJECT=seed.tables.find(t=>t.name==='pending').rows[0].discord_id;
-const kinds=['bot-veteran','member-manual','officer-manual','retired-manual','stack','none','not-member','delete-404','delete-403','delete-429','unknown','unban-reban','race-reban','race-inflight','hierarchy','budget','sweep-cost','ack-loss','ack-loss-unread','lost-unban','erasure-debt','long-card','slice','progress','receipt-lost','receipt-lost-interrupted'];
-const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
+// Successor (12 Nov 2026): cross-purpose, cross-generation rows that must each keep the same-role fence on Veteran.
+const CANONICAL_PROFILE='olympus-canonical-ranks-20261106-v1',MIGRATION_PROFILE='olympus-canonical-migration-20261106-v1',NATIVE_PROFILE='olympus-prime-live-20261105-v1',BAN_PROFILE='olympus-ban-rank-removal-20261112-v1',BAN='canonical_ban_remove_v1';
+const XP=[['ban-delete',BAN,0,BAN_PROFILE],['routine-put','canonical_routine233',1,CANONICAL_PROFILE],['routine-delete','canonical_routine233',0,CANONICAL_PROFILE],['consumed-put','canonical_consumed233',1,CANONICAL_PROFILE],['migration-put','canonical_migration233',1,MIGRATION_PROFILE],['migration-delete','canonical_migration_remove233',0,MIGRATION_PROFILE],['native-put','fresh_roster_rank',1,NATIVE_PROFILE],['native-delete','fresh_roster_rank',0,NATIVE_PROFILE]];
+const XP_CASES=XP.flatMap(([key,purpose,desired,profile])=>[['older','e'.repeat(32)],['current',null]].map(([gen,generation])=>({kind:'xp-'+key+'-'+gen,purpose,desired,profile,generation})));
+const ORIGINAL_KINDS=['bot-veteran','member-manual','officer-manual','retired-manual','stack','none','not-member','delete-404','delete-403','delete-429','unknown','unban-reban','race-reban','race-inflight','hierarchy','budget','sweep-cost','ack-loss','ack-loss-unread','lost-unban','erasure-debt','long-card','slice','progress','receipt-lost','receipt-lost-interrupted'];
+const SUCCESSOR_KINDS=['late-delete','known-ack','known-migrate','known-nd','known-404','malformed-retired','malformed-variant','inserted-ack-control','effect-not-confirmed','confirm-unknown','lanes','lanes-walk',...XP_CASES.map(c=>c.kind)];
+const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS];
+const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},held:[],member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 let mf,checks=[];
-const check=(name,value,detail)=>{checks.push({name,passed:value===true,...(value===true?{}:{detail})});console.log((value===true?'PASS ':'FAIL ')+name);};
+const check=(name,value,detail)=>{checks.push({name,passed:value===true,...(value===true&&!process.env.BAN1112_DETAIL?{}:{detail})});console.log((value===true?'PASS ':'FAIL ')+name);};
 const call=async(route,body={})=>{const r=await mf.dispatchFetch('http://fixture.invalid/'+route,{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'application/json'}}),t=await r.text();assert.equal(r.status,200,route+': '+t);const x=JSON.parse(t);assert.equal(x.ok,true,route+': '+t);return x;};
 const deletes=(k,from=0)=>state.get(k).http.slice(from).filter(h=>h.method==='DELETE');
 const writes=k=>state.get(k).http.filter(h=>!['GET'].includes(h.method)&&!h.path.startsWith('/webhooks/'));
 const present=(k,s=SUBJECT)=>[...state.get(k).present.get(s)];
 const lastReply=k=>state.get(k).patches.at(-1)??'';
+const putsTo=(k,role)=>state.get(k).http.filter(h=>h.method==='PUT'&&h.path.endsWith('/roles/'+role)).length;
+const writesTo=(k,role,from=0)=>state.get(k).http.slice(from).filter(h=>(h.method==='PUT'||h.method==='DELETE')&&h.path.endsWith('/roles/'+role)).length;
+const same=(a,b)=>!!a&&!!b&&JSON.stringify(a)===JSON.stringify(b);
+const sameExcept=(a,b,keys)=>!!a&&!!b&&Object.keys(b).every(k=>keys.includes(k)||JSON.stringify(a[k])===JSON.stringify(b[k]))&&Object.keys(a).length===Object.keys(b).length;
+// The held DELETE lands now: only the synthetic server state changes; no request is made and nothing is resent.
+const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present.get(h.subject).delete(h.role);};
 (async()=>{let complete=false;try{
  mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script:built.outputFiles[0].text,modules:true,name:'evergreen1112-ban',compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.NONE),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,resourceTmpPath:path.join(out,'tmp'),resourcePersistencePath:path.join(out,'persist'),isolatedResourcePersistencePath:path.join(out,'isolated'),
   d1Databases:Object.fromEntries(kinds.map(k=>['DB_'+k.replaceAll('-','_'),'ban1112-'+k])),outboundService:async req=>{
@@ -48,6 +60,11 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
     const mode=s.del[role];
     if(mode==='throw'){delete s.del[role];throw Error('synthetic lost DELETE answer');}
     if(mode==='lost-after-effect'){delete s.del[role];set.delete(role);throw Error('synthetic lost DELETE answer after the effect');}
+    // Successor (12 Nov 2026): the DELETE is admitted and its answer lost, but its effect is held back and lands only when
+    // the test releases it (no new request is made then): the late-DELETE counterexample of Codex's review.
+    if(mode==='hold'){delete s.del[role];s.held.push({subject:r[2],role});throw Error('synthetic lost DELETE answer; effect delayed');}
+    // Discord acknowledges the DELETE but the role stays (the confirming read then shows it present).
+    if(mode==='ack-no-effect'){delete s.del[role];return new Response(null,{status:204});}
     if(typeof mode==='number'){delete s.del[role];return Response.json({message:'synthetic',retry_after:0},{status:mode});}
     set.delete(role);return new Response(null,{status:204});
    }
@@ -59,6 +76,16 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  const setup=async(k,o={})=>{const s=state.get(k);for(const role of o.present??[])s.present.get(SUBJECT).add(role);await call('setup/'+k,{verifyFirst:o.verifyFirst===true,rank:o.rank,budget:o.budget,channels:o.channels===true});};
  const ban=(k,reason)=>call('ban/'+k,reason===undefined?{}:{reason}),sweep=k=>call('sweep/'+k),unban=k=>call('unban/'+k);
  const banRows=x=>x.rows.filter(r=>r.purpose==='canonical_ban_remove_v1');
+ // After a ban closed the open code: a new open request and its code, then the original verification path.
+ // A writer that was reached and stopped at its physical barrier: verification binds the member but holds the rank
+ // intent, the routine holds its intent before any request, the migration holds at its reservation.
+ const verifyFenced=y=>y.verify?.body?.result==='member'&&y.verify.body.roleGranted===false&&y.verify.body.rankReason==='native232_intent_held';
+ const routineFenced=y=>y.result?.state==='held'&&y.result.reason==='native232_intent_held'&&y.result.requests===0;
+ const migrateFenced=y=>y.result?.state==='held'&&y.result.reason==='canonical239_reservation_held';
+ const freshVerify=async k=>{const c=await call('newcode/'+k);return call('verify/'+k,{code:c.code,at:c.at});};
+ const rolesweep=(k,lane)=>call('rolesweep/'+k,lane===undefined?{}:{lane}),sweepAudit=y=>y.audits.filter(a=>a.action==='role.sweep').map(a=>JSON.parse(a.details)).at(-1);
+ // A well-formed earlier row (32/64-hex identity fields, a closed 300 s window in the past), for synthetic controls.
+ let rowSeq=0;const synthetic=async(k,o)=>{const now=(await call('clock/'+k)).now,n=(++rowSeq).toString(16);return {id:n.padStart(32,'a'),subject:SUBJECT,purpose:o.purpose,proof_id:o.purpose===BAN?n.padStart(32,'b'):null,guild_id:G,role_id:o.role??VETERAN,desired:o.desired,state:o.state,reason:o.reason,attempts:1,claim_nonce:n.padStart(32,'c'),subject_generation:o.generation??null,request_digest:n.padStart(64,'d'),native_profile:o.profile,created_at:now-1000,expires_at:now-700,checked_at:now-690};};
  const otherUntouched=()=>kinds.every(k=>!state.get(k).http.some(h=>h.path.includes('/members/'+OTHER)));
  const costs={};
 
@@ -76,6 +103,106 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  check('ban safety write persists',x.member?.banned===1,x.member);
  await unban('bot-veteran');await call('refresh/bot-veteran');const puts=state.get('bot-veteran').http.filter(h=>h.method==='PUT').length;x=await call('routine/bot-veteran');
  check('after unban the ordinary canonical routine grants the rank again; the ban receipt is not a permanent fence',state.get('bot-veteran').http.filter(h=>h.method==='PUT').length===puts+1&&present('bot-veteran').includes(VETERAN)&&x.result?.state==='settled',{result:x.result,rows:x.rows});
+
+ // ---- Successor (12 Nov 2026): custody of an unknown DELETE (Codex's review of f5dfe10, controls agreed by both agents).
+ // S1. "late-delete-absence". A real ban DELETE is admitted, its effect held back and its answer lost. Another cause removes
+ // the role, the claim window passes, a read sees the role absent, the member is unbanned and fresh rank evidence arrives.
+ // The routine, shared-membership and migration writers send no PUT for the fenced role; then the held DELETE lands.
+ await setup('late-delete',{present:[VETERAN,ADDON],rank:6});const ld=state.get('late-delete');ld.del[VETERAN]='hold';
+ x=await ban('late-delete');const ldRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('late-delete-absence: the admitted ban DELETE is sent once, its answer lost and its effect held; the row is unknown',deletes('late-delete').length===1&&ld.held.length===1&&present('late-delete').includes(VETERAN)&&ldRow?.state==='unknown'&&ldRow.reason==='ban_rank1112_delete_outcome_unknown'&&ldRow.attempts===1&&/^[0-9a-f]{32}$/.test(ldRow.claim_nonce??''),{rows:x.rows,held:ld.held});
+ check('late-delete-absence: the officer is told the result is unconfirmed and that the role stays blocked for this member after an unban',lastReply('late-delete').includes('unconfirmed result: <@&'+VETERAN+'>')&&lastReply('late-delete').includes('even after an unban, until an attended resolution exists'),lastReply('late-delete'));
+ ld.present.get(SUBJECT).delete(VETERAN); // an independent cause: staff remove the role by hand
+ await call('expire/late-delete');x=await call('rows/late-delete');const ldWindow=banRows(x).find(r=>r.id===ldRow?.id);
+ check('late-delete-absence: the claim window passes by the test clock only (created_at and expires_at 400 s back, every other field unchanged)',sameExcept(ldWindow,ldRow,['created_at','expires_at'])&&ldWindow.created_at===ldRow.created_at-400&&ldWindow.expires_at===ldRow.expires_at-400,{before:ldRow,after:ldWindow});
+ let ldFrom=state.get('late-delete').http.length;x=await sweep('late-delete');costs.sweepObserveUnresolved=x.statements;
+ check('late-delete-absence: the banned visit reads the role absent, counts it as an observation only and leaves the row byte-identical',same(banRows(x).find(r=>r.id===ldRow?.id),ldWindow)&&x.result?.observed===1&&writesTo('late-delete',VETERAN,ldFrom)===0&&state.get('late-delete').http.slice(ldFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT),{result:x.result,rows:banRows(x),http:state.get('late-delete').http.slice(ldFrom)});
+ await unban('late-delete');await call('refresh/late-delete');ldFrom=state.get('late-delete').http.length;
+ const ldVerify=await freshVerify('late-delete');
+ // The writers are reached and stop at their own physical barrier (the same sequence grants in known-positive below).
+ check('late-delete-absence: after the unban, fresh verification evidence binds the member but the shared-membership writer holds its intent and sends no PUT for the fenced role',putsTo('late-delete',VETERAN)===0&&!present('late-delete').includes(VETERAN)&&verifyFenced(ldVerify),{verify:ldVerify.verify,http:state.get('late-delete').http.slice(ldFrom)});
+ const ldRoutine=await call('routine/late-delete');
+ check('late-delete-absence: the routine writer holds its intent with no request and sends no PUT for the fenced role',putsTo('late-delete',VETERAN)===0&&routineFenced(ldRoutine),{result:ldRoutine.result});
+ const ldMigrate=await call('migrate/late-delete',{target:VETERAN,currentRoles:[]});
+ check('late-delete-absence: the migration writer holds at its reservation and sends no PUT for the fenced role',putsTo('late-delete',VETERAN)===0&&migrateFenced(ldMigrate),{result:ldMigrate.result});
+ x=await sweep('late-delete');
+ check('late-delete-absence: the GET-only visit after the unban writes nothing and the row stays byte-identical',same(banRows(x).find(r=>r.id===ldRow?.id),ldWindow)&&writesTo('late-delete',VETERAN,ldFrom)===0,{result:x.result,rows:banRows(x)});
+ x=await call('receipt/late-delete',{id:ldRow?.id});
+ check('late-delete-absence: account erasure\'s debt visit reports the row unknown and leaves it byte-identical',x.result?.state==='unknown'&&x.result.reason==='ban_rank1112_unresolved_observed_absent'&&same(banRows(x).find(r=>r.id===ldRow?.id),ldWindow),{result:x.result,rows:banRows(x)});
+ const ldRequests=state.get('late-delete').http.length;release('late-delete');x=await call('rows/late-delete');
+ check('late-delete-absence: the held DELETE lands without any resend; the original row keeps its identity, body, nonce and clocks and no acknowledgement is recorded',state.get('late-delete').http.length===ldRequests&&deletes('late-delete').length===1&&same(banRows(x).find(r=>r.id===ldRow?.id),ldWindow)&&!x.rows.some(r=>r.role_id===VETERAN&&/acknowledged/.test(r.reason))&&putsTo('late-delete',VETERAN)===0&&!present('late-delete').includes(VETERAN)&&present('late-delete').includes(ADDON),{rows:x.rows});
+
+ // S2. "known-positive". An acknowledged and confirmed DELETE, a never-dispatched removal and a proved no-effect 404 are
+ // known: after an unban each lets a fresh grant through. The same sequence as S1, so S1's zero PUTs are not vacuous.
+ await setup('known-ack',{present:[VETERAN,ADDON],rank:6});x=await ban('known-ack');
+ check('known-positive: setup, the ban DELETE is acknowledged and confirmed',banRows(x)[0]?.state==='settled'&&banRows(x)[0].reason==='ban_rank1112_delete_acknowledged_and_confirmed'&&!present('known-ack').includes(VETERAN),x.rows);
+ await unban('known-ack');await call('refresh/known-ack');x=await freshVerify('known-ack');
+ check('known-positive: after an acknowledged and confirmed DELETE and an unban, fresh verification grants the rank again (one PUT)',putsTo('known-ack',VETERAN)===1&&present('known-ack').includes(VETERAN),{verify:x.verify});
+ await setup('known-migrate',{present:[VETERAN,ADDON],rank:6});await ban('known-migrate');await unban('known-migrate');x=await call('migrate/known-migrate',{target:VETERAN,currentRoles:[]});
+ check('known-positive: after an acknowledged and confirmed DELETE and an unban, the migration writer grants the rank (one PUT)',putsTo('known-migrate',VETERAN)===1&&present('known-migrate').includes(VETERAN)&&x.result?.state==='settled',{result:x.result});
+ await setup('known-nd',{present:[VETERAN,ADDON],rank:6});await call('faild1/known-nd',{match:'SELECT 1 FROM role_settlements WHERE id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND proof_id=?6'});x=await ban('known-nd');
+ const ndRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('known-positive: a claimed removal stopped before dispatch is recorded held, never dispatched, with no DELETE',deletes('known-nd').length===0&&ndRow?.state==='held'&&ndRow.reason==='ban_rank1112_never_dispatched'&&ndRow.attempts===1,x.rows);
+ state.get('known-nd').present.get(SUBJECT).delete(VETERAN);await unban('known-nd');await call('refresh/known-nd');x=await freshVerify('known-nd');
+ check('known-positive: a never-dispatched removal stays known: after an unban fresh verification grants the rank (one PUT)',putsTo('known-nd',VETERAN)===1&&present('known-nd').includes(VETERAN),{verify:x.verify});
+ await setup('known-404',{present:[VETERAN,ADDON],rank:6});state.get('known-404').del[VETERAN]=404;x=await ban('known-404');
+ check('known-positive: setup, a DELETE answered 404 is held with no effect',banRows(x)[0]?.state==='held'&&banRows(x)[0].reason==='ban_rank1112_refused_404',x.rows);
+ state.get('known-404').present.get(SUBJECT).delete(VETERAN);await unban('known-404');await call('refresh/known-404');x=await freshVerify('known-404');
+ check('known-positive: a proved no-effect 404 stays known: after an unban fresh verification grants the rank (one PUT)',putsTo('known-404',VETERAN)===1&&present('known-404').includes(VETERAN),{verify:x.verify});
+ // A malformed or unrelated observation reason on an otherwise well-formed ban row cannot open the fence; the same row
+ // with the acknowledgement reason can (inserted-ack-control), so only the reason differs.
+ for(const [k,st,reason,known] of [['malformed-retired','settled','ban_rank1112_unknown_observed_absent',false],['malformed-variant','settled','ban_rank1112_observed_absent',false],['inserted-ack-control','settled','ban_rank1112_delete_acknowledged_and_confirmed',true]]){
+  await setup(k,{present:[ADDON],rank:6});const row=await synthetic(k,{purpose:BAN,desired:0,state:st,reason,profile:BAN_PROFILE});await call('insert/'+k,{rows:[row]});
+  await call('refresh/'+k);x=await call('verify/'+k);
+  if(known)check('known-positive: control, the same well-formed ban row with the acknowledgement reason lets fresh verification grant the rank (one PUT)',putsTo(k,VETERAN)===1&&present(k).includes(VETERAN),{verify:x.verify});
+  else check('known-positive: a ban row whose reason is '+reason+' does not open the fence: fresh verification sends no PUT for Veteran',putsTo(k,VETERAN)===0&&!present(k).includes(VETERAN),{verify:x.verify});
+  if(!known)state.get(k).present.get(SUBJECT).add(VETERAN); // given by hand; then a ban must not DELETE it over the unresolved row
+  const before=deletes(k).length;x=await ban(k);
+  if(known)check('known-positive: control, the ban writer removes the granted rank over the known row',deletes(k).length===before+1&&!present(k).includes(VETERAN),{rows:x.rows});
+  else check('known-positive: a ban row whose reason is '+reason+' keeps the ban writer\'s own fence: no DELETE, reported unconfirmed',deletes(k).length===before&&present(k).includes(VETERAN)&&lastReply(k).includes('earlier change to this role has an unconfirmed result'),{reply:lastReply(k),rows:x.rows});
+  check('known-positive: the inserted '+reason+' row is never changed',same(x.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(x.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]]))),{row:x.rows.find(r=>r.id===row.id),inserted:row});
+ }
+
+ // S3. "cross-purpose-generation". An unresolved PUT or DELETE row of the ban purpose, the older canonical purposes and the
+ // native purpose, in an older and in the current generation, each keeps the Veteran fence in every successor writer: a new
+ // ban dispatch, shared membership (fresh verification), migration and the routine. The Member rank role proceeds under
+ // the ban's own authority and the non-rank roles are untouched.
+ for(const xp of XP_CASES){
+  const k=xp.kind;await setup(k,{present:[VETERAN,MEMBER,ADDON,HIGH],rank:6});
+  const row=await synthetic(k,{purpose:xp.purpose,desired:xp.desired,state:'unknown',reason:'synthetic_unresolved_'+xp.purpose,profile:xp.profile,generation:xp.generation});await call('insert/'+k,{rows:[row]});
+  x=await ban(k);
+  check(k+': a new ban dispatch holds Veteran (no DELETE), removes Member under its own authority and leaves the non-rank roles',writesTo(k,VETERAN)===0&&present(k).includes(VETERAN)&&!present(k).includes(MEMBER)&&present(k).includes(ADDON)&&present(k).includes(HIGH)&&lastReply(k).includes('<@&'+VETERAN+'> (an earlier change to this role has an unconfirmed result)'),{reply:lastReply(k),http:state.get(k).http});
+  await unban(k);state.get(k).present.get(SUBJECT).delete(VETERAN);await call('refresh/'+k);
+  const v=await freshVerify(k),m=await call('migrate/'+k,{target:VETERAN,currentRoles:[]}),t=await call('routine/'+k);x=await call('rows/'+k);
+  check(k+': shared membership, migration and the routine stop at their barriers with no PUT or DELETE for Veteran, and the unresolved row is never changed',writesTo(k,VETERAN)===0&&!present(k).includes(VETERAN)&&verifyFenced(v)&&migrateFenced(m)&&routineFenced(t)&&same(x.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(x.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]]))),{verify:v.verify,migrate:m.result,routine:t.result,row:x.rows.find(r=>r.id===row.id)});
+ }
+
+ // S4. Follow-up review gap: the receipt reasons before receipt_unknown, so a mutant that reorders them is caught.
+ await setup('effect-not-confirmed',{present:[VETERAN]});state.get('effect-not-confirmed').del[VETERAN]='ack-no-effect';x=await ban('effect-not-confirmed');
+ const encRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('Discord acknowledges the DELETE but the confirming read still shows the role: unknown with effect_not_confirmed, never receipt_unknown',deletes('effect-not-confirmed').length===1&&present('effect-not-confirmed').includes(VETERAN)&&encRow?.state==='unknown'&&encRow.reason==='ban_rank1112_effect_not_confirmed'&&lastReply('effect-not-confirmed').includes('<@&'+VETERAN+'> (the role was still present after Discord accepted the removal)'),{reply:lastReply('effect-not-confirmed'),row:encRow});
+ await setup('confirm-unknown',{present:[VETERAN]});const cu=state.get('confirm-unknown');cu.onDelete=()=>{cu.memberGetFail=1;};x=await ban('confirm-unknown');
+ const cuRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('the confirming read fails without any interruption: unknown with confirmation_unknown, never interrupted_after_ack or receipt_unknown',deletes('confirm-unknown').length===1&&!present('confirm-unknown').includes(VETERAN)&&cuRow?.state==='unknown'&&cuRow.reason==='ban_rank1112_confirmation_unknown'&&lastReply('confirm-unknown').includes('<@&'+VETERAN+'> (the confirming member read failed)'),{reply:lastReply('confirm-unknown'),row:cuRow});
+
+ // S5. Lanes (agreed plan): in canonical mode one lane per invocation, chosen by the caller; no fall-through; each lane's
+ // cursor survives the other lane's visit.
+ await setup('lanes',{present:[ADDON]});await ban('lanes');state.get('lanes').present.get(SUBJECT).add(MEMBER);
+ await call('sweepstate/lanes',{details:{a:7,c:OTHER,b:'0',checked:0}});
+ let laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes');
+ check('a canonical role sweep without a lane holds before any read or request and is audited as failed',x.result===null&&String(x.failedAudit).includes('role_sweep_lane_required')&&state.get('lanes').http.length===laneFrom&&sweepAudit(x)?.b==='0',{result:x.result,failedAudit:x.failedAudit});
+ x=await rolesweep('lanes','ordinary');costs.ordinaryLaneBannedOnly=x.statements;const ordinaryAudit=sweepAudit(x);
+ check('the ordinary lane never visits a banned account\'s removal: no request for the banned member and the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes').http.slice(laneFrom).every(h=>!h.path.includes('/members/'+SUBJECT))&&present('lanes').includes(MEMBER)&&ordinaryAudit?.b==='0',{result:x.result,audit:ordinaryAudit,http:state.get('lanes').http.slice(laneFrom)});
+ laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes','ban');costs.banLaneOneRole=x.statements;const banAudit=sweepAudit(x);
+ check('the ban lane removes the banned member\'s rank role and leaves the ordinary cursors exactly as the ordinary lane wrote them',x.result?.lane==='ban'&&!present('lanes').includes(MEMBER)&&deletes('lanes',laneFrom).length===1&&banAudit?.a===ordinaryAudit?.a&&banAudit?.c===ordinaryAudit?.c&&banAudit?.b===SUBJECT,{result:x.result,audit:banAudit,ordinaryAudit});
+ x=await rolesweep('lanes','ordinary');
+ check('the banned cursor survives a later ordinary visit',sweepAudit(x)?.b===SUBJECT&&x.result?.lane==='ordinary',{audit:sweepAudit(x)});
+ await setup('lanes-walk',{verifyFirst:true,rank:6});await call('verify/lanes-walk');await call('age/lanes-walk');
+ await call('sweepstate/lanes-walk',{details:{a:0,c:'',b:'0',checked:0}});
+ laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ban');costs.banLaneEmpty=x.statements;
+ check('an empty ban lane does nothing else: no request, no ordinary walk, the ordinary cursors unchanged',x.result?.lane==='ban'&&x.result.checked===0&&state.get('lanes-walk').http.length===laneFrom&&sweepAudit(x)?.a===0&&sweepAudit(x)?.c===''&&sweepAudit(x)?.lane==='ban',{result:x.result,audit:sweepAudit(x)});
+ const emptyBanCursor=sweepAudit(x)?.b;laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ordinary');costs.ordinaryLaneOneMember=x.statements;
+ check('the ordinary lane walks the bound member and never runs the banned rotation; the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes-walk').http.slice(laneFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT)&&sweepAudit(x)?.b===emptyBanCursor,{result:x.result,audit:sweepAudit(x),http:state.get('lanes-walk').http.slice(laneFrom)});
 
  // 2-4. Hand-granted Member (shared membership role), an officer rank and a retired rank ID.
  for(const [k,role,label] of [['member-manual',MEMBER,'Member'],['officer-manual',OFFICER,'Officer'],['retired-manual',RETIRED,'retired rank ID']]){
@@ -148,6 +275,8 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  // 16. A small request budget: a bounded first pass, then one role per sweep visit.
  await setup('budget',{present:ALL.slice(),budget:10});x=await ban('budget');
  check('ROLE_CALL_BUDGET=10: 5 DELETEs and a confirming read, the other 13 reported as left for the sweep',deletes('budget').length===5&&present('budget').length===13&&lastReply('budget').includes('left for the role sweep'),{reply:lastReply('budget'),left:present('budget').length});
+ // Successor (12 Nov 2026): the reply says plainly that the sweep is only a safety net and how slow it is.
+ check('ROLE_CALL_BUDGET=10: the reply says the sweep is a safety net, one role per run about every 30 minutes, so the 13 roles can take about 6.5 hours',lastReply('budget').includes('The role sweep is only a safety net: it removes one rank role per run and runs about every 30 minutes, so these 13 roles can take about 6.5 hours or longer.'),lastReply('budget'));
  x=await sweep('budget');costs.sweepBudgetVisit=x.statements;
  check('one sweep visit removes exactly one more role within its own request budget',deletes('budget').length===6&&present('budget').length===12&&x.attempts<=10,{attempts:x.attempts});
  check('a standing ban that still has roles to remove stays at the head of the banned rotation',x.result?.cursor==='',x.result);
@@ -176,11 +305,12 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  au.onDelete=async()=>{au.memberGetFail=1;await call('faild1/ack-loss-unread',{match:'ban_rank1112_awaiting_dispatch'});};x=await ban('ack-loss-unread');
  const auRow=banRows(x).find(r=>r.role_id===VETERAN);
  check('lost D1 answer and a failed confirming read: the Veteran row is unknown with its own reason and reported unconfirmed',auRow?.state==='unknown'&&auRow.reason==='ban_rank1112_interrupted_after_ack'&&lastReply('ack-loss-unread').includes('unconfirmed result: <@&'+VETERAN+'> (Discord accepted the removal, but the command stopped before confirming it)')&&!lastReply('ack-loss-unread').includes('No rank role was removed'),{reply:lastReply('ack-loss-unread'),row:auRow});
- await call('expire/ack-loss-unread');let from=state.get('ack-loss-unread').http.length;x=await sweep('ack-loss-unread');costs.sweepObserveAndRemove=x.statements;
+ await call('expire/ack-loss-unread');let from=state.get('ack-loss-unread').http.length;x=await call('rows/ack-loss-unread');const auWindow=banRows(x).find(r=>r.id===auRow?.id);x=await sweep('ack-loss-unread');costs.sweepObserveAndRemove=x.statements;
  const auNow=banRows(x).find(r=>r.id===auRow?.id);
- check('after the claim window the banned sweep closes the unknown row GET-only (never with the ACK reason), sends no Veteran DELETE and removes the Member role',auNow?.state==='settled'&&auNow.reason==='ban_rank1112_unknown_observed_absent'&&auNow.claim_nonce===auRow.claim_nonce&&auNow.attempts===1&&deletes('ack-loss-unread',from).length===1&&deletes('ack-loss-unread',from)[0].path.endsWith('/'+MEMBER)&&!present('ack-loss-unread').includes(MEMBER),{rows:x.rows,http:state.get('ack-loss-unread').http.slice(-8)});
+ // Successor (12 Nov 2026): the read that shows Veteran absent is an observation only; the row stays unknown for good.
+ check('after the claim window the banned sweep only observes the unknown row (byte-identical), sends no Veteran DELETE and removes the Member role',same(auNow,auWindow)&&auNow.state==='unknown'&&x.result?.observed===1&&deletes('ack-loss-unread',from).length===1&&deletes('ack-loss-unread',from)[0].path.endsWith('/'+MEMBER)&&!present('ack-loss-unread').includes(MEMBER),{rows:x.rows,http:state.get('ack-loss-unread').http.slice(-8)});
  await unban('ack-loss-unread');await call('refresh/ack-loss-unread');x=await call('routine/ack-loss-unread');
- check('after unban the ordinary canonical routine grants Veteran again: the observed row no longer fences it',present('ack-loss-unread').includes(VETERAN)&&x.result?.state==='settled',{result:x.result});
+ check('after unban the ordinary canonical routine does not grant Veteran again: the unresolved row keeps fencing it',!present('ack-loss-unread').includes(VETERAN)&&putsTo('ack-loss-unread',VETERAN)===1&&same(banRows(x).find(r=>r.id===auRow?.id),auWindow),{result:x.result,rows:banRows(x)});
 
  // 20. Unban while a lost-answer row is unresolved: a GET-only visit after the claim window, nothing else.
  await setup('lost-unban',{present:[VETERAN]});state.get('lost-unban').del[VETERAN]='lost-after-effect';x=await ban('lost-unban');
@@ -188,17 +318,17 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  check('setup: a lost DELETE answer after the effect is recorded unknown',luRow?.state==='unknown'&&luRow.reason==='ban_rank1112_delete_outcome_unknown'&&!present('lost-unban').includes(VETERAN),luRow);
  await unban('lost-unban');let quietAt=state.get('lost-unban').http.length;x=await sweep('lost-unban');
  check('inside the claim window the unbanned account is not visited',state.get('lost-unban').http.length===quietAt&&banRows(x).find(r=>r.id===luRow?.id)?.state==='unknown',state.get('lost-unban').http.slice(quietAt));
- await call('expire/lost-unban');quietAt=state.get('lost-unban').http.length;x=await sweep('lost-unban');costs.sweepObserverUnbanned=x.statements;
+ await call('expire/lost-unban');x=await call('rows/lost-unban');const luWindow=banRows(x).find(r=>r.id===luRow?.id);quietAt=state.get('lost-unban').http.length;x=await sweep('lost-unban');costs.sweepObserverUnbanned=x.statements;
  const luHttp=state.get('lost-unban').http.slice(quietAt);
- check('after unban and the claim window: one member read, no DELETE or PUT, and the row is closed as observed absent',luHttp.length===1&&luHttp[0].method==='GET'&&luHttp[0].path==='/guilds/'+G+'/members/'+SUBJECT&&banRows(x).find(r=>r.id===luRow?.id)?.reason==='ban_rank1112_unknown_observed_absent',{http:luHttp,rows:banRows(x)});
+ check('after unban and the claim window: one member read, no DELETE or PUT, the absence counted as an observation and the row byte-identical',luHttp.length===1&&luHttp[0].method==='GET'&&luHttp[0].path==='/guilds/'+G+'/members/'+SUBJECT&&x.result?.observed===1&&same(banRows(x).find(r=>r.id===luRow?.id),luWindow),{http:luHttp,rows:banRows(x),result:x.result});
 
  // 21. Account erasure's debt visit (reconcileRemovalReceipt) owns a GET-only branch for this purpose.
  await setup('erasure-debt',{present:[VETERAN]});state.get('erasure-debt').del[VETERAN]='lost-after-effect';x=await ban('erasure-debt');
  const edRow=banRows(x).find(r=>r.role_id===VETERAN);
  x=await call('receipt/erasure-debt',{id:edRow?.id});
  check('erasure debt visit inside the claim window: held without a request',x.result?.state==='held'&&x.attempts===0,x.result);
- await call('expire/erasure-debt');from=state.get('erasure-debt').http.length;x=await call('receipt/erasure-debt',{id:edRow?.id});
- check('erasure debt visit after the claim window: one read, no DELETE, the row closed as observed absent',x.result?.state==='settled'&&x.result.reason==='fresh_absence_only'&&x.attempts===1&&deletes('erasure-debt',from).length===0&&banRows(x).find(r=>r.id===edRow?.id)?.reason==='ban_rank1112_unknown_observed_absent',{result:x.result,rows:banRows(x)});
+ await call('expire/erasure-debt');x=await call('rows/erasure-debt');const edWindow=banRows(x).find(r=>r.id===edRow?.id);from=state.get('erasure-debt').http.length;x=await call('receipt/erasure-debt',{id:edRow?.id});
+ check('erasure debt visit after the claim window: one read, no DELETE, reported unknown (observed absent) and the row byte-identical',x.result?.state==='unknown'&&x.result.reason==='ban_rank1112_unresolved_observed_absent'&&x.attempts===1&&deletes('erasure-debt',from).length===0&&same(banRows(x).find(r=>r.id===edRow?.id),edWindow),{result:x.result,rows:banRows(x)});
 
  // 22. Every rank role held, for four reasons, next to a 400-character ban reason: the card, the log and the reply fit.
  await setup('long-card',{present:[...ALL],channels:true});const lc=state.get('long-card');
@@ -210,11 +340,11 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  // 24. Follow-up REV-BAN-1, the whole scheduled role sweep: two rank roles given back by hand during a standing ban. The
  // first run removes one and keeps the account at the head; that is progress, never "revoke failed" in the sweep audit.
  await setup('progress',{present:[ADDON],channels:true});await ban('progress');const pg=state.get('progress');pg.present.get(SUBJECT).add(VETERAN);pg.present.get(SUBJECT).add(MEMBER);
- let postsFrom=pg.posts.length;x=await call('rolesweep/progress');
- const sweepAudit=y=>y.audits.filter(a=>a.action==='role.sweep').map(a=>JSON.parse(a.details)).at(-1),pgPosts=pg.posts.slice(postsFrom);
+ let postsFrom=pg.posts.length;x=await rolesweep('progress','ban');
+ const pgPosts=pg.posts.slice(postsFrom);
  check('follow-up REV-BAN-1: a sweep run that removes one of two rank roles reports no failure in its result or its audit',deletes('progress').length===1&&present('progress').length===2&&x.result?.revoked.includes(SUBJECT)===true&&x.result.failed.length===0&&sweepAudit(x)?.failed===0,{result:x.result,audit:sweepAudit(x)});
- check('follow-up REV-BAN-1: the server log says one rank role is left and never calls the run a failure',pgPosts.some(p=>p.includes('Olympus rank role removed from <@'+SUBJECT+'>')&&p.includes('1 more rank role is left; the role sweep removes one per run.'))&&!pgPosts.some(p=>/could not be checked|revoke failed/.test(p)),pgPosts);
- postsFrom=pg.posts.length;x=await call('rolesweep/progress');
+ check('follow-up REV-BAN-1: the server log says one rank role is left, the sweep pace, and never calls the run a failure',pgPosts.some(p=>p.includes('Olympus rank role removed from <@'+SUBJECT+'>')&&p.includes('1 more rank role is left; the role sweep removes one per run, about every 30 minutes.'))&&!pgPosts.some(p=>/could not be checked|revoke failed/.test(p)),pgPosts);
+ postsFrom=pg.posts.length;x=await rolesweep('progress','ban');
  check('follow-up REV-BAN-1: the next run removes the last rank role, reports no failure and no roles left',deletes('progress').length===2&&present('progress').length===1&&present('progress')[0]===ADDON&&x.result?.failed.length===0&&sweepAudit(x)?.failed===0&&!pg.posts.slice(postsFrom).some(p=>p.includes('more rank role')),{result:x.result,audit:sweepAudit(x),posts:pg.posts.slice(postsFrom)});
 
  // 25-26. Follow-up REV-BAN-2: the confirming read shows the role absent but the receipt write is lost. The reason is
@@ -229,22 +359,22 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  check('follow-up REV-BAN-2: the officer reads "the result could not be recorded", not "stopped before confirming it", and the unsent Member role is named',riReply.includes('unconfirmed result: <@&'+VETERAN+'> (the result could not be recorded)')&&!riReply.includes('stopped before confirming it')&&riReply.includes('<@&'+MEMBER+'> (the command stopped before this removal was sent)')&&!riReply.includes('No rank role was removed'),riReply);
 
  check('a non-banned member holding a rank role is never read or changed in any case',otherUntouched(),kinds.map(k=>state.get(k).http.filter(h=>h.path.includes(OTHER))));
- check('no PUT is ever sent by the ban path',kinds.filter(k=>!['bot-veteran','ack-loss-unread'].includes(k)).every(k=>!state.get(k).http.some(h=>h.method==='PUT')),null);
+ check('no PUT is ever sent by the ban path',ORIGINAL_KINDS.filter(k=>!['bot-veteran','ack-loss-unread','slice'].includes(k)).every(k=>!state.get(k).http.some(h=>h.method==='PUT')),null);
  // 23. The whole scheduled role slice in canonical mode: a bound member in the member rotation, then the banned visit at
  // its measured maximum path (GET-only reconciliation of an expired unknown row plus one DELETE and its confirmation).
  await setup('slice',{verifyFirst:true,rank:6});await call('verify/slice');await call('age/slice');state.get('slice').del[VETERAN]='lost-after-effect';await ban('slice');
- await call('expire/slice');state.get('slice').present.get(SUBJECT).add(MEMBER);const sliceFrom=state.get('slice').http.length;x=await call('rolesweep/slice');costs.roleSliceCanonical=x.statements;costs.roleSliceCanonicalRequests=state.get('slice').http.length-sliceFrom;
- check('whole canonical role slice: the banned visit closes the expired row GET-only and removes the hand-given Member role',!present('slice').includes(MEMBER)&&banRows(x).find(r=>r.role_id===VETERAN)?.reason==='ban_rank1112_unknown_observed_absent'&&x.result!==null,{result:x.result,rows:banRows(x),http:state.get('slice').http.slice(sliceFrom)});
+ await call('expire/slice');state.get('slice').present.get(SUBJECT).add(MEMBER);x=await call('rows/slice');const sliceRow=banRows(x).find(r=>r.role_id===VETERAN);const sliceFrom=state.get('slice').http.length;x=await rolesweep('slice','ban');costs.banLaneSlice=x.statements;costs.banLaneSliceRequests=state.get('slice').http.length-sliceFrom;
+ check('the canonical ban lane: the banned visit only observes the expired unknown row (byte-identical) and removes the hand-given Member role',!present('slice').includes(MEMBER)&&same(banRows(x).find(r=>r.id===sliceRow?.id),sliceRow)&&sliceRow?.state==='unknown'&&x.result?.lane==='ban',{result:x.result,rows:banRows(x),http:state.get('slice').http.slice(sliceFrom)});
  // Statement ceilings (repair round): every measured banned-account visit stays within the model's per-visit figure,
  // and the command stays far inside D1's 1,000 statements per invocation.
  const visitCeiling=Number((/export const BAN_RANK1112_SWEEP_VISIT_STATEMENTS\s*=\s*(\d+)/.exec(fs.readFileSync(path.join(root,'src','scheduled-budget.ts'),'utf8'))??[])[1]);
- const visits=['sweepBudgetVisit','sweepOneRole','sweepNothingPresent','sweepUnknownStillPresent','sweepObserveAndRemove','sweepObserverUnbanned','sweep429'];
+ const visits=['sweepBudgetVisit','sweepOneRole','sweepNothingPresent','sweepUnknownStillPresent','sweepObserveAndRemove','sweepObserverUnbanned','sweep429','sweepObserveUnresolved'];
  check('every measured banned-account visit stays within scheduled-budget BAN_RANK1112_SWEEP_VISIT_STATEMENTS',Number.isSafeInteger(visitCeiling)&&visits.every(k=>Number.isSafeInteger(costs[k])&&costs[k]<=visitCeiling),{visitCeiling,costs});
  check('the ban command stays within 110 statements for one role and 460 for all 18',costs.commandOneRole<=110&&costs.commandAllRoles<=460,costs);
- // Follow-up REV-BAN-3: the bound member in case 23 does trivial member-rotation work, so this measures only that slice.
- // The worst case (the member rotation at its own maximum path plus one banned visit at its maximum) is NOT proven here;
- // it is Codex's to measure on the whole-schedule fixture against ADMISSION_SCHEDULED_BUDGET's sweepMemberRoles 120.
- check('the canonical role slice with a trivial member rotation and the banned visit at its maximum path stays within 120 statements (member-rotation worst case not measured here)',Number.isSafeInteger(costs.roleSliceCanonical)&&costs.roleSliceCanonical<=120,costs);
+ // Successor (12 Nov 2026): with the lanes the banned visit never shares a run with the member walk. This measures the
+ // ban lane alone (the sweep's common reads, one banned visit at its largest measured path, the receipt). The ordinary
+ // lane's own maximum (117/118) and both phases on the whole-schedule fixture are Codex's to measure.
+ check('the canonical ban lane at the banned visit\'s largest measured path stays within the 120-statement role slice (whole-schedule maximum not measured here)',Number.isSafeInteger(costs.banLaneSlice)&&costs.banLaneSlice<=120,costs);
  fs.writeFileSync(path.join(out,'costs.json'),JSON.stringify(costs,null,2));console.log('D1 statements (physical, incl. admission controls): '+JSON.stringify(costs));
  complete=true;
 }catch(error){console.error(error);check('fixture completed',false,String(error?.stack||error));}
