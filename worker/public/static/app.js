@@ -2798,7 +2798,7 @@
       // REV-SITEA-3 (12 Nov 2026): the sentence is the Worker's own description of the gate under its current configuration
       // (site-treasury-access.ts treasuryGateDescription), so it never names a Discord role the gate does not admit. An
       // answer without it (an older Worker) gets the general rule only.
-      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the published Co-Guild Master and Treasurer appointments, and site administrators." }),
+      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the holders of the published Co-Guild Master and Lord High Treasurer seats, and site administrators." }),
       h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
@@ -5125,7 +5125,7 @@
     const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const was = s.appointed || {};
     const appointmentKind = office => {
-      if (office.key === "co_gm" || office.key === "treasurer") return "Treasury-plan access appointment";
+      if (office.key === "office_19" || office.key === "office_86") return "Treasury-plan access seat"; // CL2-091 (owner ruling, 13 Nov 2026)
       if (office.group === "native") return `Native rank display · Rank ${office.nativeRankOrdinal}`;
       if (office.aliasOf) return office.group === "leadership" ? "Leadership display alias" : "Historical display alias";
       if (office.group === "class") return "Class lead appointment";
@@ -5244,7 +5244,7 @@
     add(body, frame("Appointed roles", null,
       h("p", { class: "muted small", text: "A role with a name here has an appointment display record. Its historical voting board and write-ins close while the appointment is recorded; prior votes and nominations are preserved. Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed. An empty field is not an application vacancy." }),
       h("p", { class: "muted small", text: "Every office and rank below has a Discord name or exact user ID selector. Search and Save check current server membership and account standing. A website sign-in, character link or roster confirmation is not required to associate a current Discord member. These website records do not change Discord roles, native ranks, bank access or signing authority. Existing ballot roles remain closed while appointed; extended offices are separate records." }),
-      h("p", { class: "muted small", text: "Co-Guild Master (co_gm) and Treasurer (treasurer) are the Treasury-plan access appointments. A current published Discord account association on either record can qualify for officer Treasury plan access. Their separately listed office records retain their own scope." }),
+      h("p", { class: "muted small", text: "The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. A holder recorded on either seat with a current published Discord account association qualifies. The older co_gm and treasurer records are display aliases and open nothing." }),
       h("p", { class: "muted small appointment-scope228", text: "Separate offices, aliases, regions, classes and ranks each keep their own display record." }),
       appointmentControls203,
       namesOkRow, namesOkError,
@@ -7940,7 +7940,11 @@
   // .130: explicit organizer publication. A lost answer survives navigation/reload as a tab-local operation marker;
   // an absent read is never permission to resend. The Worker owns every destination, authority and custody check.
   async function organizerEventDiscord(body, id) {
-    if (!can("organizer")) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
+    // CL2-016 (owner ruling, 13 Nov 2026, "Officers: own events"): an officer who created the event manages its announcement.
+    // The page asks the Worker whether this viewer manages the event (canManage); the Worker decides every request again.
+    let manages = can("organizer");
+    if (!manages && can("confirmedGuildData")) { try { const d = await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`); manages = !!(d && d.event && d.event.id === id && d.event.canManage === true); } catch { manages = false; } }
+    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
     const key = "olympus.eventDelivery." + id;
     const opPattern = /^[A-Za-z0-9_-]{22}$/;
     const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
@@ -8052,7 +8056,8 @@
     };
     publish.addEventListener("click", () => action("publish")); remove.addEventListener("click", () => action("remove")); reconcile.addEventListener("click", () => action("reconcile")); refresh.addEventListener("click", load);
     buttons(); await load();
-    await organizerEventReminder(panel, id);
+    // CL2-016: the opt-in Discord reminder is not part of the ruling and stays with organizers, so an officer is not shown it.
+    if (can("organizer")) await organizerEventReminder(panel, id);
   }
   async function organizerEventReminder(body, id) {
     const panel = h("div", { class: "stack", "data-event-reminder": "" }); add(body, panel);
