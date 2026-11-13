@@ -184,6 +184,13 @@ check('CL2-036', 'the register and the alliance overview read the directory rule
 // ---------------------------------------------------------------- CL2-037 the Leader card opens with the Sovereign's guide
 const leaderGuide = publicMeta.roleGuides201[fam('leader').primaryKey];
 check('CL2-037', 'the Leader family\'s primary guide is the alliance Sovereign, not the branch Guild Master guide', !/leads an individual Olympus branch/.test(leaderGuide.definition) && /Sovereign/.test(leaderGuide.definition), leaderGuide.definition.slice(0, 60));
+// REV-GOV-1: every branch Guild Master holds Rank 1, so the in-game Rank 1 guide stays the branch Guild Master's guide.
+const rankOneGuide = publicMeta.roleGuides201.rank_guild_master || { definition: '' };
+check('REV-GOV-1', 'the Rank 1 (Leader) guide describes a Guild Master leading a branch, not the Sovereign',
+  /^A Guild Master leads an individual Olympus branch/.test(rankOneGuide.definition) && !/Sovereign/.test(rankOneGuide.definition)
+  && rankOneGuide.nativeRankOrdinal === 1 && JSON.stringify(rankOneGuide.responsibilities) === JSON.stringify(publicMeta.roleGuides201.office_43.responsibilities), rankOneGuide.definition.slice(0, 60));
+check('REV-GOV-1', 'every native-rank guide carries the text of its rank\'s own source office', ['office_43', 'office_45', 'office_62', 'office_63', 'office_74', 'office_90', 'office_75', 'office_55', 'office_04', 'office_48']
+  .every((key, slot) => { const r = publicMeta.roleGuides201['rank_' + ['guild_master', 'high_council', 'officer', 'officer_alt', 'raid_leader', 'veteran', 'raider', 'member', 'alt', 'initiate'][slot]]; return r && r.definition === publicMeta.roleGuides201[key].definition; }));
 
 // ---------------------------------------------------------------- CL2-046 the Rosetta access column follows the .233 model
 const canonical = load('canonical-ranks233').CANONICAL_RANKS233, treasury = load('site-treasury-access');

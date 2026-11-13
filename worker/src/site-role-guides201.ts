@@ -701,5 +701,17 @@ export function roleGuides201(positions: readonly LegacyPosition201[] = []): Rea
     if (/^office_[0-9]{2,3}$/.test(position.key)) continue;
     guides[position.key] = Object.freeze({ ...existing, eligibilityNote: eligibilityNote201(existing.eligibility), definition: position.info.about, responsibilities: Object.freeze([...position.info.duties]), expectations: Object.freeze([...position.info.expect]), commitment: position.info.time, worksWith: position.info.works ?? existing.worksWith });
   }
-  return editorialRoleGuides219(guides);
+  const edited = editorialRoleGuides219(guides);
+  // REV-GOV-1 (12 Nov 2026): the editorial pass copies a family's primary guide onto its native-rank variant. Since
+  // CL2-037 the Leader family opens with the Sovereign (office_81), but every branch Guild Master holds Rank 1, so the
+  // Rank 1 guide keeps its own source office (office_43, a Guild Master leading a branch), as it did on dfca7a2. For the
+  // other nine ranks the source office already is (or aliases) the family primary, so this changes nothing there.
+  const result: Record<string, RoleGuide201> = { ...edited };
+  for (const office of OFFICE_APPOINTMENTS) {
+    if (office.group !== 'native' || office.nativeIndex === undefined) continue;
+    const own = edited[office.key], source = edited[rankSource201[office.nativeIndex]];
+    if (!own || !source) throw new Error(`Missing native guide: ${office.key}`);
+    result[office.key] = Object.freeze({ ...own, definition: source.definition, responsibilities: source.responsibilities, expectations: source.expectations, commitment: source.commitment, worksWith: source.worksWith });
+  }
+  return Object.freeze(result);
 }
