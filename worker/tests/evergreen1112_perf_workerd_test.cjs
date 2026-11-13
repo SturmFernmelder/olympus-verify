@@ -130,12 +130,17 @@ export default { async fetch(request) {
 // local D1 and the worktree's public/ assets: a member signs in through the real OAuth callback (Discord is synthetic
 // outbound HTTP), then GET / is read over a raw socket. Miniflare passes the browser's own Accept-Encoding to the
 // Worker as cf.clientAcceptEncoding, as Cloudflare does, and leaves an encoded body, or the answer to a request
-// without Accept-Encoding, alone. Like the edge, it would itself compress an HTML answer the Worker sent unencoded
-// (it does not read no-transform), so the Worker's own Vary: Accept-Encoding is what shows the Worker made the gzip.
+// without Accept-Encoding, alone. But its edge emulation itself gzips an HTML answer the Worker sent unencoded (it
+// does not read no-transform, which in production stops the edge from compressing), and the Worker's Vary:
+// Accept-Encoding is on every such page, compressed or not; neither a gzip body nor that Vary shows who made the gzip
+// (second review, 13 Nov 2026). What does: the Worker gzips the whole page into one buffer and sends it with
+// encodeBody 'manual', so the answer carries a Content-Length equal to the bytes on the wire and no chunked transfer
+// encoding; the emulation compresses as a stream, which goes out chunked with no Content-Length. Shown both ways in
+// the receipt with a copy whose acceptsGzip() always returns false (this check fails there).
 async function cl2076RealEntry() {
   const http = require('node:http'), zlib = require('node:zlib');
-  const names = ['Workerd real entry CL2-076: a signed-in GET / with Accept-Encoding gzip is gzip-encoded exactly once and decodes to the same document as the uncompressed answer',
-    'Workerd real entry CL2-076: that answer keeps the exact content-security policy, no-store and no-transform, and carries the Worker\'s own Vary: Accept-Encoding',
+  const names = ['Workerd real entry CL2-076: a signed-in GET / with Accept-Encoding gzip is gzip-encoded by the Worker itself (Content-Length equal to the bytes on the wire, not chunked), exactly once, and decodes to the same document as the uncompressed answer',
+    'Workerd real entry CL2-076: that answer keeps the exact content-security policy, no-store and no-transform, and carries Vary: Accept-Encoding',
     'Workerd real entry CL2-076: without Accept-Encoding the same page is not encoded'];
   const indexBundle = buildSync({ entryPoints: [path.join(ROOT, 'src', 'index.ts')], absWorkingDir: ROOT, bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022', conditions: ['workerd', 'worker', 'browser'], external: ['node:async_hooks'], tsconfig: path.join(ROOT, 'tsconfig.json'), logLevel: 'silent' }).outputFiles[0].text;
   const text = v => ({ type: 'text', value: v }), EPOCH = 'a'.repeat(32), SITE_GUILD = '236932545793490944', VIEWER = '300000000000000091';
@@ -212,9 +217,11 @@ async function cl2076RealEntry() {
     const boot = /<script type="application\/json" id="boot">([\s\S]*?)<\/script>/;
     const norm = buf => { const html = buf ? buf.toString('utf8') : '', m = boot.exec(html); if (!m) return null; const b = JSON.parse(m[1]); return html.replace(boot, '') + JSON.stringify({ ...b, now: 0, applicationEditorProof: 0, community: b.community && { ...b.community, now: 0 } }); };
     const signedIn = (norm(plain.body) || '').includes('"/static/app.js?v=');
-    const detail = { signIn, gz: { status: gz.status, encoding: gz.h['content-encoding'] ?? null, bytes: gz.body.length, decoded: once ? once.length : null }, plain: { status: plain.status, encoding: plain.h['content-encoding'] ?? null, bytes: plain.body.length } };
+    const detail = { signIn, gz: { status: gz.status, encoding: gz.h['content-encoding'] ?? null, contentLength: gz.h['content-length'] ?? null, transferEncoding: gz.h['transfer-encoding'] ?? null, bytes: gz.body.length, decoded: once ? once.length : null }, plain: { status: plain.status, encoding: plain.h['content-encoding'] ?? null, contentLength: plain.h['content-length'] ?? null, transferEncoding: plain.h['transfer-encoding'] ?? null, bytes: plain.body.length } };
     console.log('MEASURE Workerd real entry CL2-076 page', JSON.stringify(detail));
-    check(names[0], signedIn && gz.status === 200 && gz.h['content-encoding'] === 'gzip' && gz.body[0] === 0x1f && gz.body[1] === 0x8b && !!once && !twice && norm(once) === norm(plain.body), detail);
+    // Made by the Worker, not by the runtime's edge emulation: one buffer, so a Content-Length that matches the wire.
+    const workerMade = gz.h['content-length'] !== undefined && Number(gz.h['content-length']) === gz.body.length && !/chunked/i.test(gz.h['transfer-encoding'] || '');
+    check(names[0], signedIn && gz.status === 200 && gz.h['content-encoding'] === 'gzip' && workerMade && gz.body[0] === 0x1f && gz.body[1] === 0x8b && !!once && !twice && norm(once) === norm(plain.body), detail);
     const csp = cspOf(ROOT);
     check(names[1], !!csp && gz.h['content-security-policy'] === csp && plain.h['content-security-policy'] === csp && gz.h['cache-control'] === 'no-store, no-transform' && plain.h['cache-control'] === 'no-store, no-transform' && gz.h['vary'] === 'Accept-Encoding', { cacheControl: gz.h['cache-control'], vary: gz.h['vary'] ?? null, cspEqual: gz.h['content-security-policy'] === csp });
     check(names[2], signedIn && plain.status === 200 && !plain.h['content-encoding'] && plain.body[0] === 0x3c, detail.plain);
