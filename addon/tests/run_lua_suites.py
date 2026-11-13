@@ -73,10 +73,11 @@ TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status
 
 
 def input_hashes() -> dict[str, str]:
-    paths = [
-        ADDON / "OlympusVerify" / name
-        for name in ("OlympusVerify.lua", "OlympusVerifyUI.lua", "OlympusVerifyAutoSync.lua", "OlympusVerifyPreview.lua", "OlympusVerifyRoster.lua", "OlympusVerifyRosterModel.lua", "OlympusVerifyGuild.lua", "OlympusVerifyRanks.lua", "OlympusVerify.toc", "OlympusVerifyLists.lua", "Libs/OlympusHmac.lua", "Libs/OlympusQr.lua", "OlympusVerifyBrowser.lua", "OlympusVerifyCensus.lua", "OlympusVerifyTreasury.lua", "OlympusLaunchQueue.lua", "OlympusLaunchSelected.lua", "OlympusVerifyLaunch229.lua", "OlympusVerifyOfficerInvites233.lua")
-    ]
+    # Capture the current modules, including newly registered Native/Live code.
+    # Exclude the private configuration by name before any file is opened.
+    paths = sorted(path for path in (ADDON / "OlympusVerify").rglob("*")
+                   if path.name.casefold() != "config.lua"
+                   and path.suffix.lower() in {".lua", ".toc"} and path.is_file())
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())
     paths.extend(TESTS / name for name, _ in PYTHON_RUNNERS.values())
