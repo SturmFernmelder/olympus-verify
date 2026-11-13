@@ -239,11 +239,14 @@ async function part1() {
     const want = allowed(who, scope, action);
     if (want) check('cal', `${label}: ${who} on ${scope === 'own' ? 'its own' : scope === 'other' ? 'another officer\'s' : 'an erased creator\'s'} event is done`, r.status === 200 && effect(), { status: r.status, data: r.data });
     else {
-      const code = OWN.has(who) ? 'not_event_organizer' : 'not_organizer';
+      // Each route keeps its earlier code and status: edit, reschedule and cancel 409 not_event_organizer (with the event),
+      // attendance 403 not_event_organizer, the roster 403 not_organizer; without any calendar authority 403 not_organizer.
+      const code = OWN.has(who) && action !== 'decide' ? 'not_event_organizer' : 'not_organizer';
+      const status = OWN.has(who) && ['edit', 'reschedule', 'cancel'].includes(action) ? 409 : 403;
       const msg = r.data?.message || '';
-      const words = code === 'not_organizer' ? /High Council, the War Heads and site administrators/.test(msg)
+      const words = !OWN.has(who) ? /High Council, the War Heads and site administrators/.test(msg)
         : scope === 'erased' ? /no longer on record\. Only the High Council, the War Heads or a site administrator can change it\./.test(msg) : /belongs to another organizer\. Only that organizer, the High Council, the War Heads or a site administrator can change it\./.test(msg);
-      check('cal', `${label}: ${who} on ${scope === 'own' ? 'its own' : scope === 'other' ? 'another officer\'s' : 'an erased creator\'s'} event is refused (403 ${code}, says who can change it, no names)`, r.status === 403 && r.data?.error === code && words && !/Cal |cal\./.test(msg), { status: r.status, data: r.data && { error: r.data.error, message: r.data.message } });
+      check('cal', `${label}: ${who} on ${scope === 'own' ? 'its own' : scope === 'other' ? 'another officer\'s' : 'an erased creator\'s'} event is refused (${status} ${code}, says who can change it, no names)`, r.status === status && r.data?.error === code && words && !/Cal |cal\./.test(msg), { status: r.status, data: r.data && { error: r.data.error, message: r.data.message } });
     }
     check('cal', `${label}: ${who}/${scope} costs at most one Discord read`, r.cost.provider <= 1, r.cost);
   };
@@ -467,7 +470,7 @@ async function part2() {
   r = await http('admin', 'POST', '/api/community/events', { opId: crypto.randomBytes(16).toString('base64url'), title: 'QA round 5 admin raid', startsAt, durationMin: 60 });
   const otherId = r.data?.event?.id;
   r = await http('officer', 'POST', '/api/community/events/update', { eventId: otherId, revision: 1, title: 'Taken over' });
-  check('cal', 'harness: the officer\'s edit of the admin\'s event is refused with the role sentence (403)', r.status === 403 && r.data?.error === 'not_event_organizer' && /Only that organizer, the High Council, the War Heads or a site administrator can change it\./.test(r.data?.message || ''), { status: r.status, data: r.data });
+  check('cal', 'harness: the officer\'s edit of the admin\'s event is refused with the role sentence (409, as before)', r.status === 409 && r.data?.error === 'not_event_organizer' && /Only that organizer, the High Council, the War Heads or a site administrator can change it\./.test(r.data?.message || ''), { status: r.status, data: r.data });
   r = await http('officer', 'GET', '/api/community/events');
   check('cal', 'harness: the officer persona\'s calendar list says canCreate', r.status === 200 && r.data?.canCreate === true, r.data && r.data.canCreate);
   r = await http('member', 'GET', '/api/community/events');

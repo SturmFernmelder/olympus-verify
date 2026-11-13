@@ -288,12 +288,20 @@ async function withdrawnAppointment(env: Env, ctx: CommunityContext, v: Viewer, 
   const without = { ...v, senior: v.roleSenior, warHead: null };
   return mayManage(without, createdBy, act) ? null : notYours(without, createdBy, await extra());
 }
-// Refusals say whose event it is and who can change it, by role and without names, and never invite a retry (403).
+// Refusals say whose event it is and who can change it, by role and without names. Each route keeps the error code and
+// status it already had (edit and cancel 409 with the event, attendance 403, the roster 403 not_organizer), so existing
+// clients read them as before; the sentence is what is new.
 const MANAGERS = "the High Council, the War Heads or a site administrator";
 const notManager = () => apiJson({ error: "not_organizer", message: "Events are managed by the officer or organizer who scheduled them, and by the High Council, the War Heads and site administrators." }, 403);
 const notCreator = () => apiJson({ error: "not_organizer", message: "Scheduling events is for officers (the Leader, the High Council, Officers and Raid Leaders), guild organizers and site administrators." }, 403);
-const notYours = (v: Viewer, createdBy: string | null, extra: Record<string, unknown> = {}) => !(v.organizer || v.anyOfficer) ? notManager()
-  : apiJson({ error: "not_event_organizer", message: createdBy === null ? `The organizer of this event is no longer on record. Only ${MANAGERS} can change it.` : `This event belongs to another organizer. Only that organizer, ${MANAGERS} can change it.`, ...extra }, 403);
+const notYours = (v: Viewer, createdBy: string | null, extra: Record<string, unknown> = {}, status = 403, error = "not_event_organizer") => !(v.organizer || v.anyOfficer) ? notManager()
+  : apiJson({ error, message: createdBy === null ? `The organizer of this event is no longer on record. Only ${MANAGERS} can change it.` : `This event belongs to another organizer. Only that organizer, ${MANAGERS} can change it.`, ...extra }, status);
+/** A missing event: a caller with no calendar authority at all is refused for its role first, as before, so a
+ * non-manager learns nothing about which ids exist; a manager is told the event is not found. */
+async function notFound(env: Env, ctx: CommunityContext, act: Act): Promise<Response> {
+  const v = await authorityFor(env, ctx, null, act);
+  return v.organizer || v.anyOfficer || v.senior ? apiJson({ error: "event_not_found" }, 404) : notManager();
+}
 function eventShape(e: EventRow, counts: Counts, mine: MineRow | undefined, viewer: Viewer, creatorQualifies: boolean, own?: OwnAttendance) {
   return {
     id: e.id,
@@ -678,7 +686,7 @@ async function organizerRefusal(env: Env, ctx: CommunityContext, row: Stored | n
   if (!row) return apiJson({ error: "event_not_found" }, 404);
   const event = () => loadEvent(env, ctx, row.id, viewer);
   // Round 5: another officer's event, or one whose creator is erased, is for the senior managers only (403, never a retry).
-  if (!mayManage(viewer, row.created_by, "manage")) return viewer.organizer || viewer.anyOfficer ? notYours(viewer, row.created_by, { event: await event() }) : notManager();
+  if (!mayManage(viewer, row.created_by, "manage")) return viewer.organizer || viewer.anyOfficer ? notYours(viewer, row.created_by, { event: await event() }, 409) : notManager();
   if (row.status === "cancelled") return apiJson({ error: "event_cancelled", event: await event() }, 410);
   if (row.started === 1) return apiJson({ error: "event_started", event: await event() }, 409); // .67: the database clock, like the statement
   if (row.revision !== revision) return apiJson({ error: "stale_revision", event: await event() }, 409);
@@ -700,7 +708,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     if (given.length === 0) throw new Bad("invalid_request");
     const parsed = new Map(given.map((f) => [f, parseField(f, body[f], t)]));
     const row = await stored(env, eventId);
-    const viewer = row ? await authorityFor(env, ctx, row.created_by, "manage") : viewerOf(ctx); // round 5: proved at the write, for this event
+    if (!row) return notFound(env, ctx, "manage");
+    const viewer = await authorityFor(env, ctx, row.created_by, "manage"); // round 5: proved at the write, for this event
     const refused = await organizerRefusal(env, ctx, row, viewer, revision, t);
     if (refused) return refused;
     const current: EventValues = { title: row!.title, details: row!.details, startsAt: row!.starts_at, durationMin: row!.duration_min, capacity: row!.capacity, roleTargets: row!.role_targets ? (JSON.parse(row!.role_targets) as RoleTargets) : null };
@@ -760,7 +769,8 @@ export async function cancelEvent(request: Request, env: Env, ctx: CommunityCont
     const revision = revisionOf(body.revision, 1);
     const t = now();
     const row = await stored(env, eventId);
-    const viewer = row ? await authorityFor(env, ctx, row.created_by, "manage") : viewerOf(ctx); // round 5
+    if (!row) return notFound(env, ctx, "manage");
+    const viewer = await authorityFor(env, ctx, row.created_by, "manage"); // round 5
     const refused = await organizerRefusal(env, ctx, row, viewer, revision, t);
     if (refused) return refused;
     const me = ctx.subject!.discordId, nonce = randomToken(), war = warSql(viewer, 10);
@@ -812,7 +822,7 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
     // Round 5: the authority is proved for THIS event before its list is read (one creator read), and checked again
     // against the creator the payload batch read.
     const pre = await env.DB.prepare("SELECT created_by FROM community_events WHERE id = ?1").bind(id).first<{ created_by: string | null }>();
-    if (!pre) return apiJson({ error: "event_not_found" }, 404);
+    if (!pre) return notFound(env, ctx, "attendance");
     const viewer = await authorityFor(env, ctx, pre.created_by, "attendance");
     if (!mayManage(viewer, pre.created_by, "attendance")) return notYours(viewer, pre.created_by);
     const limit = scanLimit(env);
@@ -878,7 +888,7 @@ export async function recordAttendance(request: Request, env: Env, ctx: Communit
     let viewer = viewerOf(ctx), creator: string | null = null;
     const refuse = async (prove = false): Promise<Response | null> => {
       const s = await env.DB.prepare(`SELECT status, created_by, (starts_at > ${DB_NOW}) AS pending FROM community_events WHERE id = ?1`).bind(eventId).first<{ status: string; created_by: string | null; pending: number }>();
-      if (!s) return apiJson({ error: "event_not_found" }, 404);
+      if (!s) return prove ? notFound(env, ctx, "attendance") : apiJson({ error: "event_not_found" }, 404);
       if (prove) { viewer = await authorityFor(env, ctx, s.created_by, "attendance"); creator = s.created_by; } // round 5: proved for this event
       if (!mayManage(viewer, s.created_by, "attendance")) return notYours(viewer, s.created_by); // CL2-016, round 5
       if (s.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId, viewer) }, 410);
@@ -1051,9 +1061,9 @@ export async function decideRoster(request: Request, env: Env, ctx: CommunityCon
     let viewer = viewerOf(ctx), creator: string | null = null;
     const refuse = async (prove = false): Promise<Response | null> => {
       const e = await env.DB.prepare(`SELECT status, created_by, (starts_at <= ${DB_NOW}) AS started FROM community_events WHERE id = ?1`).bind(eventId).first<{ status: string; created_by: string | null; started: number }>();
-      if (!e) return apiJson({ error: "event_not_found" }, 404);
+      if (!e) return prove ? notFound(env, ctx, "manage") : apiJson({ error: "event_not_found" }, 404);
       if (prove) { viewer = await authorityFor(env, ctx, e.created_by, "manage"); creator = e.created_by; }
-      if (!mayManage(viewer, e.created_by, "manage")) return notYours(viewer, e.created_by);
+      if (!mayManage(viewer, e.created_by, "manage")) return notYours(viewer, e.created_by, {}, 403, "not_organizer");
       if (e.status === "cancelled") return apiJson({ error: "event_cancelled", event: await loadEvent(env, ctx, eventId, viewer) }, 410);
       if (e.started === 1) return apiJson({ error: "event_started", event: await loadEvent(env, ctx, eventId, viewer) }, 409);
       return null;

@@ -321,7 +321,7 @@ async function part1b() {
   r = await call('POST', '/api/community/events/decide', { who: OFF_A, body: { eventId: evA, entries: [{ ref, decision: 'accepted', revision: 0 }] } });
   check('CL2-016', 'round 5: the creator officer\'s roster decision on its own event is not refused for its role', r.status !== 403 && r.data?.error !== 'not_organizer', r);
   r = await call('POST', '/api/community/events/decide', { who: OFF_B, body: { eventId: evA, entries: [{ ref, decision: 'accepted', revision: 0 }] } });
-  check('CL2-016', 'round 5: another officer\'s roster decision on it is refused (403 not_event_organizer)', r.status === 403 && r.data?.error === 'not_event_organizer', r);
+  check('CL2-016', 'round 5: another officer\'s roster decision on it is refused (403 not_organizer, with the role sentence)', r.status === 403 && r.data?.error === 'not_organizer' && /belongs to another organizer/.test(r.data?.message || ''), r);
   r = await call('POST', '/api/community/events', { who: OFF_A, body: { opId: opId(), title: 'Website event', startsAt: iso(T + 7200), durationMin: 60 } });
   check('CL2-016', 'round 5: an officer schedules an event on the website', r.status === 200 && r.data?.event?.title === 'Website event', r);
   r = await call('POST', '/api/community/events', { who: MEMBER, body: { opId: opId(), title: 'Member event', startsAt: iso(T + 7200), durationMin: 60 } });
@@ -504,7 +504,7 @@ async function part2round3(cdp, go, size) {
   check('CL2-016', 'harness: the officer persona does not manage an event the admin created', before.status === 200 && before.data?.event?.canManage === false, before.data?.event);
   r = await http('officer', 'POST', '/api/community/events/update', { eventId: id, revision: before.data?.event?.revision, title: 'Taken over' });
   const after = await http('officer', 'GET', `/api/community/event?id=${id}`);
-  check('CL2-016', 'harness: the officer\'s edit of that event is refused and changes nothing', r.status === 403 && r.data?.error === 'not_event_organizer' && after.data?.event?.title === 'QA round 3 raid' && after.data?.event?.revision === before.data?.event?.revision, { status: r.status, error: r.data?.error });
+  check('CL2-016', 'harness: the officer\'s edit of that event is refused and changes nothing', r.status === 409 && r.data?.error === 'not_event_organizer' && after.data?.event?.title === 'QA round 3 raid' && after.data?.event?.revision === before.data?.event?.revision, { status: r.status, error: r.data?.error });
   r = await http('officer', 'GET', `/api/community/events/discord?eventId=${id}`);
   check('CL2-016', 'harness: the officer cannot read that event\'s announcement preview', r.status === 404 || r.status === 403, r.status);
 
