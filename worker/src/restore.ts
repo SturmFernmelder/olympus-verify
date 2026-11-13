@@ -17,7 +17,8 @@ import { intVar, type Env } from "./env";
 import { audit, now } from "./db";
 import { DiscordError, explainDiscordError, guildMember, logLine } from "./discord";
 import { grantMemberRole, heldBlockingRole, reconcileBanned, removeIfBlocked, budgetExhausted, callBudget, takeCall, affords, reserve, inventoryCalls, GRANT_CALLS, type CallBudget } from "./roles";
-import { SCHEDULED_CAPS } from "./scheduled-budget";
+import { SCHEDULED_CAPS, type RoleSweepLane1112 } from "./scheduled-budget";
+import { captureCanonicalRankConfig233 } from "./canonical-ranks233";
 import { privacyCaptureFromColumns,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 import { continueRosterRanks,RANK_CONTINUATION_HTTP_RESERVE } from './role-rank-continuation';
 import { isPrivacyWriteAdmissionDatabase } from './privacy-write-admission';
@@ -127,14 +128,24 @@ export interface SweepResult {
   retries: number;
   /** .99: accounts whose member lookup Discord did not answer: not finished, not passed by the watermark or the cursor, retried next run */
   unfinished: string[];
+  /** Ban lane successor (12 Nov 2026): the lane a canonical-mode run took; absent on the legacy combined run */
+  lane?: RoleSweepLane1112;
+  /** After a canonical "ban" lane run: the banned rotation's cursor and its observation count (never authority) */
+  bannedCursor?: string;
+  observed?: number;
 }
 
 /** Never throws: it runs inside waitUntil, where an error would only vanish. `parent` (Revision 4, configured mode only): the
- * /queue invocation's Discord-call budget, shared with the fresh-role pass that follows; without it the run makes its own. */
-export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher", parent?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<SweepResult | null> {
+ * /queue invocation's Discord-call budget, shared with the fresh-role pass that follows; without it the run makes its own.
+ * `lane` (ban lane successor, 12 Nov 2026, agreed with Codex): with the canonical ranks selected the caller must name
+ * exactly one lane, chosen before any lane-specific read: "ordinary" runs only the promotion and member walk, "ban" only
+ * the banned rotation (at most one banned, held or debt account). A run never falls through to the other lane when its
+ * own is empty, failed or held, and it never changes the other lane's cursor. Without a lane in canonical mode the run
+ * holds (role.sweep_failed). Without the canonical ranks the lane is ignored and the legacy combined run is unchanged. */
+export async function sweepMemberRoles(env: Env, trigger: "cron" | "watcher", parent?: CallBudget,originalDispatch?:BetaRoleDispatch,lane?:RoleSweepLane1112): Promise<SweepResult | null> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   try {
-    return await sweepInner(env, trigger, parent,roleDispatch);
+    return await sweepInner(env, trigger, parent,roleDispatch,lane);
   } catch (e) {
     try {
       await audit(env, "system", "role.sweep_failed", trigger, { error: String(e).slice(0, 300) });
@@ -152,9 +163,13 @@ export const forgetLocalThrottle = () => {
   lastLocal = 0;
 };
 
-async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch): Promise<SweepResult | null> {
+async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch,lane:RoleSweepLane1112|undefined): Promise<SweepResult | null> {
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return null;
+  // Ban lane successor (12 Nov 2026): the lane is checked before any read. The installed role slice is 120 statements and
+  // the ordinary walk alone reaches 117/118, so a banned visit of up to 50 cannot follow it in the same run.
+  const canonicalLanes = captureCanonicalRankConfig233(env).present;
+  if (canonicalLanes && lane !== "ordinary" && lane !== "ban") throw Error("role_sweep_lane_required");
   const t = now();
   if (trigger === "watcher" && t - lastLocal < THROTTLE_SECONDS) return null;
   // A failed sweep counts too. Otherwise one that keeps failing before it writes its row is retried on every
@@ -175,10 +190,13 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   } catch {
     state = null;
   }
+  const originalCursorReference=last&&typeof state?.c==='string'&&/^\d{17,20}$/.test(state.c)?{subject:state.c,capture:privacyCaptureFromColumns(state.c,{privacy_generation:last.cursor_generation??null,privacy_state:last.cursor_state??null,privacy_revision:last.cursor_revision??null})}:null;
+  if (canonicalLanes && lane === "ban") return sweepBannedLane(env, trigger, parent ?? callBudget(env), state, originalCursorReference, roleDispatch);
   if (!state || typeof state.a !== "number") {
-    // First sweep: start with the last day's promotions (the audit_ts index makes this cheap).
+    // First sweep: start with the last day's promotions (the audit_ts index makes this cheap). Successor (12 Nov 2026):
+    // in canonical mode the banned rotation's cursor survives this start.
     const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1").bind(t - 86400).first<{ id: number | null }>();
-    state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "" };
+    state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "", ...(canonicalLanes && typeof state?.b === "string" ? { b: state.b } : {}) };
   }
   const budget = Math.min(SCHEDULED_CAPS.roleSweepAccounts, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT))); // .115: the scheduled D1 budget's cap (scheduled-budget.ts)
   const calls = parent ?? callBudget(env); // .90 (P-20): this run's Discord-call budget, shared with the banned reconciliation below
@@ -202,7 +220,6 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   const captures=new Map<string,PrivacySubject|null>();
   const rankSnapshots=new Map<string,number|null>();
   const rankMapping=env.QR_RANK_MAPPING_ENABLED==='true'||env.QR_PRIVILEGED_RANK_MAPPING_ENABLED==='true';
-  const originalCursorReference=last&&typeof state.c==='string'&&/^\d{17,20}$/.test(state.c)?{subject:state.c,capture:privacyCaptureFromColumns(state.c,{privacy_generation:last.cursor_generation??null,privacy_state:last.cursor_state??null,privacy_revision:last.cursor_revision??null})}:null;
   if (fresh.length) {
     const ph = fresh.map((_, k) => `?${k + 1}`).join(",");
     const still = await env.DB.prepare(
@@ -376,16 +393,43 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   // 3. .60: banned accounts still holding Guild Member (a late grant that landed after the ban, or a removal that failed)
   //    lose it; up to BANNED_PER_RUN per run, in a rotation of their own. .63: every banned account, whatever its
   //    characters' status, and with the ban re-read after the member GET (Codex's review of .60).
+  //    Successor (12 Nov 2026): in canonical mode this runs only in the "ban" lane (sweepBannedLane); the ordinary lane
+  //    leaves the banned rotation and its cursor exactly as they were.
+  if (canonicalLanes) {
+    await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: typeof state.b === "string" ? state.b : undefined, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: 0, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted, lane: "ordinary" },[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]));
+    return { checked, restored, failed, absent, blocked, revoked: [], budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished, lane: "ordinary" };
+  }
   const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls,roleDispatch);
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
+  await logBanned(env, banned);
+  await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted },[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]));
+  return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished };
+}
+
+/** The banned rotation's server-log lines, shared by the legacy combined run and the canonical "ban" lane. */
+async function logBanned(env: Env, banned: Awaited<ReturnType<typeof reconcileBanned>>): Promise<void> {
   if (banned.revoked.length) {
     // REV-BAN-1 (12 Nov 2026): a removal that leaves rank roles for later runs says so here instead of as a failure.
-    const left = banned.remaining > 0 ? ` ${banned.remaining} more rank ${banned.remaining === 1 ? "role is" : "roles are"} left; the role sweep removes one per run.` : "";
+    // Successor (12 Nov 2026): the sweep is only the safety net, and its banned lane gets a run about every 30 minutes.
+    const left = banned.remaining > 0 ? ` ${banned.remaining} more rank ${banned.remaining === 1 ? "role is" : "roles are"} left; the role sweep removes one per run, about every 30 minutes.` : "";
     await logLine(env, `🚫 role sweep: ${banned.rank ? "Olympus rank role removed from" : "Guild Member removed from"} ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.${left}`);
   }
   if (banned.held.length) {
     await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114
   }
-  await audit(env, "system", "role.sweep", trigger, { a, c: cursor, b: banned.cursor, checked, restored: restored.length, failed: failed.length, unfinished: unfinished.length, absent, blocked: blocked.length, revoked: banned.revoked.length, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: stopped || calls.exhausted },[...captures].map(([subject,capture])=>({subject,capture})).concat(originalCursorReference?[originalCursorReference]:[]));
-  return { checked, restored, failed, absent, blocked, revoked: banned.revoked, budgetExhausted: stopped || calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished };
+}
+
+/**
+ * Ban lane successor (12 Nov 2026, agreed with Codex): the canonical "ban" lane. Only the banned rotation runs (at most
+ * BANNED_PER_RUN, one banned, held or debt account); no promotion, linked-member or rotation query is made. The ordinary
+ * lane's cursors `a` and `c` are copied from the latest receipt exactly as read (absent stays absent), and nothing falls
+ * through to the ordinary walk when this lane is empty, failed or held. Merging cursors under concurrent callers
+ * (cron and the Watcher) is Codex's part of the wiring and is not handled here.
+ */
+async function sweepBannedLane(env: Env, trigger: "cron" | "watcher", calls: CallBudget, state: SweepState | null, originalCursorReference: { subject: string; capture: PrivacySubject | null } | null, roleDispatch: BetaRoleDispatch): Promise<SweepResult> {
+  const banned = await reconcileBanned(env, typeof state?.b === "string" ? state.b : "", BANNED_PER_RUN, calls, roleDispatch);
+  const failed = banned.failed.map((id) => ({ id, error: "revoke failed" }));
+  await logBanned(env, banned);
+  await audit(env, "system", "role.sweep", trigger, { a: typeof state?.a === "number" ? state.a : undefined, c: typeof state?.c === "string" ? state.c : undefined, b: banned.cursor, checked: banned.checked.length, restored: 0, failed: failed.length, unfinished: 0, absent: 0, blocked: 0, revoked: banned.revoked.length, observed: banned.observed, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, stopped: calls.exhausted, lane: "ban" }, originalCursorReference ? [originalCursorReference] : []);
+  return { checked: banned.checked.length, restored: [], failed, absent: 0, blocked: [], revoked: banned.revoked, budgetExhausted: calls.exhausted, calls: calls.calls, attempts: calls.attempts, retries: calls.retries, unfinished: [], lane: "ban", bannedCursor: banned.cursor, observed: banned.observed };
 }
