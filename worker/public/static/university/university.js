@@ -86,7 +86,7 @@
         && (g.status === "planned" ? g.file === null : ["complete", "migrated"].includes(g.status) && GUIDE_FILE.test(g.file))
         && (g.kind !== "class" || (Array.isArray(g.specs) && g.specs.length === 3 && g.specs.every(s => s && SLUG.test(s.id) && typeof s.name === "string" && Array.isArray(s.roles))))
         && (g.kind !== "profession" || ["primary", "gathering", "secondary"].includes(g.type))
-        // The exam index (built by build/validate.cjs --write-exams): every exam this guide's questions can fill.
+        // The exam index (built by scripts/university/validate.cjs --write-exams): every exam this guide's questions can fill.
         && (g.status === "planned" ? g.exams === undefined : Array.isArray(g.exams) && g.exams.length <= 12 && g.exams.every(x => x && EXAM_SCOPE.test(x.scope)
           && ["101", "201", "301"].includes(x.tier) && Number.isInteger(x.questions) && x.questions > 0 && x.questions <= 2000))
         // Chapter counts (same build step): written chapters and those not available yet in 101, 201 and 301.

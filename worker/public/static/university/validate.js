@@ -1,6 +1,6 @@
 /* Olympus University rules (Evergreen Stage 2, 12 Nov 2026; CL2-052, CL2-057, CL2-059, CL2-060).
  * One closed validator shared by the page and the build: university.js refuses a guide that fails it, and
- * build/validate.cjs runs it over every file before a commit. It never fetches and never touches the DOM.
+ * scripts/university/validate.cjs runs it over every file before a commit. It never fetches and never touches the DOM.
  * The honesty rule it enforces: every quiz answer and distractor must be found in the facts a question cites,
  * an unavailable (grade U) or re-check fact can never be quizzed, and Classic 1.12 reference facts (grades D and E)
  * may only be asked about in a question that says "In Classic 1.12". */

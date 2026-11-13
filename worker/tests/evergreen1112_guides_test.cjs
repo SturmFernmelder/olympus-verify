@@ -9,6 +9,8 @@
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), cp = require('node:child_process');
 const repo = path.resolve(process.env.GUIDES_TEST_ROOT || path.join(__dirname, '../..'));
 const worker = path.join(repo, 'worker'), stat = path.join(worker, 'public/static'), uni = path.join(stat, 'university');
+// INT-UNI-3 (12 Nov 2026): the university build tools moved out of the published static folder.
+const tools = path.join(repo, 'scripts/university');
 const readText = (...p) => fs.readFileSync(path.join(...p), 'utf8');
 const json = (...p) => JSON.parse(readText(...p));
 let passed = 0, failed = 0;
@@ -28,13 +30,25 @@ const listJson = dir => fs.readdirSync(path.join(uni, dir)).filter(f => f.endsWi
 const strip = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:"'\\])\/\/.*$/gm, '$1');
 
 // ---------- Build check, data coverage and the honesty rules ----------
-check('the build check (build/validate.cjs) passes over every university file', () => {
-  const r = cp.spawnSync(process.execPath, [path.join(uni, 'build/validate.cjs'), '--quiet'], { encoding: 'utf8', timeout: 60000 });
+check('the build check (scripts/university/validate.cjs) passes over every university file', () => {
+  const r = cp.spawnSync(process.execPath, [path.join(tools, 'validate.cjs'), '--quiet'], { encoding: 'utf8', timeout: 60000 });
   return r.status === 0 && /university: valid/.test(r.stdout) || (r.stdout + r.stderr).slice(-600);
 });
 check('the generated talent facts and questions are current (generate-talent-facts.cjs --check)', () => {
-  const r = cp.spawnSync(process.execPath, [path.join(uni, 'build/generate-talent-facts.cjs'), '--check'], { encoding: 'utf8', timeout: 60000 });
+  const r = cp.spawnSync(process.execPath, [path.join(tools, 'generate-talent-facts.cjs'), '--check'], { encoding: 'utf8', timeout: 60000 });
   return r.status === 0 || (r.stdout + r.stderr).slice(-400);
+});
+// INT-UNI-3 (12 Nov 2026): everything under worker/public/ is served by the assets binding, so a build tool kept there
+// would be downloadable. No CommonJS, Python, shell or TypeScript file, no build/ folder and no migration map may remain.
+check('INT-UNI-3: no build tool or build-only file remains under worker/public/, and the tools run from scripts/university/', () => {
+  const bad = [], walk = dir => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name), rel = path.relative(worker, p).split(path.sep).join('/');
+    if (e.isDirectory()) { if (e.name === 'build') bad.push(rel + '/'); walk(p); }
+    else if (/\.(cjs|py|sh|ts|ps1|bat)$/i.test(e.name) || e.name === 'migration-map.json') bad.push(rel);
+  } };
+  walk(path.join(worker, 'public'));
+  const moved = ['validate.cjs', 'generate-talent-facts.cjs', 'migrate-guides218.cjs', 'migration-map.json'].filter(f => !fs.existsSync(path.join(tools, f)));
+  return bad.length === 0 && moved.length === 0 || JSON.stringify({ underPublic: bad, missingFromScripts: moved });
 });
 check('the shared rules use the directive section order and the three tracks', () => {
   const R = rules();
@@ -141,7 +155,7 @@ check('CL2-203: class quests, baseline spells, unconfirmed reports and myths are
     && paladin.get('paladin-101-unconfirmed').length >= 1 && druid.get('druid-101-unconfirmed').length >= 1 || JSON.stringify(quests);
 });
 check('the migration recorded every .218 class and profession entry it moved', () => {
-  const g = json(stat, 'guides218.json'), map = json(uni, 'build/migration-map.json').entries.map(e => e.from);
+  const g = json(stat, 'guides218.json'), map = json(tools, 'migration-map.json').entries.map(e => e.from);
   const want = [];
   g.classes.forEach((c, ci) => {
     c.changes.forEach((_, i) => want.push(`classes[${ci}].changes[${i}]`)); c.classQuests.forEach((_, i) => want.push(`classes[${ci}].classQuests[${i}]`));

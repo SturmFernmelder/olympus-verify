@@ -1,6 +1,6 @@
 {
  "schema": "olympus-university-presets-v1",
- "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "note": "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.",
  "talentRevision": "02e1e101d1a5",
  "presets": [
   {

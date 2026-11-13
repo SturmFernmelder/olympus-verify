@@ -2,15 +2,16 @@
 /* The university build check (Evergreen Stage 2, 12 Nov 2026). Run it before every commit that touches
  * worker/public/static/university/:
  *
- *   node worker/public/static/university/build/validate.cjs           check everything, print a size table
- *   node worker/public/static/university/build/validate.cjs --quiet   errors only
+ *   node scripts/university/validate.cjs           check everything, print a size table
+ *   node scripts/university/validate.cjs --quiet   errors only
  *
  * It runs the page's own rules (validate.js) over every file at once, then once per guide with only the files that
  * guide declares (the page loads nothing else), and adds the checks only the build can make: talent facts against
  * talents/data.json, presets against guides218.json, generated files against their generator, and the index. */
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), cp = require("node:child_process"), zlib = require("node:zlib"), vm = require("node:vm");
-const UNI = path.resolve(__dirname, ".."), STATIC = path.resolve(UNI, "..");
+// INT-UNI-3 (12 Nov 2026): the build tools live in scripts/university/, outside the published static folder.
+const UNI = path.resolve(__dirname, "../../worker/public/static/university"), STATIC = path.resolve(UNI, "..");
 // worker/package.json makes .js files ES modules, so the shared rules file is run in a sandbox with a CommonJS module.
 const rules = (() => { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(UNI, "validate.js"), "utf8"), { module }, { filename: "validate.js" }); return module.exports; })();
 const quiet = process.argv.includes("--quiet");
@@ -51,9 +52,9 @@ for (const dir of ["courses", "races", "professions"]) for (const f of listDir(d
 // Presets: an exact copy of guides218.json, per class.
 for (const c of g218.classes) {
   const rel = "presets/" + c.id + ".json";
-  if (!exists(rel)) { errors.push(rel + ": missing (run build/migrate-guides218.cjs --presets)"); continue; }
+  if (!exists(rel)) { errors.push(rel + ": missing (run scripts/university/migrate-guides218.cjs --presets)"); continue; }
   const doc = read(rel), want = g218.presets.filter(p => p.classId === c.id);
-  if (JSON.stringify(doc.presets) !== JSON.stringify(want) || doc.talentRevision !== g218.talentRevision) errors.push(rel + ": differs from guides218.json (run build/migrate-guides218.cjs --presets)");
+  if (JSON.stringify(doc.presets) !== JSON.stringify(want) || doc.talentRevision !== g218.talentRevision) errors.push(rel + ": differs from guides218.json (run scripts/university/migrate-guides218.cjs --presets)");
 }
 
 // Generated files are current.
@@ -91,7 +92,7 @@ for (const { entry, guide } of guides) {
   const want = rules.examCatalogue(guide, own.questions);
   if (JSON.stringify(entry.exams) !== JSON.stringify(want)) {
     if (process.argv.includes("--write-exams")) { entry.exams = want; examsChanged = true; }
-    else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run build/validate.cjs --write-exams)");
+    else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run scripts/university/validate.cjs --write-exams)");
   }
   // Chapter counts for the hub's status line (review, 12 Nov 2026: the hub must say what the courses hold, not more):
   // written chapters, and the chapters not available yet per track 101, 201, 301.
@@ -101,7 +102,7 @@ for (const { entry, guide } of guides) {
   });
   if (JSON.stringify(entry.chapters) !== JSON.stringify(counts)) {
     if (process.argv.includes("--write-exams")) { entry.chapters = counts; examsChanged = true; }
-    else errors.push("index " + entry.kind + " " + entry.id + ": chapter counts are out of date (run build/validate.cjs --write-exams)");
+    else errors.push("index " + entry.kind + " " + entry.id + ": chapter counts are out of date (run scripts/university/validate.cjs --write-exams)");
   }
 }
 if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists and chapter counts rewritten"); }

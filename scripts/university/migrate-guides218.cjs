@@ -2,22 +2,23 @@
 /* One-shot migration of the .218 guide catalogue into Olympus University files (Evergreen Stage 2, 12 Nov 2026).
  * The owner's directive (Pillar 3 item 3) asks for 101/201/301 courses; the lane rule is that no existing guide
  * content is lost. This script moves every claim and line of guides218.json into facts and chapters by fixed rules
- * and writes build/migration-map.json, which records where each old path went.
+ * and writes scripts/university/migration-map.json, which records where each old path went.
  *
- *   node worker/public/static/university/build/migrate-guides218.cjs            write files that do not exist yet
- *   node worker/public/static/university/build/migrate-guides218.cjs --presets  refresh presets.json only
+ *   node scripts/university/migrate-guides218.cjs            write files that do not exist yet
+ *   node scripts/university/migrate-guides218.cjs --presets  refresh presets.json only
  *
  * It never overwrites a fact, course, profession or index file: once written, those files belong to their authors.
  * Grades follow mechanical rules (see gradeOf): nothing is upgraded, and every grade-A claim checked against the
  * 16 October talent data is marked for re-check against the 10 November data. */
 "use strict";
 const fs = require("node:fs"), path = require("node:path");
-const UNI = path.resolve(__dirname, ".."), STATIC = path.resolve(UNI, "..");
+// INT-UNI-3 (12 Nov 2026): the build tools live in scripts/university/, outside the published static folder.
+const UNI = path.resolve(__dirname, "../../worker/public/static/university"), STATIC = path.resolve(UNI, "..");
 const g = JSON.parse(fs.readFileSync(path.join(STATIC, "guides218.json"), "utf8"));
 const talents = JSON.parse(fs.readFileSync(path.join(STATIC, "talents", "data.json"), "utf8"));
 const REVIEWED = g.reviewedAt, TODAY = "2026-11-12";
 const write = (rel, value, force) => {
-  const file = path.join(UNI, rel);
+  const file = path.isAbsolute(rel) ? rel : path.join(UNI, rel);
   if (fs.existsSync(file) && !force) { console.log("kept   " + rel); return false; }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(value, null, 1) + "\n");
@@ -26,7 +27,7 @@ const write = (rel, value, force) => {
 };
 // Presets stay owned by guides218.json (the talents lane); each class gets a copy so a guide page loads only its own.
 const writePresets = force => { for (const c of g.classes) write("presets/" + c.id + ".json", { schema: "olympus-university-presets-v1",
-  note: "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.", talentRevision: g.talentRevision,
+  note: "Copied from guides218.json presets by scripts/university/migrate-guides218.cjs --presets; scripts/university/validate.cjs refuses any drift.", talentRevision: g.talentRevision,
   presets: g.presets.filter(p => p.classId === c.id) }, force); };
 if (process.argv.includes("--presets")) { writePresets(true); process.exit(0); }
 
@@ -200,5 +201,5 @@ for (const [id, name] of [["dwarf", "Dwarf"], ["gnome", "Gnome"], ["human", "Hum
 }
 map.push({ from: "tools, presets, classSummary", to: "unchanged in guides218.json (tools stay in guides218.js; presets copied to presets/<class>.json)" });
 write("index.json", index);
-write("build/migration-map.json", { note: "Where each guides218.json path went (generated once by migrate-guides218.cjs).", source: "guides218.json reviewedAt " + REVIEWED, entries: map });
+write(path.join(__dirname, "migration-map.json"), { note: "Where each guides218.json path went (generated once by migrate-guides218.cjs).", source: "guides218.json reviewedAt " + REVIEWED, entries: map });
 void talents;
