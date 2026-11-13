@@ -1291,3 +1291,17 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 [data-activity-comparison] table.data td > span { display: block; font-variant-numeric: tabular-nums; }
 [data-activity-comparison] meter { display: block; width: 100%; max-width: 10rem; height: 0.8rem; margin-top: 4px; }
 @media (max-width: 420px) { [data-activity-comparison] table.data :is(th, td) { padding: 6px; } }
+/* ui280 piece 3: the owner's one-time receipt-note cleanup on Admin, Donation ledger (/static/note-redaction280.js). */
+.note-redaction280 { border: 1px solid #3a3326; background: rgba(0, 0, 0, 0.35); padding: 12px 14px; }
+.note-redaction280 h2 { margin: 0; }
+.note-redaction280 h3 { margin: 4px 0 0; }
+.note-redaction280 .btn { min-height: 44px; min-width: 44px; }
+.note-redaction280-counts { margin: 0; padding-left: 1.2em; }
+.note-redaction280-counts strong { font-variant-numeric: tabular-nums; }
+.note-redaction280-check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.note-redaction280-check input[type="checkbox"] { flex: none; width: 24px; height: 24px; margin: 0; }
+.note-redaction280 textarea { width: 100%; max-width: 100%; box-sizing: border-box; font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; word-break: break-all; }
+@media (forced-colors: active) {
+  .note-redaction280 { border-color: CanvasText; }
+  .note-redaction280 :is(button, input, textarea, h3):focus-visible { outline: 2px solid Highlight; }
+}

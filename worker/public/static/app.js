@@ -5089,6 +5089,9 @@
       h("p", {class:"small muted",text:"Trade and mail receipts show observed transfers. A resource or coin whisper is an unconfirmed report. These records do not automatically award tithe credit."}),form,status,rows,more);
     clear(body); add(body,panel);
     const live = () => S.user === owner && owner?.isAdmin && S.signedIn && !S.denied && currentRoute() === route && app.contains(panel);
+    // Owner ruling 12 Nov 2026: the one-time receipt-note cleanup, for the owner account only (/static/note-redaction280.js).
+    if (owner?.isAdmin && owner.id === "472099715253796864") { const cleanup = h("div", {class:"stack"}); body.insertBefore(cleanup, panel);
+      loadMemberScript("OlympusNoteRedaction280", "/static/note-redaction280.js").then(() => { if (live()) window.OlympusNoteRedaction280.mount(cleanup, {h, api, user:owner, live:() => live() && app.contains(cleanup), now:nowSec, fmtDateTime, storage:() => sessionStorage}); }, () => { if (live()) add(cleanup, noticeBox("warn","icon-warning",h("p", {text:"The receipt-note cleanup could not be opened. Reload the page to try again."}))); }); }
     let cursor = "", busy = false, revision = 0;
     const load = async append => {
       if (!live() || busy) return;

@@ -100,6 +100,101 @@ try {
   check('News forced colours: the table and its bars stay drawn with system colours and no overflow', fcNews.active && fcNews.meterH > 0 && !!fcNews.text && fcNews.overflow <= 0, fcNews);
   await cdp.send('Emulation.setEmulatedMedia', { features: [] });
 
+  // ---------------------------------------------------------------- Piece 3: the receipt-note cleanup
+  await signIn('admin');
+  await go('#/admin/donation-ledger', `document.body.textContent.includes('Donation observations')`); await sleep(800);
+  const forAdmin = await evalJ(`({ control: !!document.querySelector('[data-note-redaction280]'), script: !!document.querySelector('script[src="/static/note-redaction280.js"]') })`);
+  check('Ledger: another site administrator sees the ledger without the cleanup control, and the module is not requested', !forAdmin.control && !forAdmin.script, forAdmin);
+  const adminTry = await api('admin', 'POST', NR_PATH, { action: 'status' });
+  check('Ledger: the route itself refuses another administrator (403 forbidden)', adminTry.status === 403 && adminTry.json?.error === 'forbidden', adminTry);
+
+  await signIn('owner');
+  const ledgerBefore = await api('owner', 'GET', '/api/admin/treasury/ledger?q=&cursor=');
+  const CTL = `document.querySelector('[data-note-redaction280-stage]')`;
+  const stage = () => evalJ(`${CTL}?.getAttribute('data-note-redaction280-state') || null`);
+  await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  const idleSent = sent.length;
+  const ledgerLayout = [];
+  for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); ledgerLayout.push({ w, ...(await measure('[data-note-redaction280]')) }); }
+  check('Ledger: the owner gets the control with a count and a status read; opening it sends nothing', (await stage()) === 'idle' && idleSent === 0, { idleSent });
+  await viewport(cdp, 1280, 900);
+  // Keyboard: Tab to "Count the notes", Enter; Tab to the checkbox, Space; Tab to "Blank", focus ring visible.
+  await evalJ(`document.querySelector('[data-note-redaction280] h2')?.setAttribute('tabindex','-1'); document.querySelector('[data-note-redaction280] h2')?.focus(); true`);
+  const toCount = await tabTo(`a => a.tagName === 'BUTTON' && a.textContent === 'Count the notes'`, 10);
+  if (toCount.f) await press('Enter', 'Enter', 13);
+  for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
+  const confirmText = await evalJ(`${CTL}?.textContent || ''`);
+  const preview = sent.length > idleSent ? sent[sent.length - 1] : null;
+  check('Ledger keyboard: Tab reaches "Count the notes" with a visible focus ring and Enter opens the counts-only confirmation', !!toCount.f && !toCount.f.outline.startsWith('none') && (await stage()) === 'confirm' && preview === '{"action":"preview"}' && confirmText.includes('Notes that will be blanked: 9') && confirmText.includes('Receipt rows stored: 12') && confirmText.includes('This cannot be undone.') && !confirmText.includes(NOTE), { toCount, preview, confirmText: confirmText.slice(0, 500) });
+  for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); const m = await measure('[data-note-redaction280]'); ledgerLayout.push({ w, step: 'confirm', ...m }); if ([320, 390, 1280].includes(w)) await screenshot(cdp, path.join(OUT, `ledger-confirm-${w}.png`), true); }
+  check('Ledger: no page overflow, nothing past the viewport and every control at least 44 px at all six widths, idle and confirm', ledgerLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && x.small.length === 0), ledgerLayout.map(x => ({ w: x.w, step: x.step || 'idle', o: x.docOverflowPx, out: x.outside, small: x.small })));
+  await viewport(cdp, 1280, 900);
+  const focusHeading = await evalJ(`document.activeElement?.tagName + ':' + document.activeElement?.textContent`);
+  const toTick = await tabTo(`a => a.id === 'note-redaction280-understood'`, 10);
+  const blankBefore = await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent.startsWith('Blank'))?.disabled`);
+  if (toTick.f) await press(' ', 'Space', 32);
+  const toBlank = await tabTo(`a => a.tagName === 'BUTTON' && a.textContent.startsWith('Blank')`, 4);
+  check('Ledger keyboard: focus moves to the step heading, the Blank button is disabled until the checkbox is ticked with Space, then reachable with a visible ring', focusHeading === 'H3:Confirm the cleanup' && blankBefore === true && !!toBlank.f && !toBlank.f.outline.startsWith('none'), { focusHeading, blankBefore, toTick: toTick.trail, toBlank: toBlank.trail });
+  await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] }); await sleep(300);
+  const fcLedger = await evalJ(`(() => { const a = document.activeElement, s = getComputedStyle(a), el = document.querySelector('.note-redaction280'), box = el ? getComputedStyle(el) : { borderTopStyle: 'none' }; return { active: matchMedia('(forced-colors: active)').matches, outline: s.outlineStyle + ' ' + s.outlineWidth, border: box.borderTopStyle, overflow: document.documentElement.scrollWidth - innerWidth }; })()`);
+  await screenshot(cdp, path.join(OUT, 'ledger-forced-colors-1280.png'), true);
+  check('Ledger forced colours: the focus ring and the control border stay drawn', fcLedger.active && !fcLedger.outline.startsWith('none') && fcLedger.border === 'solid' && fcLedger.overflow <= 0, fcLedger);
+  await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+
+  // A lost apply reply: the browser drops the request (CDP failRequest), so the server never applies it.
+  mode = { kind: 'lost-apply' };
+  const beforeApply = sent.length;
+  await press('Enter', 'Enter', 13);
+  for (let i = 0; i < 80 && (await stage()) !== 'unconfirmed'; i++) await sleep(150);
+  await sleep(1500);
+  const lost = await evalJ(`({ text: ${CTL}?.textContent || '', kept: document.querySelector('#note-redaction280-request')?.value || '', buttons: [...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent) })`);
+  const applies = () => sent.slice(beforeApply).filter(b => b.includes('"apply"'));
+  let keptBody = null; try { keptBody = JSON.stringify(JSON.parse(lost.kept).body); } catch {}
+  check('Ledger: a lost apply reply is shown as not confirmed with the exact request on screen, only a status read, and is not resent', (await stage()) === 'unconfirmed' && applies().length === 1 && keptBody === applies()[0] && JSON.stringify(lost.buttons) === JSON.stringify(['Read the stored status']) && !lost.text.includes(NOTE), { lost, applies: applies() });
+  const statusAfterLoss = await api('owner', 'POST', NR_PATH, { action: 'status' });
+  check('Ledger: the dropped request changed nothing on the server', statusAfterLoss.status === 200 && statusAfterLoss.json?.state === 'not_recorded' && statusAfterLoss.json?.remainingCoveredNotes === 9, statusAfterLoss);
+  mode = { kind: 'real' };
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Read the stored status')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) === 'unconfirmed'; i++) await sleep(150);
+  check('Ledger: reading the status after the loss says nothing is recorded and offers no new count while the request could still land', (await stage()) === 'not-recorded' && (await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent).join('|')`)) === 'Read the stored status');
+
+  // A hung apply in a new tab session: the page gives up after its own 30 s and shows it as not confirmed.
+  await evalJ(`sessionStorage.clear(); true`);
+  await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
+  mode = { kind: 'hang-apply' };
+  const beforeHang = sent.length;
+  await evalJ(`(() => { const t = document.querySelector('#note-redaction280-understood'); t?.click(); [...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent.startsWith('Blank'))?.click(); return true; })()`);
+  const hangStart = Date.now();
+  for (let i = 0; i < 300 && (await stage()) !== 'unconfirmed'; i++) await sleep(200);
+  const hangMs = Date.now() - hangStart, hang = await evalJ(`${CTL}?.textContent || ''`);
+  check('Ledger: an apply with no answer is shown as not confirmed after about 30 s, with the request kept, sent once', (await stage()) === 'unconfirmed' && hang.includes('did not answer within 30 seconds') && hangMs >= 25000 && sent.slice(beforeHang).filter(b => b.includes('"apply"')).length === 1, { hangMs, hang: hang.slice(0, 300) });
+  mode = { kind: 'real' };
+
+  // The real apply in a fresh tab session, then a second apply and a new count.
+  await evalJ(`sessionStorage.clear(); true`);
+  await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
+  const beforeReal = sent.length;
+  await evalJ(`(() => { const t = document.querySelector('#note-redaction280-understood'); t?.click(); [...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent.startsWith('Blank'))?.click(); return true; })()`);
+  for (let i = 0; i < 100 && (await stage()) !== 'recorded'; i++) await sleep(150);
+  const done = await evalJ(`${CTL}?.textContent || ''`);
+  const realApply = sent.slice(beforeReal).find(b => b.includes('"apply"'));
+  const statusDone = await api('owner', 'POST', NR_PATH, { action: 'status' });
+  check('Ledger: the real apply is recorded and the result shows the stored count and time; the status agrees', (await stage()) === 'recorded' && done.includes('9 notes were blanked') && statusDone.json?.state === 'recorded' && statusDone.json?.completion?.blanked === 9 && statusDone.json?.remainingCoveredNotes === 0 && !done.includes(NOTE), { done: done.slice(0, 400), statusDone });
+  const again = await fetch(ORIGIN + NR_PATH, { method: 'POST', headers: { Cookie: 'QA209_persona=owner', 'X-Olympus': '2', 'Content-Type': 'application/json', Origin: ORIGIN }, body: realApply });
+  const againJson = await again.json().catch(() => null);
+  await evalJ(`sessionStorage.clear(); true`);
+  await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) !== 'recorded'; i++) await sleep(150);
+  const second = await evalJ(`({ text: ${CTL}?.textContent || '', buttons: [...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent) })`);
+  check('Ledger: a second apply after success returns the stored status, and a new count shows it with no Blank button', again.status === 200 && againJson?.state === 'recorded' && againJson?.completion?.operationId === statusDone.json?.completion?.operationId && (await stage()) === 'recorded' && second.text.includes('9 notes were blanked') && !second.buttons.some(b => b.startsWith('Blank')), { again: againJson, second });
+  const ledger = await api('owner', 'GET', '/api/admin/treasury/ledger?q=&cursor=');
+  check('Ledger: all 12 receipt rows are listed before and after the cleanup, with the same donor, amount and time', ledgerBefore.json?.rows?.length === 12 && ledger.status === 200 && Array.isArray(ledger.json?.rows) && ledger.json.rows.length === 12 && JSON.stringify(ledger.json.rows.map(r => [r.id, r.copper, r.donor, r.at])) === JSON.stringify(ledgerBefore.json.rows.map(r => [r.id, r.copper, r.donor, r.at])), { before: ledgerBefore.json?.rows?.length, status: ledger.status, rows: ledger.json?.rows?.length, sample: ledger.json?.rows?.[0] });
+  check('Ledger: no note text in any request the control sent, in the status replies, in its page session record or in its text', !sent.some(b => b.includes(NOTE)) && ![statusAfterLoss, statusDone, againJson].some(r => JSON.stringify(r).includes(NOTE)) && !(await evalJ(`JSON.stringify(Object.assign({}, sessionStorage)) + (document.querySelector('[data-note-redaction280]')?.textContent || '')`)).includes(NOTE));
   check('no script errors on the pages', state.exceptions.length === 0, state.exceptions);
 } finally {
   await cdp.close();

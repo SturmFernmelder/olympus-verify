@@ -1,6 +1,8 @@
 'use strict';
 // Evergreen 12 Nov 2026, lane ui280. Piece 1 (Parts A, B): the launch roster view for officer-operations-v234.
 // Piece 2 (Part C): the News activity table (/static/activity280.js) through the real News route and /api/news.
+// Piece 3 (Part D): the owner's receipt-note cleanup (/static/note-redaction280.js) through the real admin route and
+// the real POST /api/admin/treasury/ledger/note-redaction on synthetic receipts in the in-memory database.
 // Part A runs the real view module (/static/launch-operations234.js) against pages made by the real
 // producer (worker/src/launch-operations229.ts, native-rank-schemes.ts) in the repo's DOM fixture.
 // Part B runs the real app.js admin route against the real Worker and SQLite (frontend_check.cjs,
@@ -174,6 +176,107 @@ const runUi280=String.raw`
  const n7=await openPage(outsider);await n7.go('#/news');await settle();await settle();await new Promise(r=>setTimeout(r,200));
  check('C10 an account without News standing gets the standing notice and no figures or script',!figFrame(n7)&&!n7.document.head.querySelector(ACT_SEL));
 
- console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity)');process.exit(ok===n?0:1);
+ // ---------------------------------------------------------------- Piece 3: the owner's receipt-note cleanup
+ console.log('\n== Part D: the receipt-note cleanup control (the real app.js route, module and Worker route) ==');
+ const NR_FILE=path.join(root,'public','static','note-redaction280.js');let NR_SRC=null;try{NR_SRC=fs.readFileSync(NR_FILE,'utf8');}catch{}
+ const NR_SEL='script[src="/static/note-redaction280.js"]',NR_PATH='/api/admin/treasury/ledger/note-redaction';
+ const installNR=pg=>{if(!pg.window.OlympusNoteRedaction280)vm.runInNewContext(NR_SRC,{window:pg.window,JSON,Object,Number,String,Array,RegExp,Error,setTimeout,clearTimeout,AbortController},{filename:'note-redaction280.js'});};
+ check('D0 the cleanup control is its own static module and never writes HTML, fetches, stores outside sessionStorage or logs',NR_SRC!==null&&!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\bfetch\(|XMLHttpRequest|localStorage|indexedDB|console\./.test(NR_SRC));
+ let NR=null;if(NR_SRC!==null){const w=makeWindow('{}');vm.runInNewContext(NR_SRC,{window:w.window,JSON,Object,Number,String,Array,RegExp,Error,setTimeout,clearTimeout,AbortController});NR=w.window.OlympusNoteRedaction280;}
+ if(NR){
+  const P0={state:'preview',ceiling:90,receiptRows:11,coveredRows:10,notesToBlank:8,review:'{"id":"x"}.sig',expiresAt:now+600,confirmation:'BLANK RECEIPT NOTES',scope:'s'};
+  const S0={state:'recorded',completion:{version:1,operationId:'0123abcd-0123-4abc-8def-0123456789ab',ceiling:90,blanked:8,completedAt:now},remainingCoveredNotes:0,unclassifiedReceiptRows:0,scope:'s'};
+  const previewBad=[{...P0,note:'x'},{...P0,confirmation:'YES'},{...P0,notesToBlank:11},{...P0,receiptRows:-1},{...P0,review:'nodot'},{...P0,state:'recorded'},(()=>{const x={...P0};delete x.scope;return x;})()];
+  const statusBad=[{...S0,notes:['x']},{...S0,state:'done'},{...S0,completion:{...S0.completion,note:'x'}},{...S0,completion:{...S0.completion,version:2}},{...S0,completion:null},{...S0,state:'not_recorded'},{...S0,remainingCoveredNotes:'0'}];
+  check('D1 the module admits only the exact preview and status replies of the route; any extra, missing or odd field is refused',!!NR.readPreview(P0)&&!!NR.readStatus(S0)&&!!NR.readStatus({...S0,state:'not_recorded',completion:null})&&previewBad.every(x=>NR.readPreview(x)===null)&&statusBad.every(x=>NR.readStatus(x)===null));
+  const R=(status,error)=>({status,data:error?{error}:null});
+  check('D2 only refusals the route returns before any write count as refusals; a lost reply, a 5xx or an unknown code is not one',NR.refusal(R(403,'forbidden'))==='forbidden'&&NR.refusal(R(409,'receipt_note_cleanup_held'))==='held'&&NR.refusal(R(400,'confirmation_required'))==='incomplete'&&NR.refusal(R(0,null))===null&&NR.refusal(R(500,'internal'))===null&&NR.refusal(R(200,'unreadable_answer'))===null&&NR.refusal(R(409,'conflict'))===null&&NR.refusal(R(429,'slow_down'))===null);
+  // A hung apply at module level (the page uses 30 s; here 50 ms): shown as not confirmed, kept, never resent.
+  const w=makeWindow('{}'),doc=w.document,calls=[];
+  const hm=(tag,props,...kids)=>{const el=doc.createElement(tag);for(const [k,v] of Object.entries(props||{})){if(v===undefined||v===null||v===false)continue;if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else if(k.startsWith('on')&&typeof v==='function')el.addEventListener(k.slice(2),v);else if(k==='disabled')el.disabled=!!v;else el.setAttribute(k,v===true?'':String(v));}for(const c of kids.flat(9)){if(c===null||c===undefined||c===false||c==='')continue;el.appendChild(typeof c==='object'?c:doc.createTextNode(String(c)));}return el;};
+  const box=doc.body.appendChild(doc.createElement('div'));
+  const fakeApi=(method,p,body,opts)=>{calls.push(JSON.stringify(body));if(body.action==='preview')return Promise.resolve(P0);return new Promise((_,reject)=>{opts.signal.addEventListener?opts.signal.addEventListener('abort',()=>reject({status:0})):setTimeout(()=>reject({status:0}),60);});};
+  const mounted=NR.mount(box,{h:hm,api:fakeApi,user:{id:NR.OWNER,isAdmin:true},live:()=>true,now:()=>now,fmtDateTime:String,storage:()=>w.sessionStorage,timeoutMs:50});
+  const nobody=NR.mount(doc.createElement('div'),{h:hm,api:fakeApi,user:{id:'300000000000000004',isAdmin:true},live:()=>true,now:()=>now,fmtDateTime:String,storage:()=>w.sessionStorage});
+  byText(box,'button','Count the notes').click();await waitFor(()=>!!byText(box,'button','Blank 8 notes'),'module confirm',2000);
+  const tick=box.querySelector('#note-redaction280-understood');tick.checked=true;tick.dispatchEvent(new Event('change'));byText(box,'button','Blank 8 notes').click();
+  await waitFor(()=>box.textContent.includes('Outcome not confirmed'),'module timeout',3000);await new Promise(r=>setTimeout(r,200));
+  check('D3 an apply that gets no answer in time is shown as not confirmed with the exact request kept, and is sent once only',!!mounted&&nobody===null&&box.textContent.includes('did not answer within')&&calls.filter(c=>c.includes('"apply"')).length===1&&box.querySelector('textarea')?.value.includes('"review": "{\\"id\\":\\"x\\"}.sig"')&&box.querySelectorAll('button').map(b=>b.textContent).join('|')==='Read the stored status'&&JSON.parse(w.sessionStorage.getItem(NR.STORE)).request.body.action==='apply',box.textContent.slice(-500));
+ } else for(const name of ['D1','D2','D3'])check(name+' (module unavailable)',false);
+
+ const OTHER_ADMIN='300000000000000313';await siteUser(OTHER_ADMIN,{global_name:'Synthetic second admin'});
+ const ADMINS={SITE_ADMINS:STAFF+','+OTHER_ADMIN};
+ const NOTE='SYNTHETIC PRIVATE NOTE';
+ const receipt=(i,source,note)=>({version:242,sourceId:source+'-'+i,source,character:'Synthetic Donor '+i,characterKey:'synthetic donor '+i,guid:'Player-1-00'+String(i).padStart(2,'0')+'AB',copper:100*i,items:[],note,evidence:{kind:'synthetic',confirmedLocal:false,automaticCredit:false},observedAt:now-100,classification:'unclassified_receipt',retainUntil:now+86400,payloadHash:'ORIGINAL-'+source+'-'+i});
+ const seeds=[];for(let i=0;i<7;i++)seeds.push(receipt(i,'mail',i<5?NOTE+' mail '+i:''));for(let i=7;i<10;i++)seeds.push(receipt(i,'whisper-declaration',NOTE+' whisper '+i));seeds.push(receipt(10,'trade',''));
+ for(const d of seeds)await fixtureRun("INSERT INTO audit (ts, actor, action, subject, details) VALUES (?, 'watcher', 'treasury.receipt242', ?, ?)",now,'intake242:'+d.sourceId,JSON.stringify(d));
+ const auditRows=()=>db.prepare("SELECT id, ts, actor, action, subject, details FROM audit WHERE action = 'treasury.receipt242' ORDER BY id").all().map(r=>({...r}));
+ const seeded=auditRows();
+ const requests=[];const watch=pg=>pg.intercept((url,init)=>{if(url===NR_PATH)requests.push(String(init.body));return null;});
+ const ctl=pg=>pg.app.querySelector('[data-note-redaction280]');
+ const stageOf=pg=>pg.app.querySelector('[data-note-redaction280-stage]')?.getAttribute('data-note-redaction280-state');
+ const ctlButtons=pg=>(ctl(pg)?ctl(pg).querySelectorAll('button'):[]).map(b=>b.textContent+(b.disabled?'(disabled)':'')).join('|');
+ const openLedger=async(who,over=ADMINS)=>{const pg=await openPage(who,over);watch(pg);await pg.go('#/admin/donation-ledger');await waitFor(()=>pg.app.textContent.includes('Donation observations'),'the donation ledger',8000);return pg;};
+ const noNote=pg=>!ctl(pg)||!ctl(pg).textContent.includes(NOTE);
+ const other=await openLedger(OTHER_ADMIN);await new Promise(r=>setTimeout(r,300));
+ check('D4 another site administrator sees the donation ledger but no cleanup control, and the module is never requested',other.app.textContent.includes('Donation observations')&&!ctl(other)&&!other.document.head.querySelector(NR_SEL));
+ const plainMember=await openPage(MEMBER);await plainMember.go('#/admin/donation-ledger');await settle();await new Promise(r=>setTimeout(r,200));
+ check('D5 an ordinary member gets neither the ledger nor the control',!ctl(plainMember)&&!plainMember.document.head.querySelector(NR_SEL)&&!plainMember.app.textContent.includes('Donation observations'));
+ const o1=await openLedger(STAFF);const askedNR=NR_SRC!==null&&await supplyScript(o1,NR_SEL,installNR);
+ check('D6 the owner account gets the control above the ledger with a count and a status read, and nothing is sent on opening',askedNR&&!!ctl(o1)&&stageOf(o1)==='idle'&&ctlButtons(o1)==='Count the notes|Read the stored status'&&requests.length===0&&ctl(o1).querySelector('h2')?.textContent==='Receipt note cleanup',ctlButtons(o1));
+ const clickIn=async(pg,text)=>{const b=ctl(pg)&&byText(ctl(pg),'button',text);if(!b)return false;b.click();for(let i=0;i<4;i++)await settle();return true;};
+ await clickIn(o1,'Count the notes');await waitFor(()=>stageOf(o1)!=='idle'&&!o1.app.textContent.includes('Counting the notes…'),'the real preview',8000);
+ const c1=ctl(o1),t1=c1?c1.textContent:'';
+ check('D7 the real preview shows counts only: rows stored, covered rows and notes to blank, with what goes, what stays and that it cannot be undone',stageOf(o1)==='confirm'&&t1.includes('Receipt rows stored: 11')&&t1.includes('(mail and whisper declarations): 10')&&t1.includes('Notes that will be blanked: 8')&&t1.includes('What will be removed:')&&t1.includes('What stays:')&&t1.includes('This cannot be undone.')&&requests.length===1&&requests[0]==='{"action":"preview"}'&&noNote(o1),t1.slice(0,900));
+ check('D8 the Blank button stays disabled until the owner ticks the confirmation',ctlButtons(o1)==='Blank 8 notes(disabled)|Cancel');
+ const tickReal=pg=>{const t=pg.app.querySelector('#note-redaction280-understood');if(!t)return;t.checked=true;t.dispatchEvent(new Event('change'));};
+ // Lost reply: the request fails in transit (never reaches the Worker), the page must not know the outcome.
+ o1.intercept((url,init)=>{if(url===NR_PATH){requests.push(String(init.body));if(String(init.body).includes('"apply"'))return Promise.reject(new TypeError('the network dropped the answer'));}return null;});
+ tickReal(o1);await clickIn(o1,'Blank 8 notes');await waitFor(()=>stageOf(o1)==='unconfirmed','the lost apply',8000);await new Promise(r=>setTimeout(r,600));
+ const applies=()=>requests.filter(r=>r.includes('"apply"'));const sentBody=applies()[0]?JSON.parse(applies()[0]):null;
+ const kept=o1.app.querySelector('#note-redaction280-request');
+ check('D9 the apply sent exactly {action, review, confirm} with the preview’s signed review and the fixed confirmation, nothing invented',!!sentBody&&Object.keys(sentBody).join(',')==='action,review,confirm'&&sentBody.action==='apply'&&sentBody.confirm==='BLANK RECEIPT NOTES'&&typeof sentBody.review==='string'&&sentBody.review.includes('.'),applies()[0]);
+ check('D10 a lost apply reply shows "Outcome not confirmed", keeps the exact request on screen, offers only a status read and is never resent',stageOf(o1)==='unconfirmed'&&applies().length===1&&!!kept&&JSON.stringify(JSON.parse(kept.value).body)===applies()[0]&&JSON.parse(kept.value).path===NR_PATH&&ctlButtons(o1)==='Read the stored status'&&noNote(o1),ctlButtons(o1));
+ await clickIn(o1,'Read the stored status');await waitFor(()=>stageOf(o1)==='not-recorded','status after loss',8000);
+ check('D11 the status read says nothing was recorded, keeps the earlier request pending until its approval expires and offers no new count yet',stageOf(o1)==='not-recorded'&&ctl(o1).textContent.includes('could still be processed until')&&ctlButtons(o1)==='Read the stored status'&&requests[requests.length-1]==='{"action":"status"}'&&applies().length===1&&JSON.stringify(auditRows())===JSON.stringify(seeded));
+ await o1.go('#/admin');await o1.go('#/admin/donation-ledger');await waitFor(()=>stageOf(o1)==='unconfirmed','the kept attempt after navigation',8000);await new Promise(r=>setTimeout(r,300));
+ check('D12 leaving and coming back shows the same unconfirmed request again and sends nothing on its own',stageOf(o1)==='unconfirmed'&&JSON.stringify(JSON.parse(o1.app.querySelector('#note-redaction280-request').value).body)===applies()[0]&&applies().length===1&&requests.filter(r=>r==='{"action":"status"}').length===1);
+ // Definite refusals and unreadable replies, on fresh pages (a fresh tab has its own session storage).
+ const scripted=async(answer)=>{const pg=await openLedger(STAFF);await supplyScript(pg,NR_SEL,installNR);const seen=[];pg.intercept(async(url,init)=>{if(url!==NR_PATH)return null;seen.push(String(init.body));return answer(JSON.parse(init.body),seen);});return {pg,seen};};
+ const realPreview=async()=>{const r=await indexMod.default.fetch(new Request('https://guild.example'+NR_PATH,{method:'POST',headers:{Cookie:await cookieFor(STAFF),'X-Olympus':'2',Origin:'https://guild.example','Content-Type':'application/json'},body:JSON.stringify({action:'preview'})}),env(ADMINS),ctx);return r.json();};
+ const toConfirm=async pg=>{await clickIn(pg,'Count the notes');await waitFor(()=>stageOf(pg)==='confirm'||stageOf(pg)==='held'||stageOf(pg)==='refused','confirm step',8000);if(stageOf(pg)!=='confirm')return false;tickReal(pg);await clickIn(pg,byText(ctl(pg),'button','Blank 8 notes')?'Blank 8 notes':'?');await waitFor(()=>!['confirm'].includes(stageOf(pg))&&!pg.app.textContent.includes('Sending the cleanup request'),'apply settles',8000);return true;};
+ const pv=await realPreview();
+ const s1=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify({error:'receipt_note_cleanup_held',message:'held'}),{status:409}));
+ await toConfirm(s1.pg);
+ check('D13 a held apply (409) is shown as a plain refusal that reports no change, clears the attempt and offers a new count or a status read',stageOf(s1.pg)==='refused'&&ctl(s1.pg).textContent.includes('reported no change')&&ctlButtons(s1.pg)==='Count the notes|Read the stored status'&&s1.pg.sessionStorage.getItem('olympus.noteRedactionAttempt280')===null);
+ const s2=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify({state:'recorded'}),{status:200}));
+ await toConfirm(s2.pg);
+ check('D14 an apply answered in an unexpected form is not taken as success: shown as not confirmed with the request kept',stageOf(s2.pg)==='unconfirmed'&&ctl(s2.pg).textContent.includes('not in the expected form')&&ctlButtons(s2.pg)==='Read the stored status'&&s2.seen.filter(x=>x.includes('"apply"')).length===1);
+ const s3=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response('{"error":"internal"}',{status:500}));
+ await toConfirm(s3.pg);
+ check('D15 a server error on apply is not a refusal: shown as not confirmed, never resent',stageOf(s3.pg)==='unconfirmed'&&s3.seen.filter(x=>x.includes('"apply"')).length===1);
+ const s4=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify({state:'recorded',completion:{version:1,operationId:'0123abcd-0123-4abc-8def-0123456789ab',ceiling:pv.ceiling,blanked:8,completedAt:now-3600},remainingCoveredNotes:0,unclassifiedReceiptRows:0,scope:'x'}),{status:200}));
+ await toConfirm(s4.pg);
+ check('D16 an apply answered with an earlier recorded cleanup says this request changed nothing',stageOf(s4.pg)==='recorded'&&ctl(s4.pg).textContent.includes('recorded by an earlier request, not by this one'));
+ const s5=await scripted(b=>new Response(JSON.stringify({error:'forbidden'}),{status:403}));
+ await clickIn(s5.pg,'Count the notes');await waitFor(()=>stageOf(s5.pg)==='refused','forbidden',8000);
+ check('D17 a refusal of the account (403) is shown plainly and leaves no control',stageOf(s5.pg)==='refused'&&ctl(s5.pg).textContent.includes('Only the owner’s account can run this cleanup')&&ctlButtons(s5.pg)==='');
+ const s6=await scripted(b=>new Response(JSON.stringify({...pv,note:NOTE+' leaked'}),{status:200}));
+ await clickIn(s6.pg,'Count the notes');await waitFor(()=>stageOf(s6.pg)==='held','odd preview',8000);
+ check('D18 a preview with an unknown field (here a note) is held: nothing from it is shown and no Blank button exists',stageOf(s6.pg)==='held'&&noNote(s6.pg)&&!ctlButtons(s6.pg).includes('Blank'));
+ check('D19 none of those replies changed a stored receipt',JSON.stringify(auditRows())===JSON.stringify(seeded));
+ // The real apply, on a fresh tab.
+ const o2=await openLedger(STAFF);await supplyScript(o2,NR_SEL,installNR);
+ const before2=requests.length;await toConfirm(o2);await waitFor(()=>stageOf(o2)==='recorded','the real apply',10000);
+ const after=auditRows(),mine=requests.slice(before2);
+ const preserved=after.length===seeded.length&&after.every((r,i)=>{const a=JSON.parse(seeded[i].details),b=JSON.parse(r.details);return r.id===seeded[i].id&&r.ts===seeded[i].ts&&r.actor===seeded[i].actor&&r.subject===seeded[i].subject&&b.note===''&&JSON.stringify({...a,note:''})===JSON.stringify(b);});
+ check('D20 the real apply blanks exactly the 8 notes and keeps every row and every other field; the result shows the count and time',stageOf(o2)==='recorded'&&ctl(o2).textContent.includes('8 notes were blanked')&&preserved&&mine.filter(x=>x.includes('"apply"')).length===1&&noNote(o2),ctl(o2)&&ctl(o2).textContent.slice(0,600));
+ const replay=await indexMod.default.fetch(new Request('https://guild.example'+NR_PATH,{method:'POST',headers:{Cookie:await cookieFor(STAFF),'X-Olympus':'2',Origin:'https://guild.example','Content-Type':'application/json'},body:mine.find(x=>x.includes('"apply"'))}),env(ADMINS),ctx);
+ const replayBody=await replay.json();
+ const o3=await openLedger(STAFF);await supplyScript(o3,NR_SEL,installNR);await clickIn(o3,'Count the notes');await waitFor(()=>stageOf(o3)==='recorded','preview after completion',8000);
+ check('D21 a second apply after success returns the stored status and writes nothing; a new count shows the stored status, never a Blank button',replay.status===200&&replayBody.state==='recorded'&&JSON.stringify(auditRows())===JSON.stringify(after)&&db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'treasury.receipt_note_redaction280'").get().n===1&&stageOf(o3)==='recorded'&&!ctlButtons(o3).includes('Blank')&&ctl(o3).textContent.includes('8 notes were blanked'),JSON.stringify(replayBody));
+ const stored=[o1,o2,o3,s1.pg,s2.pg,s3.pg,s4.pg].map(pg=>String(pg.sessionStorage.getItem('olympus.noteRedactionAttempt280')||'')).join('');
+ check('D22 no note text ever reached the control, its replies or its session record',[o1,o2,o3,s1.pg,s2.pg,s3.pg,s4.pg,s5.pg,s6.pg].every(noNote)&&!stored.includes(NOTE)&&!JSON.stringify(pv).includes(NOTE)&&!JSON.stringify(replayBody).includes(NOTE));
+ console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
