@@ -7,14 +7,6 @@ const { DatabaseSync } = require('node:sqlite'), ts = require('typescript'), ent
 const root = path.resolve(__dirname, '..'), SUBJECT = '300000000000000002', GUILD = '236932545793490944', OFFICER_ROLE = '300000000000000777';
 let checks = 0;
 const check = (name, condition) => { assert.ok(condition, name); checks++; console.log('PASS ' + name); };
-// Round 5 gate review (13 Nov 2026): a positive that the TRACKED configuration does not deliver yet is held, not turned
-// into an expected refusal. holdUnless asserts the positive; only when `known` names the exact configuration that is
-// known to block it does the check print HELD (with what was observed) instead of failing. Any other configuration fails.
-const heldChecks = [];
-const holdUnless = (name, condition, known, observed) => {
-  if (condition || !known) return check(name, condition);
-  heldChecks.push(name); console.log('HELD ' + name + ' -- ' + observed);
-};
 
 function sourceGraph(provider) {
   const cache = new Map();
@@ -472,16 +464,21 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
     const out=await f.open(ASSETS[0]);check('with the Directive v2 policy in place of the tracked CANONICAL_RANKS233, the other tracked selectors retain exact native '+rank+' read access',out.status===200&&f.calls.assets===1&&f.calls.discord===0);
   });
   // Round 5 gate review (13 Nov 2026): the same positives under the tracked CANONICAL_RANKS233 itself, the shipping
-  // configuration. While wrangler.toml still ships the 6 Nov v1 profile, currentLadder is null and the roster route admits
-  // no officer at all (handoff to Codex, receipt 1); that exact value holds the check, any other value must admit.
+  // configuration. Round 5 final (13 Nov 2026): these were held while the candidate refused the in-game-rank route under
+  // the tracked 6 Nov v1 policy. site-treasury-access.ts currentLadder now keeps that route for the exact original policy
+  // (case original233: NATIVE_NAMES233 on the configured scope's provenance source, as dfca7a2 read it; see
+  // evergreen1112_treasury_ladder_test.cjs), so they are ordinary positives that fail if the route closes again. On that
+  // ladder the three officer ranks sit at their original slots (High Council 2, Officer 3, Officer Alt 4) and the export
+  // carries the provenance source; the same pairs on the qualified v2 source stay refused (the retired rows below).
   const TRACKED_V1_PROFILE='olympus-canonical-ranks-20261106-v1';
-  for(const [rank,index]of [['High Council',1],['Officer',2],['Officer Alt',3]])await scenario('canonical233 tracked native '+rank,{canonical233:true,trackedPolicy:true},async f=>{
-    await roster(f,{rank,index});
+  for(const [rank,index]of [['High Council',2],['Officer',3],['Officer Alt',4]])await scenario('canonical233 tracked native '+rank,{canonical233:true,trackedPolicy:true},async f=>{
+    const provenance=f.load('launch-verification227').captureLaunchVerification(f.env).scope?.provenance;
+    await roster(f,{rank,index,source:provenance});
     let tracked=null;try{tracked=JSON.parse(f.env.CANONICAL_RANKS233);}catch{}
     const knownV1=!!tracked&&tracked.version===1&&tracked.profile===TRACKED_V1_PROFILE,ladder=f.gate.currentLadder(f.env);
     const out=await f.open(ASSETS[0]);
-    holdUnless('under the tracked CANONICAL_RANKS233 as shipped, native '+rank+'@'+index+' retains Treasury read access',out.status===200&&f.calls.assets===1&&f.calls.discord===0,
-      knownV1&&ladder===null,'tracked CANONICAL_RANKS233 is version 1 '+TRACKED_V1_PROFILE+', currentLadder is null, the roster route answered '+out.status+' (expected red until Codex moves the tracked policy to the Directive v2 profile)');
+    check('under the tracked CANONICAL_RANKS233 as shipped, native '+rank+'@'+index+' retains Treasury read access',knownV1&&ladder?.policy==='original233'&&typeof provenance==='string'&&ladder.source===provenance
+      &&out.status===200&&f.calls.assets===1&&f.calls.discord===0);
   });
   for(const [rank,index]of [['Stewart',1],['High Council',2],['Officer Alt',4]])for(const tracked of [false,true])await scenario('canonical233 retired native '+rank+(tracked?' (tracked v1 policy)':''),{canonical233:true,trackedPolicy:tracked},async f=>{
     await roster(f,{rank,index});
@@ -518,12 +515,19 @@ const ASSETS = ['/static/treasury-plan207.js', '/static/treasury-plan-model207.j
   // Round 5 migration: "beta-five" was withheld through the role map, and the council-treasurer profile put 'Treasurer'
   // at slot 2. The beta-era withholding is now the retired canonical profile (and canonical ranks off); a retired role-map
   // profile no longer changes the ladder, so it is the Directive ladder (slot 2 'Officer') under every profile.
-  check('currentLadder withholds beta-five, a clock-gated future cut and an empty cut, and returns the exact configured ladder otherwise',
-    ladder('ten-rank', past, 'false', 'historical') === null && ladder('ten-rank', past, 'false', 'off') === null && ladder('beta-five', past, 'false', 'historical') === null
+  // Round 5 final (13 Nov 2026): the same stale expectation as the three tracked rows above. The exact original policy
+  // ('historical' here: version 1, CANONICAL_PROFILE233) no longer gives null: currentLadder keeps its own ladder
+  // (original233, NATIVE_NAMES233 on the scope's provenance source) under any role-map profile, beta-five included.
+  // Canonical ranks off, the clock-gated future cut and the empty cut still give null.
+  const provenance = load('launch-verification227').captureLaunchVerification({ VERIFY_MEMBERSHIP_ONLY: 'true', VERIFY_NATIVE_SCOPE: JSON.stringify(SCOPE) }).scope?.provenance;
+  const original = l => l?.policy === 'original233' && JSON.stringify(l.names) === JSON.stringify(load('canonical-ranks233').NATIVE_NAMES233) && typeof provenance === 'string' && l.source === provenance && l.cutoff === Number(past);
+  check('currentLadder withholds canonical ranks switched off, a clock-gated future cut and an empty cut, keeps the original ladder for the original policy (beta-five map included), and returns the exact configured ladder otherwise',
+    original(ladder('ten-rank', past, 'false', 'historical')) && ladder('ten-rank', past, 'false', 'off') === null && original(ladder('beta-five', past, 'false', 'historical'))
+    && ladder('ten-rank', future, 'true', 'historical') === null && ladder('ten-rank', '', 'false', 'historical') === null
     && ladder('ten-rank', future, 'true') === null && ladder('ten-rank', '', 'false') === null
     && JSON.stringify(ladder('ten-rank', past, 'false').names) === JSON.stringify(ten) && ladder('ten-rank', past, 'false').cutoff === Number(past)
     && ladder('ten-rank', past, 'false').source === load('native-rank-schemes').qualifiedNativeSnapshotSource(SCOPE.guild, SCOPE.realm)
     && ['beta-five', 'ten-rank-treasurer-v1', 'ten-rank-council-treasurer-v1'].every(p => JSON.stringify(ladder(p, past, 'false')?.names) === JSON.stringify(ten))
     && ladder('ten-rank-council-treasurer-v1', past, 'false').names[2] === 'Officer');
-  console.log(`\n${checks} checks passed` + (heldChecks.length ? `, ${heldChecks.length} held (expected red under the tracked configuration): ${heldChecks.join('; ')}` : ''));
+  console.log(`\n${checks} checks passed`);
 })().catch(error => { console.error(error); process.exitCode = 1; });
