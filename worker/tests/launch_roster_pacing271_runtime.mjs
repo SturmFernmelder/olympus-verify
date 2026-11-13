@@ -1,11 +1,14 @@
 // Genuine Workerd/D1 fixture. Only the runner's external Discord HTTP is synthetic.
-import {readLaunchOperations229,readPromotionSelection273,handleLaunchOperations229} from '../src/site-launch229.ts';
+import {readLaunchOperations229,readPromotionSelection273,readPromotionSelections276,handleLaunchOperations229} from '../src/site-launch229.ts';
 import {captureLaunchVerification} from '../src/launch-verification227.ts';
 import {ADMISSION_EXPECTED_JSON, ADMISSION_PROTOCOL} from '../src/privacy-write-admission-catalogue.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {strictRosterDisplay} from '../src/unverified.ts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
 import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
+import {qualifiedNativeSnapshotSource,DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES} from '../src/native-rank-schemes.ts';
+
+const directivePolicy=()=>JSON.stringify({version:2,enabled:true,profile:DIRECTIVE_CANONICAL_PROFILE,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))});
 
 const EPOCH = 'a'.repeat(32);
 const MODES = new Set(['full', 'partial-recover', 'credential-change', 'slow-read', '429-body', '429-header', '429-reset', '429-persistent',
@@ -27,10 +30,10 @@ async function reviewRecords275(action, input) {
     const snapshot=await db.prepare('SELECT source,exported_at,trusted FROM roster_snapshots WHERE id=1').first();
     fixture.review275={snapshot,env:Object.fromEntries(['GUILD_ID','CANONICAL_RANKS233','NATIVE_RANK_SYNC232','VERIFY_NATIVE_SCOPE'].map(key=>[key,{present:Object.hasOwn(env,key),value:env[key]}]))};
     env.GUILD_ID=CANONICAL_GUILD233;
-    env.CANONICAL_RANKS233=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))});
+    env.CANONICAL_RANKS233=directivePolicy();
     env.VERIFY_NATIVE_SCOPE=JSON.stringify({version:1,...NATIVE_SCOPE232});
     const launch=captureLaunchVerification(env),statements=[
-      env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(launch.scope.provenance),
+      env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)),
       ...[0,3,4,5,6,7,8,9].map(index=>env.DB.prepare('UPDATE characters SET bound_at=?1,verified_at=?1 WHERE name_key=?2').bind(fixture.at-7200,rows[index].key)),
       ...[1,2].map(index=>env.DB.prepare("UPDATE characters SET status='unbound',guid=NULL WHERE name_key=?1").bind(rows[index].key)),
       env.DB.prepare("INSERT INTO pending(discord_id,name_key,name,created_at,expires_at,nonce) VALUES(?1,?2,?3,?4,?5,'review275-pending')").bind(rows[2].subject,rows[2].key,rows[2].name,at-1,at+300),
@@ -84,8 +87,8 @@ async function reviewRecords275(action, input) {
     else if(kind==='stale')await env.DB.prepare('UPDATE roster_snapshots SET exported_at=?1 WHERE id=1').bind(restore?fixture.review275.snapshot.exported_at:at-3601).run();
     else if(kind==='scope'){
       env.VERIFY_NATIVE_SCOPE=restore?JSON.stringify({version:1,...NATIVE_SCOPE232}):fixture.review275.env.VERIFY_NATIVE_SCOPE.value;
-      await env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(captureLaunchVerification(env).scope.provenance).run();
-    }else if(kind==='config')env.CANONICAL_RANKS233=restore?JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))}):'off';
+      const scope=captureLaunchVerification(env).scope;await env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(qualifiedNativeSnapshotSource(scope.guild,scope.realm)).run();
+    }else if(kind==='config')env.CANONICAL_RANKS233=restore?directivePolicy():'off';
     else if(kind==='native-config'){
       if(!restore)env.NATIVE_RANK_SYNC232='off';
       else {const saved=fixture.review275.env.NATIVE_RANK_SYNC232;if(saved.present)env.NATIVE_RANK_SYNC232=saved.value;else delete env.NATIVE_RANK_SYNC232;}
@@ -129,7 +132,7 @@ async function seed(db) {
   const env = {DB: null, VERIFY_MEMBERSHIP_ONLY: 'true',
     VERIFY_NATIVE_SCOPE: JSON.stringify({version: 1, guild: 'OLYMPUS PRIME', realm: 'Fixture Realm'}),
     VERIFY_SECRET: 'synthetic-roster-pacing-only', LINKS_NOT_BEFORE: String(at - 3600),
-    SITE_GUILD_ID: '800000000000000001', DISCORD_BOT_TOKEN: 'synthetic-roster-pacing-full',
+    SITE_GUILD_ID: '800000000000000001', GUILD_ID:CANONICAL_GUILD233,CANONICAL_RANKS233:directivePolicy(),DISCORD_BOT_TOKEN: 'synthetic-roster-pacing-full',
     PRIVACY_WRITE_ADMISSION_ENABLED: 'true', PRIVACY_WRITE_ADMISSION_LAYOUT: 'canonical',
     PRIVACY_WRITE_ADMISSION_EPOCH: EPOCH};
   const launch = captureLaunchVerification(env);
@@ -145,7 +148,7 @@ async function seed(db) {
     db.prepare("INSERT INTO privacy_write_admission VALUES(1,?1,0,'','',0,0,?2,'serving')").bind(ADMISSION_PROTOCOL, EPOCH),
     db.prepare("INSERT INTO privacy_rejection_expiry_control VALUES(1,'original-guild-rejection-expiry-v1',0,0)"),
     db.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES('auditTypedNames','115',?1)").bind(at),
-    db.prepare("INSERT INTO roster_snapshots(id,exported_at,received_at,first_received_at,source,member_count,complete,trusted) VALUES(1,?1,?1,?1,?2,1000,1,1)").bind(at - 120, launch.scope.provenance),
+    db.prepare("INSERT INTO roster_snapshots(id,exported_at,received_at,first_received_at,source,member_count,complete,trusted) VALUES(1,?1,?1,?1,?2,1000,1,1)").bind(at - 120, qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)),
     db.prepare("INSERT INTO members(discord_id,banned) SELECT json_extract(value,'$.subject'),0 FROM json_each(?1)").bind(json),
     db.prepare("INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level) SELECT 1,json_extract(value,'$.key'),json_extract(value,'$.name'),json_extract(value,'$.guid'),'Initiate',9,60 FROM json_each(?1)").bind(json),
     db.prepare("INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,source,guid) SELECT json_extract(value,'$.key'),json_extract(value,'$.name'),json_extract(value,'$.subject'),'member',?2,?2,'whisper',json_extract(value,'$.guid') FROM json_each(?1)").bind(json, at - 60),
@@ -175,6 +178,27 @@ export default {async fetch(request, bindings) {
     }
     if (!fixture) return new Response(null, {status: 404});
     const {env, db} = fixture;
+    if(url.pathname==='/directive-actor'){
+      const {enabled=true}=await request.json(),actor=fixture.rows[999];
+      await env.DB.prepare('UPDATE roster_members SET rank=?1,rank_index=?2 WHERE snapshot_id=1 AND name_key=?3').bind(enabled?'Guild Master':'Initiate',enabled?0:9,actor.key).run();
+      return Response.json({complete:true,actorGuid:actor.guid});
+    }
+    if(url.pathname==='/directive-source'){
+      const {kind}=await request.json(),scope=captureLaunchVerification(env).scope;
+      if(kind==='v1')await env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(scope.provenance).run();
+      else if(kind==='rank-mismatch')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=8 WHERE snapshot_id=1 AND name_key=?1").bind(fixture.rows[0].key).run();
+      else if(kind==='restore')await env.DB.batch([env.DB.prepare('UPDATE roster_snapshots SET source=?1 WHERE id=1').bind(qualifiedNativeSnapshotSource(scope.guild,scope.realm)),env.DB.prepare("UPDATE roster_members SET rank='Initiate',rank_index=9 WHERE snapshot_id=1 AND name_key=?1").bind(fixture.rows[0].key)]);
+      else return new Response(null,{status:400});
+      return Response.json({complete:true});
+    }
+    if(url.pathname==='/directive'){
+      const input=await request.json(),selection=input.selection;
+      env.DISCORD_BOT_TOKEN='synthetic-roster-pacing-'+(input.mode??'directive-full');
+      const query=new URLSearchParams({keyVersion:'officer-operations-v234',...Object.fromEntries(Object.entries(selection).map(([key,value])=>[key,Array.isArray(value)?JSON.stringify(value):String(value)]))});
+      if(input.cursor!==undefined)query.set('cursor',input.cursor);
+      const response=await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,true),value=await response.json();
+      return Response.json(response.ok?{complete:true,actualLocalWorkerdD1:true,selection:value,cacheControl:response.headers.get('Cache-Control')}:{complete:false,error:value.error},{status:response.status});
+    }
     if (url.pathname === '/review-records275') {
       const input=await request.json();return Response.json(await reviewRecords275(input.action,input));
     }
@@ -217,7 +241,11 @@ export default {async fetch(request, bindings) {
       }
       const query=new URLSearchParams({keyVersion:'officer-operations-v233',...Object.fromEntries(Object.entries(selection).map(([key,value])=>[key,key==='targetGuids'?JSON.stringify(value):String(value)]))});
       if(cursor!==null)query.set('cursor',cursor);
-      const response=await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true),value=await response.json();
+      // Historical exported reader diagnostics, not the current HTTP wire.
+      // Explicit raw/admin requests still exercise the real rejecting handler.
+      const response=input.rawQuery!==undefined||input.admin===true
+        ?await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true)
+        :Response.json(await readPromotionSelections276(env,selection,cursor),{headers:{'Cache-Control':'private, no-store'}}),value=await response.json();
       return Response.json(response.ok?{complete:true,actualLocalWorkerdD1:true,selection:value,cacheControl:response.headers.get('Cache-Control'),syntheticSignedInputBoundary:url.pathname==='/batch-boundary'}:{complete:false,error:value.error},{status:response.status});
     }
     if (url.pathname === '/selection-observe') {
@@ -248,7 +276,7 @@ export default {async fetch(request, bindings) {
       ]);
       else if(kind==='missing')await env.DB.prepare('UPDATE roster_members SET guid=NULL WHERE snapshot_id=1 AND name_key=?1').bind(target.key).run();
       else if(kind==='duplicate')await env.DB.prepare('UPDATE roster_members SET guid=?1 WHERE snapshot_id=1 AND name_key=?2').bind(target.guid,fixture.rows[398].key).run();
-      else if(kind==='rank-complete')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=8 WHERE snapshot_id=1 AND name_key=?1").bind(target.key).run();
+      else if(kind==='rank-complete')await env.DB.prepare("UPDATE roster_members SET rank='Member',rank_index=7 WHERE snapshot_id=1 AND name_key=?1").bind(target.key).run();
       else if(kind==='mixed')await env.DB.prepare('DELETE FROM characters WHERE name_key=?1').bind(fixture.rows[381].key).run();
       else if(kind==='drift')await env.DB.prepare('UPDATE roster_members SET level=59 WHERE snapshot_id=1 AND name_key=?1').bind(fixture.rows[901].key).run();
       else if(kind==='restore')await env.DB.batch([
@@ -294,7 +322,10 @@ export default {async fetch(request, bindings) {
       }
       const query=new URLSearchParams({keyVersion:'officer-operations-v233',...Object.fromEntries(Object.entries(selection).map(([key,value])=>[key,String(value)]))});
       if(cursor!==null)query.set('cursor',cursor);
-      const response=await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true),value=await response.json();
+      // Internal v4 diagnostic compatibility is deliberately separate from v234.
+      const response=input.rawQuery!==undefined||input.admin===true
+        ?await handleLaunchOperations229(new Request('https://fixture.invalid/queue/launch-operations?'+(input.rawQuery??query.toString())),env,input.admin!==true)
+        :Response.json(await readPromotionSelection273(env,selection,cursor),{headers:{'Cache-Control':'private, no-store'}}),value=await response.json();
       return Response.json(response.ok?{complete:true,actualLocalWorkerdD1:true,selection:value,cacheControl:response.headers.get('Cache-Control'),syntheticSignedInputBoundary:url.pathname==='/selection-boundary'}:{complete:false,error:value.error},{status:response.status});
     }
     if (url.pathname === '/page') {
@@ -375,7 +406,7 @@ export default {async fetch(request, bindings) {
       return Response.json({complete: true, guid: current.guid, originalIdentity: current.discord_id === row.subject});
     }
     if (url.pathname === '/ranks') {
-      const names = ['Guild Master', 'Stewart', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran'];
+      const names = DIRECTIVE_RANK_NAMES.slice(0,7);
       await env.DB.batch(names.map((rank, i) => env.DB.prepare('UPDATE roster_members SET rank=?1,rank_index=?2 WHERE snapshot_id=1 AND name_key=?3').bind(rank, i, fixture.rows[i].key)));
       return Response.json({complete: true});
     }
