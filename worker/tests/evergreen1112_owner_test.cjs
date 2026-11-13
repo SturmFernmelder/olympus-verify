@@ -516,9 +516,16 @@ async function part2() {
 // page reads; the Worker still refuses that officer every write (checked here over HTTP and on the real Worker above).
 async function part2round3(cdp, go, size) {
   console.log('== CL2-091 through the harness ==');
+  // Since d54a954 the gate admits five closed keys: the two seats and their older records co_gm, treasurer and
+  // rank_treasurer. The harness personas hold the older records with a published association, so they are admitted;
+  // a member with no record is the control, and the refusal still names the two seats.
   for (const persona of ['treasurer', 'cogm']) {
     const r = await http(persona, 'GET', '/api/treasury-plan/access');
-    check('CL2-091', `harness: the ${persona} persona (only the old ${persona === 'cogm' ? 'co_gm' : 'treasurer'} key) is refused, and the sentence names the two seats`, r.status === 200 && r.data?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(r.data.admits || ''), r.data);
+    check('CL2-091', `harness: the ${persona} persona (the older ${persona === 'cogm' ? 'co_gm' : 'treasurer'} record of its seat) is admitted`, r.status === 200 && r.data?.canRead === true, r.data);
+  }
+  {
+    const r = await http('member', 'GET', '/api/treasury-plan/access');
+    check('CL2-091', 'harness: a member with no appointment record is refused, and the sentence names the two seats', r.status === 200 && r.data?.canRead === false && /the holders of the published Co-Guild Master and Lord High Treasurer seats/.test(r.data.admits || ''), r.data);
   }
   await go(URL0 + '/__qa/admin'); await size(1280, 900); await go(URL0 + '/#/admin/appointments');
   let seats = null;
@@ -545,7 +552,7 @@ async function part2round3(cdp, go, size) {
     await go('about:blank'); // a fresh page load each time: the same hash again would leave the previous view in place
     await go(URL0 + `/#/community/calendar/${id}/discord`);
     let s = null;
-    for (let i = 0; i < 60; i++) { s = await cdp.eval(`(() => { const m = document.querySelector('main'); if (!m) return null; const t = m.innerText; return { refused: t.includes('Only the event\'s organizer, the High Council, the War Heads or a site administrator can manage its announcement.'), panel: !!m.querySelector('[data-announcement-preview]'), publish: [...m.querySelectorAll('button')].some(b => /Publish announcement|Update announcement/.test(b.textContent)), reminder: !!m.querySelector('[data-event-reminder]'), loaded: t.includes('Announcement status') || /Ready to publish|could not|not currently eligible|Only the event\'s organizer|unresolved|switched off|published/i.test(t) }; })()`); if (s && (s.refused || (s.panel && s.loaded && (s.reminder || i > 25)))) break; await sleep(200); }
+    for (let i = 0; i < 60; i++) { s = await cdp.eval(`(() => { const m = document.querySelector('main'); if (!m) return null; const t = m.innerText; return { refused: t.includes("Only the event's organizer, the High Council, the War Heads or a site administrator can manage its announcement."), panel: !!m.querySelector('[data-announcement-preview]'), publish: [...m.querySelectorAll('button')].some(b => /Publish announcement|Update announcement/.test(b.textContent)), reminder: !!m.querySelector('[data-event-reminder]'), loaded: t.includes('Announcement status') || /Ready to publish|could not|not currently eligible|Only the event\'s organizer|unresolved|switched off|published/i.test(t) }; })()`); if (s && (s.refused || (s.panel && s.loaded && (s.reminder || i > 25)))) break; await sleep(200); }
     return s;
   };
   await go(URL0 + '/__qa/officer'); await size(1280, 900);
