@@ -32,12 +32,20 @@ export function renderOrganization(main, data, ui) {
   const topTier1113 = visible.filter(n => n.parent === null);
   const topPeers1113 = n => n.parent === null ? topTier1113.filter(o => o !== n && (o.coordinates.includes(n.id) || n.coordinates.includes(o.id))) : [];
   const reportsTo1113 = n => [n.parent, ...(n.alsoReportsTo || [])].filter(id => id && byId.has(id)).map(id => byId.get(id));
-  const titleList1113 = list => list.map(nodeTitle218).join(" and ");
+  // The top tier is named the way the overview and the book name it ("the Guild Master and the Co-Guild Master"), with the
+  // card title in brackets where it differs, so the chart's text alternative and the prose say the same thing.
+  const TOP_NAMES1113 = { "gm-chair": "the Guild Master", "co-gm": "the Co-Guild Master" };
+  const topName1113 = n => {
+    const seat = (data.councilComposition?.currentSeats || []).find(s => s.nodeId === n.id), name = seat && TOP_NAMES1113[seat.id], shown = nodeTitle218(n);
+    return !name ? shown : shown.includes(name.slice(4)) ? name : `${name} (${shown})`;
+  };
+  const topList1113 = list => list.every(o => o.parent === null) && topTier1113.length > 1 ? list.map(topName1113).join(" and ") : list.map(nodeTitle218).join(" and ");
   // Text alternative of a node's place, the same words in the inspector and in List.
   const relationText1113 = n => {
     const up = reportsTo1113(n), peers = topPeers1113(n);
-    if (!up.length) return peers.length ? `Top tier, beside ${titleList1113(peers)}; no reporting parent in this model.` : "Constitutional root; no reporting parent in this model.";
-    return `${n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through"}: ${titleList1113(up)}${up.length > 1 ? " (the top tier)" : ""}.`;
+    if (!up.length) return peers.length ? `Top tier, beside ${topList1113(peers)}; no reporting parent in this model.` : "Constitutional root; no reporting parent in this model.";
+    const verb = n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through";
+    return up.length > 1 && up.every(o => o.parent === null) ? `${verb} the top tier: ${topList1113(up)}.` : `${verb}: ${up.map(nodeTitle218).join(" and ")}.`;
   };
   // CL2-062: the High Council's children follow the seat protocol order (a department ranks by the first seat it holds);
   // units without a seat keep their model order after them.
@@ -241,7 +249,7 @@ export function renderOrganization(main, data, ui) {
   }
   const list = h("section", { class: "org-list", "aria-label": "All offices in reading order" });
   for (const n of data.nodes) {
-    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: nodeKind1112(n) }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${titleList1113(reportsTo1113(n))}` : topPeers1113(n).length ? `Top tier, beside ${titleList1113(topPeers1113(n))}` : "Separate root" }));
+    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: nodeKind1112(n) }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${reportsTo1113(n).length > 1 ? topList1113(reportsTo1113(n)) : nodeTitle218(byId.get(n.parent))}` : topPeers1113(n).length ? `Top tier, beside ${topList1113(topPeers1113(n))}` : "Separate root" }));
     rows.set(n.id, row); list.append(row);
   }
   const chartButton = h("button", { type: "button", class: "btn small", "aria-pressed": "true", text: "Chart", onclick: () => view(false) });

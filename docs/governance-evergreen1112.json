@@ -923,6 +923,19 @@
    "why": "Owner ruling of 13 November 2026: the trial review and memorial writs carry the same status; the Trade Factor warrant beside them keeps its wording, as the ruling does not cover it.",
    "before": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent, subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free.",
    "after": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** **Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials** may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent. None of them can be bought or requested; any activation would be subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free."
+  },
+  {
+   "key": "title-ii-8-1-a-co-gm-top-tier",
+   "issues": [
+    "CL2-039"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026 on the organization chart: the Co-Guild Master sits in the top tier beside the Guild Master. Section II.8.1(a) names that place; the Council seat beside the twelve numbered portfolios, the seat numbers and the 13-seat count are unchanged.",
+   "before": "(a) The Guild Master chairs the High Council. The Co-Guild Master serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council). Systems & Heraldry sets technical stewardship and heraldic standards. The Addon / Discord Architect remains an Officer Corps specialist; the Herald directs campaigns and the Seneschal directs court protocol. The Sovereign may establish a further distinct portfolio through an explicit instrument. Each office keeps its own key and accepted warrant. Existing holder records and ballots retain their original identities.",
+   "after": "(a) The Guild Master chairs the High Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves alongside twelve numbered portfolios in the [current Cabinet register](#/organization/council). Systems & Heraldry sets technical stewardship and heraldic standards. The Addon / Discord Architect remains an Officer Corps specialist; the Herald directs campaigns and the Seneschal directs court protocol. The Sovereign may establish a further distinct portfolio through an explicit instrument. Each office keeps its own key and accepted warrant. Existing holder records and ballots retain their original identities."
   }
  ]
 }

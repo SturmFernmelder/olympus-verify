@@ -6,8 +6,8 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 268084,
-    "sha256": "140a569464c0c0422711d4282bcc76eecedf7f7d566c004129e9997f27ae634f"
+    "bytes": 268133,
+    "sha256": "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da"
   },
   "councilComposition": {
     "status": "owner_directed_current228",
@@ -460,7 +460,7 @@
       "kind": "council of accepted offices",
       "icon": "officer",
       "remit": "Olympus-wide standards, budgets and portfolio coordination.",
-      "limits": "The Guild Master chairs the Council. The Co-Guild Master serves alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
+      "limits": "The Guild Master chairs the Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves on the Council alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
       "coordinates": [],
       "chapter": "organisation-and-offices"
     },
@@ -10976,7 +10976,8 @@
     "recordedAt": "2026-11-13",
     "issue": "CL2-039",
     "authority": "owner ruling of 13 November 2026 on the organization chart: placement and reporting lines only; holders, votes, seat numbers, office keys and application tracks unchanged",
-    "summary": "The Co-Guild Master sits in the top tier beside the Guild Master. The Lord High Justiciar sits in the High Council Cabinet tier, reports directly to both and oversees the Court branch.",
+    "summary": "The Co-Guild Master sits in the top tier beside the Guild Master. The Lord High Justiciar sits in the High Council Cabinet tier, reports directly to both top-tier offices and oversees the Court branch.",
+    "inverse": "Exact finite delta: applied in order it turns the previous model into this one; scripts/build-governance-titles.cjs restoreReportingLines1113 undoes it in reverse order and refuses any current value that differs from the recorded after.",
     "changes": [
       {
         "nodeId": "executive",
@@ -10996,13 +10997,33 @@
         "nodeId": "justiciar",
         "field": "node",
         "before": null,
-        "after": "added before justice"
+        "after": {
+          "id": "justiciar",
+          "title": "Lord High Justiciar",
+          "parent": "founder",
+          "alsoReportsTo": [
+            "executive"
+          ],
+          "relation": "accountability",
+          "kind": "High Council portfolio",
+          "icon": "moderator",
+          "remit": "Oversees the Court branch: the Council of Justice, the Stockades & Court of Appeals (the Privy Court) and their hearing panels.",
+          "limits": "Holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision. Hearing panels decide cases independently.",
+          "coordinates": [],
+          "chapter": "organisation-and-offices"
+        }
       },
       {
         "nodeId": "justice",
         "field": "parent",
         "before": "founder",
         "after": "justiciar"
+      },
+      {
+        "nodeId": "council",
+        "field": "limits",
+        "before": "The Guild Master chairs the Council. The Co-Guild Master serves alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions.",
+        "after": "The Guild Master chairs the Council. The Co-Guild Master sits beside the Guild Master in the top tier and serves on the Council alongside twelve portfolios. An accepted warrant and eligible vote remain separate from native ranks and actual permissions."
       },
       {
         "term": "office_101",
