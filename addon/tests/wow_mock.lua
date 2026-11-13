@@ -151,6 +151,13 @@ CreateFrame = function(kind, name, parent, template)
   end
   if name then _G[name] = f end
   table.insert(FRAMES, f)
+  -- MOCK_TEMPLATE_CLOSE_BUTTONS (opt-in, round 5 combat suite): a BasicFrameTemplate frame carries the client's X
+  -- button, whose default click hides its parent the way UIPanelCloseButton does.
+  if MOCK_TEMPLATE_CLOSE_BUTTONS == true and type(template) == "string" and template:find("BasicFrameTemplate", 1, true) then
+    local x = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    x:SetScript("OnClick", function(self) self._parent:Hide() end)
+    f.CloseButton = x
+  end
   return f
 end
 UIParent = CreateFrame("Frame", "UIParent")

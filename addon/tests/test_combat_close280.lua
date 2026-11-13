@@ -327,5 +327,78 @@ do
   check("no secure handler, event first: the event closer alone closes all three", allHidden(g) and ok, why)
 end
 
+-- 9. Round 5 item 1 (13 Nov 2026): no secure mechanism and lockdown first. Escape, every Close/Cancel/X button,
+-- W.Hide and Toggle are pressed during combat. No insecure Hide may reach a protected window while
+-- InCombatLockdown() is true; the officer is told once; each window closes once after combat; nothing else changes.
+local function protectedHides(f)
+  local mt = getmetatable(f.e.UIParent); local original = mt.Hide
+  local record = { calls = 0 }
+  mt.Hide = function(self, ...)
+    if f.e.InCombatLockdown() and f.e.MOCK_SECURE == 0 and self:IsProtected() then record.calls = record.calls + 1 end
+    return original(self, ...)
+  end
+  return record
+end
+local function rosterX(f)
+  for _, frame in ipairs(f.e.FRAMES) do if frame._parent == f.e.OlympusVerifyRosterFrame and frame._template == "UIPanelCloseButton" then return frame end end
+end
+local function countPrinted(f, text)
+  local n = 0; for _, line in ipairs(f.e.PRINTS) do if line:find(text, 1, true) then n = n + 1 end end; return n
+end
+local function escapeListed(f, name) local n = 0; for _, v in ipairs(f.e.UISpecialFrames) do if v == name then n = n + 1 end end; return n end
+for _, variant in ipairs({ "no RegisterStateDriver", "handler registration fails" }) do
+  local f = fixture(); f.e.MOCK_TEMPLATE_CLOSE_BUTTONS = true
+  if variant == "no RegisterStateDriver" then f.e.RegisterStateDriver = nil
+  else f.e.RegisterStateDriver = function() error("synthetic: secure state driver unavailable") end end
+  check("all three windows open without the secure mechanism (" .. variant .. ")", openAll(f) and f.e.OlympusVerifyRosterFrame:IsShown()
+    and f.e.OlympusLaunch229Window:IsShown() and f.e.OlympusPromotionConfirm:IsShown())
+  check("the launch window and the confirmation carry the template X button (" .. variant .. ")",
+    type(f.e.OlympusLaunch229Window.CloseButton) == "table" and type(f.e.OlympusPromotionConfirm.CloseButton) == "table")
+  local before = promotionState(f); local hides = protectedHides(f)
+  local closes = { roster = 0, launch = 0, confirm = 0 }
+  for key, frame in pairs({ roster = f.e.OlympusVerifyRosterFrame, launch = f.e.OlympusLaunch229Window, confirm = f.e.OlympusPromotionConfirm }) do
+    frame:HookScript("OnHide", function() closes[key] = closes[key] + 1 end)
+  end
+  f.e.MockCombatStart(true)
+  check("lockdown first: no officer window is listed for Escape during combat (" .. variant .. ")", escapeListed(f, "OlympusVerifyRosterFrame") == 0)
+  f.escape(); f.escape()
+  f.q.windowClose:Click(); f.e.OlympusLaunch229Window.CloseButton:Click()
+  f.cancelButton():Click(); f.e.OlympusPromotionConfirm.CloseButton:Click()
+  rosterX(f):Click(); f.w.Hide(); f.w.Toggle()
+  f.q.Show(); f.w.Show(); f.e.MockEvaluateStateDrivers()
+  local ok, why = f.blocked()
+  check("in combat: zero insecure Hide calls on a protected window (" .. variant .. ")", hides.calls == 0 and ok, tostring(hides.calls) .. " " .. why)
+  check("in combat: all three windows stay open (" .. variant .. ")", f.e.OlympusVerifyRosterFrame:IsShown() and f.e.OlympusLaunch229Window:IsShown() and f.e.OlympusPromotionConfirm:IsShown())
+  check("in combat: the officer is told once that the windows close when combat ends (" .. variant .. ")",
+    countPrinted(f, "they close when combat ends") == 1 and countPrinted(f, "The game allows closing them only after combat") == 1)
+  check("in combat: no command is sent and promotion state is unchanged (" .. variant .. ")", f.clicks == 0 and f.direct == 0 and not f.armed() and promotionState(f) == before)
+  check("no widget method was replaced on the windows (" .. variant .. ")", rawget(f.e.OlympusVerifyRosterFrame, "Hide") == nil
+    and rawget(f.e.OlympusLaunch229Window, "Hide") == nil and rawget(f.e.OlympusPromotionConfirm, "Hide") == nil)
+  f.e.MockCombatEnd()
+  ok, why = f.blocked()
+  check("after combat each window closes exactly once (" .. variant .. ")", allHidden(f) and closes.roster == 1 and closes.launch == 1 and closes.confirm == 1 and ok,
+    closes.roster .. "/" .. closes.launch .. "/" .. closes.confirm .. " " .. why)
+  check("after combat the roster is listed for Escape again, once (" .. variant .. ")", escapeListed(f, "OlympusVerifyRosterFrame") == 1)
+  check("after combat the deferred close changed no promotion state (" .. variant .. ")", promotionState(f) == before and f.clicks == 0)
+  f.q.Show(); f.w.Show()
+  check("after combat the windows reopen normally and stay open (" .. variant .. ")", f.e.OlympusLaunch229Window:IsShown() and f.e.OlympusVerifyRosterFrame:IsShown())
+  f.escape()
+  check("out of combat Escape closes the roster again (" .. variant .. ")", not f.e.OlympusVerifyRosterFrame:IsShown())
+  -- A second fight with the event first: the ordinary closer runs, with no deferred close left over.
+  f.e.MockCombatStart(false); ok, why = f.blocked()
+  check("next combat, event first: the windows close at its start with no forbidden call (" .. variant .. ")", allHidden(f) and ok, why)
+  f.e.MockCombatEnd()
+  check("next combat: nothing reopens and no second notice is printed (" .. variant .. ")", allHidden(f) and countPrinted(f, "they close when combat ends") == 1)
+end
+do
+  -- Event first without the secure mechanism: the event closer alone closes them, and Escape during the fight touches nothing.
+  local f = fixture(); f.e.RegisterStateDriver = nil
+  openAll(f); local hides = protectedHides(f)
+  f.e.MockCombatStart(false); f.escape(); f.e.MockCombatEnd()
+  local ok, why = f.blocked()
+  check("no secure handler, event first: closed at combat start, no insecure Hide in lockdown, no notice", allHidden(f) and hides.calls == 0 and ok
+    and countPrinted(f, "they close when combat ends") == 0, why)
+end
+
 print(string.format("combat_close280: %d passed, %d failed", passed, failed))
 if failed > 0 then error(string.format("%d combat-close check(s) failed", failed)) end
