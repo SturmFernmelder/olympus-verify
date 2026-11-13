@@ -56,6 +56,7 @@ import {
   type Pick,
   type SiteSettings,
 } from "./site-data";
+import { NAME_ENTRY_CLOSED_AT } from "./site-data";
 import { releaseReserved } from "./site-queue";
 import { handleAttendedBetaWindow } from "./site-beta-window";
 import { handleAdmin } from "./site-admin";
@@ -1075,7 +1076,11 @@ async function saveFriends(env: Env, user: SiteUser, body: Record<string, unknow
 
 async function saveReserved(env: Env, user: SiteUser, body: Record<string, unknown>): Promise<Response> {
   const s = await loadSettings(env);
-  if (!s.namesOpen || now() < s.namesOpenAt) {
+  // Owner ruling of 13 Nov 2026 (CL2-175): once Blizzard's reservation has ended (site-data.ts NAME_ENTRY_CLOSED_AT) the
+  // stored namesOpen switch no longer matters. A save may only remove the member's own names; one that adds or changes
+  // a name is refused below, before anything is written. Removing one's own names is never blocked.
+  const entryClosed = now() >= NAME_ENTRY_CLOSED_AT;
+  if (!entryClosed && (!s.namesOpen || now() < s.namesOpenAt)) {
     return apiJson({ error: "closed", message: "Reserved names can be entered once Blizzard's name reservation opens." }, 403);
   }
   const input = Array.isArray(body.names) ? body.names : null;
@@ -1090,6 +1095,9 @@ async function saveReserved(env: Env, user: SiteUser, body: Record<string, unkno
   if (wanted.length > LIMITS.reserved) return bad(fail("names", `At most ${LIMITS.reserved} names: that is how many Blizzard lets one account reserve.`));
 
   const current = await myReserved(env, user.discord_id);
+  if (entryClosed && wanted.some((w) => !current.results.some((r) => r.name_key === w.key))) {
+    return apiJson({ error: "names_closed", field: "names", message: "Reserved-name entry closed when Blizzard's name reservation ended on 3 November 2026, so names can no longer be added or changed. You can still remove names from your list." }, 403);
+  }
   const keep = new Set(wanted.map((w) => w.key));
   // Only a live invite holds a name on the list; one that ended can come off like any other.
   const locked = current.results.filter((r) => shownReserved(r.status, r.queueStatus) === "queued" && !keep.has(r.name_key));
