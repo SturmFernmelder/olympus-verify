@@ -1132,7 +1132,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
   const appointmentStatuses = appointment ? await appointmentAccountStatuses(env, ids) : null;
   const onSite = new Set<string>();
   const linked = new Set<string>();
-  if (ids.length) {
+  if (admin && ids.length) {
     const marks = ids.map((_, i) => `?${i + 1}`).join(",");
     const a = await env.DB.prepare(`SELECT discord_id FROM site_users WHERE discord_id IN (${marks})`).bind(...ids).all<{ discord_id: string }>();
     for (const r of a.results) onSite.add(r.discord_id);
@@ -1145,6 +1145,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
   }
   return apiJson({
     limited: out.limited || undefined,
+    siteProfilesVisible: admin,
     results: out.found.map((f) => ({
       id: f.id,
       username: f.username,
@@ -1153,7 +1154,7 @@ async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promi
       label: labelOf(f),
       shown: shownName(f), // .114: every differing name, for the result row; the label above is what a pick stores
       avatarUrl: avatarUrl(env, f.id, f.avatar),
-      onSite: onSite.has(f.id),
+      ...(admin ? { onSite: onSite.has(f.id) } : {}),
       self: f.id === user.discord_id,
       ...(admin ? { linked: linked.has(f.id) } : {}),
       ...(appointmentStatuses ? { appointmentStatus: appointmentStatuses.get(f.id) ?? 'unavailable' } : {}),
