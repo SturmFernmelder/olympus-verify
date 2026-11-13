@@ -1147,14 +1147,20 @@
   const toastBox = h("div", { class: "toasts", role: "status", "aria-live": "polite" });
   document.body.appendChild(toastBox);
   // CL2-280 (12 Nov 2026): the stack lets taps through around its toasts (CSS), each toast can be dismissed, a message
-  // already showing is renewed instead of repeated, and at most three stay.
+  // already showing is renewed instead of repeated, and at most three stay unless errors fill the stack (RC-280 below).
   function toast(msg, kind = "") {
     const text = String(msg);
     for (const old of [...toastBox.children]) if (old.dataset.message === text && old.dataset.kind === kind) dropToast(old);
     const t = h("div", { class: "toast " + kind, "data-message": text, "data-kind": kind }, h("span", { text }),
       h("button", { class: "toast-x", type: "button", "aria-label": "Dismiss message", title: "Dismiss", onclick: () => dropToast(t) }));
     toastBox.appendChild(t);
-    for (const old of [...toastBox.children].slice(0, -3)) dropToast(old);
+    // RC-280 (round 3, 12 Nov 2026): the cap never cuts an error short of its 9 s. The oldest non-error toast goes first;
+    // when only errors are left to drop, the stack grows.
+    while (toastBox.children.length > 3) {
+      const old = [...toastBox.children].find(x => x !== t && x.dataset.kind !== "bad");
+      if (!old) break;
+      dropToast(old);
+    }
     t.dataset.timer = String(setTimeout(() => dropToast(t), kind === "bad" ? 9000 : 4500));
   }
   // CL2-280 / CL2-097 follow-up (12 Nov 2026): toasts live outside #app, so the focus memory does not see them. A toast
