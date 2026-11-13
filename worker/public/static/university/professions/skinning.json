@@ -1,0 +1,185 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "skinning",
+ "name": "Skinning",
+ "type": "gathering",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[7] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-skinning"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "leatherworking"
+ ],
+ "overview": {
+  "lead": "Skinners collect leather, hides and scales for Leatherworking, and Forever adds scarce Pristine materials.",
+  "points": [
+   {
+    "text": "It pairs naturally with Leatherworking for leather and mail wearers."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "skinning-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-skinning.starter-zone-book",
+      "profession-skinning.pristine-materials",
+      "profession-skinning.reagent-bag-slot",
+      "profession-skinning.camp-objects"
+     ]
+    },
+    {
+     "id": "skinning-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-skinning.skill-caps",
+      "profession-skinning.level-for-each-rank",
+      "profession-skinning.legacy-perks"
+     ]
+    },
+    {
+     "id": "skinning-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-skinning.unknown-1",
+      "profession-skinning.unknown-2"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "skinning-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-skinning.camp-chair"
+     ]
+    },
+    {
+     "id": "skinning-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Pristine Leather, Hide and Scale are new scarce drops, and the Bottomless Reagent Bag is made from Pristine Hide, so hold some back until demand is clear. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

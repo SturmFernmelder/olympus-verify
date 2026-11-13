@@ -1,0 +1,188 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "blacksmithing",
+ "name": "Blacksmithing",
+ "type": "primary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[1] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-blacksmithing"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "mining"
+ ],
+ "overview": {
+  "lead": "Blacksmiths forge armor, weapons and weapon stones, and Mining supplies most of what they use.",
+  "points": [
+   {
+    "text": "Forever adds Bind on Pickup gear that only the blacksmith can make, and guides point plate wearers such as Warriors toward it."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "blacksmithing-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-blacksmithing.new-recipes",
+      "profession-blacksmithing.gear-only-you-can-make",
+      "profession-blacksmithing.camp-objects"
+     ]
+    },
+    {
+     "id": "blacksmithing-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-blacksmithing.skill-ranks",
+      "profession-blacksmithing.specialization-classic-baseline",
+      "profession-blacksmithing.merchants-favor",
+      "profession-blacksmithing.legacy"
+     ]
+    },
+    {
+     "id": "blacksmithing-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-blacksmithing.unknown-1",
+      "profession-blacksmithing.unknown-2",
+      "profession-blacksmithing.unknown-3",
+      "profession-blacksmithing.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "blacksmithing-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-blacksmithing.weapon-stones",
+      "profession-blacksmithing.sharpening-wheel-buff"
+     ]
+    },
+    {
+     "id": "blacksmithing-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Bind on Pickup crafts are for your own use, so sell weapon stones and other tradeable crafts instead. Camp feature items can be traded or sold on the Auction House, but placing one needs the profession skill. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

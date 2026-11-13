@@ -1,0 +1,409 @@
+{
+ "schema": "olympus-university-index-v1",
+ "reviewedAt": "2026-11-12",
+ "guides": [
+  {
+   "kind": "class",
+   "id": "warrior",
+   "name": "Warrior",
+   "file": "courses/warrior.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "arms",
+     "name": "Arms",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "fury",
+     "name": "Fury",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "protection",
+     "name": "Protection",
+     "roles": [
+      "tank"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "paladin",
+   "name": "Paladin",
+   "file": "courses/paladin.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "holy",
+     "name": "Holy",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "protection",
+     "name": "Protection",
+     "roles": [
+      "tank"
+     ]
+    },
+    {
+     "id": "retribution",
+     "name": "Retribution",
+     "roles": [
+      "melee"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "hunter",
+   "name": "Hunter",
+   "file": "courses/hunter.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "beast-mastery",
+     "name": "Beast Mastery",
+     "roles": [
+      "ranged"
+     ]
+    },
+    {
+     "id": "marksmanship",
+     "name": "Marksmanship",
+     "roles": [
+      "ranged"
+     ]
+    },
+    {
+     "id": "survival",
+     "name": "Survival",
+     "roles": [
+      "melee",
+      "ranged"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "rogue",
+   "name": "Rogue",
+   "file": "courses/rogue.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "assassination",
+     "name": "Assassination",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "combat",
+     "name": "Combat",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "subtlety",
+     "name": "Subtlety",
+     "roles": [
+      "melee"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "priest",
+   "name": "Priest",
+   "file": "courses/priest.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "discipline",
+     "name": "Discipline",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "holy",
+     "name": "Holy",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "shadow",
+     "name": "Shadow",
+     "roles": [
+      "caster"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "shaman",
+   "name": "Shaman",
+   "file": "courses/shaman.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "elemental",
+     "name": "Elemental",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "enhancement",
+     "name": "Enhancement",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "restoration",
+     "name": "Restoration",
+     "roles": [
+      "healer"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "mage",
+   "name": "Mage",
+   "file": "courses/mage.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "arcane",
+     "name": "Arcane",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "fire",
+     "name": "Fire",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "frost",
+     "name": "Frost",
+     "roles": [
+      "caster"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "warlock",
+   "name": "Warlock",
+   "file": "courses/warlock.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "affliction",
+     "name": "Affliction",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "demonology",
+     "name": "Demonology",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "destruction",
+     "name": "Destruction",
+     "roles": [
+      "caster"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "class",
+   "id": "druid",
+   "name": "Druid",
+   "file": "courses/druid.json",
+   "status": "migrated",
+   "specs": [
+    {
+     "id": "balance",
+     "name": "Balance",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "feral-combat",
+     "name": "Feral Combat",
+     "roles": [
+      "tank",
+      "melee"
+     ]
+    },
+    {
+     "id": "restoration",
+     "name": "Restoration",
+     "roles": [
+      "healer"
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "profession",
+   "id": "alchemy",
+   "name": "Alchemy",
+   "type": "primary",
+   "file": "professions/alchemy.json",
+   "status": "complete"
+  },
+  {
+   "kind": "profession",
+   "id": "blacksmithing",
+   "name": "Blacksmithing",
+   "type": "primary",
+   "file": "professions/blacksmithing.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "enchanting",
+   "name": "Enchanting",
+   "type": "primary",
+   "file": "professions/enchanting.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "engineering",
+   "name": "Engineering",
+   "type": "primary",
+   "file": "professions/engineering.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "herbalism",
+   "name": "Herbalism",
+   "type": "gathering",
+   "file": "professions/herbalism.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "leatherworking",
+   "name": "Leatherworking",
+   "type": "primary",
+   "file": "professions/leatherworking.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "mining",
+   "name": "Mining",
+   "type": "gathering",
+   "file": "professions/mining.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "skinning",
+   "name": "Skinning",
+   "type": "gathering",
+   "file": "professions/skinning.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "tailoring",
+   "name": "Tailoring",
+   "type": "primary",
+   "file": "professions/tailoring.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "cooking",
+   "name": "Cooking",
+   "type": "secondary",
+   "file": "professions/cooking.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "fishing",
+   "name": "Fishing",
+   "type": "secondary",
+   "file": "professions/fishing.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "profession",
+   "id": "first-aid",
+   "name": "First Aid",
+   "type": "secondary",
+   "file": "professions/first-aid.json",
+   "status": "migrated"
+  },
+  {
+   "kind": "race",
+   "id": "dwarf",
+   "name": "Dwarf",
+   "file": null,
+   "status": "planned"
+  },
+  {
+   "kind": "race",
+   "id": "gnome",
+   "name": "Gnome",
+   "file": null,
+   "status": "planned"
+  },
+  {
+   "kind": "race",
+   "id": "human",
+   "name": "Human",
+   "file": "races/human.json",
+   "status": "complete"
+  },
+  {
+   "kind": "race",
+   "id": "night-elf",
+   "name": "Night Elf",
+   "file": null,
+   "status": "planned"
+  },
+  {
+   "kind": "race",
+   "id": "skyborne",
+   "name": "Skyborne (High Order)",
+   "file": null,
+   "status": "planned"
+  }
+ ]
+}

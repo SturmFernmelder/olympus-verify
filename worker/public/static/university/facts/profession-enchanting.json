@@ -1,0 +1,197 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-enchanting",
+ "facts": [
+  {
+   "id": "profession-enchanting.wands-staves-and-relics",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Wands, staves and relics",
+   "value": "Enchanters can now craft wands, staves and relics. Some crafts are Bind on Pickup for the enchanter, such as the Brilliant Wand.",
+   "sources": [
+    "g218-109",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.camp-objects",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Enchanted Lute at skill 20, Arcane Salvager at 140 and Arcane Forge at 300. Icy Veins puts the Arcane Salvager blueprint on Rath'mael in the Ruins of Lordaeron; another guide disagrees.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.skill-ranks",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.favor-recipes",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Favor recipes",
+   "value": "Necklace enchants need Enchanting 210, Friendly and 120 Merchant's Favor. The two-hand caster enchants need 300, Honored and 240 Favor. Favor comes from sealed Waylaid Crates handed in at Three Corners, Redridge.",
+   "sources": [
+    "g218-109",
+    "g218-113"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.legacy",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each. Dedicated Study gives a daily skill-up, or Elemental Essences once all your skills are 300.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.necklace-enchants",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Necklace enchants",
+   "value": "New necklace enchants add Agility, Deflection, Healing Power, Spell Power or Strength.",
+   "sources": [
+    "g218-109"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.two-hand-caster-enchants",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Two-hand caster enchants",
+   "value": "Mighty Spell Power, Mighty Healing Power and Spellblasting are new enchants for two-hand weapons.",
+   "sources": [
+    "g218-109"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.enchanted-lute",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Enchanted Lute",
+   "value": "The Lute's buff matches Mark of the Wild and does not stack with it, so it only helps when no Druid buff is up.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.unknown-1",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Arcane Forge blueprint drops, and which boss really drops the Arcane Salvager blueprint.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.unknown-2",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether enchants can be sold on the Auction House; a 23 Oct player post says there are still no scrolls or vellums.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.unknown-3",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the caster oil changes seen in beta data are in the live game.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-enchanting.unknown-4",
+   "scope": {
+    "profession": "enchanting"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Final Favor prices and reputation gates for the new enchants.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

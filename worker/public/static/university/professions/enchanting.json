@@ -1,0 +1,187 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "enchanting",
+ "name": "Enchanting",
+ "type": "primary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[2] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-enchanting"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "tailoring"
+ ],
+ "overview": {
+  "lead": "Enchanters add stats to gear, and in Forever they can also craft wands, staves and relics.",
+  "points": [
+   {
+    "text": "Tailoring is the usual partner for cloth casters. Recipes for the new necklace and two-hand enchants cost Merchant's Favor."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "enchanting-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-enchanting.wands-staves-and-relics",
+      "profession-enchanting.camp-objects"
+     ]
+    },
+    {
+     "id": "enchanting-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-enchanting.skill-ranks",
+      "profession-enchanting.favor-recipes",
+      "profession-enchanting.legacy"
+     ]
+    },
+    {
+     "id": "enchanting-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-enchanting.unknown-1",
+      "profession-enchanting.unknown-2",
+      "profession-enchanting.unknown-3",
+      "profession-enchanting.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "enchanting-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-enchanting.necklace-enchants",
+      "profession-enchanting.two-hand-caster-enchants",
+      "profession-enchanting.enchanted-lute"
+     ]
+    },
+    {
+     "id": "enchanting-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "If enchants still cannot be listed on the Auction House in the live game, income comes from customers you meet in game and from tradeable crafts such as camp features. Check live demand for the new necklace and two-hand enchants. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

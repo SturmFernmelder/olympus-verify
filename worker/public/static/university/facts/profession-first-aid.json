@@ -1,0 +1,228 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-first-aid",
+ "facts": [
+  {
+   "id": "profession-first-aid.healing-potions",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healing potions",
+   "value": "Superior and Major Healing Potions are First Aid crafts learned from vendor manuals (First Aid 215 and 275). They use a Crystal Vial, Soothing Spices and Sungrass or Golden Sansam.",
+   "sources": [
+    "g218-101"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.new-remedies",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New remedies",
+   "value": "New items include Potent Anti-Venom, poultices for diseases and tourniquets for bleeds. Poultices and tourniquets only work out of combat, and all remedies share a 1-minute cooldown.",
+   "sources": [
+    "g218-101"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.powerful-anti-venom",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Powerful Anti-Venom",
+   "value": "Now cures poisons up to level 65. Its recipe needs Argent Dawn Honored.",
+   "sources": [
+    "g218-101"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.camp-objects",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "First Aid Kit at skill 20, Toxin Study at 140 (blueprint from Commander Springvale in Shadowfang Keep) and Plague Doctor's Laboratory at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.cannot-be-unlearned",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Cannot be unlearned",
+   "value": "Secondary professions cannot be unlearned.",
+   "sources": [
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.expert-and-artisan",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Expert and Artisan",
+   "value": "Expert First Aid comes from a book. Artisan comes from the Triage quest, which needs level 35 and First Aid 225. The cap is 300.",
+   "sources": [
+    "g218-101",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.field-medicine",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Field Medicine",
+   "value": "This Legacy perk shortens the Recently Bandaged debuff.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.self-made-healing-potions",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Self-made healing potions",
+   "value": "Major Healing Potion still heals 1050 to 1750 on a 2-minute cooldown, and now any raider with enough First Aid skill can make it.",
+   "sources": [
+    "g218-101",
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.heavy-runecloth-bandage",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Heavy Runecloth Bandage",
+   "value": "Still heals 2000 over 8 s. You need First Aid 225 to use it and, per Icy Veins, 290 to make it.",
+   "sources": [
+    "g218-101"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.first-aid-kit",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "First Aid Kit",
+   "value": "The First Aid Kit's buff matches Power Word: Fortitude and does not stack with it.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.unknown-1",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where Alliance players buy the healing-potion manuals.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.unknown-2",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Plague Doctor's Laboratory blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.unknown-3",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the datamined Meticulous perk, which adds extra results on First Aid crafts, is in the live game.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-first-aid.unknown-4",
+   "scope": {
+    "profession": "first-aid"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "The exact First Aid Kit buff, which scales with level.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

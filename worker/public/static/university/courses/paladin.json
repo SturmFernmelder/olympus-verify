@@ -1,0 +1,946 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "paladin",
+ "name": "Paladin",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[1] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-paladin",
+  "talents-paladin"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Paladins heal, tank and fight in melee. Blizzard's intent: Holy is the strongest single-target healer, Protection a tank with strong cooldowns and better control, and Retribution a damage dealer whose group value comes mainly from keeping Judgements up.",
+  "points": [
+   {
+    "text": "For Olympus (Alliance), Paladins are Human or Dwarf. The 26 Oct racial changes swapped Dwarf's Earth Fury for Artisan's Precision (+1% hit) and cut Human's Ruthless crit bonus from 2% to 1%."
+   },
+   {
+    "text": "Blizzard lists the class's edges and gaps: very strong against Undead and Demons, limited range that Holy talents extend, no interrupt and no way to slow enemies."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Paladin should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "paladin-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Paladin",
+     "theory": [
+      "class-paladin.change-1",
+      "class-paladin.change-2",
+      "class-paladin.change-3",
+      "class-paladin.change-4",
+      "class-paladin.change-5",
+      "class-paladin.change-6",
+      "class-paladin.change-7",
+      "class-paladin.change-8"
+     ]
+    },
+    {
+     "id": "paladin-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-paladin.quest-the-tome-of-divinity",
+      "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness",
+      "class-paladin.quest-summon-warhorse",
+      "class-paladin.quest-summon-charger"
+     ]
+    },
+    {
+     "id": "paladin-101-unconfirmed",
+     "section": "overview",
+     "title": "Unconfirmed quest reports",
+     "theory": [
+      "class-paladin.quest-must-be-delgren"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "holy",
+   "name": "Holy",
+   "roles": [
+    "healer"
+   ],
+   "overview": {
+    "lead": "Holy is the Paladin healer. Blizzard wants it to be the strongest single-target healer, with group healing that takes more planning, and calls Paladins viable healers in all group content.",
+    "points": [
+     {
+      "text": "Holy builds around Holy Shock and Light's Vigil. Oath of Light improves your direct healing on one ally, while Boundless Light improves Holy Shock crit on allies without your Oath."
+     },
+     {
+      "text": "Blizzard also supports a Holy Shock hybrid ('Shockadin'); Warcraft Tavern says it is too early to judge it."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "paladin-holy-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-paladin.holy-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spiritual Focus is now on row 1 and Divine Favor on row 3. Holy Shock remains a key heal. Voice of Truth was removed from the Holy tree."
+         },
+         {
+          "text": "Redemption comes from 'The Tome of Divinity' at 12; Consecration and Blessing of Kings are trained at 20."
+         },
+         {
+          "text": "Holy Strike (level 6) gives every Paladin an instant Holy-damage attack for solo play."
+         },
+         {
+          "text": "Dual Specialization at level 40 lets you keep Retribution or Protection for questing."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "paladin-holy-dungeon-30"
+       ]
+      },
+      {
+       "id": "paladin-holy-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Heal with Flash of Light and Holy Light. Holy Shock and Flash of Light crits shorten your next Holy Light (Infusion of Light)."
+         },
+         {
+          "text": "Holy Shock heals an ally or hits an enemy on a 10 s cooldown; keep it for targets that drop fast."
+         },
+         {
+          "text": "Light's Vigil: place it on an ally (30 s). Your next Holy Shock on them has no cooldown and heals their whole party at once."
+         },
+         {
+          "text": "Divine Favor makes your next Flash of Light, Holy Light or Holy Shock a guaranteed crit, which also feeds Illumination's mana refund."
+         },
+         {
+          "text": "Keep your assigned Blessing and Aura active. Coordinate your Oath of Light target with the other healers."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "paladin-holy-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Divine Precision shortens Silence. Save instant Holy Shock or move behind cover when a caster is waiting to interrupt."
+         },
+         {
+          "text": "Lay on Hands is on a 20-minute cooldown in Forever (was 1 hour), so don't hoard it."
+         },
+         {
+          "text": "Purifying Power makes Cleanse and Purify cheaper, which adds up in fights with a lot of dispelling."
+         },
+         {
+          "text": "Spiritual Focus protects Flash of Light, Holy Light and Light's Vigil from pushback, and Reverence keeps part of your mana regen going while you cast."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "paladin-holy-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "paladin-holy-raid-60"
+       ]
+      },
+      {
+       "id": "paladin-holy-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-paladin.crit-and-mana",
+        "class-paladin.infusion-of-light",
+        "class-paladin.casting-under-pressure",
+        "class-paladin.lights-vigil",
+        "class-paladin.holy-spell-hit",
+        "class-paladin.healing-light"
+       ]
+      },
+      {
+       "id": "paladin-holy-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-paladin.classic-healer-kit",
+        "class-paladin.forever-alchemy",
+        "class-paladin.camp-buffs-vs-blessings",
+        "class-paladin.flasks"
+       ]
+      },
+      {
+       "id": "paladin-holy-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-paladin.role",
+        "class-paladin.resistance-auras",
+        "class-paladin.threat-after-salvation",
+        "class-paladin.blessing-of-light",
+        "class-paladin.classic-baseline"
+       ]
+      },
+      {
+       "id": "paladin-holy-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Divine Precision reduces time spent silenced. Purifying Power sits on row 2 and helps make Cleanse cheaper."
+         },
+         {
+          "text": "Hammer of Justice is your main stun. Paladins have no gap closer, interrupt or slow, so stay close to your team."
+         },
+         {
+          "text": "Unyielding Faith shortens Fear and Disorient effects on you (15% at rank 1)."
+         },
+         {
+          "text": "Against Mage: Against a Mage, make room for a cast by using cover or waiting out the interrupt. Divine Precision reduces time spent silenced."
+         },
+         {
+          "text": "Against Priest: Forever Priests get Silence without a talent prerequisite. Divine Precision reduces its duration, so plan instant heals around the Priest's control."
+         },
+         {
+          "text": "Against Warlock: Unyielding Faith shortens their Fear. Warcraft Tavern notes Warlocks have no blink or sprint, so once your team reaches them they struggle to get away."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "protection",
+   "name": "Protection",
+   "roles": [
+    "tank"
+   ],
+   "overview": {
+    "lead": "Protection is the Paladin tank. Warcraft Tavern calls it a real, working tank for the first time, thanks to the Seal of Fury taunt and Templar's Bulwark.",
+    "points": [
+     {
+      "text": "Seal of Fury (level 10) adds Holy damage to each swing plus an absorb worth half of it, and judging it taunts from 10 yards."
+     },
+     {
+      "text": "Consecration deals full damage to the first four enemies. Holy Shield is now on row 5 and adds block chance and Holy damage on blocks."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "paladin-protection-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-paladin.protection-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Train Righteous Fury at level 10. Improved Seal of Fury is gone, so plan mana around current tools such as Shield Specialization."
+         },
+         {
+          "text": "Redoubt raises your block chance after melee hits, and Shield Specialization lets blocks restore mana."
+         },
+         {
+          "text": "Forever adds nine new dungeons from level 13 to 60, starting with The Hall of Thanes in Ironforge (13-18)."
+         },
+         {
+          "text": "Templar's Bulwark moved to row 3 and Holy Shield moved to row 5."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "paladin-protection-dungeon-30"
+       ]
+      },
+      {
+       "id": "paladin-protection-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Righteous Fury and Seal of Fury active; judge to taunt or pull from 10 yards (Judgement no longer uses up the Seal)."
+         },
+         {
+          "text": "Use Consecration on packs and Holy Strike on cooldown (10 s); Iron Creed makes Holy Strike add threat and briefly cut your damage taken."
+         },
+         {
+          "text": "Keep Holy Shield up when melee hits are coming: more block for 10 s or 4 blocks, with Holy damage on each block."
+         },
+         {
+          "text": "Save Templar's Bulwark (an absorb equal to your max health for 8 s, 5-minute cooldown) for spikes; it applies Forbearance."
+         },
+         {
+          "text": "Swift Judgement releases your active Seal on its own cooldown. Plan your next taunt without relying on a Judgement reset."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "paladin-protection-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Templar's Bulwark applies Forbearance for 1 minute and cannot be cast while Forbearance is active."
+         },
+         {
+          "text": "Sacred Duty shortens the cooldowns of Divine Shield, Divine Protection and Templar's Bulwark and reduces Forbearance duration. It no longer adds Stamina."
+         },
+         {
+          "text": "Paladins have no interrupt; Hammer of Justice is your stun, and Improved Hammer of Justice shortens its cooldown."
+         },
+         {
+          "text": "Reckoning stores up to 4 extra attacks from blocks and crits taken, and releases them all on your next auto-attack."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "paladin-protection-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "paladin-protection-raid-60"
+       ]
+      },
+      {
+       "id": "paladin-protection-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-paladin.threat",
+        "class-paladin.reckoning",
+        "class-paladin.shield-specialization",
+        "class-paladin.cooldowns",
+        "class-paladin.defense-and-armor"
+       ]
+      },
+      {
+       "id": "paladin-protection-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-paladin.classic-tank-kit",
+        "class-paladin.fire-resistance-for-onyxia",
+        "class-paladin.classic-fire-resistance-sources"
+       ]
+      },
+      {
+       "id": "paladin-protection-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-paladin.multi-target-threat",
+        "class-paladin.holy-shield-threat",
+        "class-paladin.raid-tanking-at-60",
+        "class-paladin.classic-baseline-2",
+        "class-paladin.blessing-of-sanctuary"
+       ]
+      },
+      {
+       "id": "paladin-protection-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Blizzard designed Protection as a tank with strong cooldowns and better control. In PvP, Templar's Bulwark absorbs a burst and Hammer of Justice is your stun."
+         },
+         {
+          "text": "Holy Strike's pure Holy damage ignores armor (Warcraft Tavern), and Seal of Fury's absorb soaks part of incoming hits."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "retribution",
+   "name": "Retribution",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Retribution is the Paladin melee damage spec. Blizzard says its group value comes mainly from keeping Judgements up on the target.",
+    "points": [
+     {
+      "text": "Unsealed Wrath is the 31-point choice and requires Repentance. It stores your active Seal on melee hits, then uses the stored stacks when you land a hit with a different Seal."
+     },
+     {
+      "text": "Sacred Arbiter (16 points) adds 20% Holy Strike damage and makes Holy Strike refresh every Judgement on the target, including other Paladins'."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "paladin-retribution-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-paladin.retribution-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "At 20, 'The Tome of Valor' leads to Verigan's Fist, a two-handed mace that suits Two-Handed Weapon Specialization."
+         },
+         {
+          "text": "Pursuit of Justice raises run and mounted speed (8% at rank 1) but does not stack with other speed effects."
+         },
+         {
+          "text": "Benediction makes instant spells cheaper, and Sanctified Judgement can return part of a judged Seal's mana."
+         },
+         {
+          "text": "Repentance (21 points) incapacitates a Humanoid for up to 6 s; Warcraft Tavern sees it mainly as a PvP tool."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "paladin-retribution-leveling-30"
+       ]
+      },
+      {
+       "id": "paladin-retribution-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a Seal active (Seal of Command once you have it) and judge on cooldown."
+         },
+         {
+          "text": "Use Holy Strike on cooldown (10 s); with Sacred Arbiter it also refreshes Judgements."
+         },
+         {
+          "text": "With Unsealed Wrath, build stored Seal stacks on melee hits, then switch Seals and land a hit before the stacks expire."
+         },
+         {
+          "text": "Use Consecration when you need area damage. Holy Conduit is now in Holy, so check your mana before using expensive area spells."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "paladin-retribution-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Judgement no longer consumes your Seal, so you never recast a Seal just to judge again."
+         },
+         {
+          "text": "Vindication lowers the target's Attack Power and raises yours for 30 s (68 and 1% at rank 1)."
+         },
+         {
+          "text": "Eye for an Eye returns 5% of crit damage you take to the attacker (rank 1), capped at half your health."
+         },
+         {
+          "text": "Dwarf's new Artisan's Precision racial adds 1% hit with spells and attacks."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "paladin-retribution-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "paladin-retribution-raid-60"
+       ]
+      },
+      {
+       "id": "paladin-retribution-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-paladin.judgement-uptime",
+        "class-paladin.unsealed-wrath",
+        "class-paladin.crit-and-vengeance",
+        "class-paladin.seal-damage",
+        "class-paladin.two-handed-weapons",
+        "class-paladin.melee-hit-cap-vs-raid-bosses"
+       ]
+      },
+      {
+       "id": "paladin-retribution-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-paladin.classic-melee-kit",
+        "class-paladin.new-forever-elixir"
+       ]
+      },
+      {
+       "id": "paladin-retribution-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-paladin.champion-of-the-light",
+        "class-paladin.retribution-threat",
+        "class-paladin.blessing-of-might",
+        "class-paladin.world-buffs",
+        "class-paladin.classic-baseline-3"
+       ]
+      },
+      {
+       "id": "paladin-retribution-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern sees Repentance (21 points) mainly as a PvP talent. Eye for an Eye also punishes crits against you (5% of the damage at rank 1)."
+         },
+         {
+          "text": "Holy Strike's pure Holy damage ignores armor, and Hammer of Justice is your main stun (Warcraft Tavern)."
+         },
+         {
+          "text": "You have no gap closer; Pursuit of Justice is a passive speed bonus that does not stack with other speed effects."
+         },
+         {
+          "text": "Against Mage: Blizzard calls Mages fragile in melee but strong at control, Polymorph included; Hammer of Justice and Repentance give you control back."
+         },
+         {
+          "text": "Against Warlock: Warcraft Tavern notes Warlocks have no blink or sprint, so Pursuit of Justice and Hammer of Justice keep you on them."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,796 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-hunter",
+ "facts": [
+  {
+   "id": "class-hunter.change-1",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Aimed Shot is baseline for every Hunter at level 20 and shares its cooldown with Multi-Shot. Arcane Shot now shares a cooldown with Beast Mastery's Summon Hawk instead.",
+   "sources": [
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.change-2",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "You can lay traps in combat and fire traps scale with Attack Power. All traps now share one 30-second cooldown, replacing the separate fire and frost cooldowns.",
+   "sources": [
+    "g218-31",
+    "g218-1",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.change-3",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Since 16 Oct, Auto Shot needs about half a second of standing still before it fires. Aimed Shot and Sniper Shot no longer stop Auto Shot, and a new setting switches between Auto Attack and Auto Shot for you.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.change-4",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Scorpid Sting now lowers the target's hit chance by 2%, Disengage drops twice as much threat, and Aspect of the Beast also grants melee Attack Power.",
+   "sources": [
+    "g218-31",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.change-5",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Pets scale with your gear but can no longer take player buffs that raise their stats. Each family has one unique ability, Foxes are a new family, and since 16 Oct pets use the higher of your melee or ranged crit.",
+   "sources": [
+    "g218-31",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.change-6",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Beast Mastery: Thick Hide is folded into Endurance Training and Improved Eyes of the Beast is now baseline. Focused Fire and Summon Hawk are new, Pathfinding moved, and Improved Revive Pet, Frenzy and Bestial Wrath are unchanged.",
+   "sources": [
+    "g218-32",
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.change-7",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Marksmanship: Aimed Shot and Improved Hunter's Mark are now baseline, and Improved Scorpid Sting is gone. Careful Aim, Rapid Killing, Lone Wolf, Rapid Recuperation and Sniper Shot are new, Hawk Eye and Scatter Shot moved, and Improved Concussive Shot and Ranged Weapon Specialization are unchanged.",
+   "sources": [
+    "g218-32",
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.change-8",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Survival: Monster Slaying, Humanoid Slaying, Trap Mastery, Improved Feign Death, Killer Instinct and Wyvern Sting are gone. Improved Tracking, Survival Tactics, Predator's Edge, Resourcefulness, Expose Prey, Survivalist's Discipline, Strider Kick and Lacerating Strikes are new.",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.quest-taming-the-beast",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Taming the Beast (Level 10)",
+   "value": "Your trainer starts a race-specific chain of three Taming the Beast quests, then Training the Beast, which unlocks Beast Training, Feed Pet and Revive Pet. Skyborne have their own versions on Zephras Isle; Warcraft Tavern does not yet list the chain for Human Hunters.",
+   "sources": [
+    "g218-33",
+    "g218-34"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.pet-scaling",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pet scaling",
+   "value": "Pets inherit 10% of your Attack Power and 100% of your crit, per Warcraft Tavern; since 16 Oct they use the higher of your melee or ranged crit and benefit from Expertise.",
+   "sources": [
+    "g218-34",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.summon-hawk",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Summon Hawk",
+   "value": "Deals 32 plus 5% of your Ranged Attack Power, then keeps attacking for 18 seconds. Only 2 hawks can be out, and it shares Arcane Shot's cooldown.",
+   "sources": [
+    "g218-32",
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.unleashed-fury-and-ferocity",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Unleashed Fury and Ferocity",
+   "value": "Weaker than in Classic but now also buff hawks.",
+   "sources": [
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.focused-fire",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Focused Fire",
+   "value": "You and your pet deal more damage while the pet is active (1% at rank 1, 2 ranks).",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.hit-cap-at-level-60",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "No Blizzard figure. Warcraft Tavern's Hunter guides repeat the Classic 1.12 values, and other guides disagree.",
+   "sources": [
+    "g218-36"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.racials",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Racials",
+   "value": "Dwarf Artisan's Precision +1% hit, Human Ruthless +1% crit and Skyborne Wind-Blessed +2% haste (26 Oct).",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.raid-outlook",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "Warcraft Tavern calls Beast Mastery competitive, but says Marksmanship and Survival can out-damage it in some fights and that pet deaths hurt it.",
+   "sources": [
+    "g218-35"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.trueshot-aura",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Trueshot Aura",
+   "value": "Raid-wide since 16 Oct and now in Marksmanship row 4.",
+   "sources": [
+    "g218-31",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.tranquilizing-shot",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Tranquilizing Shot",
+   "value": "Hunters bring Tranquilizing Shot to remove Enrage and Frenzy effects.",
+   "sources": [
+    "g218-35",
+    "g218-36",
+    "g218-37"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.wolf-furious-howl",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Wolf Furious Howl",
+   "value": "Raises party melee Attack Power; its bonus was cut by 40% on 24 Sep.",
+   "sources": [
+    "g218-31",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.onyxias-lair-entry",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Every raider needs their own Drakefire Amulet in their bags, and Blizzard tells raids to build fire resistance first.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.launch-raids",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.ammo",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Ammo",
+   "value": "Blizzard has not announced any ammo change. Warcraft Tavern says to keep a quiver or ammo pouch stocked, because running out means no ranged attacks.",
+   "sources": [
+    "g218-33"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.pet-food",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pet food",
+   "value": "Happiness still scales pet damage (125%, 100% or 75%), so keep Feed Pet supplies on hand.",
+   "sources": [
+    "g218-34"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.elixir-of-cunning",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Elixir of Cunning",
+   "value": "New in Forever: +25 Agility and Intellect for 30 minutes (Alchemy 275). Careful Aim turns Intellect into Attack Power.",
+   "sources": [
+    "g218-9",
+    "g218-8",
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.food-in-forever",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Food in Forever",
+   "value": "Grilled Squid now gives +1% crit instead of Agility, and Tender Wolf Steak gives +15 Agility.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.healing-potions",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healing potions",
+   "value": "Made with First Aid instead of Alchemy in Forever.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.world-buffs-in-raids",
+   "scope": {
+    "class": "hunter",
+    "spec": "beast-mastery"
+   },
+   "topic": "beast-mastery-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Icy Veins' raid overview says world buffs are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+   "sources": [
+    "g218-11",
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.lone-wolf",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Lone Wolf",
+   "value": "+20% damage with all attacks while no pet is active; skipping it carries no penalty since 24 Sep.",
+   "sources": [
+    "g218-31",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.careful-aim",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Careful Aim",
+   "value": "Converts 20% to 100% of your Intellect into Attack Power.",
+   "sources": [
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.sniper-shot",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Sniper Shot",
+   "value": "A 4-second cast on a 15-second cooldown with a 45-yard range. Your next three shots gain 10 yards of range. November doubled the bonus damage.",
+   "note": "The same notes list a 0.15 Attack Power coefficient for Arcane Shot and 5% of Attack Power per tick for Serpent Sting.",
+   "sources": [
+    "g218-31",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.rapid-killing",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Rapid Killing",
+   "value": "Cuts Rapid Fire's cooldown by 1 minute per rank (2 minutes at 2/2), and a kill or a Serpent Sting death raises your next Shot's damage by 10% per rank.",
+   "sources": [
+    "g218-32",
+    "g218-33"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.hit-cap-at-level-60-2",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "Warcraft Tavern's Hunter guides give the Classic 1.12 figures; no Forever value has been published.",
+   "sources": [
+    "g218-36"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.raid-outlook-2",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "Warcraft Tavern rates Marksmanship highly for endgame and says Lone Wolf is valuable in PvE.",
+   "sources": [
+    "g218-36"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.trueshot-aura-2",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Trueshot Aura",
+   "value": "Raid-wide since 16 Oct.",
+   "sources": [
+    "g218-1",
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.range",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Range",
+   "value": "Hunters have the longest range of any class.",
+   "sources": [
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.onyxias-lair-entry-2",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Every raider needs their own Drakefire Amulet in their bags.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.fire-resistance-target-for-onyxia",
+   "scope": {
+    "class": "hunter",
+    "spec": "marksmanship"
+   },
+   "topic": "marksmanship-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Fire resistance target for Onyxia",
+   "value": null,
+   "note": "Blizzard asks raids to build fire resistance but gives no number.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.savage-strikes",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Savage Strikes",
+   "value": "+2% crit chance for all melee abilities at rank 1 (2 ranks).",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.predators-edge",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Predator's Edge",
+   "value": "+6% melee ability crit damage and +10% off-hand weapon damage at rank 1 (5 ranks).",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.lacerating-strikes",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Lacerating Strikes",
+   "value": "Mongoose Bite also makes the target bleed for 40% of the bite's damage over 21 seconds.",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-hunter.surefooted",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Surefooted",
+   "value": "Its hit bonus now applies to all attacks.",
+   "sources": [
+    "g218-31"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.hit-cap-at-level-60-3",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "No Blizzard figure. Warcraft Tavern's Hunter guides repeat the Classic 1.12 values.",
+   "sources": [
+    "g218-36"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.raid-outlook-3",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "Warcraft Tavern calls Survival competitive in all PvE content.",
+   "sources": [
+    "g218-37"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.rapid-fire-talentsforever-data",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Rapid Fire (talentsforever data)",
+   "value": "Also grants +40% melee attack speed in Forever.",
+   "sources": [
+    "g218-32"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.launch-raids-2",
+   "scope": {
+    "class": "hunter",
+    "spec": "survival"
+   },
+   "topic": "survival-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

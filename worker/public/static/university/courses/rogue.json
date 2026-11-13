@@ -1,0 +1,943 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "rogue",
+ "name": "Rogue",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[3] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-rogue",
+  "talents-rogue"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Rogues are melee damage dealers built on Energy, combo points, stealth and poisons. Blizzard says any Rogue spec has a place in a group thanks to stealth and control, and poisons stay a Rogue-only tool.",
+  "points": [
+   {
+    "text": "Specs at a glance: Assassination uses daggers, poisons, Mutilate and Venom. Combat takes any weapon and owns the only Rogue cleave, Blade Flurry. Subtlety mixes bleeds, stealth openers and combat tricks."
+   },
+   {
+    "text": "Rogues can now use one-handed axes (Alliance trainer: Buliwyf Stonehand in Ironforge, per Warcraft Tavern). Racials changed late: Human Ruthless is +1% crit and Dwarf Artisan's Precision is +1% hit (26 Oct)."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Rogue should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "rogue-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Rogue",
+     "theory": [
+      "class-rogue.change-1",
+      "class-rogue.change-2",
+      "class-rogue.change-3",
+      "class-rogue.change-4",
+      "class-rogue.change-5",
+      "class-rogue.change-6",
+      "class-rogue.change-7",
+      "class-rogue.change-8"
+     ]
+    },
+    {
+     "id": "rogue-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-rogue.quest-pick-lock-training",
+      "class-rogue.quest-poisons-quest-klavens-tower",
+      "class-rogue.quest-poison-unlocks"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "assassination",
+   "name": "Assassination",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Assassination uses daggers and poisons. Mutilate strikes with both daggers, and Shank triggers the Venom passive when talented.",
+    "points": [
+     {
+      "text": "Poisons now scale with Attack Power and can crit, so better gear raises your poison damage too."
+     },
+     {
+      "text": "Warcraft Tavern expects Assassination to do well in most raid fights."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "rogue-assassination-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.assassination-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern advises against Assassination as a starter spec until you reach Mutilate at the 21-point tier."
+         },
+         {
+          "text": "Remorseless Attacks raises the crit chance of your next Sinister Strike, Backstab, Ambush, Mutilate or Ghostly Strike after a kill (20% at rank 1)."
+         },
+         {
+          "text": "Mutilate needs a dagger in each hand, so carry two daggers by the time you take it."
+         },
+         {
+          "text": "Do the poisons quest from level 20 (it needs 80 Lockpicking); Deadly Poison arrives at 30."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "rogue-assassination-leveling-30"
+       ]
+      },
+      {
+       "id": "rogue-assassination-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep poisons on both weapons; they have more charges now, and Improved Poisons can save a charge."
+         },
+         {
+          "text": "Build combo points with Mutilate: 2 per cast, and Seal Fate can add one more when it crits."
+         },
+         {
+          "text": "Maintain Slice and Dice. Use Shank for Energy and, with Venom, a short poison buff. Coordinate Expose Armor with your group."
+         },
+         {
+          "text": "Use Cold Blood to make your next Mutilate or Eviscerate crit."
+         },
+         {
+          "text": "Spend spare combo points on Eviscerate."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "rogue-assassination-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Energy now regenerates smoothly at about 10 per second instead of in 20-point ticks, so there is no tick timing to learn (talentsforever data)."
+         },
+         {
+          "text": "Rogues learn Shank at level 24 and its second rank at 44. With Venom, Shank briefly raises poison damage and application chance."
+         },
+         {
+          "text": "Poisons can now share a weapon with a sharpening stone or weightstone."
+         },
+         {
+          "text": "Lethality now takes two points. Check the current tree when planning a build from the October snapshot."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-assassination-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "rogue-assassination-raid-60"
+       ]
+      },
+      {
+       "id": "rogue-assassination-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.precision",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.poison-scaling",
+        "class-rogue.venom",
+        "class-rogue.mutilate",
+        "class-rogue.racials"
+       ]
+      },
+      {
+       "id": "rogue-assassination-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.poison-supplies",
+        "class-rogue.classic-melee-staples",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "rogue-assassination-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook",
+        "class-rogue.shank-and-venom",
+        "class-rogue.expose-armor",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry",
+        "class-rogue.launch-raids"
+       ]
+      },
+      {
+       "id": "rogue-assassination-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Sap no longer breaks your Stealth, but since 24 September sapping a PvP-flagged player flags you."
+         },
+         {
+          "text": "Cold Blood and a poisoned Mutilate give burst, and Improved Kidney Shot makes stunned targets take more damage from your poisons and attacks (5% at rank 1)."
+         },
+         {
+          "text": "Warcraft Tavern names Human (Will to Survive breaks stuns) and Gnome (Escape Artist) as strong Alliance PvP races."
+         },
+         {
+          "text": "Against Warrior: Improved Berserker Rage can now remove movement-impairing effects, so a Crippling Poison slow may not hold, and Victory Rush heals them after kills."
+         },
+         {
+          "text": "Against Hunter: Hunters can lay traps mid-fight on a 30-second cooldown, and Entrapment can root you on a Frost Trap's first hit. Wyvern Sting is gone, and Auto Shot needs a brief stand-still."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "combat",
+   "name": "Combat",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Combat works with any weapon and hits hard with direct strikes. Blade Flurry is the only Rogue cleave: 20% attack speed and an extra target for your swings for 15 seconds.",
+    "points": [
+     {
+      "text": "Hack and Slash replaces the old weapon specializations: axes and swords get extra attacks, daggers and fist weapons get crit, and maces ignore armor."
+     },
+     {
+      "text": "It supports Sinister Strike and Backstab play alike, since Puncturing Wounds and Aggression now boost Backstab too."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "rogue-combat-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.combat-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern points to Combat as the easiest leveling spec; its build takes Deflection, Riposte, Blade Flurry and Flawless Execution."
+         },
+         {
+          "text": "Blade Flurry lets you fight two mobs at once, and Riposte adds a strong hit and a disarm after parries."
+         },
+         {
+          "text": "Endurance shortens Sprint and Evasion cooldowns (30% at rank 1), which helps when a pull goes wrong."
+         },
+         {
+          "text": "Dual Specialization unlocks at level 40, so you can keep a leveling spec beside a group spec."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "rogue-combat-leveling-30"
+       ]
+      },
+      {
+       "id": "rogue-combat-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Slice and Dice up and build combo points with Sinister Strike, or Backstab from behind with a dagger."
+         },
+         {
+          "text": "Spend 5 combo points on Eviscerate; Flawless Execution makes it 10 Energy cheaper."
+         },
+         {
+          "text": "Use Blade Flurry when two or more enemies stand close."
+         },
+         {
+          "text": "Use Adrenaline Rush (double Energy regeneration for 15 seconds) for burst."
+         },
+         {
+          "text": "Riposte lights up after you parry: 150% weapon damage and a 6-second disarm."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "rogue-combat-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Axes are new for Rogues, and Hack and Slash gives them the same extra-attack chance as swords."
+         },
+         {
+          "text": "Weapon Expertise now lowers the target's dodge and parry instead of adding weapon skill."
+         },
+         {
+          "text": "Deflection now gives 2% parry per point, so Riposte comes up more often."
+         },
+         {
+          "text": "Dual Wield Specialization grants 25% off-hand damage at one point and 50% at two points."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-combat-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "rogue-combat-raid-60"
+       ]
+      },
+      {
+       "id": "rogue-combat-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.precision-2",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.hack-and-slash-at-5-5",
+        "class-rogue.weapon-expertise",
+        "class-rogue.adrenaline-rush",
+        "class-rogue.racials"
+       ]
+      },
+      {
+       "id": "rogue-combat-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.classic-melee-staples",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "rogue-combat-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook-2",
+        "class-rogue.blade-flurry",
+        "class-rogue.expose-armor-2",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry",
+        "class-rogue.launch-raids-2"
+       ]
+      },
+      {
+       "id": "rogue-combat-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "MeinMMO rates Combat's PvP as weak next to Subtlety."
+         },
+         {
+          "text": "Riposte disarms for 6 seconds after a parry, Improved Kick can silence for 2 seconds, and Improved Sprint can clear slows."
+         },
+         {
+          "text": "Endurance shortens Sprint and Evasion cooldowns, which helps you escape or reset a fight."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "subtlety",
+   "name": "Subtlety",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Subtlety can build around Hemorrhage, Rupture and Garrote bleeds or use Ambush and other stealth openers.",
+    "points": [
+     {
+      "text": "Hemorrhage boosts your Rupture and Garrote damage by 15%. Death Mark rewards timing those bleeds inside its six-second window."
+     },
+     {
+      "text": "Premeditation, Preparation and Dirty Deeds give it strong openers and resets."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "rogue-subtlety-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-rogue.subtlety-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Subtlety's key talents sit deep in the tree, so it is weak early, and guides point new Rogues to Combat for leveling."
+         },
+         {
+          "text": "Ghostly Strike (row 3) is a builder that adds 15% dodge for 7 seconds, handy against hard-hitting mobs."
+         },
+         {
+          "text": "Dirty Deeds lets you Garrote from the front and makes Cheap Shot and Garrote cheaper."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "rogue-subtlety-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open from stealth with Garrote or Ambush; Initiative can add an extra combo point (33% at rank 1)."
+         },
+         {
+          "text": "Keep Rupture on the target and build combo points with Hemorrhage."
+         },
+         {
+          "text": "When talented, use Death Mark just before damage you want it to store. It counts Garrote and Rupture damage at twice the rate."
+         },
+         {
+          "text": "Keep Slice and Dice up and refresh Rupture before it falls off."
+         },
+         {
+          "text": "Use Ghostly Strike to open a seven-second window for a Garrote or Ambush without Stealth."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "rogue-subtlety-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Sap no longer breaks Stealth, and Dirty Tricks makes Sap and Blind cheaper."
+         },
+         {
+          "text": "Ghostly Strike gives your next Ambush or Garrote within seven seconds a way to skip the Stealth requirement."
+         },
+         {
+          "text": "Setup and Initiative now reach 100% at 3 points, per Blizzard."
+         },
+         {
+          "text": "Serrated Blades makes your attacks ignore part of the target's armor and boosts Rupture."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "rogue-subtlety-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "rogue-subtlety-raid-60",
+        "rogue-subtlety-pvp-60"
+       ]
+      },
+      {
+       "id": "rogue-subtlety-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-rogue.death-mark",
+        "class-rogue.hemorrhage",
+        "class-rogue.rupture-talentsforever-data",
+        "class-rogue.precision-3",
+        "class-rogue.hit-cap-at-level-60",
+        "class-rogue.racials"
+       ]
+      },
+      {
+       "id": "rogue-subtlety-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-rogue.poisons-with-stones",
+        "class-rogue.classic-melee-staples",
+        "class-rogue.food-in-forever",
+        "class-rogue.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "rogue-subtlety-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-rogue.raid-outlook-3",
+        "class-rogue.serrated-blades",
+        "class-rogue.ghostly-strike",
+        "class-rogue.expose-armor",
+        "class-rogue.feint",
+        "class-rogue.onyxias-lair-entry"
+       ]
+      },
+      {
+       "id": "rogue-subtlety-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "MeinMMO calls Subtlety the strong PvP Rogue build, though its dagger play asks you to stay behind your target."
+         },
+         {
+          "text": "Premeditation (now 16 points deep, with its combo points lasting 20 seconds), Preparation and Dirty Deeds (Garrote from the front) power your openers and resets."
+         },
+         {
+          "text": "Distract remains a utility tool. Improved Distract was removed, and Quick Getaway grants extra Sap capacity and a brief movement boost."
+         },
+         {
+          "text": "Against Warrior: Arms Warriors bring Mortal Strike's 50% healing cut and Improved Hamstring's root, and Improved Berserker Rage can clear your slows."
+         },
+         {
+          "text": "Against Hunter: Hunters can lay traps mid-fight on a 30-second cooldown, and Entrapment can root you on a Frost Trap's first hit. Wyvern Sting is gone, and Auto Shot needs a brief stand-still, so stay close."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,245 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-engineering",
+ "facts": [
+  {
+   "id": "profession-engineering.satchel-bombs",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Satchel bombs",
+   "value": "Satchel bombs go in the thrown-weapon slot and run from Copper up to Dark Iron (skill 285, Honored).",
+   "sources": [
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.clanking-cord-belts",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Clanking Cord belts",
+   "value": "Engineers can make Clanking Cord belts for each armor type.",
+   "sources": [
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.skill-scaling",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill scaling",
+   "value": "Icy Veins says some gadgets now scale with your Engineering skill.",
+   "sources": [
+    "g218-107"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.gnome-racial",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Gnome racial",
+   "value": "Gnome Engineering Specialization no longer adds skill. It now cuts the failure and backfire rate of engineering devices by 20%.",
+   "sources": [
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.camp-objects",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Three objects unlock at skills 20, 140 and 300, the last being the Anarchist's Workbench. The skill-140 blueprint drops from Sneed in the Deadmines.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.skill-ranks",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.specialization-classic-baseline",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Specialization (Classic baseline)",
+   "value": "Classic 1.12: a quest at skill 200 makes you a Goblin or Gnomish engineer. Goblin engineers get Dimensional Ripper - Everlook; Gnomish engineers get Ultrasafe Transporter: Gadgetzan and World Enlarger. Switching means unlearning.",
+   "note": "Forever guides list the same choice.",
+   "sources": [
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "profession-engineering.favor-recipes",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Favor recipes",
+   "value": "SAF-T Dynamite costs 45 Merchant's Favor at skill 25. The Emergency Field Cloak needs Honored and 270 Favor, and the Gnomish Poultryizer needs skill 300 and 360 Favor.",
+   "sources": [
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.legacy",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each. Performance Bonus adds extra Merchant's Favor, and Working Overtime improves your skill-up chance.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.saf-t-explosives",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "SAF-T explosives",
+   "value": "Non-engineers can use SAF-T explosives such as SAF-T Dynamite (skill 25), so an engineer can hand them out to the group.",
+   "sources": [
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.emergency-field-cloak",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Emergency Field Cloak",
+   "value": "An invisibility trinket that is Bind on Pickup: only the engineer who makes it can use it.",
+   "sources": [
+    "g218-98",
+    "g218-110"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.unknown-1",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Anarchist's Workbench blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.unknown-2",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the Goblin and Gnomish specialization quests are unchanged from Classic.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.unknown-3",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Which gadgets scale with Engineering skill, and by how much.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-engineering.unknown-4",
+   "scope": {
+    "profession": "engineering"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Final Favor prices and reputation gates for engineering recipes.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

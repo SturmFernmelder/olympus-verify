@@ -1,0 +1,929 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-paladin",
+ "facts": [
+  {
+   "id": "class-paladin.change-1",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "New baseline tools: Holy Strike at 6, an instant Holy-damage weapon strike (10 s cooldown since 24 Sep), and Seal of Fury at 10, a tanking Seal that adds Holy damage to each swing plus an absorb worth half of it. Judging Seal of Fury taunts from 10 yards.",
+   "sources": [
+    "g218-16",
+    "g218-17",
+    "g218-23"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-2",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Judgement no longer consumes your Seal. Consecration (full damage on the first 4 enemies only) and Blessing of Kings are baseline at 20, and Lay on Hands drops from a 1-hour to a 20-minute cooldown.",
+   "sources": [
+    "g218-16",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-3",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Fire, Frost and Shadow Resistance Auras now reach raid members within 30 yards; in beta testing the other auras stayed party-only.",
+   "sources": [
+    "g218-16",
+    "g218-19"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-4",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Blizzard removed Salvation, Mass Salvation, Revoke and Blessing of Light. Righteous Fury is now trained at level 10.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-5",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Seal twisting is no longer baseline. November replaces the old Twist of Light capstone with Unsealed Wrath, a 31-point Retribution talent that requires Repentance.",
+   "sources": [
+    "g218-16",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-6",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Holy adds Oath of Light and Boundless Light. Protection adds Stoicism and Shieldsworn and loses Improved Seal of Fury and One-Handed Weapon Specialization. Retribution adds Turn Evil and Unsealed Wrath and loses Instrument of Law.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.change-7",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "removed: Consecration, Improved Lay on Hands, Improved Blessing of Wisdom, Lasting Judgement (Holy); Improved Devotion Aura, Blessing of Kings, Improved Concentration Aura, Blessing of Sanctuary (Protection); Improved Blessing of Might, Improved Seal of the Crusader, Improved Retribution Aura, Sanctity Aura (Retribution).",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-paladin.change-8",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Not settled yet",
+   "value": "Beta observations from Warcraft Tavern (21 Sep), not in Blizzard's notes: 5-minute Blessings and Greater Blessings lasting 1 hour, and Divine Shield halving your damage dealt instead of slowing your attacks.",
+   "sources": [
+    "g218-19",
+    "g218-18"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.quest-the-tome-of-divinity",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "The Tome of Divinity (12)",
+   "value": "Alliance quest that grants Redemption (Warcraft Tavern, warcraft.wiki.gg).",
+   "sources": [
+    "g218-21",
+    "g218-22"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "The Tome of Valor, then The Test of Righteousness (20)",
+   "value": "Teaches Sense Undead and gives the Bastion of Stormwind shield. Jordan Stilwell then forges Verigan's Fist, a two-handed mace, from materials found in Deadmines, Shadowfang Keep, Loch Modan and Ashenvale. In beta it gained a Holy Forgefire proc against fire and earth elementals (Warcraft Tavern, warcraft.wiki.gg).",
+   "sources": [
+    "g218-21",
+    "g218-22"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.quest-must-be-delgren",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Must be Delgren (22)",
+   "value": "Listed by Warcraft Tavern with Cloak of the Divine Storm as the reward. It looks Alliance-side, but no other details were found.",
+   "sources": [
+    "g218-21"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.quest-summon-warhorse",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Summon Warhorse (40)",
+   "value": "Sources disagree: Warcraft Tavern lists it as a trainer unlock alongside Apprentice Riding, while warcraft.wiki.gg links it to 'The Tome of Nobility'.",
+   "sources": [
+    "g218-21",
+    "g218-22"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.quest-summon-charger",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Summon Charger (60)",
+   "value": "Classic: a long chain from Lord Grayson Shadowbreaker that ends with 'Judgment and Redemption' in Scholomance. Warcraft Tavern lists the Forever quest as unknown.",
+   "sources": [
+    "g218-28",
+    "g218-21"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.crit-and-mana",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Crit and mana",
+   "value": "Holy Power now increases the critical healing bonus of Holy spells by 10% per point, up to 50%. Illumination moved to row 3.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.infusion-of-light",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Infusion of Light",
+   "value": "Holy Shock and Flash of Light crits cut 0.5 s (rank 1) off your next Holy Light within 15 s.",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-paladin.casting-under-pressure",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Casting under pressure",
+   "value": "Spiritual Focus has five points on row 1. Reverence has two points on row 2. The November notes keep each talent's maximum effect unchanged.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.lights-vigil",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Light's Vigil",
+   "value": "It now targets friendly players only. The offensive effects were removed.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.holy-spell-hit",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Holy spell hit",
+   "value": "Divine Precision grants 4% or 8% hit with Holy spells and reduces time spent silenced.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.healing-light",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Healing Light",
+   "value": "Raises Holy Light, Flash of Light and Holy Shock healing (4% at rank 1).",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-paladin.role",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Role",
+   "value": "Blizzard's intent: the strongest single-target healer, viable in all group content, with group healing that needs planning.",
+   "sources": [
+    "g218-16"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.resistance-auras",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Resistance auras",
+   "value": "Fire, Frost and Shadow Resistance Auras reach raid members within 30 yards. That helps on Onyxia, where Blizzard asks raids to build fire resistance before entering.",
+   "sources": [
+    "g218-16",
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.threat-after-salvation",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Threat after Salvation",
+   "value": "Salvation, Mass Salvation and Revoke were removed. Give the tank time to establish threat on pulls.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.blessing-of-light",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Blessing of Light",
+   "value": "Blessing of Light was removed. Oath of Light is a Holy talent that strengthens healing on one ally.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.classic-baseline",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "Holy Paladins were welcome single-target raid healers, and managing assigned Blessings and Auras was a core raid job.",
+   "sources": [
+    "g218-27"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.classic-healer-kit",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic healer kit",
+   "value": "Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion, Mageblood Potion, Demonic and Dark Runes, Nightfin Soup, Sagefish Delight and wizard oils (from a Classic healer guide).",
+   "sources": [
+    "g218-29"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.forever-alchemy",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Warcraft Tavern says healing potions moved from Alchemy to First Aid and flasks are brewed at a portable Alchemy Laboratory camp object.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.camp-buffs-vs-blessings",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs vs Blessings",
+   "value": "Warcraft Tavern: profession camp objects give weaker copies of class buffs (the Kings-like one gives 8% instead of 10%) that don't stack with the real buff.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.flasks",
+   "scope": {
+    "class": "paladin",
+    "spec": "holy"
+   },
+   "topic": "holy-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Flasks",
+   "value": "In Classic only one flask is active at a time, and it persists through death.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.threat",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Threat",
+   "value": "Righteous Fury raises all threat by 33% and adds a further 90% threat bonus to Holy damage.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.reckoning",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Reckoning",
+   "value": "Per the 16 Oct notes, Reckoning stores up to 4 charges and releases them all on your next auto-attack.",
+   "sources": [
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.shield-specialization",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Shield Specialization",
+   "value": "Two points give 15% or 30% more shield block value and a 50% or 100% chance to restore 4% of maximum mana.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.cooldowns",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Cooldowns",
+   "value": "Swift Judgement releases your active Seal and has a separate cooldown from Judgement. Templar's Bulwark sits on row 3 and can be dispelled.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.defense-and-armor",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Defense and armor",
+   "value": "Anticipation adds Defense Skill (4 at rank 1) and Toughness adds armor from items (2% at rank 1).",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-paladin.multi-target-threat",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Multi-target threat",
+   "value": "Consecration does full damage only to the first 4 enemies and very little to the rest, so it holds threat on about 4 targets.",
+   "sources": [
+    "g218-16"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.holy-shield-threat",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Holy Shield threat",
+   "value": "Holy Shield moved to row 5. It increases block chance and deals Holy damage on blocks.",
+   "sources": [
+    "g218-16",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.raid-tanking-at-60",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Raid tanking at 60",
+   "value": null,
+   "note": "Untested: the beta capped at level 30, and raids open on 9 Dec 2026.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.classic-baseline-2",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "Protection was a weak raid tank in Classic because of mana and threat limits, and better suited to dungeons.",
+   "sources": [
+    "g218-27"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.blessing-of-sanctuary",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Blessing of Sanctuary",
+   "value": "Removed in Forever.",
+   "sources": [
+    "g218-16"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.classic-tank-kit",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic tank kit",
+   "value": "Flask of the Titans, Elixir of the Mongoose, Elixir of the Giants, Greater Stoneshield Potion, Limited Invulnerability Potion, Juju Might, Juju Power and Grilled Squid (from a Classic tank guide).",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.fire-resistance-for-onyxia",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Fire resistance for Onyxia",
+   "value": "Blizzard asks raids to build fire resistance before Onyxia but gives no number.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.classic-fire-resistance-sources",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic fire resistance sources",
+   "value": "Onyxia Scale Cloak (+16), Drakefire Amulet (+15), Juju Ember (+15 for 10 minutes), the Greater Fire Resistance cloak enchant (+15), crafted sets such as Dark Iron, and Fire Protection Potions.",
+   "sources": [
+    "g218-30"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.judgement-uptime",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Judgement uptime",
+   "value": "Blizzard frames Retribution's group value around keeping Judgements up; Sacred Arbiter's Holy Strike refreshes every Judgement on the target, other Paladins' included.",
+   "sources": [
+    "g218-16"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.unsealed-wrath",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Unsealed Wrath",
+   "value": "Melee hits store the active Seal for 15 seconds, up to three stacks. A hit with a different Seal spends them and gives the stored Seal its usual activation chance once per stack.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.crit-and-vengeance",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Crit and Vengeance",
+   "value": "Conviction adds 2%, 4% or 6% crit to attacks and spells. Vengeance now needs Seal of Command and can stack five times.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.seal-damage",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Seal damage",
+   "value": "Improved Seals has five ranks with the same maximum benefit. Seal of Command adds Holy damage when it procs.",
+   "sources": [
+    "g218-15",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.two-handed-weapons",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Two-handed weapons",
+   "value": "With a two-handed weapon, the specialization adds 2%, 4% or 6% Holy and Physical damage and lowers threat by 7%, 14% or 20%.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.melee-hit-cap-vs-raid-bosses",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Melee hit cap vs raid bosses",
+   "value": null,
+   "note": "No Forever value has been published. Precision (Protection) and the Dwarf racial Artisan's Precision both add hit.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.champion-of-the-light",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Champion of the Light",
+   "value": "Turns Intellect into spell damage; the 16 Oct notes cut it to 10/20/30% across its ranks.",
+   "sources": [
+    "g218-17",
+    "g218-16"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.retribution-threat",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Retribution threat",
+   "value": "Instrument of Law was removed. Two-Handed Weapon Specialization now supplies the Retribution threat reduction. Champion of the Light shortens Hammer of Wrath.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.blessing-of-might",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Blessing of Might",
+   "value": "In beta, rank 7 gave less attack power than in Classic, possibly a bug (Warcraft Tavern).",
+   "sources": [
+    "g218-19"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.world-buffs",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs",
+   "value": "Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance', and warcraft.wiki.gg says world buffs are removed in dungeons and raids.",
+   "sources": [
+    "g218-12",
+    "g218-24"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.classic-baseline-3",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "In Classic, Retribution was brought mainly for its buffs.",
+   "sources": [
+    "g218-27"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.classic-melee-kit",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic melee kit",
+   "value": "Elixir of the Giants, Elixir of the Mongoose, Juju Might, Juju Power, Winterfall Firewater, R.O.I.D.S., Major Healing Potion, Free Action Potion, Grilled Squid and Elemental Sharpening Stone.",
+   "sources": [
+    "g218-13"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-paladin.new-forever-elixir",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "retribution-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New Forever elixir",
+   "value": "Warcraft Tavern reports a new Elixir of the Grizzly (Strength plus crit).",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

@@ -1,0 +1,238 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "race",
+ "id": "human",
+ "name": "Human",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "factFiles": [
+  "common",
+  "class-warrior",
+  "class-priest"
+ ],
+ "quizFiles": [
+  "race-human"
+ ],
+ "overview": {
+  "lead": "Humans are one of the five Alliance races the Olympus guides name. Their Forever racials changed on 26 October: Ruthless now gives +1% crit and the Spirit racial +10% Spirit.",
+  "points": [
+   {
+    "text": "The class guides name Humans for Warrior, Paladin, Hunter, Rogue, Priest, Mage and Warlock. Human Hunters are new in Forever."
+   },
+   {
+    "text": "No racial grants weapon skill in Forever, so a Human's weapon choice is free of racial math.",
+    "facts": [
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "common.racial-human-ruthless",
+   "common.racial-human-spirit"
+  ]
+ },
+ "tracks": {
+  "101": {
+   "summary": "The Human racials in numbers and the Human versions of class quests.",
+   "chapters": [
+    {
+     "id": "human-101-racials",
+     "section": "overview",
+     "title": "Human racials in Forever",
+     "theory": [
+      "common.racial-human-ruthless",
+      "common.racial-human-spirit",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Count +1% crit from Ruthless. The 2% in older guides is out of date since 26 October.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       },
+       {
+        "text": "Count +10% Spirit from the Human Spirit racial.",
+        "facts": [
+         "common.racial-human-spirit"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of your plans: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Using a guide written before 26 October that gives Ruthless 2% crit.",
+        "fix": "Ruthless is +1% crit since the 26 October notes.",
+        "facts": [
+         "common.racial-human-ruthless"
+        ]
+       },
+       {
+        "mistake": "Choosing Human for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "human-101-class-quests",
+     "section": "overview",
+     "title": "Human class quests",
+     "theory": [
+      "class-warrior.quest-defensive-stance-quest",
+      "class-priest.quest-racial-priest-spells"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "As a Human Warrior, take the Bartleby quest at level 10: it unlocks Defensive Stance and rewards Bartleby's Mug.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       },
+       {
+        "text": "As a Human Priest, plan the racial spell quests at levels 10 and 20.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Expect Divine Grace and Feedback as the Human Priest's racial spells.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Following another race's Defensive Stance quest as a Human Warrior.",
+        "fix": "The Human version is the Bartleby quest, which rewards Bartleby's Mug.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "human-101-pvp",
+     "section": "praxis",
+     "title": "Human racials in PvP",
+     "theory": [],
+     "unavailable": "The site holds no reviewed fact on what Human racials do in PvP, such as Will to Survive. This chapter waits for one."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Races have no talent tree; see your class guide."
+    },
+    {
+     "section": "rotation",
+     "reason": "Races have no rotation of their own."
+    },
+    {
+     "section": "gear",
+     "reason": "Races have no gear of their own."
+    },
+    {
+     "section": "consumables",
+     "reason": "Races have no consumables of their own."
+    },
+    {
+     "section": "macros",
+     "reason": "No racial macro has been checked in Forever yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Hit, crit and defense caps are not known for Forever yet; each class guide's stat caps chapter tracks them."
+    }
+   ]
+  },
+  "201": {
+   "summary": "No intermediate Human chapter can be written yet: the site holds no further reviewed Human facts.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No further reviewed Human fact exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No further reviewed Human fact exists yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "No advanced Human chapter can be written yet: racial math beyond the 26 October values needs measured Forever data.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No measured Forever racial data exists yet."
+    }
+   ]
+  }
+ }
+}

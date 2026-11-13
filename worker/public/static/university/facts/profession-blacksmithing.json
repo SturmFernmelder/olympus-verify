@@ -1,0 +1,214 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-blacksmithing",
+ "facts": [
+  {
+   "id": "profession-blacksmithing.new-recipes",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "New recipes",
+   "value": "Blizzard says Forever adds more than 600 new recipes across professions and level ranges.",
+   "sources": [
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.gear-only-you-can-make",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Gear only you can make",
+   "value": "Blacksmiths can make Bind on Pickup gear for themselves that no other crafter can supply, such as Sentinel's Sabatons.",
+   "sources": [
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.camp-objects",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Sharpening Wheel at skill 20, Anvil at 140 (blueprint from Gilnid in the Deadmines) and Master Forge at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.skill-ranks",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.specialization-classic-baseline",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Specialization (Classic baseline)",
+   "value": "Classic 1.12: choose Armorsmith or Weaponsmith, and a Weaponsmith can go on to become an Axe, Sword or Hammer master.",
+   "note": "Forever guides list the same paths.",
+   "sources": [
+    "g218-108"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "profession-blacksmithing.merchants-favor",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Merchant's Favor",
+   "value": "Favor recipes come from the Azeroth Commerce Authority at Three Corners in western Redridge, paid with Merchant's Favor from sealed Waylaid Crates.",
+   "sources": [
+    "g218-113"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.legacy",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each. Working Overtime improves your skill-up chance, and Dedicated Study gives a daily skill-up.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.weapon-stones",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Weapon stones",
+   "value": "Blacksmiths still make Dense Sharpening Stones, Dense Weightstones and Elemental Sharpening Stones for melee. Warcraft Tavern says stones now stack with poisons, Windfury Weapon and Windfury Totem.",
+   "note": "The stacking claim has one source and is unconfirmed.",
+   "sources": [
+    "g218-108"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.sharpening-wheel-buff",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Sharpening Wheel buff",
+   "value": "Beta guides say the Sharpening Wheel gives Strength, like Strength of Earth Totem; Blizzard's recap said Attack Power. Either way it does not stack with the matching class buff.",
+   "sources": [
+    "g218-100",
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.unknown-1",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Master Forge blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.unknown-2",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the Armorsmith and Weaponsmith quests are unchanged from Classic.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.unknown-3",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the skill cap rises above 300 later. The Summer 2027 roadmap window mentions profession updates without details.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.unknown-4",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether Blacksmithing gets belt buckles or a Repair All ability; both appear only in unverified perk lists.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

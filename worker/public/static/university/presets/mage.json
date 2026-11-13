@@ -1,0 +1,175 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "mage-arcane-raid-60",
+   "classId": "mage",
+   "specId": "arcane",
+   "label": "Arcane raid (43/5/3)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.mage.60.05322522312231153150000000000000000003000000000000000",
+   "points": 51,
+   "treePoints": [
+    43,
+    5,
+    3
+   ],
+   "why": [
+    "Arcane Blast and Arcane Wrath with Arcane Impact, Arcane Mind and Arcane Instability for critical strikes, and Presence of Mind into Arcane Power.",
+    "Arcane Concentration and Arcane Meditation cover mana, and Improved Channeling protects Missiles, Blast and Wrath from pushback. Arcane Subtlety, Arcane Geometry, Magic Absorption, Arcane Resilience and Arcane Shielding are utility points you can move.",
+    "Arcane Focus was removed, so spell hit now comes from Precision (3/3: 6% hit with all spells) in Frost. Incineration (5/5) in Fire adds 10% crit to Arcane Blast."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-arcane-leveling-30",
+   "classId": "mage",
+   "specId": "arcane",
+   "label": "Arcane leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.mage.30.03200520310131000000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Arcane Blast at 20 and Arcane Wrath at 25 give you the spec's main tools early, and Missile Barrage gives your casts a chance to make the next Arcane Missiles free and faster.",
+    "Arcane Concentration and Arcane Meditation cut drinking between pulls. Improved Channeling (3/5: 60% for Missiles, 42% for Blast and Wrath) helps when mobs hit you mid-cast.",
+    "Missile Barrage (row 2) and Arcane Resilience (row 1, now three ranks) take two points each."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-fire-raid-60",
+   "classId": "mage",
+   "specId": "fire",
+   "label": "Fire raid (0/46/5)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.mage.60.00000000000000000055523331232133131203000000000000000",
+   "points": 51,
+   "treePoints": [
+    0,
+    46,
+    5
+   ],
+   "why": [
+    "Ignite, Improved Scorch, Heating Up and Fire Power build on Fire critical strikes. Accelerant, the renamed Improved Fireball, speeds up Fireball, and Critical Mass (3/3) leads to Combustion.",
+    "The Fire tree now holds 46 points and this build takes all of them. Burning Soul protects casts, Master of Elements refunds mana on crits, and Flame Throwing, Improved Flamestrike and Improved Fire Ward come along.",
+    "Precision (3/3) in Frost, the renamed Elemental Precision, gives 6% hit with all spells, and Frost Warding takes the last two points."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-fire-leveling-30",
+   "classId": "mage",
+   "specId": "fire",
+   "label": "Fire leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.mage.30.00000000000000000005303301200130000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Accelerant, the renamed Improved Fireball, speeds up Fireball, and Improved Fire Blast, now on row 3, shortens Fire Blast’s cooldown.",
+    "Impact’s stun chance and Burning Soul’s pushback protection help when mobs reach you, and Master of Elements refunds mana on crits.",
+    "Ignite adds a burn after Fire crits (24% of the spell’s damage over 4 sec at 3/5)."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-frost-raid-60",
+   "classId": "mage",
+   "specId": "frost",
+   "label": "Frost raid (19/0/32)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.mage.60.02321520000130000000000000000000000053500030121301251",
+   "points": 51,
+   "treePoints": [
+    19,
+    0,
+    32
+   ],
+   "why": [
+    "Improved Frostbolt, Ice Shards, Shatter, Fingers of Frost and Ice Lance, plus Winter’s Chill on Frostbolt and empowered Ice Lance. Cold Snap leads to Ice Barrier.",
+    "Precision (3/3) gives 6% hit with all spells, replacing the removed Arcane Focus and the renamed Elemental Precision. Piercing Ice was removed too.",
+    "Nineteen Arcane points take Arcane Concentration and Arcane Meditation for mana, Missile Barrage for free Arcane Missiles after Frostbolt, Arcane Subtlety and Improved Counterspell."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-frost-pvp-60",
+   "classId": "mage",
+   "specId": "frost",
+   "label": "Frost PvP (3/0/48)",
+   "context": "pvp",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.mage.60.00300000000000000000000000000000000253532333121331251",
+   "points": 51,
+   "treePoints": [
+    3,
+    0,
+    48
+   ],
+   "why": [
+    "Frost now holds 48 points and this build takes all of them, including Improved Blizzard at three ranks and Precision for 6% hit with all spells.",
+    "Control first: Permafrost, Improved Frost Nova, Frostbite and Arctic Reach, with Shatter, Fingers of Frost and Ice Lance to punish Frozen targets.",
+    "Piercing Ice was removed and Elemental Precision became the three-rank Precision. The last three points go to Arcane Resilience for armor from Intellect."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "mage-frost-leveling-30",
+   "classId": "mage",
+   "specId": "frost",
+   "label": "Frost leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.mage.30.00000000000000000000000000000000000053032201101300000",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Improved Frostbolt speeds up your main spell, and Frostbite plus Improved Frost Nova give you more Frozen targets for Shatter and Ice Lance.",
+    "One rank of Improved Blizzard adds a Chill to Blizzard for pulls of several mobs, Permafrost makes your slows last longer, and Ice Block is your escape.",
+    "Piercing Ice was removed. Its three points go to Precision for 6% hit with all spells."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

@@ -1,0 +1,737 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-rogue",
+ "facts": [
+  {
+   "id": "class-rogue.change-1",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Poisons: more charges, usable alongside sharpening stones and weightstones, and Malice's crit and Precision's hit apply to them. Warcraft Tavern reports that poison damage scales with Attack Power. Since 16 Oct, poisons no longer proc against targets that are attacking you.",
+   "sources": [
+    "g218-38",
+    "g218-1",
+    "g218-40"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-2",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Expose Armor now equals five Sunder Armor stacks and no longer blocks Sunder, so Rogues and Warriors can both add armor reduction.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-3",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Utility: Feint's threat reduction is doubled, Sap no longer breaks Stealth, and Distract also lowers enemy stealth detection for 10 seconds while warning enemy players that a Rogue is near.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-4",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Rogues can equip one-handed axes, which Blizzard says adds itemization variety.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-5",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Precision drops to 3 ranks (up to +3% hit; Classic had 5 ranks for 5%) but now applies to attacks, spells and poisons.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-6",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Assassination loses Murder. Venom is now a passive triggered by Shank. Relentless Strikes takes five points, Lethality two, and Seal Fate three.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-7",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Combat gains Composure and Flash of Steel. Efficient Strikes discounts Sinister Strike and Hemorrhage. Dual Wield Specialization gives 25% or 50% off-hand damage over two ranks.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.change-8",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Subtlety loses Improved Distract, Quietus, Cutthroat and Thousand Cuts. Quick Getaway helps with Sap, Boot Knife adds combo-point chances to Shank, and Death Mark is the row-7 finisher.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.quest-pick-lock-training",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pick Lock training (Level 16)",
+   "value": "Pick Lock is trained at level 16. Raise Lockpicking early, because the poisons quest needs 80.",
+   "sources": [
+    "g218-41"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.quest-poisons-quest-klavens-tower",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Poisons quest (Klaven's Tower) (Level 20+ (needs 80 Lockpicking))",
+   "value": "Alliance chain: Master Mathias Shaw in Stormwind, then Agent Kearnen in Westfall, then the tower and the elite Klaven Mortwake; poisons are taught on the Stormwind turn-in. Warcraft Tavern suggests level 22+ or a group. If you pick up Touch of Zanzil, Anti-Venom or Doc Mixilpixil's quest chain clears it.",
+   "sources": [
+    "g218-41"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.quest-poison-unlocks",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Poison unlocks (Levels 20 to 32)",
+   "value": "Instant after the questline, Crippling at 20, Mind-numbing at 24, Deadly at 30 and Wound at 32. Poisons skill caps at 5x your level (300 at 60), and reagents come from Shady Dealers.",
+   "sources": [
+    "g218-41"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.precision",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Precision",
+   "value": "3 ranks for up to +3% hit, now applying to attacks, spells and poisons.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.hit-cap-at-level-60",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "No Blizzard figure, and community estimates conflict.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.poison-scaling",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Poison scaling",
+   "value": "Blizzard increased the attack-power coefficients to 0.009 for Deadly Poison and 0.01 for Instant Poison.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.venom",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Venom",
+   "value": "Shank increases your poison damage by 30% and your chance to apply poisons by 20% for six seconds.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.mutilate",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Mutilate",
+   "value": "A dagger in each hand remains part of the Mutilate setup. The November version moves to row 7 and deals 90% weapon damage plus a higher flat amount.",
+   "sources": [
+    "g218-38",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.racials",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Racials",
+   "value": "Human Ruthless +1% crit; Dwarf Artisan's Precision +1% hit with spells and attacks (26 Oct).",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.raid-outlook",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "No consensus yet. Warcraft Tavern expects Assassination to do well in most fights and advises Precision for raids.",
+   "sources": [
+    "g218-42"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.shank-and-venom",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Shank and Venom",
+   "value": "Shank triggers a six-second increase to poison damage and poison application chance when you have Venom.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.expose-armor",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Expose Armor",
+   "value": "Now equal to five Sunder Armor stacks and no longer blocks Sunder.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.feint",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Feint",
+   "value": "Threat reduction doubled in Forever.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.onyxias-lair-entry",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Every raider needs their own Drakefire Amulet in their bags, and Blizzard tells raids to build fire resistance first.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.launch-raids",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.poisons-with-stones",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Poisons with stones",
+   "value": "Poisons can now be applied alongside sharpening stones or weightstones.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.poison-supplies",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Poison supplies",
+   "value": "Reagents come from Shady Dealers, and Poisons skill caps at 5x your level (300 at 60).",
+   "sources": [
+    "g218-41"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.classic-melee-staples",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic melee staples",
+   "value": "Elixir of the Mongoose, Juju Might, Juju Power, Winterfall Firewater, Free Action Potion, Limited Invulnerability Potion, Grilled Squid and Elemental Sharpening Stone.",
+   "sources": [
+    "g218-13"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-rogue.food-in-forever",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Food in Forever",
+   "value": "Grilled Squid now gives +1% crit instead of Agility, and Mightfish Steak gives +40 Attack Power. Icy Veins says both need an Iron Oven camp object (Cooking 300).",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.world-buffs-in-raids",
+   "scope": {
+    "class": "rogue",
+    "spec": "assassination"
+   },
+   "topic": "assassination-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Icy Veins' raid overview says world buffs are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+   "sources": [
+    "g218-11",
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.precision-2",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Precision",
+   "value": "3 ranks for up to +3% hit, applying to attacks, spells and poisons.",
+   "sources": [
+    "g218-38",
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.hack-and-slash-at-5-5",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Hack and Slash at 5/5",
+   "value": "Axes and swords: 5% chance of an extra attack. Daggers and fist weapons: +5% crit. Maces: ignore 15% of armor.",
+   "note": "Matches Warcraft Tavern's Combat guide; the talentsforever changes page lists some conflicting per-rank values.",
+   "sources": [
+    "g218-39",
+    "g218-43"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-rogue.weapon-expertise",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Weapon Expertise",
+   "value": "Lowers the chance your attacks are dodged or parried instead of adding weapon skill.",
+   "sources": [
+    "g218-38",
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.adrenaline-rush",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Adrenaline Rush",
+   "value": "+100% Energy regeneration for 15 seconds; marked unchanged from Classic in the snapshot.",
+   "sources": [
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-rogue.raid-outlook-2",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "Warcraft Tavern notes Combat is the only Rogue spec with cleave and calls every Rogue spec gear-hungry.",
+   "sources": [
+    "g218-43"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.blade-flurry",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Blade Flurry",
+   "value": "20% melee attack speed, and your melee attacks strike an additional nearby enemy for 15 seconds.",
+   "sources": [
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-rogue.expose-armor-2",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Expose Armor",
+   "value": "Now equal to five Sunder Armor stacks and no longer blocks Sunder, so Rogues and Warriors can both contribute armor reduction.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.launch-raids-2",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.death-mark",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Death Mark",
+   "value": "A row-7 finisher costing 25 Energy, with a 10-second cooldown and a 20-yard range. It stores attack damage for six seconds and counts Garrote and Rupture damage at double rate.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.hemorrhage",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Hemorrhage",
+   "value": "Hemorrhage raises the damage of your Rupture and Garrote by 15%. Blizzard corrected excessive dagger damage for it and Ghostly Strike.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.rupture-talentsforever-data",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-priority",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Rupture (talentsforever data)",
+   "value": "Base damage is about 38-42% lower than in Classic.",
+   "sources": [
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.precision-3",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Precision",
+   "value": "3 ranks for up to +3% hit, applying to attacks, spells and poisons.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.raid-outlook-3",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid outlook",
+   "value": "Warcraft Tavern says Subtlety now has two PvE builds and that every Rogue spec is gear-hungry.",
+   "sources": [
+    "g218-44"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.serrated-blades",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Serrated Blades",
+   "value": "Attacks ignore 3% of the target's armor and Rupture deals 10% more damage (rank 1).",
+   "sources": [
+    "g218-39"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-rogue.ghostly-strike",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Ghostly Strike",
+   "value": "Your next Ambush or Garrote can skip Stealth if cast within seven seconds after Ghostly Strike.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

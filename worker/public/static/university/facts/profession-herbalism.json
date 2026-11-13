@@ -1,0 +1,200 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-herbalism",
+ "facts": [
+  {
+   "id": "profession-herbalism.starter-zone-book",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Starter-zone book",
+   "value": "Starting zones drop quest items that teach a gathering profession and give +2 skill. The herbalism one is Wild Harvest.",
+   "sources": [
+    "g218-25",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.scarce-herbs",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Scarce herbs",
+   "value": "Frilled Lichen, Rosecap and Stranglevine are new scarce herbs that alchemists turn into dyes.",
+   "sources": [
+    "g218-103",
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.camp-objects",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Incense Candle at skill 20, Greenhouse at 140 (blueprint from Shadetooth in the Excavation Site: Wetlands) and Seed Hybridizer at 300. The Candle's buff matches Arcane Intellect and does not stack with it.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.no-passive-bonus",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "No passive bonus",
+   "value": "Warcraft Tavern's beta guide says professions give no passive stat bonuses.",
+   "sources": [
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.skill-caps",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill caps",
+   "value": "Apprentice 75, Journeyman 150, Expert 225, Artisan 300.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.level-for-each-rank",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Level for each rank",
+   "value": "Guides disagree. Icy Veins lists no level for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35, the same as crafts.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.legacy-perks",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy perks",
+   "value": "Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.switching",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Switching",
+   "value": "To drop a primary profession, click the red X in the Professions window and type the confirmation. All skill and recipes are lost.",
+   "sources": [
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.healing-potion-herbs",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healing potion herbs",
+   "value": "Healing potions are now First Aid crafts that use Sungrass or Golden Sansam, so herbalists supply First Aid as well as Alchemy.",
+   "sources": [
+    "g218-101",
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.unknown-1",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Seed Hybridizer blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.unknown-2",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether any passive herbalism perk exists. Lists that circulate online, such as magic resistance for herbalists, are unverified.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-herbalism.unknown-3",
+   "scope": {
+    "profession": "herbalism"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "The exact Incense Candle buff, which scales with level.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

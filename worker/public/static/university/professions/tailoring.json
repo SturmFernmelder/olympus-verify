@@ -1,0 +1,189 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "tailoring",
+ "name": "Tailoring",
+ "type": "primary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[8] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-tailoring"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "enchanting"
+ ],
+ "overview": {
+  "lead": "Tailors make cloth armor and bags. Forever adds reagent bags for the new reagent-only bag slot and makes several bags bigger.",
+  "points": [
+   {
+    "text": "Enchanting is the usual partner, and Icy Veins steers Mages, Priests and Warlocks toward Tailoring."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "tailoring-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-tailoring.reagent-bags",
+      "profession-tailoring.bigger-bags",
+      "profession-tailoring.dyes-in-recipes",
+      "profession-tailoring.gear-only-you-can-make",
+      "profession-tailoring.camp-objects"
+     ]
+    },
+    {
+     "id": "tailoring-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-tailoring.skill-ranks",
+      "profession-tailoring.merchants-favor",
+      "profession-tailoring.legacy"
+     ]
+    },
+    {
+     "id": "tailoring-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-tailoring.unknown-1",
+      "profession-tailoring.unknown-2",
+      "profession-tailoring.unknown-3",
+      "profession-tailoring.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "tailoring-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-tailoring.spell-school-sets",
+      "profession-tailoring.faction-banner"
+     ]
+    },
+    {
+     "id": "tailoring-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Bags sell to every class, and reagent bags fill the new bag slot. The Runecloth Bag now needs alchemist dyes, so price that cost in. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

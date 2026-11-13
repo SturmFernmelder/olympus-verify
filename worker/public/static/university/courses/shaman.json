@@ -1,0 +1,944 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "shaman",
+ "name": "Shaman",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[5] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-shaman",
+  "talents-shaman"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Shamans support a group with totems, heals and utility, and play as casters (Elemental), melee (Enhancement) or healers (Restoration). Blizzard rates them among the sturdiest classes thanks to mail and a shield, but says their crowd control is weak.",
+  "points": [
+   {
+    "text": "For Olympus, Dwarf is the only Alliance Shaman race. Shamans were Horde-only in Classic, so this is the first time Alliance raids get Windfury, Strength of Earth, Grace of Air and Mana Tide."
+   },
+   {
+    "text": "No raid-wide Bloodlust or Heroism has been announced; Blizzard made Rage of the Farseer a personal cooldown on purpose."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Shaman should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "shaman-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Shaman",
+     "theory": [
+      "class-shaman.change-1",
+      "class-shaman.change-2",
+      "class-shaman.change-3",
+      "class-shaman.change-4",
+      "class-shaman.change-5",
+      "class-shaman.change-6",
+      "class-shaman.change-7",
+      "class-shaman.change-8"
+     ]
+    },
+    {
+     "id": "shaman-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
+      "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+      "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan",
+      "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "elemental",
+   "name": "Elemental",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Elemental casts Lightning Bolt, Chain Lightning and shocks. Call of Thunder improves the crit chance of both lightning spells by 5%.",
+    "points": [
+     {
+      "text": "Lightning Mastery is the new name for the 31-point Elemental Mastery talent. Lava Burst is no longer part of the rotation."
+     },
+     {
+      "text": "Lightning Overload now has a 10%, 20% or 30% chance to copy a Lightning Bolt or Chain Lightning."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "shaman-elemental-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.elemental-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Earthbound (16 points) makes Earthbind Totem root nearby enemies for 5 s when placed, which helps you kite."
+         },
+         {
+          "text": "Call of Thunder gives both lightning spells 5% additional crit. The older Lava Burst allocation is a beta artifact."
+         },
+         {
+          "text": "Eye of the Storm can reduce pushback on your lightning casts when enemies reach you."
+         },
+         {
+          "text": "Weapon imbues now last 60 minutes, so one cast covers a long questing session."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "shaman-elemental-leveling-30"
+       ]
+      },
+      {
+       "id": "shaman-elemental-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Use Flame Shock when the target will live long enough for its damage over time. Build your direct damage around Lightning Bolt."
+         },
+         {
+          "text": "Fill with Lightning Bolt (2.5 s cast at rank 4 and up); Elemental Alacrity shortens it."
+         },
+         {
+          "text": "Use Chain Lightning on groups when its higher mana cost is worthwhile."
+         },
+         {
+          "text": "Place your saved totems with Call of the Elements. Totemic Call moves them to you without recasting them."
+         },
+         {
+          "text": "Elemental Focus gives a 10% chance after a Fire, Frost or Nature damage spell to make your next damage spell free."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "shaman-elemental-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Persistent buff totems last 5 minutes and the totem global cooldown is 1.0 s, so totem upkeep takes less of your time."
+         },
+         {
+          "text": "Chain Lightning casts in 2.5 seconds and costs about 2.25 times as much mana as Lightning Bolt of a comparable rank."
+         },
+         {
+          "text": "Use Flame Shock where its damage over time can finish, and save fire totems for fights where their targets stay in range."
+         },
+         {
+          "text": "Ghost Wolf runs at 40% speed per Warcraft Tavern; Improved Ghost Wolf in Enhancement makes it usable indoors."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-elemental-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "shaman-elemental-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-elemental-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-shaman.call-of-thunder",
+        "class-shaman.lightning-mastery",
+        "class-shaman.crit-damage",
+        "class-shaman.chain-lightning",
+        "class-shaman.mana",
+        "class-shaman.spell-hit-classic-baseline-for-the-cap"
+       ]
+      },
+      {
+       "id": "shaman-elemental-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.classic-caster-kit",
+        "class-shaman.imbues-with-oils",
+        "class-shaman.new-forever-elixirs",
+        "class-shaman.flasks"
+       ]
+      },
+      {
+       "id": "shaman-elemental-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-shaman.raid-wide-buff-totems",
+        "class-shaman.raid-wide-totem-range",
+        "class-shaman.no-bloodlust",
+        "class-shaman.resistance-totems",
+        "class-shaman.world-buffs"
+       ]
+      },
+      {
+       "id": "shaman-elemental-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Elemental burst relies on lightning and shocks. Call of Thunder adds crit to Lightning Bolt and Chain Lightning."
+         },
+         {
+          "text": "You have no hard crowd control (no stun, no Hex), but Earthbound roots, Tremor Totem counters fear, charm and sleep, and Purge strips enemy buffs (Warcraft Tavern)."
+         },
+         {
+          "text": "Mail, a shield and Ghost Wolf help you survive, and Guardian Totems (Enhancement) shortens Grounding Totem's cooldown."
+         },
+         {
+          "text": "Against Warlock: Drop Tremor Totem before their Fear lands; Warcraft Tavern notes Warlocks have no blink or sprint, so Earthbind and range let you control the fight."
+         },
+         {
+          "text": "Against Rogue: Earthbound roots nearby enemies for 5 s when you place Earthbind Totem, which buys distance for your casts."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "enhancement",
+   "name": "Enhancement",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Enhancement is the Shaman melee spec: weapon swings with Stormstrike, Shocks and Lightning Bolts sped up by Maelstrom Weapon.",
+    "points": [
+     {
+      "text": "Stormstrike is a 16-point talent on a six-second cooldown. Spirit Weapons arrives at 21 points and Rage of the Farseer at 31."
+     },
+     {
+      "text": "Blizzard only calls Enhancement a temporary tank for small groups; no raid-tank role has been announced."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "shaman-enhancement-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.enhancement-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Two-handed axes and maces are baseline, so you can level with a two-hander."
+         },
+         {
+          "text": "Improved Ghost Wolf: rank 1 cuts Ghost Wolf's cast by 1 s and lets you use it indoors, and rank 2 makes it instant."
+         },
+         {
+          "text": "Thundering Strikes adds crit, which triggers Flurry's faster swings; Mental Dexterity turns Intellect into Attack Power."
+         },
+         {
+          "text": "Stormstrike comes at 16 points and Spirit Weapons at 21."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "shaman-enhancement-leveling-30"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a weapon imbue up (60 minutes now); Elemental Weapons strengthens Windfury Weapon (13% at rank 1)."
+         },
+         {
+          "text": "Use Stormstrike on cooldown, then spend its 20% bonus on Earth Shock or Lightning Bolt within 12 s."
+         },
+         {
+          "text": "When Maelstrom Weapon has stacked up, cast Lightning Bolt; each stack cuts its cast time and mana (4% per stack at rank 1, up to 5 stacks)."
+         },
+         {
+          "text": "Use Rage of the Farseer for burst; it only affects you."
+         },
+         {
+          "text": "Keep Lightning Shield up; Shamanistic Focus cuts its cost by 45%."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "shaman-enhancement-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spirit Weapons cuts your threat by 30% unless Rockbiter Weapon is active and raises it by 30% with Rockbiter, so use Rockbiter only when you mean to hold threat."
+         },
+         {
+          "text": "Improved Stormstrike (rank 1) gives a 50% chance of 50% regen while casting for 15 s, and a 50% chance to reset Stormstrike when you dodge or parry."
+         },
+         {
+          "text": "While your weapon has the matching imbue, you get nothing from a Windfury or Flametongue Totem, so don't plan on stacking the two."
+         },
+         {
+          "text": "Weapon imbues stack with sharpening stones and weightstones."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-enhancement-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "shaman-enhancement-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-shaman.stormstrike",
+        "class-shaman.maelstrom-weapon",
+        "class-shaman.attack-speed",
+        "class-shaman.intellect-into-power",
+        "class-shaman.elemental-devastation",
+        "class-shaman.melee-hit-cap-vs-raid-bosses"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.classic-melee-kit",
+        "class-shaman.stones-with-imbues",
+        "class-shaman.new-forever-elixir",
+        "class-shaman.camp-buffs"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-shaman.windfury-and-flametongue-totems",
+        "class-shaman.threat",
+        "class-shaman.temporary-tank",
+        "class-shaman.personal-burst"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Enhancement brings Stormstrike burst, faster Lightning Bolts from Maelstrom Weapon and Rage of the Farseer."
+         },
+         {
+          "text": "Purge strips enemy buffs and Tremor Totem counters fear, charm and sleep, but you have no stun or Hex (Warcraft Tavern)."
+         },
+         {
+          "text": "Improved Ghost Wolf (instant at rank 2, usable indoors) is your mobility, and Improved Stormstrike can reset Stormstrike when you dodge or parry."
+         },
+         {
+          "text": "Against Mage: Blizzard calls Mages fragile in melee; instant Ghost Wolf (Improved Ghost Wolf at 2/2) helps you close the gap."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "restoration",
+   "name": "Restoration",
+   "roles": [
+    "healer"
+   ],
+   "overview": {
+    "lead": "Restoration is the Shaman healer, built on Healing Wave, Chain Heal and totems, with Riptide at 31 points.",
+    "points": [
+     {
+      "text": "Forever adds Water Shield (11 points; mana when you are hit or your spells crit), moves Mana Tide Totem to 16 points, and adds Mindfulness so part of your regen continues while casting."
+     },
+     {
+      "text": "Riptide is now a heal over time on a 12-second cooldown with roughly 40% lower mana cost. It provides no upfront healing."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "shaman-restoration-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.restoration-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "The level-20 Water totem quest gives Healing Stream Totem; Mana Tide Totem ranks come at 25, 38, 48 and 58."
+         },
+         {
+          "text": "Healing Focus helps you finish heals while taking damage (23% chance at rank 1)."
+         },
+         {
+          "text": "Dual Specialization at level 40 lets you keep Enhancement or Elemental for questing."
+         },
+         {
+          "text": "Improved Reincarnation shortens Reincarnation's cooldown and raises the health and mana you come back with."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "shaman-restoration-dungeon-30"
+       ]
+      },
+      {
+       "id": "shaman-restoration-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Heal single targets with Healing Wave (Improved Healing Wave shortens it) and groups with Chain Heal."
+         },
+         {
+          "text": "Use Riptide for damage you expect to continue. Use a direct heal when the target needs health immediately."
+         },
+         {
+          "text": "Keep Water Shield up for mana, and drop Mana Spring and Healing Stream; Restorative Totems strengthens both."
+         },
+         {
+          "text": "Use Mana Tide Totem when your group runs low; rank 1 restores 88 mana every 3 s to group members within 30 yards for 12 s."
+         },
+         {
+          "text": "Nature's Swiftness makes your next Nature spell with a cast under 10 s instant; keep it for emergencies."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "shaman-restoration-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Set up a healing totem set for Call of the Elements, which drops four preset totems after a 3 s cast."
+         },
+         {
+          "text": "Buff totems now last 5 minutes, and you can right-click a totem in the tracker to dismiss it."
+         },
+         {
+          "text": "Ancestral Healing raises your target's armor (8% at rank 1) for 15 s after your heals crit."
+         },
+         {
+          "text": "Tremor Totem counters fear, charm and sleep (Warcraft Tavern)."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-restoration-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "shaman-restoration-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-restoration-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-shaman.riptide",
+        "class-shaman.healing-wave",
+        "class-shaman.water-shield",
+        "class-shaman.regen-while-casting",
+        "class-shaman.crit",
+        "class-shaman.totemic-call"
+       ]
+      },
+      {
+       "id": "shaman-restoration-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.classic-healer-kit",
+        "class-shaman.forever-alchemy",
+        "class-shaman.imbues-with-oils-2"
+       ]
+      },
+      {
+       "id": "shaman-restoration-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-shaman.mana-tide-totem",
+        "class-shaman.alliance-shamans",
+        "class-shaman.sturdy-healer",
+        "class-shaman.raid-wide-buff-totems-2",
+        "class-shaman.reincarnation",
+        "class-shaman.classic-baseline"
+       ]
+      },
+      {
+       "id": "shaman-restoration-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Mail and a shield help you take pressure. Nature's Swiftness helps with emergency healing, while Riptide heals gradually."
+         },
+         {
+          "text": "Purge and Tremor Totem are your answers to enemy buffs and fear; you have no hard crowd control (Warcraft Tavern)."
+         },
+         {
+          "text": "Against Warlock: Keep Tremor Totem down against their Fear; Healing Focus helps you finish casts while their damage lands."
+         },
+         {
+          "text": "Against Priest: Forever Priests get Silence without a talent prerequisite. Apply Riptide before the silence if you can and reserve Nature's Swiftness for a direct heal after it ends."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

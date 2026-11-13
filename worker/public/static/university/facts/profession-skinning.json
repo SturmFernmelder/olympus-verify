@@ -1,0 +1,168 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-skinning",
+ "facts": [
+  {
+   "id": "profession-skinning.starter-zone-book",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Starter-zone book",
+   "value": "Starting zones drop quest items that teach a gathering profession and give +2 skill. The skinning one is Pelt Collecting for Beginners.",
+   "sources": [
+    "g218-25",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.pristine-materials",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Pristine materials",
+   "value": "Skinning can also yield scarce Pristine Leather, Pristine Hide and Pristine Scale.",
+   "sources": [
+    "g218-105"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.reagent-bag-slot",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Reagent bag slot",
+   "value": "A new bag slot takes only reagent bags. Gathering bags start at 4 slots, and the Bottomless Reagent Bag is made from Pristine Hide.",
+   "sources": [
+    "g218-105",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.camp-objects",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Camp Chair at skill 20, Field Guide at 140 (blueprint from Lady Anacondra in Wailing Caverns) and Trapper's Workbench at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.skill-caps",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill caps",
+   "value": "Apprentice 75, Journeyman 150, Expert 225, Artisan 300.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.level-for-each-rank",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Level for each rank",
+   "value": "Guides disagree. Icy Veins lists no level for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35, the same as crafts.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.legacy-perks",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy perks",
+   "value": "Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.camp-chair",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp Chair",
+   "value": "The Camp Chair gives 2% crit. It matches Moonkin Aura and does not stack with it.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.unknown-1",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Trapper's Workbench blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-skinning.unknown-2",
+   "scope": {
+    "profession": "skinning"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether any passive skinning perk exists. The bonus damage against Beasts and Dragonkin claim appears only in unverified lists.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

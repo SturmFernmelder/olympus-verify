@@ -1,0 +1,185 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "fishing",
+ "name": "Fishing",
+ "type": "secondary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[10] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-fishing"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "cooking"
+ ],
+ "overview": {
+  "lead": "Fishing has its own camp objects, and the Fish Bowl gives one of the few camp buffs with a fixed number.",
+  "points": [
+   {
+    "text": "Pair it with Cooking: several reworked raid foods are seafood dishes."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "fishing-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-fishing.camp-objects",
+      "profession-fishing.luremaster"
+     ]
+    },
+    {
+     "id": "fishing-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-fishing.artisan-step",
+      "profession-fishing.skill-cap"
+     ]
+    },
+    {
+     "id": "fishing-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-fishing.unknown-1",
+      "profession-fishing.unknown-2",
+      "profession-fishing.unknown-3",
+      "profession-fishing.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "fishing-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-fishing.fish-bowl",
+      "profession-fishing.seafood-for-raid-foods"
+     ]
+    },
+    {
+     "id": "fishing-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Cooks need fish for several reworked raid foods, so a steady catch should find buyers. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

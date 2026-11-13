@@ -1,0 +1,213 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-leatherworking",
+ "facts": [
+  {
+   "id": "profession-leatherworking.tanning-rack",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Tanning Rack",
+   "value": "Blizzard says the more advanced Leatherworking recipes need a Tanning Rack, which is a camp object.",
+   "sources": [
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.camp-objects",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Camp Tent at skill 20, Tanning Rack at 140 (blueprint from Razorclaw the Butcher in Shadowfang Keep) and Sewing Machine at 300. The Camp Tent tops up rested XP to 5% of a level.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.gear-only-you-can-make",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Gear only you can make",
+   "value": "Some crafts are Bind on Pickup for the leatherworker, such as Wisdom's Leather Boots.",
+   "sources": [
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.skill-ranks",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.specialization-classic-baseline",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Specialization (Classic baseline)",
+   "value": "Classic 1.12: choose Dragonscale, Elemental or Tribal Leatherworking.",
+   "note": "Forever guides list the same three.",
+   "sources": [
+    "g218-106"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "profession-leatherworking.merchants-favor",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Merchant's Favor",
+   "value": "Favor recipes such as the Mystic Rugged kit (Honored, 90 Favor) come from the Azeroth Commerce Authority at Three Corners in western Redridge.",
+   "sources": [
+    "g218-106",
+    "g218-113"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.legacy",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each. Working Overtime improves your skill-up chance.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.core-armor-kit",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Core Armor Kit",
+   "value": "Core Armor Kit now gives +4 defense instead of +3, a small gain for tanks.",
+   "sources": [
+    "g218-106"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.stat-armor-kits",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Stat armor kits",
+   "value": "New kits add stats as well as armor: Light (Stamina), Forceful Medium (attack power), Mystic Medium (spell power) and Mystic Rugged.",
+   "sources": [
+    "g218-106"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.unknown-1",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Sewing Machine blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.unknown-2",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the Dragonscale, Elemental and Tribal quests are unchanged from Classic.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.unknown-3",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Which recipes need the Tanning Rack.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.unknown-4",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether a leatherworking mount-speed perk exists; it appears only in unverified perk lists.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

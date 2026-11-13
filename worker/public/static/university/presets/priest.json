@@ -1,0 +1,175 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "priest-discipline-raid-60",
+   "classId": "priest",
+   "specId": "discipline",
+   "label": "Discipline raid healing (31/20/0)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.priest.60.0050050313300115313150500303000000000000000000000000",
+   "points": 51,
+   "treePoints": [
+    31,
+    20,
+    0
+   ],
+   "why": [
+    "Discipline to Power Infusion: Improved Power Word: Shield into Soul Warding and Renewed Hope, then Penance and Divine Aegis, with Meditation and Mental Agility for mana.",
+    "Twin Disciplines boosts your instant spells, Mental Strength raises Intellect, and Inner Focus gives a free heal that is likelier to crit.",
+    "Twenty Holy points add crit for more Divine Aegis shields (Holy Specialization), faster Heal and Greater Heal (Divine Fury), Inspiration's armor on crit heals, Twilight Focus against pushback, a point of Improved Renew and Improved Healing, which also discounts Penance."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-discipline-leveling-30",
+   "classId": "priest",
+   "specId": "discipline",
+   "label": "Smite and shields leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.priest.30.5000320303030110000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "A Smite-and-shield build: Power in Light boosts Smite and Penance against targets with your Holy Fire or Shadow Word: Pain, and Holy Precision helps Holy spells land.",
+    "Soul Warding makes shields cheaper and quicker to recast, Improved Inner Fire adds armor and charges, and Penance arrives at 30.",
+    "Smite’s base damage in the client data is far below Classic, so treat this as an experiment. If questing feels slow, Dual Specialization at 40 lets you keep a second build."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-holy-raid-60",
+   "classId": "priest",
+   "specId": "holy",
+   "label": "Holy raid healing (16/35/0)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.priest.60.0050050210300000000350510323012153100000000000000000",
+   "points": 51,
+   "treePoints": [
+    16,
+    35,
+    0
+   ],
+   "why": [
+    "Holy to Prayer of Mending: Divine Fury speeds up Heal and Greater Heal, Improved Healing trims their cost, and Spiritual Guidance and Spiritual Healing add healing.",
+    "Holy Binding, which replaced Binding Heal, heals you for half of each Flash Heal you cast on someone else. Litany of Light returns mana as you heal, and Spirit of Redemption leads to Prayer of Mending.",
+    "Sixteen Discipline points take Twin Disciplines, Mental Strength, Mental Agility, Inner Focus and Meditation."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-holy-dungeon-30",
+   "classId": "priest",
+   "specId": "holy",
+   "label": "Holy dungeon healing at 30",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.priest.30.0000000000000000000350500303011000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Divine Fury speeds up Heal and Greater Heal, Improved Healing makes them cheaper, and Improved Renew strengthens Renew.",
+    "Holy Specialization and Inspiration add critical heals that raise your target’s armor.",
+    "Holy Binding, which replaced Binding Heal, heals you whenever you Flash Heal an ally, and the first point of Litany of Light returns mana as you heal."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-shadow-raid-60",
+   "classId": "priest",
+   "specId": "shadow",
+   "label": "Shadow raid (14/0/37)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.priest.60.0050050010300000000000000000000000050052201251312251",
+   "points": 51,
+   "treePoints": [
+    14,
+    0,
+    37
+   ],
+   "why": [
+    "Shadow to Shadowform: Shadow Focus for hit, Improved Mind Blast and Improved Shadow Word: Pain, Improved Mind Flay, Shadow Weaving and Darkness for damage.",
+    "Vampiric Embrace and Dark Inspiration support your party, Silence interrupts casters, and Devouring Contagion and Early Demise add damage on packs and low-health targets.",
+    "Fourteen Discipline points take Twin Disciplines for your instant spells (Shadow Word: Death included), Mental Strength for Intellect, Meditation for regen and Inner Focus."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-shadow-pvp-60",
+   "classId": "priest",
+   "specId": "shadow",
+   "label": "Shadow PvP (18/0/33)",
+   "context": "pvp",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.priest.60.0053012013300000000000000000000000035052021201310251",
+   "points": 51,
+   "treePoints": [
+    18,
+    0,
+    33
+   ],
+   "why": [
+    "Control and burst: Blackout's stun chance, Improved Psychic Scream, Silence and Mind Flay's slow, with Shadowform and Early Demise for damage.",
+    "Silent Resolve shortens Stun, Fear and Silence on you, and Martyrdom at 2/2 always grants Focused Casting after you take a melee or ranged crit.",
+    "Improved Power Word: Shield makes your shield absorb more under focus fire, Inner Focus makes one spell free with extra crit chance, and Meditation keeps mana flowing in long fights."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "priest-shadow-leveling-30",
+   "classId": "priest",
+   "specId": "shadow",
+   "label": "Shadow leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.priest.30.0000000000000000000000000000000000000552001221300000",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Spirit Tap cuts downtime after kills, Improved Mind Blast shortens Mind Blast's cooldown, and Improved Shadow Word: Pain makes the DoT last longer.",
+    "Mind Flay slows what you are fighting and, with Improved Mind Flay, ramps up with each tick.",
+    "Vampiric Embrace heals you and your party from your Shadow damage, and Shadow Weaving and Dark Inspiration round out row 4."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

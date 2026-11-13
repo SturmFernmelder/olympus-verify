@@ -1,0 +1,189 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "first-aid",
+ "name": "First Aid",
+ "type": "secondary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[11] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-first-aid"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "herbalism"
+ ],
+ "overview": {
+  "lead": "First Aid now covers more than bandages: healing potions moved here from Alchemy, and new remedies treat poison, disease and bleeds.",
+  "points": [
+   {
+    "text": "Any raider who levels First Aid can make their own healing potions from vendor manuals, and Herbalism supplies the herbs."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "first-aid-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-first-aid.healing-potions",
+      "profession-first-aid.new-remedies",
+      "profession-first-aid.powerful-anti-venom",
+      "profession-first-aid.camp-objects",
+      "profession-first-aid.cannot-be-unlearned"
+     ]
+    },
+    {
+     "id": "first-aid-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-first-aid.expert-and-artisan",
+      "profession-first-aid.field-medicine"
+     ]
+    },
+    {
+     "id": "first-aid-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-first-aid.unknown-1",
+      "profession-first-aid.unknown-2",
+      "profession-first-aid.unknown-3",
+      "profession-first-aid.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "first-aid-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-first-aid.self-made-healing-potions",
+      "profession-first-aid.heavy-runecloth-bandage",
+      "profession-first-aid.first-aid-kit"
+     ]
+    },
+    {
+     "id": "first-aid-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Raiders who make their own healing potions need Sungrass and Golden Sansam, so those herbs are the part to watch on the Auction House. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

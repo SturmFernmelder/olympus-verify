@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "warlock-affliction-raid-60",
+   "classId": "warlock",
+   "specId": "affliction",
+   "label": "Affliction raid (40/11/0)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warlock.60.2552032103520135100502030010000000000000000000000000",
+   "points": 51,
+   "treePoints": [
+    40,
+    11,
+    0
+   ],
+   "why": [
+    "Affliction core: Suppression for hit and lower threat, Improved Corruption, Improved Bane of Agony, Pandemic, Malevolence and Shadow Mastery, then Siphon Life into Wrack.",
+    "Improved Drains strengthens Drain Life, Drain Soul and Drain Mana, Soul Siphon also boosts Wrack, Nightfall can make a Shadow Bolt instant, and Grim Reach adds range. Improved Life Tap adds mana, and one point of Fel Concentration gives your drains and Wrack a 23% chance to ignore pushback.",
+    "Eleven Demonology points reach Demonic Sacrifice, and sacrificing the Imp now gives Shadow damage. Fel Vitality (+15% maximum mana at 3/3), Demonic Embrace and Demonic Aegis fill the path."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warlock-affliction-leveling-30",
+   "classId": "warlock",
+   "specId": "affliction",
+   "label": "Affliction leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warlock.30.2050232100320100000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Improved Corruption and Improved Bane of Agony strengthen your DoTs, and Siphon Life at 30 adds a health drain.",
+    "Soul Harvest and Improved Life Tap keep mana up between pulls, and Improved Drains boosts Drain Life and Drain Soul.",
+    "Nightfall can make your next Shadow Bolt instant, and Malevolence adds Shadow crit."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warlock-demonology-raid-60",
+   "classId": "warlock",
+   "specId": "demonology",
+   "label": "Demonology raid (5/31/15)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warlock.60.0500000000000000000550032012210013510550005000000000",
+   "points": 51,
+   "treePoints": [
+    5,
+    31,
+    15
+   ],
+   "why": [
+    "Demonology to Demonic Pact: sacrifice one demon, summon another, and keep both the sacrifice and the Master Demonologist effect, which Blizzard says lets you combine the two for the first time.",
+    "Demonic Knowledge, Unholy Power and Soul Link add damage while a demon is out, and Decimation shortens Soul Fire's cooldown.",
+    "Suppression gives spell hit. In Destruction, the Bane talent speeds up Shadow Bolt and Soul Fire, Ruin raises crit damage, and Improved Shadow Bolt boosts your own Shadow damage after a Shadow Bolt crit."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warlock-demonology-leveling-30",
+   "classId": "warlock",
+   "specId": "demonology",
+   "label": "Demonology leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warlock.30.0000000000000000000350322002013000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Built around the Voidwalker: Unholy Power and Improved Voidwalker make it hit and hold harder, and Demonic Energies heals it as you deal damage.",
+    "Demonic Brand at 25 is where Warcraft Tavern says Demonology gets comfortable: Searing Pain marks the target so your pet's next attacks (2 at rank 1) deal bonus damage, with high threat if that damage is Shadow.",
+    "Master Summoner and Fel Domination bring a fallen demon back quickly, and Fel Vitality gives your demon 10% more health and mana and you 10% more maximum mana at 2/3."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warlock-destruction-raid-60",
+   "classId": "warlock",
+   "specId": "destruction",
+   "label": "Destruction raid (5/11/35)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.warlock.60.0500000000000000000502030010000000000550325103101351",
+   "points": 51,
+   "treePoints": [
+    5,
+    11,
+    35
+   ],
+   "why": [
+    "Destruction to Incinerate: Bane for faster casts, Ruin and Agonizing Flames for damage, Conflagrate with Fire and Brimstone, Shadow and Flame, and Bane of Havoc for multi-target fights.",
+    "Five points of Suppression give spell hit and lower threat. Eleven Demonology points reach Demonic Sacrifice: the Succubus or Incubus now gives Fire damage, the Imp Shadow damage.",
+    "Sacrificing your Imp means no Blood Pact for your group, so agree with your raid leader which Warlocks keep a demon out."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "warlock-destruction-leveling-30",
+   "classId": "warlock",
+   "specId": "destruction",
+   "label": "Destruction leveling at 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.warlock.30.0000000000000000000000000000000000000053025130101000",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Bane speeds up your casts, Molten Skin trims incoming damage, and Intensity keeps casts going when mobs hit you.",
+    "Conflagrate at 25 and Shadowburn give burst and an instant finisher, and Ruin raises crit damage.",
+    "Bane of Havoc at 30 splashes 15% of your damage onto a second mob and leads to Incinerate later."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

@@ -1,0 +1,1262 @@
+{
+ "schema": "olympus-university-sources-v1",
+ "note": "g218-<n> is source n of guides218.json; talents-data is the calculator's data.json.",
+ "sources": [
+  {
+   "id": "g218-0",
+   "label": "WoW: Forever class deep dive: Warrior (30 Sep 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/news/24301514",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-1",
+   "label": "WoW: Forever Beta Development Notes (updates 24 Sep to 27 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-2",
+   "label": "WoW: Forever raid overview (20 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/news/24303009",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-3",
+   "label": "Warrior changes vs Classic from beta build data",
+   "publisher": "Talents Forever",
+   "kind": "licensed-data",
+   "url": "https://talentsforever.com/warrior/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-4",
+   "label": "Forever Warrior leveling guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/warrior-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-5",
+   "label": "Forever Arms Warrior guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/arms-warrior/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-6",
+   "label": "Forever Fury Warrior guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/fury-warrior/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-7",
+   "label": "Forever Protection Warrior guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/protection-warrior/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-8",
+   "label": "Forever Alchemy guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/alchemy/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-9",
+   "label": "New Alchemy recipes in WoW: Forever",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/new-alchemy-recipes-for-world-of-warcraft-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-10",
+   "label": "WoW: Forever Cooking guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/cooking",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-11",
+   "label": "WoW: Forever raid overview",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/raid-overview",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-12",
+   "label": "Rallying Cry of the Dragonslayer, Forever database entry",
+   "publisher": "Wowhead",
+   "kind": "community",
+   "url": "https://www.wowhead.com/forever/spell=22888/rallying-cry-of-the-dragonslayer",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-13",
+   "label": "Classic Retribution Paladin enchants and consumables (Classic 1.12 melee baseline)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-retribution-paladin-enchants-consumables/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-14",
+   "label": "Classic feral tank enchants and consumables (Classic 1.12 baseline)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-feral-druid-tank-enchants-consumables-wow-classic/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-15",
+   "label": "Talent data, beta build 1.60.1.70425 (16 Oct 2026 snapshot)",
+   "publisher": "Talents Forever",
+   "kind": "licensed-data",
+   "url": "https://talentsforever.com/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-16",
+   "label": "WoW: Forever Paladin class deep dive (15 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24302099",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-17",
+   "label": "WoW: Forever Beta Development Notes (Kaivax), updates to 16 Oct plus racial posts 26-27 Oct",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-18",
+   "label": "Warcraft Tavern: WoW Forever Paladin guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/paladin/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-19",
+   "label": "Warcraft Tavern: All changes to Paladins in WoW Forever (21 Sep 2026)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/all-changes-to-paladins-in-wow-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-20",
+   "label": "Warcraft Tavern: Seal twisting and Shockadins, Paladin deep dive for WoW Forever",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/seal-twisting-shockadins-paladin-deep-dive-for-wow-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-21",
+   "label": "Warcraft Tavern: WoW Forever Paladin leveling guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/paladin-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-22",
+   "label": "warcraft.wiki.gg: Paladin abilities (Forever)",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Paladin_abilities_(Forever)",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-23",
+   "label": "Method: WoW Forever Paladin leveling guide and talents",
+   "publisher": "Method",
+   "kind": "forever-guide",
+   "url": "https://www.method.gg/wow-forever/wow-forever-paladin-leveling-guide-and-talents",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-24",
+   "label": "warcraft.wiki.gg: World of Warcraft: Forever",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Forever",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-25",
+   "label": "Warcraft Tavern: WoW Forever professions guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/professions/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-26",
+   "label": "Warcraft Tavern: WoW Forever camping guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/camping/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-27",
+   "label": "Warcraft Tavern: WoW Classic Paladin guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://warcrafttavern.com/wow-classic/guides/paladin",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-28",
+   "label": "warcraft.wiki.gg: Paladin quests (Classic chains)",
+   "publisher": "Warcraft Wiki",
+   "kind": "classic-baseline",
+   "url": "https://warcraft.wiki.gg/wiki/Paladin_quests",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-29",
+   "label": "Warcraft Tavern: Classic Restoration Druid enchants and consumables (healer list)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-restoration-druid-enchants-consumbales/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-30",
+   "label": "Warcraft Tavern: Classic fire resistance guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/fire-resistance/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-31",
+   "label": "WoW: Forever class deep dive: Hunter (30 Sep 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/news/24301515",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-32",
+   "label": "Hunter changes vs Classic from beta build data",
+   "publisher": "Talents Forever",
+   "kind": "licensed-data",
+   "url": "https://talentsforever.com/hunter/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-33",
+   "label": "Forever Hunter leveling guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/hunter-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-34",
+   "label": "Forever Hunter pets guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/hunter-pets/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-35",
+   "label": "Forever Beast Mastery Hunter guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/beast-mastery-hunter/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-36",
+   "label": "Forever Marksmanship Hunter guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/marksmanship-hunter/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-37",
+   "label": "Forever Survival Hunter guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/survival-hunter/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-38",
+   "label": "WoW: Forever class deep dive: Rogue (7 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/news/24310968",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-39",
+   "label": "Rogue changes vs Classic from beta build data",
+   "publisher": "Talents Forever",
+   "kind": "licensed-data",
+   "url": "https://talentsforever.com/rogue/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-40",
+   "label": "Forever Rogue overview",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/rogue/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-41",
+   "label": "Forever Rogue leveling guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/rogue-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-42",
+   "label": "Forever Assassination Rogue guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/assassination-rogue/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-43",
+   "label": "Forever Combat Rogue guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/combat-rogue/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-44",
+   "label": "Forever Subtlety Rogue guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/subtlety-rogue/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-45",
+   "label": "Priest changes vs Classic (fan datamine with server hotfixes to 30 Oct 2026)",
+   "publisher": "Talents Forever",
+   "kind": "community",
+   "url": "https://talentsforever.com/priest/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-46",
+   "label": "WoW Forever class deep dive: Priest and Warrior",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24301514",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-47",
+   "label": "WoW Forever Beta Development Notes, 1 Oct 2026 update",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696/4",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-48",
+   "label": "WoW Forever Beta Development Notes, 8 Oct 2026 update",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696/5",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-49",
+   "label": "WoW Forever Beta Development Notes, 16 Oct 2026 update",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696/6",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-50",
+   "label": "WoW Forever Beta Development Notes, 26 Oct 2026 racial changes",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696/7",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-51",
+   "label": "WoW Forever: Battle for the Darkspear Islands",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24307308",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-52",
+   "label": "WoW Forever Priest class guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/priest/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-53",
+   "label": "WoW Forever Priest leveling guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/priest-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-54",
+   "label": "WoW Forever PvE DPS spec overview (rankings still TBD)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/pve-tier-list-dps-specs",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-55",
+   "label": "WoW Forever PvE healer spec overview (rankings still TBD)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/pve-tier-list-healer-specs",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-56",
+   "label": "WoW Forever PvP healer spec overview (rankings still TBD)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/pvp-tier-list-healer-specs",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-57",
+   "label": "Classic caster spell hit reference from a Warlock stat priority page (Classic 1.12 baseline)",
+   "publisher": "Icy Veins",
+   "kind": "classic-baseline",
+   "url": "https://www.icy-veins.com/wow-classic/warlock-dps-pve-stat-priority",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-58",
+   "label": "Classic caster consumables list from a Frost Mage guide (Classic baseline)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-frost-mage-enchants-consumables/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-59",
+   "label": "Classic Benediction and Anathema quest guide (Classic baseline)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/benediction-anathema-quest-guide/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-60",
+   "label": "Shadowmourne (Wrath of the Lich King item)",
+   "publisher": "Warcraft Wiki",
+   "kind": "classic-baseline",
+   "url": "https://warcraft.wiki.gg/wiki/Shadowmourne",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-61",
+   "label": "WoW: Forever Mage and Shaman class deep dive (7 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24302097",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-62",
+   "label": "Blizzard news: WoW: Forever race and class combinations",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://news.blizzard.com/en-us/article/24304075",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-63",
+   "label": "Warcraft Tavern: WoW Forever Shaman guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/shaman/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-64",
+   "label": "Warcraft Tavern: WoW Forever Dwarf Shaman totem quests",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/dwarf-shaman-totem-quests/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-65",
+   "label": "warcraft.wiki.gg: Shaman abilities (Forever)",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Shaman_abilities_(Forever)",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-66",
+   "label": "warcraft.wiki.gg: Shaman quests (Classic totem quests)",
+   "publisher": "Warcraft Wiki",
+   "kind": "classic-baseline",
+   "url": "https://warcraft.wiki.gg/wiki/Shaman_quests",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-67",
+   "label": "Icy Veins: WoW Forever Frost Mage guide (spell hit cap not yet known)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/frost-mage-ranged-dps-pve-guide",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-68",
+   "label": "Icy Veins: Classic Mage stat priority (Classic spell hit cap)",
+   "publisher": "Icy Veins",
+   "kind": "classic-baseline",
+   "url": "https://www.icy-veins.com/wow-classic/mage-dps-pve-stat-priority",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-69",
+   "label": "Mage changes vs Classic (fan datamine with server hotfixes to 30 Oct 2026)",
+   "publisher": "Talents Forever",
+   "kind": "community",
+   "url": "https://talentsforever.com/mage/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-70",
+   "label": "WoW Forever: the Skyborne race",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24302071",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-71",
+   "label": "WoW Forever announcement and Skyborne packs",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24302093",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-72",
+   "label": "Fire Mage PvE guide for WoW Forever",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/fire-mage-ranged-dps-pve-guide",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-73",
+   "label": "Arcane Mage PvE guide for WoW Forever",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/arcane-mage-ranged-dps-pve-guide",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-74",
+   "label": "WoW Forever PvP DPS spec overview (rankings still TBD)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/pvp-tier-list-dps-specs",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-75",
+   "label": "WoW Forever Mage class guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/mage/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-76",
+   "label": "WoW Forever Mage leveling guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/mage-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-77",
+   "label": "Warlock changes vs Classic (fan datamine with server hotfixes to 30 Oct 2026)",
+   "publisher": "Talents Forever",
+   "kind": "community",
+   "url": "https://talentsforever.com/warlock/changes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-78",
+   "label": "WoW Forever class deep dive: Rogue and Warlock",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24310968",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-79",
+   "label": "WoW Forever Warlock class guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/warlock/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-80",
+   "label": "WoW Forever Warlock leveling guide (beta)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/warlock-leveling/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-81",
+   "label": "WoW Forever class overview",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/classes/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-82",
+   "label": "No group finder or summoning stones in WoW Forever",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/no-group-finder-or-summoning-stones-in-wow-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-83",
+   "label": "Warlock quests in WoW Classic (Classic baseline)",
+   "publisher": "Icy Veins",
+   "kind": "classic-baseline",
+   "url": "https://www.icy-veins.com/wow-classic/warlock-quests-in-wow-classic",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-84",
+   "label": "Ritual of Doom (Classic baseline)",
+   "publisher": "Warcraft Wiki",
+   "kind": "classic-baseline",
+   "url": "https://warcraft.wiki.gg/wiki/Ritual_of_Doom",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-85",
+   "label": "WoW: Forever Druid class deep dive (30 Sep 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24301515",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-86",
+   "label": "Beta player report on the Relic of the Fang (16 Oct 2026)",
+   "publisher": "Blizzard forums (player posts)",
+   "kind": "community",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2384010",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-87",
+   "label": "Warcraft Tavern: WoW Forever Druid guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/druid/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-88",
+   "label": "Warcraft Tavern: WoW Forever Skyborne guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/skyborne/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-89",
+   "label": "warcraft.wiki.gg: Druid abilities (Forever)",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Druid_abilities_(Forever)",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-90",
+   "label": "warcraft.wiki.gg: Druid quests",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Druid_quests",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-91",
+   "label": "warcraft.wiki.gg: To Darnassus (Forever)",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/To_Darnassus_(Forever)",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-92",
+   "label": "Wowhead Forever: quest 98731 (Cat Form chain)",
+   "publisher": "Wowhead",
+   "kind": "community",
+   "url": "https://www.wowhead.com/forever/quest=98731",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-93",
+   "label": "Method: WoW Forever Druid leveling guide and talents",
+   "publisher": "Method",
+   "kind": "forever-guide",
+   "url": "https://www.method.gg/wow-forever/wow-forever-druid-leveling-guide-and-talents",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-94",
+   "label": "Warcraft Tavern: WoW Classic Druid guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://warcrafttavern.com/wow-classic/guides/druid",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-95",
+   "label": "New Player's Starter Guide (28 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-gb/news/24315280",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-96",
+   "label": "Legacy System overview (23 Sep 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://news.blizzard.com/en-us/article/24307383",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-97",
+   "label": "Forever deep-dive panel recap (Sep 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://news.blizzard.com/en-us/article/24303313/world-of-warcraft-forever-deep-dive-panel-recap",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-98",
+   "label": "Forever professions overview",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/professions-overview",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-99",
+   "label": "Forever Alchemy guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/alchemy",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-100",
+   "label": "Forever camping guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/camping",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-101",
+   "label": "Forever First Aid guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/first-aid",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-102",
+   "label": "Forever Fishing guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/fishing",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-103",
+   "label": "Forever Herbalism guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/herbalism",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-104",
+   "label": "Forever Mining guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/mining",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-105",
+   "label": "Forever Skinning guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/skinning",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-106",
+   "label": "Forever Leatherworking guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/leatherworking",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-107",
+   "label": "Forever Engineering guide",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/engineering",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-108",
+   "label": "Forever Blacksmithing guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/blacksmithing/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-109",
+   "label": "Forever Enchanting guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/enchanting/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-110",
+   "label": "Forever Engineering guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/engineering/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-111",
+   "label": "Forever Tailoring guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/tailoring/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-112",
+   "label": "Forever camping objects and buffs",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/camping-objects-buffs/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-113",
+   "label": "Merchant's Favor currency (Forever database)",
+   "publisher": "Wowhead",
+   "kind": "community",
+   "url": "https://www.wowhead.com/forever/currency=3402/merchants-favor",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-114",
+   "label": "Recipe: Greater Fire Protection Potion (Classic)",
+   "publisher": "Warcraft Wiki",
+   "kind": "classic-baseline",
+   "url": "https://warcraft.wiki.gg/wiki/Recipe:_Greater_Fire_Protection_Potion",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-115",
+   "label": "WoW Forever dungeon post (max-level dungeons)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24301455",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-116",
+   "label": "World of Warcraft: Forever global launch announcement (29 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24315820",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-117",
+   "label": "WoW Forever rulesets, realms and account-wide progress",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://worldofwarcraft.blizzard.com/en-us/news/24302070",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-118",
+   "label": "WoW Forever beta development notes (forum thread)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-119",
+   "label": "Official WoW Forever podcast recap (22 Oct 2026)",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://eu.forums.blizzard.com/en/wow/t/637043/1",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-120",
+   "label": "Player thread asking for Blizzard's world-buff stance (no staff reply)",
+   "publisher": "Blizzard forums (player posts)",
+   "kind": "community",
+   "url": "https://eu.forums.blizzard.com/en/wow/t/question-world-buffs/628446",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-121",
+   "label": "Patch 1.60.1 API change notes",
+   "publisher": "Warcraft Wiki",
+   "kind": "community",
+   "url": "https://warcraft.wiki.gg/wiki/Patch_1.60.1/API_changes/notes",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-122",
+   "label": "Wowhead Classic database: Rallying Cry of the Dragonslayer",
+   "publisher": "Wowhead",
+   "kind": "classic-baseline",
+   "url": "https://www.wowhead.com/classic/spell=22888/rallying-cry-of-the-dragonslayer",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-123",
+   "label": "Wowhead Forever Gear Planner",
+   "publisher": "Wowhead",
+   "kind": "community",
+   "url": "https://www.wowhead.com/forever/gear-planner",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-124",
+   "label": "Wowhead Forever Max Level Planner",
+   "publisher": "Wowhead",
+   "kind": "community",
+   "url": "https://www.wowhead.com/forever/max-level-planner",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-125",
+   "label": "Icy Veins: Forever Protection Warrior guide (gear notes)",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/protection-warrior-tank-pve-guide",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-126",
+   "label": "Icy Veins: choosing your Forever main",
+   "publisher": "Icy Veins",
+   "kind": "forever-guide",
+   "url": "https://www.icy-veins.com/wow-forever/choosing-your-main",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-127",
+   "label": "Method: a look at the Barrow Deeps, Hyjal Summit and Onyxia's Lair",
+   "publisher": "Method",
+   "kind": "forever-guide",
+   "url": "https://www.method.gg/wow-forever/wow-forever-raids-a-look-at-barrow-deeps-hyjal-summit-and-onyxias-lair",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-128",
+   "label": "Warcraft Tavern: Onyxia's Lair will still require attunement",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/onyxias-lair-raid-will-still-require-attunement-in-wow-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-129",
+   "label": "Warcraft Tavern: Forever raids guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/raids/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-130",
+   "label": "Warcraft Tavern: Forever Upper Blackrock Spire guide (Classic-based)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/upper-blackrock-spire/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-131",
+   "label": "Warcraft Tavern: Forever Scholomance guide (Classic-based)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/scholomance/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-132",
+   "label": "Warcraft Tavern: Forever Stratholme guide (Classic-based)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/stratholme/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-133",
+   "label": "Warcraft Tavern: Forever Dire Maul guide (Classic-based)",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/dire-maul/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-134",
+   "label": "Warcraft Tavern: Forever dungeons guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/dungeons/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-135",
+   "label": "Warcraft Tavern: Forever First Aid guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/first-aid/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-136",
+   "label": "Warcraft Tavern: Forever class trainers guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/class-trainers/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-137",
+   "label": "Warcraft Tavern: playstyle selection now required for LFG",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/playstyle-selection-now-required-for-lfg-in-wow-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-138",
+   "label": "Warcraft Tavern: PvP ranks, honor and seasons in Forever",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/pvp-progression-in-wow-forever-ranks-honor-seasons/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-139",
+   "label": "Warcraft Tavern: Forever Legacy System guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/legacy/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-140",
+   "label": "Warcraft Tavern: new race and class combinations in Forever",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/news/undead-paladins-other-race-class-combos-in-world-of-warcraft-forever/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-141",
+   "label": "Warcraft Tavern: Forever beta guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "forever-guide",
+   "url": "https://www.warcrafttavern.com/forever/guides/beta/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-142",
+   "label": "Warcraft Tavern: Classic Onyxia's Lair attunement guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/onyxias-lair-attunement/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-143",
+   "label": "Warcraft Tavern: Classic Upper Blackrock Spire guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/upper-blackrock-spire/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-144",
+   "label": "Warcraft Tavern: Classic Scholomance guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/scholomance/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-145",
+   "label": "Warcraft Tavern: Classic Warlock pre-raid gear guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-warlock-pre-raid-best-in-slot/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-146",
+   "label": "Warcraft Tavern: Classic world buffs guide",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/world-buffs/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-147",
+   "label": "Warcraft Tavern: Classic patch 1.13.7 notes (savable world buffs)",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/news/wow-classic-patch-1-13-7-patch-notes-savable-world-buffs-coming-tuesday/",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-148",
+   "label": "Attune addon",
+   "publisher": "CurseForge",
+   "kind": "community",
+   "url": "https://www.curseforge.com/wow/addons/attune",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-149",
+   "label": "Legacy perks",
+   "publisher": "Talents Forever",
+   "kind": "community",
+   "url": "https://talentsforever.com/legacy",
+   "checkedAt": "2026-10-31"
+  },
+  {
+   "id": "g218-150",
+   "label": "WoW Forever development notes, updated November 2",
+   "publisher": "Blizzard Entertainment",
+   "kind": "official",
+   "url": "https://us.forums.blizzard.com/en/wow/t/2360696/9",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "g218-151",
+   "label": "Classic Marksmanship Hunter enchants and consumables",
+   "publisher": "Warcraft Tavern",
+   "kind": "classic-baseline",
+   "url": "https://www.warcrafttavern.com/wow-classic/guides/pve-marksmanship-hunter-enchants-consumables/",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "g218-152",
+   "label": "Classic Era 1.15.9.69722 client data · Spell",
+   "publisher": "Blizzard client data via Wago Tools",
+   "kind": "classic-baseline",
+   "url": "https://wago.tools/db2/Spell/csv?build=1.15.9.69722",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "g218-153",
+   "label": "Classic Era 1.15.9.69722 client data · SpellEffect",
+   "publisher": "Blizzard client data via Wago Tools",
+   "kind": "classic-baseline",
+   "url": "https://wago.tools/db2/SpellEffect/csv?build=1.15.9.69722",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "g218-154",
+   "label": "Classic Era 1.15.9.69722 client data · SpellMisc",
+   "publisher": "Blizzard client data via Wago Tools",
+   "kind": "classic-baseline",
+   "url": "https://wago.tools/db2/SpellMisc/csv?build=1.15.9.69722",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "g218-155",
+   "label": "Classic Era 1.15.9.69722 client data · SpellDuration",
+   "publisher": "Blizzard client data via Wago Tools",
+   "kind": "classic-baseline",
+   "url": "https://wago.tools/db2/SpellDuration/csv?build=1.15.9.69722",
+   "checkedAt": "2026-11-04"
+  },
+  {
+   "id": "talents-data",
+   "label": "Olympus talent data: Talents Forever export of 10 Nov 2026 (client 1.60.1.70755 with server hotfixes to 10 Nov)",
+   "publisher": "Talents Forever",
+   "kind": "licensed-data",
+   "url": "https://talentsforever.com/",
+   "checkedAt": "2026-11-12"
+  }
+ ]
+}

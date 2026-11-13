@@ -1,0 +1,329 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-alchemy",
+ "facts": [
+  {
+   "id": "profession-alchemy.healing-potions-moved",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healing potions moved",
+   "value": "Superior and Major Healing Potions are now First Aid crafts. The old Alchemy healing-potion recipes are gone.",
+   "sources": [
+    "g218-101",
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.dyes",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Dyes",
+   "value": "Alchemists make Cerulean, Magenta and Viridian Dye from new scarce herbs (Frilled Lichen, Rosecap and Stranglevine). Other crafts use them: the Runecloth Bag now takes 4 Magenta and 2 Cerulean Dye.",
+   "sources": [
+    "g218-8",
+    "g218-103"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.new-materials",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New materials",
+   "value": "Alchemists turn Pyrite into Sulfuric Acid and can transmute Legionite Bars from Heavy Thorium Bars and Fel Crystals.",
+   "sources": [
+    "g218-8",
+    "g218-104"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.camp-objects",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Mana Well at skill 20, Fermenter at 140 (blueprint from Rath'mael in the Ruins of Lordaeron) and Alchemy Laboratory at 300. The Mana Well buff matches Blessing of Wisdom and does not stack with it.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.profession-title",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Profession title",
+   "value": "Crafters who reach 300 can earn a certification item that unlocks a title such as 'the Alchemist'. Alliance players get it from the Azeroth Commerce Authority.",
+   "sources": [
+    "g218-9",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.professions-window",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Professions window",
+   "value": "Professions have their own window, opened with K. Recipe lists can be searched and filtered, and you can track a recipe in the objectives frame.",
+   "sources": [
+    "g218-95"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.skill-ranks",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Apprentice up to 75, Journeyman up to 150 (skill 50, level 10), Expert up to 225 (skill 125, level 20) and Artisan up to 300 (skill 200, level 35). 300 is the cap.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.alliance-trainers",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Alliance trainers",
+   "value": "Icy Veins lists Artisan Alchemy trainers at Feathermoon Stronghold (Feralas) and the Emerald Sanctuary (Felwood), and Expert trainers for several professions in Dalaran (Alterac Mountains).",
+   "sources": [
+    "g218-99"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.merchants-favor",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Merchant's Favor",
+   "value": "Fill Waylaid Crates (found in the world or bought on the Auction House) and hand the sealed crates to Marcy Baker of the Azeroth Commerce Authority at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+   "sources": [
+    "g218-113"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.favor-recipes",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Favor recipes",
+   "value": "Elixir of the Grizzly needs Alchemy 300, Honored and 240 Favor. Lower-skill recipes include Elixir of the Phalanx (Alchemy 250) and Elixir of Cunning (Alchemy 275).",
+   "sources": [
+    "g218-9"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.legacy",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy",
+   "value": "The first time you reach 150, 225 and 300 in a craft you earn 1 Legacy point each; a character can spend up to 16 points under the launch cap. Perks include Working Overtime (better skill-up chance) and Performance Bonus (extra Merchant's Favor).",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.fire-protection-recipe-classic-baseline",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Fire protection recipe (Classic baseline)",
+   "value": "Classic 1.12: the Greater Fire Protection Potion recipe drops from Firebrand Pyromancers and Firebrand Invokers in Blackrock Spire and needs Alchemy 290.",
+   "note": "Not confirmed for Forever.",
+   "sources": [
+    "g218-114"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "profession-alchemy.flasks",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Flasks",
+   "value": "Flasks still have to be made at an Alchemy Lab, but the placeable Alchemy Laboratory camp object (Alchemy 300) means no trip to Scholomance.",
+   "sources": [
+    "g218-8",
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.30-minute-elixirs",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "30-minute elixirs",
+   "value": "New Favor elixirs last 30 minutes: Grizzly (+25 Strength, +2% crit), Owl (+25 Intellect, +2% crit), Cunning (+25 Agility and Intellect), Greater Cleric's (+40 healing), Greater Mageblood (20 mana per 5 s) and Phalanx (+400 health, +500 armor).",
+   "sources": [
+    "g218-9"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.new-potions",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New potions",
+   "value": "Major Frenzy Potion (+80 attack power for 30 s), Major Mender's Potion (+88 healing for 30 s) and Potion of Elemental Purging (+105 spell damage against Elementals for 5 minutes).",
+   "sources": [
+    "g218-9"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.rage-potions",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Rage potions",
+   "value": "Rage, Great Rage and Mighty Rage Potions now work for Druids as well as Warriors.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.unknown-1",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Alchemy Laboratory blueprint drops, which decides who can make flasks away from Scholomance.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.unknown-2",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether protection potions keep the 2-minute duration seen in beta data (1 hour in Classic).",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.unknown-3",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "What the Elixir of Greater Firepower recipe makes in the live game; beta data named the result Elixir of Holy Power.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-alchemy.unknown-4",
+   "scope": {
+    "profession": "alchemy"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "The final Azeroth Commerce Authority recipe list and prices, and what Artisan crates pay in Favor.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

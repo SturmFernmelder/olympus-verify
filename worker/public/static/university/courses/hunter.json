@@ -1,0 +1,942 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "hunter",
+ "name": "Hunter",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[2] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-hunter",
+  "talents-hunter"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Hunters are ranged damage dealers with a pet. Blizzard's deep dive says damage is their only role, the pet can tank in solo and small-group play, and Hunters have the longest range of any class.",
+  "points": [
+   {
+    "text": "Human Hunters are new in Forever; Alliance Hunters can be Human, Dwarf, Night Elf or Skyborne. Racials changed late: Dwarf Artisan's Precision is +1% hit, Human Ruthless +1% crit and Skyborne Wind-Blessed +2% haste (26 Oct)."
+   },
+   {
+    "text": "Big kit changes: Aimed Shot is baseline at level 20, traps work in combat, Auto Shot needs a brief stand-still, and Trueshot Aura now buffs the whole raid."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Hunter should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "hunter-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Hunter",
+     "theory": [
+      "class-hunter.change-1",
+      "class-hunter.change-2",
+      "class-hunter.change-3",
+      "class-hunter.change-4",
+      "class-hunter.change-5",
+      "class-hunter.change-6",
+      "class-hunter.change-7",
+      "class-hunter.change-8"
+     ]
+    },
+    {
+     "id": "hunter-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-hunter.quest-taming-the-beast"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "beast-mastery",
+   "name": "Beast Mastery",
+   "roles": [
+    "ranged"
+   ],
+   "overview": {
+    "lead": "Beast Mastery puts your pet at the centre: more pet damage, crit and speed, then Intimidation and Bestial Wrath (50% more pet damage for 18 seconds) deeper in the tree.",
+    "points": [
+     {
+      "text": "Summon Hawk is new: hawks attack your target for 18 seconds, up to 2 at once, and the ability shares its cooldown with Arcane Shot."
+     },
+     {
+      "text": "Guides agree it is the smoothest leveling spec, because your pet holds aggro with Growl and downtime stays low."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "hunter-beast-mastery-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-hunter.beast-mastery-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Endurance Training now raises your pet's armor as well as its health, which helps it hold mobs."
+         },
+         {
+          "text": "Pets earn 25% of the experience you get from mobs (no rested or quest XP) and stop at your level, per Warcraft Tavern."
+         },
+         {
+          "text": "Spirit Bond regenerates health for you and your pet, and Improved Revive Pet makes reviving faster and cheaper."
+         },
+         {
+          "text": "Tame Beast no longer works on beasts above your level (24 Sep)."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "hunter-beast-mastery-leveling-30"
+       ]
+      },
+      {
+       "id": "hunter-beast-mastery-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Send the pet in first and let Growl build threat before you open fire."
+         },
+         {
+          "text": "Keep Hunter's Mark and Serpent Sting on the target and Auto Shot running; stand still briefly so it fires."
+         },
+         {
+          "text": "Use Summon Hawk on cooldown; Unleashed Fury and Ferocity boost hawks as well as your pet."
+         },
+         {
+          "text": "Fire Aimed Shot or Multi-Shot when ready; they share a cooldown."
+         },
+         {
+          "text": "Save Bestial Wrath and Rapid Fire for burst."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "hunter-beast-mastery-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep your pet happy: happiness still scales its damage (125%, 100% or 75%)."
+         },
+         {
+          "text": "Intimidation's stunning hit also gets 100% more crit chance in the snapshot."
+         },
+         {
+          "text": "You can own 3 pets, 1 active and 2 stabled. Each family has one unique ability, such as Bear Swipe hitting 3 targets or Wolf Furious Howl raising party melee Attack Power."
+         },
+         {
+          "text": "Pets now benefit from Expertise and take the higher of your melee or ranged crit (16 Oct)."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "hunter-beast-mastery-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "hunter-beast-mastery-raid-60"
+       ]
+      },
+      {
+       "id": "hunter-beast-mastery-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-hunter.pet-scaling",
+        "class-hunter.summon-hawk",
+        "class-hunter.unleashed-fury-and-ferocity",
+        "class-hunter.focused-fire",
+        "class-hunter.hit-cap-at-level-60",
+        "class-hunter.racials"
+       ]
+      },
+      {
+       "id": "hunter-beast-mastery-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-hunter.ammo",
+        "class-hunter.pet-food",
+        "class-hunter.elixir-of-cunning",
+        "class-hunter.food-in-forever",
+        "class-hunter.healing-potions",
+        "class-hunter.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "hunter-beast-mastery-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-hunter.raid-outlook",
+        "class-hunter.trueshot-aura",
+        "class-hunter.tranquilizing-shot",
+        "class-hunter.wolf-furious-howl",
+        "class-hunter.onyxias-lair-entry",
+        "class-hunter.launch-raids"
+       ]
+      },
+      {
+       "id": "hunter-beast-mastery-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Intimidation stuns for 3 seconds on your pet's next hit, and Bestial Wrath makes the pet unstoppable for 18 seconds unless it is killed."
+         },
+         {
+          "text": "Pet tools were trimmed on 16 Oct: Crocolisk Dismember now cuts healing by 25%, Bat Sonic Blast slows casting by 30% on a 60-second cooldown, and Bird of Prey Mine! disarms for 3 seconds on a 90-second cooldown."
+         },
+         {
+          "text": "Warcraft Tavern suggests Dwarf or Human for Alliance PvP Hunters and notes that Night Elf Shadowmeld is fun in PvP."
+         },
+         {
+          "text": "Against Rogue: Sap no longer breaks a Rogue's Stealth, and Distract now warns you when a Rogue is near. Improved Mend Pet can cleanse a poison from your pet as it heals."
+         },
+         {
+          "text": "Against Warrior: Spearing Strike dismounts you, and Improved Berserker Rage can clear your slows. Keep the pet on them and use traps, which now work in combat."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "marksmanship",
+   "name": "Marksmanship",
+   "roles": [
+    "ranged"
+   ],
+   "overview": {
+    "lead": "Marksmanship is the pure ranged spec. Its capstone, Sniper Shot, is a long-range shot that also extends the range of your next 3 shots by 10 yards.",
+    "points": [
+     {
+      "text": "Lone Wolf adds 20% damage with all attacks while you have no pet out, and since 24 Sep skipping it costs nothing, so you choose pet or no pet."
+     },
+     {
+      "text": "Careful Aim turns part of your Intellect into Attack Power, and Trueshot Aura, now in row 4, raises the Ranged Attack Power of raid members within 45 yards."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "hunter-marksmanship-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-hunter.marksmanship-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Guides call Marksmanship viable but less forgiving than Beast Mastery for leveling."
+         },
+         {
+          "text": "Warcraft Tavern does not recommend Lone Wolf while leveling, so keep your pet out to tank."
+         },
+         {
+          "text": "talentsforever data lists Aimed Shot at a 2-second cast (Classic: 3) on a 6-second cooldown shared with Multi-Shot."
+         },
+         {
+          "text": "The Legacy perk Talented can start your talent points earlier. Guides disagree on how much, but the total stays 51."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "hunter-marksmanship-leveling-30"
+       ]
+      },
+      {
+       "id": "hunter-marksmanship-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open with Hunter's Mark and Serpent Sting; a target that dies with your Serpent Sting on it grants Rapid Killing."
+         },
+         {
+          "text": "Fire Aimed Shot or Multi-Shot on cooldown (they share it), with Arcane Shot in between."
+         },
+         {
+          "text": "Use Sniper Shot when you can stand still for its 4-second cast, then make use of the extra range on your next 3 shots."
+         },
+         {
+          "text": "Keep Auto Shot running: it needs about half a second of standing still, but Aimed Shot and Sniper Shot no longer stop it."
+         },
+         {
+          "text": "Use Rapid Fire for burst; Rapid Killing shortens its cooldown."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "hunter-marksmanship-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Hawk Eye adds weapon range (2 yards at rank 1), stretching what is already the longest range of any class."
+         },
+         {
+          "text": "Efficiency trims mana costs, and Rapid Recuperation lets part of your mana regeneration continue while casting after Serpent Sting."
+         },
+         {
+          "text": "talentsforever data says Volley has no cooldown in Forever (Classic: 1 minute)."
+         },
+         {
+          "text": "Mortal Shots requires Careful Aim at 5/5 in the snapshot, so plan both together."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "hunter-marksmanship-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "hunter-marksmanship-raid-60"
+       ]
+      },
+      {
+       "id": "hunter-marksmanship-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-hunter.lone-wolf",
+        "class-hunter.careful-aim",
+        "class-hunter.sniper-shot",
+        "class-hunter.rapid-killing",
+        "class-hunter.hit-cap-at-level-60-2",
+        "class-hunter.racials"
+       ]
+      },
+      {
+       "id": "hunter-marksmanship-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-hunter.ammo",
+        "class-hunter.elixir-of-cunning",
+        "class-hunter.food-in-forever",
+        "class-hunter.healing-potions",
+        "class-hunter.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "hunter-marksmanship-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-hunter.raid-outlook-2",
+        "class-hunter.trueshot-aura-2",
+        "class-hunter.tranquilizing-shot",
+        "class-hunter.range",
+        "class-hunter.onyxias-lair-entry-2",
+        "class-hunter.fire-resistance-target-for-onyxia"
+       ]
+      },
+      {
+       "id": "hunter-marksmanship-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Marksmanship brings Scatter Shot, a 4-second disorient that breaks on damage, and Improved Concussive Shot's chance to stun."
+         },
+         {
+          "text": "Auto Shot needs a brief stand-still since 16 Oct, so make space with traps and slows before you shoot."
+         },
+         {
+          "text": "Wyvern Sting is gone, and Scorpid Sting now lowers the target's hit chance by 2%."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "survival",
+   "name": "Survival",
+   "roles": [
+    "melee",
+    "ranged"
+   ],
+   "overview": {
+    "lead": "Survival is rebuilt around melee and traps: Savage Strikes and Predator's Edge boost your melee crits, and Expose Prey and Lacerating Strikes revolve around Mongoose Bite.",
+    "points": [
+     {
+      "text": "Expose Prey gives your attacks against your Hunter's Mark target a chance to enable Mongoose Bite, and Lacerating Strikes makes Mongoose Bite add a bleed."
+     },
+     {
+      "text": "Warcraft Tavern calls Survival competitive in all PvE, and it keeps the defensive tools Hunters lean on in PvP."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "hunter-survival-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-hunter.survival-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Guides call Survival viable but less forgiving than Beast Mastery for leveling."
+         },
+         {
+          "text": "talentsforever data lists a new trainer bleed, Lacerate, at level 30."
+         },
+         {
+          "text": "Survivalist adds health (2% at rank 1), and Deterrence raises your dodge and parry by 25% for 10 seconds when a pull goes wrong."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "hunter-survival-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Put Hunter's Mark on your target so Expose Prey can enable Mongoose Bite."
+         },
+         {
+          "text": "Use Mongoose Bite whenever it lights up; with Lacerating Strikes it also applies a bleed."
+         },
+         {
+          "text": "Keep Aspect of the Beast up in melee, since it now grants melee Attack Power."
+         },
+         {
+          "text": "Lay traps in combat (30-second cooldown). Strider Kick hits in melee and gives you 30% extra speed for 3 seconds, handy for sticking to a moving target."
+         },
+         {
+          "text": "Use Rapid Fire in melee too: talentsforever data says it also grants 40% melee attack speed."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "hunter-survival-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Entrapment roots targets when your traps trigger, but Blizzard's 8 Oct notes added diminishing returns and limited it to Frost Trap's first hit."
+         },
+         {
+          "text": "Surefooted's hit now applies to all your attacks (1% at rank 1), and it shortens slows on you."
+         },
+         {
+          "text": "Predator's Edge also adds off-hand damage when you dual-wield (10% at rank 1)."
+         },
+         {
+          "text": "Lightning Reflexes gives 10% Agility at max rank (Classic: 15%)."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "hunter-survival-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "hunter-survival-raid-60",
+        "hunter-survival-pvp-60"
+       ]
+      },
+      {
+       "id": "hunter-survival-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-hunter.savage-strikes",
+        "class-hunter.predators-edge",
+        "class-hunter.lacerating-strikes",
+        "class-hunter.surefooted",
+        "class-hunter.hit-cap-at-level-60-3",
+        "class-hunter.racials"
+       ]
+      },
+      {
+       "id": "hunter-survival-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-hunter.ammo",
+        "class-hunter.elixir-of-cunning",
+        "class-hunter.food-in-forever",
+        "class-hunter.healing-potions",
+        "class-hunter.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "hunter-survival-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-hunter.raid-outlook-3",
+        "class-hunter.rapid-fire-talentsforever-data",
+        "class-hunter.trueshot-aura",
+        "class-hunter.tranquilizing-shot",
+        "class-hunter.onyxias-lair-entry",
+        "class-hunter.launch-raids-2"
+       ]
+      },
+      {
+       "id": "hunter-survival-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern says Survival keeps the defensive PvP tools. In the snapshot those include Deterrence, Counterattack, Improved Wing Clip and Entrapment."
+         },
+         {
+          "text": "Traps now work in combat on a 30-second cooldown, Strider Kick adds a burst of speed, and Survivalist's Discipline shortens trap and Deterrence cooldowns."
+         },
+         {
+          "text": "Wyvern Sting was removed, so your control comes from traps, Counterattack's root and, if you take it, Scatter Shot from Marksmanship."
+         },
+         {
+          "text": "Against Warrior: Improved Berserker Rage can clear your slows and Spearing Strike dismounts you, so lean on Frost Trap, Counterattack's root and Deterrence."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

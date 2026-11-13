@@ -1,0 +1,191 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "engineering",
+ "name": "Engineering",
+ "type": "primary",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[3] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "profession-engineering"
+ ],
+ "quizFiles": [],
+ "pairsWith": [
+  "mining",
+  "alchemy"
+ ],
+ "overview": {
+  "lead": "Engineers build explosives, gadgets and devices. Forever adds explosives that anyone can use, satchel bombs for the thrown slot and belts for every armor type.",
+  "points": [
+   {
+    "text": "Mining supplies most materials. Warcraft Tavern also suggests Alchemy as a partner, because many new engineering recipes use alchemy materials."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What the profession makes in Forever and how to level it.",
+   "chapters": [
+    {
+     "id": "engineering-101-changes",
+     "section": "overview",
+     "title": "What Forever changes",
+     "theory": [
+      "profession-engineering.satchel-bombs",
+      "profession-engineering.clanking-cord-belts",
+      "profession-engineering.skill-scaling",
+      "profession-engineering.gnome-racial",
+      "profession-engineering.camp-objects"
+     ]
+    },
+    {
+     "id": "engineering-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, trainers and leveling",
+     "theory": [
+      "profession-engineering.skill-ranks",
+      "profession-engineering.specialization-classic-baseline",
+      "profession-engineering.favor-recipes",
+      "profession-engineering.legacy"
+     ]
+    },
+    {
+     "id": "engineering-101-unknown",
+     "section": "overview",
+     "title": "Still unknown",
+     "theory": [
+      "profession-engineering.unknown-1",
+      "profession-engineering.unknown-2",
+      "profession-engineering.unknown-3",
+      "profession-engineering.unknown-4"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Raid value and the market.",
+   "chapters": [
+    {
+     "id": "engineering-201-raid",
+     "section": "consumables",
+     "title": "Value for the raid",
+     "theory": [
+      "profession-engineering.saf-t-explosives",
+      "profession-engineering.emergency-field-cloak"
+     ]
+    },
+    {
+     "id": "engineering-201-gold",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [],
+     "praxis": {
+      "steps": [
+       {
+        "text": "SAF-T explosives work for anyone, which opens a market beyond other engineers. Test satchel bombs and gadgets once live prices settle. Trading is subject to Blizzard policy."
+       }
+      ],
+      "mistakes": []
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced routes and min-maxing.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    }
+   ]
+  }
+ }
+}

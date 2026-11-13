@@ -1,0 +1,1000 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-mage",
+ "facts": [
+  {
+   "id": "class-mage.change-1",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "The pinned snapshot adds seven Mage talents: Missile Barrage, Arcane Geometry, Arcane Blast, Arcane Wrath, Heating Up, Ice Lance and Fingers of Frost. Magic Attunement left the tree because Blizzard made its effect baseline.",
+   "sources": [
+    "g218-15",
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.change-2",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Improved Scorch and Winter's Chill now help only the Mage who applies them, and every Mage has their own Ignite. Blizzard cites threat and damage-attribution problems, so one Mage no longer keeps Scorch up for the whole raid.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-3",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Frostfire Bolt is a level-40 trainer spell with a 3 sec cast. It counts as Fire and Frost, uses your higher Fire or Frost spell damage against the target's lower resistance, and adds a DoT and a slow.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-4",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Down-ranking is penalised for every caster: spells cast far below your level get less from spell power and are less likely to trigger talents (Blizzard's example: a rank 1 Frostbolt at 60 has no Frostbite chance). Frost also lost farming power: Cone of Cold slows for less time and Improved Blizzard's slow is capped lower.",
+   "sources": [
+    "g218-47",
+    "g218-61",
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-5",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Blizzard removed Arcane Focus, Frost Blast and Piercing Ice. Precision in the Frost tree now improves hit with all spells by 2%, 4% or 6%.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-6",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Ice Block is now the 16-point Frost talent, and Cold Snap is the 21-point one with a 10 min cooldown (was 5). Arcane Power now needs Presence of Mind, and talentsforever's datamine shows Ice Barrier needing Cold Snap.",
+   "sources": [
+    "g218-61",
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-7",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Comprehension is a new Mage-only minor tradeskill. Comprehend Scroll, in the General tab of your spellbook, deciphers scrolls that creatures drop, and Blizzard leaves the rewards for players to find.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.change-8",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Missile Barrage moved to row 2 and is consumed when Arcane Missiles starts. Ice Lance shares an 8-second cooldown with Fire Blast.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-mage-class-quests",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Mage class quests (10, 15 and 26)",
+   "value": "Warcraft Tavern's beta leveling guide lists Mage class quests at these levels, with rewards such as robes, staves, off-hands and wands. Quests above level 26 are not documented yet.",
+   "sources": [
+    "g218-76"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-teleports-portal-trainer",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Teleports (portal trainer) (20 and 30)",
+   "value": "Alliance: Teleport: Stormwind and Teleport: Ironforge at 20, Teleport: Darnassus at 30. The files show the same spells as Classic, taught by portal trainers. Warcraft Tavern lists Rune of Teleportation as the reagent.",
+   "sources": [
+    "g218-69",
+    "g218-76"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-portals-portal-trainer",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Portals (portal trainer) (40 and 50)",
+   "value": "Alliance: Portal: Stormwind and Portal: Ironforge at 40, Portal: Darnassus at 50. Warcraft Tavern lists Rune of Portals as the reagent.",
+   "sources": [
+    "g218-69",
+    "g218-75"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-teleport-dalaran",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Teleport: Dalaran (50 in the files)",
+   "value": "A new spell flagged for Alliance races only and not sold by the class trainer. How you obtain it is unconfirmed, so treat it as a datamine hint (talentsforever).",
+   "sources": [
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-comprehension-comprehend-scroll",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Comprehension: Comprehend Scroll (6 (beta reports))",
+   "value": "Blizzard confirms the Mage-only tradeskill and leaves rewards to discovery. Beta reports from Warcraft Tavern: a failed decipher turns you into a sheep until the skill improves, and returning books to librarians unlocks a Research tradeskill.",
+   "sources": [
+    "g218-61",
+    "g218-75"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.quest-conjure-water-and-conjure-food",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Conjure Water and Conjure Food (Water from level 4)",
+   "value": "Unchanged in the files: 20 bottles of water per cast across 7 ranks. Conjure Food rank 6 now makes 20 sweet rolls (Classic: 18). Mana gems are unchanged.",
+   "sources": [
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.spell-hit-cap-against-raid-bosses-forever",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Spell hit cap against raid bosses (Forever)",
+   "value": null,
+   "note": "No Forever value is published. Icy Veins says a cap exists but the number is unknown, and Warcraft Tavern notes the beta UI did not show your spell hit chance.",
+   "sources": [
+    "g218-67",
+    "g218-75"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.classic-1-12-hit-cap-reference-only",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 hit cap (reference only)",
+   "value": "16% spell hit against bosses three levels higher; 1% of spells always miss",
+   "sources": [
+    "g218-68"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.spell-hit-from-talents",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Spell hit from talents",
+   "value": "Precision in the Frost tree grants 2%, 4% or 6% spell hit. Arcane Focus was removed.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.stat-focus",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Stat focus",
+   "value": "Spell power and spell hit lead; the guides disagree on which comes first",
+   "note": "Warcraft Tavern (beta) ranks spell power first and hit second; Icy Veins treats hit as the top stat until capped.",
+   "sources": [
+    "g218-75",
+    "g218-73"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.arcane-blast-stacks",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Arcane Blast stacks",
+   "value": "Each stack adds 12% of Intellect as Spell Damage and raises the spell's mana cost by 100%. The stack lasts 18 seconds.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.arcane-wrath",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Arcane Wrath",
+   "value": "3.5 sec cast, 6 sec cooldown, base damage similar to Fireball plus spell damage equal to 5% of maximum mana",
+   "sources": [
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.raid-utility",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid utility",
+   "value": "Arcane Brilliance (party and raid Intellect), Dampen and Amplify Magic, and Remove Lesser Curse, which also removes Banes",
+   "note": "Icy Veins Forever; the files (talentsforever) also show Arcane Brilliance reaching the raid. A Gamewave report on the 16 Oct beta patch says Arcane Intellect is still cast per group, so check it in game. In the files Arcane Intellect lasts 1 hour (was 30 min).",
+   "sources": [
+    "g218-54",
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.threat-control-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Threat control (snapshot)",
+   "value": "Arcane Subtlety: your Arcane spells cause 15% less threat at rank 1",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.mana-on-long-fights-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Mana on long fights (snapshot)",
+   "value": "Arcane Meditation keeps 17% of your regen going while casting at rank 1 and needs Arcane Concentration 5/5",
+   "note": "talentsforever reads up to 50% at 3/3 (Classic: 15%), and Mage Armor keeps 50% (Classic: 30%).",
+   "sources": [
+    "g218-15",
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.alliance-racials-for-raiders",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Alliance racials for raiders",
+   "value": "Human Ruthless +1% crit; Gnome Eureka! is an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger; High Order Skyborne Wind-Blessed +2% haste. Skyborne's Attuned bonus is removed when you enter a raid.",
+   "sources": [
+    "g218-50",
+    "g218-49",
+    "g218-70"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.launch-raids",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "From 9 Dec 2026: The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40, each raider carries a Drakefire Amulet)",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.onyxia",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia",
+   "value": "Blizzard tells raids to build fire resistance before Onyxia's Lair and gives no target number",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.classic-1-12-caster-kit-reference",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Runn Tum Tuber Surprise",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.forever-alchemy",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Healing potions moved to First Aid, new elixirs include Minor Arcane Elixir, and flasks are brewed at a portable Alchemy Laboratory camp object",
+   "note": "Warcraft Tavern.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.world-buffs-in-raids",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Rallying Cry of the Dragonslayer is marked 'No effect while in a raid instance' in Forever data",
+   "note": "Wowhead Forever database. Plan raid nights around your own flasks, elixirs and food.",
+   "sources": [
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.camp-buffs",
+   "scope": {
+    "class": "mage",
+    "spec": "arcane"
+   },
+   "topic": "arcane-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones; you sit at the camp for at least 1 minute",
+   "note": "Warcraft Tavern. Whether they last into raids is not stated.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.spell-hit-from-talents-2",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Spell hit from talents",
+   "value": "Precision improves hit with all spells at 2%, 4% or 6%.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.spell-hit-cap-against-raid-bosses-forever-2",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Spell hit cap against raid bosses (Forever)",
+   "value": null,
+   "note": "No official Forever value has been published.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.fire-crit",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Fire crit",
+   "value": "Five points in Incineration give 10% crit on its affected spells. Critical Mass now caps at three points for 6% crit.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.heating-up",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Heating Up",
+   "value": "Fireball, Frostfire Bolt, Fire Blast and Scorch crits cut the next Pyroblast's cast by 25% per stack (3 stacks = 1.5 sec); the buff lasts 20 sec and every Fire Blast adds a stack",
+   "sources": [
+    "g218-61",
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.stat-focus-2",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-priority",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Stat focus",
+   "value": "Spell power and spell hit lead; the guides disagree on which comes first",
+   "note": "Warcraft Tavern (beta) puts spell power first; Icy Veins treats hit as the top stat until capped.",
+   "sources": [
+    "g218-75",
+    "g218-72"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.personal-scorch-and-ignite",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Personal Scorch and Ignite",
+   "value": "Each Fire Mage keeps their own Improved Scorch stacks and Ignite; one Mage can no longer hold Scorch for the raid",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.fire-power-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Fire Power (snapshot)",
+   "value": "1% more Fire damage for each of your Fire effects on the target at rank 1, up to 4%; mixed-school effects do not count",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.combustion-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Combustion (snapshot)",
+   "value": "Each Fire hit adds 10% Fire crit chance until you score 3 non-periodic Fire crits",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.threat-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Threat (snapshot)",
+   "value": "Burning Soul: your Fire spells cause 10% less threat at rank 1",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.aoe-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "AoE (snapshot)",
+   "value": "Improved Flamestrike adds 5% Flamestrike crit at rank 1; Blast Wave hits all nearby enemies and dazes them",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.classic-1-12-caster-kit-reference-2",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Sagefish Delight",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.classic-1-12-engineering-extras-reference",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 engineering extras (reference)",
+   "value": "Goblin Sapper Charge, Thorium Grenade and Dark Iron Bomb for engineers",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.classic-1-12-fire-resistance-sources-reference",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "fire-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 fire resistance sources (reference)",
+   "value": "Onyxia Scale Cloak (+16), Drakefire Amulet (+15), Juju Ember (+15 for 10 min), Greater Fire Resistance cloak enchant (+15), fire protection potions",
+   "sources": [
+    "g218-30"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.spell-hit-from-talents-3",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Spell hit from talents",
+   "value": "The renamed Precision improves hit with all spells at 2%, 4% or 6%.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.spell-hit-cap-against-raid-bosses-forever-3",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Spell hit cap against raid bosses (Forever)",
+   "value": null,
+   "note": "Icy Veins' Frost guide (27 Oct) says a cap exists but its value is not known yet.",
+   "sources": [
+    "g218-67"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.ice-lance",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Ice Lance",
+   "value": "Ice Lance and Fire Blast share an 8-second cooldown. Frozen targets take the restored 300% damage bonus.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.fingers-of-frost-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Fingers of Frost (snapshot)",
+   "value": "Your Chill effects get a 15% chance at rank 1 to make your next spell treat the target as Frozen (15 sec); needs Ice Lance",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.frostfire-bolt-for-hybrids",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Frostfire Bolt for hybrids",
+   "value": "Counts as Fire and Frost; Blizzard's example is Ignite plus Ice Shards making its crits deal 280%",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.winters-chill-is-personal",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Winter's Chill is personal",
+   "value": "Its stacks only boost your own next Cone of Cold; Frost no longer gives the raid a crit debuff",
+   "sources": [
+    "g218-61",
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.threat-and-mana-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Threat and mana (snapshot)",
+   "value": "Frost Channeling: Frost spells cost 5% less mana and cause 10% less threat at rank 1",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.survival-snapshot",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Survival (snapshot)",
+   "value": "Ice Block: 10 sec immunity to physical attacks and spells, but you cannot act. Ice Barrier: absorb for 1 min, no pushback while it holds",
+   "sources": [
+    "g218-15"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
+   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+  },
+  {
+   "id": "class-mage.ice-barrier",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Ice Barrier",
+   "value": "Casting Ice Barrier raises Frost damage by 15% for one minute. An additional 5% applies while the barrier remains intact.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.raid-utility-2",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid utility",
+   "value": "Arcane Brilliance covers party and raid in the files; Remove Lesser Curse also removes Banes",
+   "note": "talentsforever and Icy Veins Forever. A Gamewave report on the 16 Oct beta patch says Arcane Intellect is still cast per group, so check it in game.",
+   "sources": [
+    "g218-69",
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.onyxia-2",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia",
+   "value": "Every raider carries their own Drakefire Amulet, and Blizzard asks for fire resistance before the fight",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.classic-1-12-frost-mage-kit-reference",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 Frost Mage kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Elixir of Frost Power, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-mage.conjured-supplies",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Conjured supplies",
+   "value": "Conjure Water makes 20 bottles per cast, Conjure Food rank 6 makes 20 sweet rolls, and mana gems are unchanged in the files",
+   "note": "talentsforever datamine.",
+   "sources": [
+    "g218-69"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.world-buffs-in-raids-2",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "frost-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Rallying Cry of the Dragonslayer is marked 'No effect while in a raid instance' in Forever data",
+   "note": "Wowhead Forever database.",
+   "sources": [
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

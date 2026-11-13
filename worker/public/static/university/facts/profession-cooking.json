@@ -1,0 +1,293 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-cooking",
+ "facts": [
+  {
+   "id": "profession-cooking.food-gives-xp",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Food gives XP",
+   "value": "Blizzard says crafted food now gives a small experience bonus as well as stats.",
+   "sources": [
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.well-fed",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Well Fed",
+   "value": "Most buff foods give a 15-minute Well Fed buff plus 5% more experience from kills.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.campfire",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Campfire",
+   "value": "The Cooking Fire is now a Basic Campfire. It creates a campsite with vendors, repairs, profession workstations and one-hour buffs you get by sitting at the fire. Camp buffs do not stack with class buffs. The first camp objects come from trainers or NPCs at skill 20; advanced ones come from blueprints that drop from dungeon bosses.",
+   "sources": [
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.bigger-camps",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Bigger camps",
+   "value": "The Basic kit (Cooking 1) holds 3 camp features, the Journeyman kit 5 and the Expert kit 10; the bigger kits need more Cooking skill. Each player can add one feature per camp.",
+   "sources": [
+    "g218-100",
+    "g218-97"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.camp-rules",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp rules",
+   "value": "Kits have a 5-minute cooldown, and all camp features share a 1-hour cooldown. Sit or craft nearby for about a minute and the benefits last an hour. Camps cannot be placed in major cities.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.unlocking-camps",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Unlocking camps",
+   "value": "Camping unlocks around level 5 through a short questline.",
+   "sources": [
+    "g218-112"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.skill-ranks",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill ranks",
+   "value": "Cooking follows the same ladder up to 300. Artisan Cooking comes from the Clamlette Surprise quest at level 35.",
+   "sources": [
+    "g218-10",
+    "g218-98"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.journeyman-campfire",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Journeyman Campfire",
+   "value": "The Journeyman Campfire blueprint drops from Lord Serpentis in Wailing Caverns.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.cookie",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Cookie",
+   "value": "Cookie in the Deadmines drops the skill-140 Cookie's Feast blueprint and Cookie's Stirring Rod, a wand that gives +25% cooking speed.",
+   "sources": [
+    "g218-100",
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.favor-recipes",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Favor recipes",
+   "value": "The Azeroth Commerce Authority also sells Cooking recipes for Merchant's Favor.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.legacy-perks",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Legacy perks",
+   "value": "Master Chef gives extra cooking results, Gourmand makes food buffs last longer, the Field Guide perk shortens the camp-feature cooldown and Reagent Economy removes vendor reagents for tier-1 camp features.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.reworked-raid-foods",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Reworked raid foods",
+   "value": "Nightfin Soup now gives +22 spell damage, Grilled Squid and Hot Smoked Bass +1% crit, Mightfish Steak +40 attack power, and Baked Salmon and Lobster Stew +28 spell damage. Smoked Desert Dumplings (+20 Strength) and Dirge's Chops (+25 Stamina) keep their stats.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.iron-oven",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Iron Oven",
+   "value": "Icy Veins says many raid foods, including Dirge's Chops, Mightfish Steak and Grilled Squid, also need an Iron Oven, a camp object that needs Cooking 300.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.healer-food",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healer food",
+   "value": "New Sage's Tea gives +44 healing (Cooking 250).",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.unknown-1",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Iron Oven and Expert Campfire blueprints drop, and the exact Cooking skill each bigger campfire kit needs.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.unknown-2",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether camps can be placed in dungeons or raids, and whether a camp buff lasts into a raid instance.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.unknown-3",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Exact values of most camp buffs, which scale with level. Only the Fish Bowl, Camp Chair and Camp Tent show fixed numbers.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-cooking.unknown-4",
+   "scope": {
+    "profession": "cooking"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "The final list of Favor cooking recipes.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

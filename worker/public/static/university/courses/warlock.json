@@ -1,0 +1,941 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "warlock",
+ "name": "Warlock",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[7] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-warlock",
+  "talents-warlock"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Warlocks are cloth casters who fight alongside demons. Affliction, Demonology and Destruction are all ranged damage specs, and Blizzard says each is tuned to compete with any caster, while the class stays fragile and leans on its demons.",
+  "points": [
+   {
+    "text": "Alliance Warlocks are Human or Gnome. Raids value the class for Healthstones, Soulstones, Ritual of Summoning and curses such as Curse of the Elements, which now raises damage from every magic school."
+   },
+   {
+    "text": "Datamined server hotfixes on 20, 28 and 30 Oct still changed Warlock data after the talent snapshot."
+   },
+   {
+    "text": "Talent points start at level 10 and reach 51 at 60. You respec at a class trainer in a major city, Dual Specialization unlocks at level 40, and the first raids open on 9 Dec 2026."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Warlock should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "warlock-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Warlock",
+     "theory": [
+      "class-warlock.change-1",
+      "class-warlock.change-2",
+      "class-warlock.change-3",
+      "class-warlock.change-4",
+      "class-warlock.change-5",
+      "class-warlock.change-6",
+      "class-warlock.change-7",
+      "class-warlock.change-8"
+     ]
+    },
+    {
+     "id": "warlock-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-warlock.quest-demon-quests-imp-voidwalker-succubus-incubus-felhunter",
+      "class-warlock.quest-ritual-of-summoning-and-create-soulstone",
+      "class-warlock.quest-inferno-infernal",
+      "class-warlock.quest-ritual-of-doom-doomguard",
+      "class-warlock.quest-felsteed-and-dreadsteed"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "affliction",
+   "name": "Affliction",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Affliction wins through damage over time: Corruption, Bane of Agony, Siphon Life and your drains, topped by the new 31-point Wrack, which also makes your other Shadow DoTs hit the target 10% harder for 6 sec.",
+    "points": [
+     {
+      "text": "Suppression is now the Warlock's hit talent: each rank gives 1% hit with all spells and 4% less threat, up to 5% hit at 5/5."
+     },
+     {
+      "text": "Pandemic raises the crit damage of your DoTs and drains, and Malevolence adds Shadow crit."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "warlock-affliction-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warlock.affliction-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern recommends Affliction for leveling, and Siphon Life (row 5) can add a health drain as early as level 30."
+         },
+         {
+          "text": "Life Tap scales with Spirit now, and Improved Life Tap adds 10% more mana at rank 1."
+         },
+         {
+          "text": "Soul Shards still do not stack in the files; whether they take bag space as in Classic is unconfirmed."
+         },
+         {
+          "text": "The Voidwalker comes from a level-10 class quest, and every demon scales from your stats."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "warlock-affliction-leveling-30"
+       ]
+      },
+      {
+       "id": "warlock-affliction-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Apply Corruption; Improved Corruption shortens its cast (0.4 sec at rank 1) and adds damage."
+         },
+         {
+          "text": "Keep one Bane (Bane of Agony, or Bane of Doom on long fights) and Siphon Life on the target. Each Warlock can only have one Bane per target."
+         },
+         {
+          "text": "Cast Wrack while your DoTs are running: it deals Shadow damage every second and boosts your other Shadow DoTs by 10% for 6 sec."
+         },
+         {
+          "text": "Fill with Shadow Bolt. Nightfall gives Corruption, Drain Life, Drain Soul and Wrack a chance to proc Shadow Trance, which makes your next Shadow Bolt instant."
+         },
+         {
+          "text": "Finish dying targets with Drain Soul: a non-trivial kill always gives a Soul Shard, and with Soul Harvest you also regenerate mana faster afterwards."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "warlock-affliction-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Curse of Exhaustion (16 points, needs Amplify Curse) slows a target by 30% for 12 sec."
+         },
+         {
+          "text": "Fel Concentration protects Drain Life, Drain Mana, Drain Soul and Wrack from pushback (23% at rank 1)."
+         },
+         {
+          "text": "Grim Reach adds range to your Affliction spells (10% at rank 1)."
+         },
+         {
+          "text": "The tooltips suggest one Curse and one Bane from you can share a target, but nobody has tested it yet."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "warlock-affliction-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "warlock-affliction-raid-60"
+       ]
+      },
+      {
+       "id": "warlock-affliction-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-warlock.warlock-hit-from-talents",
+        "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+        "class-warlock.classic-1-12-hit-cap-reference-only",
+        "class-warlock.shadow-crit",
+        "class-warlock.wrack-snapshot",
+        "class-warlock.spirit-and-mana"
+       ]
+      },
+      {
+       "id": "warlock-affliction-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warlock.weapon-imbue",
+        "class-warlock.classic-1-12-caster-kit-reference",
+        "class-warlock.forever-alchemy",
+        "class-warlock.healthstones"
+       ]
+      },
+      {
+       "id": "warlock-affliction-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-warlock.curse-of-the-elements",
+        "class-warlock.one-bane-per-warlock",
+        "class-warlock.curse-plus-bane-untested",
+        "class-warlock.demonic-sacrifice-snapshot",
+        "class-warlock.group-utility",
+        "class-warlock.no-shadow-priest-boost"
+       ]
+      },
+      {
+       "id": "warlock-affliction-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern describes Warlocks as fragile and immobile, with no blink or sprint, so positioning matters."
+         },
+         {
+          "text": "Warcraft Tavern suggests Curse of Recklessness so feared targets do not run into more enemies."
+         },
+         {
+          "text": "Orc players' Shatter Curse now dispels Curses and Banes and cuts magic damage taken by 5%; since 16 Oct it no longer grants immunity."
+         },
+         {
+          "text": "Against Rogue: Warcraft Tavern suggests Curse of Exhaustion against melee such as Rogues; Affliction reaches it at 16 points through Amplify Curse."
+         },
+         {
+          "text": "Against Mage: Mages can strip your Curses and Banes with Remove Lesser Curse, per Icy Veins."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "demonology",
+   "name": "Demonology",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Demonology puts your demon at the centre. Blizzard's summary: the pet keeps enemies focused on it while you nuke with Soul Fire.",
+    "points": [
+     {
+      "text": "Demonic Sacrifice (11 points) lasts 2 hours: the Imp gives Shadow damage, the Voidwalker mana regen, the Succubus or Incubus Fire damage and the Felhunter health regen. Demonic Pact (31 points) lets you keep it while another demon fights."
+     },
+     {
+      "text": "Demonic Brand makes Searing Pain mark the target so your pet's next attacks (2 at rank 1) deal bonus Fire or Shadow damage; only the Shadow version carries high threat, which suits a tanking Voidwalker."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "warlock-demonology-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warlock.demonology-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern says Demonology gets comfortable once you have Demonic Brand, a row-4 talent you can reach at level 25."
+         },
+         {
+          "text": "Improved Voidwalker strengthens Torment, Consume Shadows, Sacrifice and Suffering (10% at rank 1)."
+         },
+         {
+          "text": "Master Summoner and Fel Domination make resummons quick; Fel Domination needs Master Summoner at 2/2."
+         },
+         {
+          "text": "Your active pet is stunned while you summon a new one (8 Oct), so swap demons between pulls."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "warlock-demonology-leveling-30"
+       ]
+      },
+      {
+       "id": "warlock-demonology-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open with Searing Pain to brand the target for your pet, then give the pet a moment to hold its attention."
+         },
+         {
+          "text": "Nuke with Shadow Bolt and Soul Fire. Decimation cuts Soul Fire's cooldown (45% at rank 1), and after a Shadow Bolt or Searing Pain on a target under 35% health, Soul Fire casts faster and costs no Soul Shard for 10 sec."
+         },
+         {
+          "text": "Keep the pet alive with Health Funnel; Demonic Energies also heals it for 8% of your spell damage at rank 1."
+         },
+         {
+          "text": "Match the demon to the job: Voidwalker to hold enemies, Felhunter for Spell Lock and Devour Magic, Imp for Blood Pact and Fire Shield."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "warlock-demonology-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Soul Link (21 points, needs Demonic Sacrifice) sends 30% of the damage you take to your demon and adds 3% damage for both of you."
+         },
+         {
+          "text": "Master Demonologist pairs the other way round: Imp for Fire damage, Voidwalker for less physical damage, Succubus or Incubus for Shadow damage, Felhunter for less magic damage."
+         },
+         {
+          "text": "Improved Felhunter cuts Spell Lock's cooldown (2 sec at rank 1)."
+         },
+         {
+          "text": "Plan the 31-point path early: Demonic Pact needs Soul Link, and Soul Link needs Demonic Sacrifice."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "warlock-demonology-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "warlock-demonology-raid-60"
+       ]
+      },
+      {
+       "id": "warlock-demonology-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-warlock.demonic-knowledge-snapshot",
+        "class-warlock.sacrifice-and-pact",
+        "class-warlock.master-demonologist-pairing",
+        "class-warlock.hit-for-demonology-snapshot",
+        "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+        "class-warlock.decimation-snapshot"
+       ]
+      },
+      {
+       "id": "warlock-demonology-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warlock.weapon-imbue-2",
+        "class-warlock.classic-1-12-caster-kit-reference-2",
+        "class-warlock.forever-alchemy",
+        "class-warlock.camp-buffs"
+       ]
+      },
+      {
+       "id": "warlock-demonology-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-warlock.pet-tanking-in-raids",
+        "class-warlock.demonic-brand-threat-snapshot",
+        "class-warlock.pet-utility",
+        "class-warlock.ritual-of-summoning",
+        "class-warlock.onyxia"
+       ]
+      },
+      {
+       "id": "warlock-demonology-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "The Felhunter is your answer to casters: Spell Lock (2 sec shorter cooldown with Improved Felhunter at rank 1) and Devour Magic."
+         },
+         {
+          "text": "Soul Link moves 30% of the damage you take to your demon, and Demonic Aegis strengthens Demon Skin and Demon Armor (15% at rank 1)."
+         },
+         {
+          "text": "Since the 8 Oct build, critical strikes in PvP are no longer reduced."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "destruction",
+   "name": "Destruction",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Destruction deals direct damage: Shadow Bolt, Immolate and Conflagrate early, then Incinerate at 31 points (2.5 sec cast, 25% more damage on Immolated targets).",
+    "points": [
+     {
+      "text": "Bane of Havoc (21 points) marks one target for 5 min; it also takes 15% of the damage you deal to other targets."
+     },
+     {
+      "text": "Your spells mix Fire and Shadow, and Shadow and Flame rewards using both: Conflagrate boosts your Shadow damage and Shadowburn your Fire damage (2% for 20 sec at rank 1)."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "warlock-destruction-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-warlock.destruction-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Warcraft Tavern rates Destruction the hardest of the three to level alone and recommends Affliction for leveling."
+         },
+         {
+          "text": "Molten Skin cuts all damage taken (2% at rank 1), and Intensity protects Destruction casts from pushback (23% at rank 1)."
+         },
+         {
+          "text": "Conflagrate is the 16-point talent (level 25 at the earliest) and Bane of Havoc the 21-point one (level 30)."
+         },
+         {
+          "text": "Aftermath gives Conflagrate a chance to daze (20% at rank 1, 50% slow for 5 sec)."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "warlock-destruction-leveling-30"
+       ]
+      },
+      {
+       "id": "warlock-destruction-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Apply Immolate first; Aftermath raises its first hit (10% at rank 1)."
+         },
+         {
+          "text": "Use Conflagrate on an Immolated target for a burst of Fire damage. It consumes your Immolate unless Shadow and Flame saves it (20% chance per rank, every time at 5/5), so check whether Immolate is still up."
+         },
+         {
+          "text": "Fill with Incinerate while Immolate is up, otherwise Shadow Bolt."
+         },
+         {
+          "text": "With two or more targets, put Bane of Havoc on the second one: it then takes 15% of the damage you deal to the others."
+         },
+         {
+          "text": "Finish low targets with Shadowburn (instant); a kill within 8 sec returns a Soul Shard."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "warlock-destruction-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Improved Shadow Bolt is personal now: its debuff only boosts your own Shadow damage."
+         },
+         {
+          "text": "Ruin moved to row 3 and raises Destruction crit damage (20% at rank 1)."
+         },
+         {
+          "text": "Pyroclasm needs Intensity 3/3 and gives Soul Fire, Rain of Fire and Hellfire a stun chance (13% at rank 1)."
+         },
+         {
+          "text": "Fire and Brimstone (needs Conflagrate) adds Conflagrate crit chance (8% at rank 1)."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "warlock-destruction-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "warlock-destruction-raid-60"
+       ]
+      },
+      {
+       "id": "warlock-destruction-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-warlock.incinerate",
+        "class-warlock.cast-speed-snapshot",
+        "class-warlock.destruction-damage-snapshot",
+        "class-warlock.hit-for-destruction-snapshot",
+        "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+        "class-warlock.classic-1-12-hit-cap-reference-only-2"
+       ]
+      },
+      {
+       "id": "warlock-destruction-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-warlock.weapon-imbue-3",
+        "class-warlock.classic-1-12-caster-kit-reference-3",
+        "class-warlock.classic-1-12-fire-resistance-sources-reference",
+        "class-warlock.world-buffs-in-raids"
+       ]
+      },
+      {
+       "id": "warlock-destruction-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-warlock.improved-shadow-bolt",
+        "class-warlock.bane-of-havoc",
+        "class-warlock.mana-snapshot",
+        "class-warlock.curse-of-the-elements-files",
+        "class-warlock.healthstones-and-soulstone"
+       ]
+      },
+      {
+       "id": "warlock-destruction-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Destruction's control comes from Aftermath's Conflagrate daze and Pyroclasm's stun chance on Soul Fire, Rain of Fire and Hellfire."
+         },
+         {
+          "text": "Shadowburn is an instant finisher, and Molten Skin trims all damage you take."
+         },
+         {
+          "text": "Darkspear Islands is a new 15v15 battleground for levels 30-60; Alliance players earn Theramore Expeditionary Force reputation there."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

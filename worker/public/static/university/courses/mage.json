@@ -1,0 +1,945 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "mage",
+ "name": "Mage",
+ "status": "migrated",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[6] (2026-11-04)",
+ "factFiles": [
+  "common",
+  "class-mage",
+  "talents-mage"
+ ],
+ "quizFiles": [],
+ "overview": {
+  "lead": "Mages are cloth-wearing ranged casters, and all three specs (Arcane, Fire and Frost) deal damage. Blizzard sums up the class as unique buffs, conjured food and water, strong control such as Polymorph and strong single-target and AoE damage. The weak spot is melee range, so keep your distance.",
+  "points": [
+   {
+    "text": "Alliance Mages can be Human, Gnome or High Order Skyborne. Skyborne is new to the class and needs a paid Forever upgrade, such as a Skyborne pack; a plain subscription does not include the race."
+   },
+   {
+    "text": "Datamined server hotfixes on 20, 28 and 30 Oct kept changing Mage data after the talent snapshot."
+   },
+   {
+    "text": "Talent points start at level 10 and reach 51 at 60. You respec at a class trainer in a major city, Dual Specialization unlocks at level 40, and the first raids open on 9 Dec 2026."
+   }
+  ],
+  "facts": []
+ },
+ "tracks": {
+  "101": {
+   "summary": "What every Mage should know before choosing a spec.",
+   "chapters": [
+    {
+     "id": "mage-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Mage",
+     "theory": [
+      "class-mage.change-1",
+      "class-mage.change-2",
+      "class-mage.change-3",
+      "class-mage.change-4",
+      "class-mage.change-5",
+      "class-mage.change-6",
+      "class-mage.change-7",
+      "class-mage.change-8"
+     ]
+    },
+    {
+     "id": "mage-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-mage.quest-mage-class-quests",
+      "class-mage.quest-teleports-portal-trainer",
+      "class-mage.quest-portals-portal-trainer",
+      "class-mage.quest-teleport-dalaran",
+      "class-mage.quest-comprehension-comprehend-scroll",
+      "class-mage.quest-conjure-water-and-conjure-food"
+     ]
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Class-wide intermediate chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Class-wide advanced chapters.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "talents",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "gear",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "macros",
+     "reason": "Not written yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Not written yet."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "arcane",
+   "name": "Arcane",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Arcane is built on two new talents. Arcane Blast stacks a buff that turns part of your Intellect into spell damage for all your spells, while making Arcane Blast itself more expensive. Arcane Wrath is a slow, heavy nuke on a short cooldown that scales with your maximum mana.",
+    "points": [
+     {
+      "text": "Your burst comes from Presence of Mind (your next Mage spell with a cast time under 10 sec becomes instant) and Arcane Power (15 sec of 30% more damage at 30% more mana cost). Arcane Power now needs Presence of Mind."
+     },
+     {
+      "text": "Intellect matters a lot here: Arcane Blast converts it into spell damage, Arcane Wrath scales with your maximum mana and Arcane Mind raises your Intellect."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "mage-arcane-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-mage.arcane-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "With every point in Arcane, Arcane Blast unlocks at level 20 (your 11th point) and Arcane Wrath at level 25 (your 16th)."
+         },
+         {
+          "text": "Warcraft Tavern reports that Frost has mostly been used for leveling; pick Arcane if you enjoy its playstyle."
+         },
+         {
+          "text": "Conjure your own water (20 bottles per cast) and food to cut downtime between pulls."
+         },
+         {
+          "text": "Train every new rank: in Forever, spells cast far below your level get less from spell power and proc talents less often."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "mage-arcane-leveling-30"
+       ]
+      },
+      {
+       "id": "mage-arcane-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Build Arcane Blast stacks first (up to 4). Each cast adds spell damage from your Intellect and raises the cost of the next Arcane Blast, so keep an eye on your mana bar."
+         },
+         {
+          "text": "Cast Arcane Wrath whenever its 6 sec cooldown is ready. It is a 3.5 sec cast that gains spell damage equal to 5% of your maximum mana."
+         },
+         {
+          "text": "Spend Missile Barrage procs on Arcane Missiles: a proc makes the next Missiles free and faster."
+         },
+         {
+          "text": "Press Arcane Power and Presence of Mind together when the group needs burst."
+         },
+         {
+          "text": "When mana runs low, let your Arcane Blast stacks expire. Blizzard lists an 18-second duration in the November notes."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "mage-arcane-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Arcane Subtlety lowers the threat of your Arcane spells (15% at rank 1) and cuts the target's resistance to all your spells (8 at rank 1)."
+         },
+         {
+          "text": "One point in Improved Counterspell already adds a 2 sec silence to Counterspell."
+         },
+         {
+          "text": "Missile Barrage also procs from Fireball, Frostbolt and Frostfire Bolt, and since 16 Oct from Arcane Missiles hits."
+         },
+         {
+          "text": "Arcane Brilliance covers the party and the raid in the files, and Remove Lesser Curse also clears Warlock Banes."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "mage-arcane-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "mage-arcane-raid-60"
+       ]
+      },
+      {
+       "id": "mage-arcane-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-mage.spell-hit-cap-against-raid-bosses-forever",
+        "class-mage.classic-1-12-hit-cap-reference-only",
+        "class-mage.spell-hit-from-talents",
+        "class-mage.stat-focus",
+        "class-mage.arcane-blast-stacks",
+        "class-mage.arcane-wrath"
+       ]
+      },
+      {
+       "id": "mage-arcane-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-mage.classic-1-12-caster-kit-reference",
+        "class-mage.forever-alchemy",
+        "class-mage.world-buffs-in-raids",
+        "class-mage.camp-buffs"
+       ]
+      },
+      {
+       "id": "mage-arcane-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-mage.raid-utility",
+        "class-mage.threat-control-snapshot",
+        "class-mage.mana-on-long-fights-snapshot",
+        "class-mage.alliance-racials-for-raiders",
+        "class-mage.launch-raids",
+        "class-mage.onyxia"
+       ]
+      },
+      {
+       "id": "mage-arcane-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "No Forever PvP rankings exist yet: Icy Veins lists every Mage spec as TBD."
+         },
+         {
+          "text": "Presence of Mind makes your next Mage spell with a cast time under 10 sec instant, so it can turn Polymorph into a surprise."
+         },
+         {
+          "text": "Ice Block is the 16th Frost point and Arcane Power the 31st Arcane point, so an Arcane PvP build can take both if it keeps Arcane at 35 points or fewer."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "fire",
+   "name": "Fire",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Fire turns critical strikes into more damage. Crits from Fireball, Frostfire Bolt, Fire Blast and Scorch build Heating Up, which shortens your next Pyroblast, and Fire crits also feed your Ignite.",
+    "points": [
+     {
+      "text": "Combustion is your burst button: each Fire hit adds Fire crit chance until you land 3 non-periodic Fire crits. Blizzard set it back to 3 charges on 1 Oct."
+     },
+     {
+      "text": "Scorch stacks and Ignite are personal in Forever, so every Fire Mage keeps their own debuffs going."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "mage-fire-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-mage.fire-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Pyroblast is a row-3 talent (level 20 at the earliest) and Heating Up needs it, at row 4 (level 25)."
+         },
+         {
+          "text": "Impact gives your Fire spells a stun chance (3% at rank 1), and Blast Wave adds AoE damage with a 50% daze for 6 sec."
+         },
+         {
+          "text": "Burning Soul protects Fire casts from pushback and lowers their threat (23% and 10% at rank 1)."
+         },
+         {
+          "text": "Free procs trigger less often from much lower-rank spells now, so keep your main spells at their top rank."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "mage-fire-leveling-30"
+       ]
+      },
+      {
+       "id": "mage-fire-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep your own Improved Scorch debuff stacked: each stack raises your Fire damage against the target by 3%, up to 5 stacks for 30 sec. Scorch applies it 33% of the time at rank 1 and every time at 3/3."
+         },
+         {
+          "text": "Fireball is your main cast. From level 40, Frostfire Bolt is an option if your build also takes Frost talents."
+         },
+         {
+          "text": "Press Fire Blast on cooldown: since 16 Oct every Fire Blast adds a Heating Up stack."
+         },
+         {
+          "text": "At 3 Heating Up stacks, cast Pyroblast; it drops to a 1.5 sec cast. The buff lasts 20 sec."
+         },
+         {
+          "text": "Use Combustion for burst, ideally when Improved Scorch is fully stacked."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "mage-fire-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "The Fire tree holds only 46 points in the snapshot, so a level-60 Fire build always spends at least 5 points in another tree."
+         },
+         {
+          "text": "Master of Elements refunds mana on Fire and Frost crits (10% of the base cost at rank 1)."
+         },
+         {
+          "text": "Incineration also raises the crit chance of Ice Lance and Arcane Blast, which helps hybrid builds."
+         },
+         {
+          "text": "Improved Fire Blast cuts Fire Blast's cooldown (1 sec at rank 1), which means more Heating Up stacks over a fight."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "mage-fire-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "mage-fire-raid-60"
+       ]
+      },
+      {
+       "id": "mage-fire-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-mage.spell-hit-from-talents-2",
+        "class-mage.spell-hit-cap-against-raid-bosses-forever-2",
+        "class-mage.classic-1-12-hit-cap-reference-only",
+        "class-mage.fire-crit",
+        "class-mage.heating-up",
+        "class-mage.stat-focus-2"
+       ]
+      },
+      {
+       "id": "mage-fire-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-mage.classic-1-12-caster-kit-reference-2",
+        "class-mage.classic-1-12-engineering-extras-reference",
+        "class-mage.classic-1-12-fire-resistance-sources-reference",
+        "class-mage.forever-alchemy"
+       ]
+      },
+      {
+       "id": "mage-fire-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-mage.personal-scorch-and-ignite",
+        "class-mage.fire-power-snapshot",
+        "class-mage.combustion-snapshot",
+        "class-mage.threat-snapshot",
+        "class-mage.aoe-snapshot",
+        "class-mage.onyxia"
+       ]
+      },
+      {
+       "id": "mage-fire-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Fire's control tools are Impact's stun chance (3% per Fire spell at rank 1) and Blast Wave's daze; Improved Fire Blast adds 8 yards of Fire Blast range at rank 1."
+         },
+         {
+          "text": "With 3 Heating Up stacks, Pyroblast becomes a 1.5 sec cast, a quick burst window against players."
+         },
+         {
+          "text": "Since the 8 Oct build, critical strikes in PvP are no longer reduced."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "frost",
+   "name": "Frost",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Frost controls the fight. Your Chill effects slow enemies, Frostbite can freeze them, Fingers of Frost makes your next spells treat them as Frozen, and Shatter and Ice Lance punish Frozen targets.",
+    "points": [
+     {
+      "text": "Warcraft Tavern says Frost has mostly been used for leveling and PvP."
+     },
+     {
+      "text": "In raids Frost no longer gives a shared debuff: Winter's Chill now only powers your own Cone of Cold."
+     }
+    ],
+    "facts": []
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "chapters": [
+      {
+       "id": "mage-frost-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-mage.frost-summary"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "With every point in Frost, Ice Lance unlocks at level 20, Ice Block at 25 and Cold Snap at 30."
+         },
+         {
+          "text": "Cone of Cold now slows 40% for 6 sec in the files (Classic: 50% for 8), and Improved Blizzard's slow tops out at 40%, so Classic-style mass AoE kiting is weaker."
+         },
+         {
+          "text": "Frost Blast was removed. Use Frostbolt to slow, Frost Nova to create space, and Cone of Cold when the pack closes in."
+         },
+         {
+          "text": "Frost Warding raises the armor and resistance from Frost Armor and Ice Armor (15% at rank 1)."
+         }
+        ],
+        "mistakes": []
+       },
+       "presets": [
+        "mage-frost-leveling-30"
+       ]
+      },
+      {
+       "id": "mage-frost-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Frostbolt is your main spell. Its slow counts as a Chill effect for Fingers of Frost, and it can add Winter's Chill stacks."
+         },
+         {
+          "text": "When Fingers of Frost procs, your next spell treats the target as Frozen; follow with Ice Lance, which deals 200% more damage to Frozen targets in the snapshot."
+         },
+         {
+          "text": "Build Winter's Chill stacks (up to 5) before Cone of Cold; each stack makes that Cone of Cold hit harder."
+         },
+         {
+          "text": "Frost Nova freezes nearby enemies for Shatter; Improved Frost Nova shortens its cooldown (2 sec at rank 1)."
+         },
+         {
+          "text": "Ice Barrier (after Cold Snap) absorbs damage and stops pushback while it holds, and Ice Block makes you immune for 10 sec."
+         }
+        ],
+        "mistakes": []
+       }
+      },
+      {
+       "id": "mage-frost-101-tips",
+       "section": "rotation",
+       "title": "Tips",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Shatter no longer needs Improved Frost Nova; the snapshot gives 17% crit against Frozen targets at rank 1."
+         },
+         {
+          "text": "Cold Snap now has a 10 min cooldown (was 5) and finishes the cooldown on your other Frost spells."
+         },
+         {
+          "text": "Frostfire Bolt (trainer, level 40) uses your higher Fire or Frost spell damage and the lower of the target's two resistances."
+         },
+         {
+          "text": "Permafrost makes your Chill effects last longer and slow further (11% and 3% at rank 1)."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "chapters": [
+      {
+       "id": "mage-frost-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [],
+       "presets": [
+        "mage-frost-raid-60",
+        "mage-frost-pvp-60"
+       ]
+      },
+      {
+       "id": "mage-frost-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-mage.spell-hit-from-talents-3",
+        "class-mage.spell-hit-cap-against-raid-bosses-forever-3",
+        "class-mage.classic-1-12-hit-cap-reference-only",
+        "class-mage.ice-lance",
+        "class-mage.fingers-of-frost-snapshot",
+        "class-mage.frostfire-bolt-for-hybrids"
+       ]
+      },
+      {
+       "id": "mage-frost-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-mage.classic-1-12-frost-mage-kit-reference",
+        "class-mage.forever-alchemy",
+        "class-mage.conjured-supplies",
+        "class-mage.world-buffs-in-raids-2"
+       ]
+      },
+      {
+       "id": "mage-frost-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-mage.winters-chill-is-personal",
+        "class-mage.threat-and-mana-snapshot",
+        "class-mage.survival-snapshot",
+        "class-mage.ice-barrier",
+        "class-mage.raid-utility-2",
+        "class-mage.onyxia-2"
+       ]
+      },
+      {
+       "id": "mage-frost-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Blink breaks stuns and roots, and Warcraft Tavern rates Gnome Escape Artist and Human Will to Survive as strong PvP racials."
+         },
+         {
+          "text": "Frost Nova into Shatter is your burst: a Frozen target takes Ice Lance's bonus damage plus Shatter's extra crit chance."
+         },
+         {
+          "text": "Darkspear Islands is a new 15v15 battleground for levels 30-60; Alliance players earn Theramore Expeditionary Force reputation there."
+         },
+         {
+          "text": "Against Warlock: Warcraft Tavern calls the Warlock the Mage's arch-enemy. Remove Lesser Curse clears their Curses and, in Forever, their Banes too."
+         }
+        ],
+        "mistakes": []
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory and min-maxing.",
+     "chapters": [],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "rotation",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Not written yet."
+      },
+      {
+       "section": "praxis",
+       "reason": "Not written yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

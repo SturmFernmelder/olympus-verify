@@ -1,0 +1,164 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "profession-fishing",
+ "facts": [
+  {
+   "id": "profession-fishing.camp-objects",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp objects",
+   "value": "Fish Bowl at skill 20, Fishing Rack at 140 (blueprint from Gelihast in Blackfathom Deeps) and Fishing Hut at 300.",
+   "sources": [
+    "g218-100"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.luremaster",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Luremaster",
+   "value": "The Luremaster Legacy perk gives a chance of an extra fish.",
+   "sources": [
+    "g218-96"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.artisan-step",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Artisan step",
+   "value": "Artisan Fishing comes from Nat Pagle at level 35.",
+   "sources": [
+    "g218-102"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.skill-cap",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-leveling",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Skill cap",
+   "value": "Fishing tops out at 300, like the other professions.",
+   "sources": [
+    "g218-98",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.fish-bowl",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Fish Bowl",
+   "value": "The Fish Bowl gives 8% to all stats, a little under the 10% from Blessing of Kings, and does not stack with it, so it helps most in groups without a Paladin.",
+   "sources": [
+    "g218-100",
+    "g218-25"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.seafood-for-raid-foods",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Seafood for raid foods",
+   "value": "Several reworked raid foods are seafood dishes, such as Grilled Squid, Hot Smoked Bass, Baked Salmon and Lobster Stew.",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.unknown-1",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Where the Fishing Hut blueprint drops.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.unknown-2",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the Fish Bowl's 8% buff gets toned down; beta players found it very strong on low-level characters.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.unknown-3",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Luremaster's final values and number of ranks.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-fishing.unknown-4",
+   "scope": {
+    "profession": "fishing"
+   },
+   "topic": "profession-unknown",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Not known yet",
+   "value": null,
+   "note": "Whether the datamined Master Forager perk, which adds Fishing skill, is in the live game.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}
