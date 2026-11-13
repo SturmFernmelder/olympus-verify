@@ -3,7 +3,7 @@
  "reviewedAt": "2026-11-12",
  "scopeNote": "Olympus University cites Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.",
  "grades": {
-  "A": "Talent data: the calculator’s 10 November 2026 export (client 1.60.1.70755 with server hotfixes)",
+  "A": "Talent data: the calculator’s 10 November 2026 export, with server hotfixes",
   "B": "Official Blizzard announcement, notes or developer Q&A for Forever",
   "C": "Published Forever guide or community source",
   "D": "Derived estimate from Classic reference — not Forever-verified",

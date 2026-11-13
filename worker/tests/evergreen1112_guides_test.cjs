@@ -131,6 +131,15 @@ check('the build refuses a grade-A talent fact whose number is not in the 10 Nov
   f.value = f.value.replace('15%', '25%');
   return R.validateBundle(bundle, { talents }).errors.some(e => /not in Weaponmaster's current rank text/.test(e));
 });
+check('CL2-203: class quests, baseline spells, unconfirmed reports and myths are separate chapters (Priest, Paladin, Druid)', () => {
+  const chapters = cls => { const g = json(uni, 'courses', cls + '.json'); return new Map(g.tracks['101'].chapters.map(c => [c.id, c.theory])); };
+  const priest = chapters('priest'), paladin = chapters('paladin'), druid = chapters('druid');
+  const facts = new Map(['priest', 'paladin', 'druid'].flatMap(c => json(uni, 'facts', 'class-' + c + '.json').facts.map(f => [f.id, f])));
+  const quests = [...priest.get('priest-101-class-quests'), ...paladin.get('paladin-101-class-quests'), ...druid.get('druid-101-class-quests')].map(id => facts.get(id).label);
+  return quests.every(l => !/Not applicable|^No quest needed|^Must be |Unconfirmed/.test(l))
+    && priest.get('priest-101-myths').some(id => /Shadowmourne/.test(facts.get(id).label)) && priest.get('priest-101-baseline-spells').length === 2
+    && paladin.get('paladin-101-unconfirmed').length >= 1 && druid.get('druid-101-unconfirmed').length >= 1 || JSON.stringify(quests);
+});
 check('the migration recorded every .218 class and profession entry it moved', () => {
   const g = json(stat, 'guides218.json'), map = json(uni, 'build/migration-map.json').entries.map(e => e.from);
   const want = [];
