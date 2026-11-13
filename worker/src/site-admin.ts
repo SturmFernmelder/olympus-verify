@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import { NICKNAME_SETTINGS_FILTER233 } from './member-nickname-data233';
@@ -1546,9 +1547,10 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   const shape = { window: p.window, limit: p.limit };
   // 1. The stretch's top: the cursor (exclusive) or the newest id, never above the newest (a cursor from nowhere would
   //    otherwise walk empty ids). MAX on the primary key reads one row.
-  //    The oldest id is read in the same statement: each subquery is SQLite's one-row min/max on the primary key (a single
+  //    Closed replay markers carry expiry rather than activity time and are excluded.
+  //    The oldest id is read in the same statement using primary-key min/max (a single
   //    SELECT MIN(id), MAX(id) would scan the table).
-  const top = await env.DB.prepare("SELECT (SELECT MIN(id) FROM audit) AS oldest, (SELECT MAX(id) FROM audit) AS newest").first<{ oldest: number | null; newest: number | null }>();
+  const top = await env.DB.prepare(`SELECT (SELECT MIN(id) FROM audit WHERE NOT(${erasedReceiptMarkerSql280('audit')})) AS oldest, (SELECT MAX(id) FROM audit WHERE NOT(${erasedReceiptMarkerSql280('audit')})) AS newest`).first<{ oldest: number | null; newest: number | null }>();
   const newest = top?.newest ?? 0;
   const oldest = top?.oldest ?? 1;
   const hi = p.before === null ? newest : Math.min(p.before - 1, newest);
@@ -1562,7 +1564,7 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   const cutoff = p.window === "all" ? null : now() - AUDIT_WINDOWS[p.window];
   let likelyFrom = oldest;
   if (cutoff !== null) {
-    const first = await env.DB.prepare("SELECT id FROM audit WHERE ts >= ?1 ORDER BY ts, id LIMIT 1").bind(cutoff).first<{ id: number }>();
+    const first = await env.DB.prepare(`SELECT id FROM audit WHERE ts >= ?1 AND NOT(${erasedReceiptMarkerSql280('audit')}) ORDER BY ts, id LIMIT 1`).bind(cutoff).first<{ id: number }>();
     if (!first) return { entries: [], next: null, scanned: null, exhausted: true, likelyEnd: true, ...shape }; // nothing stamped inside the window
     likelyFrom = first.id;
   }
@@ -1574,7 +1576,7 @@ async function auditPage(env: Env, p: AuditQuery): Promise<AuditPage> {
   //    range, "role." up to "role/" ('/' follows '.'), exact and case-sensitive where LIKE folds case and needs escapes;
   //    "role" therefore never matches roles.*. Details are cut in SQL, so a long row never leaves the database whole.
   const args: unknown[] = [lo, hi];
-  const where: string[] = [];
+  const where: string[] = [`NOT(${erasedReceiptMarkerSql280('audit')})`];
   if (cutoff !== null) {
     args.push(cutoff);
     where.push(`+ts >= ?${args.length}`); // the window itself, on the walk (the unary + keeps audit_ts out of the plan)

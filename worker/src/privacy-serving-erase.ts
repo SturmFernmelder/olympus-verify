@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerStatements280,erasedReceiptMarkerSql280,accountAuditAttributionSql280} from './tithe-erased-replay280';
 import './privacy-access-data';
 import './ruleset-publication-data';
 import {TREASURY_RECEIPT_OWN_SQL242} from './treasury-data242';
@@ -304,12 +305,10 @@ function fixedAccountCleanupStatements(env:Env,p:Readonly<{subject:string;subjec
  AND CASE WHEN ${groupedShape('audit')} THEN EXISTS(SELECT 1 FROM json_each(audit.details,'$.names') n
  JOIN characters c ON c.discord_id=?1 AND audit.ts>=c.bound_at
  WHERE n.value=c.name COLLATE NOCASE OR n.value=c.name_key COLLATE NOCASE) ELSE 0 END`).bind(p.subject),
- // Evaluate the original receipt predicate first: malformed receipt JSON still refuses the whole transaction.
- env.DB.prepare(`DELETE FROM audit WHERE CASE WHEN (${TREASURY_RECEIPT_OWN_SQL242}) THEN 1 ELSE (actor=?1 OR subject=?1 OR instr(COALESCE(details,''),?1)>0
- OR EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?1 AND audit.ts>=c.bound_at AND
- (audit.subject=c.name COLLATE NOCASE OR audit.subject=c.name_key COLLATE NOCASE) AND
- ((audit.actor='watcher' AND audit.action IN('note.set','note.failed','invite.failed','invite.fired','invite.joined','verify.roster_not_current','verify.guid_pinned','roster.remove_failed','roster.removed_unlinked'))
- OR (audit.actor='system' AND audit.action IN('invite.declined','invite.expired','role.remove_held','role.remove_failed','nick.failed'))))) END`).bind(p.subject),
+ // The same original terminal batch retains only opaque replay keys and ORIGINAL expiries
+ // before authorized receipt deletion. No business registry eraser can execute this plan.
+ ...erasedReceiptMarkerStatements280(env,p.subject,TREASURY_RECEIPT_OWN_SQL242),
+ env.DB.prepare(`DELETE FROM audit WHERE CASE WHEN (${erasedReceiptMarkerSql280('audit')}) THEN 0 WHEN (${TREASURY_RECEIPT_OWN_SQL242}) THEN 1 ELSE ${accountAuditAttributionSql280('audit')} END`).bind(p.subject),
  ...['pending','invite_queue','bnet_characters','rename_holds','characters'].map(table=>env.DB.prepare(`DELETE FROM ${table} WHERE discord_id=${target}`).bind(p.subject)),
  env.DB.prepare('DELETE FROM site_board_votes WHERE voter_id=?1 OR candidate_id=?1').bind(p.subject),
  env.DB.prepare('DELETE FROM site_votes WHERE voter_id=?1').bind(p.subject),

@@ -1,3 +1,4 @@
+import {erasedReceiptBlocksSql280} from './tithe-erased-replay280';
 /** Minimal native gold evidence; never a payment allocator, role writer or donor identity claim. */
 import type {Env} from './env';
 import {normalizeCharacter} from './codes';
@@ -21,6 +22,15 @@ const name=(v:unknown,max=96):v is string=>text(v,max,2)&&!/[|()\[\]]/.test(v);
 const integer=(v:unknown,min=1,max=Number.MAX_SAFE_INTEGER):v is number=>Number.isSafeInteger(v)&&Number(v)>=min&&Number(v)<=max;
 const guid=(v:unknown,empty=false):v is string=>empty&&v===''||text(v,64)&&GUID.test(v);
 export const normalizeFullTitheName280=(s:string)=>s.replace(/[ \t\r\n\v\f]+/g,' ').replace(/^ | $/g,'').replace(/[A-Z]/g,c=>String.fromCharCode(c.charCodeAt(0)+32));
+/** Formatting only: never strips an arbitrary realm or authorizes another collector. */
+export function exactTitheCollectorName280(raw:unknown,realm:string):raw is string{
+ const realmKey=(value:string)=>{if(!name(value,128)||value.includes('-')||value.includes(':'))return null;const key=value.replace(/ /g,'').replace(/[A-Z]/g,c=>String.fromCharCode(c.charCodeAt(0)+32));return key||null;};
+ const expected=realmKey(realm);if(expected===null)return false;
+ if(raw===TITHE_COLLECTOR280)return true;
+ if(typeof raw!=='string'||!name(raw,128)||!raw.startsWith(TITHE_COLLECTOR280+'-'))return false;
+ const actual=realmKey(raw.slice(TITHE_COLLECTOR280.length+1));
+ return actual!==null&&expected!==null&&actual===expected;
+}
 export type TitheReceipt280=Readonly<{id:string;type:'donation';source:typeof TITHE_SOURCE280;character:string;guid:string;requestedAt:number;requestedBy:typeof TITHE_COLLECTOR280;guild:string;realm:string;clientVersion:string;donation:Readonly<{version:2;kind:'mail'|'trade';copper:number;recipient:typeof TITHE_COLLECTOR280;collectorGuid:string;reference:string}>;evidence:Readonly<{kind:string;confirmedLocal:true;automaticCredit:false;mac:string}>}>;
 export function titheMessage280(r:TitheReceipt280):string{
  const d=r.donation,e=r.evidence,fields=[r.id,String(r.requestedAt),d.kind,String(d.copper),normalizeFullTitheName280(r.character),r.guid,normalizeFullTitheName280(d.recipient),d.collectorGuid,r.guild,r.realm,d.reference,r.clientVersion,e.kind,d.recipient];
@@ -77,14 +87,15 @@ export async function recordTitheReceipt280(env:Env,input:unknown):Promise<'uncl
  const actual=hex(await crypto.subtle.sign('HMAC',key,bytes(titheMessage280(r)))).slice(0,32);if(!launch.current())throw pending();let difference=0;for(let i=0;i<32;i++)difference|=actual.charCodeAt(i)^r.evidence.mac.charCodeAt(i);if(difference!==0)throw new TitheReceiptPolicyHeld280();
  const collectorKey=normalizeCharacter(TITHE_COLLECTOR280),sourceScope=nativeMembershipSourceSql('s.source','?3');
  const snapshot=`s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND ${sourceScope} AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER) AND s.member_count=(SELECT COUNT(*) FROM roster_members count_rows WHERE count_rows.snapshot_id=s.id)`;
- const rows=await env.DB.prepare(`SELECT s.id,s.source,r.guid,r.name,r.name_key FROM roster_snapshots s JOIN roster_members r ON r.snapshot_id=s.id WHERE ${snapshot} AND (r.guid=?1 OR r.name_key=?2) LIMIT 3`).bind(r.donation.collectorGuid,collectorKey,scope.provenance).all<{id:number;source:string;guid:string;name:string;name_key:string}>();
- if(!launch.current()||rows.results.length!==1)throw pending();const selected=rows.results[0]!;
- if(!Number.isSafeInteger(selected.id)||selected.id<1||selected.guid!==r.donation.collectorGuid||selected.name!==TITHE_COLLECTOR280||selected.name_key!==collectorKey||!nativeMembershipSourceMatches(selected.source,scope.guild,scope.realm))throw pending();
+ const rows=await env.DB.prepare(`SELECT s.id,s.source,r.guid,r.name,r.name_key,EXISTS(SELECT 1 FROM audit erased WHERE ${erasedReceiptBlocksSql280('erased','?4')}) AS erased_replay FROM roster_snapshots s JOIN roster_members r ON r.snapshot_id=s.id WHERE ${snapshot} AND (r.guid=?1 OR r.name_key=?2) LIMIT 3`).bind(r.donation.collectorGuid,collectorKey,scope.provenance,r.id).all<{id:number;source:string;guid:string;name:string;name_key:string;erased_replay:number}>();
+ if(!launch.current()||rows.results.length!==1)throw pending();const selected=Object.freeze({...rows.results[0]!});
+ if(selected.erased_replay===1)throw new TitheReceiptPolicyHeld280();
+ if(!Number.isSafeInteger(selected.id)||selected.id<1||selected.guid!==r.donation.collectorGuid||!exactTitheCollectorName280(selected.name,scope.realm)||selected.name_key!==collectorKey||!nativeMembershipSourceMatches(selected.source,scope.guild,scope.realm))throw pending();
  const value={version:2,sourceId:r.id,source:TITHE_SOURCE280,character:r.character,characterKey:normalizeCharacter(r.character),guid:r.guid,copper:r.donation.copper,kind:r.donation.kind,recipient:r.donation.recipient,collectorGuid:r.donation.collectorGuid,guild:r.guild,realm:r.realm,reference:r.donation.reference,clientVersion:r.clientVersion,evidence:r.evidence,observedAt:r.requestedAt,classification:'unclassified_receipt',retainUntil:r.requestedAt+2592000};
  const payloadHash=await digest(value),details=JSON.stringify({...value,payloadHash}),subject='intake242:'+r.id;if(!launch.current())throw pending();
  const out=await env.DB.batch([
-  env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM roster_snapshots s WHERE ${snapshot} AND s.id=?4 AND s.source=?5 AND (SELECT COUNT(*) FROM roster_members r WHERE r.snapshot_id=s.id AND (r.guid=?1 OR r.name_key=?2))=1 AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?1 AND r.name_key=?2 AND r.name=?6)) AND ?7>CAST(strftime('%s','now') AS INTEGER)-2592000 AND ?7<=CAST(strftime('%s','now') AS INTEGER)+5 THEN 1 ELSE json_extract('tithe_collector_original_held','$') END AS admitted`).bind(r.donation.collectorGuid,collectorKey,scope.provenance,selected.id,selected.source,TITHE_COLLECTOR280,r.requestedAt),
-  env.DB.prepare("INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,'watcher','treasury.receipt242',?2,?3 WHERE NOT EXISTS(SELECT 1 FROM audit WHERE action='treasury.receipt242' AND subject=?2)").bind(now(),subject,details),
+  env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM roster_snapshots s WHERE ${snapshot} AND s.id=?4 AND s.source=?5 AND (SELECT COUNT(*) FROM roster_members r WHERE r.snapshot_id=s.id AND (r.guid=?1 OR r.name_key=?2))=1 AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?1 AND r.name_key=?2 AND r.name=?6)) AND ?7>CAST(strftime('%s','now') AS INTEGER)-2592000 AND ?7<=CAST(strftime('%s','now') AS INTEGER)+5 AND NOT EXISTS(SELECT 1 FROM audit erased WHERE ${erasedReceiptBlocksSql280('erased','?8')}) THEN 1 ELSE json_extract('tithe_collector_original_held','$') END AS admitted`).bind(r.donation.collectorGuid,collectorKey,scope.provenance,selected.id,selected.source,selected.name,r.requestedAt,r.id),
+  env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,'watcher','treasury.receipt242',?2,?3 WHERE NOT EXISTS(SELECT 1 FROM audit WHERE action='treasury.receipt242' AND subject=?2) AND NOT EXISTS(SELECT 1 FROM audit erased WHERE ${erasedReceiptBlocksSql280('erased','?4')})`).bind(now(),subject,details,r.id),
   env.DB.prepare("SELECT CASE WHEN COUNT(*)=1 AND MIN(CASE WHEN json_valid(details) THEN json_extract(details,'$.payloadHash') END)=?2 THEN 1 ELSE json_extract('tithe_original_receipt_conflict_held','$') END AS recorded FROM audit WHERE action='treasury.receipt242' AND subject=?1").bind(subject,payloadHash),
  ]);
  if(!launch.current()||out.length!==3||(out[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1||(out[2]?.results[0] as {recorded?:number}|undefined)?.recorded!==1)throw Error('tithe_receipt_unknown');

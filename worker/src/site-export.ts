@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
 import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { metadataFields219 } from './guild-calendar-metadata219';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
@@ -102,10 +103,10 @@ async function prepareHistory(env: Env, s: CommunitySubject, raw?: string): Prom
   const bounded = p ? 1 : 0, after = p && p.seen > 0 ? 1 : 0;
   // These two statements run behind the original probe in the SAME batch. First-page SQL derives its own high-water.
   const meta = env.DB.prepare(
-    "SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR ts>?5 OR (ts=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM audit WHERE (subject=?1 OR actor=?1) AND (?2=0 OR id<=?3)"
+    `SELECT COALESCE(MAX(id),0) AS high_water, COUNT(*) AS total_count, COALESCE(SUM(CASE WHEN ?4=0 OR ts>?5 OR (ts=?5 AND id>?6) THEN 1 ELSE 0 END),0) AS remaining_count FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')}) AND (?2=0 OR id<=?3)`
   ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0);
   const rows = env.DB.prepare(
-    "SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM audit WHERE subject=?1 OR actor=?1) END AND (?4=0 OR ts>?5 OR (ts=?5 AND id>?6)) ORDER BY ts,id LIMIT ?7"
+    `SELECT ts,id,action FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')}) AND id<=CASE WHEN ?2=1 THEN ?3 ELSE (SELECT COALESCE(MAX(id),0) FROM audit WHERE (subject=?1 OR actor=?1) AND NOT(${erasedReceiptMarkerSql280('audit')})) END AND (?4=0 OR ts>?5 OR (ts=?5 AND id>?6)) ORDER BY ts,id LIMIT ?7`
   ).bind(s.discordId, bounded, p?.high ?? 0, after, p?.ts ?? 0, p?.id ?? 0, ACTIONS_LIMIT + 1);
   return { position: p, statements: [meta, rows] };
 }

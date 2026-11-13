@@ -1,3 +1,4 @@
+import {RECEIPT242_PURGE_SQL} from '../src/intake242.ts';
 // Actual platform scheduled pair, actual index and Native D1. No clock or job replacement.
 import app,{originalScheduledCallbackPhysicalCostObservation} from '../src/index.ts';
 import {originalServingNativeCostLabel} from '../src/privacy-global-serving-origin.ts';
@@ -29,7 +30,7 @@ async function observe(bindings){
  const cost=originalScheduledCallbackPhysicalCostObservation(state.controller,state.ctx);
  if(!cost.allScopesReturned)return {pending:true,cost};
  const db=bindings.DB,remaining=(await db.prepare("SELECT COUNT(*) n FROM audit WHERE action='treasury.receipt242' AND subject LIKE 'intake242:expired-%'").first()).n,fresh=await db.prepare("SELECT details FROM audit WHERE subject='intake242:fresh'").first(),control=await db.prepare('SELECT active,nonce,purpose,epoch,mode FROM privacy_write_admission').first();
- const phase=Math.floor(state.started/900000)%2===0?'general':'beta',samePhase=Math.floor(state.started/900000)===Math.floor(state.finished/900000),row=cost.jobs.find(x=>x.job==='sweepServingRetention'),wires=state.wires.filter(x=>x.label?.job==='sweepServingRetention'),purges=wires.filter(x=>x.sql.some(s=>s.startsWith('DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE action=\'treasury.receipt242\'')));
+ const phase=Math.floor(state.started/900000)%2===0?'general':'beta',samePhase=Math.floor(state.started/900000)===Math.floor(state.finished/900000),row=cost.jobs.find(x=>x.job==='sweepServingRetention'),wires=state.wires.filter(x=>x.label?.job==='sweepServingRetention'),purges=wires.filter(x=>x.sql.some(s=>s===RECEIPT242_PURGE_SQL));
  const expected=state.lose||state.enabled&&phase==='general'?101:1;
  const cases=[
   {name:'genuine callback stays in one original phase',pass:samePhase},

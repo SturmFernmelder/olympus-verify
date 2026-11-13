@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
 /** Authenticated watcher observations; addon role/action fields never confer authority. */
 import type {Env} from './env';
 import {now,likeArg,audit} from './db';
@@ -17,10 +18,12 @@ const createdRoleRequestResponses280=new WeakMap<Response,boolean>();
 export const intakeCreatedRoleRequest280=(response:Response):boolean=>createdRoleRequestResponses280.get(response)===true;
 // .251: a valid receipt's original observation fixes its lifetime, regardless of relay arrival.
 const RECEIPT_DEADLINE="CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.observedAt')='integer' AND json_extract(details,'$.observedAt')>0 AND json_extract(details,'$.observedAt')<=ts+5 AND json_type(details,'$.retainUntil')='integer' AND json_extract(details,'$.retainUntil')=json_extract(details,'$.observedAt')+2592000 THEN json_extract(details,'$.retainUntil') END END";
-/** One fixed page, independent of new uploads. Root must charge its measured
+/** One fixed page of expired receipts/closed replay markers, independent of new uploads.
+ * Marker expiry is logical at the original deadline; physical purge is bounded. Root must charge its measured
  * Native cost in the existing schedule before wiring a quiet cron call. */
+export const RECEIPT242_PURGE_SQL=`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE (action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER)) OR ((${erasedReceiptMarkerSql280('audit')}) AND ts<=CAST(strftime('%s','now') AS INTEGER)) ORDER BY id LIMIT 100)`;
 export async function purgeReceipt242(env:Env):Promise<{deleted:number;limit:100}>{
- const result=await env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER) ORDER BY id LIMIT 100)`).run();
+ const result=await env.DB.prepare(RECEIPT242_PURGE_SQL).run();
  const deleted=result.meta.changes;if(!result.success||!Number.isSafeInteger(deleted)||deleted<0||deleted>100)throw Error('receipt_retention_unknown');
  return {deleted,limit:100};
 }

@@ -1,3 +1,4 @@
+import {erasedReceiptMarkerSql280} from './tithe-erased-replay280';
 /** Automatic finite local retention. This never claims provider-message or private-export disposal.
  * All clocks are consumed from the database; historical beta requests/first-seen dates age from the
  * recorded cutoff only after the attended beta reset confirms that same cutoff.
@@ -86,10 +87,10 @@ function generalServingRetentionStatements(env:Env):D1PreparedStatement[]{return
  // .147: local audit expiry cannot erase the sole warning about an unconfirmed external BattleTag copy.
  // Purge and retention are separate jobs: hold a raw successful account link until its exact minimal marker exists.
  // Only the closed payload-free marker is a continuing exception; scrubbed duplicate history still expires.
- env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT a.id FROM audit a WHERE ${expired('a.ts')}
+ env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT a.id FROM audit a WHERE ((${erasedReceiptMarkerSql280('a')}) AND a.ts<=${T}) OR (NOT(${erasedReceiptMarkerSql280('a')}) AND ${expired('a.ts')}
   AND NOT (${bnetCustodyMarkerSql('a')})
   AND (a.action NOT IN('link.ok','bnet.linked') OR length(a.actor) NOT BETWEEN 17 AND 20 OR a.actor NOT GLOB '[1-9]*' OR a.actor GLOB '*[^0-9]*' OR typeof(a.ts)<>'integer'
-    OR EXISTS(SELECT 1 FROM audit m WHERE m.actor=a.actor AND ${bnetCustodyMarkerSql('m')})) ORDER BY a.ts,a.id LIMIT 1000)`),
+    OR EXISTS(SELECT 1 FROM audit m WHERE m.actor=a.actor AND ${bnetCustodyMarkerSql('m')}))) ORDER BY a.ts,a.id LIMIT 1000)`),
  env.DB.prepare(`DELETE FROM privacy_provider_messages WHERE operation_id IN(SELECT operation_id FROM privacy_provider_messages WHERE state IN('removed','refused') AND retain_until<=${T} ORDER BY retain_until,operation_id LIMIT 1000)`),
  ];}
 /** Complete manual batch remains all27; only the scheduled wrapper alternates its bounded pages. */
