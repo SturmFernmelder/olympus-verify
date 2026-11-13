@@ -246,9 +246,14 @@ function identityIntentStatement280(env:Env,cap:IdentityIntent280):D1PreparedSta
  // Values3..12 are the original pending/consumption tuple,13..21 source/deadline/config.
  const launch=launchMembershipPredicate(env,r.source,r.holder?35:22);
  // Two distinct captured witnesses, never an OR over arbitrary current names.
+ // A NULL historical verification time is not a historical proof. Only a
+ // genuinely consumed fresh proof may record its first verification time;
+ // the prewrite holder fence still requires the original NULL exactly.
+ const firstVerified=r.holder!==null&&r.holder[0]===r.values[9]&&r.holder[6]===null;
+ const verified=firstVerified?"c.verified_at IS ?8 AND typeof(c.verified_at)='integer'":'c.verified_at IS ?28 AND typeof(c.verified_at)=?34';
  const binding=r.holder?`EXISTS(SELECT 1 FROM characters c LEFT JOIN privacy_subjects hs ON hs.subject_id=c.discord_id
    WHERE c.name_key=?22 AND c.name=?23 AND c.discord_id=?24 AND c.guid=?14 AND c.status=?26
-   AND c.bound_at IS ?27 AND typeof(c.bound_at)=?33 AND c.verified_at IS ?28 AND typeof(c.verified_at)=?34
+   AND c.bound_at IS ?27 AND typeof(c.bound_at)=?33 AND (${verified})
    AND c.source IS ?29 AND hs.generation IS ?30 AND hs.state IS ?31 AND hs.revision IS ?32
    AND ?24=?4 AND ?30 IS ?12)`:
    `EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?4 AND c.name_key=?10 AND c.name=?11
@@ -498,13 +503,16 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
       ).bind(nameKey, name, pending.discord_id, t, body.source, pending.id, whisperGuid),
     );
   } else if (whisperGuid && !holder) {
-    // This account's member, whispering from the character that has the name now: if that is a new character (the old
-    // one deleted and the name made again), the pin moves to it, so the next export does not see a namesake.
+    // A recreated character gets its newly proved GUID. A note-created Member
+    // can also lack verified_at: record its FIRST time only from this fresh,
+    // independently proved native whisper/mail, never retime a prior proof.
+    const firstVerified=consumedSelection230.enabled&&launchSource!==null&&existing?.verified_at===null&&(body.source==='whisper'||body.source==='mail');
     stmts.push(
       env.DB.prepare(
-        `UPDATE characters SET guid = ?2 WHERE name_key = ?1 AND discord_id = ?3 AND (guid IS NULL OR guid <> ?2)
+        `UPDATE characters SET guid = ?2,verified_at=CASE WHEN ?6=1 AND verified_at IS NULL THEN ?5 ELSE verified_at END
+         WHERE name_key = ?1 AND discord_id = ?3 AND ((guid IS NULL OR guid <> ?2) OR (?6=1 AND verified_at IS NULL))
            AND EXISTS (SELECT 1 FROM pending WHERE id = ?4 AND consumed_at = ?5 AND name_key = ?1)`,
-      ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t),
+      ).bind(nameKey, whisperGuid, pending.discord_id, pending.id, t,firstVerified?1:0),
     );
   }
   let identityIntent280:IdentityIntent280|undefined;
