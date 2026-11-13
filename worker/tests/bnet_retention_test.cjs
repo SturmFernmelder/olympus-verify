@@ -12,6 +12,13 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 const entry = require('./helpers/privacy129_fixture.cjs');
+// Compare the served build with the actual current entrypoint, not a historical release label.
+const buildDeclarations = ts.createSourceFile("index.ts", fs.readFileSync(path.join(root, "src", "index.ts"), "utf8"), ts.ScriptTarget.ES2022, true).statements
+  .filter(ts.isVariableStatement).flatMap((statement) => [...statement.declarationList.declarations])
+  .filter((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === "BUILD");
+if (buildDeclarations.length !== 1 || !buildDeclarations[0].initializer || !ts.isStringLiteral(buildDeclarations[0].initializer)) throw new Error("expected one current BUILD string literal");
+const expectedBuild = buildDeclarations[0].initializer.text;
+if (!expectedBuild.trim() || /[\x00-\x1f\x7f]/.test(expectedBuild)) throw new Error("invalid current BUILD literal");
 let T = 1790500000;
 const RealDate = Date;
 globalThis.Date = class extends RealDate {
@@ -100,7 +107,7 @@ globalThis.fetch = async (input, init = {}) => {
 const stubs = {
   "./discord": {
     ...realDiscord,
-    json: (body, status = 200) => ({ status, body, json: async () => body }),
+    json: (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
     verifyInteraction: async () => true,
     logLine: async (_env, text) => { LOGS.push(text); },
@@ -413,13 +420,13 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   const statusPost = () => indexMod.default.fetch(new Request("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00", "X-Signature-Timestamp": String(T) }, body: JSON.stringify({ type: 2, id: "900000000000000031", application_id: "1550176895671341076", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000016", username: "edge" }, roles: [] }, data: { name: "verify-status" } }) }), rawEnv(), ictx);
   let sres = await statusPost();
   while (waits2.length) await waits2.shift();
-  let stext = JSON.stringify(sres.body ?? (await sres.json()));
+  let stext = JSON.stringify(await sres.json());
   check("two seconds inside the window the status shows the tag", sres.status === 200 && stext.includes("Edge#16"), sres.status, stext.slice(0, 120));
   check("  and the id was not ledgered", !one("SELECT 1 AS hit FROM seen_interactions WHERE id = '900000000000000031'"));
   T += 3;
   sres = await statusPost();
   while (waits2.length) await waits2.shift();
-  stext = JSON.stringify(sres.body ?? (await sres.json()));
+  stext = JSON.stringify(await sres.json());
   check("the same id three seconds later, past the deadline, is answered afresh without the tag", sres.status === 200 && !stext.includes("Edge#16") && !/Battle\.net: linked/.test(stext), stext.slice(0, 160));
 
   console.log("\n== the retired path's rows are counted, never assumed away (.51, Codex 00:30) ==");
@@ -467,7 +474,7 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   check("the historical plain cron object cannot bypass the original epoch-2 callback gate", JSON.stringify(db.prepare('SELECT * FROM members ORDER BY discord_id').all())===beforeUnqualifiedCron && m("100000000000000015").battletag==='Cron#15');
   const healthRes = await indexMod.default.fetch(new Request("https://verify.example/health", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } }), rawEnv(), { waitUntil: () => {} });
   const health = await healthRes.json();
-  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === "2026-11-10.265 Bounded audit lookups" && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
+  check("/health reports the exact two overdue rows while the unqualified callback remains held", health.build === expectedBuild && health.bnetRetention?.overdue===2 && health.bnetRetention.oldestAgeDays===60, JSON.stringify(health.bnetRetention));
 
   console.log("\n== the schema check adds the column on an older database ==");
   const old = new DatabaseSync(":memory:");

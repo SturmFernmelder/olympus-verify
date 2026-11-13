@@ -329,3 +329,13 @@ regexes = [
   '''^DISCORD_BOT_TOKEN:'limiter280-bot'$''',
   '''^VERIFY_SECRET:'limiter280-verify'$''',
 ]
+
+# Exact local-only provider substitute in the bounded Native erasure/debt fixture.
+# Require the rule, one file and full assignment; changed values/paths/rules remain scanned.
+[[allowlists]]
+description = "Exact synthetic local Native erasure/debt bot assignment"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/erasure196_debt280_workerd_fixture\.mjs$''']
+regexTarget = "match"
+regexes = ['''^DISCORD_BOT_TOKEN:'synthetic\-erasure196\-bot'$''']

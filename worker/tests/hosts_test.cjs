@@ -8,6 +8,13 @@ const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
 const entryFixture = require("./helpers/privacy129_fixture.cjs");
+// Compare the served build with the actual current entrypoint, not a historical release label.
+const buildDeclarations = ts.createSourceFile("index.ts", fs.readFileSync(path.join(root, "src", "index.ts"), "utf8"), ts.ScriptTarget.ES2022, true).statements
+  .filter(ts.isVariableStatement).flatMap((statement) => [...statement.declarationList.declarations])
+  .filter((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === "BUILD");
+if (buildDeclarations.length !== 1 || !buildDeclarations[0].initializer || !ts.isStringLiteral(buildDeclarations[0].initializer)) throw new Error("expected one current BUILD string literal");
+const expectedBuild = buildDeclarations[0].initializer.text;
+if (!expectedBuild.trim() || /[\x00-\x1f\x7f]/.test(expectedBuild)) throw new Error("invalid current BUILD literal");
 
 function d1(db, opts = {}) { return entryFixture.originalNativePort(db,{statement:opts.trap}); }
 function freshDb() {
@@ -66,6 +73,7 @@ const ctx = { waitUntil: () => {} };
 const get = (url, e = env(), init = {}) => index.fetch(new Request(url, init), e, ctx);
 let ok = 0, n = 0;
 const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length) console.log("   ", ...why); console.log((cond ? "PASS " : "FAIL ") + name); };
+const remainingMinute = (value) => typeof value === "string" && /^[1-9][0-9]?$/.test(value) && Number(value) <= 60;
 
 (async () => {
   console.log("\n== host classes ==");
@@ -100,11 +108,11 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   const fromA = { headers: { "CF-Connecting-IP": "198.51.100.9" } };
   let limited;
   for (let i = 0; i < 21; i++) limited = await get("https://guild.example/auth/login", env(), fromA);
-  check("the 21st /auth/login in a minute from one address is 429 with Retry-After 60 and the page headers", limited.status === 429 && limited.headers.get("Retry-After") === "60" && limited.headers.get("Cache-Control") === "no-store, no-transform", limited.status);
+  check("the 21st /auth/login in a minute from one address is 429 with Retry-After in the remaining 1..60 second window and the page headers", limited.status === 429 && remainingMinute(limited.headers.get("Retry-After")) && limited.headers.get("Cache-Control") === "no-store, no-transform", limited.status);
   res = await get("https://guild.example/auth/login", env(), { headers: { "CF-Connecting-IP": "198.51.100.10" } });
   check("  another address still starts the sign-in", res.status === 302, res.status);
   for (let i = 0; i < 21; i++) limited = await get("https://verify.example/linked-role", env(), fromA);
-  check("  the bot host's Linked Role start likewise: 429 JSON rate_limited with Retry-After", limited.status === 429 && (await limited.json()).error === "rate_limited" && limited.headers.get("Retry-After") === "60", limited.status);
+  check("  the bot host's Linked Role start likewise: 429 JSON rate_limited with Retry-After", limited.status === 429 && (await limited.json()).error === "rate_limited" && remainingMinute(limited.headers.get("Retry-After")), limited.status);
   let touched = 0;
   const trapped = env({ DB: d1(db, { trap: () => { touched++; } }) });
   res = await get("https://nobody.example/health", trapped);
@@ -114,7 +122,7 @@ const check = (name, cond, ...why) => { n++; if (cond) ok++; else if (why.length
   res = await get("https://guild.example/health", env({ PUBLIC_BASE_URL: "http://verify.example" }));
   check("a misconfigured PUBLIC_BASE_URL is 503 on every host", res.status === 503 && (await res.json()).error === "misconfigured");
   res = await get("https://verify.example/health");
-  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === "2026-11-10.265 Bounded audit lookups");
+  check("the bot host serves the bot's routes", res.status === 200 && (await res.json()).build === expectedBuild);
   res = await get("https://guild.example/");
   check('the site host serves only the sign-in gate before entry', res.status === 200 && (await res.text()).includes('Enter Olympus'));
   res = await get("https://guild.example/health");

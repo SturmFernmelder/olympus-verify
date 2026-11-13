@@ -1662,13 +1662,13 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   let role:string=v.roleId,nativeRank:number|null=null,nativeName:string|null=null,sourceRankGuard='1=1',sourceIdentityGuard='1=1',rankGraph=()=>{};
   if(canonical.present){
    if(!(currentOriginalCanonicalPolicy233(canonical.policy)||currentDirectiveCanonicalPolicy233(canonical.policy))||!canonical.current())return result('held','directive280_current_rank_configuration_required');
-   const native=await env.DB.prepare(`SELECT rank,rank_index FROM roster_members WHERE snapshot_id=?1 AND name_key=?2 AND guid=?3 AND ${canonicalRankSnapshotSql280(canonical.policy,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)}`).bind(f.source.snapshotId,f.source.nameKey,f.source.guid).first<{rank:string;rank_index:number}>();
+   const native=await env.DB.prepare(`SELECT rank,rank_index FROM roster_members WHERE snapshot_id=?1 AND name_key=?2 AND guid=?3 AND ${canonicalRankSnapshotSql280(canonical.policy,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,f.source.provenance)}`).bind(f.source.snapshotId,f.source.nameKey,f.source.guid).first<{rank:string;rank_index:number}>();
    issuer.assertConsumed230Original(env,cap);rankGraph=launch230GraphWitness(native);rankGraph();
    const target=native&&canonicalNativeRole233(canonical.policy,native.rank_index,native.rank);if(!target)return result('held','canonical233_native_profile_held');
    role=target.roleId;nativeRank=native!.rank_index;nativeName=native!.rank;
    // The new whisper proves this identity only. A higher current linked alt is
    // resolved by the full original routine issuer, never downgraded here.
-   sourceIdentityGuard=`${canonicalRankSnapshotSql280(canonical.policy,'?7',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)} AND EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
+   sourceIdentityGuard=`${canonicalRankSnapshotSql280(canonical.policy,'?7',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,f.source.provenance)} AND EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
    sourceRankGuard=`${sourceIdentityGuard} AND NOT EXISTS(SELECT 1 FROM characters cc JOIN roster_members cr ON cr.guid=cc.guid AND cr.name_key=cc.name_key WHERE cc.discord_id=?2 AND cc.status='member' AND cr.snapshot_id=?7 AND cr.rank_index<${nativeRank})`;
   }
   const grantPurpose=canonical.present?'canonical_consumed233':LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=canonical.present?canonical.policy!.profile:'prime-native-230',roleAdmission=canonical.present?canonical233RoleOnly:launch230RoleOnly;

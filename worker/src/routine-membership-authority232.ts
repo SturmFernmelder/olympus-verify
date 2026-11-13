@@ -8,10 +8,10 @@ import { linksNotBefore } from './db';
 import { privacyProviderCustodyDatabase,privacyGenerationFenceSql } from './privacy-serving-authority';
 import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
-import {captureCanonicalRankConfig233,NATIVE_NAMES233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {recognizedMembershipAnchor232 as ANCHOR} from './roster-verification275';
 import {DIRECTIVE_RANK_NAMES,DIRECTIVE_NATIVE_PROFILE,nativeMembershipSourceMatches,qualifiedNativeSnapshotSource} from './native-rank-schemes';
-import {canonicalRankSource280,canonicalRankSnapshotSql280,canonicalRankWitnessMatches280} from './canonical-native-authority280';
+import {canonicalRankSource280,canonicalRankSnapshotSql280,canonicalRankWitnessMatches280,originalObservedCanonicalTable280} from './canonical-native-authority280';
 
 declare const routine232Brand:unique symbol;
 export type RoutineMembership232=Readonly<{[routine232Brand]:true}>;
@@ -103,8 +103,8 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   const directiveSource=row.source===qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm),rankNames=directiveSource?DIRECTIVE_RANK_NAMES:NATIVE_RANK_NAMES232;
   const rankQualified=directiveSource&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===DIRECTIVE_RANK_NAMES[r[3]]);
    const canonicalSource=canonical.mode==='enabled'?canonicalRankSource280(canonical.policy,row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm):null;
-   const canonicalNames=canonicalSource==='directive-native-v2'?DIRECTIVE_RANK_NAMES:NATIVE_NAMES233;
-   const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
+   const canonicalNames=canonicalSource==='directive-native-v2'?DIRECTIVE_RANK_NAMES:canonicalSource==='original-native-v2'?originalObservedCanonicalTable280(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)?.names:null;
+   const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||!!canonicalNames&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
   const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>();
   for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
    if(typeof key!=='string'||!key||names.has(key))return null;
@@ -183,10 +183,11 @@ export function closeRoutineMembership232(cap:RoutineMembership232):void{origina
  * at every queue/claim/final admission, including across provider awaits. */
 export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1,rankConversion=false):Readonly<{sql:string;receiptSourceIntegritySql:string;values:readonly Scalar[];next:number}>{
  assertRoutineMembership232(env,cap);if(!Number.isSafeInteger(start)||start<1||start>75)return held();const r=originals.get(cap)!;
- const canonical=captureCanonicalRankConfig233(env);
+ const canonical=captureCanonicalRankConfig233(env),capturedSource=r.values[4];
+ if(typeof capturedSource!=='string')return held();
  if(rankConversion&&(canonical.mode!=='enabled'||!canonical.current()||!canonicalRankWitnessMatches280(canonical.policy,r.facts.canonicalRankProfile,r.facts.rankQualified)))return held();
  const q=(n:number)=>'?'+(start+n),replace=(sql:string)=>sql.replace(/\?1\b/g,q(0));
- const originalSourcePredicate=(standing:boolean)=>`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${canonicalRankSnapshotSql280(canonical.policy,q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
+ const originalSourcePredicate=(standing:boolean)=>`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${canonicalRankSnapshotSql280(canonical.policy,q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,capturedSource)})`:''}
   AND EXISTS(SELECT 1 FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=${q(0)} WHERE
   (s.id=${q(2)} AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.exported_at=${q(3)} AND s.source=${q(4)})
   AND (s.member_count=${q(5)} AND s.complete=1 AND s.trusted=1 AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
