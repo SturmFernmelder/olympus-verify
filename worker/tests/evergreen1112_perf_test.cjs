@@ -5,7 +5,10 @@
 //   - the catalogue rides once per page load (the boot) and every key the page reads is there; /api/me and /api/public
 //     no longer repeat it (CL2-072, CL2-249);
 //   - a signed-in GET / needs at most a fixed number of D1 round trips (CL2-073);
-//   - a burst of requests whose hourly membership check is due makes one Discord call, and still fails closed (CL2-077).
+//   - a burst of requests whose hourly membership check is due makes one Discord call, and still fails closed (CL2-077);
+//   - this build's app.js and app.css are kept privately in the member's browser, everything else stays no-store, member
+//     JSON/script/style lose only no-transform, the page is gzip from the Worker, and sign-out and a new build leave
+//     the kept copy unusable (CL2-076, owner ruling of 13 Nov 2026).
 // Run from worker/: node tests/evergreen1112_perf_test.cjs [--root <another worker folder, read-only>] [--json <file>]
 // With --root it loads that tree's source instead (used for the fail-before receipt on the base dfca7a2).
 const fs = require('node:fs'), path = require('node:path');
@@ -71,7 +74,20 @@ function countedPort() {
   counter.boundBytes = () => port.nativeTrace.reduce((sum, row) => sum + row.params.reduce((s, v) => s + (typeof v === 'string' ? v.length : 8), 0), 0);
   return { port, counter };
 }
-const ASSETS = { fetch: async request => new Response('/* asset ' + new URL(request.url).pathname + ' */', { headers: { 'Content-Type': 'text/css; charset=utf-8' } }) };
+// The deployed files the CL2-076 checks read (exact bytes and the content type the assets binding gives them); every
+// other path answers a small stand-in, as before. A Range request gets 206, as the binding answers one.
+const REAL_ASSETS = { '/static/app.js': 'text/javascript; charset=utf-8', '/static/app.css': 'text/css; charset=utf-8', '/static/talents/data.json': 'application/json; charset=utf-8' };
+const ASSETS = { fetch: async request => {
+  const pathname = new URL(request.url).pathname, type = REAL_ASSETS[pathname];
+  const file = type ? path.join(ROOT, 'public', pathname) : null;
+  if (file && fs.existsSync(file)) {
+    const bytes = fs.readFileSync(file);
+    if (request.headers.get('Range')) return new Response(bytes.subarray(0, 100), { status: 206, headers: { 'Content-Type': type, 'Content-Range': `bytes 0-99/${bytes.length}` } });
+    return new Response(request.method === 'HEAD' ? null : bytes, { headers: { 'Content-Type': type } });
+  }
+  if (pathname.endsWith('.png')) return new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'Content-Type': 'image/png' } });
+  return new Response('/* asset ' + pathname + ' */', { headers: { 'Content-Type': 'text/css; charset=utf-8' } });
+} };
 const env = (DB, over = {}) => entry.currentEntryEnvironment({ DB, ASSETS, COOKIE_SECRET: 'cookie-secret-for-tests-only-0123456789', VERIFY_SECRET: 'verify-secret-for-tests', WATCHER_TOKEN: 'watcher-token-for-tests-only-0123456789',
   GUILD_ID: GUILD, DISCORD_APP_ID: '1550176895671341076', DISCORD_CLIENT_SECRET: 'client-secret', DISCORD_PUBLIC_KEY: '00', DISCORD_BOT_TOKEN: 'bot-token-for-tests-only',
   PUBLIC_BASE_URL: 'https://verify.example', SITE_HOST: 'guild.example', SITE_GUILD_ID: GUILD, SITE_ADMINS: STAFF, ROLE_OFFICER: '1549581672272625734', ROLE_GUILD_MEMBER: ROLE_MEMBER,
@@ -106,6 +122,12 @@ async function request(who, pathname, init = {}) {
   if (args.includes('--trace') && pathname === '/') console.log('TRACE', who, pathname, JSON.stringify(port.nativeTrace.map(row => row.sql.replace(/\s+/g, ' ').slice(0, 70))));
   return { status: response.status, text, bytes: Buffer.byteLength(text), ms: +(performance.now() - started).toFixed(1),
     roundTrips: counter.roundTrips, statements: counter.statements(), boundBytes: counter.boundBytes(), discord: discord.memberGets - discordBefore };
+}
+// CL2-076: the Response itself, its headers and raw bytes (nothing decoded). who === null sends no cookie.
+async function raw(who, pathname, init = {}) {
+  const headers = { ...(who ? { Cookie: await cookieFor(who) } : {}), 'Sec-Fetch-Site': 'same-origin', 'X-Olympus': '2', ...(init.headers || {}) };
+  const response = await indexMod.default.fetch(new Request('https://guild.example' + pathname, { method: init.method || 'GET', headers }), env(entry.originalNativePort(db)), ctx);
+  return { status: response.status, h: name => response.headers.get(name), bytes: Buffer.from(await response.arrayBuffer()) };
 }
 const bootOf = html => { const m = html.match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/); return m ? JSON.parse(m[1]) : null; };
 
@@ -225,6 +247,162 @@ const CATALOGUE_ONLY_VIA_M = new Set([...APP_JS.matchAll(/\b(?:M\(\)|S\.meta)\??
   try { failedDto = await request(MEMBER, '/'); } catch (e) { failedDto = { status: 'threw: ' + e.message, text: '' }; } finally { communityMod.contextDto = realDto; }
   const failedBoot = failedDto.status === 200 ? bootOf(failedDto.text) : null;
   check('a throw in contextDto still serves the page with community: null', failedDto.status === 200 && !!failedBoot && failedBoot.community === null, 'status=' + failedDto.status);
+
+  // ---- CL2-076 (owner ruling of 13 Nov 2026, "Yes, both"): this build's app.js and app.css are kept privately in the
+  // member's browser; member script, style, JSON and the page itself are compressed in transit; nothing personal is
+  // kept, and the public answers are unchanged.
+  const zlib = require('node:zlib'), sha = b => require('node:crypto').createHash('sha256').update(b).digest('hex');
+  const BUILD_NOW = /const BUILD = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'src', 'index.ts'), 'utf8'))[1];
+  const V = '?v=' + encodeURIComponent(BUILD_NOW), IMMUTABLE = 'private, max-age=31536000, immutable';
+  report.cl2076 = { build: BUILD_NOW, files: {} };
+  const docPlain = await raw(MEMBER, '/'), docHtml = docPlain.bytes.toString('utf8');
+  for (const file of ['/static/app.js', '/static/app.css']) {
+    check(`CL2-076: the signed-in page requests ${file} with this build's version`, docHtml.includes(`"${file}${V}"`));
+    const disk = fs.readFileSync(path.join(ROOT, 'public', file));
+    const m = await raw(MEMBER, file + V), a = await raw(STAFF, file + V);
+    report.cl2076.files[file] = { bytes: m.bytes.length, sha256: sha(m.bytes), member: m.h('Cache-Control'), admin: a.h('Cache-Control'), vary: m.h('Vary') };
+    check(`CL2-076: member ${file}?v=<build> is kept privately for a year (immutable, no no-store)`, m.status === 200 && m.h('Cache-Control') === IMMUTABLE, m.h('Cache-Control'));
+    check(`CL2-076: ${file}?v=<build> does not vary on Cookie and keeps the security headers`, !/cookie/i.test(m.h('Vary') || '') && m.h('X-Content-Type-Options') === 'nosniff' && m.h('X-Frame-Options') === 'DENY' && /noindex/.test(m.h('X-Robots-Tag') || '') && m.h('Strict-Transport-Security') === 'max-age=31536000' && m.h('Cross-Origin-Opener-Policy') === 'same-origin', { vary: m.h('Vary') });
+    check(`CL2-076: ${file}?v=<build> is the deployed file byte for byte, the same for a member and an admin`, m.bytes.equals(disk) && a.bytes.equals(disk) && a.h('Cache-Control') === m.h('Cache-Control') && a.h('Content-Type') === m.h('Content-Type'));
+    for (const [label, query] of [['no version', ''], ['an older build', '?v=' + encodeURIComponent('2026-11-11.278 Previous build')], ['an extra parameter', V + '&x=1'], ['the version spelled differently', '?v=' + BUILD_NOW.replace(/ /g, '+')]]) {
+      const r = await raw(MEMBER, file + query);
+      check(`CL2-076: ${file} with ${label} is not kept (private, no-store, Vary: Cookie)`, r.status === 200 && r.h('Cache-Control') === 'private, no-store' && r.h('Vary') === 'Cookie', r.h('Cache-Control'));
+    }
+    const part = await raw(MEMBER, file + V, { headers: { Range: 'bytes=0-99' } });
+    check(`CL2-076: a partial (206) answer for ${file}?v=<build> is not kept`, part.status === 206 && part.h('Cache-Control') === 'private, no-store', part.status + ' ' + part.h('Cache-Control'));
+    const anon = await raw(null, file + V);
+    check(`CL2-076: signed out, ${file}?v=<build> is refused (401) with the public headers unchanged`, anon.status === 401 && anon.h('Cache-Control') === 'no-store, no-transform' && !anon.bytes.includes('use strict'), anon.status + ' ' + anon.h('Cache-Control'));
+  }
+  const json = await raw(MEMBER, '/static/talents/data.json');
+  check('CL2-076: an unversioned member JSON file may be compressed but is not kept (private, no-store, Vary: Cookie)', json.status === 200 && json.h('Cache-Control') === 'private, no-store' && json.h('Vary') === 'Cookie', json.h('Cache-Control'));
+  const png = await raw(MEMBER, '/static/wow/frame.png');
+  check('CL2-076: a member image keeps private, no-store, no-transform (nothing re-encodes it)', png.status === 200 && png.h('Cache-Control') === 'private, no-store, no-transform', png.h('Cache-Control'));
+  for (const [label, who, p] of [['member /api/me', MEMBER, '/api/me'], ['member /api/public', MEMBER, '/api/public'], ['admin /api/admin/audit-log', STAFF, '/api/admin/audit-log']]) {
+    const r = await raw(who, p);
+    check(`CL2-076: ${label} stays no-store and drops only no-transform`, r.status === 200 && r.h('Cache-Control') === 'no-store' && /application\/json/.test(r.h('Content-Type') || ''), r.status + ' ' + r.h('Cache-Control'));
+  }
+  for (const p of ['/api/privacy/config', '/api/me/erasure/status']) {
+    const r = await raw(MEMBER, p);
+    check(`CL2-076: the gate-exempt ${p} keeps its headers exactly (no-store, no-transform)`, /no-store/.test(r.h('Cache-Control') || '') && /no-transform/.test(r.h('Cache-Control') || ''), r.status + ' ' + r.h('Cache-Control'));
+  }
+  // The page: gzip by the Worker, the same page after decoding, no-transform and the exact CSP kept.
+  const strip = html => html.replace(/<script type="application\/json" id="boot">[\s\S]*?<\/script>/, '');
+  // The clock fields (now, community.now) and the per-request editor proof differ between any two loads.
+  const bootNorm = html => { const b = bootOf(html); return b && JSON.stringify({ ...b, now: 0, applicationEditorProof: 0, community: b.community && { ...b.community, now: 0 } }); };
+  const gunzip = b => { try { return zlib.gunzipSync(b).toString('utf8'); } catch { return ''; } };
+  const gz = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': 'gzip, deflate, br' } }), unzipped = gunzip(gz.bytes);
+  report.cl2076.document = { raw: docPlain.bytes.length, sent: gz.bytes.length, contentEncoding: gz.h('Content-Encoding') };
+  console.log('MEASURE CL2-076 document', JSON.stringify(report.cl2076.document));
+  check('CL2-076: the signed-in page is sent gzip when the browser takes it (under a quarter of the size)', gz.status === 200 && gz.h('Content-Encoding') === 'gzip' && gz.bytes[0] === 0x1f && gz.bytes[1] === 0x8b && gz.bytes.length * 4 < docPlain.bytes.length, report.cl2076.document);
+  check('CL2-076: decoded, it is the same page and the same boot', !!unzipped && strip(unzipped) === strip(docHtml) && bootNorm(unzipped) === bootNorm(docHtml));
+  check('CL2-076: the page keeps no-store, no-transform and its exact security policy, and varies on Accept-Encoding', gz.h('Cache-Control') === 'no-store, no-transform' && docPlain.h('Cache-Control') === 'no-store, no-transform' && !!gz.h('Content-Security-Policy') && gz.h('Content-Security-Policy') === docPlain.h('Content-Security-Policy') && gz.h('Vary') === 'Accept-Encoding' && docPlain.h('Vary') === 'Accept-Encoding', { vary: gz.h('Vary') });
+  check('CL2-076: without Accept-Encoding the page is sent uncompressed, as before', docPlain.status === 200 && !docPlain.h('Content-Encoding') && !!bootOf(docHtml));
+  for (const ae of ['gzip;q=0', 'identity', 'br', 'deflate, br;q=1']) {
+    const r = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': ae } });
+    check(`CL2-076: Accept-Encoding "${ae}" gets the page uncompressed`, r.status === 200 && !r.h('Content-Encoding') && !!bootOf(r.bytes.toString('utf8')));
+  }
+  const star = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': '*' } });
+  check('CL2-076: Accept-Encoding "*" gets gzip', star.h('Content-Encoding') === 'gzip' && !!gunzip(star.bytes));
+  const head = await raw(MEMBER, '/', { method: 'HEAD', headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076: HEAD gets the same headers and no body', head.status === 200 && head.bytes.length === 0 && head.h('Content-Encoding') === 'gzip' && head.h('Content-Security-Policy') === gz.h('Content-Security-Policy') && head.h('Cache-Control') === 'no-store, no-transform');
+  const rangedPage = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': 'gzip', Range: 'bytes=0-99' } });
+  check('CL2-076: a Range request on the page gets the whole page (200, no Content-Range)', rangedPage.status === 200 && !rangedPage.h('Content-Range') && strip(gunzip(rangedPage.bytes)) === strip(docHtml));
+  const gate = await raw(null, '/', { headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076: the signed-out sign-in page is unchanged (not compressed by the Worker)', gate.status === 200 && !gate.h('Content-Encoding') && /no-store/.test(gate.h('Cache-Control') || '') && /Enter Olympus/.test(gate.bytes.toString('utf8')));
+  // Review finding 1 (13 Nov 2026): text the requester chose is never compressed next to the member's data and the
+  // per-session proof (BREACH). The decision is made where the page is built (site.ts pageText), from what the caller
+  // put into the page, and memberDocument sends anything but 'fixed' uncompressed.
+  const site = load('./site'), transport = fs.existsSync(path.join(ROOT, 'src', 'member-transport.ts')) ? load('./member-transport') : null; // the base has none
+  const shapes = [[{}, 'fixed'], [{ flash: { kind: 'updating' } }, 'fixed'], [{ flash: { kind: 'cancelled', detail: undefined } }, 'fixed'], [{ flash: { kind: 'expired', detail: undefined } }, 'fixed'],
+    [{ flash: { kind: 'discord_error', detail: 'zq-guess' } }, 'from-request'], [{ flash: { kind: 'discord_error', detail: 'token 502' } }, 'from-request'], [{ flash: { kind: 'not_configured', detail: 'COOKIE_SECRET' } }, 'from-request'],
+    [{ flash: { kind: 'no_such_kind' } }, 'from-request'], [{ flash: { kind: 'updating', extra: 'x' } }, 'from-request'], [{ flash: { kind: 'updating' }, q: 'x' }, 'from-request'], [{ q: 'x' }, 'from-request'], [{ flash: 'text' }, 'from-request']];
+  const decided = typeof site.pageText === 'function' ? shapes.map(([extra, want]) => [JSON.stringify(extra), site.pageText(extra), want]) : null;
+  check('CL2-076 echo: the page counts as fixed only with no extra or a listed flash kind without detail; any detail or other key is from-request', !!decided && decided.every(([, got, want]) => got === want), decided ? decided.filter(([, got, want]) => got !== want) : 'site.ts exports no pageText');
+  const docHeaders = () => new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-transform' });
+  const docReq = method => new Request('https://guild.example/', { method, headers: { 'Accept-Encoding': 'gzip, deflate, br' } });
+  const SAMPLE = '<!doctype html><title>t</title>' + 'x'.repeat(4000);
+  const outs = {};
+  for (const [label, text, method] of [['fixed', 'fixed', 'GET'], ['from-request', 'from-request', 'GET'], ['from-request HEAD', 'from-request', 'HEAD'], ['no decision', undefined, 'GET']]) {
+    if (!transport) { outs[label] = { encoding: 'no member-transport.ts' }; continue; }
+    const r = await transport.memberDocument(docReq(method), SAMPLE, 200, docHeaders(), text), b = Buffer.from(await r.arrayBuffer());
+    outs[label] = { encoding: r.headers.get('Content-Encoding'), vary: r.headers.get('Vary'), bytes: b.length, same: b.toString('utf8') === (method === 'HEAD' ? '' : SAMPLE) };
+  }
+  check('CL2-076 echo: memberDocument gzips a fixed page for a browser that takes gzip', outs.fixed.encoding === 'gzip' && outs.fixed.vary === 'Accept-Encoding', outs.fixed);
+  check('CL2-076 echo: memberDocument sends a from-request page (GET and HEAD), or one with no decision, uncompressed and byte for byte', ['from-request', 'from-request HEAD', 'no decision'].every(k => outs[k].encoding === null && outs[k].vary === null && outs[k].same), outs);
+  // Through the real Worker entry: the callback's error page for a signed-in member carries the ?error= text in the
+  // boot's flash detail, beside the member's data and the editor proof, and goes out uncompressed. (Today the callback
+  // also runs on a snapshot of the request that keeps only the cookie and the client address, privacy-serving-site-
+  // oauth.ts, so its Accept-Encoding never reaches page(); this check holds even if that changes.)
+  const ECHO = 'zq' + 'x'.repeat(30) + '-guess';
+  const echoed = await raw(MEMBER, '/auth/callback?error=' + encodeURIComponent(ECHO), { headers: { 'Accept-Encoding': 'gzip, deflate, br' } });
+  const echoedBoot = bootOf(echoed.bytes.toString('utf8'));
+  report.cl2076.echo = { status: echoed.status, contentEncoding: echoed.h('Content-Encoding'), vary: echoed.h('Vary'), bytes: echoed.bytes.length, flash: echoedBoot && echoedBoot.flash }; report.cl2076.decision = { decided, outs };
+  check('CL2-076 echo: a signed-in member\'s callback error page carrying ?error= text is sent uncompressed', echoed.status === 200 && !echoed.h('Content-Encoding') && echoed.bytes[0] === 0x3c && !!echoedBoot && !!echoedBoot.flash && echoedBoot.flash.detail === ECHO.slice(0, 40) && echoedBoot.applicationEditorProof !== undefined, report.cl2076.echo);
+  check('CL2-076 echo: it keeps no-store, no-transform and the exact security policy', echoed.h('Cache-Control') === 'no-store, no-transform' && echoed.h('Content-Security-Policy') === docPlain.h('Content-Security-Policy'), echoed.h('Cache-Control'));
+  const again = await raw(MEMBER, '/', { headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076 echo: the ordinary signed-in page is still compressed', again.status === 200 && again.h('Content-Encoding') === 'gzip' && !!bootOf(gunzip(again.bytes)));
+  const anonEcho = await raw(null, '/auth/callback?error=' + encodeURIComponent(ECHO), { headers: { 'Accept-Encoding': 'gzip' } });
+  check('CL2-076 echo: signed out, the callback error answer is unchanged (sign-in page, not compressed by the Worker, no Vary: Accept-Encoding)', anonEcho.status === gate.status && !anonEcho.h('Content-Encoding') && !/accept-encoding/i.test(anonEcho.h('Vary') || '') && anonEcho.h('Cache-Control') === gate.h('Cache-Control') && /Enter Olympus/.test(anonEcho.bytes.toString('utf8')), anonEcho.status + ' ' + anonEcho.h('Cache-Control'));
+  // Second review (13 Nov 2026), finding 4: the 'fixed' decision covers only what reaches the page through page()'s
+  // extra argument. This pins the assumption that the compressed page reads nothing else from the request: a probe
+  // in the query string ("to" is left out, it is the 303 return target), in request headers and in non-session cookies
+  // (the state cookie among them) must not appear in the decoded document.
+  const PROBE = 'Zq7ProbeEcho' + 'k'.repeat(12) + 'Guess';
+  const probed = await raw(MEMBER, '/?probe=' + PROBE + '&error=' + PROBE + '&view=' + PROBE + '&q=' + PROBE, { headers: {
+    'Accept-Encoding': 'gzip', Cookie: (await cookieFor(MEMBER)) + '; olyprobe=' + PROBE + '; __Host-olg_state=' + PROBE,
+    'X-Probe': PROBE, Referer: 'https://guild.example/' + PROBE, 'User-Agent': 'Mozilla/5.0 ' + PROBE, 'Accept-Language': 'en-' + PROBE.slice(0, 8), 'X-Forwarded-For': PROBE } });
+  const probedHtml = gunzip(probed.bytes), probedBoot = bootOf(probedHtml);
+  report.cl2076.probe = { status: probed.status, contentEncoding: probed.h('Content-Encoding'), decoded: probedHtml.length, signedIn: !!probedBoot && probedHtml.includes('/static/app.js' + V), found: probedHtml.includes(PROBE), foundShort: probedHtml.includes(PROBE.slice(0, 8)) };
+  check('CL2-076 echo: a probe in the query string, request headers and non-session cookies is absent from the compressed signed-in page', probed.status === 200 && probed.h('Content-Encoding') === 'gzip' && report.cl2076.probe.signedIn && !report.cl2076.probe.found && !report.cl2076.probe.foundShort, report.cl2076.probe);
+  // Sign-out: the browser may keep its copy of the script (owner-accepted), but nothing it asks for is answered.
+  const OUT = '300000000000000008';
+  await seedUser(OUT, 'Out Going'); await checkedAt(OUT, now);
+  const kept = await raw(OUT, '/static/app.js' + V), meBefore = await raw(OUT, '/api/me');
+  const signedOff = await raw(OUT, '/auth/logout', { method: 'POST' });
+  const meAfter = await raw(OUT, '/api/me'), pubAfter = await raw(OUT, '/api/public'), jsAfter = await raw(OUT, '/static/app.js' + V), pageAfter = await raw(OUT, '/');
+  report.cl2076.signOut = { before: [kept.status, meBefore.status], logout: signedOff.status, after: { apiMe: meAfter.status, apiPublic: pubAfter.status, appJs: jsAfter.status, page: pageAfter.status } };
+  check('CL2-076 sign-out: before it, the script is served for keeping and /api/me answers', kept.status === 200 && kept.h('Cache-Control') === IMMUTABLE && meBefore.status === 200);
+  check('CL2-076 sign-out: sign-out succeeds and clears the session cookie', signedOff.status === 200 && /__Host-olg=;/.test(signedOff.h('Set-Cookie') || ''));
+  check('CL2-076 sign-out: the old session cookie gets no API answer (401) and no script from the Worker', meAfter.status === 401 && pubAfter.status === 401 && jsAfter.status === 401 && jsAfter.h('Cache-Control') === 'no-store, no-transform', report.cl2076.signOut.after);
+  check('CL2-076 sign-out: the page is the sign-in page, which loads no app.js', pageAfter.status === 200 && /Enter Olympus/.test(pageAfter.bytes.toString('utf8')) && !pageAfter.bytes.toString('utf8').includes('/static/app.js'));
+  // Review finding 4 (13 Nov 2026): a signed-in account the gate does not admit (here one that left the server) still
+  // makes its three own-record reads; they lose no-transform like every member /api answer and stay no-store.
+  const DEPARTED = '300000000000000009';
+  await seedUser(DEPARTED, 'De Parted'); await checkedAt(DEPARTED, now); await cookieFor(DEPARTED);
+  await fixtureRun('UPDATE site_users SET in_server = 0 WHERE discord_id = ?', DEPARTED);
+  const ownReads = {};
+  const GATE_REFUSAL = 'This account cannot enter the guild site.';
+  for (const p of ['/api/me', '/api/application', '/api/community/context']) { const r = await raw(DEPARTED, p), body = r.bytes.toString('utf8'); ownReads[p] = { status: r.status, cache: r.h('Cache-Control'), gate: body.includes(GATE_REFUSAL) }; }
+  const refusedPage = await raw(DEPARTED, '/api/public'), refusedBody = refusedPage.bytes.toString('utf8');
+  report.cl2076.ownReads = { ...ownReads, '/api/public': { status: refusedPage.status, cache: refusedPage.h('Cache-Control'), gate: refusedBody.includes(GATE_REFUSAL) } };
+  // /api/application has no GET answer of its own: the API answers it 403 itself, after the gate let it through.
+  check('CL2-076: a signed-in account that is not admitted passes the gate for its three own-record reads, each answered no-store without no-transform; the gate refuses anything else (no-store, no-transform)',
+    Object.values(ownReads).every(v => !v.gate && v.cache === 'no-store') && ownReads['/api/me'].status === 200 && ownReads['/api/community/context'].status === 200
+    && refusedPage.status === 403 && report.cl2076.ownReads['/api/public'].gate && refusedPage.h('Cache-Control') === 'no-store, no-transform', report.cl2076.ownReads);
+  // A new build: the same Worker with only its BUILD string changed (in memory, as a deployment of the next build
+  // would be), over the same modules and database. Its page names the new version, and the old version is not kept.
+  const NEXT = '2026-11-14.281 Next build', VN = '?v=' + encodeURIComponent(NEXT);
+  const nextIndex = { exports: {} };
+  new Function('module', 'exports', 'require', ts.transpileModule(fs.readFileSync(path.join(ROOT, 'src', 'index.ts'), 'utf8').replace(/const BUILD = "[^"]+"/, 'const BUILD = ' + JSON.stringify(NEXT)), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(nextIndex, nextIndex.exports, p => load(p));
+  const viaNext = async (pathname, init = {}) => { const r = await nextIndex.exports.default.fetch(new Request('https://guild.example' + pathname, { headers: { Cookie: await cookieFor(MEMBER), 'Sec-Fetch-Site': 'same-origin', 'X-Olympus': '2', ...(init.headers || {}) } }), env(entry.originalNativePort(db)), ctx); return { status: r.status, h: n => r.headers.get(n), text: await r.text() }; };
+  const nextPage = await viaNext('/'), oldJs = await viaNext('/static/app.js' + V), newJs = await viaNext('/static/app.js' + VN), oldCss = await viaNext('/static/app.css' + V);
+  report.cl2076.update = { page: nextPage.status, oldJs: oldJs.h('Cache-Control'), newJs: newJs.h('Cache-Control'), oldCss: oldCss.h('Cache-Control') };
+  check('CL2-076 update: the next build\'s page asks for app.js and app.css with the new version only', nextPage.status === 200 && nextPage.text.includes('"/static/app.js' + VN + '"') && nextPage.text.includes('"/static/app.css' + VN + '"') && !nextPage.text.includes(V), report.cl2076.update);
+  check('CL2-076 update: after the new build the old version is answered but not kept, the new one is kept', oldJs.status === 200 && oldJs.h('Cache-Control') === 'private, no-store' && oldCss.h('Cache-Control') === 'private, no-store' && newJs.h('Cache-Control') === IMMUTABLE, report.cl2076.update);
+
+  // tools/public-route-cases.json must stay true (a guard): its anonymous member-gated static files (401), the cases
+  // beside this change, are answered by the real Worker entry before any asset or database read, exactly as recorded.
+  const routeCases = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'tools', 'public-route-cases.json'), 'utf8')).cases.filter(c => c.status === 401 && new URL(c.url).pathname.startsWith('/static/'));
+  let touched = 0;
+  const trapEnv = { PUBLIC_BASE_URL: 'https://olympus-verify.roach-council.workers.dev', SITE_HOST: 'olympus.roachcouncil.com', ASSETS: { fetch: async () => { touched++; return new Response('asset'); } } };
+  Object.defineProperty(trapEnv, 'DB', { get() { touched++; throw Error('an anonymous request touched the database'); } });
+  const wrongCases = [];
+  for (const c of routeCases) {
+    const r = await indexMod.default.fetch(new Request(c.url, { method: c.method }), trapEnv, ctx), body = Buffer.from(await r.arrayBuffer());
+    const same = r.status === c.status && sha(body) === c.bodySHA256 && c.headers.every(h => { const v = r.headers.get(h.name); return h.mode === 'absent' ? v === null : h.mode === 'equals' ? v === h.value : typeof v === 'string' && v.includes(h.value); });
+    if (!same) wrongCases.push(c.url);
+  }
+  check(`public routes: the ${routeCases.length} recorded anonymous /static/ 401 cases answer exactly as recorded`, routeCases.length > 40 && wrongCases.length === 0 && touched === 0, { wrong: wrongCases.slice(0, 5), touched });
 
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(report, null, 2) + '\n');
   console.log(`${ok}/${n} checks passed`);
