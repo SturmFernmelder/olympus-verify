@@ -1,3 +1,4 @@
+import {neutralIdentityShape280} from './consumed-identity280';
 /** Fresh full-release roles (Revision 4; owner decisions of 16 Oct 2026). Pure: the lane configuration capture, the lane
  * constants and every lane SQL text. No D1, no HTTP, no env read after the capture, no module-load effect.
  * Default OFF: FULL_RELEASE_ROLES and STAFF_TEN_RANK_ROLES absent or "" (staff also "false") select every .160 path; an
@@ -274,7 +275,9 @@ export const CANONICAL233_SWEEP249_SELECT=boundedCanonicalSweep266(CANONICAL_SWE
  * original issuer and adjacent writer CAS still prove every actual effect. */
 const DIRECTIVE_CANDIDATES280=CANONICAL_CANDIDATES266
  .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'","a.native_profile IN('olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
- .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')");
+ .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
+ +` UNION SELECT DISTINCT c.discord_id AS subject FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.status='member'
+ AND EXISTS(SELECT 1 FROM role_settlements a WHERE (${neutralIdentityShape280('a')}) AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at)`;
 const DIRECTIVE_SWEEP_WORK280=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
  .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'","r.native_profile='olympus-canonical-ranks-directive-20261112-v2'");
 export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,

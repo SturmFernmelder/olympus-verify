@@ -1978,6 +1978,26 @@ function native232KnownReceipt(a:string):string{
   OR (${a}.state='held' AND ${a}.reason='native232_never_dispatched' AND ${a}.purpose IN('${ROUTINE_MEMBERSHIP232_PURPOSE}','fresh_roster_rank','staff_roster_rank'))
   OR (${a}.state='held' AND ${a}.reason='native232_compensated' AND EXISTS(SELECT 1 FROM role_settlements nc WHERE nc.request_digest=${a}.id AND nc.subject=${a}.subject AND nc.guild_id=${a}.guild_id AND nc.role_id=${a}.role_id AND nc.desired=0 AND nc.attempts=1 AND nc.claim_nonce IS NOT NULL AND nc.state='settled' AND nc.purpose='${NATIVE_COMPENSATION232_PURPOSE}' AND nc.native_profile='${NATIVE_RANK_PROFILE232}' AND nc.reason='native232_delete_acknowledged_and_confirmed'))))`;
 }
+/** Read-only cache observation. This string is never an effect capability or
+ * ownership root. Identity/inventory controls are deliberately absent. */
+export function roleObservationSql280(a:string):string{
+ if(!/^[a-z][a-z0-9_]*$/.test(a))throw Error('role_observation_alias_held');
+ const clock=canonical239And([`${a}.guild_id='${BETA_RESET_GUILD_ID}'`,`${a}.role_id IN(${CANONICAL_RANKS233.map(r=>"'"+r.roleId+"'").join(',')})`,`${a}.desired=1`,`${a}.state='settled'`,native232Hex(a+'.id',32),`${a}.proof_id IS NULL`,
+  `typeof(${a}.created_at)='integer'`,`${a}.created_at>0`,`typeof(${a}.expires_at)='integer'`,`${a}.expires_at>${a}.created_at`,`${a}.expires_at<=${a}.created_at+300`,`typeof(${a}.checked_at)='integer'`,`${a}.checked_at>=${a}.created_at`,`${a}.checked_at<${a}.expires_at`]);
+ const launchFacts=canonical239And([`${a}.native_profile='prime-native-230'`,`${a}.role_id='${SHARED_MEMBER232}'`,native232Hex(a+'.request_digest',64),`typeof(${a}.roster_id)='integer'`,`${a}.roster_id>0`,`typeof(${a}.native_guid)='text'`,`instr(${a}.native_guid,char(0))=0`,`${a}.native_rank IS NULL`,`${a}.native_rank_name IS NULL`]);
+ const ack=[
+  `(${a}.purpose IN('canonical_consumed233','canonical_routine233') AND ${a}.reason='canonical233_put_acknowledged_and_confirmed' AND (${canonical233KnownReceipt(a)}))`,
+  `(${a}.purpose='canonical_migration233' AND ${a}.reason='canonical233_migration_put_acknowledged_and_confirmed' AND (${canonical233MigrationKnownReceipt(a)}))`,
+  `(${a}.purpose='launch_membership230' AND ${a}.reason='launch230_put_acknowledged_and_confirmed' AND (${launch230KnownReceipt(a)}) AND (${launchFacts}) AND ${native232Hex(a+'.claim_nonce',32)})`,
+  `(${a}.purpose IN('launch_routine_membership232','fresh_roster_rank','staff_roster_rank') AND ${a}.reason='native232_put_acknowledged_and_confirmed' AND (${native232KnownReceipt(a)}))`
+ ].join(' OR ');
+ const observed=[
+  `(${a}.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}') AND ${a}.purpose IN('canonical_consumed233','canonical_routine233') AND ${a}.reason='canonical233_observed_without_dispatch' AND ((${native232Hex(a+'.request_digest',64)} AND ${canonical233GrantFacts(a)}) OR (${canonical233ManualGrantFacts(a)})))`,
+  `(${a}.purpose='launch_membership230' AND ${a}.reason='launch230_current_role_observed' AND (${launchFacts}))`,
+  `(${a}.native_profile='${NATIVE_RANK_PROFILE232}' AND ${a}.purpose='launch_routine_membership232' AND ${a}.role_id='${SHARED_MEMBER232}' AND ${a}.reason='native232_observed_without_dispatch' AND ${native232Hex(a+'.request_digest',64)} AND ${native232GrantFacts(a)})`
+ ].join(' OR ');
+ return canonical239And([clock,`((${ack}) OR (${a}.attempts=0 AND ${a}.claim_nonce IS NULL AND (${observed})))`]);
+}
 type Native232Parent=Readonly<{canonical?:boolean;profile?:string;id:string;nonce:string;subject:string;generation:string|null;guild:string;role:string;purpose:string;createdAt:number;expiresAt:number;digest:string;check:()=>void}>;
 export type NativeRankSettlement232=Readonly<{state:Settlement['state'];reason:string;outcomes:readonly Settlement[]}>;
 /** Same central request/CAS/Native result custody as the existing lane. A JSON

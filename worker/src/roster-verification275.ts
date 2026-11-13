@@ -1,3 +1,4 @@
+import {neutralIdentityShape280,NEUTRAL_IDENTITY_PROFILE280,NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 import {directiveAndSql280} from './directive-native-authority';
 /** Shared read-only classification. A historical identity receipt is not a role
  * acknowledgement, current provider membership or an effect capability. */
@@ -50,7 +51,7 @@ export const recognizedMembershipAnchor232=(policy:string,canonical="'null'",cut
  `((a.attempts=1 AND ${byteHex('a.claim_nonce',32)} AND a.reason='canonical233_put_acknowledged_and_confirmed')
  OR (a.attempts=0 AND a.claim_nonce IS NULL AND a.purpose IN('canonical_consumed233','canonical_routine233') AND a.reason='canonical233_observed_without_dispatch')
  OR (a.attempts=0 AND a.claim_nonce IS NULL AND a.purpose='canonical_identity233' AND a.reason='canonical233_original_control_verified'))`
-])})`;
+])} OR ${directiveAndSql280([neutralIdentityShape280('a'),'a.subject=c.discord_id','a.subject_generation IS p.generation','a.native_guid=c.guid','a.created_at>=c.bound_at','a.created_at>=c.verified_at',`a.created_at>=${cutoff}`])})`;
 
 export type RosterLineageCapture275=Readonly<{nativePolicy:string;canonicalPolicy:string;current:()=>boolean}>;
 /** Capture source configuration once for the entire read/provider-await graph.
@@ -72,14 +73,22 @@ export function rosterVerificationSql275(at:string,cutoff:string,nativePolicy:st
   AND NOT EXISTS(SELECT 1 FROM privacy_subjects block WHERE block.subject_id=c.discord_id AND block.state<>'active')
   AND NOT EXISTS(SELECT 1 FROM rename_holds rh WHERE rh.discord_id=c.discord_id AND rh.state='reapply')`;
  const exact=`c.status='member' AND c.guid=rm.guid AND g.links=1 AND ng.links=1`;
- const anchorId=`CASE WHEN ${exact} AND ${standing}
+ const canonicalAnchorId=`CASE WHEN ${exact} AND ${standing}
   AND typeof(c.bound_at)='integer' AND c.bound_at BETWEEN 1 AND ${at}
   AND typeof(c.verified_at)='integer' AND c.verified_at BETWEEN c.bound_at AND ${at} AND c.verified_at<${cutoff}
   AND c.source IN('whisper','mail') AND json_extract(${canonicalPolicy},'$.enabled')=1
-  THEN (SELECT a.id FROM role_settlements a WHERE a.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}')
+  THEN (SELECT a.id FROM role_settlements a WHERE a.native_profile IN('${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}','${NEUTRAL_IDENTITY_PROFILE280}')
    AND a.purpose IN('canonical_identity233','canonical_consumed233','canonical_routine233')
    AND a.created_at<=${at} AND (${recognizedMembershipAnchor232(nativePolicy,canonicalPolicy,cutoff)})
    ORDER BY a.created_at,a.id LIMIT 1) ELSE NULL END`;
+ const neutralAnchorId=`CASE WHEN ${exact} AND ${standing}
+   AND typeof(c.bound_at)='integer' AND c.bound_at BETWEEN 1 AND ${at}
+   AND typeof(c.verified_at)='integer' AND c.verified_at BETWEEN c.bound_at AND ${at}
+   AND c.source IN('whisper','mail') THEN (SELECT a.id FROM role_settlements a WHERE (${neutralIdentityShape280('a')})
+    AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid
+    AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at AND a.created_at>=${cutoff} AND a.created_at<=${at}
+    ORDER BY a.created_at,a.id LIMIT 1) ELSE NULL END`;
+ const anchorId=`COALESCE((${neutralAnchorId}),(${canonicalAnchorId}))`;
  const pending=`COALESCE((SELECT CASE WHEN typeof(pp.created_at)='integer' AND pp.created_at BETWEEN ${cutoff} AND ${at}
   AND NOT EXISTS(SELECT 1 FROM privacy_subjects privacy_pending WHERE privacy_pending.subject_id=pp.discord_id AND privacy_pending.state<>'active')
   THEN 'pending' ELSE 'unknown' END FROM pending pp WHERE pp.name_key=rm.name_key AND pp.consumed_at IS NULL AND pp.expires_at>${at}

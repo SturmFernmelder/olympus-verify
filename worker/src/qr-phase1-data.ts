@@ -1,3 +1,4 @@
+import {neutralIdentityShape280,neutralIdentityTagged280} from './consumed-identity280';
 /** Five explicit source families. Export is an own-only bounded projection; erasure runs in its caller's ONE batch. */
 import {BETA_WINDOW_COLUMNS,betaWindowErasureStatement,betaWindowOwnSelect,projectOwnBetaWindowCopy} from './qr-beta-fern-data';
 import type { Env } from './env';
@@ -11,7 +12,7 @@ const related=`subject=?1 OR proof_id IN(SELECT id FROM verification_proofs WHER
 // The new routine family retains unresolved custody regardless of a malformed
 // attempt count. Its removal/compensation child may still need the exact own PUT
 // parent; no generation filter or current-role GET can erase that old witness.
-const native232Tagged=(a:string)=>`(${a}.purpose IN('launch_routine_membership232','native_rank_compensation232','canonical_identity233','canonical_entitlement233','canonical_consumed233','canonical_routine233','canonical_compensation233','canonical_migration233','canonical_migration_remove233','canonical_migration_compensation233','canonical_migration_reservation239') OR ${a}.native_profile IS 'olympus-prime-live-20261105-v1' OR ${a}.native_profile IS 'olympus-canonical-ranks-20261106-v1' OR ${a}.native_profile IS 'olympus-canonical-migration-20261106-v1')`;
+const native232Tagged=(a:string)=>`(${neutralIdentityTagged280(a)} OR ${a}.purpose IN('launch_routine_membership232','native_rank_compensation232','canonical_identity233','canonical_entitlement233','canonical_consumed233','canonical_routine233','canonical_compensation233','canonical_migration233','canonical_migration_remove233','canonical_migration_compensation233','canonical_migration_reservation239') OR ${a}.native_profile IS 'olympus-prime-live-20261105-v1' OR ${a}.native_profile IS 'olympus-canonical-ranks-20261106-v1' OR ${a}.native_profile IS 'olympus-canonical-migration-20261106-v1')`;
 /** This new purpose has no dispatch/claim path. Only its exact expired Native
  * no-network shape may leave custody after positively observed generation
  * retirement/supersession. A missing subject row is not retirement authority. */
@@ -25,7 +26,7 @@ const migration239ExpiredLease=(a:string)=>`(CASE WHEN ((${a}.purpose='canonical
  AND NOT EXISTS(SELECT 1 FROM role_settlements lease_child239 WHERE lease_child239.request_digest=${a}.id)
  AND EXISTS(SELECT 1 FROM privacy_subjects lease_subject239 WHERE lease_subject239.subject_id=${a}.subject
  AND ((lease_subject239.generation IS ${a}.subject_generation AND lease_subject239.state IN('retiring','retired')) OR (lease_subject239.generation IS NOT ${a}.subject_generation AND lease_subject239.state IN('active','retiring','retired'))))) THEN 1 ELSE 0 END)`;
-const native232Unresolved=(a:string)=>`(${native232Tagged(a)} AND ${a}.state IN('pending','dispatching','unknown') AND NOT(${migration239ExpiredLease(a)}))`;
+const native232Unresolved=(a:string)=>`((${neutralIdentityTagged280(a)} AND NOT(${neutralIdentityShape280(a)})) OR ${native232Tagged(a)} AND ${a}.state IN('pending','dispatching','unknown') AND NOT(${migration239ExpiredLease(a)}))`;
 const native232CurrentAbsence=`EXISTS(SELECT 1 FROM role_settlements ni JOIN privacy_serving_jobs nj ON ni.id=nj.operation_id||':native_role_inventory'
  WHERE ni.subject=?1 AND ni.subject=nj.subject_id AND ni.subject_generation=nj.subject_generation AND ni.request_digest=nj.request_digest
  AND ni.purpose='native_account_erasure_inventory' AND ni.desired=0 AND ni.attempts=0 AND ni.state='settled' AND ni.reason='observed_absent'
@@ -127,10 +128,19 @@ export function qrExportPlan(env:Env,id:string):ExportPlan {
  ['challenges','SELECT created_at,expires_at,used_at,mode,max_proofs,proofs_used FROM councillor_challenges WHERE signer=?1 ORDER BY created_at,nonce'],
  ['requests','SELECT created_at,expires_at,used_at,state FROM verification_requests WHERE requester=?1 ORDER BY created_at,code'],
  ['attestations',"SELECT id,CASE WHEN requester=?1 THEN 'requester' ELSE 'signer' END AS own_part,CASE WHEN requester=?1 THEN CASE WHEN typeof(requester_name)='text' AND length(requester_name) BETWEEN 1 AND 60 AND length(CAST(requester_name AS BLOB))<=240 AND instr(requester_name,char(0))=0 THEN requester_name ELSE json_extract('privacy_qr_copy_text_refused','$') END ELSE NULL END AS requester_name,CASE WHEN requester=?1 THEN native_rank ELSE NULL END AS native_rank,CASE WHEN requester=?1 THEN CASE WHEN typeof(rank_name)='text' AND length(rank_name) BETWEEN 1 AND 64 AND length(CAST(rank_name AS BLOB))<=256 AND instr(rank_name,char(0))=0 THEN rank_name ELSE json_extract('privacy_qr_copy_text_refused','$') END ELSE NULL END AS rank_name,created_at,expires_at FROM verification_proofs WHERE requester=?1 OR signer=?1 ORDER BY created_at,id"],
- ['roleOutcomes',"SELECT id,purpose,desired,state,reason,attempts,native_rank,CASE WHEN native_rank_name IS NULL THEN NULL ELSE CASE WHEN typeof(native_rank_name)='text' AND length(native_rank_name) BETWEEN 1 AND 64 AND length(CAST(native_rank_name AS BLOB))<=256 AND instr(native_rank_name,char(0))=0 THEN native_rank_name ELSE json_extract('privacy_qr_copy_text_refused','$') END END AS native_rank_name,created_at,expires_at,checked_at FROM role_settlements WHERE subject=?1 ORDER BY created_at,id"],
+ ['roleOutcomes',`SELECT CASE WHEN ${neutralIdentityTagged280('role_settlements')} THEN NULL ELSE id END AS id,purpose,desired,state,reason,attempts,
+  CASE WHEN ${neutralIdentityTagged280('role_settlements')} THEN NULL ELSE native_rank END AS native_rank,
+  CASE WHEN ${neutralIdentityTagged280('role_settlements')} THEN NULL WHEN native_rank_name IS NULL THEN NULL ELSE CASE WHEN typeof(native_rank_name)='text' AND length(native_rank_name) BETWEEN 1 AND 64 AND length(CAST(native_rank_name AS BLOB))<=256 AND instr(native_rank_name,char(0))=0 THEN native_rank_name ELSE json_extract('privacy_qr_copy_text_refused','$') END END AS native_rank_name,
+  CASE WHEN ${neutralIdentityTagged280('role_settlements')} THEN 1 ELSE 0 END AS __identity_control280,created_at,expires_at,checked_at FROM role_settlements WHERE subject=?1 ORDER BY role_settlements.created_at,role_settlements.id`],
  ] as const;
  return {statements:selects.flatMap(([,sql])=>[env.DB.prepare(`${sql} LIMIT 1000`).bind(id),env.DB.prepare(`SELECT COUNT(*) AS count FROM (${sql})`).bind(id)]),
- shape:(results)=>Object.fromEntries(selects.map(([name],i)=>[name,{rows:results[i*2]!.results.map(raw=>{const r=raw as Record<string,unknown>;return name==='betaFernWindows'?projectOwnBetaWindowCopy(r):name==='attestations'?{...r,...ownCopyProofFacts(r)}:name==='roleOutcomes'?{...r,...ownCopyRankFacts(r)}:r;}),total:(results[i*2+1]!.results[0] as {count:number}).count,limit:1000,complete:(results[i*2+1]!.results[0] as {count:number}).count<=1000}]))};
+ shape:(results)=>Object.fromEntries(selects.map(([name],i)=>[name,{rows:results[i*2]!.results.map(raw=>{const r=raw as Record<string,unknown>;return name==='betaFernWindows'?projectOwnBetaWindowCopy(r):name==='attestations'?{...r,...ownCopyProofFacts(r)}:name==='roleOutcomes'?projectRoleOutcome280(r):r;}),total:(results[i*2+1]!.results[0] as {count:number}).count,limit:1000,complete:(results[i*2+1]!.results[0] as {count:number}).count<=1000}]))};
+}
+/** This flag describes only the exported record, never the member's current roles. */
+function projectRoleOutcome280(raw:Record<string,unknown>){
+ const {__identity_control280,...row}=raw;const base={...row,...ownCopyRankFacts(row)};
+ return __identity_control280===1?{...base,recordKind:'identity-control',roleGranted:false,
+  roleGrantedMeaning:'This identity-control record makes no Discord role grant; current roles are separate. Rank fields are not part of this record kind.'}:base;
 }
 registerCommunityData('councillor_verification',qrErasureStatements,qrExportPlan);
 registerServingPrivacyFamilies('councillor_verification',[

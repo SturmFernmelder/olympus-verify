@@ -33,6 +33,21 @@ async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcil
 import {captureLaunchVerification} from './launch-verification227';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 function currentNativeVerification242(env:Env):boolean{const capture=captureLaunchVerification(env);return capture.mode==='members-only'&&capture.scope!==null&&capture.current();}
+/** Informational previous-result hint only: no identity, role or re-link authority. */
+async function originalIdentityHint280(env:Env,subject:string):Promise<boolean>{
+ if(!/^[1-9][0-9]{16,19}$/.test(subject))return false;
+ const row=await env.DB.prepare(`SELECT a.action,a.ts,a.details,p.generation,p.state FROM audit a
+  LEFT JOIN privacy_subjects p ON p.subject_id=a.subject WHERE a.actor='system' AND a.subject=?1
+  AND a.action IN('role.request242_finished','role.native232_attempt') ORDER BY a.id DESC LIMIT 1`)
+  .bind(subject).first<{action:string;ts:number;details:string|null;generation:string|null;state:string|null}>();
+ if(!row||row.action!=='role.request242_finished'||row.state!==null&&row.state!=='active'||!Number.isSafeInteger(row.ts)||row.ts<1||row.ts>now()||typeof row.details!=='string'||row.details.length>4096)return false;
+ let value:unknown;try{value=JSON.parse(row.details);}catch{return false;}
+ if(!value||typeof value!=='object'||Array.isArray(value))return false;const v=value as Record<string,unknown>;
+ return v.schema==='role-request280-v1'&&Object.hasOwn(v,'generation')&&v.generation===row.generation&&Number.isSafeInteger(v.requestId)&&Number(v.requestId)>0
+  &&v.state==='held'&&v.reason==='native232_original_identity_or_source_held';
+}
+const ORIGINAL_IDENTITY_HINT280='Your previous check could not confirm the original identity proof or current guild source. Ask an officer to refresh the guild data. If access is still held, press **Verify another character** and send its fresh code from **the same character**. Older links are not backfilled automatically.';
+const ORIGINAL_IDENTITY_TOOLS_HELD280='This existing link needs a fresh request code to prove control again, but current officer tools have not confirmed support for request codes. Ask an officer to update and sync them, then use **Verify another character** from this same character. Your link is retained; no fresh code or role was issued.';
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
 type Defer = (label: string, work: () => Promise<unknown>) => void;
@@ -179,8 +194,10 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
   if (currentNativeVerification242(env) && existing && existing.discord_id === user.id && ['member','verified','queued'].includes(existing.status) && existing.verified_at) {
     // Ownership is already recorded; the latest roster can update rank immediately.
     // The queue carries no identity authority: the original Native issuer rechecks it.
+    const originalHeld=await originalIdentityHint280(env,user.id);
+    if(originalHeld&&!await ticketsReady(env))return reply(ORIGINAL_IDENTITY_TOOLS_HELD280);
     const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_request')??Object.freeze({kind:'held' as const});
-    return issueReply280(reply(`**${existing.name}** is already linked to your account. ${roleRequestText280(reconciliation)} No new code or whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind.`),{reconciliation});
+    return issueReply280(reply(`**${existing.name}** is already linked to your account. ${roleRequestText280(reconciliation)} ${originalHeld?ORIGINAL_IDENTITY_HINT280:'No new code or whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind.'}`),{reconciliation});
   }
   if (captureLaunchVerification(env).mode==='legacy' && existing && existing.discord_id === user.id && existing.status === "member") {
     const note = restoreNote(await restoreMemberRole(env, user.id, roles, "verify",roleDispatch));
@@ -283,7 +300,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
   if (member?.banned) return reply("This account cannot verify. Contact High Council if you think that is a mistake.");
   if(currentNativeVerification242(env)&&!newCharacter){
     const linked=await env.DB.prepare("SELECT name FROM characters WHERE discord_id=?1 AND status IN('member','verified','queued') AND verified_at IS NOT NULL AND guid IS NOT NULL ORDER BY verified_at DESC LIMIT 1").bind(user.id).first<{name:string}>();
-    if(linked){const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_button')??Object.freeze({kind:'held' as const});return issueReply280(reply(`**${linked.name}** is already linked. ${roleRequestText280(reconciliation)} No new whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.`),{reconciliation});}
+    if(linked){const originalHeld=await originalIdentityHint280(env,user.id);if(originalHeld&&!await ticketsReady(env))return reply(ORIGINAL_IDENTITY_TOOLS_HELD280);const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_button')??Object.freeze({kind:'held' as const});return issueReply280(reply(`**${linked.name}** is already linked. ${roleRequestText280(reconciliation)} ${originalHeld?ORIGINAL_IDENTITY_HINT280:'No new whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.'}`),{reconciliation});}
   }
 
   // Until an officer's addon and watcher that understand request codes have checked in (relays.ts), a request code
@@ -343,6 +360,7 @@ async function cmdStatus(env: Env, i: Interaction,roleDispatch:BetaRoleDispatch=
   // /verify-status and the guide's "My status" button are where people look when their access has gone missing.
   const restored = restoreNote(await restoreMemberRole(env, user.id, i.member?.roles, "status",roleDispatch));
   if (restored) lines.push(restored);
+  if(currentNativeVerification242(env)&&await originalIdentityHint280(env,user.id))lines.push(ORIGINAL_IDENTITY_HINT280);
   // .114: a rename Blizzard required (rename-review.ts): the account applies again, and this is where the member reads why
   const hold = await openRenameHold(env, user.id);
   if (hold) lines.push(reapplyText(hold));

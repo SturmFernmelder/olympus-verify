@@ -177,12 +177,17 @@ export async function reconcileRoleBatch242(env:Env,subjects:readonly string[]):
 /** Server-observed cache only. The addon cannot turn this receipt into identity
  * or a role grant; it can answer the same character without another whisper. */
 export async function verificationResults242(env:Env):Promise<{guid:string;character:string;status:string;discordRole:string|null;observedAt:number;expiresAt:number}[]>{
+ // Lazy, read-only reuse preserves module initialization order and existing receipt semantics.
+ const known=(await import('./role-settlements')).roleObservationSql280('s');
  const t=now(),rows=await env.DB.prepare(`SELECT c.guid,c.name,c.verified_at,
- (SELECT s.role_id FROM role_settlements s WHERE s.subject=c.discord_id AND s.desired=1 AND s.state='settled'
- AND s.checked_at>=CAST(strftime('%s','now') AS INTEGER)-300 AND NOT EXISTS(SELECT 1 FROM role_settlements newer WHERE newer.subject=s.subject AND newer.role_id=s.role_id AND newer.desired=0 AND newer.state='settled' AND newer.checked_at>=s.checked_at) AND NOT EXISTS(SELECT 1 FROM role_settlements u WHERE u.subject=s.subject AND u.state IN('dispatching','unknown') AND u.attempts=1) AND s.role_id IN (${CANONICAL_RANKS233.map(r=>"'"+r.roleId+"'").join(',')}) ORDER BY s.checked_at DESC LIMIT 1) AS role_id
+ (SELECT s.role_id FROM role_settlements s WHERE s.subject=c.discord_id
+ AND s.guild_id=?1 AND s.subject_generation IS (SELECT generation FROM privacy_subjects WHERE subject_id=c.discord_id)
+ AND (${known})
+ AND s.checked_at<=CAST(strftime('%s','now') AS INTEGER)
+ AND s.checked_at>=CAST(strftime('%s','now') AS INTEGER)-300 AND NOT EXISTS(SELECT 1 FROM role_settlements newer WHERE newer.subject=s.subject AND newer.role_id=s.role_id AND newer.desired=0 AND newer.state='settled' AND newer.checked_at>=s.checked_at) AND NOT EXISTS(SELECT 1 FROM role_settlements u WHERE u.subject=s.subject AND u.state IN('dispatching','unknown') AND u.attempts=1) ORDER BY s.checked_at DESC LIMIT 1) AS role_id
  FROM characters c WHERE c.status='member' AND c.verified_at IS NOT NULL AND c.guid IS NOT NULL
  AND NOT EXISTS(SELECT 1 FROM members m WHERE m.discord_id=c.discord_id AND m.banned=1)
  AND NOT EXISTS(SELECT 1 FROM privacy_subjects p WHERE p.subject_id=c.discord_id AND p.state<>'active')
- ORDER BY c.verified_at DESC,c.name_key LIMIT 500`).all<{guid:string;name:string;verified_at:number;role_id:string|null}>();
+ ORDER BY c.verified_at DESC,c.name_key LIMIT 500`).bind(env.GUILD_ID??'').all<{guid:string;name:string;verified_at:number;role_id:string|null}>();
  return rows.results.map(r=>({guid:r.guid,character:r.name,status:r.role_id?'verified':'pending-role',discordRole:CANONICAL_RANKS233.find(x=>x.roleId===r.role_id)?.name??null,observedAt:t,expiresAt:t+300}));
 }

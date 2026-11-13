@@ -1,3 +1,4 @@
+import {neutralIdentityShape280} from './consumed-identity280';
 /** Finite local history for this closed beta source. Unknown effects are continuing custody, never expiry. */
 import type { Env } from './env';
 import { BETA_RESET_CUTOFF,BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
@@ -162,7 +163,10 @@ export function betaResetReceiptRetentionStatements(env:Env):D1PreparedStatement
  const activeLegacy232=`(r.purpose='launch_membership230' AND r.desired=1 AND r.attempts=1 AND r.state='settled' AND r.reason='launch230_put_acknowledged_and_confirmed' AND (${native232.configured||canonical.configured?'1=1':`EXISTS(SELECT 1 FROM role_settlements lineage232 WHERE lineage232.subject=r.subject AND lineage232.guild_id=r.guild_id AND lineage232.native_profile IN('${NATIVE_RANK_PROFILE232}','${CANONICAL_PROFILE233}','${DIRECTIVE_CANONICAL_PROFILE}'))`}))`;
  return [
  env.DB.prepare(`DELETE FROM role_settlements WHERE id IN(SELECT r.id FROM role_settlements r
-  WHERE ((${T}>=${BETA_RESET_CUTOFF}+${YEAR} AND ${scope('r')} AND ((${unspent}) OR (${removed}) OR (${legacy}))) OR ((${launchSingle}) AND NOT(${activeLegacy232}))) OR ((${native232.single}) OR (${canonical.single}))
+  WHERE ((${T}>=${BETA_RESET_CUTOFF}+${YEAR} AND ${scope('r')} AND ((${unspent}) OR (${removed}) OR (${legacy}))) OR ((${launchSingle}) AND NOT(${activeLegacy232}))) OR ((${native232.single}) OR (${canonical.single}) OR ((${neutralIdentityShape280('r')}) AND r.created_at<${T}-${YEAR}
+ AND NOT EXISTS(SELECT 1 FROM characters live WHERE live.discord_id=r.subject AND live.guid=r.native_guid AND live.status IN('member','left_pending') AND live.bound_at<=r.created_at AND live.verified_at<=r.created_at)
+ AND NOT EXISTS(SELECT 1 FROM role_settlements ref WHERE ref.request_digest=r.id OR ref.id=r.request_digest)
+ AND NOT EXISTS(SELECT 1 FROM role_settlements debt WHERE debt.subject=r.subject AND debt.guild_id=r.guild_id AND debt.state IN('pending','dispatching','unknown'))))
   ORDER BY r.created_at,r.id LIMIT 1000)`),
  env.DB.prepare(`WITH candidates AS (
   SELECT p.id AS parent,c.id AS child,c.checked_at AS child_checked FROM role_settlements p JOIN role_settlements c ON c.request_digest=p.id
