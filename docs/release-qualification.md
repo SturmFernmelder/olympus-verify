@@ -37,10 +37,16 @@ says what runs today and where it still falls short of the directive's wording.
      for both Native sweep selectors, against every table in the database: each
      full scan must match an entry of `KNOWN_REQUEST_SCANS` or
      `KNOWN_SWEEP_SCANS` (in `worker/tests/launch_roster_pacing271_runtime.mjs`)
-     by exact plan text and count. A new scan, a changed one or one more
-     occurrence fails the target, and so does a `SCAN` target the check cannot
-     resolve to a table. The pinned scans are the shipped plans, not a pass:
-     they are listed under "Known full scans" below;
+     by exact plan text and count. A full scan is a `SCAN` row, or a
+     `SEARCH ... USING AUTOMATIC [PARTIAL] [COVERING] INDEX` row, on a table or
+     a table alias: an automatic index is what SQLite plans for a join on an
+     unindexed column, and it is built by reading the whole table on every run.
+     Rows on a common table expression, a derived table or an unnamed subquery
+     are not table reads (the reads inside them are plan rows of their own). A
+     new scan, a changed one or one more occurrence fails the target, and so
+     does a scan target the check cannot resolve to a table. The pinned scans
+     are the shipped plans, not a pass: they are listed under "Known full
+     scans" below (the shipped plans have no automatic index on a table);
    - every read statement of the page and the display, and both sweep selectors,
      re-run alone on the same data the requests read (before the ingest writes a
      new snapshot), finishes in under one second. Locally the slowest takes tens
@@ -65,7 +71,7 @@ says what runs today and where it still falls short of the directive's wording.
    | `site-launch229.ts` `linked_guids` CTE (`GROUP BY guid` over all characters) | page (two launch reads) | `SCAN characters` | 2 |
    | `unverified.ts` `linked_guids` CTE | display | `SCAN characters` | 1 |
    | `roster.ts` member insert (about lines 728-733): `EXISTS(... privacy_subjects ps ... instr(note, ps.subject_id))` for the public and the officer note of every row; no index can serve `instr()` | ingest (20 statements of 50 rows) | `SCAN ps` (privacy_subjects) | 40, so about 2,000 whole-table probes for 1,000 members |
-   | `roster.ts` `BOUND_SELECT` (every bound character joined to members) | ingest | `SCAN c` (characters), `SCAN m` (members) | 1 each |
+   | `roster.ts` `BOUND_AND_NOTE_SELECT` (about line 155), one statement: its `BOUND_SELECT` arm reads every bound character (`characters LEFT JOIN privacy_subjects`), its `UNION ALL` arm every member with `banned=0` | ingest | `SCAN c` (characters, `BOUND_SELECT` arm), `SCAN m` (members, `UNION ALL` arm) | 1 each |
    | `roster.ts` latest-snapshot status read (about line 1211) | ingest | `SCAN s`, `SCAN a` (roster_snapshots); `SCAN d`, `SCAN u` (roster_effect_runs) | 1 each |
    | `full-release-roles.ts` `CANONICAL233_SWEEP249_SELECT` | canonical sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN r USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord`, `SCAN roster_snapshots` | 1 each |
    | `full-release-roles.ts` `NATIVE232_SWEEP249_SELECT` | Native sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord` | 1 each |

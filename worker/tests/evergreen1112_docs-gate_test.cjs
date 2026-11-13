@@ -71,6 +71,25 @@ async function budget() {
   const masked = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SCAN zz'}]})} : genuine.prepare(sql)};
   const closed = await mod.fullScans(masked, [{sql: 'SELECT * FROM members', values: []}]);
   check('a SCAN target that cannot be resolved to a table is reported, so the gate fails closed', closed.unresolved.length === 1 && closed.scans.length === 0);
+  // 12 Nov review (REV-GATE-1): an equality join on an unindexed column plans as SEARCH ... USING AUTOMATIC ... INDEX,
+  // which builds an index over the whole table on every run. On a physical table that is a full scan.
+  const automatic = await mod.fullScans(genuine, [
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN audit a ON a.action = m.discord_id', values: []},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN audit ON audit.action = m.discord_id', values: []},
+    {sql: 'WITH recent AS MATERIALIZED (SELECT name_key FROM roster_members WHERE snapshot_id = ?1) SELECT m.banned FROM members m LEFT JOIN recent x ON x.name_key = m.discord_id', values: [1]},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN (SELECT action FROM audit GROUP BY action) AS d ON d.action = m.discord_id', values: []},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN (SELECT action FROM audit GROUP BY action) ON action = m.discord_id', values: []},
+  ]);
+  const autoRows = automatic.scans.filter(s => / USING AUTOMATIC /.test(s.detail));
+  check('an unindexed equality join (automatic index) on a table, by alias or by name, is reported as a full scan of that table',
+    autoRows.length === 2 && autoRows.every(s => s.table === 'audit' && /^SEARCH (?:a|audit) USING AUTOMATIC (?:PARTIAL )?(?:COVERING )?INDEX \(action=\?\)/.test(s.detail)));
+  check('an automatic index on a CTE, a derived table or an unnamed subquery is not counted as a table read',
+    automatic.unresolved.length === 0 && !automatic.scans.some(s => /^SEARCH (?:x|d|\(subquery-\d+\)) /.test(s.detail)));
+  check('the allow-list key of an automatic-index scan names the table and the exact plan text',
+    mod.scanCounts(automatic.scans)['audit: SEARCH a USING AUTOMATIC COVERING INDEX (action=?) LEFT-JOIN'] === 1);
+  const maskedAuto = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SEARCH zz USING AUTOMATIC COVERING INDEX (x=?)'}]})} : genuine.prepare(sql)};
+  const closedAuto = await mod.fullScans(maskedAuto, [{sql: 'SELECT * FROM members', values: []}]);
+  check('an automatic-index target that cannot be resolved to a table is reported, so the gate fails closed', closedAuto.unresolved.length === 1 && closedAuto.scans.length === 0);
   db.close();
   const runtime = read('worker/tests/launch_roster_pacing271_runtime.mjs'), target = read('worker/tests/launch_roster_pacing271_workerd_test.cjs');
   check('the promotions target measures the page, the strict display and a 1,000-member ingest through worker.fetch',
@@ -79,6 +98,19 @@ async function budget() {
   check('the promotions target explains every table and pins each known scan exactly',
     runtime.includes('await fullScans(genuine, log)') && runtime.includes('KNOWN_REQUEST_SCANS') && runtime.includes("'privacy_subjects: SCAN ps': 40")
     && runtime.includes('result.unresolved.length === 0') && runtime.indexOf("await timed('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
+  // 12 Nov review (REV-GATE-2): the ingest's members scan comes from BOUND_AND_NOTE_SELECT's UNION ALL arm, not from
+  // BOUND_SELECT (characters LEFT JOIN privacy_subjects). Proven on the schema, then the two descriptions are checked.
+  const roster = read('worker/src/roster.ts'), schemaDb = new DatabaseSync(':memory:');
+  schemaDb.exec(read('worker/schema.sql'));
+  const boundSql = roster.match(/const BOUND_SELECT=`([^`]*)`/)[1], noteArm = roster.match(/const BOUND_AND_NOTE_SELECT=BOUND_SELECT\+`([^`]*)`/)[1];
+  const planOf = sql => schemaDb.prepare('EXPLAIN QUERY PLAN ' + sql).all().map(r => r.detail);
+  check('BOUND_SELECT alone scans characters only; BOUND_AND_NOTE_SELECT adds the members scan',
+    planOf(boundSql).includes('SCAN c') && !planOf(boundSql).includes('SCAN m') && planOf(boundSql + noteArm).includes('SCAN m'));
+  schemaDb.close();
+  const rqDoc = read('docs/release-qualification.md'), memberRow = rqDoc.split('\n').find(line => line.startsWith('   |') && line.includes('`SCAN m`')) ?? '';
+  check('the known-scans table and the runtime comment attribute the members scan to BOUND_AND_NOTE_SELECT',
+    memberRow.includes('BOUND_AND_NOTE_SELECT') && /UNION ALL[^|]*banned=0/.test(memberRow)
+    && /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime));
   check('the promotions target fails unless all sixteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===16'));
 }
 
@@ -109,6 +141,22 @@ function docs() {
     && /frontend_check\.cjs[\s\S]{0,700}historical\s+diagnostic/.test(claude) && /Nothing in the gate enforces this now: `tests\/hosts_test\.cjs`/.test(claude));
   check('CLAUDE.md says ROLE_GUILD_MEMBER is the Member rank role with two write paths',
     !claude.includes('legacy Guild Member writer') && /ROLE_GUILD_MEMBER[\s\S]{0,200}same\s+role,\s+`1552077551839617104`/.test(claude) && claude.includes('two write paths'));
+  // MNT-RUN-001 (Codex): the scheduled budget test's preamble must state the source schedule qualifier as the source has it.
+  const budgetSrc = read('worker/src/scheduled-budget.ts'), scheduleTest = read('worker/tests/scheduled_budget_test.cjs');
+  const qualified = (budgetSrc.match(/export const EPOCH2_SCHEDULE_QUALIFIED=(true|false) as const;/) || [])[1];
+  const preamble = scheduleTest.slice(0, scheduleTest.indexOf('\nconst '));
+  check('the scheduled budget test preamble states the source schedule qualifier as the source sets it (' + qualified + ')',
+    qualified === 'true' && !/qualifier stays false/.test(preamble) && /EPOCH2_SCHEDULE_QUALIFIED has been true since \.161/.test(preamble));
+  // MNT-BRANCH-001 (Codex): the download document describes the package the builder makes now, and keeps 0.6.21 historical.
+  const pack = require(path.join(root, 'scripts/build-verify-addon.cjs'));
+  const download = read('docs/verify-addon-download.md'), split = download.indexOf('\n## Historical');
+  const current = split < 0 ? download : download.slice(0, split), past = split < 0 ? '' : download.slice(split);
+  const excluded = JSON.parse(read(pack.MANIFEST)).localFilesExcluded;
+  check('the addon download document describes the current package (' + pack.VERSION + ', ' + pack.FILES.length + ' files) and every private-file exclusion',
+    current.includes('olympus-verify-' + pack.VERSION + '.zip') && current.includes('allow-list of ' + pack.FILES.length + ' public files')
+    && excluded.every(name => current.includes('`' + name + '`')) && current.includes('--check'));
+  check('the 0.6.21 package, its 17 source files and the retired pin model appear only as history',
+    !/0\.6\.21|\b17 (?:listed )?source files|pins the three/.test(current) && /0\.6\.21/.test(past) && /17 listed source files/.test(past));
   const rq = read('docs/release-qualification.md');
   check('release qualification documents the offline Lua run, the Watcher suite and the D1 assertions', rq.includes('--all-offline') && rq.includes('unittest discover -s watcher/tests') && rq.includes('ROSTER_INGEST_STATEMENTS') && rq.includes('role_settlements'));
   check('release qualification states the current D1 catalogue', rq.includes('444 live') && rq.includes('443 portable'));
@@ -123,8 +171,39 @@ function docs() {
   check('README names the current site host', !readme.includes('guild.roachcouncil.com') || /former|legacy|old/i.test(readme.slice(Math.max(0, readme.indexOf('guild.roachcouncil.com') - 200), readme.indexOf('guild.roachcouncil.com') + 200)));
 }
 
+// 12 Nov 2026 follow-up (route cases): every file under the member-gated talent archive has an anonymous post-deployment
+// case, and each recorded expectation is what the actual Worker entry answers an anonymous caller (asset and database
+// bindings are traps, so the check also proves the 401 comes before any read).
+async function routes() {
+  const crypto = require('node:crypto'), cases = JSON.parse(read('tools/public-route-cases.json')).cases;
+  const expected = Number((read('tools/check-public-routes.cjs').match(/const EXPECTED_CASES=(\d+);/) || [])[1]);
+  check('the post-deployment replay expects exactly the recorded number of route cases (' + cases.length + ')', expected === cases.length);
+  const site = 'https://olympus.roachcouncil.com', dir = 'worker/public/static/talents/archive';
+  const files = [];
+  const walk = rel => { for (const e of fs.readdirSync(path.join(root, rel), {withFileTypes: true})) e.isDirectory() ? walk(rel + '/' + e.name) : files.push(rel.slice('worker/public'.length) + '/' + e.name); };
+  if (fs.existsSync(path.join(root, dir))) walk(dir);
+  const archive = cases.filter(c => c.url.startsWith(site + '/static/talents/archive/'));
+  check('every talent archive file has exactly one anonymous GET route case (' + files.length + ' files)',
+    files.length > 0 && files.every(file => archive.filter(c => c.method === 'GET' && c.url === site + file).length === 1) && archive.length === files.length);
+  const {load} = require('./helpers/privacy129_fixture.cjs');
+  const index = load('index').default;
+  let touched = 0;
+  const env = {PUBLIC_BASE_URL: 'https://olympus-verify.roach-council.workers.dev', SITE_HOST: 'olympus.roachcouncil.com',
+    ASSETS: {fetch: async () => { touched++; return new Response('asset', {status: 200}); }}};
+  Object.defineProperty(env, 'DB', {get() { touched++; throw Error('anonymous static request touched the database'); }});
+  const answers = [];
+  for (const c of archive) {
+    const response = await index.fetch(new Request(c.url, {method: c.method}), env, {waitUntil() {}, passThroughOnException() {}});
+    const body = Buffer.from(await response.arrayBuffer());
+    answers.push(response.status === c.status && crypto.createHash('sha256').update(body).digest('hex') === c.bodySHA256
+      && c.headers.every(h => { const v = response.headers.get(h.name); return h.mode === 'absent' ? v === null : h.mode === 'equals' ? v === h.value : typeof v === 'string' && v.includes(h.value); }));
+  }
+  check('the actual Worker entry answers each talent archive case exactly as recorded (401, before any asset or database read)',
+    archive.length > 0 && answers.length === archive.length && answers.every(Boolean) && archive.every(c => c.status === 401) && touched === 0);
+}
+
 (async () => {
-  await budget(); ci(); docs();
+  await budget(); ci(); docs(); await routes();
   console.log(`\n${passed}/${passed + failed} docs-gate checks passed`);
   process.exitCode = failed ? 1 : 0;
 })().catch(error => { console.error(error); process.exitCode = 1; });

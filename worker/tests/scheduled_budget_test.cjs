@@ -3,7 +3,9 @@
 // Each modular job runs under original global fetch dispatch. No source exports or guards are replaced.
 // The ordinary scheduled({}, own waitUntil) calls remain exact held attempts, not whole-capacity acceptance.
 // Existing Workerd six-case/seven-callback evidence supports local query counts only: maximum 602/700.
-// Provider 30-second and Worker 128 MiB qualification remain false; the source schedule qualifier stays false.
+// The source schedule qualifier EPOCH2_SCHEDULE_QUALIFIED has been true since .161 (exact-tree whole-Native measurement at
+// the 700 bound; asserted below); it was false before .161. This test does not qualify the provider's 30-second CPU limit
+// or the Worker's 128 MiB memory: production still needs the post-deploy tick readback (scheduled-budget.ts).
 // Historical raised-cap, direct roster grant/flush and request migration branches are explicitly unavailable.
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
