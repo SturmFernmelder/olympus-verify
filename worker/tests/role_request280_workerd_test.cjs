@@ -1,8 +1,8 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto'),os=require('node:os');
 const {build}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.join(__dirname,'..'),args=process.argv.slice(2),arg=k=>args[args.indexOf(k)+1],phase=args.includes('--before')?'before':'after';if(!args.includes('--out'))throw Error('--out required');
-const evidence=path.resolve(arg('--out')),out=path.join(evidence,phase+'-'+crypto.randomUUID()),runtime='C:/Users/vikto/.codex/tmp/rq-'+crypto.randomUUID().slice(0,8),seedPath=path.join(out,'seed.json');fs.mkdirSync(out,{recursive:true});fs.mkdirSync(runtime,{recursive:true});
+const evidence=path.resolve(arg('--out')),out=path.join(evidence,phase+'-'+crypto.randomUUID()),runtime=path.join(os.tmpdir(),'rq-'+crypto.randomUUID().slice(0,8)),seedPath=path.join(out,'seed.json');fs.mkdirSync(out,{recursive:true});fs.mkdirSync(runtime,{recursive:true});
 const H=b=>crypto.createHash('sha256').update(b).digest('hex'),files=['src/role-reconcile242.ts','src/interactions.ts','src/verification242.ts','tests/pending_request280_plans.mjs','tests/role_request280_workerd_fixture.mjs','tests/role_request280_workerd_test.cjs'],pins=()=>Object.fromEntries(files.map(f=>[f,H(fs.readFileSync(path.join(root,f)))])),before=pins(),cases=[],http=[];
 const check=(name,pass,value)=>{cases.push({name,pass:!!pass,value});console.log((pass?'PASS ':'FAIL ')+name+(value?' '+JSON.stringify(value):''));};
 (async()=>{let mf;try{
