@@ -27,6 +27,7 @@
     mp5: "Mana per 5 sec", hp5: "Health per 5 sec", fireResistance: "Fire resistance", frostResistance: "Frost resistance",
     natureResistance: "Nature resistance", shadowResistance: "Shadow resistance", arcaneResistance: "Arcane resistance" };
   const SLOT_LABEL = { "finger 1": "Ring 1", "finger 2": "Ring 2", "off hand/ranged": "Off hand / Ranged" };
+  const STATUS_LABEL = Object.freeze({ live: "Live", announced: "Announced", "pinned-data": "Talent snapshot", pending: "Pending" });
   let dataPromise = null;
 
   const fail = message => { throw Error(message); };
@@ -64,7 +65,7 @@
     }
     for (const c of data.classes) {
       if (!c || !/^[a-z]+$/.test(c.id) || !isText(c.name, 40) || !textsOk(c.overview, 4) || !isList(c.changes, 8) || !isList(c.classQuests, 6) || !isList(c.specs, 3) || c.specs.length !== 3) fail("class");
-      if (c.changes.some(x => !x || !isText(x.text) || !["announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("class changes");
+      if (c.changes.some(x => !x || !isText(x.text) || !["live", "announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("class changes");
       if (c.classQuests.some(q => !q || !isText(q.title, 120) || !isText(q.levelHint, 60) || !isText(q.note) || !GRADES.includes(q.grade) || !sourceOk(q.sources))) fail("class quests");
       for (const s of c.specs) {
         if (!s || !/^[a-z-]+$/.test(s.id) || !isText(s.name, 40) || !isList(s.roles, 2) || !s.roles.every(r => ROLE_ICON[r]) || !s.beginner || !s.pro || !s.pvp || !s.whatChanged) fail("spec");
@@ -99,7 +100,7 @@
         flaskSpells.add(spell);
       }
     }
-    if (t.whatChanged.some(x => !x || !isText(x.topic, 60) || !isText(x.text) || !["announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("compendium");
+    if (t.whatChanged.some(x => !x || !isText(x.topic, 60) || !isText(x.text) || !["live", "announced", "pinned-data", "pending"].includes(x.status) || !sourceOk(x.sources))) fail("compendium");
     if (!isList(data.classSummary, 9) || data.classSummary.some(x => !x || !isText(x.name, 40) || ["changed", "same", "moved", "new", "classicOnly"].some(k => !Number.isInteger(x[k])))) fail("summary");
     return data;
   }
@@ -238,7 +239,7 @@
         class: "btn small" + (spec && s.id === spec.id ? " active" : ""), "aria-current": spec && s.id === spec.id ? "page" : null }, icon(ROLE_ICON[s.roles[0]]), " " + s.name))));
       if (cls.overview.length > 1) frag.push(section("Class overview", list(cls.overview.slice(1))));
       if (cls.changes.length) frag.push(section("What Forever changes for " + cls.name, el("ul", { class: "guides218-list" }, cls.changes.map(x =>
-        el("li", null, el("span", { class: "guides218-status", "data-status": x.status, text: x.status === "announced" ? "Announced" : x.status === "pinned-data" ? "Talent snapshot" : "Pending" }), " ",
+        el("li", null, el("span", { class: "guides218-status", "data-status": x.status, text: STATUS_LABEL[x.status] }), " ",
           x.status === "pinned-data" ? x.text.replace(/^Talent snapshot, /, "") : x.text, " ", sourcesLine(data, x.sources))))));
       if (cls.classQuests.length) { collect(used, cls.classQuests); frag.push(section("Class quests", el("ul", { class: "guides218-claims" }, cls.classQuests.map(q =>
         el("li", { class: "guides218-claim" }, el("strong", { text: q.title }), " (" + q.levelHint + ") ", grade(data, q.grade), " ", q.note, " ", sourcesLine(data, q.sources)))))); }
@@ -310,7 +311,7 @@
         section("One roster, three raid sizes",
           el("p", { text: "Adapted from Fox (akaFoxSlayer)’s raid leadership guidelines for Olympus. Use this as a planning framework and adjust it to the encounter, roster and availability." }),
           el("p", { text: "Start with eight groups of five. Keep the smaller groups familiar with one another and give each team comparable leadership, preparation and support." }),
-          el("p", null, "Blizzard announced December 9 for the first three Forever raids. See ", external("https://worldofwarcraft.blizzard.com/en-us/news/24303009", "Blizzard Entertainment — raid sizes and attunements"), "."),
+          el("p", null, "Blizzard set 9 December 2026 as the unlock date for the first three Forever raids. See ", external("https://worldofwarcraft.blizzard.com/en-us/news/24303009", "Blizzard Entertainment — raid sizes and attunements"), "."),
           el("table", { class: "guides218-table" },
             el("caption", { text: "How the eight groups combine" }),
             el("thead", null, el("tr", null, ["Forever raid", "Group assignments"].map(text => el("th", { scope: "col", text })))),
@@ -343,7 +344,7 @@
         frag.push(el("p", { class: "muted small", text: "Ticks stay on this page only and reset when you reopen it." }));
         for (const a of t.attunements) {
           collect(used, [a.requirement, ...a.steps]);
-          frag.push(section(a.raid + " (" + a.size + " players)", el("p", { text: "Opens: " + a.opens }), el("ul", { class: "guides218-claims" }, claim(data, a.requirement)),
+          frag.push(section(a.raid + " (" + a.size + " players)", el("p", { text: "Unlock date: " + a.opens }), el("ul", { class: "guides218-claims" }, claim(data, a.requirement)),
             checklistSections(data, a.steps, "Attunement steps", "Raid details")));
         }
         collect(used, [...t.preBis.slots.map(s => s.guidance), ...t.preBis.checklist]);
@@ -357,7 +358,8 @@
       } else if (id === "raid-structure") {
         frag.push(...raidStructure());
       } else if (id === "changes") {
-        const groups = [["announced", "Announced by Blizzard"], ["pinned-data", "From the talent snapshot"], ["pending", "Not settled yet"]];
+        // CL2-173 (12 Nov 2026): what is already live in the game comes first, then what Blizzard has announced.
+        const groups = [["live", "Live in the game"], ["announced", "Announced by Blizzard"], ["pinned-data", "From the talent snapshot"], ["pending", "Not settled yet"]];
         for (const [status, name] of groups) {
           const rows = t.whatChanged.filter(x => x.status === status);
           if (rows.length) frag.push(section(name, el("dl", { class: "guides218-compendium" }, rows.map(x => [el("dt", { text: x.topic }), el("dd", null, x.text, " ", sourcesLine(data, x.sources))]))));
@@ -455,18 +457,23 @@
         box, total, flaskComparison);
     }
 
+    // CL2-105 (12 Nov 2026): an address that matches no guide or tool still gets the page H1 and a way back.
+    function notFound(title, text) {
+      return [el("header", { class: "guides218-head" }, el("div", null, el("h1", { text: title }), el("p", { role: "status", text }))),
+        el("p", null, link("#/resources", "Back to " + GUIDES_TITLE, "btn"))];
+    }
     function render(data) {
       const view = options.view, frag = [];
       if (view === "class") {
         const cls = data.classes.find(c => c.id === options.classId), spec = cls && options.specId ? cls.specs.find(s => s.id === options.specId) : null;
-        if (!cls || (options.specId && !spec)) frag.push(el("p", { text: "There is no such guide." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
+        if (!cls || (options.specId && !spec)) frag.push(...notFound("Guide not found", "There is no such guide."));
         else frag.push(...classView(data, cls, spec));
       } else if (view === "profession") {
         const p = data.professions.find(x => x.key === options.profession);
-        if (!p) frag.push(el("p", { text: "There is no such guide." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
+        if (!p) frag.push(...notFound("Guide not found", "There is no such guide."));
         else frag.push(...professionView(data, p));
       } else if (view === "tool") {
-        if (!TOOLS.some(x => x[0] === options.tool)) frag.push(el("p", { text: "There is no such tool." }), link("#/resources", "Back to " + GUIDES_TITLE, "btn"));
+        if (!TOOLS.some(x => x[0] === options.tool)) frag.push(...notFound("Tool not found", "There is no such tool."));
         else frag.push(...toolView(data, options.tool));
       } else frag.push(...hub(data));
       shell.replaceChildren(...frag.filter(Boolean));

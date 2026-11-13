@@ -474,7 +474,7 @@ const links = n => n.tags('a').map(a => a.getAttribute('href'));
     && assignments?.join('|') === '1–2,3–4,5–6,7–8|1–4,5–8|1–8');
   check('the raid grouping table names the first Forever raids with their announced capacities',
     m.box.tags('tbody')[0]?.tags('th').map(text).join('|') === 'Barrow Deeps · 10 players|Hyjal Summit · 20 players|Onyxia’s Lair · 40 players'
-    && text(m.box).includes('December 9') && links(m.box).includes('https://worldofwarcraft.blizzard.com/en-us/news/24303009'));
+    && text(m.box).includes('9 December 2026') /* CL2-177 (12 Nov 2026): a dated unlock fact */ && links(m.box).includes('https://worldofwarcraft.blizzard.com/en-us/news/24303009'));
   const raidPublisher = m.box.tags('a').find(a => a.getAttribute('href') === 'https://worldofwarcraft.blizzard.com/en-us/news/24303009');
   check('Fox’s guide uses the same safe external window and referrer policy for the publisher link',
     raidPublisher?.getAttribute('target') === '_blank' && raidPublisher.getAttribute('rel') === 'noopener noreferrer');

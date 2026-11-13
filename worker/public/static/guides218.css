@@ -3,7 +3,9 @@
 .guides218 h1{margin:0 0 4px;font-size:clamp(24px,4vw,34px);line-height:1.15}
 .guides218 h2{margin:0 0 10px;font-size:20px}
 .guides218 h3{margin:14px 0 6px;font-size:16px}
-.guides218-head{display:flex;gap:14px;align-items:flex-start}
+.guides218-head{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;min-width:0}
+/* CL2-281 (12 Nov 2026): at 200% zoom on a phone the hero text shrinks and wraps beside or under its icon instead of being clipped. */
+.guides218-head>div{flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
 .guides218-head .guides218-icon{width:56px;height:56px;flex:0 0 56px;border-radius:6px}
 .guides218-lead{margin:0 0 6px;font-size:16px}
 .guides218-icon{width:24px;height:24px;vertical-align:middle;border-radius:4px}
