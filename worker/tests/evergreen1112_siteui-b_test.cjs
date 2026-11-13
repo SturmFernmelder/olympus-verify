@@ -82,6 +82,17 @@ async function sourceChecks() {
     const entry = (json.match(/\{\s*"id": "olympus-guild"[\s\S]*?\n    \}/) || [''])[0];
     check('CL2-071', 'the catalogue entry carries no version, minimum version, release date or file link', !!entry && !/"(?:version|minimumVersion|releasedAt|fileUrl)":/.test(entry), entry.slice(0, 160));
   }
+  if (want('R4-6')) {
+    // Round 4 item 6 (13 Nov 2026): the operator guide follows the integration documents corrected in round 3 (CL2-233): it
+    // names the current author release 1.5.8, points at the integration record's activation limits, and dates 1.4.4.
+    const guide = src('docs/launch229-operator.md');
+    const paras = guide.split(/\n\s*\n/).filter(p => /\b1\.4\.4\b/.test(p));
+    const present = paras.filter(p => /\b(?:is|are) 1\.4\.4\b|addon is 1\.4\.4|exists\b|do not qualify/.test(p));
+    const integration = src('docs/dan155-integration.md');
+    check('R4-6', 'docs/launch229-operator.md names Olympus Guild 1.5.8 as the current author release, links the integration record\'s activation limits and speaks of 1.4.4 only in the past',
+      /current author release of the third-party Olympus Guild addon is 1\.5\.8/.test(guide) && guide.includes('(dan155-integration.md#current-status-12-november-2026)') && /^## Current status \(12 November 2026\)$/m.test(integration)
+      && /\| Off now \| Before it is switched on \| Who switches it \|/.test(integration) && paras.length >= 1 && present.length === 0, { present: present.map(p => p.slice(0, 160)) });
+  }
   if (want('CL2-259')) {
     // Round 3 (13 Nov 2026): the Terms page names its contact, as the Privacy Policy does, and the served copy is regenerated.
     const terms = src('policies/terms.html');
