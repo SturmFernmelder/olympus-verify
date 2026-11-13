@@ -24,11 +24,12 @@ import { DIRECTIVE_RANK_NAMES, qualifiedNativeSnapshotSource } from './native-ra
 /** The planning programme's renderer, financial model, content and stylesheet. Royal Writs stay member-readable. */
 export const TREASURY_PLAN_ASSETS = Object.freeze(["/static/treasury-plan207.js", "/static/treasury-plan-model207.js", "/static/treasury-plan-content207.js", "/static/treasury-plan207.css"]);
 export const TREASURY_ACCESS_PATH = "/api/treasury-plan/access";
-/** CL2-091 (owner ruling, 13 Nov 2026, "Co-GM and Treasurer"): the appointment route reads the published Council seats,
- * office_19 (Hand of the Sovereign · Co-Guild Master) and office_86 (Lord High Treasurer · Minister of the Imperial
- * Exchequer), the primary keys of the role directory's co_gm and treasurer families. They replace the legacy display
- * keys co_gm and treasurer (aliases of those seats); no other seat is added. Proof and currentness are unchanged. */
-export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86"] as const);
+/** CL2-091: two published seat families. The source catalogue retains co_gm
+ * as office_19's alias, and treasurer/rank_treasurer as office_86's aliases.
+ * Admit only these closed keys with their own original current publication proof;
+ * never retarget a signature, migrate the stored map or infer a native rank.
+ * Final raw-map, account/session and privacy-generation readmission is unchanged. */
+export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86", "co_gm", "treasurer", "rank_treasurer"] as const);
 const OFFICER_RANKS = new Set(["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
 const HEADER_NAMES = ["Cookie", "Origin", "Sec-Fetch-Site", "X-Olympus"];
 const DISCORD_KEYS = ["SITE_GUILD_ID", "GUILD_ID", "DISCORD_BOT_TOKEN", "ROLE_GUILD_MASTER", "ROLE_GUILD_LEADER", "ROLE_OFFICER", "ROLE_RAID_LEADER", "CANONICAL_RANKS233"] as const;
