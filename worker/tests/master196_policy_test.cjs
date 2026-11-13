@@ -4,7 +4,9 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const worker = path.join(__dirname, '..'), repo = path.join(worker, '..'), cache = new Map();
 // .201 site-data constructs its position copy from the real role guides and
 // current reserved-seat classifier; those pure dependencies must not be stubs.
-const real = new Set(['ruleset-profile', 'qr-phase1', 'native-rank-adapter', 'governance-offices', 'ruleset-publication-data', 'site-data', 'site-role-guides201', 'application-track199']);
+const real = new Set(['ruleset-profile', 'qr-phase1', 'native-rank-adapter', 'governance-offices', 'ruleset-publication-data', 'site-data', 'site-role-guides201', 'application-track199',
+  // Our 9f866bd (CL2-046) builds site-data's rank-role map from the canonical rank table at load; both are static data.
+  'canonical-ranks233', 'native-rank-constants']);
 let networkCalls = 0;
 globalThis.fetch = async () => { networkCalls++; throw Error('No provider access in policy checks'); };
 function load(name) {
