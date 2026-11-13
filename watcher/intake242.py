@@ -140,11 +140,15 @@ def _privacy_body_denied280(watcher, body, source):
     if local_privacy280.legacy(body):
         return True
     if local_privacy280.financial(body):
-        # Unknown financial shapes stay local even with an otherwise readable
-        # addon marker. Only the existing closed, clock/collector/HMAC-qualified
-        # v2 path can reach canonical hashing and its normal validators.
         semantic = {k: v for k, v in body.items() if k not in _VOLATILE}
-        return intake_schema280.financial_error(semantic, watcher.secret, watcher.officer) is not None
+        if unknown:
+            # An unreadable source still needs the original full validation
+            # before any financial body can reach hashing or adoption.
+            return intake_schema280.financial_error(semantic, watcher.secret, watcher.officer) is not None
+        # Readable-source privacy denial checks body shape only. The existing
+        # policy validator must record sticky clock/key/officer holds, and an
+        # original terminal ACK keeps its separate, unrenewed projection window.
+        return intake_schema280.financial_shape_error(semantic) is not None
     return False
 
 
