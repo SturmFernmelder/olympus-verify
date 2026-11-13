@@ -14,6 +14,10 @@ export function buildAllianceOverview205(data, directory) {
   if (!Array.isArray(directory.groups) || directory.groups.length !== 6) throw new Error("The catalogue groups are unavailable.");
   const groups = directory.groups.map(group => ({ key: group.key, title: group.label, families: [] }));
   const groupByKey = new Map(groups.map(group => [group.key, group]));
+  // RC-034 (Evergreen round 3, 12 Nov 2026): the live build also placed each branch role under its department lane or under
+  // "Justice & independent review" (reporting through justice or auditor). Codex asked to keep those contextual views; they
+  // return as lists of links beside the six groups, by the live build's own rule, never as a second set of cards.
+  const contexts = { independent: [], lanes: Object.fromEntries(ORGANIZATION_LANES205.map(lane => [lane.key, []])) };
   const seen = new Set(), sourceKeys = new Set();
   for (const family of directory.families) {
     if (seen.has(family.key) || !TIERS205[family.tier] || !family.sourceKeys.includes(family.primaryKey)) throw new Error("Invalid canonical role family.");
@@ -29,6 +33,11 @@ export function buildAllianceOverview205(data, directory) {
     }
     const groupKey = family.group;
     if (!groupByKey.has(groupKey)) throw new Error("A canonical role has no catalogue group.");
+    if (family.kind !== "institution" && family.tier === "officer_corps") {
+      const lane = ORGANIZATION_LANES205.find(row => ancestors.has(row.rootId));
+      if (ancestors.has("justice") || ancestors.has("auditor")) contexts.independent.push(family);
+      else if (lane) contexts.lanes[lane.key].push(family);
+    }
     const slots = new Set();
     for (const key of family.sourceKeys) {
       if (sourceKeys.has(key)) throw new Error("Duplicate canonical role source.");
@@ -51,7 +60,7 @@ export function buildAllianceOverview205(data, directory) {
   })) throw new Error("The complete current High Council roster is unavailable.");
   const seatOrder = councilSeats.map(seat => seat.familyKey);
   if (!Array.isArray(directory.councilOrder) || directory.councilOrder.join("|") !== seatOrder.slice(1).join("|")) throw new Error("The Council order differs from the office register.");
-  return { groups, councilSeats, ranks: directory.ranks, sourceKeyCount: sourceKeys.size, relationships: data.nodes.filter(node => node.parent && node.relation !== "classification").map(node => ({ from: node.id, to: node.parent, kind: node.relation })) };
+  return { groups, contexts, councilSeats, ranks: directory.ranks, sourceKeyCount: sourceKeys.size, relationships: data.nodes.filter(node => node.parent && node.relation !== "classification").map(node => ({ from: node.id, to: node.parent, kind: node.relation })) };
 }
 
 export function renderAllianceOverview205(data, ui, onSelectNode) {
@@ -71,7 +80,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
   const guild = h("select", { id: "org-alliance-guild205", "aria-label": "Explore a guild branch context" }, h("option", { value: "", text: "All Olympus branches" }), data.guildPlaceholders.map(row => h("option", { value: row.name, text: guildDisplayName229(row.name) })));
   const branchTitle = h("h3", { text: "OLYMPUS PRIME / Olympus II–X · local guild management" });
   const branchDescription = h("p");
-  const families = [], familyCounts = [], seatReferences = [], referenceGroups = [];
+  const families = [], familyCounts = [], seatReferences = [], familyReferences = [], referenceGroups = [];
   function nodeButton(id, text) {
     return h("button", { type: "button", class: "btn small", text, onclick: () => onSelectNode?.(id) });
   }
@@ -144,10 +153,18 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     referenceGroups.push({ element: box, rows: seatReferences.slice(start) });
     return box;
   }
+  // RC-034: which branch and specialist role families serve a department, or do independent review; each links to its card.
+  function familyContext(list, title, key) {
+    if (!list.length) return null;
+    const rows = list.map(family => { const element = h("li", null, h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: family.label })); familyReferences.push({ element, familyKey: family.key }); return { element }; });
+    const box = h("div", { class: "org-alliance-council-references", "data-alliance-context1112": key }, h("strong", { text: title }), h("ul", null, rows.map(row => row.element)));
+    referenceGroups.push({ element: box, rows });
+    return box;
+  }
   const departments = h("div", { class: "org-alliance-departments", "aria-label": "Olympus-wide departments and shared support" }, ORGANIZATION_LANES205.map(lane => {
     const node = nodes.get(lane.rootId);
     return h("section", { class: "org-alliance-lane", "data-lane": lane.key }, h("div", { class: "org-alliance-lane-heading" }, posIcon(node.icon), h("h3", { text: lane.title })), h("p", { text: lane.summary }),
-      councilReferences(lane.rootId), h("ul", null, lane.duties.map(text => h("li", { text }))), h("details", null, h("summary", { text: "Mandate & boundaries" }), h("p", { text: node.remit }), h("p", { text: lane.boundary }), nodeButton(node.id, "See reporting & coordination")));
+      councilReferences(lane.rootId), familyContext(model.contexts.lanes[lane.key], "Branch and specialist roles in this department", lane.key), h("ul", null, lane.duties.map(text => h("li", { text }))), h("details", null, h("summary", { text: "Mandate & boundaries" }), h("p", { text: node.remit }), h("p", { text: lane.boundary }), nodeButton(node.id, "See reporting & coordination")));
   }));
   const empty = h("p", { class: "org-alliance-empty", role: "note", hidden: true, text: "No role families match these filters. Try an alternate title or reset the filters." });
   function describeBranch() {
@@ -170,7 +187,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
       const drawer = box.closest?.("details.org-alliance-group1112");
       if (drawer && (query.length || slot !== null)) drawer.open = shown > 0;
     }
-    for (const reference of seatReferences) reference.element.hidden = families.find(row => row.family.key === reference.familyKey).element.hidden;
+    for (const reference of [...seatReferences, ...familyReferences]) reference.element.hidden = families.find(row => row.family.key === reference.familyKey).element.hidden;
     for (const group of referenceGroups) group.element.hidden = group.rows.every(row => row.element.hidden);
     empty.hidden = count !== 0;
     status.textContent = count + " of " + families.length + " role families · ten native ranks · " + (guild.value || "all branch scopes") + ". Rank badges describe associations, not permissions or reporting lines.";
@@ -182,7 +199,8 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     h("p", { class: "org-alliance-legend small", text: "Leadership sets the common charter. Department columns organize work; horizontal placement gives no command authority. Justice and Audit retain independent review. Open the relationship map below for the exact reporting and coordination lines." }),
     groupSection("council", "org-alliance-council", "The Leader chairs the Council; the Co-Guild Master and twelve numbered portfolios follow in protocol order, then the Council's institutions. Council appointments add no rank.", councilRoster),
     h("div", { class: "org-alliance-support" }, h("section", { class: "org-alliance-independent" }, h("h3", { text: "Justice & independent review" }),
-      h("p", { text: "The Lord High Justiciar holds the individual High Council portfolio. Judicial case panels and the Bank Auditor conduct unconflicted reviews independently of the officer or Treasury custodian whose work is under review." }), councilReferences("justice"))),
+      h("p", { text: "The Lord High Justiciar holds the individual High Council portfolio. Judicial case panels and the Bank Auditor conduct unconflicted reviews independently of the officer or Treasury custodian whose work is under review." }), councilReferences("justice"),
+      familyContext(model.contexts.independent, "Role families that do independent review", "independent"))),
     // CL2-043: the department lanes and branch guides are disclosures too, closed on phones.
     (() => { const box = h("details", { class: "org-alliance-group1112", "data-alliance-departments1112": "true", open: !narrow }, h("summary", null, h("h3", { text: "Departments & shared support" }), h("span", { class: "badge muted", text: String(ORGANIZATION_LANES205.length) })), departments); box.open = !narrow; return box; })(),
     h("details", { class: "org-alliance-branches org-alliance-group1112", open: !narrow }, h("summary", null, h("h3", { text: "Guild branches & local command" })), branchTitle, branchDescription,
