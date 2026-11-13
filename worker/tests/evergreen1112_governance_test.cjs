@@ -330,6 +330,8 @@ async function browserChecks(BASE, CDP_PORT) {
   // Browser checks print their measurement on PASS too, so the receipts carry numbers.
   const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
   try {
+    await round4Checks({ open, ev, show, bcheck, cdp, H });
+    if (argv.includes('--round4')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     // INT-GOV-1 (CL2-100): navigation landmarks are the site menu and one page-contents list; per-chapter rows are groups.
     const navs = {};
     for (const width of [1280, 375]) for (const route of ['governance', 'roles', 'organization']) {
@@ -422,6 +424,55 @@ async function browserChecks(BASE, CDP_PORT) {
       Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
+}
+
+// ================================================================ round 4 browser checks (13 Nov 2026)
+// Composite contrast: the text colour against the element's own background stack, layer by layer up to the first opaque
+// layer (a parchment layer counts as its tinted base colour, rgb(236,218,176); the page base is black). The body's dark
+// gradient is ignored, which only makes the backdrop lighter, so gold text is measured on the less favourable side.
+const CONTRAST_JS = `const L=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4};const lum=([r,g,b])=>0.2126*L(r)+0.7152*L(g)+0.0722*L(b);
+const ratio=(a,b)=>{const x=lum(a),y=lum(b);return Math.round((Math.max(x,y)+0.05)/(Math.min(x,y)+0.05)*100)/100};
+const parse=s=>{const m=(s.match(/[\\d.]+/g)||[]).map(Number);return [m[0]||0,m[1]||0,m[2]||0,m.length>3?m[3]:1]};
+const backdrop=e=>{const layers=[];for(let n=e;n&&n.nodeType===1;n=n.parentElement){const c=getComputedStyle(n);if(/parchment\\.jpg/.test(c.backgroundImage)){layers.push([236,218,176,1]);break}const l=parse(c.backgroundColor);if(l[3]>0)layers.push(l);if(l[3]>=1)break}
+let col=[0,0,0];for(let i=layers.length-1;i>=0;i--){const [r,g,b,a]=layers[i];col=[r*a+col[0]*(1-a),g*a+col[1]*(1-a),b*a+col[2]*(1-a)]}return col.map(Math.round)};
+const contrastOf=e=>ratio(parse(getComputedStyle(e).color),backdrop(e));`;
+// A word is broken when its own text range covers more than one line box.
+const WORDS_JS = `const lines=r=>new Set([...r.getClientRects()].filter(x=>x.width>0).map(x=>Math.round(x.top))).size;
+const brokenWords=root=>{const out=[];const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);for(let t;(t=w.nextNode());){const re=/\\S+/g;for(let m;(m=re.exec(t.data));){const r=document.createRange();r.setStart(t,m.index);r.setEnd(t,m.index+m[0].length);if(lines(r)>1)out.push(m[0])}}
+// A label of two words ("Slot 0") must stay on one line too.
+for(const s of root.querySelectorAll('.role-rank-slot1112')){const r=document.createRange();r.selectNodeContents(s);if(lines(r)>1)out.push(s.textContent)}return out};`;
+async function round4Checks({ open, ev, show, bcheck }) {
+  // R4-GOV-1: every role-guide subhead is readable (at least 4.5:1) wherever a guide renders: family cards and their
+  // drawers (/#/roles, /#/roles/<key>, /#/roles/rosetta-stone), the vote board and the role dialog on the application form.
+  const subheads = {};
+  for (const [who, width] of [['member', 1280], ['member', 375], ['officer', 320], ['admin', 1440]]) {
+    for (const route of ['roles', 'roles/raider', 'roles/rosetta-stone', 'vote']) {
+      await open(who, width, route);
+      subheads[`${who}/${route}@${width}`] = await ev(`${CONTRAST_JS}for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,300));
+        const hs=[...document.querySelectorAll('main h3.role-subhead, main .role-info > h4')].filter(e=>e.getClientRects().length);const rs=hs.map(contrastOf);
+        return {n:hs.length,min:rs.length?Math.min(...rs):null,colours:[...new Set(hs.map(e=>getComputedStyle(e).color))]}`);
+    }
+  }
+  await open('member', 375, 'apply');
+  subheads['member/apply dialog@375'] = await ev(`${CONTRAST_JS}const b=document.querySelector('button.more');if(!b)return {n:0,min:null,missing:'no Details button'};b.click();await new Promise(r=>setTimeout(r,400));
+    const d=document.querySelector('dialog[open]');const hs=d?[...d.querySelectorAll('h3.role-subhead, .role-info > h4')].filter(e=>e.getClientRects().length):[];const rs=hs.map(contrastOf);
+    const out={n:hs.length,min:rs.length?Math.min(...rs):null,colours:[...new Set(hs.map(e=>getComputedStyle(e).color))]};d?.close();return out`);
+  const low = Object.entries(subheads).filter(([, v]) => !v || !v.n || v.min < 4.5).map(([k, v]) => k + ' ' + show(v));
+  bcheck('R4-GOV-1', 'role-guide subheads ("Responsibilities", "Expectations") reach at least 4.5:1 on /#/roles, /#/roles/raider, the Rosetta Stone, /#/vote and the role dialog (member, officer, admin; 320 to 1440 px)',
+    low.length === 0, low.length ? low.slice(0, 4).join(' | ') : show(subheads));
+
+  // R4-GOV-2: the rank ladder keeps every word and the "Slot N" label whole, with no page overflow, at 320 to 1440 px.
+  const ladders = {};
+  for (const width of [1440, 1280, 1024, 768, 390, 375, 360, 320]) for (const route of ['roles', 'roles/raider', 'roles/rosetta-stone']) {
+    if (width > 400 && width !== 1280 && route !== 'roles') continue;
+    await open('member', width, route);
+    ladders[`${route}@${width}`] = await ev(`${WORDS_JS}const ol=document.querySelector('main ol.role-ranks203');if(!ol)return null;const links=[...ol.querySelectorAll(':scope > li > a')];
+      const cell=links.filter(a=>a.scrollWidth>a.parentElement.clientWidth+1).map(a=>a.textContent);
+      return {links:links.length,broken:brokenWords(ol),cellOverflow:cell,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+  }
+  const bad = Object.entries(ladders).filter(([, v]) => !v || v.links !== 10 || v.broken.length || v.cellOverflow.length || v.over > 0).map(([k, v]) => k + ' ' + show(v));
+  bcheck('R4-GOV-2', 'the Roles rank ladder breaks no rank name or "Slot N" label inside a word and does not overflow (320, 360, 375, 390, 768, 1024, 1280, 1440 px)',
+    bad.length === 0, bad.length ? bad.slice(0, 4).join(' | ') : show({ checked: Object.keys(ladders).length, sample: ladders['roles@320'] }));
 }
 
 // ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views

@@ -1239,7 +1239,9 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .role-reporting218{font-size:.85rem;color:#d6bc7b;border-left:2px solid #8e763f;padding:.35rem .7rem;line-height:1.6}
 .application-reporting218{flex-basis:100%;overflow-wrap:anywhere}
 .role-primary203 .role-info{border:0;background:transparent;padding:0;color:var(--text);box-shadow:none}
-.role-primary203 .role-info>h4{margin-top:1.2rem;letter-spacing:.035em;color:var(--gold-soft)}
+/* Round 4 (13 Nov 2026): the guide subheads became h3.role-subhead (CL2-099); they keep the live build's gold here,
+   where the guide has no parchment behind it (dark red on near-black measured 1.2:1). */
+.role-primary203 .role-info>:is(h4,h3.role-subhead){margin-top:1.2rem;letter-spacing:.035em;color:var(--gold-soft)}
 .role-primary203 .role-info dt,.role-primary203 .role-info :is(b,strong,a){color:var(--gold-soft)}
 .role-primary203 .role-info .muted{color:var(--muted)}
 .role-primary203 .role-info li{margin-bottom:.5rem;line-height:1.65}
