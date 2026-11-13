@@ -126,5 +126,76 @@ check('CL2-045', 'the Roles chooser states the reserved-seat and no-access rule 
 const govHero = app.slice(app.indexOf('h("h1", { text: "The Governance of Olympus" })'), app.indexOf('h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" }'));
 check('CL2-045', 'the Governance page leaves the reserved-seat rule to the book (stated once)', govHero.length > 0 && !govHero.includes('reservedNotice201') && book.includes('Leader, High Council and Officer Corps seats are reserved appointments.'));
 
+// ================================================================ part 2: structure, order, eligibility and access
+// The real Worker sources, transpiled (the bounded qualification's own TypeScript), so these are behaviour checks on the
+// served directory and the served public payload, not string matches. The browser checks are in the lane receipts.
+const ts = require(path.join(__dirname, '..', 'node_modules', 'typescript'));
+const loaded = {};
+function load(name) {
+  if (name.startsWith('node:')) return require(name);
+  name = name.replace(/^\.\//, '');
+  if (loaded[name]) return loaded[name].exports;
+  const m = { exports: {} }; loaded[name] = m;
+  const js = ts.transpileModule(read('worker/src/' + name + '.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('module', 'exports', 'require', js)(m, m.exports, load);
+  return m.exports;
+}
+const offices = load('governance-offices'), tracks = load('application-track199'), siteData = load('site-data');
+const publicMeta = siteData.meta();
+const dir = publicMeta.roleDirectory203, fam = key => dir.families.find(f => f.key === key);
+const GROUPS = [['council', 'Sovereign & High Council'], ['officers', 'Officer Corps & Branch Command'], ['raid', 'Raid, PvP & Class Leadership'],
+  ['workshop', 'Guild Workshop & Master Artisans'], ['members', 'Sworn Members, Raiders, Veterans, Alts & Initiates'], ['royal', 'Royal Patrons & Ceremonial Writs']];
+
+// ---------------------------------------------------------------- CL2-034, CL2-214 one catalogue grouping and order
+const groups = Array.isArray(dir.groups) ? dir.groups : [];
+check('CL2-034', 'the served directory carries the directive\'s six catalogue groups in order', JSON.stringify(groups.map(g => [g.key, g.label])) === JSON.stringify(GROUPS), JSON.stringify(groups.map(g => g.key)));
+const placed = groups.flatMap(g => g.familyKeys);
+check('CL2-034', 'every role family is in exactly one group, and the family list is in group order', placed.length === dir.families.length && new Set(placed).size === placed.length
+  && JSON.stringify(placed) === JSON.stringify(dir.families.map(f => f.key)) && dir.families.every(f => (groups.find(g => g.familyKeys.includes(f.key)) || {}).key === f.group));
+check('CL2-034', 'Founder Recognition is in the same group on every surface (Royal Patrons)', (groups.find(g => g.key === 'royal') || { familyKeys: [] }).familyKeys.includes('founder'));
+const rankFamilies = new Set(dir.ranks.map(r => r.familyKey));
+const sortedBySlot = groups.length === 6 && groups.filter(g => g.key !== 'council').every(g => g.familyKeys.map(fam).every((f, i, all) => i === 0 || (all[i - 1].nativeSlot ?? 99) < (f.nativeSlot ?? 99)
+  || (all[i - 1].nativeSlot ?? 99) === (f.nativeSlot ?? 99) && (rankFamilies.has(all[i - 1].key) || !rankFamilies.has(f.key))));
+check('CL2-214', 'every non-Council group runs by native rank, the rank\'s own family first', sortedBySlot,
+  groups.filter(g => g.key === 'members').map(g => g.familyKeys.map(k => k + ':' + fam(k)?.nativeSlot).join(' ')).join(''));
+
+// ---------------------------------------------------------------- CL2-061, CL2-062 the High Council in protocol order
+const councilFamilies = (groups.find(g => g.key === 'council') || { familyKeys: [] }).familyKeys;
+check('CL2-061', 'the Council group opens with the Leader and the thirteen seats in protocol order', JSON.stringify(councilFamilies.slice(0, 14)) === JSON.stringify(['leader', ...offices.COUNCIL_FAMILY_ORDER]),
+  councilFamilies.slice(0, 5).join(','));
+const seedKeys = [...read('worker/src/site-role-directory203.ts').matchAll(/^\s+\{ key: '([a-z_]+)', label:/gm)].map(m => m[1]);
+check('CL2-061', 'the directory\'s family seed order itself starts with the Leader and the seats in protocol order', JSON.stringify(seedKeys.slice(0, 14)) === JSON.stringify(['leader', ...offices.COUNCIL_FAMILY_ORDER]), seedKeys.slice(0, 4).join(','));
+
+// ---------------------------------------------------------------- CL2-036 one eligibility rule: what the Worker accepts
+const accepted = new Set();
+for (const row of offices.OFFICE_APPOINTMENTS) for (const track of ['member', 'raider', 'artisan']) {
+  const intent = tracks.validateApplicationIntent199(track, row.key, () => false);
+  if (intent && !intent.error && !tracks.reservedApplication201({ applicationTrack: track, targetOffice: row.key })) accepted.add(track + '/' + row.key);
+}
+const offered = new Set(dir.families.flatMap(f => (f.applicationTargets || []).filter(t => t.targetOffice).map(t => t.applicationTrack + '/' + t.targetOffice)));
+check('CL2-036', 'the directory offers exactly the office targets the Worker accepts', accepted.size > 0 && [...accepted].every(k => offered.has(k)) && [...offered].every(k => accepted.has(k)),
+  'worker ' + [...accepted].join(',') + ' · directory ' + [...offered].join(','));
+check('CL2-036', 'Core Raider (office_25) is an accepted Raider-track target and its family says so', accepted.has('raider/office_25') && fam('raid_standing')?.eligibility === 'open_application');
+check('CL2-036', 'reserved leadership families have no target and the reserved eligibility', dir.families.filter(f => f.kind === 'role' && f.tier !== 'member_specialist').every(f => f.eligibility === 'reserved_seat' && f.applicationTargets.length === 0));
+const orgView = read('worker/public/static/organization-view.js'), overview = read('worker/public/static/organization-overview205.js');
+check('CL2-036', 'the register and the alliance overview read the directory rule, not term.applicationEligible or a second label set',
+  !/t\.applicationEligible \?/.test(orgView) && /applicationTargets/.test(orgView) && !/"Role or voluntary activity"/.test(overview) && /eligibilityLabel/.test(overview) && /family\.applicationTargets/.test(app));
+
+// ---------------------------------------------------------------- CL2-037 the Leader card opens with the Sovereign's guide
+const leaderGuide = publicMeta.roleGuides201[fam('leader').primaryKey];
+check('CL2-037', 'the Leader family\'s primary guide is the alliance Sovereign, not the branch Guild Master guide', !/leads an individual Olympus branch/.test(leaderGuide.definition) && /Sovereign/.test(leaderGuide.definition), leaderGuide.definition.slice(0, 60));
+
+// ---------------------------------------------------------------- CL2-046 the Rosetta access column follows the .233 model
+const canonical = load('canonical-ranks233').CANONICAL_RANKS233, treasury = load('site-treasury-access');
+const ladder = offices.NATIVE_RANKS_199.map(r => r.nativeSlot === 0 ? 'Guild Master' : r.name);
+const served = publicMeta.rankDiscordRoles1112;
+check('CL2-046', 'the public payload names one canonical Discord role per rank, from CANONICAL_RANKS233', !!served && served.ranks.length === 10
+  && served.ranks.every((r, slot) => r.nativeSlot === slot && canonical.some(c => c.name === r.roleName)) && new Set(served.ranks.map(r => r.roleName)).size === 10 && served.ranks[0].roleName === 'Olympus Guild Master');
+check('CL2-046', 'the Treasury-plan flag per rank equals the Worker\'s officerRank gate', !!served && served.ranks.every((r, slot) => r.treasuryPlan === treasury.officerRank(ladder[slot], slot, ladder)));
+check('CL2-046', 'the Rosetta no longer prints the pre-.233 access text', !app.includes('Olympus Guild Member after verification') && !app.includes('Olympus Guild Leader;') && app.includes('rankDiscordRoles1112'));
+
+// ---------------------------------------------------------------- CL2-196 rank-planner links land on their rank
+check('CL2-196', 'rank-planner links use the SPA route and the planner scrolls to the prefixed rank id', !app.includes('"/admin/ranks#current-rank-"') && app.includes('"#/admin/ranks/" + (slot + 1)') && app.includes('"#rank-planner-current-rank-" + rankAnchor'));
+
 console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
 process.exit(failed ? 1 : 0);
