@@ -490,6 +490,13 @@ async function browserChecks() {
       const contact = (html.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
       check('CL2-259', 'the served /legal/terms (anonymous) has the Contact section with Rich Campbell and richwcampbell.', res.status === 200 && /Rich Campbell/.test(contact) && /richwcampbell\./.test(contact), { status: res.status, contact: contact.slice(0, 160) });
     }
+    if (want('R4-3')) {
+      // Round 4 item 3 (13 Nov 2026): nobody checked a Forever file on the Olympus Guild CurseForge page (CL2-071, round 3),
+      // so the card's status label claims only the project-page link the site did check.
+      await open('member', 1280, 'addons'); await sleep(800);
+      const r = await ev(`const c=[...document.querySelectorAll('main article, main .resources169-featured')].find(x=>/Olympus Guild/.test(x.querySelector('h2,h3,h4')?.textContent||''));return c?{badges:[...c.querySelectorAll('.badge, [class*=badge]')].map(b=>b.textContent),text:c.textContent.slice(0,400)}:null`);
+      check('R4-3', 'the Olympus Guild card no longer says "Author lists Forever file" and its status label names only the linked project page', !!r && !/Author lists/.test(r.text) && r.badges.includes('Linked to its project page; no file reviewed'), r);
+    }
     if (st.exceptions.length) check('PAGE', 'no page exceptions during the browser checks', false, st.exceptions.slice(0, 3));
   } finally { await cdp.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile briefly. */ } }
 }
