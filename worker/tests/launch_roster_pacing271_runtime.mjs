@@ -10,7 +10,7 @@ import worker from '../src/index.ts';
 import {countingD1, fullScans, scanCounts} from './d1_statement_budget.mjs';
 import {DIRECTIVE_CANONICAL_SWEEP280_SELECT, NATIVE232_SWEEP249_SELECT} from '../src/full-release-roles.ts';
 import {ROSTER_INGEST_STATEMENTS} from '../src/scheduled-budget.ts';
-import {qualifiedNativeSnapshotSource,DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES} from '../src/native-rank-schemes.ts';
+import {qualifiedNativeSnapshotSource,DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_NATIVE_PROFILE,DIRECTIVE_RANK_NAMES} from '../src/native-rank-schemes.ts';
 
 const directivePolicy=()=>JSON.stringify({version:2,enabled:true,profile:DIRECTIVE_CANONICAL_PROFILE,guildId:CANONICAL_GUILD233,ranks:CANONICAL_RANKS233.map(rank=>({...rank,permissions:'0'}))});
 
@@ -262,16 +262,31 @@ async function budget(genuine, ctx) {
     own(name + ' original physical calls/batches each run in under one second on the 1,000-member fixture',
       calls.length > 0 && calls.every(call => !call.failed) && timings[name].physicalStatements === result.statements && slowest < TIMING_CEILING_MS);
   };
-  const page = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v234');
-  own('launch-operations page answers for the 1,000-member roster through the actual Worker', page.status === 200 && page.json.memberCount === 1000 && page.json.entitlements?.total === 1000);
-  own('launch-operations page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', page.statements > 0 && page.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const page = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v235');
+  own('current235 qualified launch page answers for the 1,000-member roster through the actual Worker', page.status === 200 && page.json.protocol === 'officer-operations-v235' && page.json.rankProfile === DIRECTIVE_NATIVE_PROFILE && page.json.memberCount === 1000 && page.json.entitlements?.total === 1000);
+  own('current235 qualified launch page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', page.statements > 0 && page.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const legacy = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v234');
+  own('legacy234 read remains qualified on its separate unchanged protocol', legacy.status === 200 && legacy.json.protocol === 'officer-operations-v234' && legacy.json.memberCount === 1000 && legacy.json.entitlements?.total === 1000);
+  own('legacy234 read stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', legacy.statements > 0 && legacy.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const policy = env.CANONICAL_RANKS233;
+  let rankHeld;
+  try {
+    env.CANONICAL_RANKS233 = 'off';
+    rankHeld = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v235');
+  } finally { env.CANONICAL_RANKS233 = policy; }
+  own('current235 rank-held launch page remains data only for the complete 1,000-member native roster', rankHeld.status === 200 && rankHeld.json.protocol === 'officer-operations-v235' && rankHeld.json.status === 'partial' && rankHeld.json.rankProfile === null && rankHeld.json.rankSchemeDigest === null && rankHeld.json.rankNames === null && rankHeld.json.promotions.length === 0 && rankHeld.json.riskBuffer.length === 0 && rankHeld.json.held.length === 20 && rankHeld.json.heldReasons.includes('directive-rank-policy-held') && rankHeld.json.memberCount === 1000 && rankHeld.json.entitlements?.total === 1000);
+  own('current235 rank-held launch page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', rankHeld.statements > 0 && rankHeld.statements < DIRECTIVE_STATEMENT_LIMIT);
   const display = await call('GET', '/queue/unverified?keyVersion=launch-roster-display-v2');
   own('strict roster display answers for the 1,000-member roster through the actual Worker', display.status === 200 && display.json.verified?.length + display.json.unverified?.length + display.json.unknown?.length === 1000);
   own('strict roster display stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', display.statements > 0 && display.statements < DIRECTIVE_STATEMENT_LIMIT);
   // Both reads, and the sweep selectors, are planned and timed before the ingest changes the data they read.
   await explain('page', page.log);
+  await explain('legacy', legacy.log);
+  await explain('rankHeld', rankHeld.log);
   await explain('display', display.log);
   timedOriginal('page', page);
+  timedOriginal('legacy', legacy);
+  timedOriginal('rankHeld', rankHeld);
   timedOriginal('display', display);
   const sweepBinds = ['800000000000000001', '', 50, 0, 'f'.repeat(32)];
   const sweeps = {directiveCanonical: DIRECTIVE_CANONICAL_SWEEP280_SELECT, historicalNative: NATIVE232_SWEEP249_SELECT};
@@ -293,7 +308,7 @@ async function budget(genuine, ctx) {
   own('the 1,000-member roster ingest stays within the shipped per-invocation admission model of ' + ROSTER_INGEST_STATEMENTS + ' physical D1 statements', ingest.statements > 0 && ingest.statements <= ROSTER_INGEST_STATEMENTS && ingest.allDeferredDrained && ingest.deferredTasks.length > 0);
   await explain('ingest', ingest.log);
   const brief = r => ({status: r.status, statements: r.statements, atResponseCompletedStatements: r.atResponseCompletedStatements, afterResponseOrInFlightStatements: r.afterResponseOrInFlightStatements, deferredTasks: r.deferredTasks, allDeferredDrained: r.allDeferredDrained, milliseconds: r.milliseconds});
-  return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), display: brief(display), ingest: brief(ingest),
+  return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), legacy: brief(legacy), rankHeld: brief(rankHeld), display: brief(display), ingest: brief(ingest),
     ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS, readMilliseconds: TIMING_CEILING_MS}, timings, plans};
 }
 

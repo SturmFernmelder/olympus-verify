@@ -90,7 +90,7 @@ let mf;
       const excluded = ['short-hex', 'duplicate', 'duplicate-own', 'empty-binding'].includes(kind);
       const facts = normalInspect.sourceFacts;
       const expected = excluded ? [] : [
-        { ts: facts.currentClock.ts, version: 242, sourceId: facts.currentId, source: 'mail', guid: facts.guid, copper: 700, kind: null, observedAt: facts.currentClock.observedAt, retainUntil: facts.currentClock.retainUntil, classification: 'unclassified_receipt' },
+        { ts: facts.currentClock.ts, version: 242, sourceId: facts.currentId, source: 'trade', guid: facts.guid, copper: 700, kind: null, observedAt: facts.currentClock.observedAt, retainUntil: facts.currentClock.retainUntil, classification: 'unclassified_receipt' },
         { ts: facts.now, version: 2, sourceId: 'd'.repeat(24), source: 'tithe-gold-v2', guid: facts.guid, copper: 900, kind: 'trade', observedAt: facts.now, retainUntil: facts.now + 2592000, classification: 'unclassified_receipt' },
       ];
       const canonical = value => JSON.stringify(value.map(row => Object.fromEntries(Object.keys(row).sort().map(key => [key, row[key]]))));
@@ -99,6 +99,7 @@ let mf;
         observations.push({ kind, flow, status: response.status, physicalSQL: inspect.copy.physicalStatements, elapsedMilliseconds: inspect.copy.elapsedMilliseconds, treasury: body.community?.treasury242 ?? null, authority: body.identity?.authority ?? 'ordinary_session' });
       }
       check(kind + ' exact GUID/current unique association; no name fallback or malformed receipt', canonical(records) === canonical(expected));
+      check(kind + ' both mail formats and their source IDs are absent despite a valid own GUID', !normalRaw.includes('legacy-mail-with-own-guid') && !normalRaw.includes('e'.repeat(24)) && records.every(row => row.source !== 'mail' && row.kind !== 'mail'));
       check(kind + ' receipt DTO contains only closed scalar fields', records.every(row => JSON.stringify(Object.keys(row).sort()) === JSON.stringify(keys)));
       check(kind + ' original receipt clocks/amounts/classification unchanged', records.every(row => ['ts', 'observedAt', 'retainUntil'].every(key => Number.isSafeInteger(row[key]) && row[key] > 0) && row.retainUntil === row.observedAt + 2592000 && [700, 900].includes(row.copper) && row.classification === 'unclassified_receipt') && canonical(records) === canonical(expected));
       check(kind + ' private correspondence and payload hash absent from HTTP', !forbidden(normalRaw));

@@ -84,7 +84,7 @@ export function rosterVerificationSql275(at:string,cutoff:string,nativePolicy:st
  const neutralAnchorId=`CASE WHEN ${exact} AND ${standing}
    AND typeof(c.bound_at)='integer' AND c.bound_at BETWEEN 1 AND ${at}
    AND typeof(c.verified_at)='integer' AND c.verified_at BETWEEN c.bound_at AND ${at}
-   AND c.source IN('whisper','mail') THEN (SELECT a.id FROM role_settlements a WHERE (${neutralIdentityShape280('a')})
+   AND (c.source IS NULL OR typeof(c.source)='text') THEN (SELECT a.id FROM role_settlements a WHERE (${neutralIdentityShape280('a')})
     AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid
     AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at AND a.created_at>=${cutoff} AND a.created_at<=${at}
     ORDER BY a.created_at,a.id LIMIT 1) ELSE NULL END`;

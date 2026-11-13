@@ -32,11 +32,20 @@ function queueMutation(env:Env,row:CapturedQueue,set:string,values:unknown[]):D1
     .bind(...values,row.id,row.discord_id,row.name_key,row.name,row.created_at,row.status,row.attempts,row.retry_after,row.last_reason,
       row.claimed_by,row.claimed_at,row.last_reason_at,row.note,row.written_at,row.invited_at,row.joined_at,row.approved_by,row.priority);
 }
-function pendingFingerprintFence(env:Env,p:PendingRow):D1PreparedStatement {
+function pendingFingerprintFence(env:Env,p:PendingRow,identity?:IdentityIntent280):D1PreparedStatement {
+  const original=identity?identityIntents280.get(identity):null;if(identity&&!original)consumed230Held();original?.check();
+  // The same original guard precedes every business write. An already linked
+  // row may keep its old source and may have its GUID updated by this batch;
+  // neither permits adopting a replacement row read after the claim.
+  const holder=original?.holder;
+  const binding=holder?` AND EXISTS(SELECT 1 FROM characters c LEFT JOIN privacy_subjects hs ON hs.subject_id=c.discord_id
+    WHERE c.name_key=?8 AND c.name=?9 AND c.discord_id=?10 AND c.guid IS ?11 AND c.status=?12
+    AND c.bound_at IS ?13 AND typeof(c.bound_at)=?19 AND c.verified_at IS ?14 AND typeof(c.verified_at)=?20
+    AND c.source IS ?15 AND hs.generation IS ?16 AND hs.state IS ?17 AND hs.revision IS ?18)`:'';
   return env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM pending WHERE id=?1 AND discord_id=?2
     AND created_at=?3 AND name_key=?4 AND name=?5 AND expires_at=?6 AND nonce IS ?7 AND consumed_at IS NULL
-    AND expires_at>CAST(strftime('%s','now') AS INTEGER)) THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
-    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null);
+    AND expires_at>CAST(strftime('%s','now') AS INTEGER))${binding} THEN 1 ELSE json_extract('privacy_pending_proof_refused','$') END AS admitted`)
+    .bind(p.id,p.discord_id,p.created_at,p.name_key,p.name,p.expires_at,p.nonce??null,...(holder??[]));
 }
 function bindWatcher(env:Env,subject:string,capture:PrivacySubject|null,context:WatcherCapture):Env {
   context.references.push({subject,capture});
@@ -204,7 +213,7 @@ export function consumed230Predicate(env:Env,cap:OriginalConsumedMembership230,s
 /** Separate private PREWRITE intent. It cannot satisfy OriginalConsumed230 or any role API. */
 declare const identityIntent280Brand:unique symbol;
 type IdentityIntent280=Readonly<{[identityIntent280Brand]:true}>;
-type OriginalHolder280={name_key:string;name:string;discord_id:string;guid:string;status:string;bound_at:number;verified_at:number|null;source:string|null;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;bound_type:string;verified_type:string};
+type OriginalHolder280={name_key:string;name:string;discord_id:string;guid:string|null;status:string;bound_at:number;verified_at:number|null;source:string|null;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null;bound_type:string;verified_type:string};
 const HOLDER280_FIELDS=Object.freeze(['name_key','name','discord_id','guid','status','bound_at','verified_at','source','privacy_generation','privacy_state','privacy_revision','bound_type','verified_type']);
 type IdentityIntentRecord280={db:D1Database;check:()=>void;holder:readonly (string|number|null)[]|null;values:readonly (string|number|null)[];source:LaunchMembershipSource;used:boolean};
 const identityIntents280=new WeakMap<IdentityIntent280,IdentityIntentRecord280>();
@@ -220,7 +229,8 @@ async function captureIdentityIntent280(env:Env,selection:ReturnType<typeof capt
  const generation=capture?.subjectGeneration??null,db=privacyProviderCustodyDatabase(env);
  const check=()=>{selection.check();selection.assertEffect(env);pendingCheck();captureCheck();holderCheck();assertLaunchMembershipMode(env,source);};check();
  const originalHolder=holder?Object.freeze(HOLDER280_FIELDS.map(k=>holder[k as keyof OriginalHolder280])):null;
- if(holder&&(holder.discord_id!==pending.discord_id||holder.guid!==source.guid||!holder.name_key||normalizeCharacter(holder.name)!==holder.name_key||holder.name_key===nameKey||
+ if(holder&&(holder.discord_id!==pending.discord_id||!holder.name_key||normalizeCharacter(holder.name)!==holder.name_key||
+  (holder.name_key===nameKey?holder.status!=='member'||holder.guid!==null&&typeof holder.guid!=='string':holder.guid!==source.guid)||
   !['verified','queued','member','left','left_pending'].includes(holder.status)||!Number.isSafeInteger(holder.bound_at)||holder.verified_at!==null&&!Number.isSafeInteger(holder.verified_at)||
   holder.source!==null&&typeof holder.source!=='string'||holder.privacy_generation!==generation||holder.privacy_state!==(capture?.state??null)||holder.privacy_revision!==(capture?.revision??null)))consumed230Held();
  const tuple=Object.freeze([pending.id,pending.discord_id,pending.created_at,pending.expires_at,pending.nonce??null,t,via,nameKey,name,generation,
@@ -237,10 +247,10 @@ function identityIntentStatement280(env:Env,cap:IdentityIntent280):D1PreparedSta
  const launch=launchMembershipPredicate(env,r.source,r.holder?35:22);
  // Two distinct captured witnesses, never an OR over arbitrary current names.
  const binding=r.holder?`EXISTS(SELECT 1 FROM characters c LEFT JOIN privacy_subjects hs ON hs.subject_id=c.discord_id
-   WHERE c.name_key=?22 AND c.name=?23 AND c.discord_id=?24 AND c.guid=?25 AND c.status=?26
+   WHERE c.name_key=?22 AND c.name=?23 AND c.discord_id=?24 AND c.guid=?14 AND c.status=?26
    AND c.bound_at IS ?27 AND typeof(c.bound_at)=?33 AND c.verified_at IS ?28 AND typeof(c.verified_at)=?34
    AND c.source IS ?29 AND hs.generation IS ?30 AND hs.state IS ?31 AND hs.revision IS ?32
-   AND ?24=?4 AND ?25=?14 AND ?30 IS ?12)`:
+   AND ?24=?4 AND ?30 IS ?12)`:
    `EXISTS(SELECT 1 FROM characters c WHERE c.discord_id=?4 AND c.name_key=?10 AND c.name=?11
    AND c.guid=?14 AND c.status IN('verified','member') AND c.source IN('whisper','mail') AND c.bound_at<=?8 AND c.verified_at<=?8)`;
  const claimed=`EXISTS(SELECT 1 FROM pending p WHERE p.id=?3 AND p.discord_id=?4 AND p.created_at=?5 AND p.expires_at=?6 AND p.nonce IS ?7
@@ -393,7 +403,8 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
     await logLine(env, `⛔ verify: **${name}** whispered a valid code for <@${pending.discord_id}>, who is banned from verifying. Nothing was linked.`,[reference!]);
     return json({ result: "banned" });
   }
-  const existing = await getCharacter(env, nameKey);
+  const existing = await env.DB.prepare("SELECT c.*,s.generation AS privacy_generation,s.state AS privacy_state,s.revision AS privacy_revision,typeof(c.bound_at) AS bound_type,typeof(c.verified_at) AS verified_type FROM characters c LEFT JOIN privacy_subjects s ON s.subject_id=c.discord_id WHERE c.name_key=?1").bind(nameKey).first<OriginalHolder280>();
+  const existingCheck280=existing?original230Slots(existing,HOLDER280_FIELDS):()=>{};
   if (existing && existing.discord_id !== pending.discord_id && !["unbound", "denied", "left"].includes(existing.status)) {
     const references=[reference!,{subject:existing.discord_id,capture:privacyCaptureFromColumns(existing.discord_id,existing)}];
     await audit(env, "watcher", "verify.bound_elsewhere", name, { pendingFor: pending.discord_id, boundTo: existing.discord_id, ticket },references);
@@ -498,14 +509,19 @@ async function postVerifyInner(env: Env, body: VerifyIn,context:WatcherCapture,r
   }
   let identityIntent280:IdentityIntent280|undefined;
   if(consumedSelection230.enabled&&launchSource&&(body.source==='whisper'||body.source==='mail')){
-    const identity=await captureIdentityIntent280(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,t,nameKey,name,body.source,holder,holderCheck280);
-    identityIntent280=identity;
-    stmts.push(identityIntentStatement280(env,identity));
+    // A same-name Member keeps its original source just like a renamed holder.
+    // This fresh proof does not rewrite the old link or manufacture its origin.
+    const originalHolder=holder??(alreadyLinked?existing:null),originalCheck=holder?holderCheck280:existingCheck280;
+    try{
+      const identity=await captureIdentityIntent280(env,consumedSelection230,pending,pendingCheck230,privacyCapture,launchSource,t,nameKey,name,body.source,originalHolder,originalCheck);
+      identityIntent280=identity;
+      stmts.push(identityIntentStatement280(env,identity));
+    }catch{return json({result:'verification_configuration_held',pendingConsumed:false,roleGranted:false,inviteQueued:false},409);}
   }
   let allDone:D1Result[];
   if (!launch.current()) return json({ result: 'verification_configuration_held', roleGranted: false, inviteQueued: false, pendingConsumed: false }, 503);
   try {
-    const guards=[pendingFingerprintFence(env,pending),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
+    const guards=[pendingFingerprintFence(env,pending,identityIntent280),...(launchSource?[launchMembershipFence(env,launchSource)]:[])];
     allDone = await admittedPrivacySubjectWrite(env,pending.discord_id,privacyCapture,[...guards,...stmts]);
   } catch {
     // A competing relay or account closure can refuse the original consuming proof. Read only

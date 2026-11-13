@@ -1,3 +1,4 @@
+import {NEUTRAL_IDENTITY_PURPOSE280} from './consumed-identity280';
 /** New .232 routine authority. Retained .230 receipts prove identity lineage only;
  * this issuer never recreates a consumed-whisper capability or a provider ACK.
  * Every new operation needs its own original current Native read and claim. */
@@ -59,7 +60,7 @@ const ROWS=`COALESCE((SELECT json_group_array(json_array(name_key,guid,rank,rank
  (SELECT name_key,guid,rank,rank_index FROM roster_members WHERE snapshot_id=s.id ORDER BY name_key)), '[]')`;
 const LINKS=`COALESCE((SELECT json_group_array(json_array(name_key,guid,status,bound_at,verified_at,source,anchor_id)) FROM
  (SELECT c.name_key,c.guid,c.status,c.bound_at,c.verified_at,c.source,
- (SELECT a.id FROM role_settlements a WHERE ${ANCHOR('?2','?3','?4')} ORDER BY a.created_at DESC,a.id LIMIT 1) AS anchor_id
+ (SELECT a.id FROM role_settlements a WHERE (${ANCHOR('?2','?3','?4')}) AND (c.source IN('whisper','mail') OR a.purpose='${NEUTRAL_IDENTITY_PURPOSE280}') ORDER BY a.created_at DESC,a.id LIMIT 1) AS anchor_id
  FROM characters c WHERE c.discord_id=?1 AND c.status NOT IN('unbound','denied') ORDER BY c.name_key)), '[]')`;
 const STANDING=`json_array(COALESCE((SELECT banned FROM members WHERE discord_id=?1),0),
  COALESCE((SELECT denied FROM site_users WHERE discord_id=?1),0),EXISTS(SELECT 1 FROM rename_holds WHERE discord_id=?1 AND state='reapply'))`;
@@ -119,11 +120,13 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    byGuid.set(guid,Object.freeze({guid,nameKey:key,rank:rank as string,index}));
   }
   const eligible:Readonly<{guid:string;nameKey:string;rank:string;index:number}>[]=[],seenLinks=new Set<string>();let qualifiedLinks=0;
+   // READ and every later SQL admission require a qualified neutral anchor
+   // for any other original source; the raw label alone proves nothing.
   for(const l of links){if(!Array.isArray(l)||l.length!==7)return null;const [key,guid,status,bound,verified,source,anchor]=l;
    // An unfinished alt is not a verified native identity. Freeze its state for
    // this operation, but it neither outranks nor blocks an already verified main.
    if(status==='verified'||status==='queued')continue;
-   if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||!['whisper','mail'].includes(String(source))||!['member','left_pending','left'].includes(String(status)))return null;
+   if(typeof key!=='string'||!key||typeof guid!=='string'||guid!==guid.trim()||!GUID.test(guid)||seenLinks.has(guid)||typeof bound!=='number'||!Number.isSafeInteger(bound)||bound<1||bound>at||typeof verified!=='number'||!Number.isSafeInteger(verified)||verified<bound||verified>at||source!==null&&typeof source!=='string'||!['member','left_pending','left'].includes(String(status)))return null;
    seenLinks.add(guid);
    // Match either identity direction before legacy exclusion or left handling;
    // an uncertain higher alt must not disappear and lower another alt's rank.
@@ -191,7 +194,7 @@ export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,s
    LEFT JOIN role_settlements a ON a.id=json_extract(j.value,'$[6]')
    WHERE CASE WHEN (c.name_key IS NOT NULL AND c.status=json_extract(j.value,'$[2]') AND c.bound_at=json_extract(j.value,'$[3]'))
    AND (c.verified_at IS json_extract(j.value,'$[4]') AND c.source IS json_extract(j.value,'$[5]'))
-   AND (c.status IN('verified','queued') OR (${ANCHOR(q(12),q(13),q(10))}) OR (${INERT_LEGACY(q(13),q(10))})) THEN 0 ELSE 1 END=1)
+   AND (c.status IN('verified','queued') OR ((${ANCHOR(q(12),q(13),q(10))}) AND (c.source IN('whisper','mail') OR a.purpose='${NEUTRAL_IDENTITY_PURPOSE280}')) OR (${INERT_LEGACY(q(13),q(10))})) THEN 0 ELSE 1 END=1)
   AND COALESCE((SELECT member_count FROM roster_snapshots old WHERE old.id<s.id AND old.complete=1 AND old.trusted=1 AND old.source=s.source ORDER BY old.id DESC LIMIT 1),s.member_count)=${q(11)})`;
  // Both variants are captured while the full original cap is valid. The extra
  // frozen SQL preserves all DB source/link/rank/G/deadline clauses and omits

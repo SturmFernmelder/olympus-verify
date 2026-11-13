@@ -161,8 +161,18 @@ function progressContext280(env:Env,canonical:ReturnType<typeof captureCanonical
 // CAS is lane-local; a different lane's append cannot overwrite this lane.
 async function recordProgress280(env:Env,mode:ProgressMode280,trigger:string,details:Record<string,unknown>,heads:{ac:ProgressHead280;b:ProgressHead280},references:readonly PrivacyReference[],check:()=>void,referenceHeld=false):Promise<Progress280>{
  const own=mode==='ordinary'?[heads.ac]:mode==='ban'?[heads.b]:[heads.ac,heads.b];
- if(referenceHeld||own.some(h=>!h.valid))return Object.freeze({state:'held',reason:'original_progress_or_reference_held'});
  try{check();}catch{return Object.freeze({state:'held',reason:'original_progress_source_held'});}
+ if(referenceHeld||own.some(h=>!h.valid)){
+  // Keep the malformed head unchanged until attended repair. Use this run's
+  // single reserved publication statement for an ID-free failure instead: a
+  // fresh isolate must see the hold and respect the durable watcher throttle.
+  try{
+   const result=await env.DB.prepare('INSERT INTO audit(ts,actor,action,subject,details) VALUES(?1,?2,?3,?4,?5)')
+    .bind(now(),'system','role.sweep_failed',trigger,JSON.stringify({lane:mode,reason:'original_progress_or_reference_held'})).run();check();
+   if(result.success!==true||result.meta?.changes!==1)return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});
+   return Object.freeze({state:'held',reason:'original_progress_or_reference_held'});
+  }catch{return Object.freeze({state:'unknown',reason:'original_progress_response_unknown'});}
+ }
  const refs=[...references],seen=new Map<string,string|null>();
  for(const r of refs){if(!/^[0-9]{17,20}$/.test(r.subject))return Object.freeze({state:'held',reason:'original_progress_reference_invalid'});
   const g=r.capture?.subjectGeneration??null;if(seen.has(r.subject)&&seen.get(r.subject)!==g)return Object.freeze({state:'held',reason:'original_progress_reference_changed'});seen.set(r.subject,g);}

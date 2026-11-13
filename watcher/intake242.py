@@ -139,9 +139,10 @@ def _privacy_body_denied280(watcher, body, source):
         return True
     if local_privacy280.legacy(body):
         return True
-    if unknown and local_privacy280.financial(body):
-        # A label cannot exempt a malformed old original. Only the existing closed,
-        # clock/collector/HMAC-qualified v2 path can continue its normal validators.
+    if local_privacy280.financial(body):
+        # Unknown financial shapes stay local even with an otherwise readable
+        # addon marker. Only the existing closed, clock/collector/HMAC-qualified
+        # v2 path can reach canonical hashing and its normal validators.
         semantic = {k: v for k, v in body.items() if k not in _VOLATILE}
         return intake_schema280.financial_error(semantic, watcher.secret, watcher.officer) is not None
     return False

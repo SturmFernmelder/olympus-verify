@@ -29,8 +29,8 @@ const valid=`CASE WHEN json_valid(a.details) THEN json_type(a.details)='object' 
  AND json_type(a.details,'$.observedAt')='integer' AND json_extract(a.details,'$.observedAt') BETWEEN 1 AND 9007199254740991 AND json_extract(a.details,'$.observedAt')<=a.ts+5
  AND json_type(a.details,'$.retainUntil')='integer' AND json_extract(a.details,'$.retainUntil') BETWEEN 1 AND 9007199254740991 AND json_extract(a.details,'$.retainUntil')=json_extract(a.details,'$.observedAt')+2592000
  AND json_type(a.details,'$.classification')='text' AND json_extract(a.details,'$.classification')='unclassified_receipt'
- AND CASE json_extract(a.details,'$.version') WHEN 242 THEN (${closed(legacy)}) AND json_extract(a.details,'$.source') IN('mail','whisper','trade')
- WHEN 2 THEN (${closed(v2)}) AND length(json_extract(a.details,'$.sourceId'))=24 AND json_extract(a.details,'$.sourceId') NOT GLOB '*[^0-9a-f]*' AND json_extract(a.details,'$.source')='tithe-gold-v2' AND json_extract(a.details,'$.kind') IN('mail','trade')
+ AND CASE json_extract(a.details,'$.version') WHEN 242 THEN (${closed(legacy)}) AND json_extract(a.details,'$.source') IN('whisper','trade')
+ WHEN 2 THEN (${closed(v2)}) AND length(json_extract(a.details,'$.sourceId'))=24 AND json_extract(a.details,'$.sourceId') NOT GLOB '*[^0-9a-f]*' AND json_extract(a.details,'$.source')='tithe-gold-v2' AND json_extract(a.details,'$.kind')='trade'
  AND json_type(a.details,'$.evidence')='object' AND NOT EXISTS(SELECT 1 FROM json_each(a.details,'$.evidence')e WHERE e.key NOT IN('kind','confirmedLocal','automaticCredit','mac'))
  AND (SELECT COUNT(*)FROM json_each(a.details,'$.evidence'))=(SELECT COUNT(DISTINCT key)FROM json_each(a.details,'$.evidence'))
  ELSE 0 END ELSE 0 END`;

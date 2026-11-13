@@ -364,10 +364,10 @@ async function selectedReads273(originalDiscovery){
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
   // Evergreen 12 Nov 2026 (CL2-024): statement ceilings and query plans, measured on their own 1,000-member database.
-  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===16);
-  const budgetRecord={page:budget.page,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings,plans:budget.plans};
+  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===24);
+  const budgetRecord={page:budget.page,legacy:budget.legacy,rankHeld:budget.rankHeld,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings,plans:budget.plans};
   fs.writeFileSync(path.join(out,'d1-statement-budget.json'),JSON.stringify(budgetRecord,null,2)+'\n',{flag:'wx'});
-  console.log('D1_STATEMENT_BUDGET '+JSON.stringify({page:budget.page,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings}));
+  console.log('D1_STATEMENT_BUDGET '+JSON.stringify({page:budget.page,legacy:budget.legacy,rankHeld:budget.rankHeld,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings}));
   for(const item of budget.checks){assert(item.passed,item.name);checks.push(item);}
   if(process.argv.includes('--budget-only'))return {complete:true,actualLocalWorkerdD1:true,checks,syntheticDiscordGETs:http.length,providerCalls:0,pages:0};
   await directiveHandler280();

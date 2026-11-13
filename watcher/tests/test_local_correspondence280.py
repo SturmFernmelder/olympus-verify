@@ -92,12 +92,13 @@ class StartupBehavior(Harness):
         first=copy.deepcopy(obj.state.d["intake242"]); again=self.loaded()
         self.assertEqual(again.state.d["intake242"],first)
 
-    def test_preexisting_fixed_staging_file_stops_before_any_consumer_or_default_save(self):
+    def test_preexisting_fixed_staging_holds_cleanup_without_stopping_other_consumers(self):
         self.seed({"old":row(legacy("old"))}); raw=self.path.read_bytes()
         staged=self.path.with_suffix(".tmp"); staged.write_bytes(b"unresolved synthetic staged original")
         with patch.object(watcher,"TreasuryJournal") as consume:
-            with self.assertRaises(ValueError): self.loaded()
-        consume.assert_not_called(); self.assertEqual(self.path.read_bytes(),raw)
+            obj=self.loaded()
+        consume.assert_called_once(); self.assertFalse(obj._local_correspondence_status280["complete"])
+        self.assertFalse(obj._custody_halted);self.assertEqual(self.path.read_bytes(),raw)
         self.assertEqual(staged.read_bytes(),b"unresolved synthetic staged original")
 
     def test_duplicate_keys_refused_from_single_owned_read_without_rewrite(self):
@@ -113,14 +114,91 @@ class StartupBehavior(Harness):
                 with self.assertRaises(ValueError): self.loaded()
                 self.assertEqual(self.path.read_bytes(),raw)
 
-    def test_malformed_recognized_old_row_holds_whole_minimization_without_partial_edit(self):
+    def test_malformed_recognized_old_row_is_held_while_other_rows_are_minimized(self):
         entries={"good":row(legacy("good")),"bad":row(legacy("bad",note=12))}; original=self.seed(entries)
-        obj=self.loaded(); self.assertEqual(obj.state.d["intake242"],original["intake242"])
+        obj=self.loaded(); self.assertEqual(obj.state.d["intake242"]["bad"],original["intake242"]["bad"])
+        good=copy.deepcopy(obj.state.d["intake242"]["good"]);good.pop(FIELD)
+        self.assertEqual(good["body"]["donation"]["note"],"");good["body"]["donation"]["note"]="Private synthetic correspondence"
+        self.assertEqual(good,original["intake242"]["good"])
         self.assertTrue(hasattr(obj,"_local_correspondence_status280")); self.assertFalse(obj._local_correspondence_status280["complete"])
         self.assertFalse(obj._custody_halted)
 
 
 class TransportBehavior(Harness):
+    def test_historical_bridge_and_mirror_labels_are_blanked_and_denied_before_hash(self):
+        for source in ("addon-bridge242", "Olympus-pendingRoleUpdates", "OlympusRecordDB-pendingRoleUpdates"):
+            with self.subTest(source=source):
+                body=legacy("historical-bridge",source);body.update(bridgeUntrusted=True,bridgeSender="Synthetic Officer",untrustedSources=[source])
+                body["evidence"]=dict(kind="remote-unconfirmed-declaration",confirmedLocal=False,automaticCredit=False)
+                old=row(body,"outcome_unknown");obj=self.loaded({body["id"]:old})
+                actual=copy.deepcopy(obj.state.d["intake242"][body["id"]]);meta=actual.pop(FIELD)
+                self.assertFalse(meta["relayEligible"]);actual["body"]["donation"]["note"]=old["body"]["donation"]["note"]
+                self.assertEqual(actual,old)
+                with self.source(),patch.object(intake242,"_canonical_body",side_effect=AssertionError("retired bridge hashed")),patch.object(obj.worker,"call") as call:
+                    intake242.drain(obj,False);self.assertEqual(intake242.receipts(obj),[])
+                call.assert_not_called()
+
+    def test_unknown_financial_item_does_not_prevent_recognized_item_cleanup(self):
+        bad=legacy("unknown");bad["unexpectedHistoricalField"]="Preserve unknown original"
+        old=row(bad,"outcome_unknown");obj=self.loaded({"good":row(legacy("good")),"unknown":old})
+        self.assertEqual(obj.state.d["intake242"]["good"]["body"]["donation"]["note"],"")
+        self.assertEqual(obj.state.d["intake242"]["unknown"],old)
+        self.assertFalse(obj._local_correspondence_status280["complete"])
+        self.assertGreater(obj._local_correspondence_status280["heldRows"],0)
+
+    def test_stale_staging_only_holds_cleanup_and_is_not_adopted(self):
+        self.seed({"old":row(legacy("old"))});staged=self.path.with_suffix(".tmp")
+        staged.write_bytes(b"unresolved synthetic staged data")
+        obj=self.loaded();self.assertFalse(obj._custody_halted)
+        self.assertFalse(obj._local_correspondence_status280["complete"])
+        self.assertEqual(obj.state.d["intake242"]["old"]["body"]["donation"]["note"],"Private synthetic correspondence")
+        self.assertEqual(staged.read_bytes(),b"unresolved synthetic staged data")
+        obj.state.save() # The existing normal-save policy is unchanged.
+        self.assertFalse(staged.exists())
+        self.assertEqual(json.loads(self.path.read_text())["intake242"]["old"]["body"]["donation"]["note"],"Private synthetic correspondence")
+
+    def test_unrelated_ordinary_capacity_does_not_disable_known_text_cleanup(self):
+        self.seed({"old":row(legacy("old")),"ordinary":dict(body=ordinary(),unrelatedPadding=[0]*270000)})
+        obj=self.loaded();self.assertEqual(obj.state.d["intake242"]["old"]["body"]["donation"]["note"],"")
+        self.assertEqual(len(obj.state.d["intake242"]["ordinary"]["unrelatedPadding"]),270000)
+
+    def test_partial_startup_log_reports_only_fixed_status_counts_and_reason(self):
+        bad=legacy("bad",note=12)
+        self.seed({"old":row(legacy("old")),"bad":row(bad)})
+        with patch.object(watcher,"log") as log:
+            obj=self.loaded()
+        lines=[str(c.args[0]) for c in log.call_args_list if "correspondence cleanup" in str(c.args[0])]
+        self.assertEqual(len(lines),1);self.assertIn("blanked 1, held 1",lines[0]);self.assertIn("scoped-minimization-incomplete",lines[0])
+        self.assertNotIn("Private synthetic correspondence",lines[0]);self.assertNotIn("Synthetic Sender",lines[0])
+
+    def test_unknown_financial_shape_remains_unchanged_and_cannot_reach_hashing(self):
+        body=legacy("unrecognized","future-unsupported-origin");old=row(body);obj=self.loaded({body["id"]:old})
+        with self.source(dict(entries={body["id"]:body},localCorrespondence280=marker())),patch.object(intake242,"_canonical_body",side_effect=AssertionError("unknown financial body hashed")),patch.object(obj.worker,"call") as call:
+            intake242.collect(obj);intake242.drain(obj,False)
+        call.assert_not_called();self.assertEqual(obj.state.d["intake242"][body["id"]],old)
+
+    def test_current_label_with_unknown_note_is_held_unchanged_and_counted(self):
+        body=current();body['donation']['note']='Unknown shape must stay exact'
+        old=row(body);obj=self.loaded({'good':row(legacy('good')),body['id']:old})
+        status=obj._local_correspondence_status280
+        self.assertFalse(status['complete']);self.assertEqual(status['heldRows'],1);self.assertEqual(status['blankedNotes'],1)
+        self.assertEqual(obj.state.d['intake242'][body['id']],old)
+        with self.source(dict(entries={body['id']:body},localCorrespondence280=marker())),patch.object(intake242,'_canonical_body',side_effect=AssertionError('unknown current-label shape hashed')),patch.object(obj.worker,'call') as call:
+            intake242.collect(obj);intake242.drain(obj,False)
+        call.assert_not_called();self.assertEqual(obj.state.d['intake242'][body['id']],old)
+
+    def test_current_label_with_nonscalar_clock_or_mac_is_held_and_counted(self):
+        for field in ['requestedAt','mac']:
+            with self.subTest(field=field):
+                body=current();target=body if field=='requestedAt' else body['evidence'];target[field]={'text':'Unknown correspondence shape'}
+                old=row(body);obj=self.loaded({'good':row(legacy('good')),body['id']:old})
+                status=obj._local_correspondence_status280
+                self.assertFalse(status['complete']);self.assertEqual(status['heldRows'],1);self.assertEqual(status['blankedNotes'],1)
+                self.assertEqual(obj.state.d['intake242'][body['id']],old)
+                with self.source(dict(entries={body['id']:body},localCorrespondence280=marker())),patch.object(intake242,'_canonical_body',side_effect=AssertionError('nonscalar receipt hashed')),patch.object(obj.worker,'call') as call:
+                    intake242.collect(obj);intake242.drain(obj,False)
+                call.assert_not_called();self.assertEqual(obj.state.d['intake242'][body['id']],old)
+
     def test_known_legacy_denied_before_hash_and_no_metadata_or_ack_mutation(self):
         obj=self.loaded({"old":row(legacy("old"),"done")}); original=copy.deepcopy(obj.state.d["intake242"])
         with self.source(),patch.object(intake242,"_canonical_body",side_effect=AssertionError("must not hash removed text")),patch.object(obj.worker,"call") as call:
@@ -276,13 +354,13 @@ class LocalPrimitive(Harness):
                 if not commit:self.assertEqual(self.path.read_bytes(),raw)
                 else:self.assertIn(FIELD,self.loaded().state.d["intake242"]["old"])
 
-    def test_atomic_replace_failure_retains_staging_and_original_then_restart_stops(self):
+    def test_atomic_replace_failure_retains_original_then_restart_only_holds_cleanup(self):
         self.seed({"old":row(legacy("old"))}); raw=self.path.read_bytes()
         with patch.object(watcher.os,"replace",side_effect=OSError("synthetic replacement unavailable")):
             with self.assertRaises(OSError):self.loaded()
         self.assertEqual(self.path.read_bytes(),raw); staged=self.path.with_suffix(".tmp"); self.assertTrue(staged.exists())
         staged_raw=staged.read_bytes()
-        with self.assertRaises(ValueError):self.loaded()
+        obj=self.loaded();self.assertFalse(obj._local_correspondence_status280["complete"]);self.assertFalse(obj._custody_halted)
         self.assertEqual(staged.read_bytes(),staged_raw); self.assertEqual(self.path.read_bytes(),raw)
 
     def test_unknown_malformed_disposition_is_denial_and_not_repaired(self):
@@ -312,17 +390,24 @@ class LocalPrimitive(Harness):
         self.assertFalse(p.addon_target_denied({"localCorrespondence280":m},"b"*24))
         self.assertFalse(p.addon_target_denied({"localCorrespondence280":m},eid.upper()))
 
-    def test_complete_preflight_refuses_cycles_aliases_depth_and_bytes_without_partial_mutation(self):
+    def test_complete_preflight_refuses_non_json_cycles_and_aliases_without_partial_mutation(self):
         p=self.helper()
         variants=[]
         cycle={};cycle["self"]=cycle;variants.append(cycle)
         alias={};variants.append({"a":alias,"b":alias})
-        deep={};head=deep
-        for _ in range(35):head["x"]={};head=head["x"]
-        variants.append(deep);variants.append({"huge":"x"*(16777216+1)})
         for value in variants:
             state=SimpleNamespace(d={"intake242":{"old":row(legacy("old")),"unknown":{"body":value}}})
             candidate,status=p.prepare(state,NOW);self.assertIsNone(candidate);self.assertFalse(status["complete"])
+            self.assertEqual(state.d["intake242"]["old"]["body"]["donation"]["note"],"Private synthetic correspondence")
+
+    def test_unrelated_oversized_or_deep_history_stays_exact_during_scoped_cleanup(self):
+        p=self.helper();deep={};head=deep
+        for _ in range(35):head["x"]={};head=head["x"]
+        for value in (deep,{"huge":"x"*(16777216+1)}):
+            unknown={"body":value};state=SimpleNamespace(d={"intake242":{"old":row(legacy("old")),"unknown":unknown}})
+            candidate,status=p.prepare(state,NOW);self.assertFalse(status["complete"])
+            self.assertIs(candidate["intake242"]["unknown"],unknown)
+            self.assertEqual(candidate["intake242"]["old"]["body"]["donation"]["note"],"")
             self.assertEqual(state.d["intake242"]["old"]["body"]["donation"]["note"],"Private synthetic correspondence")
 
     def capacity_state(self, field):
