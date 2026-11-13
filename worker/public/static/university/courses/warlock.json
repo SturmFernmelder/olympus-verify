@@ -261,7 +261,7 @@
        },
        {
         "mistake": "Looking for Improved Healthstone in the Demonology tree.",
-        "fix": "It is no longer a talent. The 30 Oct datamine shows Healthstones healing as if fully talented, which Blizzard has not confirmed.",
+        "fix": "It is no longer a talent. The 30 Oct datamine shows Healthstones healing as if fully talented; Blizzard's hotfix notes up to 11 November 2026 do not mention it.",
         "facts": [
          "class-warlock.change-8",
          "class-warlock.change-9"
