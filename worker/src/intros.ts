@@ -1,3 +1,4 @@
+import {captureCanonicalRankConfig233} from './canonical-ranks233';
 /**
  * Bot-branded channel intros for the Olympus category in Asmongold's server (build .39, 29 Sep 2026).
  *
@@ -760,9 +761,14 @@ export async function introStatus(env: Env, guild: string): Promise<string> {
 
 // ---------- the command ----------
 
-/** Olympus Officer or Guild Leader (INTROS_ROLES), or anyone holding Administrator in that server. */
+/** Configured legacy staff, current same-guild canonical High Council, or Administrator. */
 export function mayManageIntros(env: Env, i: Interaction): boolean {
   const roles = (env.INTROS_ROLES ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+  const canonical=captureCanonicalRankConfig233(env);
+  if(canonical.mode==='enabled'&&canonical.policy&&canonical.current()&&env.GUILD_ID===canonical.policy.guildId&&i.guild_id===canonical.policy.guildId&&(env.INTROS_GUILD_ID??env.GUILD_ID)===canonical.policy.guildId){
+    const council=canonical.policy.ranks.find(rank=>rank.key==='high-council')?.roleId;
+    if(council&&!roles.includes(council))roles.push(council);
+  }
   if ((i.member?.roles ?? []).some((r) => roles.includes(r))) return true;
   const perms = (i.member as unknown as { permissions?: string } | undefined)?.permissions;
   try {

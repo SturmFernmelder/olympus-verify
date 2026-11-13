@@ -15,6 +15,11 @@ import { FOREVER_SCHEDULE } from './site-data';
 
 export interface GuildEmbed219 { title:string;description?:string;url?:string;fields?:{name:string;value:string;inline?:boolean}[];footer?:{text:string} }
 export const safeDiscordText219=(input:unknown,max=1000)=>String(input??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/[@`*_~|<>\\]/g,c=>'\\'+c).slice(0,max);
+/** Discord option labels are plain text, not Markdown. Keep literal punctuation
+ * while bounding UTF16 units without splitting a surrogate pair. */
+export function plainDiscordLabel280(input:unknown,max=100):string{
+ let result='';for(const ch of String(input??'').replace(/[\u0000-\u001f\u007f]/g,' ')){if(result.length+ch.length>max)break;result+=ch;}return result;
+}
 // Only caller-owned separators survive per-item sanitization.
 const discordLines219=(parts:readonly unknown[],separator:'\n'|'\n\n',max:number)=>
  parts.map(part=>safeDiscordText219(part,max)).join(separator).slice(0,max);
@@ -101,7 +106,7 @@ export async function referenceLookup219(env:Env,a:GuildActor219,name:string):Pr
   const on=(out[0]!.results[0] as {value?:unknown}|undefined)?.value==='1';
   return {title:'Imperial Treasury · Fernmelder',url:base+'/#/governance',description:ROYAL_WRIT_POLICY.banner,fields:[
    field('Royal Writs schedule',on?'The website reference schedule is ON. Every transaction still needs the separately authorized officer process.':'The website Royal Writs schedule is OFF. The existing MEE6 appeal and eligible 100g standard bail remain available through /stockades.'),
-   field('Provider and custody limits','This command performs no payment, bank action, role grant or cosmetic provider dispatch. Officer review and platform safety rules still apply.')]};
+   field('Information only','This command does not take gold, make payments, change roles or apply appearance rewards. Ask an Olympus officer about a transaction.')]};
  }
  if(name==='branches'){
   const org=await assetJson219(env,a,'/static/governance/organization.json');
@@ -111,11 +116,11 @@ export async function referenceLookup219(env:Env,a:GuildActor219,name:string):Pr
   for(const raw of rows[1]!.results){const row=raw as {key:string;value:string;updated_at:number;updated_by:string|null},snapshot=parsedArmySnapshot219(row,at);if(!snapshot||armyKey(snapshot)!==row.key||snapshots.has(snapshot.guilds[0].name)){held=true;break;}snapshots.set(snapshot.guilds[0].name,snapshot);}
   const aliases=branchArmySnapshots229([...snapshots.values()]);
   const empty=!held&&snapshots.size===0;
-  const scope='Branch contexts and accepted Army aggregates; not a live membership or invitation guarantee. Daniel’s automatic relay is off. October Beta 1000/1000 +247 queued is historical only.';
+  const scope='These are reports from members’ game clients, not proof of current free guild slots or an invitation. Automatic branch updates are off. October Beta counts are historical only.';
   const description=empty?'No published capacity snapshot for OLYMPUS PRIME / Olympus II–X yet. Live capacity is unknown. '+scope:scope;
   return {title:'OLYMPUS PRIME / Olympus II–X · branch status',url:base+'/#/army',description,fields:empty?[]:org.guildPlaceholders.map((branch:Any219)=>{
    const name=canonicalOlympusGuildName(branch.name),ambiguous=!!name&&aliases.ambiguous.has(name),snapshot=held||!name?null:aliases.byGuild.get(name),row=snapshot?.guilds[0],age=row?Math.max(0,at-row.receivedAt):null;
-   return field(name??branch.name,branch.state+'. '+(!row?'Live capacity unknown; '+(held?'stored aggregate validation is held.':ambiguous?'competing stored guild aliases are held for review.':'no accepted current aggregate.'):'Volunteer-client aggregate (unverified), reported as '+row.name+': '+(row.reportedCharacters==='few'?'fewer than 5':row.reportedCharacters)+' reported characters; received '+new Date(row.receivedAt*1000).toISOString()+'. '+(age!>86400?'Stale; live capacity unknown.':'A dated observation, not current free-slot proof.')));
+   return field(name??branch.name,branch.state+'. '+(!row?'Live capacity unknown; '+(held?'the saved report needs review.':ambiguous?'conflicting guild reports need review.':'no accepted report is available.'):'Report from a member’s game client for '+row.name+': '+(row.reportedCharacters==='few'?'fewer than 5':row.reportedCharacters)+' reported characters; received '+new Date(row.receivedAt*1000).toISOString()+'. '+(age!>86400?'Out of date; live capacity unknown.':'This report may be out of date and does not confirm free guild slots.')));
   }),footer:{text:'No automatic invitation, transfer, ranking or Link action. Officer review uses current evidence; small populations retain the Army suppression rules.'}};
  }
  if(name==='council'){

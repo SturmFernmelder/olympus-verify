@@ -172,7 +172,7 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
   if (existing && existing.discord_id !== user.id && existing.status !== "unbound") {
     await audit(env, user.id, "verify.refused_bound", raw, { boundTo: existing.discord_id });
     return reply(
-      `**${raw}** is already linked to another Discord account. If that character is yours, ask High Council in #help-desk — the bot never re-links a name on its own.`,
+      `**${raw}** is already linked to another Discord account. If that character is yours, ask an Olympus officer — the bot never re-links a name on its own.`,
     );
   }
   if (currentNativeVerification242(env) && existing && existing.discord_id === user.id && ['member','verified','queued'].includes(existing.status) && existing.verified_at) {
@@ -490,7 +490,7 @@ async function describeUser(env: Env, userId: string): Promise<{ text: string; i
 /** Right-click a member → Apps → "Olympus linked characters". Same answer as /olympus-admin lookup user:. */
 async function cmdUserMenu(env: Env, i: Interaction): Promise<Response> {
   if (i.data?.name !== USER_MENU_LOOKUP) return reply("Unknown command.");
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const target = i.data?.target_id;
   if (!target) return reply("No member selected.");
   // Build .41: the same answer as /olympus-lookup in Asmongold's server, guild-site entries included (lookup.ts).
@@ -700,7 +700,7 @@ async function runAdminSync(env: Env, actor: string, roleDispatch: BetaRoleDispa
 }
 
 async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: Defer,roleDispatch:BetaRoleDispatch=captureBetaRoleDispatch(env)): Promise<Response> {
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const actor = userOf(i).id;
   switch (subcommand(i)) {
     case "release":
@@ -936,7 +936,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
 
   if (ns === "ban") {
     if (action === "dismiss") {
-      if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+      if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
       return updateMessage({ content: `${i.message ? "" : ""}Left as it is by <@${userOf(i).id}> \u2014 no Discord ban.`, components: [] });
     }
     if (action !== "discord" || !arg) return reply("Unknown component.");
@@ -966,7 +966,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
   }
 
   if (ns !== "review") return reply("Unknown component.");
-  if (!hasAnyRole(i, officerRoles(env))) return reply("High Council only.");
+  if (!hasAnyRole(i, officerRoles(env))) return reply("Only current Olympus staff authorized for this command can use it.");
   const actor = userOf(i).id;
   const result = action === "approve" ? await approvePending(env, Number(arg), actor) : await denyPending(env, Number(arg), actor);
   if (!result.ok) return reply(result.message);

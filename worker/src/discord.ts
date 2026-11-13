@@ -321,7 +321,7 @@ export interface Interaction {
     options?: Array<{ name: string; type: number; value?: string | number | boolean; focused?: boolean; options?: any[] }>;
     components?: Array<{ type: number; components?: Array<{ type: number; custom_id?: string; value?: string }> }>; // modal submit
   };
-  message?: { id: string; channel_id: string };
+  message?: { id: string; channel_id: string; flags?: number };
 }
 
 export const userOf = (i: Interaction) => i.member?.user ?? i.user!;

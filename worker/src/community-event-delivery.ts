@@ -79,7 +79,7 @@ async function bodyOf(request: Request, keys: string[]): Promise<Record<string, 
 const escapeTitle = (text: string) => text.replace(/[\\`*_{}\[\]()<>#|~]/g, "\\$&");
 export function contentOf(e: EventRow, d: Destination): string {
   const signupUrl = siteMemberLink(d.host, `community/calendar/${e.id}`);
-  return `**${escapeTitle(e.title)}**\n<t:${e.starts_at}:F> · <t:${e.starts_at}:R>\nDuration: ${e.duration_min} minutes\n[Sign up on the Olympus calendar](${signupUrl})\nA sign-up reserves a place; the organizer confirms the raid roster.`;
+  return `**${escapeTitle(e.title)}**\n<t:${e.starts_at}:F> · <t:${e.starts_at}:R>\nDuration: ${e.duration_min} minutes\n[Sign up on the Olympus calendar](${signupUrl})\nUse /raid or the calendar to choose a role or preference. Bench is a request, not a roster decision. The organizer confirms the raid roster.`;
 }
 /** Owner item 3, stage 1 (14 Oct 2026): the sign-up buttons under the announcement. Deterministic from the event id, the
  * event revision and the site host, so a stored delivery row reproduces them exactly; the revision in each custom_id

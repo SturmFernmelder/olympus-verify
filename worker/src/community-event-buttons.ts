@@ -45,7 +45,7 @@ export async function handleRaidComponent(env: Env, i: Interaction): Promise<Res
   const d = destination(env);
   if (env.EVENT_DISCORD_DELIVERY !== "on" || !communityFeatures(env).has("events") || !d) return reply("Raid sign-ups by button are switched off. Use the calendar on the guild site.");
   const site = siteMemberLink(d.host, `community/calendar/${eventId}`);
-  if (i.guild_id !== d.guild || (typeof i.channel_id === "string" && i.channel_id !== d.channel)) return reply("These buttons only work under a raid notice in the #📅raid-schedule channel of the Olympus server.");
+  if (i.guild_id !== d.guild || (typeof i.channel_id === "string" && i.channel_id !== d.channel)) return reply("These buttons only work under the configured Olympus raid notice. Open the calendar or ask an Olympus officer for the current notice.");
   const user = userOf(i);
   if (!user || !SNOWFLAKE.test(user.id)) return reply("Unknown member.");
   const ownerAtEntry = discordCommandOwner225(env, user.id, i.guild_id ?? "");
