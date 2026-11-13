@@ -49,8 +49,9 @@ export async function guideLookup219(env:Env,a:GuildActor219,sub:string,v:Record
  }
  const guide=await assetJson219(env,a,'/static/guides218.json');
  if(guide.schema!=='olympus-guides-v1'||!Array.isArray(guide.classes)||!Array.isArray(guide.presets)||!guide.tools)throw Error('The current guide catalogue is unavailable.');
- // Evergreen Stage 2 (4 Nov 2026): true before and after the launch; the pinned data stays a beta snapshot until replaced.
- const evidence='Grades: A pinned client data · B official announcement · C community · D derived · E Classic reference · U unknown. Pinned data comes from the beta; the released game can differ.';
+ // REV-UNI-3 (12 Nov 2026): the same six grades as university/index.json and guides218.json. Grade A is the talent
+ // calculator's 10 November 2026 export with server hotfixes, which replaced the beta snapshot, so no beta caveat remains.
+ const evidence='Grades: A talent data, 10 November 2026 export · B official Blizzard source · C published Forever guide or community · D derived from Classic · E Classic reference · U unavailable.';
  if(sub==='class'){
   const cls=guide.classes.find((row:Any219)=>row.id===v.class),specQuery=typeof v.spec==='string'?v.spec.trim().toLowerCase():'';
   if(!cls||!Array.isArray(cls.specs))throw Error('Choose one of the nine classes.');

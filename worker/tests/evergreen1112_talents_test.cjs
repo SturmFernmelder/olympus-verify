@@ -294,7 +294,50 @@ async function browserChecks(base, port) {
   } finally { await Promise.race([cdp.close(), sleep(3000)]); try { cdp.proc.kill(); } catch { /* gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold it */ } }
 }
 
+// --- REV-UNI-3 (12 Nov 2026): the real /guide replies (guideLookup219 over the shipped guides218.json) carry a grade
+// footer that matches the site's six grades (university/index.json and guides218.json) and the 10 November export, with
+// no beta caveat, and every reply stays within Discord's embed limits. The file's database and Discord imports are stubs:
+// the member check answers yes and no provider is contacted.
+async function discordGuideFooter() {
+  const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : key === 'currentGuildActor219' ? async () => true
+    : key === 'destination' ? () => ({ host: 'verify.example' }) : () => { throw Error('unexpected call to ' + String(key)); } });
+  const out = ts.transpileModule(readText(worker, 'src/guild-utilities219.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'require', out.outputText)(module, module.exports, name => ['./talent-build-contract', './talent-build-attachment'].includes(name) ? load(name) : stub);
+  const env = { ASSETS: { fetch: async request => new Response(read(worker, 'public', new URL(request.url).pathname), { status: 200 }) } };
+  const index = JSON.parse(readText(folder, '../university/index.json'));
+  const asks = [['consumes', {}], ['buffs', {}], ['attunement', { raid: 'onyxia' }], ['attunement', { raid: 'mc' }]];
+  for (const c of guides.classes) { asks.push(['class', { class: c.id }]); for (const s of c.specs) asks.push(['class', { class: c.id, spec: s.id }]); }
+  const replies = [];
+  for (const [sub, v] of asks) replies.push([sub + ' ' + JSON.stringify(v), await module.exports.guideLookup219(env, { id: '1' }, sub, v)]);
+  const limits = e => (e.title || '').length <= 256 && (e.description || '').length <= 4096 && (e.fields || []).length <= 25
+    && (e.fields || []).every(f => f.name.length <= 256 && f.value.length <= 1024 && f.value.length > 0) && (e.footer?.text || '').length <= 2048
+    && (e.title || '').length + (e.description || '').length + (e.footer?.text || '').length + (e.fields || []).reduce((n, f) => n + f.name.length + f.value.length, 0) <= 6000;
+  const footer = replies[0][1].footer.text, legend = /^Grades: (.+?)\.(?= |$)/.exec(footer);
+  const pairs = legend ? legend[1].split(' · ').map(x => [x[0], x.slice(2)]) : [];
+  // Each footer label must say what the site's grade says (the key words of index.json's definition of that grade).
+  const meaning = { A: /talent data, 10 November 2026 export/, B: /official Blizzard/, C: /published Forever guide or community/, D: /derived from Classic/, E: /Classic reference/, U: /^unavailable$/ };
+  const siteSays = { A: /10 November 2026 export/, B: /Official Blizzard/, C: /Published Forever guide or community/, D: /Derived estimate from Classic/, E: /Classic reference/, U: /^Unavailable$/ };
+  const problems = [];
+  if (pairs.map(p => p[0]).join('') !== Object.keys(index.grades).join('') || Object.keys(index.grades).join('') !== Object.keys(guides.grades).join('')) problems.push('grade letters ' + pairs.map(p => p[0]).join(''));
+  for (const [g, label] of pairs) if (!meaning[g] || !meaning[g].test(label) || !siteSays[g].test(index.grades[g]) || !siteSays[g].test(guides.grades[g])) problems.push('grade ' + g + ': ' + label);
+  if (/beta|pinned|can differ|unknown/i.test(footer)) problems.push('stale footer: ' + footer);
+  const comment = /\n( \/\/[^\n]*\n)+ const evidence=/.exec(readText(worker, 'src/guild-utilities219.ts'));
+  if (!comment || /beta snapshot until replaced/.test(comment[0]) || !/10 November 2026 export/.test(comment[0])) problems.push('the comment above the footer does not describe the 10 November export');
+  for (const [ask, e] of replies) {
+    if (!e.footer || !e.footer.text.startsWith(legend ? legend[0] : '\u0000')) problems.push(ask + ': no shared footer');
+    if (!limits(e)) problems.push(ask + ': over a Discord embed limit');
+  }
+  return problems.length === 0 && replies.length === 4 + 9 + 27 || problems.slice(0, 6).join(' | ') || 'replies ' + replies.length;
+}
+
 (async () => {
+  {
+    let ok = false, detail = '';
+    try { const r = await discordGuideFooter(); ok = r === true; if (!ok) detail = String(r); } catch (error) { detail = error.message; }
+    if (ok) passed++; else failed++;
+    console.log((ok ? 'PASS ' : 'FAIL ') + 'REV-UNI-3: /guide replies end with the site\'s six grades and the 10 November export, no beta caveat, within Discord\'s embed limits' + (ok ? '' : ' :: ' + detail.slice(0, 400)));
+  }
   const at = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
   if (at('--base') && at('--cdp')) await browserChecks(at('--base'), Number(at('--cdp')));
   console.log(passed + ' passed, ' + failed + ' failed');
