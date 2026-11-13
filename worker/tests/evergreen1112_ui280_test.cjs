@@ -6,6 +6,8 @@
 // Round 2: Parts E (member picker), F (cleanup after a lost apply) and G (News count time).
 // Round 3 (13 Nov 2026): Part H (the cleanup under Codex's final error contract, b908253), Part I (launch invite rows
 // from the v233 and v242 evidence sources), E10 (the "verified in game" badge) and G3/G4 (the News heading hook).
+// Round 4 (13 Nov 2026): Part J (the launch page cursor bound is the generic reader's 4,096, in its alphabet) and
+// Part K (cleanup wording after an earlier completion or a read but unrecognised reply; the unreadable earlier record).
 // Part A runs the real view module (/static/launch-operations234.js) against pages made by the real
 // producer (worker/src/launch-operations229.ts, native-rank-schemes.ts) in the repo's DOM fixture.
 // Part B runs the real app.js admin route against the real Worker and SQLite (frontend_check.cjs,
@@ -457,7 +459,7 @@ const runUi280=String.raw`
    v1.state==='held'&&v1.head==='Cleanup held'&&v1.text.includes('refused this request before it wrote anything')&&v1.text.includes('Receipt rows the cleanup cannot classify: 2')&&!NOTHING.test(v1.text)&&v1.buttons==='Read the stored status'&&v1.stored===null&&v1.focus&&applies()===1,JSON.stringify(v1));
   fresh();script={preview:PV(),apply:{status:409,data:{error:'receipt_note_cleanup_held',message:'held'}}};const b2=mountH();await toApply(b2);const v2=view(b2);
   check('H3 a 409 hold in any other shape (here without nextAction) is not taken as a refusal: not confirmed, the request kept and stored, only a status read',
-   v2.state==='unconfirmed'&&!!v2.kept&&v2.stored!==null&&v2.buttons==='Read the stored status'&&v2.text.includes('could not be read')&&applies()===1,JSON.stringify(v2));
+   v2.state==='unconfirmed'&&!!v2.kept&&v2.stored!==null&&v2.buttons==='Read the stored status'&&v2.text.includes('not in a form this page recognises')&&applies()===1,JSON.stringify(v2)); // round 4: a read reply is not "lost"
   fresh();script={preview:PV(),apply:UNC()};const b3=mountH();await toApply(b3);const v3=view(b3);
   check('H4 the exact 503 says the server could not confirm this request\'s outcome, keeps the request on screen and stored, and offers only a status read; nothing is resent',
    v3.state==='unconfirmed'&&v3.text.includes('The server reported that the outcome of this request is not confirmed.')&&v3.text.includes('It is not known whether the notes were blanked.')&&!!v3.kept&&v3.stored!==null&&v3.buttons==='Read the stored status'&&applies()===1&&!NOTHING.test(v3.text),JSON.stringify(v3));
@@ -493,9 +495,40 @@ const runUi280=String.raw`
   await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();const v12=view(b12),away=d3.activeElement===elsewhere;
   d3.body.removeChild(elsewhere);await press(b12,'Count the notes');byText(b12,'button','Cancel')?.focus();
   await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();const v12b=view(b12);
-  check('H12 an expired count returns to the start; focus moves to its heading only when it was inside the control (an owner typing elsewhere keeps focus)',v12.state==='idle'&&away&&!v12.focus&&v12b.state==='idle'&&v12b.focus&&v12.text.includes('so nothing was sent'),JSON.stringify({away,v12:v12.focus,v12b:v12b.focus,t:v12.text.slice(0,200)}));
+  // Round 4 (second review): the third case, focus on the page body itself (nothing focused in the page).
+  script={preview:()=>({...PV(),expiresAt:clock+1})};await press(b12,'Count the notes');d3.body.focus();const onBody=d3.activeElement===d3.body;
+  await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();const v12c=view(b12);
+  check('H12 an expired count returns to the start; focus moves to its heading when it was inside the control or on the page body, and stays where it was elsewhere (an owner typing in another field)',v12.state==='idle'&&away&&!v12.focus&&v12b.state==='idle'&&v12b.focus&&onBody&&v12c.state==='idle'&&v12c.focus&&v12.text.includes('so nothing was sent'),JSON.stringify({away,v12:v12.focus,v12b:v12b.focus,onBody,v12c:v12c.focus,t:v12.text.slice(0,200)}));
+
+  // ---------------------------------------------------------------- Round 4, item 2: six small items of the last review
+  console.log('\n== Part K: receipt-note cleanup wording and the unreadable earlier record (round 4) ==');
+  const msg=box=>(box.querySelectorAll('p').find(p=>p.getAttribute('role')==='status')||{textContent:''}).textContent;
+  const COMPLETED=id=>({state:'recorded',completion:{version:1,operationId:id,ceiling:90,blanked:8,completedAt:clock},remainingCoveredNotes:0,unclassifiedReceiptRows:0,scope:'s'});
+  fresh();script={preview:PV(),apply:COMPLETED(OP)};const k1=mountH();await toApply(k1);const k1v=view(k1),k1m=msg(k1);
+  fresh();script={preview:PV(),apply:COMPLETED('0123abcd-0123-4abc-8def-0123456789ac')};const k1b=mountH();await toApply(k1b);const k1bv=view(k1b),k1bm=msg(k1b);
+  check('K1 the live message says "The server recorded the cleanup." only for this request\'s own completion; for an earlier one it says the cleanup had already been recorded',
+   k1v.state==='recorded'&&k1m==='The server recorded the cleanup.'&&!k1v.text.includes('earlier request')&&k1bv.state==='recorded'&&k1bm==='The cleanup had already been recorded by an earlier request.'&&!k1bm.includes('The server recorded')&&k1bv.text.includes('recorded by an earlier request, not by this one'),JSON.stringify({k1m,k1bm}));
+  const LOST=/lost or could not be read/,ODD=/not in a form this page recognises/;
+  const oddCases=[];
+  for(const [label,reply] of [['409',{status:409,data:{error:'receipt_note_cleanup_held',message:'held'}}],['503',{status:503,data:{error:'receipt_note_cleanup_unconfirmed',message:'m',nextAction:'status',retry:true}}]]){
+   fresh();script={preview:PV(),apply:reply};const ba=mountH();await toApply(ba);const va=view(ba);
+   oddCases.push(['apply '+label,va.state==='unconfirmed'&&va.text.includes('The server’s reply to the cleanup request was not in a form this page recognises.')&&!LOST.test(va.text)&&!!va.kept&&va.buttons==='Read the stored status'&&applies()===1]);
+   fresh();script={preview:reply};const bp=mountH();await press(bp,'Count the notes');const vp=view(bp);
+   oddCases.push(['count '+label,vp.state==='held'&&vp.text.includes('The server’s reply to the count was not in a form this page recognises.')&&!LOST.test(vp.text)&&vp.buttons==='Read the stored status']);
+   fresh();script={status:reply};const bs=mountH();await press(bs,'Read the stored status');const vs=view(bs);
+   oddCases.push(['status '+label,vs.state==='held'&&vs.text.includes('The server’s reply to the status read was not in a form this page recognises.')&&!LOST.test(vs.text)&&vs.buttons==='Read the stored status']);
+  }
+  // A reply with no readable body stays "lost or could not be read".
+  fresh();script={preview:PV(),apply:{status:503,data:null}};const bn=mountH();await toApply(bn);const vn=view(bn);
+  fresh();script={status:()=>({status:0})};const bl=mountH();await press(bl,'Read the stored status');const vl=view(bl);
+  check('K2 a 409 or 503 that was read but is in no recognised shape is described as such (apply, count and status), never as lost; a reply with no readable body still is',oddCases.every(x=>x[1])&&LOST.test(vn.text)&&!ODD.test(vn.text)&&LOST.test(vl.text),JSON.stringify({failed:oddCases.filter(x=>!x[1]).map(x=>x[0]),vn:vn.text.slice(0,200)}));
+  fresh();w3.sessionStorage.setItem(NR.STORE,'{"broken":');script={status:NOT};const k3=mountH();clock=now+300;await press(k3,'Read the stored status');const k3v=view(k3),latest='T'+(now+660);
+  check('K3 the pending sentence for an unreadable earlier record states its time once, with one qualifier ("at the latest", no "about")',k3v.state==='unconfirmed'&&k3v.text.includes('the earlier request could still be processed until '+latest+' at the latest.')&&!/about/.test(k3v.text)&&k3v.text.split(latest).length-1===1,JSON.stringify(k3v.text));
+  script={status:HOLD({unclassifiedReceiptRows:6})};await press(k3,'Read the stored status');const k4v=view(k3);
+  check('K4 with an unreadable earlier record pending, a hold on the status read keeps "Outcome not confirmed": it does not settle that request, the count shows, only a status read, the record stays',
+   k4v.state==='unconfirmed'&&k4v.head==='Outcome not confirmed'&&k4v.text.includes('That does not settle the earlier request.')&&k4v.text.includes('Receipt rows the cleanup cannot classify: 6')&&!NOTHING.test(k4v.text)&&k4v.buttons==='Read the stored status'&&k4v.stored==='{"broken":'&&k4v.focus&&applies()===0,JSON.stringify(k4v));
   fresh();
- } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12'])check(name+' (module unavailable)',false);
+ } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12','K1','K2','K3','K4'])check(name+' (module unavailable)',false);
 
  // ---------------------------------------------------------------- Round 3, item 3: invite evidence sources
  console.log('\n== Part I: launch invite rows from both evidence sources the backend projects (round 3) ==');

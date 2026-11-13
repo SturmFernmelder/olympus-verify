@@ -103,6 +103,14 @@
       return {ok: true, attempt: v};
     } catch { return {ok: false, attempt: null}; }
   }
+  // Round 4 (13 Nov 2026): a 409 or 503 whose body was read but matches neither the hold nor the unconfirmed reply is
+  // not a lost reply; the page says it did not recognise it. Neither one settles anything.
+  const readButOdd = error => !!error && (error.status === 409 || error.status === 503) && error.data !== null && error.data !== undefined;
+  const ODD = Object.freeze({
+    apply: 'The server’s reply to the cleanup request was not in a form this page recognises.',
+    preview: 'The server’s reply to the count was not in a form this page recognises.',
+    status: 'The server’s reply to the status read was not in a form this page recognises.',
+  });
   function writeAttempt(storage, attempt) { try { if (attempt) storage.setItem(STORE, JSON.stringify(attempt)); else storage.removeItem(STORE); return true; } catch { return false; } }
 
   /**
@@ -187,7 +195,7 @@
     function unconfirmed(why, s, extra) {
       const a = attempt, until = fmtDateTime(a ? a.expiresAt + GRACE : unread);
       const lead = s ? 'No cleanup is recorded yet, but ' + (a ? 'this request could still be processed until about ' + until + '. The request will not be sent again.'
-          : 'the earlier request could still be processed until about ' + until + ' at the latest.')
+          : 'the earlier request could still be processed until ' + until + ' at the latest.') // round 4: one qualifier for one time
         : why + ' It is not known whether the notes were blanked.' + (a ? ' The request will not be sent again.' : '') + ' Read the stored status to find out.';
       let kept = null;
       if (a) {
@@ -210,8 +218,9 @@
     }
     function held(action, hold) {
       const counts = hold.unclassified === null ? null : countsList([['Receipt rows the cleanup cannot classify', hold.unclassified]]);
-      if (attempt) return unconfirmed(HOLD_WHY[action] + ' That does not settle the request below.', null, counts);
-      return show('held', 'Cleanup held', h('p', {text: HOLD_WHY[action]}), counts, HOLD_CAUSES[action] ? h('p', {class: 'small', text: HOLD_CAUSES[action]}) : null, earlierNote(),
+      // Round 4: an earlier request whose record cannot be read back is pending too, so it keeps the same heading.
+      if (pending()) return unconfirmed(HOLD_WHY[action] + (attempt ? ' That does not settle the request below.' : ' That does not settle the earlier request.'), null, counts);
+      return show('held', 'Cleanup held', h('p', {text: HOLD_WHY[action]}), counts, HOLD_CAUSES[action] ? h('p', {class: 'small', text: HOLD_CAUSES[action]}) : null,
         h('p', {text: 'Read the stored status before any further step.'}), h('div', {class: 'btn-row'}, statusButton()));
     }
     function result(s, origin) {
@@ -261,7 +270,7 @@
       if (kind === 'held') { focusOn(held('status', readHold(failure))); return; }
       if (kind) { focusOn(refused(kind)); return; }
       if (readUnconfirmed(failure)) { focusOn(onward('Stored state not confirmed', 'not-confirmed', 'The server could not confirm the stored state of the cleanup. If this repeats, the stored record needs an attended review.')); return; }
-      focusOn(onward('Status not shown', 'held', 'The reply to the status read was lost or could not be read.'));
+      focusOn(onward('Status not shown', 'held', readButOdd(failure) ? ODD.status : 'The reply to the status read was lost or could not be read.'));
     }
     async function previewNow() {
       if (busy || !current() || pending()) return;
@@ -280,7 +289,7 @@
       if (kind === 'held') { focusOn(held('preview', readHold(failure))); return; }
       if (kind) { focusOn(refused(kind)); return; }
       if (readUnconfirmed(failure)) { focusOn(onward('Stored state not confirmed', 'not-confirmed', 'The server could not confirm the stored state of the cleanup. If this repeats, the stored record needs an attended review.')); return; }
-      focusOn(onward('Count not shown', 'held', 'The reply to the count was lost or could not be read.'));
+      focusOn(onward('Count not shown', 'held', readButOdd(failure) ? ODD.preview : 'The reply to the count was lost or could not be read.'));
     }
     async function applyNow(p) {
       if (busy || !current() || pending() || lastPreview !== p || now() >= p.expiresAt) return;
@@ -299,14 +308,15 @@
       if (late) { focusOn(unconfirmed('The server did not answer within ' + Math.round(timeoutMs / 1000) + ' seconds.')); return; }
       if (!failure) {
         const s = readStatus(answer);
-        if (s && s.recorded) { message.textContent = 'The server recorded the cleanup.'; focusOn(result(s, {operationId: sent.operationId, notesToBlank: p.notesToBlank})); return; }
+        // Round 4: "recorded the cleanup" only for this request's own completion; an earlier one was already recorded.
+        if (s && s.recorded) { message.textContent = sent.operationId && s.operationId === sent.operationId ? 'The server recorded the cleanup.' : sent.operationId ? 'The cleanup had already been recorded by an earlier request.' : 'The stored status shows a recorded cleanup.'; focusOn(result(s, {operationId: sent.operationId, notesToBlank: p.notesToBlank})); return; }
         focusOn(unconfirmed('The server answered, but not in the expected form.')); return;
       }
       const kind = refusal(failure);
       // A refusal before this request's own write settles this request only (Codex b908253).
       if (kind) { attempt = null; writeAttempt(storage, null); focusOn(kind === 'held' ? held('apply', readHold(failure)) : refused(kind)); return; }
       if (readUnconfirmed(failure)) { focusOn(unconfirmed('The server reported that the outcome of this request is not confirmed.')); return; }
-      focusOn(unconfirmed('The reply to the cleanup request was lost or could not be read.'));
+      focusOn(unconfirmed(readButOdd(failure) ? ODD.apply : 'The reply to the cleanup request was lost or could not be read.'));
     }
 
     const stored = readAttempt(storage);
