@@ -1,5 +1,14 @@
 # Army aggregate publication and historical QR scope
 
+## Current author release (12 November 2026)
+
+The current author release is **Olympus Guild 1.5.8**. Per Codex's record of 12 November 2026, its package has the separate `OlympusSiteAggregate` folder, and since 1.5.7 that exporter's guild list includes `OLYMPUS PRIME`; Verify has not qualified the 1.5.8 exporter on a live client. The 1.3.3 check under "Publisher adoption and the dedicated file" is the dated 4 November record. [The integration record](dan155-integration.md#current-status-12-november-2026) lists every activation limit. The limits that concern this page:
+
+| Off now | Before it is switched on | Who switches it |
+|---|---|---|
+| Website reporting (Army aggregate previews and publications): held unless `ARMY_SITE_AGGREGATE_ENABLED` is exactly `"true"`; the accepted configuration leaves it unset. | The owner verifies the dedicated exporter of the current release on a live Forever client, and publication passes the gates on this page. | The owner decides; Codex Root alone deploys the configuration that sets it. |
+| The automatic five-minute aggregate relay (`site-feed-v1`): unmounted. | The evidence in [the feed contract](launch227-feed-contract.md#required-evidence-before-mounting-or-enabling). | Mounting is a code change, reviewed and deployed by Codex Root with the owner's authorization. |
+
 ## Current reader and reporter
 
 `/army` redirects eligible signed-in readers to `/#/army`. The reader and its aggregate API

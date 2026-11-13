@@ -539,6 +539,20 @@ check('CONTENT-01/09: the rendered Leatherworking, Enhancement and Dwarf pages g
   }
   return bad.length === 0 || bad.join(' | ');
 });
+// Round 3 (13 Nov 2026), misc item 1: guides218.json classes[7].changes[7] still said "No Blizzard note confirms the
+// hotfix yet." The cited hotfix page (g218-156, read once on 13 Nov) has no Improved Drains or Healthstone note in any
+// section up to 11 November, and the site's 10 November talent data already gives Improved Drains the datamined text.
+// So the line states what the talent data holds, dates the Blizzard silence and cites the hotfix page.
+check('round 3: the Warlock Improved Drains line agrees with the talent data and dates the Blizzard silence with the hotfix source', () => {
+  const g = json(stat, 'guides218.json'), x = g.classes[7].changes[7], data = json(stat, 'talents/data.json');
+  const drains = data.classes.find(c => c.id === 'warlock').trees.flatMap(t => t.talents).find(t => t.id === 'warlock-affliction-improved-drains');
+  const dataSays = drains && drains.descriptions.every(d => /Drain Life, Drain Soul, and Drain Mana/.test(d) && !/Wrack/.test(d));
+  const hotfix = g.sources[156], untilDate = (/up to (\d+ November 2026)/.exec(x.text) || [])[1];
+  return g.classes[7].id === 'warlock' && /Improved Drains/.test(x.text) && dataSays && /10 November talent data has the same text/.test(x.text)
+    && !/No Blizzard note confirms the hotfix yet/.test(x.text) && x.sources.includes(156) && hotfix.url === HOTFIX_URL
+    && untilDate === '11 November 2026' && /November 11, 2026/.test(hotfix.label) && x.status === 'pending'
+    || JSON.stringify({ text: x.text, sources: x.sources, dataSays, untilDate });
+});
 check('review: the validator refuses a question that cites a superseded fact without the fact that supersedes it', refused(({ bundle, quiz }) => {
   const q = quiz.questions.find(x => x.facts.some(id => id.startsWith('talents-warrior.')));
   const f = bundle.factFiles.find(d => d.file === 'talents-warrior').facts.find(x => q.facts.includes(x.id));
@@ -593,7 +607,8 @@ check('review: the Gnome guide teaches Eureka! on Power Word: Shield from the 16
 check('renderer: a track states each omission reason once, preset chapters carry no duplicate "check in game" step, and race leads open with their facts', async () => {
   const human = await open(['race', 'human', '201']), arms = await open(['class', 'warrior', 'arms', '301']);
   const counts = p => { const s = p.container.querySelectorAll('section').find(x => /Intermediate|Advanced/.test(text(x.querySelector('h2')))); const seen = new Map(); for (const li of s.querySelectorAll('li')) { const t = text(li).replace(/^[^:]*: /, ''); seen.set(t, (seen.get(t) || 0) + 1); } return [...seen.values()].every(n => n === 1); };
-  // REV-UNI-3 (12 Nov 2026): the preset block already says to check a build in game, so a preset chapter's own steps must
+  // REV-UNI-1 of FOLLOWUP-TASKS.md (12 Nov 2026; its receipt is filed as followup-uni/REV-UNI-3.md, and REV-UNI-3 of the
+  // task list is the /guide footer): the preset block already says to check a build in game, so a preset chapter's own steps must
   // not repeat it in any wording (check, compare or verify a build or talents in game, or open it in the calculator first).
   const ownCheck = t => /\b(?:check|compare|verify|confirm)\b[^.]*\b(?:builds?|talents?|points)\b[^.]*\bin[- ]game\b/i.test(t) || /\bin[- ]game\b[^.]*\bbefore you (?:spend|use|attach|commit)/i.test(t)
     || /\b(?:open|load)\b[^.]*\btalent calculator\b/i.test(t);

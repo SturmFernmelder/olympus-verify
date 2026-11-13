@@ -1,5 +1,23 @@
 # Olympus 1.5.5 integration and Verify 0.6.28
 
+## Current status (12 November 2026)
+
+**Current author release: Olympus Guild 1.5.8** ([CurseForge project 1708200](https://www.curseforge.com/wow/addons/olympus-guild), by dnl_gentile). Per Codex's record of 12 November 2026, the 1.5.8 author release ZIP has the separate `OlympusSiteAggregate` folder, whose guild list includes `OLYMPUS PRIME`, and its `Olympus/Verify.lua` calls `OlympusVerifyBridge242.QueueSelf(code)` when the bridge reports self delivery. Both first appeared in 1.5.7 (11 November), so the two requests to Dan in the 1.5.5 record below are met upstream.
+
+Verify has not qualified 1.5.7 or 1.5.8. No Lua check runs Dan's consumer against `OlympusVerifyBridge242.Status()`, and a module being present in the package is not acceptance of the bridge. Claude's Stage 1 audit (12 November) found that 1.5.7 takes census freshness from the roster-read time while its Bridge still exports the local receipt time, so Verify's census viewer can refuse a checkpoint whose report arrived late; Codex's review keeps that difference open. The sections after this one are the dated record of 10 November and describe 1.5.5.
+
+Nothing in this integration is switched on by a release of Dan's addon:
+
+| Off now | Before it is switched on | Who switches it |
+|---|---|---|
+| Website reporting (Army aggregate previews and publications): held unless `ARMY_SITE_AGGREGATE_ENABLED` is exactly `"true"`; the accepted configuration leaves it unset. | The owner verifies the dedicated exporter of the current release on a live Forever client, and publication passes its own gate ([Army publication](army-qr-publishing.md)). | The owner decides; Codex Root alone deploys the configuration that sets it. |
+| The automatic five-minute aggregate relay (`site-feed-v1`): unmounted, with no route, cron, binding or credential. | The evidence in [the feed contract](launch227-feed-contract.md#required-evidence-before-mounting-or-enabling): the live native realm capture, a real masked sample, producer, replay, erasure and restore tests, registration of the dedicated public key, and one reconciled GM grace (48 hours agreed on 3 November; seven days in the 1.5.5 and 1.5.6 sources). | Mounting is a code change, reviewed and deployed by Codex Root with the owner's authorization. |
+| Olympus Link (`/oly discord <code>`): off; nothing in `worker/wrangler.toml` sets `LINK_ENABLED`. | The preconditions of [the owner activation checklist](olympus-link.md#8-owner-activation-checklist-phase-2-not-part-of-186), a native `Player-…` GUID bound into the signed request, reviewed key enrollment, replay and revocation checks, and live client acceptance. | The owner runs the Phase 2 steps; agents only prepare the commands. |
+| Code self-submission from Dan's "My Discord verification" entry (`QueueSelf`): not accepted. The contract is unchanged, and a queued code is a pending local request, never verification. | A Lua check of Dan's current consumer against `Status()`, and the owner resuming member-interaction acceptance, which stays owner-held. | The owner; Codex Root releases any code change it needs. |
+| The local census viewer (`/olv census on`): off after every reload. | An officer turns it on for one session; it writes no SavedVariables and uploads nothing. | The officer at the keyboard. |
+
+## Record of 10 November 2026 (Olympus 1.5.5)
+
 The owner supplied Olympus-1.5.5.zip on 10 November 2026 and asked for working links/synchronization and an unsent message for Dan. The inspected archive is exactly the official v1.5.5 asset: 13,392,434 bytes, SHA256 `37f6dc0dbac0170d9ad1c597d84a09d6475e2231a6e5a9b0626ac35a4de65ad3`. All 430 installed Olympus files and both SiteAggregate files matched it before this change. Dan has also published v1.5.6; that release's additional peer-discovery behavior is not qualified by this 1.5.5 audit, and no upstream addon was replaced.
 
 ## Implemented connection

@@ -13,7 +13,7 @@ Nothing is invented. A course says only what the site already holds with a grade
 - the Blizzard notes the site already cites (sources `g218-0`, `g218-1`, `g218-49`, `g218-50`, `g218-150` and the other `official` entries in `sources.json`);
 - Classic 1.12 reference facts already present and marked as Classic (grades D and E).
 
-Where the directive asks for something no reviewed fact supports yet, the chapter exists, says plainly what is missing and why, and carries no quiz question. Typical examples are exact Forever coefficients, measured hit, crit or defense caps, boss-by-boss execution before the raids open on 9 December 2026, per-spec gear tables and leveling routes. A 301 track that is honest and short is correct. A padded one is a defect.
+Where the directive asks for something no reviewed fact supports yet, the chapter exists, says plainly what is missing and why, and carries no quiz question. Typical examples are exact Forever coefficients, measured hit, crit or defense caps, boss-by-boss execution (raid unlock date: 9 December 2026), per-spec gear tables and leveling routes. A 301 track that is honest and short is correct. A padded one is a defect.
 
 You may restate an existing claim as one statement per fact, which is how `facts/common.json` was made. You may not add a number, a name or a mechanic that no cited fact holds, and you may not add a new external source. A new source needs a review of its own: raise it with the lane owner.
 
@@ -68,7 +68,7 @@ All files are UTF-8 JSON. Text fields have no leading or trailing spaces. Ids ar
 | `sources` | 1 to 12 ids from `sources.json` (0 allowed for grade U) |
 | `reviewedAt`, `gameBuild` | The day you checked it and the build or notes it describes |
 | `recheck` | Set by the migration on every grade-A claim checked against the 16 October talent data. A re-check fact is shown with a "Needs re-check" note, **cannot be quizzed** and cannot appear in a complete guide. Re-check it against the 10 November data (`talents/data.json`), then either remove `recheck`, set `sources` to `["talents-data"]`, add `talent` or `tree`, and set `gameBuild` to `1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)`, or rewrite the value to what the data now says |
-| `supersededBy` | Optional: the id of a current fact (usually grade B) that a newer source gives instead, with a `note` saying what changed. `scripts/university/generate-talent-facts.cjs` sets it on talent facts whose 10 November text is older than Blizzard's 2 November notes (its `SUPERSEDED` list: Mental Dexterity and Stormstrike). Wherever such a fact is cited (theory, a step, a mistake, an overview point or a question), the fact that supersedes it must be cited beside it, and no value question is generated for it |
+| `supersededBy` | Optional: the id of a current fact (usually grade B) that a newer source gives instead, with a `note` saying what changed. `scripts/university/generate-talent-facts.cjs` sets it on the talent facts named in its `SUPERSEDED` list. The list is empty: Blizzard's 10 November 2026 hotfix (`g218-156`) gave Mental Dexterity and Stormstrike the values the talent data already had, so those two entries were removed on 12 November 2026. Wherever a superseded fact is cited (theory, a step, a mistake, an overview point or a question), the fact that supersedes it must be cited beside it, and no value question is generated for it |
 | `talent` / `tree` | For grade A: the talent id (or the `class-tree` id) in `talents/data.json`. The build checks that every number in the value occurs in that talent's current rank text or cost |
 
 Grade D and E facts must say they are Classic references in the label, value, note or `gameBuild`.
@@ -115,7 +115,7 @@ An unavailable chapter has no praxis, presets, macros or quiz:
 
 ```json
 { "id": "warrior-arms-301-bosses", "section": "praxis", "title": "Boss-by-boss execution", "theory": ["class-warrior.launch-raids"],
-  "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that." }
+  "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that." }
 ```
 
 - Chapter ids are unique across all guides: use `<guide>-<spec>-<tier>-<topic>`.
@@ -239,7 +239,7 @@ Presets belong to the talents lane and live in `guides218.json`. After any prese
 Only ids in `sources.json`:
 
 - **`talents-data`**: the calculator's `talents/data.json` (Talents Forever export of 10 Nov 2026, client 1.60.1.70755 with server hotfixes, CC BY 4.0). Grade A, through the generated talent facts.
-- **Blizzard official** (`kind: "official"`), such as `g218-0` (Warrior deep dive), `g218-1` (Beta Development Notes, 24 Sep to 27 Oct), `g218-2` (raid overview), `g218-49` and `g218-50` (16 and 26 Oct notes) and `g218-150` (development notes updated 2 November). Grade B.
+- **Blizzard official** (`kind: "official"`), such as `g218-0` (Warrior deep dive), `g218-1` (Beta Development Notes, 24 Sep to 27 Oct), `g218-2` (raid overview), `g218-49` and `g218-50` (16 and 26 Oct notes), `g218-150` (development notes updated 2 November) and `g218-156` (Blizzard's WoW: Forever hotfix page titled November 11, 2026). Grade B.
 - **Published Forever guides and community sources** (`forever-guide`, `community`, and `licensed-data` other than `talents-data`): Warcraft Tavern, Icy Veins, Method, Wowhead, Talents Forever pages. Grade C.
 - **Classic references** (`classic-baseline`), including the Classic Era 1.15.9.69722 client tables. Grade D or E, and only behind "In Classic 1.12" in a question.
 
