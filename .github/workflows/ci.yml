@@ -57,6 +57,11 @@ jobs:
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker
+      - name: Concurrent sweep progress and completed-erasure regression
+        run: |
+          node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"
+          node tests/lane_progress280_test.cjs --layout recorded-live-pre-seal-20261017 --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-recorded"
+        working-directory: worker
       - name: Install the hash-pinned LuaJIT bridge for the Watcher's Lua round trips
         run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt
       - name: Complete Watcher suite

@@ -965,7 +965,8 @@
       throw new ApiError(0, { message: WRITE_ANSWER_LOST });
     }
     let data = null;
-    const raw = await res.text().catch(() => null);
+    let raw = null, bodyReadFailed = false;
+    try { raw = await res.text(); } catch { bodyReadFailed = true; }
     if (raw) { try { data = JSON.parse(raw); } catch { data = null; } }
     // .104 (F100-1): a 2xx whose body is present but not readable JSON is an UNKNOWN outcome, never a success: the caller treats it as
     // a lost answer (nothing cleared, renumbered or re-sent on its own). An empty 2xx body (204) stays null for the endpoints that mean it.
@@ -981,7 +982,7 @@
       if (current) reloadNotice(data.message);
       throw new ApiError(409, Object.assign({}, data, { message: "Nothing was saved: reload the page first (your typing is still on this page)." }));
     }
-    if (!res.ok) { const error = new ApiError(res.status, data); if(res.status===429){const seconds=Number(res.headers.get("Retry-After"));error.retryAfterSeconds=Number.isFinite(seconds)&&seconds>0?Math.min(900,Math.ceil(seconds)):60;} throw error; }
+    if (!res.ok || bodyReadFailed) { const error = new ApiError(res.status, bodyReadFailed ? { error: "unreadable_answer" } : data); if(res.status===429){const seconds=Number(res.headers.get("Retry-After"));error.retryAfterSeconds=Number.isFinite(seconds)&&seconds>0?Math.min(900,Math.ceil(seconds)):60;} throw error; }
     return data;
   }
   // Optional census previews keep their raw lexical JSON and never use api() reserialization.
@@ -6834,7 +6835,7 @@
     unreadable_answer: "The answer could not be read, so the outcome is unknown.",
   };
   const codeOf = (e) => (e && e.data && e.data.error) || (e && e.code) || "";
-  const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
+  const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || ex.status >= 500);
   // CL2-017 (Evergreen 12 Nov 2026): an answer without a message or a known code used to read "Request failed (500)." and
   // hid the page's own fallback. explain() serves writes too, where a bare 5xx leaves the outcome unknown and the caller's
   // fallback says how to check it, so explain() now returns that fallback alone and never invites a retry. Only the read

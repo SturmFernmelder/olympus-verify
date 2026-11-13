@@ -651,36 +651,12 @@ function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): st
 }
 
 /** Round 4 item 8 (13 Nov 2026): why a rank role stays blocked after an unban. "inflight": the change's claim window is
- * still open, so it may yet land; "unconfirmed": its answer was lost. `ban` is true when the change is the ban's own
+ * still open, so it may yet land; "unconfirmed": its original effect is not known, including closed GET-only history. `ban` is true when the change is the ban's own
  * removal (canonical_ban_remove_v1, desired 0); false for any other purpose (a grant, a migration, another removal). */
-type UnbanBlock1112 = Readonly<{ role: string; kind: "inflight" | "unconfirmed"; ban: boolean }>;
-/**
- * Round 4 item 8 (13 Nov 2026): the rank roles that stay blocked for this member after an unban. A row of any purpose
- * and any generation counts while it is dispatching or unknown, or while an unattempted claim on it is live: the rows
- * that fence every role writer for that member and role. The unban reply used to read only the ban purpose's rows, so a
- * role held back by another purpose's row got no mention. Read only, one statement; null when the read fails.
- */
+type UnbanBlock1112 = import("./role-settlements").BanRankPhysicalBlock1112;
+/** Read the existing physical barrier's descriptions; the DTO cannot clear a fence or authorize any role effect. */
 async function unbanBlockedRanks1112(env: Env, subject: string): Promise<readonly UnbanBlock1112[] | null> {
-  if (!/^\d{17,20}$/.test(subject)) return [];
-  try {
-    const { BAN_RANK_ROLE_IDS1112, BAN_RANK_PURPOSE1112 } = await import("./role-settlements");
-    const { CANONICAL_GUILD233 } = await import("./canonical-ranks233");
-    const rows = (await env.DB.prepare(
-      `SELECT role_id, purpose, desired, state, (typeof(expires_at)='integer' AND expires_at>CAST(strftime('%s','now') AS INTEGER)) AS live
-       FROM role_settlements WHERE subject=?1 AND guild_id=?2 AND role_id IN (SELECT value FROM json_each(?3))
-       AND (state IN ('dispatching','unknown') OR (attempts=0 AND state='pending' AND typeof(expires_at)='integer' AND expires_at>CAST(strftime('%s','now') AS INTEGER)))`,
-    ).bind(subject, CANONICAL_GUILD233, JSON.stringify(BAN_RANK_ROLE_IDS1112)).all<{ role_id: string; purpose: string; desired: number; state: string; live: number }>()).results;
-    const out: UnbanBlock1112[] = [];
-    for (const role of BAN_RANK_ROLE_IDS1112) {
-      const mine = rows.filter((r) => r.role_id === role);
-      if (!mine.length) continue;
-      // A lost answer outweighs a change still in flight on the same role; the ban's own removal is named first.
-      const lost = mine.filter((r) => !(r.live === 1 && (r.state === "dispatching" || r.state === "pending")));
-      const pick = lost.length ? lost : mine;
-      out.push(Object.freeze({ role, kind: lost.length ? "unconfirmed" : "inflight", ban: pick.some((r) => r.purpose === BAN_RANK_PURPOSE1112 && Number(r.desired) === 0) }));
-    }
-    return Object.freeze(out);
-  } catch { return null; }
+  return (await import("./role-settlements")).readBanRankPhysicalBlocks1112(env, subject);
 }
 /** Round 4 item 8 (13 Nov 2026): the unban reply's blocked-role text, one sentence per cause. */
 function unbanBlockedText1112(target: string, blocked: readonly UnbanBlock1112[]): string {

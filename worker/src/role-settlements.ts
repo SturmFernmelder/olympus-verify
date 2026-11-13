@@ -2413,6 +2413,30 @@ function banRank1112PhysicalUnresolved(a:string,legacy:string):string{
  return `(${a}.state IN('dispatching','unknown') OR (${a}.attempts<>0 AND NOT(CASE WHEN (${launch230KnownReceipt(a)}) OR (${native232KnownReceipt(a)}) OR (${canonical233KnownReceipt(a)}) OR (${canonical233MigrationKnownReceipt(a)}) OR (${banRank1112KnownReceipt(a)}) OR (${legacy}) OR (${banRank1112LegacyKnown(a)}) THEN 1 ELSE 0 END))
   OR (${a}.attempts=0 AND ${a}.state IN('pending','dispatching') AND ${a}.expires_at>${DB_NOW}))`;
 }
+/** Read-only unban description of the existing physical barrier, never effect/ownership authority. */
+export type BanRankPhysicalBlock1112=Readonly<{role:string;kind:'inflight'|'unconfirmed';ban:boolean}>;
+/** Same fixed same-role/all-generation classifier as ban dispatch. Known receipts are excluded by the original
+ * private predicate, not by state alone. One business SELECT, at most18 grouped role rows; original tuples stay intact. */
+export async function readBanRankPhysicalBlocks1112(env:Env,subject:string):Promise<readonly BanRankPhysicalBlock1112[]|null>{
+ if(!ID.test(subject))return Object.freeze([]);
+ try{
+  const legacy=groupLegacyAck233((await import('./privacy-shared-member-cutover230')).sharedMember230LegacyAckSql('old'));
+  const inflight=`typeof(old.expires_at)='integer' AND old.expires_at>${DB_NOW} AND (old.state='dispatching' OR (old.state='pending' AND old.attempts=0))`;
+  const ban=`old.purpose='${BAN_RANK_PURPOSE1112}' AND old.desired=0`;
+  const rows=(await env.DB.prepare(`SELECT old.role_id,
+   MAX(CASE WHEN ${inflight} THEN 0 ELSE 1 END) AS unconfirmed,
+   MAX(CASE WHEN (${inflight}) THEN 0 WHEN ${ban} THEN 1 ELSE 0 END) AS unconfirmed_ban,
+   MAX(CASE WHEN (${inflight}) AND (${ban}) THEN 1 ELSE 0 END) AS inflight_ban
+   FROM role_settlements old WHERE old.subject=?1 AND old.guild_id=?2
+   AND old.role_id IN(SELECT value FROM json_each(?3)) AND ${banRank1112PhysicalUnresolved('old',legacy)} GROUP BY old.role_id`)
+   .bind(subject,CANONICAL_GUILD233,JSON.stringify(BAN_RANK_ROLE_IDS1112)).all<{role_id:string;unconfirmed:number;unconfirmed_ban:number;inflight_ban:number}>()).results;
+  const byRole=new Map(rows.map(row=>[row.role_id,row]));
+  return Object.freeze(BAN_RANK_ROLE_IDS1112.filter(role=>byRole.has(role)).map(role=>{
+   const row=byRole.get(role)!,unconfirmed=row.unconfirmed===1;
+   return Object.freeze({role,kind:unconfirmed?'unconfirmed' as const:'inflight' as const,ban:(unconfirmed?row.unconfirmed_ban:row.inflight_ban)===1});
+  }));
+ }catch{return null;}
+}
 export type BanRankRole1112=Readonly<{role:string;reason:string}>;
 export type BanRankOrigin1112=Readonly<{kind:'command';banEvent:number}>|Readonly<{kind:'sweep'}>;
 /** Why roles were left for a later visit (repair round, 13 Nov 2026): the request budget, Discord's 429, an unconfirmed

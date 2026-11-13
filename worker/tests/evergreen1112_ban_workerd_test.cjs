@@ -26,7 +26,7 @@ const SUCCESSOR_KINDS=['late-delete','known-ack','known-migrate','known-nd','kno
 // Repair round (13 Nov 2026, independent review of the successor at 4951e61).
 const REPAIR_KINDS=['oldlane-retired','oldlane-veteran','oldlane-getonly','legacy-removed','legacy-absent','lane-failed','lane-held','watcher-nolane','deferred-429'];
 // Round 4 item 8 (13 Nov 2026): the unban reply for a removal in flight and for rows of other purposes.
-const ROUND4_KINDS=['unban-inflight','unban-other-inflight','unban-mixed'];
+const ROUND4_KINDS=['unban-inflight','unban-other-inflight','unban-mixed','unban-old-getonly','unban-attempted-pending'];
 const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS,...ROUND4_KINDS];
 const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},held:[],member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 let mf,checks=[];
@@ -448,6 +448,18 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  check('round 4: with three causes the reply names all three rank roles, each under its own cause, and an expired claim is unconfirmed',mxReply.includes('3 Olympus rank roles stay blocked for them:')&&[VETERAN,OFFICER,RAIDER].every(r=>mxList.includes('<@&'+r+'>'))
   &&mxReply.includes('An earlier ban removal of <@&'+VETERAN+'> got no confirmed answer')&&mxReply.includes('An earlier change to <@&'+OFFICER+'> outside the ban got no confirmed answer')&&mxReply.includes('Another change to <@&'+RAIDER+'> was still in flight at the unban')&&mxReply.length<=2000,mxReply);
 
+ // Root follow-up (13 Nov 2026): the reply describes the actual same-role barrier, including old GET-only history
+ // and an attempted pending row whose original effect is unconfirmed. The read never changes their original fields.
+ for(const k of ['unban-old-getonly','unban-attempted-pending']){
+  await setup(k,{present:[VETERAN]});const now=(await call('clock/'+k)).now;
+  const row=k==='unban-old-getonly'
+   ?await oldRow(k,{purpose:'fresh_roster_rank',role:VETERAN,desired:1,reason:'fresh_server_confirmed',profile:'ten-rank'})
+   :{...(await synthetic(k,{purpose:'canonical_routine233',desired:1,state:'pending',reason:'synthetic_attempted_pending',profile:CANONICAL_PROFILE})),created_at:now-10,expires_at:now+290,checked_at:now-9};
+  await call('insert/'+k,{rows:[row]});const original=(await call('rows/'+k)).rows.find(r=>r.id===row.id),from=state.get(k).http.length;
+  x=await unban(k);const reply=unbanReply(x);
+  check(k+': unban names the physically blocked role as unconfirmed instead of omitting it or calling it in flight',reply.includes('<@&'+VETERAN+'>')&&reply.includes('outside the ban got no confirmed answer')&&!reply.includes('was still in flight'),reply);
+  check(k+': original projected settlement fields stay identical and no role effect is sent',same(x.rows.find(r=>r.id===row.id),original)&&writesTo(k,VETERAN,from)===0,{before:original,after:x.rows.find(r=>r.id===row.id),http:state.get(k).http.slice(from)});
+ }
  check('a non-banned member holding a rank role is never read or changed in any case',otherUntouched(),kinds.map(k=>state.get(k).http.filter(h=>h.path.includes(OTHER))));
  check('no PUT is ever sent by the ban path',ORIGINAL_KINDS.filter(k=>!['bot-veteran','ack-loss-unread','slice'].includes(k)).every(k=>!state.get(k).http.some(h=>h.method==='PUT')),null);
  // 23. The whole scheduled role slice in canonical mode: a bound member in the member rotation, then the banned visit at

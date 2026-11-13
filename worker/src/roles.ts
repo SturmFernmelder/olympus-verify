@@ -35,7 +35,7 @@
  */
 import type { Env } from "./env";
 import { intVar } from "./env";
-import { audit, now } from "./db";
+import { audit, now, type PrivacyReference } from "./db";
 import { addRole, DiscordError, guildMember, removeRole, rest, type AttemptBudget } from "./discord";
 import { membershipSettlementEnabled as durableServingRoles,membershipTransitionEnabled,membershipTargetsCurrent,type MembershipTargets } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
@@ -348,6 +348,13 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
+type BannedSweepReferences280=Readonly<{cursor:string;retained:boolean;references:readonly PrivacyReference[];held:boolean}>;
+const bannedSweepReferences280=new WeakMap<object,{env:Env;check:()=>void;facts:BannedSweepReferences280}>();
+/** Original selected-row references for the passive sweep audit only. No role
+ * authority or raw generations are added to the public reconciliation result. */
+export function readBannedSweepReferences280(env:Env,result:object):BannedSweepReferences280{
+ const source=bannedSweepReferences280.get(result);if(!source||source.env!==env)throw Error('banned_sweep_reference_source_held');source.check();return source.facts;
+}
 export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean; remaining: number; observed: number }> {
   const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
   const captureGeneration=membershipTransitionEnabled(env)||durableServingRoles(env);
@@ -356,7 +363,24 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
   // observed (successor, 12 Nov 2026): unresolved ban rank-role rows whose role a visit's read showed absent. Observation
   // data for the sweep audit only; no row is changed and nothing reads it as authority.
   const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false, remaining: 0, observed: 0 };
-  if (!role) return out;
+  // Passive audit references only: capture them from the same selected rows before
+  // any provider await. They never alter a role writer's original generation rules.
+  const selectedReferences280=new Map<string,PrivacyReference>();
+  const originalDB280=Object.getOwnPropertyDescriptor(env,'DB'),originalProto280=Object.getPrototypeOf(env);
+  const finish=()=>{
+    const cursor=out.cursor,checked=Object.freeze([...out.checked]);
+    const subjects=[...new Set([...checked,...(cursor&&cursor!==after?[cursor]:[])])];
+    const references=Object.freeze(subjects.flatMap(id=>selectedReferences280.has(id)?[selectedReferences280.get(id)!]:[]));
+    const held=subjects.some(id=>!selectedReferences280.has(id));
+    const cd=Object.getOwnPropertyDescriptor(out,'cursor'),qd=Object.getOwnPropertyDescriptor(out,'checked'),qa=out.checked,qp=Object.getPrototypeOf(out.checked),items=checked.map((_,i)=>Object.getOwnPropertyDescriptor(out.checked,String(i)));
+    const sameDescriptor=(a:PropertyDescriptor|undefined,b:PropertyDescriptor|undefined)=>!!a&&!!b&&['value','get','set','writable','enumerable','configurable'].every(k=>Object.is(a[k as keyof PropertyDescriptor],b[k as keyof PropertyDescriptor]));
+    bannedSweepReferences280.set(out,{env,check:()=>{
+      if(Object.getPrototypeOf(env)!==originalProto280||!sameDescriptor(originalDB280,Object.getOwnPropertyDescriptor(env,'DB'))||!originalDB280||!Object.hasOwn(originalDB280,'value')||
+       !sameDescriptor(cd,Object.getOwnPropertyDescriptor(out,'cursor'))||!sameDescriptor(qd,Object.getOwnPropertyDescriptor(out,'checked'))||out.cursor!==cursor||out.checked!==qa||qa.length!==checked.length||Object.getPrototypeOf(qa)!==qp||checked.some((_,i)=>!sameDescriptor(items[i],Object.getOwnPropertyDescriptor(qa,String(i)))))throw Error('banned_sweep_reference_source_held');
+    },facts:Object.freeze({cursor,retained:cursor===after,references,held})});
+    return out;
+  };
+  if (!role) return finish();
   // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
   // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
   // Owner ruling, 12 Nov 2026: with the canonical ranks selected, a standing ban's rank roles (all 18 fixed IDs, manual
@@ -369,10 +393,16 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
   // unresolved and keeps fencing its role for that member until an attended resolution exists.
   const debt=central?` UNION SELECT s.subject FROM role_settlements s WHERE s.purpose='${central.BAN_RANK_PURPOSE1112}' AND s.desired=0 AND s.attempts=1 AND s.state IN('dispatching','unknown') AND s.expires_at<=CAST(strftime('%s','now') AS INTEGER)`:'';
   const rows = await env.DB.prepare(
-    captureGeneration?`SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
+    `SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
       FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply'${debt}) selected
-      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`:`SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply'${debt}) WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
+      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`,
   ).bind(after, limit).all<{ discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>();
+  // Fill passive references for the complete original selection before any
+  // provider await. Effect admission keeps its existing per-row checks below.
+  for (const r of rows.results) {
+    try{selectedReferences280.set(r.discord_id,Object.freeze({subject:r.discord_id,capture:privacyCaptureFromColumns(r.discord_id,r)}));}
+    catch{/* An inactive/malformed passive reference holds publication, not ban safety. */}
+  }
   let stopped = false;
   for (const r of rows.results) {
     if(captureGeneration&&r.privacy_state&&r.privacy_state!=='active'){out.failed.push(r.discord_id);out.cursor=r.discord_id;continue;}
@@ -431,7 +461,7 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
     else out.failed.push(r.discord_id);
   }
   if (!stopped && rows.results.length < limit) out.cursor = ""; // wrap at the end
-  return out;
+  return finish();
 }
 
 /** While a blocking role is held, Guild Member is taken away. Returns the blocking role id when it did, else null. */
