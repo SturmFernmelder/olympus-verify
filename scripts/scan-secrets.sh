@@ -19,4 +19,4 @@ curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
 printf '%s  %s\n' "$expected" "$scan_dir/$archive" | sha256sum --check --status
 tar -xzf "$scan_dir/$archive" -C "$scan_dir" gitleaks
 "$scan_dir/gitleaks" git --config .gitleaks.toml --redact=100 \
-  --no-banner --log-level warn --ignore-gitleaks-allow --log-opts='--all' .
+  --no-banner --log-level warn --verbose --ignore-gitleaks-allow --log-opts='--all' .
