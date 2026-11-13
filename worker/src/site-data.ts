@@ -749,6 +749,11 @@ function parseNoVote(raw: string | undefined): string[] {
 /** Blizzard's 20 Oct announcement: North America opens 27 Oct 2026 at 13:00 PDT = 20:00 UTC. Other regions differ.
  * https://news.blizzard.com/en-us/article/24303866/claim-your-world-of-warcraft-forever-character-names */
 export const DEFAULT_NAMES_OPEN_AT = 1793131200;
+/** Owner ruling of 13 Nov 2026 (CL2-175), "Close it": stop new reserved-name entries; names already recorded stay
+ * visible to their owner and to officers. The site records the end of Blizzard's reservation only as a day ("27 October
+ * to 3 November 2026", the Home names panel), so entry closes at the end of 3 November in UTC: 4 Nov 2026 00:00 UTC.
+ * From then the server refuses an added or changed name whatever the stored namesOpen switch says; app.js mirrors it. */
+export const NAME_ENTRY_CLOSED_AT = 1793750400;
 /**
  * Blizzard's announced Forever schedule (Evergreen Stage 2, 4 Nov 2026), the same values as app.js FOREVER_SCHEDULE so
  * the bot's /launch and the website's launch notice change together: the global launch on 4 Nov 2026 at 3:00 p.m. PST

@@ -2862,18 +2862,23 @@
   // The first raids are dated 9 December 2026, so their notice lasts until that day ends in PST,
   // the guild's westernmost region (10 December, 08:00 UTC), and then retires.
   const FOREVER_SCHEDULE = Object.freeze({ launchAt: 1793833200, firstRaids: "9 December 2026", raidDayEndAt: 1796889600 });
+  // Owner ruling of 13 Nov 2026 (CL2-175), "Close it": the same instant as site-data.ts NAME_ENTRY_CLOSED_AT, the end of
+  // 3 November 2026 in UTC, when Blizzard's name reservation had ended. From then the Worker refuses new or changed names
+  // whatever the stored namesOpen switch says, so the page never offers entry and Home no longer announces it.
+  const NAME_ENTRY_CLOSED_AT = 1793750400;
+  const namesEntryClosed = () => nowSec() >= NAME_ENTRY_CLOSED_AT;
   function datesPanel() {
     const s = S.settings;
     if (!s) return launchNotice218();
-    const namesOpen = s.namesOpen === true && nowSec() >= s.namesOpenAt;
-    const namesSoon = s.namesOpen === true && !namesOpen;
+    const namesOpen = s.namesOpen === true && nowSec() >= s.namesOpenAt && !namesEntryClosed();
+    const namesSoon = s.namesOpen === true && nowSec() < s.namesOpenAt && !namesEntryClosed();
     const inviteTimeReached = nowSec() >= s.launchAt;
     // The launch notice above already counts down to the global launch; a guild invite time set to that same instant
     // gets no second countdown.
     const atLaunch = s.launchAt === FOREVER_SCHEDULE.launchAt;
     return h("div", {class:"launch-and-admission218"}, launchNotice218(), frame("Olympus website & guild admission", null,
-      h("div", { class: "grid two" },
-        h("div", { class: "date-card" },
+      h("div", { class: namesEntryClosed() ? "grid" : "grid two" },
+        namesEntryClosed() ? null : h("div", { class: "date-card" },
           icon("icon-names", "l"),
           h("div", null,
             h("h3", { text: namesOpen ? "Website name entry is open" : namesSoon ? "Website name entry opens soon" : "Reserved-name list" }),
@@ -2982,8 +2987,8 @@
     const st = a ? a.status : null;
     const mine = choicesOf(a && a.status !== "withdrawn" ? a : null);
     const put = (S.nominatedFor || []).filter((k) => !mine.includes(k) && votedKey(k));
-    const namesOpen = S.settings && S.settings.namesOpen === true && nowSec() >= S.settings.namesOpenAt;
-    const namesSoon = S.settings && S.settings.namesOpen === true && !namesOpen;
+    const namesOpen = S.settings && S.settings.namesOpen === true && nowSec() >= S.settings.namesOpenAt && !namesEntryClosed();
+    const namesSoon = S.settings && S.settings.namesOpen === true && nowSec() < S.settings.namesOpenAt && !namesEntryClosed();
     // Applications saved before .43 have no weekly grid, and a leadership one is kept off the board until its applicant
     // agrees: both are fixed by opening the application and saving it again. (So is one naming only roles without a
     // public vote, once one of them is opened to the vote.)
@@ -3081,7 +3086,8 @@
   function namesPanel() {
     const meta = M();
     const s = S.settings || {};
-    const open = s.namesOpen && nowSec() >= s.namesOpenAt;
+    const closed = namesEntryClosed();
+    const open = s.namesOpen && nowSec() >= s.namesOpenAt && !closed;
     const saved = S.reserved || [];
     // Evergreen Stage 2, 4 Nov 2026: during the .227 launch verification officers invite in game and the Worker holds the
     // website queue (site-queue.ts), so a queued name is not described as waiting in it. An older boot without the
@@ -3093,12 +3099,42 @@
     // the list reserves nothing.
     const intro = h("div", { class: "parchment" },
       h("h3", { text: "What happens to them" }),
-      h("p", { text: "Blizzard's early name reservation ran from 27 October to 3 November 2026. If you reserved names, list them here so leadership can match them to you." }),
+      h("p", { text: closed
+        ? "Blizzard's early name reservation ran from 27 October to 3 November 2026. Name entry on this site closed when it ended. Names you recorded before then stay on your list so leadership can match them to you."
+        : "Blizzard's early name reservation ran from 27 October to 3 November 2026. If you reserved names, list them here so leadership can match them to you." }),
       h("p", { text: inGame
         ? "Leadership keeps this list private and records who was promised a seat. Officers invite in game. The website queue is paused. Be online on that character."
         : "Leadership keeps this list private and decides who has been promised a seat. From the guild’s invite date, approved names go to the top of the invite queue, and an officer sends each invite by hand, so be online on that character." }),
       h("p", { text: "This list doesn't reserve names or link characters. To link your Discord account, whisper your verification code to an officer in game." }));
     const section = h("section", { class: "frame", id: "names" }, h("div", { class: "plaque" }, h("h2", { text: "Your reserved names" })));
+    if (closed) {
+      // CL2-175 (owner ruling of 13 Nov 2026): the recorded names stay visible, and a member can still remove their own;
+      // a name in a live invite stays, as before, until an officer takes it off.
+      const remove = (r) => {
+        const button = targetSize1112(h("button", { type: "button", class: "btn small", text: "Remove", "aria-label": `Remove ${r.name} from your list` }));
+        button.addEventListener("click", async () => {
+          if (!await confirmBox(`Remove ${r.name}?`, "It comes off your reserved-name list. Entry has closed, so it cannot be added again.", "Remove", { danger: true })) return;
+          button.disabled = true;
+          try {
+            const out = await api("PUT", "/api/reserved", { names: saved.filter((x) => x !== r).map((x) => x.name) });
+            S.reserved = out.reserved;
+            toast(`${r.name} removed from your list.`, "good");
+            section.replaceWith(namesPanel());
+            const count = document.getElementById("names-count");
+            if (count) count.textContent = plural(S.reserved.length, "name") + " saved";
+          } catch (err) { toast(err.message, "bad"); button.disabled = false; }
+        });
+        return button;
+      };
+      add(section, [
+        intro,
+        h("div", { class: "rule" }),
+        saved.length
+          ? h("div", { class: "stack" }, saved.map((r) => h("div", { class: "person" }, h("div", { class: "nm" }, h("b", { text: r.name })), badgeOf(r), r.status === "queued" ? null : remove(r))))
+          : h("p", { class: "muted", text: "You did not record any names." }),
+      ]);
+      return section;
+    }
     if (!open) {
       add(section, [
         intro,
@@ -4953,7 +4989,8 @@
     sync();
     const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const [confirmed, confirmedRow] = box(s.namesTimeConfirmed, "Reservation hour marked confirmed (legacy)", "Retained with the earlier reservation record. The current Blizzard announcement is shown separately; website entry and guild invite scheduling use their own settings below.");
-    const [namesOpen, namesOpenRow] = box(s.namesOpen, "People may enter reserved names (from the time above)");
+    // CL2-175 (owner ruling of 13 Nov 2026): after Blizzard's reservation the Worker refuses new names whatever this says.
+    const [namesOpen, namesOpenRow] = box(s.namesOpen, "People may enter reserved names (from the time above)", namesEntryClosed() ? "This switch no longer opens entry: the site has refused new or changed names since Blizzard's name reservation ended on 3 November 2026." : undefined);
     const [autoQueue, autoQueueRow] = box(s.autoQueue, "From the guild invite date, automatically queue approved reserved names", s.reservedQueueOnSite === false
       ? "The website queue is paused. Officers invite in game."
       : `Checked every ${SCHEDULER_MINUTES} minutes. Off: use Queue on the Reserved names tab when you are ready.`);

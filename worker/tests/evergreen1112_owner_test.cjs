@@ -148,6 +148,46 @@ async function part1() {
     check('CL2-074', 'the signed-out digest address serves the wide WebP as an immutable public asset', !!served && served.status === 200 && /immutable/.test(served.headers.get('Cache-Control') || ''), served && served.status);
   }
 
+  console.log('== CL2-175: reserved-name entry after Blizzard\'s reservation ended ==');
+  await signIn(ADMIN); await signIn(MEMBER); await signIn(OTHER);
+  let r = await call('PUT', '/api/admin/settings', { who: ADMIN, body: { namesOpen: true } });
+  const stored = db.prepare("SELECT value FROM site_settings WHERE key = 'namesOpen'").get();
+  check('CL2-175', 'setup: the admin stores namesOpen = true', r.status === 200 && stored && stored.value === '1', r);
+  r = await call('PUT', '/api/reserved', { who: MEMBER, body: { names: ['Fern Melder', 'Ana Light'] } });
+  check('CL2-175', 'setup: during the reservation a member records two names', r.status === 200 && (await reservedOf(MEMBER)) === 'Ana Light|Fern Melder', r);
+  r = await call('PUT', '/api/reserved', { who: OTHER, body: { names: ['Bob Stone'] } });
+  check('CL2-175', 'setup: a second member records one name', r.status === 200, r);
+
+  T = Date.parse('2026-11-12T18:00:00Z') / 1000; // after the reservation ended; sessions are signed in again for the new day
+  jar.clear(); await signIn(ADMIN); await signIn(MEMBER); await signIn(OTHER);
+  const before = rowsOf(MEMBER);
+  r = await call('PUT', '/api/reserved', { who: MEMBER, body: { names: ['Fern Melder', 'Ana Light', 'Nova Star'] } });
+  check('CL2-175', 'adding a name after the window is refused (403, specific message) while namesOpen is stored true', r.status === 403 && r.data?.error === 'names_closed' && /closed when Blizzard's name reservation ended on 3 November 2026/.test(r.data?.message || ''), r);
+  check('CL2-175', '  and nothing was written', rowsOf(MEMBER) === before, rowsOf(MEMBER));
+  r = await call('PUT', '/api/reserved', { who: MEMBER, body: { names: ['Fern Melder', 'Ana Bright'] } });
+  check('CL2-175', 'changing a recorded name (one out, one in) is refused and changes nothing', r.status === 403 && r.data?.error === 'names_closed' && rowsOf(MEMBER) === before, r);
+  r = await call('PUT', '/api/reserved', { who: OTHER, body: { names: ['Cara Moon'] } });
+  check('CL2-175', 'a member whose saved list is replaced by a new name is refused too', r.status === 403 && rowsOf(OTHER) === 'Bob Stone:claimed', r);
+  check('CL2-175', 'the member still sees the names they recorded (GET /api/me)', (await reservedOf(MEMBER)) === 'Ana Light|Fern Melder', await reservedOf(MEMBER));
+  r = await call('PUT', '/api/reserved', { who: MEMBER, body: { names: ['fern melder', 'ANA LIGHT'] } });
+  check('CL2-175', 'saving the same names again (any capitalization) is not an addition', r.status === 200 && rowsOf(MEMBER) === before, r);
+  r = await call('PUT', '/api/reserved', { who: MEMBER, body: { names: ['Fern Melder'] } });
+  check('CL2-175', 'the member can still remove their own name', r.status === 200 && (r.data?.reserved || []).map(x => x.name).join('|') === 'Fern Melder' && (await reservedOf(MEMBER)) === 'Fern Melder', r);
+  r = await call('GET', '/api/admin/reserved?status=all', { who: ADMIN });
+  const items = (r.data?.items || []).map(x => x.name + ':' + x.status).sort().join('|');
+  check('CL2-175', 'the admin Reserved names list still returns the recorded names (and the released one)', r.status === 200 && items === 'Ana Light:released|Bob Stone:claimed|Fern Melder:claimed', items || r);
+  r = await call('GET', '/api/admin/reserved', { who: ADMIN });
+  check('CL2-175', 'the default admin list (no filter) still answers', r.status === 200 && Array.isArray(r.data?.items) && r.data.items.some(x => x.name === 'Fern Melder'), r.status);
+  r = await call('POST', '/api/admin/reserved/approve', { who: ADMIN, body: { ids: db.prepare("SELECT id FROM site_reserved WHERE name = 'Bob Stone'").all().map(x => x.id) } });
+  check('CL2-175', 'officers can still act on a recorded name (approve)', r.status === 200 && r.data?.changed === 1, r);
+  r = await call('PUT', '/api/reserved', { who: OTHER, body: { names: [] } });
+  check('CL2-175', 'a member can empty their list after the window', r.status === 200 && rowsOf(OTHER) === 'Bob Stone:released', rowsOf(OTHER));
+
+  console.log('== CL2-175: the page copy ==');
+  const app = fs.readFileSync(path.join(ROOT, 'public/static/app.js'), 'utf8'), data = fs.readFileSync(path.join(ROOT, 'src/site-data.ts'), 'utf8');
+  const pageAt = (app.match(/const NAME_ENTRY_CLOSED_AT = (\d+);/) || [])[1], serverAt = (data.match(/export const NAME_ENTRY_CLOSED_AT = (\d+);/) || [])[1];
+  check('CL2-175', 'page and Worker close entry at the same instant, the end of 3 November 2026 in UTC', !!pageAt && pageAt === serverAt && Number(pageAt) === Date.UTC(2026, 10, 4) / 1000, { pageAt, serverAt });
+  check('CL2-175', 'the admin switch says it can no longer open entry', app.includes('This switch no longer opens entry: the site has refused new or changed names since Blizzard\'s name reservation ended on 3 November 2026.'), '');
 }
 
 // ---------------------------------------------------------------- Part 2: the harness and a headless Edge
@@ -187,6 +227,16 @@ async function launchEdge(port, profile) {
 }
 
 async function part2() {
+  console.log('== CL2-175 through the harness (' + URL0 + ') ==');
+  let r = await http('admin', 'PUT', '/api/admin/settings', { namesOpen: true });
+  check('CL2-175', 'harness: the admin stores namesOpen = true', r.status === 200 && r.data?.settings?.namesOpen === true, r.status);
+  const fresh = 'Qaowner ' + String.fromCharCode(97 + (Date.now() % 26)) + 'ight';
+  r = await http('member', 'PUT', '/api/reserved', { names: [fresh] });
+  check('CL2-175', 'harness: a member adding a name now is refused with names_closed', r.status === 403 && r.data?.error === 'names_closed', { status: r.status, data: r.data });
+  r = await http('member', 'GET', '/api/me');
+  check('CL2-175', 'harness: the member\'s own reserved list still reads', r.status === 200 && Array.isArray(r.data?.reserved), r.status);
+  r = await http('admin', 'GET', '/api/admin/reserved?status=all');
+  check('CL2-175', 'harness: the admin Reserved names list still reads', r.status === 200 && Array.isArray(r.data?.items), r.status);
   if (!CDP_PORT) return;
 
   const cdp = await launchEdge(CDP_PORT, args.profile || path.join(require('node:os').tmpdir(), 'owner1112-' + Date.now()));
@@ -227,6 +277,25 @@ async function part2() {
       check('CL2-074', `gate at ${width} px: the art causes no layout shift (total under 0.005), no CSP refusal, no horizontal overflow`, page.artCls === 0 && page.cls < 0.005 && csp.length === 0 && page.overflow <= 0, report.gate[width]);
     }
 
+    console.log('== CL2-175: Home as a member and as an applicant in Edge ==');
+    for (const persona of ['member', 'applicant']) {
+      await go(URL0 + '/__qa/' + persona);
+      for (const [width, height] of [[1280, 900], [375, 812]]) {
+        await size(width, height);
+        await go(URL0 + '/#/');
+        let state = null;
+        for (let i = 0; i < 50; i++) { state = await cdp.eval(`(() => { const m = document.querySelector('main'); const n = document.querySelector('#names'); return m && n ? { main: m.innerText, names: n.innerText, cards: m.querySelectorAll('.launch-and-admission218 .date-card').length, count: (document.getElementById('names-count') || {}).textContent || '', overflow: document.documentElement.scrollWidth - innerWidth } : null; })()`); if (state) break; await sleep(200); }
+        report.home[persona + '@' + width] = state && { cards: state.cards, count: state.count, overflow: state.overflow, notice: /Website name entry is open/.test(state.main), names: state.names.slice(0, 400) };
+        check('CL2-175', `Home as ${persona} at ${width} px no longer says website name entry is open`, !!state && !/Website name entry is open|Website name entry opens soon/.test(state.main) && state.cards === 1, report.home[persona + '@' + width]);
+        check('CL2-175', `  the names panel says entry closed when Blizzard's reservation ended, with no entry boxes (${persona}, ${width} px)`, !!state && state.names.includes('Name entry on this site closed when it ended.') && !/Save names/.test(state.names) && state.overflow <= 0, state && state.names.slice(0, 300));
+      }
+    }
+    await go(URL0 + '/__qa/admin');
+    await size(1280, 900);
+    await go(URL0 + '/#/admin/settings');
+    let hint = null;
+    for (let i = 0; i < 50; i++) { hint = await cdp.eval(`(() => { const l = [...document.querySelectorAll('label.check')].find(x => x.textContent.includes('People may enter reserved names')); return l ? l.textContent : null; })()`); if (hint) break; await sleep(200); }
+    check('CL2-175', 'admin Settings: the name-entry switch carries the one-sentence note that it no longer opens entry', !!hint && hint.includes('This switch no longer opens entry'), hint);
     if (args.report) fs.writeFileSync(args.report, JSON.stringify(report, null, 2) + '\n');
   } finally { await cdp.close(); }
 }
