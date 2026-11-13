@@ -1,7 +1,7 @@
 -- .227 owner launch request (3 November 2026): observe gold paid to Fern Melder.
 -- This never trades, takes mail, reloads, flushes a log, grants a role or credits a tithe.
 -- SavedVariables is memory until the CLIENT writes it at /reload or logout. Self-whispers
--- provide a second delivery path, but chat-log buffering can delay the host's receipt.
+-- are not used for new financial evidence; legacy original custody is preserved.
 local ADDON = ...
 local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
 local transport = OlympusVerifyAPI and OlympusVerifyAPI.TreasuryTransport
@@ -45,14 +45,26 @@ local function balance() return integer(call(GetMoney)) end
 local function printLine(text)
   if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus Treasury|r: " .. text) end
 end
+local function realmKey280(value)
+  value=name(value)
+  if not value or value:find("-",1,true) or value:find(":",1,true) then return nil end
+  local key=value:gsub(" +",""):gsub("[A-Z]",function(c)return string.char(c:byte()+32)end)
+  return key~="" and key or nil
+end
+local function exactCollector280(value,realm)
+  local key=realmKey280(realm);if not key then return false end
+  if value==COLLECTOR then return true end
+  if type(value)~="string" or value:sub(1,#COLLECTOR+1)~=COLLECTOR.."-" then return false end
+  return realmKey280(value:sub(#COLLECTOR+2))==key
+end
 local function identity()
   local me = transport and name(call(transport.Name))
   local ownGuid = readable(transport and call(transport.Guid))
   local guild, realm = name(call(GetGuildInfo, "player")), name(call(GetRealmName))
   -- The owner narrowed capture to this exact collector on 12 November 2026.
   -- An editable recipient setting cannot authorize another officer's mailbox.
-  if cfg.treasuryTracking == false or me ~= COLLECTOR or not ownGuid or not ownGuid:match("^Player%-%d+%-%x+$") or not guild or not realm then return nil end
-  return me, ownGuid, guild, realm
+  if cfg.treasuryTracking == false or not exactCollector280(me,realm) or not ownGuid or not ownGuid:match("^Player%-%d+%-%x+$") or not guild or not realm then return nil end
+  return COLLECTOR, ownGuid, guild, realm
 end
 local function reference(value, extract)
   value = readable(value)
@@ -144,19 +156,6 @@ local function transferContext()
   local seed = table.concat({ guid or me, tostring(at), tostring(d.nextId), tostring(OlympusVerifyDB.boots or 0), tostring(call(GetTime) or 0) }, "|")
   return { id = H.sha256hex(seed):sub(1, 24), ts = at, recipient = me, collectorGuid = guid, guild = guild, realm = realm }
 end
-local function claimIntake(context, kind)
-  local d = db(); if not d or not context then return nil end
-  local intake=OlympusVerifyDB and OlympusVerifyDB.intake242
-  local saved=type(intake)=="table" and (kind=="trade" and intake.tradeCollection242 or intake.mailCollection242)
-  local me, ownGuid=identity()
-  if not ownGuid or type(saved)~="table" or saved.contextVersion~=1 or saved.kind~=kind or saved.transferId~=context.id
-    or saved.ownGuid~=ownGuid or normalize(saved.ownName)~=normalize(me) then return nil end
-  -- Delivery correlation only. The original receipt/MAC remains unchanged;
-  -- the rich intake body is owned before either observer can export it.
-  d.liveIntakeOwners242 = d.liveIntakeOwners242 or {}
-  d.liveIntakeOwners242[context.id] = true
-  return context.id
-end
 local function record(kind, sender, incoming, outgoing, evidence, context, titheReference, senderGuid)
   local me, guid, guild, realm = identity(); local d = db()
   sender, incoming, outgoing = name(sender), integer(incoming), integer(outgoing)
@@ -233,10 +232,10 @@ local function header(index)
 end
 local function settleMail()
   local batch = mailBatch
-  if not batch or not cacheComplete then return end
+  if not batch or batch.ambiguous or not cacheComplete then return end
   local current = balance()
   if not current or not batch.before then return end
-  local groups, matched, amount = {}, {}, 0
+  local groups, matched, amount, matchedCount = {}, {}, 0, 0
   for _, intent in ipairs(batch.intents) do
     local g = groups[intent.bucket] or { incoming = 0, intents = {} }
     g.incoming = g.incoming + intent.money
@@ -244,14 +243,14 @@ local function settleMail()
   end
   for bucket, group in pairs(groups) do
     if (batch.baselines[bucket] or 0) - (totals[bucket] or 0) == group.incoming then
-      for _, intent in ipairs(group.intents) do matched[intent] = true; amount = amount + intent.money end
+      for _, intent in ipairs(group.intents) do matched[intent] = true; amount = amount + intent.money; matchedCount=matchedCount+1 end
     end
   end
-  if amount <= 0 or current - batch.before ~= amount then return end
+  if amount <= 0 or matchedCount~=#batch.intents or current - batch.before ~= amount then return end
   local kept = {}
   for _, intent in ipairs(batch.intents) do
     if matched[intent] then
-      record("mail", intent.sender, intent.money, 0, "take_money_inbox_depletion_and_money_delta", intent.context, intent.reference)
+      if intent.reference then record("mail", intent.sender, intent.money, 0, "take_money_inbox_depletion_and_money_delta", intent.context, intent.reference) end
       batch.baselines[intent.bucket] = totals[intent.bucket] or 0
     else table.insert(kept, intent) end
   end
@@ -296,14 +295,18 @@ local function expireMail(expected)
   if mailBatch ~= expected then return end
   scanMail()
   if mailBatch ~= expected then return end
-  for _, intent in ipairs(expected.intents) do observe("mail_collection_unconfirmed", intent.sender, intent.money) end
+  for _, intent in ipairs(expected.intents) do if intent.reference then observe("mail_collection_unconfirmed", intent.sender, intent.money) end end
   mailBatch = nil
 end
 local function takingMoney(index)
   if not mailbox or not identity() or not cacheComplete then return end
   local row = cache[tonumber(index)]
-  if not row or row.money <= 0 or not row.reference then return end
-  if row.cod ~= 0 then observe("cod_excluded", row.sender, row.money); return end
+  if not row or row.money <= 0 then return end
+  if row.cod ~= 0 then
+    if mailBatch then mailBatch.ambiguous=true end
+    if row.reference then observe("cod_excluded", row.sender, row.money) end
+    return
+  end
   if not mailBatch then
     local copied = {}; for k, v in pairs(totals) do copied[k] = v end
     mailBatch = { before = balance(), baselines = copied, intents = {}, keys = {}, at = time() }
@@ -312,7 +315,10 @@ local function takingMoney(index)
   end
   local key = tostring(scanSerial) .. ":" .. tostring(index)
   if mailBatch.keys[key] then return mailBatch.keys[key] end
-  local intent = { sender = row.sender, money = row.money, reference = row.reference, bucket = row.bucket, context = transferContext() }
+  -- Excluded gold is transient wallet accounting only. It gets no sender copy,
+  -- transfer ID, receipt, reference or MAC and never leaves this live batch.
+  local intent = { money = row.money, bucket = row.bucket }
+  if row.reference then intent.sender=row.sender;intent.reference=row.reference;intent.context=transferContext() end
   mailBatch.keys[key] = intent
   table.insert(mailBatch.intents, intent)
   if #mailBatch.intents > 100 then expireMail(mailBatch) end
@@ -320,7 +326,7 @@ local function takingMoney(index)
 end
 local function interruptedMail()
   if not mailBatch then return end
-  for _, intent in ipairs(mailBatch.intents) do observe("mail_collection_interrupted", intent.sender, intent.money) end
+  for _, intent in ipairs(mailBatch.intents) do if intent.reference then observe("mail_collection_interrupted", intent.sender, intent.money) end end
   mailBatch = nil
 end
 local function boot()
@@ -329,7 +335,7 @@ local function boot()
     warned = true
     local actual = transport and name(call(transport.Name))
     if not actual then printLine("tracking waits for your complete native character name. Check /olvtreasury after the roster arrives.")
-    elseif not identity() then printLine("tracking is inactive on " .. actual .. "; configured exact collector is " .. tostring(cfg.treasuryRecipient or "Fern Melder") .. ".")
+    elseif not identity() then printLine("tracking is inactive on " .. actual .. "; configured exact collector is " .. COLLECTOR .. ".")
     elseif not secret then printLine("local capture is ready, but signed relay needs the existing officer configuration. Check /olvtreasury.") end
   end
   if not hooksReady then
@@ -365,6 +371,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
   elseif event == "TRADE_REQUEST_CANCEL" then
     if trade then observe("trade_cancelled", trade.sender, trade.incoming); trade = nil end
   elseif event == "TRADE_CLOSED" then
+    if trade then trade.closed=true end
     local expected = trade
     if expected then
       settleTrade()
@@ -393,26 +400,34 @@ frame:SetScript("OnUpdate", function(_, elapsed)
   if elapsedSincePurge >= 60 then elapsedSincePurge = 0; db() end
 end)
 
+local function setTradeReference280(value)
+  local valid=reference(value)
+  if not identity() or not trade or trade.closed or trade.completed or not valid then return false end
+  trade.reference=valid;return true
+end
+local function referenceCommand280(value)
+  value=readable(value)
+  if not value or #value>512 then return false end
+  value=value:gsub("^[ \t\r\n\v\f]+",""):gsub("[ \t\r\n\v\f]+$",""):gsub("[a-z]",string.upper)
+  return setTradeReference280(value)
+end
+local function observationCount280(d)
+  local total,seen=0,0
+  for _,value in pairs(type(d.titheObservationCounts280)=="table" and d.titheObservationCounts280 or {}) do
+    seen=seen+1;if seen>64 then break end
+    if type(value)=="number" and value==math.floor(value) and value>=0 and value<=2147483647 then total=math.min(2147483647,total+value) end
+  end
+  return total
+end
 OlympusVerifyTreasury = {
   Normalize = normalize,
   IntakeBody280 = intakeBody,
-  SetTradeReference280 = function(value)
-    local valid = reference(value)
-    if not identity() or not trade or trade.completed or not valid then return false end
-    trade.reference = valid
-    return true
-  end,
-  TradeTransferId627 = function() return trade and trade.context and trade.context.id end,
-  MailTransferId627 = function(index) local intent=takingMoney(index);return intent and intent.context and intent.context.id end,
-  ClaimTradeIntake242 = function() return trade and claimIntake(trade.context,"trade") end,
-  ClaimMailIntake242 = function(index)
-    local intent = takingMoney(index)
-    return intent and claimIntake(intent.context,"mail")
-  end,
+  SetTradeReference280 = setTradeReference280,
+  SetTradeReferenceCommand280 = referenceCommand280,
   Status = function()
     local d = db() or {}
     return { enabled = identity() ~= nil, recipient = COLLECTOR, nativeName = transport and name(call(transport.Name)), confirmedLocal = #(d.receipts or {}),
-      unconfirmed = #(d.observations or {}), overflow = d.overflows or 0, mailHooked = mailHooked,
+      unconfirmed = math.min(2147483647,#(d.observations or {})+observationCount280(d)), legacyUnconfirmed = #(d.observations or {}), overflow = d.overflows or 0, mailHooked = mailHooked,
       retentionSeconds = T.retentionSeconds,
       mailSnapshotComplete = cacheComplete,
       storage = "Minimal tithe receipts reach SavedVariables at client reload/logout; no message text is collected", automaticCredit = false }
@@ -429,7 +444,7 @@ local slashRegistry = OlympusVerifySlash234
 if type(slashRegistry) == "table" and type(slashRegistry.Register) == "function" then
   slashRegistry.Register("OLYMPUSTREASURY", {"/olvtreasury"}, TreasurySlash)
   slashRegistry.Register("OLYMPUSTITHEREFERENCE", {"/olvtithe"}, function(value)
-    printLine(OlympusVerifyTreasury.SetTradeReference280(value) and "TITHE reference set for this open trade only." or "Open the intended trade, then enter /olvtithe TITHE-XXXX-XXXX. No note or reference was saved.")
+    printLine(referenceCommand280(value) and "TITHE reference set for this open trade only." or "Open the intended trade and enter one TITHE-XXXX-XXXX reference with /olvtithe. No note or reference was saved.")
   end)
 elseif type(SlashCmdList) == "table" then
   SLASH_OLYMPUSTREASURY1 = "/olvtreasury"

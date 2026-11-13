@@ -47,6 +47,12 @@ local function selfBinding243(row,sender)
     or not guid(row.guid) or not H.strictCode(row.code or "") or row.guidSource~="UnitGUID-player" or row.bridgeUntrusted~=true
     or type(row.observedAt)~="number" or row.observedAt~=math.floor(row.observedAt) or row.observedAt<=0 or row.requestedAt~=row.observedAt
     or row.observedAt<=time()-600 or row.observedAt>time()+5 then return nil end
+  for _,field in ipairs({"guild","rankName"}) do
+    local value=row[field]
+    if value~=nil and (not text(value,128) or #value<2 or value:find("[%z\1-\31\127|()%[%]]")) then return nil end
+  end
+  if row.clientVersion~=nil and (not text(row.clientVersion,32) or #row.clientVersion<1 or row.clientVersion:find("[%z\1-\31\127]")) then return nil end
+  if row.rankIndex~=nil and (type(row.rankIndex)~="number" or row.rankIndex~=math.floor(row.rankIndex) or row.rankIndex<0 or row.rankIndex>9) then return nil end
   local realm=call(GetRealmName);local key,nativeRealm=nativeKey243(sender,realm)
   if not key or nativeKey243(row.character,realm)~=key or nativeKey243(row.requestedBy,realm)~=key or realmKey243(row.realm)~=nativeRealm then return nil end
   if not text(row.id,32) or row.id~=selfId243(key,row.observationId) then return nil end
@@ -121,6 +127,8 @@ function V.Queue(row, key,remoteSenderKey)
   end
   row.guild=row.guild or call(GetGuildInfo,"player");row.realm=row.realm or call(GetRealmName)
   d.entries[row.id]=row;if key then d.dedup[key]=row.id end
+  state.creationSerial243=(state.creationSerial243 or 0)+1
+  state.lastCreated243={row=row,serial=state.creationSerial243}
   state.dirty=true
   if OlympusVerifyAutoSync and (not state.pendingAlertAt or time()-state.pendingAlertAt>=30) then
     state.pendingAlertAt=time();OlympusVerifyAutoSync.Request("whisper")
@@ -586,14 +594,19 @@ function V.ScanMailbox()
         if contentKey and (identities[contentKey] or 0)>1 then mail.ambiguous=true end
         unique=unique and not mail.ambiguous
         if h.money>0 or h.hasItems then mail.hadValue=true end
+        local createdHere=false
         if not mail.verifyId and unique then
+          local beforeCreation=state.creationSerial243 or 0
           mail.observation=mail.observation or V.NewVerificationObservation("mail",h.sender,nil)
           API.CaptureMailCode242(h.sender,token,mail.observation)
           local verify=V.CaptureVerification("mail",h.sender,H.strictCode(token) or token,nil,nil,false,mail.observation)
           mail.verifyId=verify and verify.id;mail.firstSeen=time()
+          local made=state.lastCreated243
+          createdHere=verify and made and made.row==verify and made.serial>beforeCreation and d.entries[verify.id]==verify
         end
         local captured=d.entries[mail.verifyId]
-        if captured and not captured.mailProof242 and V.IsAuthorizedWatcher() then
+        if captured and not captured.mailProof242 and not createdHere then mail.proofHeld243=true end
+        if captured and createdHere and not captured.mailProof242 and V.IsAuthorizedWatcher() then
           local at=mail.observation and mail.observation.observedAt or captured.observedAt;local guildName=call(GetGuildInfo,"player");local realm=call(GetRealmName);local collector=guid(call(UnitGUID,"player"))
           if guildName and realm and collector then
             local proof={version=242,sender=h.sender,code=captured.code,observedAt=at,guild=guildName,realm=realm,collectorGuid=collector,fingerprint=fingerprint}
@@ -653,13 +666,15 @@ local function officerButton()
   if n>0 then V.officerButton:Show() else V.officerButton:Hide() end
 end
 function V.Status()
-  local d=db();local pending=0;for _,r in pairs(d and d.entries or {}) do if r.status=="pending" then pending=pending+1 end end
+  local d=db();local pending,formatHeld=0,0
+  for _,r in pairs(d and d.entries or {}) do if type(r)~="table" then formatHeld=formatHeld+1 elseif r.status=="pending" then pending=pending+1 end end
   local unsupported=0;for _,reason in pairs(d and d.deliveryFailures242 or {}) do if reason=="unsupported_callback" then unsupported=unsupported+1 end end
-  local held=state.mailRestoreHeld627 and 1 or 0
-  if d then held=held+heldCount627(d) end
+  local retained=boundedCount243(d and d.heldTransfers627,1001)
+  local held=(state.mailRestoreHeld627 and 1 or 0)+retained+formatHeld
+  for _,value in pairs(d and type(d.receiptPolicyHolds280)=="table" and d.receiptPolicyHolds280 or {}) do if value==true then held=held+1 end end
   if state.trade and state.trade.heldReason then held=held+1 end
   if state.collecting and state.collecting.heldReason then held=held+1 end
-  return {pending=pending,heldTransfers=held,transferCapacityHeld=state.transferCapacityHeld627==true,unsupportedCallbacks=unsupported,mailGuidAvailable=false,serverDurableDeletionOnly=true}
+  return {pending=pending,heldTransfers=held,heldTransfersLimited=retained>=1001,transferCapacityHeld=state.transferCapacityHeld627==true,unsupportedCallbacks=unsupported,mailGuidAvailable=false,serverDurableDeletionOnly=true}
 end
 local function visibleEntry(row, me, watcher)
   return type(row)=="table" and (watcher or text(row.character,128) and norm(row.character)==me
@@ -767,7 +782,7 @@ local function boot()
     state.selfSlash243=state.selfSlash243 or function(message) V.QueueSelf(message) end
     state.noteSlash243=state.noteSlash243 or function(message)
       local treasury=OlympusVerifyTreasury
-      local accepted=treasury and treasury.SetTradeReference280 and treasury.SetTradeReference280(message)
+      local accepted=treasury and treasury.SetTradeReferenceCommand280 and treasury.SetTradeReferenceCommand280(message)
       say(accepted and "TITHE reference set for this open trade only." or "No note was saved. Open the intended trade, then use /olvtithe TITHE-XXXX-XXXX.")
     end
     local selfReady=OlympusVerifySlash234.Register("OLYMPUSVERIFYSELF",{"/olvverify"},state.selfSlash243)
@@ -807,8 +822,7 @@ local function boot()
   end
   -- Mail-taking hooks belong solely to the body-free Treasury observer.
 end
-for _,event in ipairs({"PLAYER_LOGIN","MAIL_SHOW","MAIL_CLOSED","MAIL_INBOX_UPDATE","BAG_UPDATE_DELAYED","PLAYER_MONEY","PLAYER_LOGOUT",
-  "TRADE_SHOW","TRADE_MONEY_CHANGED","TRADE_TARGET_ITEM_CHANGED","TRADE_PLAYER_ITEM_CHANGED","TRADE_ACCEPT_UPDATE","TRADE_REQUEST_CANCEL","TRADE_CLOSED","UI_INFO_MESSAGE",
+for _,event in ipairs({"PLAYER_LOGIN","MAIL_SHOW","MAIL_CLOSED","MAIL_INBOX_UPDATE","PLAYER_LOGOUT",
   "CHAT_MSG_WHISPER","CHAT_MSG_WHISPER_INFORM","CHAT_MSG_ADDON","CHAT_MSG_GUILD","GUILD_ROSTER_UPDATE"}) do pcall(f.RegisterEvent,f,event) end
 f:SetScript("OnEvent",function(_,event,...)
   if event=="PLAYER_LOGIN" then boot()
