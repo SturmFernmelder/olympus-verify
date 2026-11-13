@@ -24,9 +24,9 @@
     // numeric bar, net, total, proportion or value through accessibility markup.
     for (const row of rows) row.values = row.values.map(value => row.accepts(value) ? value : null);
     const largest = Math.max(1, ...rows.flatMap(row => row.values.filter(count)));
-    section.append(node('h4', 'Activity at a glance'));
+    section.append(node('h3', 'Activity at a glance'));
     const table = node('table'); table.className = 'data';
-    table.append(node('caption', 'Last day and last seven days · counted ' + formatTime(figures.asOf)));
+    table.append(node('caption', 'Last day and last seven days'));
     const head = node('thead'), headings = node('tr');
     for (const label of ['Activity', 'Last day', 'Last 7 days']) {
       const cell = node('th', label); cell.setAttribute('scope', 'col'); headings.append(cell);

@@ -41,7 +41,7 @@ export function launchMotd229() {
     'OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.',
     'Link Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.',
     'A Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.',
-    'Linked Knights below Veteran are recommended for Veteran, native index 5. Other verified Initiates are recommended for Member, native index 7, through separately observed Alt8. The Directive table must be observed in full before any rank action. Native rank name/index, GUID, guild, realm and permission are checked again for each hardware action.',
+    'Linked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.',
     'Unverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.',
   ].join('\n\n');
   return Object.freeze({short, bulletin, characters: short.length, bytes, maxBytes: 128 as const});

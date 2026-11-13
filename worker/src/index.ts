@@ -395,6 +395,9 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
 /** Source-owned whole-schedule measurement seam. The real handler checks the installed Epoch2 qualification guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
 type OriginalScheduledSliceCost = Readonly<{state:string;statements:number;pendingGroups:number;failedGroups:number}>;
+// The installed retention slice is25 physical statements; the existing Native
+// receipt purge costs5. It may use only their difference, never another job's reserve.
+const RETENTION_SLICE_STATEMENTS280=25,RECEIPT_PURGE_STATEMENTS280=5;
 export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null,readOriginalRetentionCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
     const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
@@ -466,7 +469,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
       // another job's budget or supplies identity/deletion authority.
       let cost:OriginalScheduledSliceCost|null=null;
       try{cost=readOriginalRetentionCost?.()??null;}catch{return;}
-      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>20)return;
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>RETENTION_SLICE_STATEMENTS280-RECEIPT_PURGE_STATEMENTS280)return;
       try{await purgeReceipt242(env);}
       catch(e){console.error('receipt retention held',errorRef(e));}
     });
