@@ -172,9 +172,10 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
   const row=await synthetic(k,{purpose:xp.purpose,desired:xp.desired,state:'unknown',reason:'synthetic_unresolved_'+xp.purpose,profile:xp.profile,generation:xp.generation});await call('insert/'+k,{rows:[row]});
   x=await ban(k);
   check(k+': a new ban dispatch holds Veteran (no DELETE), removes Member under its own authority and leaves the non-rank roles',writesTo(k,VETERAN)===0&&present(k).includes(VETERAN)&&!present(k).includes(MEMBER)&&present(k).includes(ADDON)&&present(k).includes(HIGH)&&lastReply(k).includes('<@&'+VETERAN+'> (an earlier change to this role has an unconfirmed result)'),{reply:lastReply(k),http:state.get(k).http});
-  await unban(k);state.get(k).present.get(SUBJECT).delete(VETERAN);await call('refresh/'+k);
+  // Unbanned, the role gone by hand: a sweep visit (GET-only for a ban-purpose row) sees it absent; that releases nothing.
+  await unban(k);state.get(k).present.get(SUBJECT).delete(VETERAN);await sweep(k);await call('refresh/'+k);
   const v=await freshVerify(k),m=await call('migrate/'+k,{target:VETERAN,currentRoles:[]}),t=await call('routine/'+k);x=await call('rows/'+k);
-  check(k+': shared membership, migration and the routine stop at their barriers with no PUT or DELETE for Veteran, and the unresolved row is never changed',writesTo(k,VETERAN)===0&&!present(k).includes(VETERAN)&&verifyFenced(v)&&migrateFenced(m)&&routineFenced(t)&&same(x.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(x.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]]))),{verify:v.verify,migrate:m.result,routine:t.result,row:x.rows.find(r=>r.id===row.id)});
+  check(k+': after a sweep visit saw Veteran absent, shared membership, migration and the routine stop at their barriers with no PUT or DELETE for Veteran, and the unresolved row is never changed',writesTo(k,VETERAN)===0&&!present(k).includes(VETERAN)&&verifyFenced(v)&&migrateFenced(m)&&routineFenced(t)&&same(x.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(x.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]]))),{verify:v.verify,migrate:m.result,routine:t.result,row:x.rows.find(r=>r.id===row.id)});
  }
 
  // S4. Follow-up review gap: the receipt reasons before receipt_unknown, so a mutant that reorders them is caught.
