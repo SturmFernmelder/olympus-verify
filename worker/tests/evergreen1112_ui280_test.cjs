@@ -16,6 +16,10 @@
 const fsUi280=require('node:fs'),pathUi280=require('node:path'),{Module:ModuleUi280}=require('node:module');
 const fixtureUi280=fsUi280.readFileSync(pathUi280.join(__dirname,'frontend_check.cjs'),'utf8'),cutsUi280=[...fixtureUi280.matchAll(/\(async \(\) => \{\r?\n  await siteUser\(MEMBER/g)];
 if(cutsUi280.length!==1)throw Error('ui280_original_frontend_fixture_boundary');
+// Round 5 (13 Nov 2026): UI280_APP_JS=<file> runs these checks against another page script (the base b631136 for the
+// fail-before receipt, or to regenerate the v234 DOM record); UI280_STATIC_DIR does the same for the v235 module.
+const APP_LINE_UI280='const APP_JS = fs.readFileSync(path.join(root, "public", "static", "app.js"), "utf8");';
+if(fixtureUi280.split(APP_LINE_UI280).length!==2)throw Error('ui280_app_js_line_moved');
 const runUi280=String.raw`
 (async()=>{
  const crypto=require('node:crypto'),pure=require('./helpers/pure_source218.cjs');
@@ -614,6 +618,164 @@ const runUi280=String.raw`
   check('J6 a cursor with a character outside the reader\'s alphabet holds the page ('+outside.length+' cases, each 200 characters or fewer), while the same short cursor in the alphabet is shown',outsideHeld.length===0&&shortShown,JSON.stringify({notHeld:outsideHeld,shortShown}));
   pg.intercept(null);
  }
+
+ // ---------------------------------------------------------------- Round 5 (13 Nov 2026): the v235 discovery family
+ console.log('\n== Part L: a separate reader for the v235 discovery family (round 5, Codex CONTRACT-01) ==');
+ {
+  const STATIC_DIR=process.env.UI280_STATIC_DIR||path.join(root,'public','static');
+  const D_FILE=path.join(STATIC_DIR,'launch-discovery235.js'),D_SEL='script[src="/static/launch-discovery235.js"]';
+  let D_SRC=null;try{D_SRC=fs.readFileSync(D_FILE,'utf8');}catch{}
+  const installD=win=>{if(D_SRC!==null&&!win.OlympusDiscovery235)vm.runInNewContext(D_SRC,{window:win,Object,Array,JSON,String,Number,RegExp,Map,Set,Error},{filename:'launch-discovery235.js'});return win.OlympusDiscovery235||null;};
+  // Codex's server pages for the new family, copied unchanged from the runtime evidence CONTRACT-01 names (provenance and
+  // hashes inside the file): 11 single reads of runtime-09-final, the first two pages of a qualified and of a rank-held
+  // 1,000-member scan (runtime-06, runtime-10-held1000).
+  const FIX=JSON.parse(fs.readFileSync(path.join(__dirname,'evergreen1112_ui280_discovery235_pages.json'),'utf8')),P=FIX.pages,copy=name=>wire(P[name]);
+  const RANKHELD={'rankheld':'native-rank-scheme-unconfirmed','policyoff':'directive-rank-policy-held','invalid-policy':'directive-rank-policy-held','v1-member':'native-rank-scheme-unconfirmed','cap3':'native-rank-scheme-unconfirmed','generation':'native-rank-scheme-unconfirmed','privacy':'native-rank-scheme-unconfirmed','standing':'native-rank-scheme-unconfirmed','expired':'native-rank-scheme-unconfirmed','held1000-first':'native-rank-scheme-unconfirmed','held1000-offset20':'native-rank-scheme-unconfirmed'};
+  const shaped=len=>'A'.repeat(len-65)+'.'+'a'.repeat(64);
+  const as234=d=>Object.assign(d,{protocol:'officer-operations-v234'});
+  check('L0 the v235 reader is its own static file; it never writes HTML, fetches, stores or logs',D_SRC!==null&&!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\bfetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|console\./.test(D_SRC),D_FILE);
+  const mw=makeWindow('{}').window;install(mw);const D=installD(mw),L=mw.OlympusLaunch234;
+  if(D){
+   // The page's choice (app.js launchView235): the declared family picks the reader; anything else is the v234 view's.
+   const admit=(d,first=null)=>(d&&typeof d==='object'&&d.protocol==='officer-operations-v235'?D:L).assess(d,first);
+   const pos=Object.keys(P).map(name=>[name,admit(copy(name),name.endsWith('offset20')?copy(name.replace('offset20','first')):null)]);
+   check('L1 all 15 contract pages are admitted by the v235 reader (11 single reads, two first pages and their next pages); rank-held pages name their reason, qualified pages none',pos.length===15&&pos.every(([name,v])=>v.ok===true&&v.rankHeld===(RANKHELD[name]||null)),JSON.stringify(pos.filter(([name,v])=>v.ok!==true||v.rankHeld!==(RANKHELD[name]||null))));
+   const seenReasons=[...new Set(Object.values(RANKHELD))].sort();
+   check('L2 the reader knows exactly the contract\'s two rank-hold reasons, each with one plain sentence, and explains the hold codes only the v235 producer sends',JSON.stringify([...D.RANK_HELD_REASONS].sort())===JSON.stringify(seenReasons)&&seenReasons.every(code=>{const s=D.holdText(code);return /^Ranks are held because /.test(s)&&s.split('. ').length===1&&!s.includes(code);})&&['directive-rank-policy-source-unconfirmed','discovery-seal-unconfigured','discovery-rank-hold-invalid'].every(code=>!D.holdText(code).includes('does not recognise')&&!D.holdText(code).includes(code)),JSON.stringify(seenReasons.map(D.holdText)));
+   const RH=()=>copy('rankheld'),Q=()=>copy('qualified');
+   const neg=[
+    ['legacy234-null-triple: a v234 page without a rank table that claims partial',as234(RH()),'malformed-rank-table'],
+    ['unknown-protocol',Object.assign(RH(),{protocol:'officer-operations-v236'}),'unknown-protocol'],
+    ['one-profile-only',Object.assign(RH(),{rankProfile:'unconfirmed'}),'malformed-rank-table'],
+    ['one-digest-only',Object.assign(RH(),{rankSchemeDigest:L.DIGEST}),'malformed-rank-table'],
+    ['one-names-only',Object.assign(RH(),{rankNames:[...L.NAMES]}),'malformed-rank-table'],
+    ['ready-null-triple',Object.assign(RH(),{status:'ready'}),'malformed-rank-table'],
+    ['unknown-hold-reason',Object.assign(RH(),{heldReasons:['arbitrary']}),'rank-held-unknown-reason'],
+    ['both rank-hold reasons at once',Object.assign(RH(),{heldReasons:['native-rank-scheme-unconfirmed','directive-rank-policy-held']}),'rank-held-unknown-reason'],
+    ['no hold reason at all',Object.assign(RH(),{heldReasons:[]}),'rank-held-unknown-reason'],
+    ['promotion-array-injection',Object.assign(RH(),{promotions:[{name:'Synthetic Initiate',guid:'Player-4613-12345679',currentSlot:9,targetSlot:7,targetName:'Member',reason:'verified-initiate'}]}),'rank-held-malformed'],
+    ['promotion-keyed-injection',Object.assign(RH(),{promotions:{'unsafe-key':{}}}),'rank-held-malformed'],
+    ['risk-keyed-injection',Object.assign(RH(),{riskBuffer:{'unsafe-key':{}}}),'rank-held-malformed'],
+    ['a risk row on a rank-held page',Object.assign(RH(),{riskBuffer:[{name:'Synthetic Initiate',guid:'Player-4613-12345679',level:10,lastOnlineDays:3}]}),'rank-held-malformed'],
+    ['a held row under another reason',(()=>{const x=RH();x.held[0].reason='native-rank-unconfirmed';return x;})(),'rank-held-row-shape'],
+    ['a held row with an extra field',(()=>{const x=RH();x.held[0].targetSlot=7;return x;})(),'rank-held-row-shape'],
+    ['future-source-clock',(()=>{const x=RH();x.snapshotAt=x.fetchedAt+6;return x;})(),'page-clock'],
+    ['a scan that starts after the read',(()=>{const x=RH();x.scan.startedAt=x.fetchedAt+1;return x;})(),'page-clock'],
+    ['a qualified page with a future export',(()=>{const x=Q();x.snapshotAt=x.fetchedAt+6;return x;})(),'page-clock'],
+    ['a qualified page with an unknown digest',Object.assign(Q(),{rankSchemeDigest:'c'.repeat(64)}),'unknown-digest'],
+    ['a qualified page whose promotion carries a token',(()=>{const x=Q();x.promotions[0].intentToken='t.'+'0'.repeat(64);return x;})(),'unknown-row-shape'],
+   ];
+   const nativeToPolicy=x=>{x.heldReasons=x.heldReasons.map(c=>c==='native-rank-scheme-unconfirmed'?'directive-rank-policy-held':c);for(const r of x.held)r.reason='directive-rank-policy-held';return x;};
+   const pairs=[
+    ['mixed-protocol-pages: a v235 page continuing a v234 first page',D.assess(copy('held1000-offset20'),as234(copy('held1000-first'))),'family-changed'],
+    ['mixed-rank-mode-pages: qualified after rank-held',D.assess(copy('qualified1000-offset20'),copy('held1000-first')),'rank-mode-changed'],
+    ['mixed-rank-mode-pages: rank-held after qualified',D.assess(copy('held1000-offset20'),copy('qualified1000-first')),'rank-mode-changed'],
+    ['the rank-hold reason changes between pages',D.assess(nativeToPolicy(copy('held1000-offset20')),copy('held1000-first')),'rank-mode-changed'],
+   ];
+   const wrongNeg=[...neg.map(([name,d,code])=>[name,admit(d),code]),...pairs].filter(([,v,code])=>v.ok!==false||v.code!==code||typeof v.text!=='string'||!v.text||/officer-operations|v23\d/.test(v.text));
+   check('L3 the contract\'s negative pages (the Lua refusals, mirrored) and the cross-page cases are each refused with their own plain reason ('+(neg.length+pairs.length)+' cases)',wrongNeg.length===0,JSON.stringify(wrongNeg.map(([name,v,code])=>[name,code,v])));
+  } else for(const name of ['L1','L2','L3'])check(name+' (v235 module unavailable)',false);
+
+  // The real admin route, with the page clock at each served page's fetch time (the pages are captured, not fresh).
+  let base=P.rankheld.fetchedAt,t0=Date.now(),answers=[],reads=[];
+  const pg=await openPage(STAFF,{},{clockNow:()=>base*1000+(Date.now()-t0)});
+  pg.intercept(url=>{if(!url.startsWith('/api/admin/launch-operations'))return null;reads.push(url);const a=answers.length>1?answers.shift():answers[0];return new Response(typeof a==='string'?a:JSON.stringify(a),{status:200});});
+  const suppliedL=p=>{const t=p.document.head.querySelector(SCRIPT);if(t&&!p.window.OlympusLaunch234){install(p.window);t.dispatchEvent(new Event('load'));}const u=p.document.head.querySelector(D_SEL);if(u&&!p.window.OlympusDiscovery235&&installD(p.window))u.dispatchEvent(new Event('load'));};
+  const settledL=p=>{suppliedL(p);return !!p.app.querySelector('#launch-motd229')||p.app.textContent.includes('could not be confirmed')||!!p.app.querySelector('[data-launch234-held]');};
+  const openL=async(...served)=>{answers=served;reads=[];base=served[0]&&Number.isSafeInteger(served[0].fetchedAt)?served[0].fetchedAt:P.rankheld.fetchedAt;t0=Date.now();await pg.go('#/');await pg.go('#/admin/launch-operations');await waitFor(()=>settledL(pg),'v235 launch page',8000);for(let i=0;i<3;i++)await settle();};
+  const outcome=(p=pg)=>{const held=p.app.querySelector('[data-launch234-held]');return held?'held:'+held.getAttribute('data-launch234-held'):p.app.textContent.includes('Current launch evidence could not be confirmed')?'unconfirmed':p.app.querySelector('#launch-motd229')?'shown':'other';};
+  const nothingDrawn=()=>!pg.app.querySelector('#launch-motd229')&&!pg.app.querySelector('[data-launch-invite233]')&&!pg.app.querySelector('[data-launch-promotion229]')&&!pg.app.querySelector('[data-launch-advisory229]')&&!pg.app.querySelector('[data-launch235-rank-held]');
+  const btn=t=>byText(pg.app,'button',t);
+  const clickL=async el=>{if(!el)return false;el.click();for(let i=0;i<6;i++)await settle();await waitFor(()=>settledL(pg)&&!pg.app.textContent.includes('Reading at most 20'),'after click',4000);for(let i=0;i<3;i++)await settle();return true;};
+  const singles=Object.keys(P).filter(name=>!name.endsWith('offset20'));
+  const shownAll=[];for(const name of singles){await openL(copy(name));shownAll.push([name,outcome(),reads.length]);}
+  check('L4 the page shows every first page of the contract through the real admin route (13 pages), each after exactly one read',shownAll.every(([,o,r])=>o==='shown'&&r===1),JSON.stringify(shownAll.filter(([,o,r])=>o!=='shown'||r!==1)));
+  const scans=[];
+  for(const kind of ['qualified1000','held1000']){
+   const first=copy(kind+'-first'),next=copy(kind+'-offset20');await openL(first,next);
+   const shownFirst=outcome()==='shown',more=btn('Load next 20 role checks');await clickL(more&&!more.hidden?more:null);
+   const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
+   scans.push({kind,shownFirst,second:outcome(),reads:reads.length,sameCursor:sent===first.nextCursor,pages:pg.app.querySelectorAll('button').filter(b=>b.textContent==='Recheck this page').length,progress:pg.app.querySelector('[data-launch-progress229]')?.textContent||''});
+  }
+  check('L5 a qualified and a rank-held 1,000-member scan continue: Load next sends the first page\'s next-page link unchanged and both pages are shown (40 of 1000 examined)',scans.every(s=>s.shownFirst&&s.second==='shown'&&s.reads===2&&s.sameCursor&&s.pages===2&&s.progress.includes('40 of 1000')),JSON.stringify(scans));
+  // A rank-held page: the reason in one sentence, invites and membership working, nothing about ranks offered.
+  const rankHeldView=async name=>{await openL(copy(name));const heldFrame=pg.app.querySelectorAll('h2').find(x=>x.textContent==='Held evidence')?.closest('section');
+   const inviteFrame=pg.app.querySelectorAll('h2').find(x=>x.textContent==='Unguilded Knight+ invite queue')?.closest('section');
+   return {outcome:outcome(),code:pg.app.querySelector('[data-launch235-rank-held]')?.getAttribute('data-launch235-rank-held')||null,sentence:pg.app.querySelector('[data-launch235-rank-held]')?.textContent||'',
+    title:!!pg.app.querySelectorAll('h2').find(x=>x.textContent==='Ranks held on this read'),rankTable:!!pg.app.querySelector('[data-launch234-ranks]'),
+    invites:pg.app.querySelectorAll('[data-launch-invite233]').map(tr=>tr.querySelectorAll('td').map(td=>td.textContent)),badge:inviteFrame?.querySelector('.badge')?.textContent,
+    enabled:['Refresh first page','Scan entire roster','Copy MOTD','Copy expanded bulletin','Recheck this page'].map(t=>[t,!!btn(t)&&!btn(t).disabled&&!btn(t).hidden]),
+    promotions:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229]').length,noPromotionNote:!!pg.app.querySelector('[data-launch235-no-promotions]'),
+    listedTwice:!!pg.app.querySelector('[data-launch234-hold="'+(RANKHELD[name])+'"]'),unknown:pg.app.textContent.includes('does not recognise'),
+    heldRows:heldFrame?heldFrame.querySelectorAll('tbody tr').map(tr=>tr.querySelectorAll('td').map(td=>td.textContent).join(' | ')):[],progress:pg.app.querySelector('[data-launch-progress229]')?.textContent||''};};
+  const rhN=await rankHeldView('rankheld'),rhP=await rankHeldView('policyoff');
+  const rhOk=(v,code,sentence,row)=>v.outcome==='shown'&&v.code===code&&v.sentence===sentence&&v.title&&!v.rankTable&&v.invites.length===1&&v.invites[0][3]==='Recheck and invite in-game'&&v.badge==='1'
+   &&v.enabled.every(([,on])=>on)&&v.promotions===0&&v.noPromotionNote&&!v.listedTwice&&!v.unknown&&v.heldRows.length===2&&v.heldRows.every(r=>r.endsWith(' | '+row))&&v.progress.startsWith('Discovery complete: 2 of 2');
+  check('L6 a rank-held page says in one sentence why ranks are held (the roster export), shows its v242 invite as current with the read and copy controls enabled, offers no rank control and lists each member as held',rhOk(rhN,'native-rank-scheme-unconfirmed','Ranks are held because the latest roster export does not show the ten ranks of the 12 November ladder, or a member’s rank does not match its slot.','Rank held: the roster export’s ranks are not confirmed'),JSON.stringify(rhN));
+  check('L7 the same for the other reason (the site\'s rank settings): its own sentence, the hold not repeated in the hold list',rhOk(rhP,'directive-rank-policy-held','Ranks are held because the site’s Discord rank settings do not use the 12 November ladder yet.','Rank held: the site’s rank settings are not on the 12 November ladder yet'),JSON.stringify(rhP));
+  await openL(copy('rankheld'));const rhCursor=P.rankheld.pageCursor;await clickL(btn('Recheck this page'));
+  const recheckSent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null,afterRecheck=outcome();await clickL(btn('Refresh first page'));
+  check('L8 on a rank-held page Recheck sends its own page link unchanged and Refresh reads the first page again; the page stays shown',reads.length===3&&recheckSent===rhCursor&&reads[2]==='/api/admin/launch-operations'&&afterRecheck==='shown'&&outcome()==='shown',JSON.stringify({reads:reads.map(r=>r.slice(0,70)),afterRecheck,now:outcome()}));
+  // Cursor bounds by family: 8,192 for v235 only; the v234 page keeps 4,096.
+  const late=copy('late429'),bounds={late235:null,late234:null,pc8192:null,pc8193:null};
+  await openL(late);bounds.late235=outcome()==='shown'&&pg.app.querySelectorAll('[data-launch-promotion229]').length===19;
+  await openL(as234(copy('late429')));bounds.late234=outcome();
+  await openL(Object.assign(copy('rankheld'),{pageCursor:shaped(8192)}));bounds.pc8192=outcome();
+  await openL(Object.assign(copy('rankheld'),{pageCursor:shaped(8193)}));bounds.pc8193=outcome();
+  check('L9 Codex\'s late-429 v235 page (5,477-character page link, 19 promotions) is shown; the same page in the v234 form is refused, and a v235 page link of 8,193 characters is refused while 8,192 is shown',late.pageCursor.length===5477&&bounds.late235&&bounds.late234==='unconfirmed'&&bounds.pc8192==='shown'&&bounds.pc8193==='unconfirmed',JSON.stringify(bounds));
+  // Families never mix inside one scan; an undeclared family is refused with the existing message.
+  const mix=[];
+  await openL(copy('qualified1000-first'),as234(copy('qualified1000-offset20')));await clickL(btn('Load next 20 role checks'));mix.push(['v234 page after a v235 page',outcome(),reads.length,!nothingDrawn()]);
+  await openL(as234(copy('qualified1000-first')),copy('qualified1000-offset20'));await clickL(btn('Load next 20 role checks'));mix.push(['v235 page after a v234 page',outcome(),reads.length,!nothingDrawn()]);
+  check('L11 a scan whose next page declares the other family is refused as a whole and nothing of it stays shown',mix.every(([,o,r,drawn])=>o==='unconfirmed'&&r===2&&!drawn),JSON.stringify(mix));
+  // Single-field changes of a positive rank-held page: each one is refused by the page as a whole.
+  const muts=[
+   ['protocol v234',d=>{d.protocol='officer-operations-v234';}],['protocol v236',d=>{d.protocol='officer-operations-v236';}],['protocol missing',d=>{delete d.protocol;}],
+   ['status ready',d=>{d.status='ready';}],['status unknown',d=>{d.status='paused';}],
+   ['profile set alone',d=>{d.rankProfile=L.PROFILE;}],['digest set alone',d=>{d.rankSchemeDigest=L.DIGEST;}],['names set alone',d=>{d.rankNames=[...L.NAMES];}],['names empty list',d=>{d.rankNames=[];}],['profile missing',d=>{delete d.rankProfile;}],
+   ['a promotion row',d=>{d.promotions=[{name:'Synthetic Initiate',guid:'Player-4613-12345679',currentSlot:9,targetSlot:7,targetName:'Member',reason:'verified-initiate'}];}],['promotions keyed',d=>{d.promotions={x:{}};}],['a risk row',d=>{d.riskBuffer=[{name:'Synthetic Initiate',guid:'Player-4613-12345679',level:10,lastOnlineDays:3}];}],
+   ['reason unknown',d=>{d.heldReasons=['arbitrary'];}],['both reasons',d=>{d.heldReasons=['native-rank-scheme-unconfirmed','directive-rank-policy-held'];}],['reasons not a list',d=>{d.heldReasons='native-rank-scheme-unconfirmed';}],
+   ['held row other reason',d=>{d.held[1].reason='pending-verification';}],['held row extra field',d=>{d.held[0].currentSlot=9;}],['held row bad character id',d=>{d.held[0].guid='Not a GUID';}],['held not a list',d=>{d.held={};}],['held row repeated',d=>{d.held[1]={...d.held[0]};}],
+   ['page link too long',d=>{d.pageCursor=shaped(8193);}],['page link outside the alphabet',d=>{d.pageCursor='A+'+d.pageCursor.slice(2);}],['page link missing',d=>{d.pageCursor=null;}],
+   ['invite source unknown',d=>{d.invites[0].source='native-who-unit-v242';}],['invite extra field',d=>{d.invites[0].version=235;}],['invite other scope',d=>{d.invites[0].scopeHash='0'.repeat(16);}],['four invites',d=>{d.invites=[0,1,2,3].map(i=>({...d.invites[0],queueId:i+1,proofId:String(i).repeat(32)}));}],
+   ['export after the read',d=>{d.snapshotAt=d.fetchedAt+6;}],['window over 60 s',d=>{d.expiresAt=d.fetchedAt+61;}],['window empty',d=>{d.expiresAt=d.fetchedAt;}],['scan id malformed',d=>{d.scan.id='x';}],['scan starts after the read',d=>{d.scan.startedAt=d.fetchedAt+1;}],['scan over 600 s',d=>{d.scan.expiresAt=d.scan.startedAt+601;}],
+   ['offset not a page start',d=>{d.entitlements.offset=10;}],['MOTD not ASCII',d=>{d.motd.short='Olympus – officers';}],['automatic action',d=>{d.actions.automatic=true;}],['role grants',d=>{d.actions.roleGrants=true;}],['removals',d=>{d.actions.removals=true;}],
+  ];
+  const mutWrong=[];
+  await openL(copy('rankheld'));const control=outcome();
+  for(const [label,mutate] of muts){const d=copy('rankheld');mutate(d);await openL(d);const o=outcome();if(o==='shown'||o==='other'||!nothingDrawn()||reads.length!==1)mutWrong.push([label,o,reads.length]);}
+  check('L12 the unchanged rank-held page is shown, and each of '+muts.length+' single-field changes of it is refused as a whole after one read (rank fields, rows, holds, links, invites, clocks, scan, MOTD, actions)',control==='shown'&&mutWrong.length===0,JSON.stringify({control,mutWrong}));
+  await openL(Object.assign(copy('rankheld'),{protocol:'officer-operations-v236'}));
+  const unknownFamily={o:outcome(),text:pg.app.querySelector('[data-launch234-held]')?.textContent||''};
+  check('L13 a reply of neither family is refused with the existing v234 message',unknownFamily.o==='held:unknown-protocol'&&unknownFamily.text===L.assess({protocol:'officer-operations-v236'},null).text,JSON.stringify(unknownFamily));
+  pg.intercept(null);
+
+  // A v234 page is untouched by the v235 reader: the DOM of fixed v234 pages equals the record made with b631136's
+  // page script (UI280_APP_JS=<base app.js> UI280_WRITE_V234_DOM=<file> regenerates it), and the v235 module is never
+  // requested on a page that only ever sees v234 replies.
+  const AT=P.rankheld.fetchedAt;
+  const fixed234=()=>{const d=wire(ops.projectLaunchOperations229({snapshotId:7,snapshotAt:AT,memberCount:rows.length,guild:'OLYMPUS PRIME',realm:'Fixture Realm',scopeHash:'a'.repeat(16),nativeRankTable:{version:1,names:[...NAMES]}},rows,knights,AT,AT+60));d.scan={id:'b'.repeat(32),startedAt:AT,expiresAt:AT+600};d.pageCursor='synthetic-page0.'+'0'.repeat(64);
+   d.invites=[{queueId:7,proofId:'c'.repeat(32),name:'Synthetic Knight',guid:'Player-1-0010',fullName:'Synthetic Knight',scopeHash:'a'.repeat(16),observedAt:AT,expiresAt:AT+60,reason:'knight-unguilded',source:'native-who-unit-v233'},{queueId:8,proofId:'d'.repeat(32),name:'Synthetic Whisperer',guid:'Player-1-0011',fullName:'Synthetic Whisperer',scopeHash:'a'.repeat(16),observedAt:AT,expiresAt:AT+60,reason:'knight-unguilded',source:'native-who-whisper-v242'}];return d;};
+  const legacy234=()=>{const d=fixed234();d.protocol='officer-operations-v233';delete d.rankProfile;delete d.rankSchemeDigest;delete d.rankNames;for(const r of d.promotions)r.targetSlot=r.reason==='knight-veteran'?6:8;return d;};
+  const CODEX234=JSON.parse(fs.readFileSync(path.join(__dirname,'evergreen1112_ui280_cursor_page.json'),'utf8'));
+  const DOM_CASES=[['ready with two invites',fixed234()],['ready with a next page',Object.assign(fixed234(),{nextCursor:shaped(300)})],['held',wire(ops.projectLaunchOperations229(null,[],new Map(),AT,AT+60))],['legacy v233',legacy234()],['unknown digest',Object.assign(fixed234(),{rankSchemeDigest:'d'.repeat(64)})],
+   ['Codex late-429 v234 page',CODEX234],['a qualified discovery page in the v234 form',as234(copy('qualified1000-first'))],['undeclared family',Object.assign(fixed234(),{protocol:'officer-operations-v236'})],['row with a token',(()=>{const x=fixed234();x.promotions[0].intentToken='t.'+'0'.repeat(64);return x;})()]];
+  const ser=node=>node.nodeType===3?JSON.stringify(node.data):'<'+node.tagName+Object.keys(node.attributes).sort().map(k=>' '+k+'='+JSON.stringify(node.attributes[k])).join('')+(node.disabled?' :disabled':'')+(node.hidden?' :hidden':'')+(node.tagName==='TEXTAREA'?' :value='+JSON.stringify(node.value):'')+'>'+node.childNodes.map(ser).join('')+'</'+node.tagName+'>';
+  let b2=AT,t2=Date.now(),serve2=null;
+  const pg234=await openPage(STAFF,{},{clockNow:()=>b2*1000+(Date.now()-t2)});
+  pg234.intercept(url=>url.startsWith('/api/admin/launch-operations')?new Response(JSON.stringify(serve2),{status:200}):null);
+  const dom={};
+  for(const [label,d] of DOM_CASES){serve2=d;b2=Number.isSafeInteger(d.fetchedAt)?d.fetchedAt:AT;t2=Date.now();await pg234.go('#/');await pg234.go('#/admin/launch-operations');await waitFor(()=>settledL(pg234),'v234 DOM case',8000);for(let i=0;i<3;i++)await settle();
+   const view=pg234.app.querySelector('[data-launch234]');dom[label]={outcome:outcome(pg234),dom:view?ser(view):null};}
+  const scripts=pg234.document.head.querySelectorAll('script').map(s=>s.getAttribute('src')).filter(s=>/launch/.test(s||''));
+  const RECORD=path.join(__dirname,'evergreen1112_ui280_v234_dom.json');
+  if(process.env.UI280_WRITE_V234_DOM){fs.writeFileSync(process.env.UI280_WRITE_V234_DOM,JSON.stringify({note:'DOM of the launch view for fixed v234 pages, recorded with the page script given in UI280_APP_JS (b631136 for the committed record). Regenerate only from the base.',app:process.env.UI280_APP_JS||'(this tree)',cases:dom},null,1)+'\n');console.log('    wrote '+process.env.UI280_WRITE_V234_DOM);}
+  let record=null;try{record=JSON.parse(fs.readFileSync(RECORD,'utf8')).cases;}catch{}
+  const diff=record?DOM_CASES.map(([label])=>label).filter(label=>!record[label]||record[label].outcome!==dom[label].outcome||record[label].dom!==dom[label].dom):['(no record)'];
+  check('L14 a v234 page is unaffected by the v235 reader: for '+DOM_CASES.length+' fixed v234 pages (shown, held, refused) the launch view DOM equals, byte for byte, the record made with b631136\'s page script',diff.length===0&&DOM_CASES.every(([label])=>dom[label].dom!==null),JSON.stringify({diff,outcomes:Object.fromEntries(Object.entries(dom).map(([k,v])=>[k,v.outcome]))}));
+  check('L15 the v235 module stays inert on v234 replies: a page that only ever sees v234 (or undeclared) replies never requests it',JSON.stringify(scripts)==='["/static/launch-operations234.js"]'&&!pg234.window.OlympusDiscovery235,JSON.stringify(scripts));
+  pg234.intercept(null);
+ }
  console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
-const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
+const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index).replace(APP_LINE_UI280,'const APP_JS = fs.readFileSync(process.env.UI280_APP_JS || path.join(root, "public", "static", "app.js"), "utf8");')+'\n'+runUi280,__filename);

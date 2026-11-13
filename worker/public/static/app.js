@@ -4792,6 +4792,10 @@
       h('p', {text:'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.'}),
       h('div', {class:'btn-row'}, refresh, scan, stop, more), status, output]);
     const identity = d => JSON.stringify([d.snapshotId,d.snapshotAt,d.guild,d.canonicalGuild,d.realm,d.scopeHash,d.scan?.id,d.scan?.startedAt,d.scan?.expiresAt]);
+    // Round 5 (13 Nov 2026, Codex's discovery contract CONTRACT-01): the family a reply declares picks its reader. Only
+    // officer-operations-v235 has its own (/static/launch-discovery235.js, loaded once a reply declares it); every other
+    // reply, v234 or unknown, goes to the unchanged v234 view and its refusals.
+    const DISCOVERY235 = 'officer-operations-v235', launchView235 = d => d && typeof d === 'object' && d.protocol === DISCOVERY235 && window.OlympusDiscovery235 ? window.OlympusDiscovery235 : window.OlympusLaunch234;
     function copyControl(text, label, area, id) {
       return h('button', {id,type:'button',class:'btn small',text:label,onclick:async() => {
         if(!live()||!output.contains(area))return;
@@ -4800,7 +4804,7 @@
       }});
     }
     function draw(d) {
-      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=window.OlympusLaunch234, ui234={h,frame};
+      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=launchView235(d), ui234={h,frame};
       clear(output);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
       const short=h('textarea',{id:'launch-motd229',rows:'2',value:d.motd.short}),bulletin=h('textarea',{id:'launch-bulletin229',rows:'8',value:d.motd.bulletin});
       short.readOnly=true;bulletin.readOnly=true;short.setAttribute('readonly','');bulletin.setAttribute('readonly','');
@@ -4813,7 +4817,7 @@
         h('p',{text:d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.'}),
         h('p',{role:'status','data-launch-progress229':'',text:(complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.'}),
         h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.':'No confirmed native scan.'}),
-        L234.holdList(d.heldReasons||[],ui234)));
+        L234.holdList(d.heldReasons||[],ui234,d)));
       add(output,L234.rankFrame(d,ui234));
       const table=(head,rows)=>h('div',{class:'table-wrap'},h('table',null,h('thead',null,h('tr',null,head.map(text=>h('th',{scope:'col',text})))),h('tbody',null,rows)));
       const inviteRows=[...pages.values()].flatMap(p=>p.dto.invites.map(r=>({r,current:p.deadline>clock&&!scanExpired&&nowSec()<r.expiresAt})));
@@ -4846,9 +4850,13 @@
         await loadMemberScript('OlympusLaunch234','/static/launch-operations234.js');if(!current())return;
         const d=await api('GET','/api/admin/launch-operations'+(cursor?'?cursor='+encodeURIComponent(cursor):''),undefined,{live:current});
         if(!current())return;
-        const verdict234=window.OlympusLaunch234.assess(d,cursor&&model?model:null);
-        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,window.OlympusLaunch234.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
-        if(!d||d.protocol!==window.OlympusLaunch234.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
+        if(d&&typeof d==='object'&&d.protocol===DISCOVERY235){await loadMemberScript('OlympusDiscovery235','/static/launch-discovery235.js');if(!current())return;}
+        const view=launchView235(d);
+        // A continued page must keep the family of the page it continues (a v234 scan never continues as v235, or back).
+        if(cursor&&model&&(model.protocol===DISCOVERY235)!==(d?.protocol===DISCOVERY235))throw Error('launch_family_changed');
+        const verdict234=view.assess(d,cursor&&model?model:null);
+        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
+        if(!d||d.protocol!==view.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
           ||!Array.isArray(d.promotions)||!Array.isArray(d.riskBuffer)||!Array.isArray(d.held)||!Array.isArray(d.invites)||d.invites.length>3||d.promotions.length>1000||d.riskBuffer.length>1000||d.held.length>1000
           ||d.status==='held'&&(d.promotions.length||d.riskBuffer.length||d.invites.length)||!Number.isSafeInteger(d.fetchedAt)||!Number.isSafeInteger(d.expiresAt)
           ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
@@ -4856,7 +4864,7 @@
         else {
           const e=d.entitlements;
           if(!d.scan||!/^[a-f0-9]{32}$/.test(d.scan.id)||!Number.isSafeInteger(d.scan.startedAt)||!Number.isSafeInteger(d.scan.expiresAt)||d.scan.expiresAt>d.scan.startedAt+600||d.scan.expiresAt>d.snapshotAt+600
-            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||!window.OlympusLaunch234.pageCursorShape(d.pageCursor))throw Error('launch_page_unconfirmed'); // round 4 (13 Nov 2026): the reader's 4,096 bound and alphabet
+            ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||!view.pageCursorShape(d.pageCursor))throw Error('launch_page_unconfirmed'); // round 4 (13 Nov 2026): the reader's 4,096 bound and alphabet; round 5: 8,192 for the v235 family only
           for(const r of d.promotions)if(!window.OlympusLaunch234.promotionShape(r))throw Error('launch_target_unconfirmed');
           const inviteIds=new Set(),inviteProofs=new Set();
           // Round 3 (13 Nov 2026): the module admits exactly the two evidence sources the backend projects, each by its own shape.
