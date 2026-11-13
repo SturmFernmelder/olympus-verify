@@ -149,6 +149,11 @@ function roleTargetsOf(raw: unknown): RoleTargets | null {
 }
 const roleTargetsText = (t: RoleTargets | null) => (t ? JSON.stringify({ tank: t.tank, healer: t.healer, damage: t.damage }) : null);
 interface EventValues { title: string; details: string; startsAt: number; durationMin: number; capacity: number | null; roleTargets: RoleTargets | null }
+/** CL2-139 (Evergreen 12 Nov 2026): with places set, the wanted roles together cannot ask for more people than fit. */
+function assertTargetsFit(v: Pick<EventValues, "capacity" | "roleTargets">): void {
+  const t = v.roleTargets;
+  if (v.capacity !== null && t && t.tank + t.healer + t.damage > v.capacity) throw new Bad("role_targets_over_capacity");
+}
 const EVENT_FIELDS = ["title", "details", "startsAt", "durationMin", "capacity", "roleTargets"] as const;
 type EventField = (typeof EVENT_FIELDS)[number];
 export function parseField(field: EventField, raw: unknown, at: number): EventValues[EventField] {
@@ -517,6 +522,7 @@ export async function createEvent(request: Request, env: Env, ctx: CommunityCont
       capacity: body.capacity === undefined ? null : (parseField("capacity", body.capacity, t) as number | null),
       roleTargets: body.roleTargets === undefined ? null : (parseField("roleTargets", body.roleTargets, t) as RoleTargets | null),
     };
+    assertTargetsFit(v);
     const hash = await opHash(v);
     const endsAt = v.startsAt + v.durationMin * 60;
     const me = ctx.subject!.discordId, nonce = randomToken();
@@ -576,6 +582,8 @@ export async function updateEvent(request: Request, env: Env, ctx: CommunityCont
     if (next.startsAt > row!.created_at + EVENT_LIMITS.horizonDays * 86400) throw new Bad("invalid_starts_at");
     const changed = EVENT_FIELDS.filter((f) => (f === "roleTargets" ? roleTargetsText(next.roleTargets) !== roleTargetsText(current.roleTargets) : next[f] !== current[f]));
     if (changed.length === 0) return apiJson({ ...(await readEvent(env, ctx, eventId)), unchanged: true });
+    // Only an edit of the places or the wanted roles is judged, so an older event stays editable for its other fields.
+    if (changed.includes("capacity") || changed.includes("roleTargets")) assertTargetsFit(next);
     const lowers = next.capacity !== null && (current.capacity === null || next.capacity < current.capacity);
     const belowHeld = (held: number) => lowers && next.capacity !== null && next.capacity < held;
     const capacityRefusal = async () => apiJson({ error: "capacity_below_signups", event: await loadEvent(env, ctx, eventId) }, 409);

@@ -139,6 +139,9 @@
   const track199 = id => tracks199().find(row => row.id === id);
   // .200: presentation and new Patron requests are paused unless an admin explicitly enables them.
   const royalWritsVisible200 = () => S.settings?.royalWritsOn === true;
+  // CL2-126 (Evergreen 12 Nov 2026): the ordinary scheduled jobs run on wrangler.toml's "*/15 * * * *" cron; copy that
+  // names the interval reads it from here. (The every-minute cron serves only the attended reset minute.)
+  const SCHEDULER_MINUTES = 15;
   // Membership-form adapters never turn separate artisan offices into one seat.
   const applicationLeadershipSeat199 = row => (row?.historicalApplicationEligible === true || !!row?.applicationEligible) && ["officer", "high_council"].includes(row.applicationTrack);
   const applicationSeatKeys199 = key => { const row = office199(key); return applicationLeadershipSeat199(row) ? row.applicationRoleKeys || [] : []; };
@@ -2668,7 +2671,9 @@
     window.addEventListener("pageshow", pageRestored);
     return loadPlan();
   };
-  const TREASURY_ACCESS_TTL218 = 15 * 60 * 1000;
+  // CL2-283 (Evergreen 12 Nov 2026): a revoked grant must not keep the plan open in a tab for 15 minutes; the server still
+  // re-checks every file request, and one access read a minute is cheap.
+  const TREASURY_ACCESS_TTL218 = 60 * 1000;
   let treasuryCheck218 = null, treasuryChecked218 = null, treasuryGeneration218 = 0, treasuryView218 = null, treasurySignedOut218 = null;
   const bootTreasuryUser218 = S.signedIn && !S.denied ? S.user : null;
   let treasuryAnswer218 = bootTreasuryUser218 && (bootTreasuryUser218.isAdmin === true || bootTreasuryUser218.canReadTreasuryPlan === true)
@@ -2727,8 +2732,12 @@
   }
   function treasuryRefusal218() {
     return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
-      h("p", { text: "The treasury programme and financial model are for officers and above: the Guild Master, the Council, Officers, Officer Alts, Raid Leaders, the Treasurer and the Co-Guild Master." }),
-      h("p", { class: "muted", text: "Access follows your in-game rank on the latest roster, your Discord officer role or a published Co-Guild Master or Treasurer appointment. Royal Writs and Patron tiers stay public on Roles and Governance." }),
+      // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
+      // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
+      // The Discord list follows site-treasury-access.ts discordOfficerRole: Guild Master (ROLE_GUILD_LEADER is the same ID),
+      // Officer and Raid Leader, plus the Discord roles of the first five ranks when the canonical rank roles are switched on.
+      h("p", { text: "The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord Guild Master, Officer and Raid Leader roles, and the Discord roles of those five ranks when rank roles are switched on; the published Co-Guild Master and Treasurer appointments; and site administrators." }),
+      h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
   function treasuryUnavailable218(error, current) {
@@ -4506,20 +4515,22 @@
     return bar;
   };
 
-  /** The five admin groups; the header's Admin menu (CL2-215) and the in-page section links share them. */
+  /** The five admin groups; the header's Admin menu (CL2-215) and the in-page section links share them.
+   *  CL2-014 (Evergreen 12 Nov 2026): the directive's five groups, each panel filed where its work is. Appointed roles
+   *  has its own page, launch operations sit with operations, and the member Calendar is linked from Operations. */
   function adminGroups() {
     return [
-      ["Applications & Roster", [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["launch-operations", "Launch operations & MOTD"], ["friends", "Friends"], ["lookup", "Lookup"], ["renames", "Renames"], ["directory-visibility", "Discord member list preferences"]]],
-      ["Governance, Ranks & Appointments", [["ranks", "Rank planner"], ["approved-guilds", "Signed guild list"]]],
+      ["Applications & Roster", [["", "Overview"], ["applications", "Applications"], ["votes", "Votes"], ["names", "Reserved names"], ["friends", "Friends"], ["lookup", "Lookup"], ["renames", "Renames"], ["directory-visibility", "Discord member list preferences"]]],
+      ["Governance, Ranks & Appointments", [["appointments", "Appointed roles"], ["ranks", "Rank planner"], ["approved-guilds", "Signed guild list"]]],
       ["Imperial Treasury & Stockades", [["treasury", "Treasury"], ["donation-ledger", "Donation ledger"]]],
-      ["News, Calendar & Operations", [["news", "News"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
+      ["News, Calendar & Operations", [["news", "News"], ...(feat("events") ? [["#/community/calendar", "Calendar"]] : []), ["launch-operations", "Launch operations & MOTD"], ...(anyCommunity() ? [["community", "Community"]] : [])]],
       ["System Settings & Compliance", [["settings", "Settings"], ["audit", "Audit log"], ["ruleset-publication", "Ruleset publication"]]]
     ];
   }
   function adminTabs(sub) {
     const groups = adminGroups();
     if (S.user?.id === "472099715253796864") groups.at(-1)[1].push(["/admin/qr/beta-window", "Named beta verification"]);
-    const choices = groups.map(([label, rows]) => [label, rows.map(([key, text]) => [key.startsWith("/") ? key : "#/admin" + (key ? "/" + key : ""), text, sub === key])]);
+    const choices = groups.map(([label, rows]) => [label, rows.map(([key, text]) => [/^[/#]/.test(key) ? key : "#/admin" + (key ? "/" + key : ""), text, sub === key])]);
     const select = h("select", { id: "admin-section-select", "aria-label": "Admin section" }, choices.map(([label, rows]) =>
       h("optgroup", { label }, rows.map(([href, text, selected]) => h("option", { value: href, text, selected })))));
     select.addEventListener("change", () => { location.href = select.value; });
@@ -4531,8 +4542,9 @@
   ROUTES.admin = async function admin(main, parts) {
     const sub = parts[0] || "";
     add(main, frame(h("h1", { text: "Admin" }), h("span", { class: "badge warn", text: "Visible to site admins only" }), adminTabs(sub))); // CL2-099: the section's H1 comes first
-    if (sub === "" || sub === "treasury") add(main, writsPanel199("admin", {checklist:true}));
-    if (sub === "" || sub === "treasury") add(main, frame("Treasury programme · officer operating plan", null,
+    // CL2-014: Overview opens with the roster figures; the Treasury frames belong to Imperial Treasury only.
+    if (sub === "treasury") add(main, writsPanel199("admin", {checklist:true}));
+    if (sub === "treasury") add(main, frame("Treasury programme · officer operating plan", null,
       h("p", { text: "The shared plan contains the 30-day pilot, 90-day stretch target, long-term roadmap and financial assumptions. It is a planning reference, not a live bank balance, payment instruction or authority to change existing controls." }),
       h("a", { class: "btn", href: "#/treasury-plan", text: "Open the treasury programme & financial model" })));
     const body = h("div");
@@ -4547,6 +4559,7 @@
       friends: adminFriends,
       lookup: (b) => adminLookup(b, dec(parts[1] || "")),
       settings: adminSettings,
+      appointments: adminAppointments, // CL2-014: its own page and its own Save
       treasury: adminTreasury,
       "donation-ledger": adminDonationLedger242,
       "directory-visibility": adminDirectoryVisibility,
@@ -4922,7 +4935,7 @@
     const [namesOpen, namesOpenRow] = box(s.namesOpen, "People may enter reserved names (from the time above)");
     const [autoQueue, autoQueueRow] = box(s.autoQueue, "From the guild invite date, automatically queue approved reserved names", s.reservedQueueOnSite === false
       ? "The website queue is paused. Officers invite in game."
-      : "Checked every half hour. Off: use Queue on the Reserved names tab when you are ready.");
+      : `Checked every ${SCHEDULER_MINUTES} minutes. Off: use Queue on the Reserved names tab when you are ready.`);
     const [appsOpen, appsOpenRow] = box(s.applicationsOpen, "Applications are open");
     const [votingOpen, votingOpenRow] = box(s.votingOpen, "Voting is open (the board and write-in nominations)");
     // .115 (Viktor's item A, 2 Oct 2026): the members' News page is off until an administrator switches it on here (site-news.ts)
@@ -4933,6 +4946,74 @@
     const [royalWrits, royalWritsRow] = box(s.royalWritsOn === true, "Show the Schedule of Royal Writs, Indulgences & Guild Services", "Off by default: hides the schedule across the site and pauses new Patron-track applications. Existing applications, receipts and constitutional reference text are preserved. Turning this on does not enable payments, Discord role dispatch, Olympus Link or any other provider action.");
     royalWrits.id = "royal-writs-on";
     const notice = h("input", { type: "text", maxlength: "300", value: s.notice || "", placeholder: "Shown at the top of every page (optional)" });
+    const quietWas = new Set(s.noVote || []);
+    const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
+    const quietGrid = (group) => h("div", { class: "appointed-grid" }, quiet.filter(([b]) => b.group === group).sort(([a], [b]) => byClassDisplayLabel(a, b)).map(([b, input]) =>
+      h("label", { class: "check field quiet-row" }, input, h("span", { class: "small" }, posIcon(b.key, "s"), " ", b.label))));
+    const settingsValues = () => ({
+      namesOpenAt: fromLocalInput(namesAt.value), launchAt: fromLocalInput(launchAt.value), namesTimeConfirmed: confirmed.checked,
+      namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked,
+      newsOn: newsBox.checked, loginAnimation: loginAnimation.checked === true, royalWritsOn: royalWrits.checked === true,
+      notice: notice.value, noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key),
+    });
+    let savedSettings = settingsValues();
+    const save = h("button", { class: "btn", type: "button", text: "Save settings" });
+    save.addEventListener("click", async () => {
+      if (!settingsLive()) return;
+      const nextSettings = settingsValues();
+      if (!nextSettings.namesOpenAt || !nextSettings.launchAt) return toast("Both times are needed.", "bad");
+      const changes = Object.fromEntries(Object.entries(nextSettings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(savedSettings[key])));
+      save.disabled = true;
+      try {
+        const out = await api("PUT", "/api/admin/settings", changes, { live: settingsLive });
+        if (!settingsLive()) return;
+        S.settings = out.settings;
+        savedSettings = nextSettings;
+        toast("Settings saved.", "good");
+      } catch (err) {
+        if (!settingsLive()) return;
+        toast(err.message, "bad");
+      } finally { save.disabled = false; }
+    });
+    clear(body);
+    add(body, frame("Settings", null,
+      h("label", {class:"field"}, h("span", {class:"lab", text:"Public server ruleset"}),
+        h("input", {id:"public-ruleset", type:"text", value:M().ruleset?.phase === "public_direction" ? "PVE - Alliance" : rulesetIdentity(), readonly:true})),
+      h("p", {class:"muted small"}, "The announced default is PvE · Alliance. Public copy does not activate native roles or change launch guards. ", h("a", {href:"#/admin/ruleset-publication", text:"Review ruleset publication"})),
+      h("div", { class: "grid two" },
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Website name entry threshold" }), namesAt, namesPt),
+        h("label", { class: "field" }, h("span", { class: "lab", text: "Guild invite scheduling threshold" }), launchAt, launchPt)),
+      h("p", { class: "muted small", text: "Times are entered in your own time zone; the line under each shows the Pacific time Blizzard announces in." }),
+      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow, loginAnimationRow, royalWritsRow,
+      h("label", { class: "field" }, h("span", { class: "lab", text: "Notice" }), notice),
+      h("p", { class: "muted small" }, "Appointed holders have their own page: ", h("a", { href: "#/admin/appointments", text: "Admin → Appointed roles" }), "."),
+      h("div", { class: "rule" }),
+      h("h3", { text: "Roles without a public vote" }),
+      h("p", { class: "muted small", text: "These controls govern visibility and voting on historical records; they do not reopen reserved applications. Leader, High Council and Officer Corps seats remain appointment-only, with no first-choice or backup applications. Existing applications, votes, nominations and their original consent restrictions are preserved. A ticked role has no public board or write-ins; any retained application stays with leadership. Changing this setting never appoints a holder or supplies new publication consent." }),
+      h("div", { class: "group-label", text: "Leadership" }), quietGrid("leadership"),
+      h("div", { class: "group-label", text: "Class leads" }), quietGrid("class"),
+      h("div", { class: "btn-row mt" }, save)));
+    const intents = o.discordIntentOperations;
+    if (intents && intents.applicationId === "1550176895671341076") add(body, frame("Discord member access & annual renewal", null,
+      kv([["Application", intents.applicationId], ["Support request", "#" + intents.supportTicket], ["Required intent", intents.requiredIntent], ["Renewal review before", intents.reviewBefore], ["Responsible owner", "Application owner / guild administrators"]]),
+      h("p", { text: intents.permittedUse }),
+      h("p", { class: "muted small", text: "Server Members was observed enabled after a portal reload on 23 October 2026. This operational record is not a live entitlement check. Presence, message content, a Gateway connection and a persistent member mirror are not required. Reapply annually and review before 23 October 2027." }),
+      h("a", { class: "btn small", href: "https://discord.com/developers/applications/1550176895671341076/bot", target: "_blank", rel: "noopener noreferrer", text: "Review application intent settings" })));
+    const bnetPanel = await bnetSwitchFrame(settingsLive);
+    if (!settingsLive()) return;
+    const leadershipPanel = await leadershipFrame(settingsLive);
+    if (!settingsLive()) return;
+    add(body, [bnetPanel, leadershipPanel, await betaResetFrame(body)]); // .114
+  }
+  /** CL2-014 (Evergreen 12 Nov 2026): Appointed roles moved out of Settings onto their own page with their own Save. The
+   * PUT carries only the appointment map and the two consent ticks, as the Settings save sent them before. */
+  async function adminAppointments(body) {
+    const owner = S.user, route = currentRoute();
+    const appointmentsLive = () => S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route && app.contains(body);
+    const o = await api("GET", "/api/admin/overview", undefined, { live: appointmentsLive });
+    if (!appointmentsLive()) return;
+    const s = o.settings;
+    const box = (checked, text, hint) => { const i = h("input", { type: "checkbox", checked }); return [i, h("label", { class: "check field" }, i, h("span", null, text, hint ? h("span", { class: "hint", text: hint }) : null))]; };
     const was = s.appointed || {};
     const appointmentKind = office => {
       if (office.key === "co_gm" || office.key === "treasurer") return "Treasury-plan access appointment";
@@ -4942,19 +5023,49 @@
       return office.group === "office" ? "Office record" : "Leadership appointment";
     };
     const appointmentTitle = office => `${office.label} — ${appointmentKind(office)} (${office.key})`;
+    // CL2-015 (Evergreen 12 Nov 2026): the field keeps the stored value (a <@id> pointer or a typed name), and a holder line
+    // beside it says who that is. Website accounts come from the staff-only overview answer (the same names and avatar
+    // every admin list shows); a pointer without a website profile can be checked with the existing exact-ID search.
+    const accounts = new Map((Array.isArray(o.appointedAccounts) ? o.appointedAccounts : []).filter(a => a && typeof a.id === "string").map(a => [a.id, a]));
+    const picked = new Map(), holderChips = new Map();
+    const pointerId = value => appointmentPointer(value) ? value.slice(2, -1) : null;
+    const lookUpHolder = async (key, id, button) => {
+      button.disabled = true;
+      try {
+        const res = await api("GET", "/api/search?purpose=appointment&q=" + encodeURIComponent(`<@${id}>`), undefined, { live: appointmentsLive });
+        if (!appointmentsLive()) return;
+        const found = (res && Array.isArray(res.results) ? res.results : []).find(r => r && r.id === id);
+        if (found) { accounts.set(id, found); drawHolder(key, `<@${id}>`); }
+        else { button.disabled = false; button.textContent = res && res.unavailable ? "Discord search unavailable; try again" : "Not found in the Discord server"; }
+      } catch (err) { if (appointmentsLive()) { button.disabled = false; button.textContent = "Look-up failed; try again"; } }
+    };
+    function drawHolder(key, value) {
+      const chip = holderChips.get(key);
+      if (!chip) return;
+      clear(chip);
+      const id = pointerId(value);
+      if (!value) { add(chip, h("span", { class: "muted", text: "No holder recorded." })); return; }
+      if (!id) { add(chip, [h("img", { class: "av", src: art("icon-names"), alt: "", width: "24", height: "24" }), h("span", { text: value === "Name withheld" ? "Name withheld (anonymous marker)" : `${value} (typed name, no Discord account)` })]); return; }
+      const person = picked.get(key) || accounts.get(id);
+      if (person) { add(chip, [discordAvatar(person, { class: "av", width: "24", height: "24", loading: "lazy" }), h("span", { text: discordIdentity(person) || person.shown || person.label || id }), h("span", { class: "faint", text: ` · ${id}` })]); return; }
+      const look = h("button", { class: "btn small", type: "button", text: "Look up this Discord account" });
+      look.addEventListener("click", () => { if (appointmentsLive()) lookUpHolder(key, id, look); });
+      add(chip, [discordAvatar(null, { class: "av", width: "24", height: "24" }), h("span", { text: `Discord account ${id} (no website profile)` }), look]);
+    }
+    for (const office of (M().appointments || M().ballots)) holderChips.set(office.key, h("p", { class: "appointed-holder small", "data-appointed-holder": office.key, "aria-live": "polite" }));
     const appointed = (M().appointments || M().ballots).map((b) => [b, h("input", { id: `appointed-holder-${b.key}`, type: "text", maxlength: "40", value: Object.prototype.hasOwnProperty.call(was, b.key) ? was[b.key] : "", placeholder: "Open", autocomplete: "off", "aria-label": `${appointmentTitle(b)}: appointed to`, "aria-describedby": `appointed-status-${b.key}` })]);
     const associationStatus = new Map(appointed.map(([office]) => [office.key, h("span", { id: `appointed-status-${office.key}`, class: "hint", role: "status", "data-appointment-status": office.key })]));
     for (const [b, input] of appointed) {
       const status = associationStatus.get(b.key);
       if (!status) continue;
-      const edit = () => { status.textContent = appointmentPointer(input.value.trim()) ? "Use account search to check current association eligibility. Save checks the selected account again." : ""; };
-      input.addEventListener("input", edit); edit();
+      const edit = () => { status.textContent = appointmentPointer(input.value.trim()) ? "Use account search to check current association eligibility. Save checks the selected account again." : ""; drawHolder(b.key, input.value.trim()); };
+      input.addEventListener("input", () => { picked.delete(b.key); edit(); }); edit();
     }
     const appointedRow = ([b, input]) =>
-      h("div", { class: "field appointed-row", "data-appointment-field203": b.key }, h("label", { for: input.id }, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: appointmentTitle(b) }), officeBadge199(b)), input),
+      h("div", { class: "field appointed-row", "data-appointment-field203": b.key }, h("label", { for: input.id }, h("span", { class: "lab small" }, posIcon(b.key, "s"), h("span", { text: appointmentTitle(b) }), officeBadge199(b)), input), holderChips.get(b.key),
         b.councilSeat ? h("p", {class:"small muted role-reporting218",text:b.ministry + " · Council portfolio: " + b.councilSeat}) : null,
         picker({ label: `${appointmentTitle(b)}: associate Discord account`, placeholder: "Search Discord by name or user ID…", allowTyped: false, allowSelf: true, appointmentOnly: true,
-          onPick: person => { input.value = `<@${person.key}>`; namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }),
+          onPick: person => { input.value = `<@${person.key}>`; picked.set(b.key, { id: person.key, label: person.label, shown: person.shown, avatarUrl: person.avatarUrl }); drawHolder(b.key, input.value); namesOk.checked = false; characterPublication.checked = false; associationStatus.get(b.key).textContent = `${person.label}: eligible for association at the last check. Save checks again; review both consent boxes.`; } }),
         associationStatus.get(b.key));
     const displayedAppointments = [...appointed].sort(([a], [b]) => byClassDisplayLabel(a, b));
     const appointedGrid = group => h("div", { class: "appointed-grid" }, displayedAppointments.filter(([b]) => b.group === group).map(appointedRow));
@@ -4979,88 +5090,58 @@
     namesOk.id = "appointed-names-ok";
     const [characterPublication, characterPublicationRow] = box(false, "Each associated officeholder agreed to show their Discord name, username and current verified characters to guild members and site administrators", "This includes verified characters not listed in the directory. An account without a current website profile publishes its Discord name only. A current Broadcaster association permits Stream Shield; a current Lead Correspondent association permits Town Crier editing. These actions require their separate account and privacy checks. Other display associations grant no action authority; none changes native ranks, Discord roles, bank access or signing authority.");
     characterPublication.id = "appointed-characters-ok";
-    const quietWas = new Set(s.noVote || []);
-    const quiet = M().ballots.map((b) => [b, h("input", { type: "checkbox", checked: quietWas.has(b.key), "aria-label": `${b.label}: no public vote` })]);
-    const quietGrid = (group) => h("div", { class: "appointed-grid" }, quiet.filter(([b]) => b.group === group).sort(([a], [b]) => byClassDisplayLabel(a, b)).map(([b, input]) =>
-      h("label", { class: "check field quiet-row" }, input, h("span", { class: "small" }, posIcon(b.key, "s"), " ", b.label))));
-    const settingsValues = () => ({
-      namesOpenAt: fromLocalInput(namesAt.value), launchAt: fromLocalInput(launchAt.value), namesTimeConfirmed: confirmed.checked,
-      namesOpen: namesOpen.checked, autoQueue: autoQueue.checked, applicationsOpen: appsOpen.checked, votingOpen: votingOpen.checked,
-      newsOn: newsBox.checked, loginAnimation: loginAnimation.checked === true, royalWritsOn: royalWrits.checked === true,
-      notice: notice.value, noVote: quiet.filter(([, input]) => input.checked).map(([bb]) => bb.key),
-    });
+    // CL2-122: a refusal is shown beside the box it concerns, and focus moves to that box.
+    const namesOkError = h("p", { class: "err small", id: "appointed-names-ok-error", role: "alert", hidden: true });
+    const characterPublicationError = h("p", { class: "err small", id: "appointed-characters-ok-error", role: "alert", hidden: true });
+    namesOk.setAttribute("aria-describedby", namesOkError.id); characterPublication.setAttribute("aria-describedby", characterPublicationError.id);
+    const clearConsentErrors = () => { for (const node of [namesOkError, characterPublicationError]) { node.hidden = true; node.textContent = ""; } };
     const appointmentValues = () => Object.fromEntries(appointed.map(([office, input]) => [office.key, input.value.trim()]).filter(([, who]) => who));
-    let savedSettings = settingsValues();
     let savedAppointments = JSON.stringify(appointmentValues());
-    const save = h("button", { class: "btn", type: "button", text: "Save settings" });
+    const save = h("button", { class: "btn", type: "button", text: "Save appointed roles" });
     save.addEventListener("click", async () => {
-      if (!settingsLive()) return;
-      const nextSettings = settingsValues();
-      if (!nextSettings.namesOpenAt || !nextSettings.launchAt) return toast("Both times are needed.", "bad");
-      const changes = Object.fromEntries(Object.entries(nextSettings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(savedSettings[key])));
+      if (!appointmentsLive()) return;
+      clearConsentErrors();
       const nextAppointments = appointmentValues();
       const appointmentSnapshot = JSON.stringify(nextAppointments);
-      const updateAppointments = appointmentSnapshot !== savedAppointments || characterPublication.checked;
+      if (appointmentSnapshot === savedAppointments && !characterPublication.checked) { toast("Nothing changed."); return; }
       save.disabled = true;
       try {
-        const out = await api("PUT", "/api/admin/settings", { ...changes,
-          ...(updateAppointments ? { appointed: nextAppointments, namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked } : {}) }, { live: settingsLive });
-        if (!settingsLive()) return;
+        const out = await api("PUT", "/api/admin/settings", { appointed: nextAppointments, namesConfirmed: namesOk.checked, appointedCharactersConfirmed: characterPublication.checked }, { live: appointmentsLive });
+        if (!appointmentsLive()) return;
         S.settings = out.settings;
-        savedSettings = nextSettings;
-        if (updateAppointments) savedAppointments = appointmentSnapshot;
+        savedAppointments = appointmentSnapshot;
         namesOk.checked = false;
         characterPublication.checked = false;
-        toast("Settings saved.", "good");
+        toast("Appointed roles saved.", "good");
       } catch (err) {
-        if (!settingsLive()) return;
-        const role = err.data && err.data.error === "appointed_account_unavailable" && err.data.role;
+        if (!appointmentsLive()) return;
+        const code = err.data && err.data.error;
+        const role = code === "appointed_account_unavailable" && err.data.role;
+        if (code === "confirm_names" || code === "confirm_appointed_characters") {
+          const [field, line] = code === "confirm_names" ? [namesOk, namesOkError] : [characterPublication, characterPublicationError];
+          line.textContent = err.message; line.hidden = false; field.focus();
+          return;
+        }
         if (associationStatus.has(role)) {
           associationStatus.get(role).textContent = err.message;
           characterPublication.checked = false;
           appointed.find(([bb]) => bb.key === role)[1].focus();
+          return;
         }
         toast(err.message, "bad");
       } finally { save.disabled = false; }
     });
     clear(body);
-    add(body, frame("Settings", null,
-      h("label", {class:"field"}, h("span", {class:"lab", text:"Public server ruleset"}),
-        h("input", {id:"public-ruleset", type:"text", value:M().ruleset?.phase === "public_direction" ? "PVE - Alliance" : rulesetIdentity(), readonly:true})),
-      h("p", {class:"muted small"}, "The announced default is PvE · Alliance. Public copy does not activate native roles or change launch guards. ", h("a", {href:"#/admin/ruleset-publication", text:"Review ruleset publication"})),
-      h("div", { class: "grid two" },
-        h("label", { class: "field" }, h("span", { class: "lab", text: "Website name entry threshold" }), namesAt, namesPt),
-        h("label", { class: "field" }, h("span", { class: "lab", text: "Guild invite scheduling threshold" }), launchAt, launchPt)),
-      h("p", { class: "muted small", text: "Times are entered in your own time zone; the line under each shows the Pacific time Blizzard announces in." }),
-      confirmedRow, namesOpenRow, autoQueueRow, appsOpenRow, votingOpenRow, newsRow, loginAnimationRow, royalWritsRow,
-      h("label", { class: "field" }, h("span", { class: "lab", text: "Notice" }), notice),
-      h("div", { class: "rule" }),
-      h("h3", { text: "Appointed roles" }),
+    add(body, frame("Appointed roles", null,
       h("p", { class: "muted small", text: "A role with a name here has an appointment display record. Its historical voting board and write-ins close while the appointment is recorded; prior votes and nominations are preserved. Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed. An empty field is not an application vacancy." }),
       h("p", { class: "muted small", text: "Every office and rank below has a Discord name or exact user ID selector. Search and Save check current server membership and account standing. A website sign-in, character link or roster confirmation is not required to associate a current Discord member. These website records do not change Discord roles, native ranks, bank access or signing authority. Existing ballot roles remain closed while appointed; extended offices are separate records." }),
       h("p", { class: "muted small", text: "Co-Guild Master (co_gm) and Treasurer (treasurer) are the Treasury-plan access appointments. A current published Discord account association on either record can qualify for officer Treasury plan access. Their separately listed office records retain their own scope." }),
       h("p", { class: "muted small appointment-scope228", text: "Separate offices, aliases, regions, classes and ranks each keep their own display record." }),
       appointmentControls203,
-      namesOkRow,
-      characterPublicationRow,
+      namesOkRow, namesOkError,
+      characterPublicationRow, characterPublicationError,
       h("p", { class: "muted small", text: "To remove a name on request, type Name withheld to keep an anonymous appointment marker, or clear the display record. Reserved applications remain closed in either case." }),
-      h("div", { class: "rule" }),
-      h("h3", { text: "Roles without a public vote" }),
-      h("p", { class: "muted small", text: "These controls govern visibility and voting on historical records; they do not reopen reserved applications. Leader, High Council and Officer Corps seats remain appointment-only, with no first-choice or backup applications. Existing applications, votes, nominations and their original consent restrictions are preserved. A ticked role has no public board or write-ins; any retained application stays with leadership. Changing this setting never appoints a holder or supplies new publication consent." }),
-      h("div", { class: "group-label", text: "Leadership" }), quietGrid("leadership"),
-      h("div", { class: "group-label", text: "Class leads" }), quietGrid("class"),
       h("div", { class: "btn-row mt" }, save)));
-    const intents = o.discordIntentOperations;
-    if (intents && intents.applicationId === "1550176895671341076") add(body, frame("Discord member access & annual renewal", null,
-      kv([["Application", intents.applicationId], ["Support request", "#" + intents.supportTicket], ["Required intent", intents.requiredIntent], ["Renewal review before", intents.reviewBefore], ["Responsible owner", "Application owner / guild administrators"]]),
-      h("p", { text: intents.permittedUse }),
-      h("p", { class: "muted small", text: "Server Members was observed enabled after a portal reload on 23 October 2026. This operational record is not a live entitlement check. Presence, message content, a Gateway connection and a persistent member mirror are not required. Reapply annually and review before 23 October 2027." }),
-      h("a", { class: "btn small", href: "https://discord.com/developers/applications/1550176895671341076/bot", target: "_blank", rel: "noopener noreferrer", text: "Review application intent settings" })));
-    const bnetPanel = await bnetSwitchFrame(settingsLive);
-    if (!settingsLive()) return;
-    const leadershipPanel = await leadershipFrame(settingsLive);
-    if (!settingsLive()) return;
-    add(body, [bnetPanel, leadershipPanel, await betaResetFrame(body)]); // .114
   }
   const kv = (pairs) => h("dl", { class: "kv" }, pairs.map(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })]));
   /** .114: the Battle.net sign-in switch (the Worker's bnet-switch.ts). It cannot be switched on before the policy describes the login. */
@@ -5331,6 +5412,15 @@
   // never replace a newer one. Every read takes the next number; an answer, or a failure, whose number is no longer the
   // latest is dropped, and each read keeps the filters it was sent with rather than reading A.audit again after its await.
   let auditReads = 0;
+  // CL2-128 (Evergreen 12 Nov 2026): the settings row's approved fields in words. Switches are stored as "1"/"0".
+  const SETTINGS_AUDIT_WORDS = { appointedNames: "Appointed holders", namesConfirmed: "Naming agreement confirmed", appointedCharactersConfirmed: "Publication agreement confirmed",
+    notice: "Site notice set", namesTimeConfirmed: "Reservation hour confirmed", namesOpen: "Reserved-name entry", autoQueue: "Automatic reserved-name queue",
+    applicationsOpen: "Applications", votingOpen: "Voting", newsOn: "Town Crier", loginAnimation: "Animated login background", royalWritsOn: "Royal Writs schedule" };
+  const auditDetailText = (action, key, value) => {
+    if (action !== "site.settings" || !own(SETTINGS_AUDIT_WORDS, key)) return key + ": " + String(value);
+    const shown = value === "1" ? "on" : value === "0" ? "off" : value === true ? "yes" : value === false ? "no" : String(value);
+    return SETTINGS_AUDIT_WORDS[key] + ": " + shown;
+  };
   async function adminAudit(body) {
     const f = A.audit;
     const read = ++auditReads;
@@ -5369,7 +5459,7 @@
     const who = (id, name) => (name ? [h("span", { text: name }), h("br"), h("span", { class: "faint small", text: id })] : h("span", { text: id }));
     const detail = (r) => {
       const summary = r.details && typeof r.details === "object" && !Array.isArray(r.details)
-        ? Object.entries(r.details).map(([key, value]) => key + ": " + String(value)).join("; ") : "";
+        ? Object.entries(r.details).map(([key, value]) => auditDetailText(r.action, key, value)).join("; ") : "";
       return summary || r.detailsWithheld ? h("details", { class: "audit-detail" }, h("summary", { text: "View details" }), h("div", null,
         summary ? h("span", { text: summary }) : null,
         r.detailsWithheld ? h("span", { class: "faint small", text: (summary ? " · " : "") + "Private or unrecognized details withheld" }) : null)) : h("span", { text: "—" });
@@ -6018,8 +6108,8 @@
         h("td", null, it.class ? clsLabel(it.class) : null, h("div", { class: "small muted" }, roleIcon(it.role), " ", labelOf(M().roles, it.role))),
         h("td", null, fitView(it.fit, { compact: true })),
         h("td", null, h("span", { class: "status " + (it.user.denied ? "denied" : it.status), text: it.user.denied ? "Denied" : statusText(it.status) })),
-        h("td", { class: "nowrap", text: it.user.accountCreated ? plural(days(it.user.accountCreated), "day") : "?" }),
-        h("td", { class: "nowrap", text: it.user.serverJoined ? plural(days(it.user.serverJoined), "day") : "?" }),
+        h("td", { class: "nowrap", text: it.user.accountCreated ? plural(days(it.user.accountCreated), "day") : "Unknown" }),
+        h("td", { class: "nowrap", text: it.user.serverJoined ? plural(days(it.user.serverJoined), "day") : "Unknown" }),
         h("td", { class: "nowrap", text: ago(it.updatedAt) }));
       tr.addEventListener("click", (event) => { if (event.target instanceof Element && event.target.closest("a")) return; location.hash = `#/admin/applications/${it.user.id}`; });
       return tr;
@@ -6158,7 +6248,8 @@
         const refused = codeOf(err);
         decisionNotice.textContent = refused === "reload" ? "Reload the site to open the latest decision screen."
           : refused === "target_expired" ? "This review expired. Reload the application to review it again."
-          : refused === "review_changed" ? "This account or application changed. Reload it and review the current record."
+          // CL2-129: review_changed is refused before any write (privacy-rejection-decision.ts prepareMembershipDecision).
+          : refused === "review_changed" ? "No decision was saved: this account or application changed after you opened it. Reload it and review the current record."
           : spent ? "The decision result could not be confirmed. Reload the application and review the current account before deciding again."
           : "No decision was sent. Review the application before trying again.";
       } finally { pending = false; sync(); }
@@ -6196,6 +6287,12 @@
           h("dt", { text: "In Asmongold's server" }), h("dd", { text: u.inServer ? ageText(u.serverJoined) : "left the server" }),
           u.denied ? h("dt", { text: "Denied because" }) : null, u.denied ? h("dd", { text: u.deniedReason || "(no reason given)" }) : null,
           h("dt", { text: "Linked characters" }), h("dd", { text: acct.characters.length ? acct.characters.map((c) => `${c.name} (${c.status})`).join(", ") : "none" }),
+          // CL2-121 (Evergreen 12 Nov 2026): when it was sent, last changed and last decided. A decision sets reviewed_at
+          // only (privacy-rejection-decision.ts), so a later updated_at means the applicant changed it after the review.
+          a ? [h("dt", { text: "Submitted" }), h("dd", { text: Number.isFinite(a.createdAt) ? fmtDateTime(a.createdAt) : "Unknown" }),
+            h("dt", { text: "Last changed" }), h("dd", null, Number.isFinite(a.updatedAt) ? fmtDateTime(a.updatedAt) : "Unknown",
+              Number.isFinite(a.reviewedAt) && Number.isFinite(a.updatedAt) && a.updatedAt > a.reviewedAt ? [" ", h("span", { class: "badge warn", text: "changed since the last review" })] : null),
+            h("dt", { text: "Reviewed" }), h("dd", { text: Number.isFinite(a.reviewedAt) ? fmtDateTime(a.reviewedAt) : "Not reviewed yet" })] : null,
           acct.member && acct.member.banned ? h("dt", { text: "Bot" }) : null, acct.member && acct.member.banned ? h("dd", { text: `banned from verifying${acct.member.banReason ? ": " + acct.member.banReason : ""}` }) : null),
         h("div", { class: "rule" }),
         a ? applicationSummary(a) : h("p", { class: "muted", text: "Signed in, no application." }),
@@ -6280,7 +6377,7 @@
         quiet ? null : h("p", { class: "muted small", text: `${plural(b.applicants, "applicant")} on the board · ${plural(b.voters, "voter")}` }),
         appointedTo(b.key) ? h("p", { class: "small appointed-line" }, tick(), appointmentLabelNode(b.key)) : null,
         quiet ? h("p", { class: "small novote-line" }, crown(), "No public vote: its applicants are on the Applications tab") : null,
-        b.top.length ? h("div", { class: "tally-top" }, b.top.map((t) => h("div", null, h("span", { text: t.label }), h("span", { class: "nowrap" }, h("span", { class: "yes", text: `+${t.yes}` }), " ", h("span", { class: "no", text: `−${t.no}` }))))) : h("p", { class: "faint small", text: "No board votes yet." }),
+        b.top.length ? h("div", { class: "tally-top" }, b.top.map((t) => h("div", null, h("span", { text: t.label }), h("span", { class: "nowrap" }, h("span", { class: "yes", text: `+${t.yes}` }), " ", h("span", { class: "no", text: `−${t.no}` }))))) : null, // CL2-120: one page-level empty state below, not one per card
         w.top.length ? h("p", { class: "faint small mt-s", text: `Written in most: ${w.top.map((t) => `${t.label} (${t.votes})`).join(", ")}` }) : null);
     };
     clear(body);
@@ -6288,6 +6385,7 @@
       h("p", { class: "muted small", text: "The voting board (for and against each applicant, per role) and the write-in nominations. Counts use the filters below: new accounts and people who joined the server recently can be set aside, which is how a wave of throwaway accounts shows up." }),
       voteFilters(() => adminVotes(body)),
       h("div", { class: "rule" }),
+      board.roles.some((b) => b.top.length) ? null : h("p", { class: "muted", role: "status", text: "No board votes have been cast yet with these filters. Each role below shows its applicants and write-ins." }),
       h("div", { class: "grid three" }, board.roles.filter((b) => !b.key.startsWith("class_lead:")).map(card)),
       h("div", { class: "group-label", text: "Class leads" }),
       h("div", { class: "grid three" }, board.roles.filter((b) => b.key.startsWith("class_lead:")).sort(byDisplayLabel).map(card))));
@@ -6371,8 +6469,8 @@
         h("tbody", null, data.voters.map((v) => h("tr", null,
           h("td", null, h("a", { href: `#/admin/applications/${v.id}`, onclick: () => { const d = document.querySelector("dialog"); if (d) d.close(); } }, userCell(v))),
           h("td", { class: v.vote > 0 ? "yes" : "no", text: v.vote > 0 ? "For" : "Against" }),
-          h("td", { class: "nowrap", text: v.accountCreated ? plural(days(v.accountCreated), "day") : "?" }),
-          h("td", { class: "nowrap", text: v.serverJoined ? plural(days(v.serverJoined), "day") : "?" }),
+          h("td", { class: "nowrap", text: v.accountCreated ? plural(days(v.accountCreated), "day") : "Unknown" }),
+          h("td", { class: "nowrap", text: v.serverJoined ? plural(days(v.serverJoined), "day") : "Unknown" }),
           h("td", { class: "nowrap", text: ago(v.votedAt) }))))))), { wide: true });
   }
   async function showVoters(ballot, n) {
@@ -6384,8 +6482,8 @@
         h("tbody", null, data.voters.map((v) => h("tr", null,
           h("td", null, h("a", { href: `#/admin/applications/${v.id}`, onclick: () => { const d = document.querySelector("dialog"); if (d) d.close(); } }, userCell(v))),
           h("td", { class: "num", text: String(v.slot) }),
-          h("td", { class: "nowrap", text: v.accountCreated ? plural(days(v.accountCreated), "day") : "?" }),
-          h("td", { class: "nowrap", text: v.serverJoined ? plural(days(v.serverJoined), "day") : "?" }),
+          h("td", { class: "nowrap", text: v.accountCreated ? plural(days(v.accountCreated), "day") : "Unknown" }),
+          h("td", { class: "nowrap", text: v.serverJoined ? plural(days(v.serverJoined), "day") : "Unknown" }),
           h("td", { class: "small wrap", text: v.reason || "" }))))))), { wide: true });
   }
 
@@ -6580,6 +6678,7 @@
     name_conflict: "One of these names belongs to another account's verified character, or clashes with one. Nothing was saved; check the names.",
     slow_down: "Too many requests in one minute. Wait a moment, then try again.",
     invalid_q: "Type at least two characters of a recipe name.",
+    invalid_q_long: "A recipe name is at most 60 characters. Shorten the search.", // CL2-145
     invalid_query: "Type a recipe name or choose a profession.",
     invalid_request: "Something in the form is not valid.",
     intake_unavailable: "The privacy inbox is not accepting new cases right now.",
@@ -6595,7 +6694,7 @@
     // .109: the profile editor's refusals, in words
     invalid_main: "The main character's name is not a valid \"First Last\", or it is also listed as one of your alts.",
     invalid_alts: "An alt is listed twice, is not a valid \"First Last\", or is also your main.",
-    invalid_professions: "A profession is listed twice, or its skill is out of range.",
+    invalid_professions: "A profession is listed twice, more than two primary professions are listed, or a skill is outside 0 to 300.", // CL2-138
     invalid_crafts: "An offer is listed twice, or its recipe name is too short, too long or has characters the form does not accept.",
     invalid_listed: "The listing choice could not be read; reload the page.",
     // .96: the calendar, the trial and the dues
@@ -6617,7 +6716,38 @@
   };
   const codeOf = (e) => (e && e.data && e.data.error) || (e && e.code) || "";
   const uncertain = (ex) => !!ex && (ex.status === 0 || codeOf(ex) === "unreadable_answer" || (ex.status >= 500 && !codeOf(ex)));
-  const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)] || (e && e.message) || fallback || "Something went wrong.";
+  // CL2-017 (Evergreen 12 Nov 2026): an answer without a message or a known code used to read "Request failed (500)." and
+  // hid the page's own fallback. explain() serves writes too, where a bare 5xx leaves the outcome unknown and the caller's
+  // fallback says how to check it, so explain() now returns that fallback alone and never invites a retry. Only the read
+  // helpers below (readFailureBox/readFailureLine, GET reads with a Try again button) add what the status means.
+  const bareApiFailure = (e) => e instanceof ApiError && !(e.data && e.data.message) && e.message === `Request failed (${e.status}).`;
+  /** Words for a bare failure with no fallback from the caller: neutral, since the call may have been a write. */
+  const neutralStatusWords = (e) => e.status === 429 ? COMMUNITY_ERRORS.slow_down
+    : e.status >= 500 ? "The site had a problem answering, so the outcome is not known. Check the current state before acting again."
+    : e.status === 404 ? "The site could not find it; it may have been removed."
+    : e.status === 403 ? "Your account cannot do this right now. Reload the page to check your current access."
+    : e.status === 401 ? "You are signed out. Sign in again to continue."
+    : "The site did not accept the request. Reload the page to see the current state.";
+  /** Words for a failed read, after the read's own fallback. A read changes nothing, so a retry is safe. */
+  const readStatusWords = (e) => e.status >= 500 ? "The site had a problem answering. Try again in a moment."
+    : e.status === 403 ? "Your account cannot open this right now. Reload the page to check your current access."
+    : neutralStatusWords(e);
+  const explain = (e, fallback) => (e && e.data && e.data.message) || COMMUNITY_ERRORS[codeOf(e)]
+    || (bareApiFailure(e) ? fallback || neutralStatusWords(e) : (e && e.message) || fallback || "Something went wrong.");
+  /** CL2-017: explain() for a GET read: a bare failure gives the read's fallback plus what the status means. */
+  const explainRead = (e, fallback) => bareApiFailure(e) && !COMMUNITY_ERRORS[codeOf(e)] ? [fallback, readStatusWords(e)].filter(Boolean).join(" ") : explain(e, fallback);
+  /** CL2-017: a read that failed for a reason a second attempt can cure offers "Try again"; a refusal of access does not. */
+  const retryableRead = (e) => !e || !(e.status === 401 || e.status === 403 || e.status === 404 || (e.status === 409 && codeOf(e) === "reload") || ["contributions_disabled", "feature_disabled", "not_member", "denied"].includes(codeOf(e)));
+  function readRetryButton(e, retry) {
+    if (typeof retry !== "function" || !retryableRead(e)) return null;
+    const button = h("button", { class: "btn small", type: "button", text: "Try again" });
+    button.addEventListener("click", () => { if (!button.isConnected || button.disabled) return; button.disabled = true; retry(); });
+    return button;
+  }
+  const readFailureBox = (e, fallback, retry) => noticeBox(codeOf(e) === "contributions_disabled" ? "info" : "warn", codeOf(e) === "contributions_disabled" ? "icon-clock" : "icon-warning",
+    h("p", { text: explainRead(e, fallback) }), readRetryButton(e, retry));
+  /** A status line keeps its words and gains the button after them. */
+  const readFailureLine = (status, e, fallback, retry) => { status.textContent = explainRead(e, fallback); const button = readRetryButton(e, retry); if (button) status.append(" ", button); };
   const PUBLIC_ROUTES = new Set(["request", "data"]); // only privacy identity redirects survive sign-out
   const IDENTITY_ROUTES = new Set(["data", "request"]); // pages a denied or departed identity may still use
   /** Fetch the community context again (after a refusal or a sign-in), so the shell reflects what the Worker admits now. */
@@ -7084,7 +7214,7 @@
         h("div",{class:"grid two"},guilds.map((g,i)=>h("div",{class:"card leadership-card"},h("div",{class:"card-head"},icon("pos-guild_master"),h("h3",{text:guildDisplayName229(g.name)})),
           h("dl",{class:"kv"},h("dt",{text:"Guild Master"}),h("dd",null,label(g.gm,(i+1)+":gm")),h("dt",{text:"Officers"}),h("dd",null,g.officers.length?g.officers.map((name,j)=>h("div",null,label(name,(i+1)+":"+j))):"None listed"))))),
         data.councilUrl ? h("p",{class:"muted small"},"Council access is given separately in Discord. ",h("a",{href:data.councilUrl,rel:"noopener",target:"_blank",text:"Olympus I–X Council"})):null));
-    } catch(e){if(!live())return;if(e?.status===403)refreshCommunity();add(body,noticeBox("warn","icon-warning",h("p",{text:explain(e,"The leadership directory could not be read.")})));}
+    } catch(e){if(!live())return;if(e?.status===403)refreshCommunity();add(body,readFailureBox(e,"The leadership directory could not be read.",()=>{if(!live())return;clear(body);communityLeadership(body);}));}
   }
   /**
    * .115 (Viktor's item A, 2 Oct 2026): News for confirmed members while an administrator has it switched on (the Worker's
@@ -7108,7 +7238,7 @@
       d = await api("GET", "/api/news");
     } catch (e) {
       if (e && (e.status === 403 || e.status === 503)) refreshCommunity(); // .100 (F5): the shell follows what the Worker admits now
-      add(body, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "News could not be read.") })));
+      add(body, readFailureBox(e, "The Town Crier could not be read.", () => { if (!body.isConnected) return; clear(body); communityNews(body); }));
       return;
     }
     const notices = Array.isArray(d.notices) ? d.notices : [];
@@ -7153,7 +7283,8 @@
     add(body, [
       frame("Notices", null,
         sourceStrip("Olympus administrators", "Dates below belong to each notice; a page refresh does not renew them"),
-        h("p", { class: "muted small", text: "From the site's administrators, for the whole guild. Each notice is shown for a set time and then deleted." }),
+        // CL2-141 (Evergreen 12 Nov 2026): notices come from the administrators and the Lead Correspondent (office_50).
+        h("p", { class: "muted small" }, "From the site's administrators and the Lead Correspondent", appointedTo("office_50") ? [" (", appointmentLabelNode("office_50", appointedTo("office_50"), true), ")"] : null, ", for the whole guild. Each notice is shown for a set time and then deleted."),
         h("div", { class: "filters" }, fieldBox("news-search", "Search notices", query), fieldBox("news-window", "Posted", windowSel), reset),
         h("p", { class: "muted small", text: "Search title and text in current notices. Time filters use the original posting time; older notices may already have expired." }),
         resultCount, results),
@@ -7164,7 +7295,7 @@
         h("ul", null,
           h("li", null, h("a", { href: "https://www.curseforge.com/wow/addons/olympus-guild", target: "_blank", rel: "noopener noreferrer", text: "Olympus Guild — census and federation AddOn" })),
           h("li", null, h("a", { href: "#/governance", text: "Guild law, the Heraldry office and daily dispatch procedure" }))),
-        h("p", { class: "muted small", text: "External reporting is separate from official guild decisions. Open the original source for its current article, date and corrections. A Town Crier appointment will appear only after it is accepted and recorded." })),
+        h("p", { class: "muted small", text: "External reporting is separate from official guild decisions. Open the original source for its current article, date and corrections." })),
       Array.isArray(d.events)
         ? frame("Coming up", null, d.events.length
             ? h("ul", null, d.events.map((e) => h("li", null, h("a", { href: eventHref(e.id), text: e.title }), ` · ${fmtDateTime(e.startsAt)} · ${plural(e.durationMin, "minute")}`)))
@@ -7258,7 +7389,7 @@
     more.addEventListener("click", () => { stopScan(); load(false); }); refresh.addEventListener("click", () => load(true));
     scanAll.addEventListener("click", () => { if (!live()) return; if (continuous) stopScan(); else if (cursor) { continuous = true; scanAll.textContent = "Pause loading remaining members"; load(false); } });
     const profiles = h("div", { class: "stack" });
-    const showProfiles = h("button", { class: "btn small", type: "button", text: "Show Member profiles and crafting offers" });
+    const showProfiles = h("button", { class: "btn small", type: "button", text: "Show Member profiles" }); // CL2-134: crafting offers are in the Workshop
     const ownVisibility = h("div", {class:"stack", "data-directory-visibility":"own"});
     showProfiles.addEventListener("click", async () => { if (!live()) return; showProfiles.disabled = true; try { await communityProfileDirectory(profiles); } finally { if (live()) showProfiles.hidden = true; } });
     add(body, frame("Discord member list", h("a", { class: "btn small", href: "#/community/profile", text: "My profile" }),
@@ -7305,7 +7436,7 @@
         status.textContent = data.counts.listed ? `${plural(data.counts.listed, "listed profile")}${list.firstChild ? "" : "; none to show"}` : can("confirmedGuildData") ? "No profiles are listed yet. To list yours, open My profile and tick the box." : "No profiles are listed yet.";
       } catch (e) {
         if (codeOf(e) === "cursor_stale") { toast(COMMUNITY_ERRORS.cursor_stale); return load(true); }
-        status.textContent = explain(e, "Member profiles could not be read.");
+        readFailureLine(status, e, "Member profiles could not be read.", () => load(!cursor));
         if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
       } finally { more.disabled = false; }
     };
@@ -7315,7 +7446,8 @@
         sourceStrip("Member opt-in profiles", "Profile and roster verification times are not supplied here; this is not a live roster"),
         h("p", { class: "muted small", text: "Detailed profiles published by members who opted in. Qualified Community readers see their display names. A name marked confirmed is one the officers' roster export has confirmed on that account; the rest are labels members gave themselves." }),
         status, list, h("div", { class: "btn-row" }, more)),
-      feat("crafting") ? craftingPanel() : null,
+      // CL2-134 (Evergreen 12 Nov 2026): crafting offers live in the Workshop only.
+      feat("crafting") ? h("p", { class: "muted small" }, "Looking for a crafter? ", h("a", { href: "#/community/workshop", text: "Open the Crafters & Artisans Workshop" }), ".") : null,
     ]);
     await load(true);
   }
@@ -7335,7 +7467,7 @@
   function craftingPanel(workshop = false) {
     const q = h("input", { type: "search", maxlength: "60", placeholder: "a recipe name (two letters or more)", "aria-label": "Recipe" });
     const prof = professionSelect(COMMUNITY_PROFESSIONS, "", "Any profession");
-    const mode = selectOf([{ key: "recipes", label: "Recipes & commissions" }, { key: "professions", label: "Profession directory" }], "recipes");
+    const mode = selectOf([{ key: "recipes", label: "Recipes & commissions" }, { key: "professions", label: "Profession directory" }], "recipes", { placeholder: null }); // CL2-146: no empty choice
     const results = h("div", { class: "stack" });
     const status = h("p", { class: "muted small" });
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
@@ -7382,7 +7514,7 @@
     try {
       data = await api("GET", "/api/community/profile");
     } catch (e) {
-      add(holder, frame("My profile", null, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "Your profile could not be read.") }))));
+      add(holder, frame("My profile", null, readFailureBox(e, "Your profile could not be read.", () => { if (!body.isConnected) return; clear(body); communityProfile(body); })));
       if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
       return;
     }
@@ -7440,7 +7572,7 @@
       fieldBox("main", "Main character", main, { hint: `${limits.nameMin}–${limits.nameMax} letters, as "First Last". It is marked confirmed when it matches a character verified on your account; a name verified on another account is refused.` }),
       p.main ? h("p", { class: "small" }, "Saved main: ", h("b", { text: p.main.name }), " ", proofBadge(p.main.source)) : null,
       fieldBox("raid-role", "Raid role", raidRole),
-      group("professions", h("span", { class: "lab", text: `Professions (up to ${limits.maxProfessions}, with a skill level if you like)` }), professions.box, professions.addBtn),
+      group("professions", h("span", { class: "lab", text: `Professions (two primary plus Cooking, Fishing and First Aid; skill up to ${limits.skillMax} if you like)` }), professions.box, professions.addBtn),
       group("alts", h("span", { class: "lab", text: `Alts you claim (up to ${limits.maxAlts}; labels until an officer confirms them)` }), alts.box, alts.addBtn),
       crafts ? group("crafts", h("span", { class: "lab", text: `Crafting offers (up to ${limits.maxCrafts}; each recipe once)` }), crafts.box, crafts.addBtn) : null,
       h("div", { class: "savebar" }, h("div", { class: "stack" }, h("div", { class: "btn-row" }, save, dirtyMark), notice, err)));
@@ -7620,7 +7752,7 @@
       } catch (e) {
         if (gen !== generation) return;
         if (codeOf(e) === "cursor_stale") { toast(COMMUNITY_ERRORS.cursor_stale); return load(true); }
-        status.textContent = explain(e, "The calendar could not be read.");
+        readFailureLine(status, e, "The calendar could not be read.", () => load(!cursor));
         if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
       } finally { if (gen === generation) more.disabled = false; }
     };
@@ -7650,7 +7782,7 @@
         status.textContent = tbody.firstChild ? "" : "No attendance has been recorded for you yet.";
       } catch (e) {
         if (codeOf(e) === "cursor_stale") { toast(COMMUNITY_ERRORS.cursor_stale); return load(true); }
-        status.textContent = explain(e, "Your attendance record could not be read.");
+        readFailureLine(status, e, "Your attendance record could not be read.", () => load(!cursor));
       } finally { more.disabled = false; }
     };
     more.addEventListener("click", () => load(false));
@@ -7663,7 +7795,7 @@
     const back = () => h("a", { class: "btn small", href: "#/community/calendar", text: "Calendar" });
     const fail = (e) => {
       clear(holder);
-      holder.appendChild(frame("Event", back(), noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The event could not be read.") }))));
+      holder.appendChild(frame("Event", back(), readFailureBox(e, "The event could not be read.", () => { if (!body.isConnected) return; clear(body); communityEvent(body, id); })));
       if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
     };
     const draw = (data, message) => {
@@ -7702,7 +7834,7 @@
     const live = () => document.body.contains(panel);
     const status = h("p", { class: "muted small", role: "status", "aria-live": "polite" });
     const preview = h("div", { class: "stack", "data-announcement-preview": "" });
-    const exactText = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const exactText = h("pre", { class: "details pre-wrap" }); // CL2-123: style-src 'self' blocks inline styles
     const exactDetails = h("details", {}, h("summary", { text: "Exact Discord message text" }), exactText);
     const showPreview = (content) => {
       clear(preview); exactText.textContent = content || ""; exactDetails.hidden = !content;
@@ -7807,10 +7939,10 @@
     const check = h("button", { class: "btn small", type: "button", text: "Check existing reminder" });
     const remove = h("button", { class: "btn small", type: "button", text: "Remove reminder" });
     const status = h("p", { role: "status", "aria-live": "polite", class: "small" });
-    const preview = h("pre", { class: "details", style: "white-space:pre-wrap;overflow-wrap:anywhere" });
+    const preview = h("pre", { class: "details pre-wrap" }); // CL2-123
     const link = h("div", { class: "btn-row" });
     add(panel, frame("Optional raid reminder", null,
-      h("p", { text: "Opt in separately for one reminder in #📅raid-schedule, with this event's title, time and calendar link. It does not ping or name attendees. It becomes due sixty minutes before the start; the half-hour scheduler sends at its next eligible tick. Outages or a busy queue can delay or prevent delivery; nothing is sent after the event starts." }),
+      h("p", { text: `Opt in separately for one reminder in #📅raid-schedule, with this event's title, time and calendar link. It does not ping or name attendees. It becomes due sixty minutes before the start; the ${SCHEDULER_MINUTES}-minute scheduler sends it at its next run. Outages or a busy queue can delay or prevent delivery; nothing is sent after the event starts.` }),
       status, preview, h("label", { class: "check field", for: "event-reminder-consent" }, choice, "I want one reminder for this event revision"),
       h("div", { class: "btn-row" }, arm, stop, refresh), link,
       fieldBox("event-reminder-message", "Find a reminder after a lost answer", message), h("div", { class: "btn-row" }, check, remove)));
@@ -8035,7 +8167,7 @@
           h("dt", { text: "Last change" }), h("dd", { text: fmtDateTime(sec(t.updatedAt)) })),
         h("p", { class: "muted small", text: TRIAL_ABOUT })));
     } catch (e) {
-      add(body, frame("My trial", null, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "Your trial could not be read.") }))));
+      add(body, frame("My trial", null, readFailureBox(e, "Your trial could not be read.", () => { if (!body.isConnected) return; clear(body); communityTrial(body); })));
       if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
     }
   }
@@ -8049,7 +8181,7 @@
     const recorded = (o, out) => receiptBar("Recorded. ", `Your acknowledgement for the week of ${fmtShortUtc(sec(o.periodStart))} was saved${out.withheld ? `. The ledger could not be re-read afterwards (${WITHHELD_WORDS[out.withheld] || out.withheld}), so your weeks are not shown; the acknowledgement stands` : ""}.`);
     const fail = (e) => {
       clear(holder);
-      holder.appendChild(frame("My dues", null, noticeBox(codeOf(e) === "contributions_disabled" ? "info" : "warn", codeOf(e) === "contributions_disabled" ? "icon-clock" : "icon-warning", h("p", { text: explain(e, "Your ledger could not be read.") }))));
+      holder.appendChild(frame("My dues", null, readFailureBox(e, "Your ledger could not be read.", () => { if (holder.isConnected) reload(); })));
       if (e && (e.status === 403 || e.status === 503) && codeOf(e) !== "contributions_disabled") refreshCommunity();
     };
     const reload = async () => {
@@ -8096,13 +8228,20 @@
       const receipts = h("tbody");
       for (const r of L.receipts) receipts.appendChild(h("tr", null, h("td", { text: fmtShort(sec(r.observedAt)) }), h("td", { text: SOURCE_WORDS[r.source] || r.source }), h("td", { class: "num", text: gold(r.amountCopper) }), h("td", { class: "num", text: gold(r.allocatedCopper) }), h("td", { class: "num", text: gold(r.unallocatedCopper) }), h("td", { text: r.voidedAt ? `voided ${fmtShort(sec(r.voidedAt))}` : r.status })));
       add(holder, [
-        frame("My dues", h("span", { class: "badge " + (data.writable ? "green" : "muted"), text: data.writable ? "ledger open" : "read-only" }),
+        // CL2-290 (Evergreen 12 Nov 2026): with no week counted there is nothing to pay; weeks are counted for accounts with
+        // a roster-confirmed character (community-contributions.ts, the weekly cron), so say that instead of "pay now".
+        frame("My dues", h("span", { class: "badge " + (!L.obligations.length ? "muted" : data.writable ? "green" : "muted"), text: !L.obligations.length ? "nothing owed" : data.writable ? "ledger open" : "read-only" }),
+          // A confirmed member already has that character: the weekly count (openWeeklyObligations, in batches) has not reached
+          // them yet. It records exempt weeks too, so the exemption is not why the list is empty.
+          L.obligations.length ? null : noticeBox("info", "icon-clock", h("p", { text: can("confirmedGuildData")
+            ? "You owe nothing. No dues week has been counted for you yet. The weekly count adds each week as a record, and a new member's first weeks are marked exempt."
+            : "You owe nothing. Dues weeks are counted once you have a roster-confirmed character in the guild, and new members start exempt." })),
           h("div", { class: "grid two" },
             h("div", { class: "card" }, h("div", { class: "card-head" }, icon("pos-treasurer"), h("h3", { text: "The policy" })),
               h("p", { class: "small", text: `Weekly dues of ${gold(P.amountCopper)} (policy ${P.version}). A week starts on ${WEEKDAYS[P.anchorWeekday] || "Monday"} at ${String(P.anchorHourUtc).padStart(2, "0")}:00 UTC and is due a week later, with ${plural(P.graceHours, "hour")} of grace. New members are exempt for their first ${plural(P.newMemberExemptDays, "day")}.` }),
               h("p", { class: "muted small", text: `An unpaid week may get a notice once the officers have attested that week's payment records; ${plural(P.finalNoticeDays, "day")} after a first notice a final notice may follow, and ${plural(P.reviewDays, "day")} after that the officers review it. A review is a conversation with an officer; nothing on this page removes anyone from the guild.` })),
             h("div", { class: "card gold" }, h("div", { class: "card-head" }, icon("icon-names"), h("h3", { text: "Paying by in-game mail" })),
-              h("p", { class: "small" }, "Send the gold to ", h("b", { text: M.recipient || "an officer" }), " with this reference in the subject: ", h("code", { class: "case-value", text: M.reference || "—" })),
+              h("p", { class: "small" }, L.obligations.length ? "Send the gold to " : "When a week is due, send the gold to ", h("b", { text: M.recipient || "an officer" }), " with this reference in the subject: ", h("code", { class: "case-value", text: M.reference || "—" })),
               M.note ? h("p", { class: "muted small", text: M.note }) : null)),
           data.writable ? null : noticeBox("info", "icon-clock", h("p", { text: "The ledger is read-only right now: the officers record payments; acknowledgements are off." })),
           L.complete ? null : noticeBox("warn", "icon-warning", h("p", { text: "Some of your records are not shown right now; ask an officer if this persists." }))),
@@ -8184,12 +8323,13 @@
     not_event_organizer: "Only the organizer who scheduled this event (or a site admin) can change it.",
     capacity_below_signups: "The capacity cannot go below the places already taken. Lower it after the answers change.", capacity_below_accepted: "The capacity cannot go below the members already accepted on the roster. Bench or decline someone first.",
     op_conflict: "A different event was already created from this form. Reload the page to start a new one.",
-    invalid_title: "Give the event a title of up to 80 characters.",
+    invalid_title: "Give the event a title of 1 to 80 characters, without control or text-direction characters.", // CL2-135
     invalid_details: "The details are too long (up to 500 characters) or contain characters the form does not accept.",
     invalid_starts_at: "Choose a start no more than a day in the past and within the next year.",
     invalid_duration_min: "The duration is 15 minutes to 12 hours.",
     invalid_capacity: "The capacity is 1 to 100 places, or empty for no limit.",
     invalid_role_targets: "Each wanted role is 0 to 100.",
+    role_targets_over_capacity: "The wanted roles add up to more than the event's places. Lower them or raise the places.", // CL2-139
     invalid_entries: "The attendance entries are not valid.",
     event_not_started: "Attendance can be recorded once the event has started.",
     invalid_op_id: "The form's operation id is not valid; reload the page.",
@@ -8318,7 +8458,7 @@
     const fields = new Map([
       ["title", "ev-title"], ["invalid_title", "ev-title"], ["details", "ev-details"], ["invalid_details", "ev-details"],
       ["startsAt", "ev-start"], ["invalid_starts_at", "ev-start"], ["durationMin", "ev-duration"], ["invalid_duration_min", "ev-duration"],
-      ["capacity", "ev-capacity"], ["invalid_capacity", "ev-capacity"], ["capacity_below_accepted", "ev-capacity"],
+      ["capacity", "ev-capacity"], ["invalid_capacity", "ev-capacity"], ["capacity_below_accepted", "ev-capacity"], ["role_targets_over_capacity", "ev-capacity"],
     ]);
     const report = (field, message) => {
       if (field) return showFieldError(form, field, message);
@@ -8344,6 +8484,12 @@
       const v = collect();
       if (!v.title) return report("ev-title", ORGANIZER_ERRORS.invalid_title);
       if (!v.startsAt) return report(time.errorField(), time.error() || ORGANIZER_ERRORS.invalid_starts_at);
+      // CL2-139: the server judges places against wanted roles only on a new event or when either changes
+      // (community-events.ts), so an older event whose roles already exceed its places stays editable for its other fields.
+      const rolesText = (t) => t ? targets.map((x) => String(t[x.dataset.role])).join(",") : "none";
+      const placesOrRolesChanged = !initial || v.capacity !== (initial.capacity || null) || rolesText(v.roleTargets) !== rolesText(initial.roleTargets);
+      if (placesOrRolesChanged && Number.isInteger(v.capacity) && v.roleTargets && Object.values(v.roleTargets).every(Number.isInteger)
+        && Object.values(v.roleTargets).reduce((a, b) => a + b, 0) > v.capacity) return report("ev-capacity", ORGANIZER_ERRORS.role_targets_over_capacity);
       save.disabled = true;
       time.freeze(true);
       try {
@@ -8455,7 +8601,7 @@
         closed ? noticeBox("info", "icon-clock", h("p", { text: e.status === "cancelled" ? "This event is cancelled; it cannot be changed." : "This event has started; it cannot be changed any more." })) : null,
         h("p", { class: "muted small", text: `Revision ${e.revision}. Members who answered see a note when the start moves.` }), form));
     };
-    try { draw(await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`)); } catch (e) { clear(holder); holder.appendChild(frame("Edit event", null, noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The event could not be read.") })))); }
+    try { draw(await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`)); } catch (e) { clear(holder); holder.appendChild(frame("Edit event", null, readFailureBox(e, "The event could not be read.", () => { if (!body.isConnected) return; clear(body); organizerEditEvent(body, id); }))); }
   }
   async function organizerAttendance(body, id) {
     const holder = h("div", { class: "stack" });
@@ -8469,7 +8615,7 @@
       try {
         data = await api("GET", `/api/community/event/attendance?id=${encodeURIComponent(id)}`);
       } catch (e) {
-        holder.appendChild(frame("Attendance", h("a", { class: "btn small", href: eventHref(id), text: "Back" }), noticeBox("warn", "icon-warning", h("p", { text: explain(e, "The attendance list could not be read.") }))));
+        holder.appendChild(frame("Attendance", h("a", { class: "btn small", href: eventHref(id), text: "Back" }), readFailureBox(e, "The attendance list could not be read.", () => { if (holder.isConnected) draw(message); })));
         if (e && (e.status === 403 || e.status === 503)) refreshCommunity();
         return;
       }
