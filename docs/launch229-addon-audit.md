@@ -1,5 +1,11 @@
 # Daniel 1.4.4 source audit and .229 contract
 
+**Current author release (12 November 2026): Olympus Guild 1.5.8.** This audit read 1.4.4 and is not a reading of any later release. [The integration record](dan155-integration.md#current-status-12-november-2026) lists every activation limit. The limit that concerns the Link findings below:
+
+| Off now | Before it is switched on | Who switches it |
+|---|---|---|
+| Olympus Link (`/oly discord <code>`): off; nothing in `worker/wrangler.toml` sets `LINK_ENABLED`. | The preconditions of [the owner activation checklist](olympus-link.md#8-owner-activation-checklist-phase-2-not-part-of-186), a native `Player-…` GUID bound into the signed request, reviewed key enrollment, replay and revocation checks, and live client acceptance. | The owner runs the Phase 2 steps; agents only prepare the commands. |
+
 Source-only findings, 5 November 2026. No archive code was executed, no native client/provider action occurred, and no private configuration was read. This is a focused contract audit, not a claim that every line of the addon was audited or that native behavior was accepted.
 
 Custody: `C:/Users/vikto/Downloads/Olympus-1.4.4.zip`, 13,267,385 bytes, SHA256 `06831a3730dd64ba1c72679315ce82255223ede183ea6f4a65e38f7169d961d5`. Olympus.toc declares1.4.4. All483 central-directory paths validated before extraction; no traversal, symlink/reparse entry, case collision or reserved Windows target admitted. Expanded51,071,223 bytes to the fresh ordinary directory `C:/Users/vikto/.codex/evidence/launch229-addon-1.4.4-06831a3730dd`. No Config.lua/secret configuration entry was present. `archive-inventory.json` in this evidence directory records every extracted file hash; SHA256 `68251710dc78ee437b2ab89817fa21984b5845cbaa624dc5e03727fa8ebbcab1`. The first extraction guard stopped at the existing OneDrive workspace Cloud reparse ancestor; Root explicitly selected the ordinary .codex path. Original guard script is retained.
