@@ -66,7 +66,7 @@ export function takeOriginalRoutineDeleteReply280(error:unknown,env:Env,path:str
 export function originalRoutineDeleteReplyFacts280(cap:OriginalRoutineDeleteReply280):OriginalDiscordRoleReplyFacts280{const r=routineReplyCaps280.get(cap);if(!r||!r.spent)throw Error('original_routine_reply_held');r.check();return originalDiscordRoleReplyFacts280(r.transport);}
 type OriginalDeleteRefusal280=Readonly<{status:403|404|429;reason:string;checkedAt:number;due:number;check:()=>void}>;
 /** Private original-response consumer. An error status, copied facts or caller flag cannot enter this producer. */
-function captureDeleteRefusal280(error:unknown,env:Env,path:string,callback:()=>void,kind:'routine'|'ban'):OriginalDeleteRefusal280|null{
+function captureDeleteRefusal280(error:unknown,env:Env,path:string,callback:()=>void,kind:'routine'|'ban',mandate?:string):OriginalDeleteRefusal280|null{
  try{
   const cap=takeOriginalRoutineDeleteReply280(error,env,path,callback);if(!cap)return null;
   const facts=originalRoutineDeleteReplyFacts280(cap);
@@ -82,8 +82,9 @@ function captureDeleteRefusal280(error:unknown,env:Env,path:string,callback:()=>
   }else return null;
   if(!Number.isSafeInteger(checkedAt)||checkedAt<1||!Number.isSafeInteger(due)||due<checkedAt)return null;
   const type=kind==='routine'?CANONICAL_DELETE_REFUSAL280:BAN_DELETE_REFUSAL280;
+  if(kind==='ban'&&(typeof mandate!=='string'||mandate.length!==32||!TOKEN.test(mandate)))return null;
   // Only closed ASCII literals and validated numeric facts; no body/message/token enters stored history.
-  const reason='{"version":1,"type":"'+type+'","status":'+facts.status+',"code":'+(facts.code===null?'null':(''+facts.code))+',"retryAfterSeconds":'+delta+'}';
+  const reason='{"version":'+(kind==='ban'?2:1)+',"type":"'+type+'","status":'+facts.status+',"code":'+(facts.code===null?'null':(''+facts.code))+',"retryAfterSeconds":'+delta+(kind==='ban'?',"mandate":"'+mandate+'"':'')+'}';
   const check=()=>{if(originalRoutineDeleteReplyFacts280(cap)!==facts)throw Error('original_delete_refusal_changed');};check();
   return Object.freeze({status:facts.status,reason,checkedAt,due,check});
  }catch{return null;}
@@ -2505,7 +2506,7 @@ export async function migrateCanonicalRank233(originalEnv:Env,subject:string,b:A
      WHERE migration_parent280.subject=?2 AND migration_parent280.guild_id=?3 AND migration_parent280.role_id=?4 AND migration_parent280.subject_generation IS ?5
      AND (${canonical239CurrentOwnership('migration_parent280')}) AND manual_migration280.subject=?2 AND manual_migration280.guild_id=?3 AND manual_migration280.role_id=?4 AND manual_migration280.subject_generation IS ?5
      AND manual_migration280.purpose='canonical_routine233' AND (${manualRankRefusalSql280('manual_migration280')}))`:'1=1';
-    const effectAdmission280=canonical239GuardFacts(stageFacts,[privacyGenerationFenceSql(2,5),`?7<=${DB_NOW} AND ?8>${DB_NOW}`,g.sql,physicalNow,parent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...desired===0?[canonical239FromBirthClear('?2','?3','?5','?'+(reserveAt+3))]:[],canonical239FromReferencesClear('?2','?3','?5','?'+(reserveAt+3)),canonical239And([standing,managedRankCooldownAllowedSql280(),originalManual280])]);
+    const effectAdmission280=canonical239GuardFacts(stageFacts,[privacyGenerationFenceSql(2,5),`?7<=${DB_NOW} AND ?8>${DB_NOW}`,g.sql,physicalNow,parent,canonical239NoAmbiguousOwnership('?2','?3','?5'),...desired===0?[canonical239FromBirthClear('?2','?3','?5','?'+(reserveAt+3))]:[],canonical239FromReferencesClear('?2','?3','?5','?'+(reserveAt+3)),standing,managedRankCooldownAllowedSql280(),originalManual280]);
     const effectClauses280=[...effectAdmission280.clauses,`(${liveReservation})`];
     const facts=admission.facts,guardClauses=[...admission.clauses,`(${liveReservation})`],guard=canonical239And(guardClauses);
     const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND request_digest=?6 AND expires_at=?8 AND purpose='${purpose}' AND desired=${desired} AND native_profile='${CANONICAL_MIGRATION_PROFILE233}'`;
@@ -2714,8 +2715,8 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
   if(origin.kind==='command'&&(banEvent!==origin.banEvent||unbanEvent!==null&&unbanEvent>banEvent))return done('held','removal_cause_withdrawn');
   if(b.limit-b.attempts<BAN_RANK1112_MIN_REQUESTS)return done('held','role_request_budget');
   // ?1 row id, ?2 subject, ?3 guild, ?4 role, ?5 generation, ?6 operation, ?7 digest, ?8 ban event, ?9 unban event,
-  // ?10-?11 venue seal, ?12 claim nonce. Every statement references its highest bound index.
-  const operation=(await sha256(JSON.stringify(['olympus-ban-rank-mandate-v1',v.guildId,subject,generation,banEvent,unbanEvent]))).slice(0,32);check();
+  // ?10-?11 venue seal, ?12 mandate, ?13 claim nonce. Every statement references its highest bound index.
+  const operation=randomGeneration(),mandate=(await sha256(JSON.stringify(['olympus-ban-rank-mandate-v1',v.guildId,subject,generation,banEvent,unbanEvent]))).slice(0,32);check();
   const values:(string|number|null)[]=[null,subject,v.guildId,null,generation,operation,null,banEvent,unbanEvent];
   const g=runtimeVenue230Predicate(effect,venue,values.length+1);values.push(...g.values);
   const causeSql=`EXISTS(SELECT 1 FROM members WHERE discord_id=?2 AND banned=1) AND (SELECT MAX(id) FROM audit WHERE action='admin.ban' AND subject=?2) IS ?8 AND (SELECT MAX(id) FROM audit WHERE action='admin.unban' AND subject=?2) IS ?9`;
@@ -2760,9 +2761,9 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
   // Unresolved earlier effects on these exact roles (any purpose, any generation) hold that role and are never replayed.
   // Successor (12 Nov 2026): the same barrier as the dispatch guard below; only a live unattempted claim is "in progress".
   if(admitted.length){
-   const sameManual280=canonical239And([manualRankRefusalSql280('old'),"old.purpose='canonical_ban_remove_v1'",'old.proof_id=?4','old.subject_generation IS ?5']);
+   const sameManual280=canonical239And([manualRankRefusalSql280('old'),"old.purpose='canonical_ban_remove_v1'","(CASE WHEN json_valid(old.reason) THEN json_extract(old.reason,'$.mandate') ELSE NULL END)=?4",'old.subject_generation IS ?5']);
    const fenced=(await effect.DB.prepare(`SELECT old.role_id,MAX(NOT(old.attempts=0 AND old.state IN('pending','dispatching') AND old.expires_at>${DB_NOW})) AS unresolved,MAX(CASE WHEN ${sameManual280} THEN 1 ELSE 0 END) AS manual_refusal FROM role_settlements old WHERE old.subject=?1 AND old.guild_id=?2 AND old.role_id IN(SELECT value FROM json_each(?3))
-    AND ((${banRank1112PhysicalUnresolved('old',legacy)}) OR (${sameManual280})) GROUP BY old.role_id`).bind(subject,v.guildId,JSON.stringify(admitted),operation,generation).all<{role_id:string;unresolved:number;manual_refusal:number}>()).results;check();
+    AND ((${banRank1112PhysicalUnresolved('old',legacy)}) OR (${sameManual280})) GROUP BY old.role_id`).bind(subject,v.guildId,JSON.stringify(admitted),mandate,generation).all<{role_id:string;unresolved:number;manual_refusal:number}>()).results;check();
    for(const f of fenced){const at=admitted.indexOf(f.role_id);if(at<0)continue;admitted.splice(at,1);(f.manual_refusal?held:f.unresolved?unknown:held).push(Object.freeze({role:f.role_id,reason:f.manual_refusal?'provider_refused_manual':f.unresolved?'earlier_role_change_unresolved':'role_change_in_progress'}));}
   }
   // Each admitted DELETE reserves its own request plus one shared confirming read; the rest is left for a later visit.
@@ -2770,7 +2771,7 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
   if(take<admitted.length)deferredBy.add(room<Math.min(admitted.length,cap)?'budget':'one_per_visit');
   deferred.push(...admitted.slice(take));plan=Object.freeze(admitted.slice(0,take));
   const row=`id=?1 AND subject=?2 AND guild_id=?3 AND role_id=?4 AND subject_generation IS ?5 AND proof_id=?6 AND request_digest=?7 AND purpose='${BAN_RANK_PURPOSE1112}' AND native_profile='${BAN_RANK_PROFILE1112}' AND desired=0`;
-  const guard=canonical239And([base,physical,managedRankCooldownAllowedSql280(),managedRankTargetAllowedSql280('?2','?3','?4',{kind:'ban',generation:'?5',mandate:'?6'})]);
+  const guard=canonical239And([base,physical,managedRankCooldownAllowedSql280(),managedRankTargetAllowedSql280('?2','?3','?4',{kind:'ban',generation:'?5',mandate:'?12'})]);
   // One fresh member read confirms every acknowledged DELETE of this visit. After an interruption it runs only where the
   // budget's reserved read is left; without it the row is recorded unknown with its own reason, never as removed.
   confirm=async(interrupted:boolean)=>{
@@ -2778,13 +2779,13 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
    let after:Member|null=null,read=false;try{after=await member(effect,b,subject);read=launch230Member(after,subject);}catch{read=false;}
    for(const a of list){
     const confirmed=read&&!after?.roles.includes(a.role);let receipt=false;
-    if(confirmed){try{const r=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='settled',reason='ban_rank1112_delete_acknowledged_and_confirmed',checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching' AND (${g.sql}) RETURNING *,NULL AS beta_window_id`).bind(...a.row),a.checks);a.checks();r.check();receipt=r.intent?.id===a.row[0]&&r.intent.state==='settled';}catch{receipt=false;}}
+    if(confirmed){try{const r=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='settled',reason='ban_rank1112_delete_acknowledged_and_confirmed',checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?13 AND state='dispatching' AND (${g.sql}) RETURNING *,NULL AS beta_window_id`).bind(...a.row),a.checks);a.checks();r.check();receipt=r.intent?.id===a.row[0]&&r.intent.state==='settled';}catch{receipt=false;}}
     if(receipt){removed.push(a.role);continue;}
     // Follow-up REV-BAN-2 (12 Nov 2026): a read that confirmed the role absent but whose receipt could not be written is
     // receipt_unknown whether or not the visit was interrupted; interrupted_after_ack is only for a missing confirming
     // read. Every branch still records the row unknown (fail-closed); only the reason differs.
     const reason=read&&!confirmed?'ban_rank1112_effect_not_confirmed':read?'ban_rank1112_receipt_unknown':interrupted?'ban_rank1112_interrupted_after_ack':'ban_rank1112_confirmation_unknown';
-    try{await effect.DB.prepare(`UPDATE role_settlements SET state='unknown',reason=?13,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state IN('dispatching','settled')`).bind(...a.row,reason).run();}catch{}
+    try{await effect.DB.prepare(`UPDATE role_settlements SET state='unknown',reason=?14,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?13 AND state IN('dispatching','settled')`).bind(...a.row,reason).run();}catch{}
     unknown.push(Object.freeze({role:a.role,reason:reason.replace('ban_rank1112_','')}));
    }
    // An unban during an in-flight DELETE cannot recall it: report the race; nothing is put back automatically.
@@ -2794,27 +2795,27 @@ export async function removeBanRankRoles1112(env:Env,subject:string,origin:BanRa
   for(let index=0;index<take;index++){
    const role=admitted[index]!,id=randomGeneration();
    const digest=await sha256(JSON.stringify([BAN_RANK_PURPOSE1112,BAN_RANK_PROFILE1112,operation,origin.kind,subject,generation,v.guildId,role,banEvent,unbanEvent,canonical.raw]));check();
-   const rowValues=[id,subject,v.guildId,role,generation,operation,digest,banEvent,unbanEvent,...g.values];
+   const rowValues=[id,subject,v.guildId,role,generation,operation,digest,banEvent,unbanEvent,...g.values,mandate];
    const q=await launch230NativeIntent(effect,effect.DB.prepare(`INSERT INTO role_settlements(id,subject,purpose,proof_id,guild_id,role_id,desired,state,reason,subject_generation,request_digest,native_profile,created_at,expires_at)
     SELECT ?1,?2,'${BAN_RANK_PURPOSE1112}',?6,?3,?4,0,'pending','ban_rank1112_awaiting_dispatch',?5,?7,'${BAN_RANK_PROFILE1112}',${DB_NOW},${DB_NOW}+300 WHERE ${guard} AND NOT EXISTS(SELECT 1 FROM role_settlements WHERE id=?1) RETURNING *,NULL AS beta_window_id`).bind(...rowValues),check);check();
    if(!q.intent||q.intent.id!==id){if(!await current()){stopAll(index,'removal_cause_withdrawn');break;}held.push(Object.freeze({role,reason:'role_change_in_progress'}));continue;}
    const nonce=randomGeneration(),owned=[...rowValues,nonce];
-   const c=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?12,reason='ban_rank1112_dispatching' WHERE ${row} AND state='pending' AND attempts=0 AND expires_at>${DB_NOW} AND ${guard} RETURNING *,NULL AS beta_window_id`).bind(...owned),()=>{check();q.check();});check();q.check();
+   const c=await launch230NativeIntent(effect,effect.DB.prepare(`UPDATE role_settlements SET state='dispatching',attempts=1,claim_nonce=?13,reason='ban_rank1112_dispatching' WHERE ${row} AND state='pending' AND attempts=0 AND expires_at>${DB_NOW} AND ${guard} RETURNING *,NULL AS beta_window_id`).bind(...owned),()=>{check();q.check();});check();q.check();
    if(!c.intent||c.intent.claim_nonce!==nonce){
     // Never dispatched: the pending child is closed as known, not left for a later reuse.
-    try{await effect.DB.prepare(`UPDATE role_settlements SET state='held',reason='ban_rank1112_cause_withdrawn_before_dispatch',checked_at=${DB_NOW} WHERE ${row} AND state='pending' AND attempts=0 AND ?12 IS NOT NULL`).bind(...owned).run();}catch{}
+    try{await effect.DB.prepare(`UPDATE role_settlements SET state='held',reason='ban_rank1112_cause_withdrawn_before_dispatch',checked_at=${DB_NOW} WHERE ${row} AND state='pending' AND attempts=0 AND ?13 IS NOT NULL`).bind(...owned).run();}catch{}
     if(!await current()){stopAll(index,'removal_cause_withdrawn');break;}held.push(Object.freeze({role,reason:'role_change_in_progress'}));continue;
    }
    const checks=()=>{check();q.check();c.check();};
-   const admit=async()=>{checks();const r=await effect.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`).bind(...owned).first();checks();return !!r;};
+   const admit=async()=>{checks();const r=await effect.DB.prepare(`SELECT 1 FROM role_settlements WHERE ${row} AND attempts=1 AND claim_nonce=?13 AND state='dispatching' AND expires_at>${DB_NOW} AND ${guard}`).bind(...owned).first();checks();return !!r;};
    let started=false;
    const path280=`/guilds/${v.guildId}/members/${subject}/roles/${role}`,beforeDispatch280=()=>{checks();started=true;dispatched++;};
    try{await request(effect,b,'DELETE',path280,admit,beforeDispatch280,banRank1112RoleOnly);acked.push({role,row:owned,checks});}
    catch(error){
     let refusal:OriginalDeleteRefusal280|null=null,known=false;
-    if(started){try{refusal=captureDeleteRefusal280(error,effect,path280,beforeDispatch280,'ban');if(refusal)known=await persistDeleteRefusal280(effect,c.intent,refusal,originalRefusalSource280,checks);}catch{/* Native uncertainty never becomes an ACK. */}}
+    if(started){try{refusal=captureDeleteRefusal280(error,effect,path280,beforeDispatch280,'ban',mandate);if(refusal)known=await persistDeleteRefusal280(effect,c.intent,refusal,originalRefusalSource280,checks);}catch{/* Native uncertainty never becomes an ACK. */}}
     const state=!started||known?'held':'unknown',reason=!started?'ban_rank1112_never_dispatched':known?refusal!.status===429?'ban_rank1112_managed_rank_cooldown':'ban_rank1112_provider_refused_manual':'ban_rank1112_delete_outcome_unknown';
-    if(!known){try{await effect.DB.prepare(`UPDATE role_settlements SET state=?13,reason=?14,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?12 AND state='dispatching'`).bind(...owned,state,reason).run();}catch{}}
+    if(!known){try{await effect.DB.prepare(`UPDATE role_settlements SET state=?14,reason=?15,checked_at=${DB_NOW} WHERE ${row} AND attempts=1 AND claim_nonce=?13 AND state='dispatching'`).bind(...owned,state,reason).run();}catch{}}
     (state==='unknown'?unknown:held).push(Object.freeze({role,reason:reason.replace('ban_rank1112_','')}));
     if(!started){if(!await current()){stopAll(index+1,'removal_cause_withdrawn');break;}continue;}
     if(known&&refusal?.status===429||state==='unknown'){const later=admitted.slice(index+1,take);if(later.length)deferredBy.add(known?'rate_limit':'unconfirmed');deferred.push(...later);break;}

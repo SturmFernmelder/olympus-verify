@@ -111,7 +111,7 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
    if(kind==='cleanup-departure'){await env.DB.prepare("UPDATE characters SET status='left' WHERE discord_id=?1").bind(subject).run();await env.DB.batch([env.DB.prepare('DELETE FROM roster_members'),env.DB.prepare('UPDATE roster_snapshots SET member_count=0,source=?1').bind('addon-native-v1:'+JSON.stringify(scope))]);}
    if(kind==='transition-late')await env.DB.prepare("UPDATE roster_snapshots SET exported_at=CAST(strftime('%s','now') AS INTEGER)-480").run();
    original=await db.prepare('SELECT * FROM role_settlements WHERE desired=1 AND attempts=1').all();const calls=callBudget(env);if(kind.startsWith('own-replace-budget'))calls.limit=Number(kind.slice('own-replace-budget'.length));
-   if(kind==='transition-manual-cycle'||kind==='transition-ban-manual-cycle'){
+   if(kind==='transition-manual-cycle'||kind==='transition-ban-manual-cycle'||kind==='transition-ban-readded'||kind==='transition-ban429-expired'){
     const set=async(rank,index)=>env.DB.prepare("UPDATE roster_members SET rank=?1,rank_index=?2 WHERE guid='Player-4613-12345678'").bind(rank,index).run();
     const mock=async(action,role)=>{const response=await fetch('https://discord.com/api/v10/__fixture/'+action+'/'+role,{method:'POST',headers:{authorization:'Bot '+config.DISCORD_BOT_TOKEN}});if(response.status!==204)throw Error('fixture_provider_state_change_failed');};
     const visit=async(origin)=>{const first=wires.length,calls=callBudget(env),answer=origin?await removeBanRankRoles1112(env,subject,origin,null,calls):await runNativeSubject232(env,subject,calls,2),last=wires.length;visits280.push(answer);visitCosts280.push({first,last,http:calls.attempts,physical:wires.slice(first,last).reduce((n,w)=>{const q=JSON.parse(w.requestBody);return n+(Array.isArray(q)?q.length:1);},0)});return answer;};
@@ -125,11 +125,17 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
      await env.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
      const event=await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.ban','system',?1,NULL)RETURNING id").bind(subject).first();
      const origin={kind:'command',banEvent:event.id};await visit(origin);manualOriginal280=await originalRefusal();
+     if(kind==='transition-ban-readded'||kind==='transition-ban429-expired'){
+      if(kind==='transition-ban-readded')await mock('restore',CANONICAL_RANKS233[7].roleId);
+      else{const rate=await db.prepare("SELECT value FROM site_settings WHERE key='role.managed.cooldown280'").first();if(!rate)throw Error('genuine_original_cooldown_missing');const due=JSON.parse(rate.value).due;await new Promise(resolve=>setTimeout(resolve,Math.max(0,due*1000-Date.now()+30)));}
+      repeat=await visit(origin);
+     }else{
      const before=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();await visit(origin);const after=await db.prepare('SELECT count(*) AS n FROM role_settlements').first();flags280.noHeldGrowth=before.n===after.n;
      await mock('strip',CANONICAL_RANKS233[7].roleId);await env.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(subject).run();
      await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.unban','system',?1,NULL)").bind(subject).run();
      await mock('restore',CANONICAL_RANKS233[7].roleId);await env.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
      const next=await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.ban','system',?1,NULL)RETURNING id").bind(subject).first();repeat=await visit({kind:'command',banEvent:next.id});
+     }
     }
     manualAfter280=manualOriginal280?await db.prepare('SELECT * FROM role_settlements WHERE id=?1').bind(manualOriginal280.id).first():null;
    }else if(kind.startsWith('transition-removal-')){
