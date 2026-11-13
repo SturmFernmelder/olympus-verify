@@ -670,7 +670,7 @@ local function Build()
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
   W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
   W.batchButton=Button(frame,"Check first 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
-    "Check verified Initiates", "Request fresh promotion checks for all currently verified native Initiates, up to twenty exact GUIDs, then reload. This clears display filters and never promotes anyone.")
+    "Check verified Initiates", "Request fresh promotion checks for the shown verified native Initiates, up to twenty exact GUIDs, then reload. Current display filters are preserved; this never promotes anyone.")
   W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
   local sourceTip=CreateFrame("Frame",nil,frame)
