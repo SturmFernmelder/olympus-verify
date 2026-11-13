@@ -1305,3 +1305,7 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .note-redaction280 { border-color: CanvasText; }
   .note-redaction280 :is(button, input, textarea, h3):focus-visible { outline: 2px solid Highlight; }
 }
+/* ui280 round 2, CL2-258: the site-profile filter row in the shared member picker (administrators only) is a 44 px target. */
+.picker .list-tools { min-height: 44px; box-sizing: border-box; }
+.picker .list-tools input[type="checkbox"]:focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
+@media (forced-colors: active) { .picker .list-tools input[type="checkbox"]:focus-visible { outline-color: Highlight; } }

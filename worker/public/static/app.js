@@ -1309,15 +1309,20 @@
     let timer = 0;
     let seq = 0;
     let last = null;
+    // CL2-258 (Codex 59fd954, 12 Nov 2026): only an administrator's search says who has a site profile, and it says so
+    // with siteProfilesVisible: true. Any other reply (a member's, an empty or an unavailable one) gets no filter and no badge.
+    let profiles = false;
     const selectable = it => (allowSelf || !it.self) && !exclude(it) && (!appointmentOnly || it.appointmentStatus === "eligible");
     const appointmentHint = it => it.appointmentStatus === "eligible" ? "Discord membership confirmed. No website sign-in is required; Save checks again."
       : "Currently unavailable for publication. Check current Discord membership and account standing, then search again.";
     const close = () => { clearTimeout(timer); timer = 0; seq++; list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
     const open = () => { list.hidden = false; input.setAttribute("aria-expanded", "true"); };
-    const state = (msg, withTools = false) => { tools.hidden = !withTools; clear(rowsBox).appendChild(h("div", { class: "state", text: msg })); open(); };
+    // Hiding the filter while it has focus would drop focus to the page and close the list; focus returns to the search box.
+    const showTools = on => { if (!on && document.activeElement === onlySite) input.focus(); tools.hidden = !on; };
+    const state = (msg, withTools = false) => { showTools(withTools && profiles); clear(rowsBox).appendChild(h("div", { class: "state", text: msg })); open(); };
     function draw(notes = []) {
       clear(rowsBox);
-      tools.hidden = !(last && (last.res.results || []).length);
+      showTools(!!(profiles && last && (last.res.results || []).length));
       items.forEach((it, i) => {
         const disabled = !selectable(it);
         const row = h("div", { class: "row", role: "option", "aria-selected": i === active ? "true" : "false", "aria-disabled": disabled ? "true" : "false", id: `${id}-o${i}` },
@@ -1335,16 +1340,20 @@
       open();
     }
     function build(res, q) {
+      if (!res || typeof res !== "object") res = { results: [], unavailable: true };
+      // The filter is hidden and cleared before the results are filtered, so a box ticked on an earlier reply cannot empty this list.
+      profiles = res.siteProfilesVisible === true;
+      if (!profiles) { showTools(false); onlySite.checked = false; }
       items = (res.results || [])
         .filter((r) => !onlySite.checked || r.onSite)
-        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: r.onSite, linked: r.linked, appointmentStatus: r.appointmentStatus })); // .114: shown = every differing name; label = what a pick stores
+        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: profiles && r.onSite === true, linked: r.linked, appointmentStatus: r.appointmentStatus })); // .114: shown = every differing name; label = what a pick stores
       const problem = typedProblem(q);
       if (allowTyped && !problem) items.push({ kind: "name", key: q.toLowerCase().replace(/\s+/g, " "), label: q.replace(/\s+/g, " "), typed: true });
       active = items.findIndex(selectable);
       const notes = [];
       if (res.limited) notes.push("Discord is limiting searches right now; results may be missing. Try again in a few seconds.");
       if (res.unavailable) notes.push(allowTyped ? "Discord search is unavailable right now. You can still add the name by hand." : "Discord search is unavailable right now. Try again shortly.");
-      if (!items.length) return state(notes[0] || (onlySite.checked && (res.results || []).length ? "None of these accounts has a current site profile." : allowTyped ? problem || "Nobody found." : "Nobody found."), (res.results || []).length > 0);
+      if (!items.length) return state(notes[0] || (profiles && onlySite.checked && (res.results || []).length ? "None of these accounts has a current site profile." : allowTyped ? problem || "Nobody found." : "Nobody found."), (res.results || []).length > 0);
       draw(notes);
     }
     async function run() {

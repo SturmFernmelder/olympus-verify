@@ -277,6 +277,71 @@ const runUi280=String.raw`
  check('D21 a second apply after success returns the stored status and writes nothing; a new count shows the stored status, never a Blank button',replay.status===200&&replayBody.state==='recorded'&&JSON.stringify(auditRows())===JSON.stringify(after)&&db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'treasury.receipt_note_redaction280'").get().n===1&&stageOf(o3)==='recorded'&&!ctlButtons(o3).includes('Blank')&&ctl(o3).textContent.includes('8 notes were blanked'),JSON.stringify(replayBody));
  const stored=[o1,o2,o3,s1.pg,s2.pg,s3.pg,s4.pg].map(pg=>String(pg.sessionStorage.getItem('olympus.noteRedactionAttempt280')||'')).join('');
  check('D22 no note text ever reached the control, its replies or its session record',[o1,o2,o3,s1.pg,s2.pg,s3.pg,s4.pg,s5.pg,s6.pg].every(noNote)&&!stored.includes(NOTE)&&!JSON.stringify(pv).includes(NOTE)&&!JSON.stringify(replayBody).includes(NOTE));
- console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup)');process.exit(ok===n?0:1);
+ // ---------------------------------------------------------------- Round 2, item 1 (CL2-258): the shared member picker
+ console.log('\n== Part E: the shared member picker follows siteProfilesVisible (CL2-258, Codex 59fd954) ==');
+ // Synthetic Discord search behind the real Worker route: two people with a site account and one without.
+ // The real discord.ts rest() goes through the fixture's global transport slot; only these two synthetic reads answer.
+ const fetchBefore=originalTestFetch,GHOST='300000000000000398';
+ const discordRows=[{user:{id:STAFF,username:'synthpickstaff',global_name:'Synthetic Pickstaff',avatar:null},nick:null},{user:{id:MEMBER,username:'synthpickmember',global_name:'Synthetic Pickmember',avatar:null},nick:null},{user:{id:GHOST,username:'synthpickghost',global_name:'Synthetic Pickghost',avatar:null},nick:null}];
+ const searchCalls=[];
+ originalTestFetch=async(input,init={})=>{const request=input instanceof Request?input:null,u=new URL(request?request.url:String(input)),method=request?request.method:init.method||'GET';searchCalls.push(method+' '+u.pathname);
+  if(u.origin!=='https://discord.com'||method!=='GET')throw new Error('no network in tests: '+u.origin+u.pathname);
+  if(u.pathname.endsWith('/members/search')){const q=(u.searchParams.get('query')||'').toLowerCase();return Response.json(discordRows.filter(m=>[m.user.username,m.user.global_name].some(v=>v.toLowerCase().startsWith(q))));}
+  const one=/\/members\/(\d+)$/.exec(u.pathname);const m=one&&discordRows.find(x=>x.user.id===one[1]);if(m)return Response.json(m);
+  return Response.json({message:'Unknown Member',code:10007},{status:404});};
+ const PICK={DISCORD_BOT_TOKEN:'synthetic-picker-token-local-only'};
+ try{
+  const searchAs=async(who,q,purpose)=>{const r=await indexMod.default.fetch(new Request('https://guild.example/api/search?'+(purpose?'purpose='+purpose+'&':'')+'q='+encodeURIComponent(q),{headers:{Cookie:await cookieFor(who),'X-Olympus':'2'}}),env(PICK),ctx);return {status:r.status,body:await r.json()};};
+  const pickerFor=(pg,labelText)=>{const lab=pg.app.querySelectorAll('label.sr').find(l=>typeof labelText==='function'?labelText(l.textContent):l.textContent===labelText);const input=lab&&pg.app.querySelector('#'+lab.getAttribute('for'));if(!input)return null;const root=input.closest('.picker');return {input,root,tools:root.querySelector('.list-tools'),box:root.querySelector('.list-tools input[type="checkbox"]'),list:root.querySelector('.list')};};
+  const rowsOf=p=>p.root.querySelectorAll('[role="option"]').map(o=>o.textContent);
+  const badges=p=>p.root.querySelectorAll('[role="option"] .badge').map(b=>b.textContent).filter(t=>t==='site profile').length;
+  const search=async(pg,p,q,want)=>{p.input.value=q;p.input.focus();fire(p.input,'input');await new Promise(r=>setTimeout(r,520));await waitFor(()=>!p.root.textContent.includes('Searching…')&&(want?want():true),'picker results for '+q,4000);for(let i=0;i<4;i++)await settle();};
+  const memberReply=await searchAs(MEMBER,'Synthetic Pick'),adminReply=await searchAs(STAFF,'Synthetic Pick');
+  check('E0 the real route: a member reply has siteProfilesVisible false and no onSite field; an admin reply has true and onSite',memberReply.status===200&&memberReply.body.siteProfilesVisible===false&&memberReply.body.results.length===3&&memberReply.body.results.every(r=>!Object.hasOwn(r,'onSite'))&&adminReply.body.siteProfilesVisible===true&&adminReply.body.results.filter(r=>r.onSite===true).length===2,JSON.stringify([memberReply,adminReply,searchCalls]).slice(0,600));
+  // An ordinary member on Home (the friends picker): Discord names and avatars, no filter, no badge.
+  const pm=await openPage(MEMBER,PICK);await pm.go('#/');await waitFor(()=>!!pickerFor(pm,'Add a friend'),'the member friends picker',8000);
+  const fm=pickerFor(pm,'Add a friend');await search(pm,fm,'Synthetic Pick',()=>rowsOf(fm).length>=3);
+  check('E1 a member search lists every Discord match with its avatar and hides the site-profile filter and badge',!!fm&&rowsOf(fm).filter(t=>t.startsWith('Synthetic Pick')).length===3&&fm.root.querySelectorAll('[role="option"] img').length>=3&&fm.tools.hidden===true&&fm.box.checked===false&&badges(fm)===0&&!fm.root.textContent.includes('None of these accounts'),fm&&JSON.stringify({rows:rowsOf(fm),hidden:fm.tools.hidden,badges:badges(fm)}));
+  // A member pick still works by Discord name.
+  const ghostRow=fm&&fm.root.querySelectorAll('[role="option"]').find(o=>o.textContent.startsWith('Synthetic Pickghost'));if(ghostRow)ghostRow.dispatchEvent(new Event('mousedown',{bubbles:true}));await settle();
+  const picked=pm.app.querySelectorAll('.person b').map(b=>b.textContent);
+  check('E2 a member can still pick someone by Discord name (no site account needed)',!!ghostRow&&picked.some(t=>t.startsWith('Synthetic Pickghost'))&&fm.list.hidden===true,JSON.stringify({ghostRow:!!ghostRow,picked}));
+  // An administrator on Home: the filter and the badge, from the same shared picker.
+  const pa=await openPage(STAFF,PICK);await pa.go('#/');await waitFor(()=>!!pickerFor(pa,'Add a friend'),'the admin friends picker',8000);
+  const fa=pickerFor(pa,'Add a friend');await search(pa,fa,'Synthetic Pick',()=>rowsOf(fa).length>=3);
+  const adminShown=!!fa&&fa.tools.hidden===false&&badges(fa)===2&&!fa.root.querySelectorAll('[role="option"]').find(o=>o.textContent.startsWith('Synthetic Pickghost'))?.textContent.includes('site profile');
+  fa.box.checked=true;fa.box.focus();fire(fa.box,'change');await settle();
+  check('E3 an administrator keeps the filter and the badge: two site profiles of three, and ticking the filter leaves those two',adminShown&&rowsOf(fa).filter(t=>t.startsWith('Synthetic Pick')).length===2&&!rowsOf(fa).some(t=>t.startsWith('Synthetic Pickghost')),fa&&JSON.stringify({rows:rowsOf(fa),hidden:fa.tools.hidden,badges:badges(fa)}));
+  // The same picker instance, filter ticked and focused, then gets a reply without permission (a member-context reply).
+  pa.intercept(async(url)=>{if(url.startsWith('/api/search?q=Synthetic%20Pi')&&url!=='/api/search?q=Synthetic%20Pick'){return new Response(JSON.stringify(memberReply.body),{status:200});}return null;});
+  fa.input.value='Synthetic Pic';fire(fa.input,'input');fa.box.focus();await new Promise(r=>setTimeout(r,520));await waitFor(()=>rowsOf(fa).filter(t=>t.startsWith('Synthetic Pick')).length===3,'the member-context reply',4000);for(let i=0;i<4;i++)await settle();
+  check('E4 the same instance with the box ticked, then a reply without permission: the box is cleared and hidden first, all three rows show, no badge, focus back on the search',fa.tools.hidden===true&&fa.box.checked===false&&rowsOf(fa).filter(t=>t.startsWith('Synthetic Pick')).length===3&&badges(fa)===0&&pa.document.activeElement===fa.input&&!fa.root.textContent.includes('None of these accounts'),JSON.stringify({rows:rowsOf(fa),hidden:fa.tools.hidden,checked:fa.box.checked,active:pa.document.activeElement&&pa.document.activeElement.tagName}));
+  pa.intercept(null);
+  // The admin appointment search (no typed fallback) is unchanged with the real reply, and an empty-result message
+  // about site profiles appears only when the reply permits profiles.
+  await pa.go('#/admin/settings');await waitFor(()=>!!pickerFor(pa,t=>t.endsWith(': associate Discord account')),'the appointment picker',8000);
+  const fp=pickerFor(pa,t=>t.endsWith(': associate Discord account'));await search(pa,fp,'Synthetic Pick',()=>rowsOf(fp).length===3);
+  const apptReply=await searchAs(STAFF,'Synthetic Pick','appointment');
+  const apptBefore={rows:rowsOf(fp).length,hidden:fp.tools.hidden,badges:badges(fp),hints:fp.root.querySelectorAll('[role="option"] .sub').length};
+  fp.box.checked=true;fp.box.focus();fire(fp.box,'change');await settle();
+  check('E5 the admin appointment search keeps its rows, hints, filter and badge with the real reply, and the filter still filters',apptReply.body.siteProfilesVisible===true&&apptBefore.rows===3&&apptBefore.hidden===false&&apptBefore.badges===2&&apptBefore.hints===3&&rowsOf(fp).length===2,JSON.stringify({apptBefore,after:rowsOf(fp)}));
+  pa.intercept(async(url)=>url.startsWith('/api/search?purpose=appointment&q=Synthetic%20Pic')&&!url.endsWith('Pick')?new Response(JSON.stringify({results:apptReply.body.results.map(r=>({...r,onSite:false}))}),{status:200}):null);
+  fp.input.value='Synthetic Pic';fire(fp.input,'input');await new Promise(r=>setTimeout(r,520));await waitFor(()=>rowsOf(fp).length===3||fp.root.textContent.includes('None of these'),'the reply without the field',4000);for(let i=0;i<4;i++)await settle();
+  check('E6 a reply without siteProfilesVisible after a ticked filter: no "None of these accounts has a current site profile.", every row shown, filter hidden',!fp.root.textContent.includes('None of these accounts has a current site profile.')&&rowsOf(fp).length===3&&fp.tools.hidden===true&&fp.box.checked===false,JSON.stringify({text:fp.root.textContent.slice(0,300)}));
+  // Empty, unavailable and forged replies default to no filter and no badge.
+  const forged={results:adminReply.body.results.map(r=>({...r,onSite:true}))};let answer=null;
+  pa.intercept(async(url)=>url.startsWith('/api/search?purpose=appointment')&&answer?answer():null);
+  const tryReply=async(make,q,want)=>{answer=make;await search(pa,fp,q,want);return {hidden:fp.tools.hidden,checked:fp.box.checked,badges:badges(fp),rows:rowsOf(fp).length,text:fp.root.textContent};};
+  const fz=await tryReply(()=>new Response(JSON.stringify(forged),{status:200}),'Synthetic Pickf',()=>rowsOf(fp).length===3);
+  const un=await tryReply(()=>new Response(JSON.stringify({results:[],unavailable:true}),{status:200}),'Synthetic Picku',()=>fp.root.textContent.includes('unavailable'));
+  const emptyR=await tryReply(()=>new Response(JSON.stringify({results:[]}),{status:200}),'Synthetic Picke',()=>fp.root.textContent.includes('Nobody found.'));
+  const nul=await tryReply(()=>new Response('null',{status:200}),'Synthetic Pickn',()=>fp.root.textContent.includes('unavailable'));
+  check('E7 a reply that carries onSite but not siteProfilesVisible shows no badge and no filter',fz.rows===3&&fz.badges===0&&fz.hidden===true,JSON.stringify(fz));
+  check('E8 empty, unavailable and null replies default to no filter and no badge, with the plain message',un.hidden===true&&un.text.includes('Discord search is unavailable right now. Try again shortly.')&&emptyR.hidden===true&&emptyR.text.includes('Nobody found.')&&!emptyR.text.includes('None of these')&&nul.hidden===true&&nul.text.includes('unavailable'),JSON.stringify([un.text,emptyR.text,nul.text]));
+  pa.intercept(null);
+  const appointmentNonAdmin=await searchAs(MEMBER,'Synthetic Pick','appointment');
+  check('E9 an ordinary member asking for the appointment purpose still gets the ordinary reply (no onSite, siteProfilesVisible false)',appointmentNonAdmin.status===200&&appointmentNonAdmin.body.siteProfilesVisible===false&&appointmentNonAdmin.body.results.every(r=>!Object.hasOwn(r,'onSite')&&!Object.hasOwn(r,'appointmentStatus')));
+ }finally{originalTestFetch=fetchBefore;}
+ console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
