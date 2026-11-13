@@ -380,6 +380,46 @@ async function browserChecks(BASE, CDP_PORT) {
       charts[width] = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,800));const vp=document.querySelector('.org-viewport').getBoundingClientRect();const cards=[...document.querySelectorAll('.org-stage .org-node')].filter(b=>!b.hidden);const inside=b=>{const r=b.getBoundingClientRect();return r.left>=vp.left-1&&r.right<=vp.right+1&&r.top>=vp.top-1&&r.bottom<=vp.bottom+1};const sel=cards.find(b=>b.getAttribute('aria-pressed')==='true');const vis=cards.filter(inside);return {shown:cards.length,visible:vis.length,selectedVisible:!!sel&&inside(sel),below:!!sel&&vis.some(b=>b.getBoundingClientRect().top>sel.getBoundingClientRect().bottom),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`); }
     bcheck('REV-GOV-6', 'at 390 and 320 px the opened chart shows the selected office and at least two more offices, children below it, with no page overflow',
       [390, 320].every(w => charts[w].selectedVisible && charts[w].below && charts[w].visible >= 3 && charts[w].over <= 0), show(charts));
+    // ================= round 3 (12 Nov 2026)
+    // RC-037: the Raid Leader and Raid Assist cards keep every family-guide line the regional sheet lacks verbatim, once,
+    // and every line of the shared regional sheet, once.
+    const guides = publicMeta.roleGuides201;
+    for (const [familyKey, primaryKey, regionKey] of [['raid_assist', 'office_73', 'raid_assist_na'], ['raid_leader', 'office_74', 'raid_leader_na']]) {
+      const sheet = [...guides[regionKey].responsibilities, ...guides[regionKey].expectations];
+      const own = [...guides[primaryKey].responsibilities, ...guides[primaryKey].expectations].filter(text => !sheet.includes(text));
+      const seenCounts = {};
+      for (const width of [1280, 375]) {
+        await open('member', width, 'roles/' + familyKey);
+        seenCounts[width] = await ev(`const card=document.querySelector('[data-role-family203=${familyKey}]');if(!card)return null;card.open=true;const items=[...card.querySelectorAll('li')].map(li=>li.textContent.trim());const n=t=>items.filter(x=>x===t).length;return {own:${JSON.stringify(own)}.map(n),sheet:${JSON.stringify(sheet)}.map(n),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+      }
+      bcheck('RC-037', `/#/roles/${familyKey} shows each of the ${own.length} ${primaryKey} lines missing from the regional sheet once, and each regional line once (1280 and 375 px)`,
+        own.length > 0 && Object.values(seenCounts).every(c => c && c.own.every(x => x === 1) && c.sheet.every(x => x === 1) && c.over <= 0), show(seenCounts));
+    }
+    // RC-199: every stored key appears in its rank's Rosetta row as its own labelled register link with its department.
+    const expectedByRank = {};
+    for (const row of offices.OFFICE_APPOINTMENTS) (expectedByRank[row.nativeRankOrdinal] ||= []).push(row.key);
+    const rosetta = {};
+    for (const width of [1280, 375]) {
+      await open('member', width, 'roles/rosetta-stone');
+      rosetta[width] = await ev(`const panel=document.getElementById('role-rosetta-stone');if(!panel)return null;panel.open=true;for(const d of panel.querySelectorAll('details'))d.open=true;const out={};for(const tr of panel.querySelectorAll('tr[data-rank-crosswalk]')){out[tr.dataset.rankCrosswalk]=[...tr.querySelectorAll('li[data-rosetta-key1112]')].map(li=>{const a=li.querySelector(':scope > a');return {key:li.dataset.rosettaKey1112,href:a&&a.getAttribute('href'),label:a&&a.textContent.trim(),scope:li.textContent.slice(a?a.textContent.length:0).replace(/^\\s*·\\s*/,'').trim()}})};return {rows:out,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+    const rosettaOk = w => { const r = rosetta[w]; return !!r && r.over <= 0 && Object.entries(expectedByRank).every(([rank, keys]) => { const got = r.rows[rank] || [];
+      return keys.every(k => got.filter(x => x.key === k && x.href === '#/organization/' + encodeURIComponent(k) && x.label && x.scope.length > 3).length === 1); }); };
+    bcheck('RC-199', 'each of the 139 stored keys has its own labelled #/organization link with its department under its rank (1280 and 375 px)', [1280, 375].every(rosettaOk),
+      show({ office_28: (rosetta[1280]?.rows['2'] || []).find(x => x.key === 'office_28'), office_57: (rosetta[1280]?.rows['2'] || []).find(x => x.key === 'office_57'), keys1280: Object.values(rosetta[1280]?.rows || {}).flat().length, over: [rosetta[1280]?.over, rosetta[375]?.over] }));
+    // RC-034: the overview lists branch roles under their department lane and under independent review, as links.
+    await open('member', 1280, 'organization', 900);
+    const contextLinks = await ev(`const out={};for(const box of document.querySelectorAll('[data-alliance-context1112]'))out[box.dataset.allianceContext1112]=[...box.querySelectorAll('a')].map(a=>a.getAttribute('href').slice(8));return out`);
+    bcheck('RC-034', '/#/organization shows the war, artisanry, propaganda and systems lanes and independent review with links to their role families',
+      ['war', 'artisanry', 'propaganda', 'systems', 'independent'].every(k => (contextLinks[k] || []).length > 0) && contextLinks.independent.includes('bank_auditor') && contextLinks.war.includes('chief_strategist'), show(contextLinks));
+    // Review item 6b: the "Ordinary applications" links and the chart summary are at least 44 px tall at every width.
+    const targets = {};
+    for (const width of [1440, 1280, 768, 390, 375, 320]) {
+      await open('member', width, 'organization', 900);
+      targets[width] = await ev(`const links=[...document.querySelectorAll('[role=group][aria-label="Ordinary applications"] a')];const s=document.querySelector('.org-relationship-map205 > summary');return {links:links.length,minLink:links.length?Math.min(...links.map(a=>Math.round(a.getBoundingClientRect().height))):0,summary:s?Math.round(s.getBoundingClientRect().height):0,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+    bcheck('REV-6b', '"Ordinary applications" links and the "Organization chart" summary are at least 44 px tall at 1440, 1280, 768, 390, 375 and 320 px, with no page overflow',
+      Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
 }
