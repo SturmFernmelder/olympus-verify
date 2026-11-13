@@ -962,6 +962,10 @@ end
 -- PLAYER_REGEN_ENABLED its own Close path runs once. For Escape, the window's name leaves UISpecialFrames for the
 -- fight (a plain table edit, which combat allows), so the client's Escape handler never calls Hide on it and Escape
 -- still reaches the game menu and target clearing; the name returns when combat ends. No widget method is replaced.
+-- Known limit (review of 83b4cc0, 13 Nov 2026): the name leaves only at PLAYER_REGEN_DISABLED. If lockdown began
+-- before that event and Escape is pressed in between, the client's Escape handler can still reach a protected Hide.
+-- The client normally fires the event before lockdown; closing the gap would mean dropping Escape out of combat or
+-- replacing a widget method, so it stays.
 local function WithdrawEscape(entry)
   if type(UISpecialFrames)~="table" then return end
   for index=#UISpecialFrames,1,-1 do
@@ -986,7 +990,7 @@ local function DeferClose(entry)
   entry.deferred=true
   if not Q.combatNotice then
     Q.combatNotice=true
-    Say("Combat lockdown began before the officer windows could close. The game allows closing them only after combat; they close when combat ends. Nothing was sent.")
+    Say("Combat began before the officer windows could close. They will close when combat ends. Nothing was sent.")
   end
   return true
 end

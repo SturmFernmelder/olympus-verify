@@ -319,7 +319,7 @@ do
   f.e.MockCombatStart(true)
   local ok, why = f.blocked()
   check("no secure handler and lockdown first: windows stay open and no forbidden call is made", not allHidden(f) and ok, why)
-  check("no secure handler and lockdown first: the officer is told the game forbids closing until combat ends", f.printed("The game allows closing them only after combat"))
+  check("no secure handler and lockdown first: the officer is told the windows close when combat ends", f.printed("They will close when combat ends."))
   f.e.MockCombatEnd()
   local g = fixture(); g.e.RegisterStateDriver = nil
   openAll(g); g.e.MockCombatStart(false)
@@ -370,7 +370,10 @@ for _, variant in ipairs({ "no RegisterStateDriver", "handler registration fails
   check("in combat: zero insecure Hide calls on a protected window (" .. variant .. ")", hides.calls == 0 and ok, tostring(hides.calls) .. " " .. why)
   check("in combat: all three windows stay open (" .. variant .. ")", f.e.OlympusVerifyRosterFrame:IsShown() and f.e.OlympusLaunch229Window:IsShown() and f.e.OlympusPromotionConfirm:IsShown())
   check("in combat: the officer is told once that the windows close when combat ends (" .. variant .. ")",
-    countPrinted(f, "they close when combat ends") == 1 and countPrinted(f, "The game allows closing them only after combat") == 1)
+    countPrinted(f, "They will close when combat ends.") == 1 and countPrinted(f, "Combat began before the officer windows could close.") == 1)
+  -- Review of 83b4cc0 (13 Nov 2026): one statement per fact; the notice no longer says the same thing twice.
+  check("in combat: the notice states the deferred close once, without a restated clause (" .. variant .. ")",
+    countPrinted(f, "allows closing them only after combat") == 0 and countPrinted(f, "close when combat ends") == 1)
   check("in combat: no command is sent and promotion state is unchanged (" .. variant .. ")", f.clicks == 0 and f.direct == 0 and not f.armed() and promotionState(f) == before)
   check("no widget method was replaced on the windows (" .. variant .. ")", rawget(f.e.OlympusVerifyRosterFrame, "Hide") == nil
     and rawget(f.e.OlympusLaunch229Window, "Hide") == nil and rawget(f.e.OlympusPromotionConfirm, "Hide") == nil)
@@ -388,7 +391,7 @@ for _, variant in ipairs({ "no RegisterStateDriver", "handler registration fails
   f.e.MockCombatStart(false); ok, why = f.blocked()
   check("next combat, event first: the windows close at its start with no forbidden call (" .. variant .. ")", allHidden(f) and ok, why)
   f.e.MockCombatEnd()
-  check("next combat: nothing reopens and no second notice is printed (" .. variant .. ")", allHidden(f) and countPrinted(f, "they close when combat ends") == 1)
+  check("next combat: nothing reopens and no second notice is printed (" .. variant .. ")", allHidden(f) and countPrinted(f, "They will close when combat ends.") == 1)
 end
 do
   -- Event first without the secure mechanism: the event closer alone closes them, and Escape during the fight touches nothing.
@@ -397,7 +400,7 @@ do
   f.e.MockCombatStart(false); f.escape(); f.e.MockCombatEnd()
   local ok, why = f.blocked()
   check("no secure handler, event first: closed at combat start, no insecure Hide in lockdown, no notice", allHidden(f) and hides.calls == 0 and ok
-    and countPrinted(f, "they close when combat ends") == 0, why)
+    and countPrinted(f, "They will close when combat ends.") == 0, why)
 end
 
 -- 10. Round 5 item 2 (13 Nov 2026): the Guild tab's promotion column parents secure promote buttons. With the
