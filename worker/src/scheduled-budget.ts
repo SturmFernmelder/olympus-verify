@@ -88,6 +88,20 @@ export const SCHEDULED_CAPS = {
 const C = SCHEDULED_CAPS;
 
 /**
+ * Ban lane, repair round (12 Nov 2026): the most physical D1 statements one banned-account visit of the role sweep may
+ * spend with the canonical ranks selected (removeBanRankRoles1112 at its one-DELETE maximum path, including its
+ * GET-only reconciliation of earlier unresolved rows, or observeBanRankDebt1112 after an unban), admission controls
+ * included. tests/evergreen1112_ban_workerd_test.cjs measures every visit path on genuine Workerd/D1 and holds each to
+ * it: the largest measured is 45 (reconcile an expired row, one DELETE, its confirmation); 50 leaves one admitted write
+ * group for the branches the fixture does not reach. This path needs the admitted runtime venue
+ * (captureRuntimeVenue230: write admission on, recorded-live layout), so it is charged in ADMISSION_SCHEDULED_BUDGET's
+ * role slice, never in the ordinary table's legacy 12. The same test measures the whole canonical role slice (one bound
+ * account, then the banned visit at that path) at 60 of the slice's 120; the member rotation's own maximum (117/118
+ * measured, below) has not been measured together with this visit on the whole-schedule fixture.
+ */
+export const BAN_RANK1112_SWEEP_VISIT_STATEMENTS = 50;
+
+/**
  * Worst case per job, in statements, in the order scheduled() starts them. `rule` says what is counted. The fixed costs
  * are read from the source: a job whose statements change changes its line here.
  */
@@ -113,7 +127,7 @@ export const SCHEDULED_BUDGET: ReadonlyArray<{ job: string; worst: number; rule:
     // held account 2 reads and 2 audit attempts. scheduled_budget_test measures 7, 5 and 4 exactly (review of 3 Oct 2026);
     // the call budget (at most 50 requests) stops a failure run at 11 accounts, so 20 is the account cap's bound
     worst: 10 + (40 + 35) * C.roleSweepAccounts + 12 * C.roleSweepBanned,
-    rule: "10 fixed + central generation/membership envelope40 plus bounded rank continuation35 per account +12 per banned/held account; actual joined max-path gate required",
+    rule: "10 fixed + central generation/membership envelope40 plus bounded rank continuation35 per account +12 per banned/held account (legacy Guild Member path; the canonical ban visit runs only under write admission, see BAN_RANK1112_SWEEP_VISIT_STATEMENTS); actual joined max-path gate required",
   },
   {
     job: "continueRosterEffects",

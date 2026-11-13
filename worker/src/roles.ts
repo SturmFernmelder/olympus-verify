@@ -43,6 +43,7 @@ import { BETA_RESET_GUILD_ID,BETA_RESET_ROLE_IDS,captureBetaRemovalDispatch,capt
 import { captureLaunchVerification,assertLaunchMembershipMode,launchMembershipCurrent,LaunchVerificationHeld,type LaunchMembershipSource } from './launch-verification227';
 import type { OriginalConsumedMembership230 } from './ingest';
 import { oldSharedMemberProducerHeld230 } from './shared-membership-cutover230';
+import { captureCanonicalRankConfig233 } from './canonical-ranks233';
 
 function assertLegacyMemberDispatch230(env:Env,role:string):void {
   if(oldSharedMemberProducerHeld230(env,env.GUILD_ID,role))throw Error('shared_member230_old_producer_held');
@@ -347,23 +348,52 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
-export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string }> {
+export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean }> {
   const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
   const captureGeneration=membershipTransitionEnabled(env)||durableServingRoles(env);
   const role = env.ROLE_GUILD_MEMBER;
-  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after };
+  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false };
   if (!role) return out;
   // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
   // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
+  // Owner ruling, 12 Nov 2026: with the canonical ranks selected, a standing ban's rank roles (all 18 fixed IDs, manual
+  // grants included) go through the one source-owned ban writer, one DELETE per visit; the old Guild Member remover is
+  // not run against the same role. Rename holds keep their own path below.
+  const canonicalBan=captureCanonicalRankConfig233(env).present;
+  const central=canonicalBan?await import('./role-settlements'):null;
+  // Repair round, 12 Nov 2026: an account with an expired unresolved ban rank-role row joins the rotation after an unban,
+  // for a GET-only visit (observeBanRankDebt1112), so a lost Discord answer does not fence that role for good.
+  const debt=central?` UNION SELECT s.subject FROM role_settlements s WHERE s.purpose='${central.BAN_RANK_PURPOSE1112}' AND s.desired=0 AND s.attempts=1 AND s.state IN('dispatching','unknown') AND s.expires_at<=CAST(strftime('%s','now') AS INTEGER)`:'';
   const rows = await env.DB.prepare(
     captureGeneration?`SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
-      FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply') selected
-      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`:`SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply') WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
+      FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply'${debt}) selected
+      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`:`SELECT discord_id FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply'${debt}) WHERE discord_id > ?1 ORDER BY discord_id LIMIT ?2`,
   ).bind(after, limit).all<{ discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>();
   let stopped = false;
   for (const r of rows.results) {
     if(captureGeneration&&r.privacy_state&&r.privacy_state!=='active'){out.failed.push(r.discord_id);out.cursor=r.discord_id;continue;}
     const originalCapture=captureGeneration?privacyCaptureFromColumns(r.discord_id,r):undefined;
+    const generation=originalCapture===undefined?undefined:originalCapture?.subjectGeneration??null;
+    if(central&&await isBanned(env,r.discord_id)){
+      if(!budget||budget.limit-budget.attempts<central.BAN_RANK1112_MIN_REQUESTS){if(budget)await budgetExhausted(env,budget,"sweep:banned");stopped=true;break;}
+      const before=out.cursor;out.cursor=r.discord_id;
+      const banned=await central.removeBanRankRoles1112(env,r.discord_id,{kind:'sweep'},generation,budget,dispatch);
+      out.checked.push(r.discord_id);out.rank=true;
+      if(banned.removed.length)out.revoked.push(r.discord_id);
+      if(banned.state!=='settled')out.failed.push(r.discord_id);
+      // Repair round, 12 Nov 2026: a standing ban stays at the head of the rotation while each visit removes a role and
+      // admitted roles remain, so its rank roles go one per run instead of one per pass over every banned account. A
+      // visit that removes nothing (a 429, an unknown outcome, a hold) rotates on, so no account can stall the others.
+      if(banned.removed.length&&banned.deferred.length){out.cursor=before;stopped=true;break;}
+      continue;
+    }
+    if(central&&budget&&!(await reapplyHeld(env,r.discord_id))){
+      // Not banned (any more) and no rename hold: only an expired unresolved ban rank-role row brought it here.
+      const before=out.cursor;out.cursor=r.discord_id;
+      const seen=await central.observeBanRankDebt1112(env,r.discord_id,generation,budget);
+      out.checked.push(r.discord_id);if(seen.state==='held'&&seen.reason==='role_request_budget'){out.cursor=before;stopped=true;break;}
+      continue;
+    }
     // .90: a look and possibly a removal: stop before an account the run's budget cannot finish, the cursor at the last one done
     if ((membershipTransitionEnabled(env)?!!budget&&budget.limit-budget.attempts<17:!affords(budget, 2)) || !takeCall(budget)) {
       await budgetExhausted(env, budget!, "sweep:banned");

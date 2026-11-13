@@ -379,7 +379,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   const banned = await reconcileBanned(env, typeof state.b === "string" ? state.b : "", BANNED_PER_RUN, calls,roleDispatch);
   for (const id of banned.failed) failed.push({ id, error: "revoke failed" });
   if (banned.revoked.length) {
-    await logLine(env, `🚫 role sweep: Guild Member removed from ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);
+    await logLine(env, `🚫 role sweep: ${banned.rank ? "Olympus rank role removed from" : "Guild Member removed from"} ${banned.revoked.map((d) => `<@${d}>`).join(", ")}: banned from verifying.`);
   }
   if (banned.held.length) {
     await logLine(env, `⏸️ role sweep: Guild Member removed from ${banned.held.map((d) => `<@${d}>`).join(", ")}: applying again after a rename Blizzard required.`); // .114

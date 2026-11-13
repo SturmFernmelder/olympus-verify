@@ -9,7 +9,7 @@ import { readPrivacySubject, privacyBoundSubjectEnv,privacyActorAlreadyBound,pen
 import { audit, getCharacter, getMember, likeArg, now, openPendingFor, openTicketFor, type PendingRow } from "./db";
 import { banApproverRoles, officerRankNames, officerRoles, staffChannel } from "./env";
 import { codeFor, dayBucket, normalizeCharacter, randomNonce, ticketFor } from "./codes";
-import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
+import { autocomplete, banMember, DiscordError, editMessage, explainDiscordError, fitContent, focusedOption, hasAnyRole, type Interaction, EPHEMERAL, json, logLine, modalField, option, postMessage, removeRole, reply, rest, subcommand, updateMessage, userOf } from "./discord";
 import { SNAPSHOT_WRITE_GRACE_S, syncFromLatest } from "./roster";
 import { explainRefusal } from "./ingest";
 import { guildSeats, seatsStaffLine, seatsText } from "./guild-seats";
@@ -30,6 +30,7 @@ import { isNicknameInteraction233,handleNicknameInteraction233 } from './member-
 async function requestRoleReconciliation242(...args:Parameters<typeof import('./role-reconcile242').requestRoleReconciliation242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).requestRoleReconciliation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 import {captureLaunchVerification} from './launch-verification227';
+import {captureCanonicalRankConfig233} from './canonical-ranks233';
 function currentNativeVerification242(env:Env):boolean{const capture=captureLaunchVerification(env);return capture.mode==='members-only'&&capture.scope!==null&&capture.current();}
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
@@ -523,6 +524,73 @@ function adminBanFailure(error: unknown): string {
   return `${ref}; the provider outcome is unconfirmed. Inspect current state before another command.`;
 }
 
+/** The ban's own Discord request ceiling: ROLE_CALL_BUDGET (default 40) capped so the reply edit, the staff card and the
+ * log line still fit under the 50-subrequest limit (12 Nov 2026). */
+const BAN_RANK_COMMAND_REQUESTS = 44;
+const BAN_RANK_REASONS: Record<string, string> = {
+  bot_missing_manage_roles: "the bot lacks Manage Roles",
+  role_managed_by_integration: "an integration manages this role",
+  role_above_bot: "the role sits at or above the bot's highest role",
+  role_identity_changed: "the role's name or permissions no longer match the Olympus rank list",
+  role_has_permissions: "this retired rank role carries permissions",
+  beta_dispatch_mode_held: "held by the beta dispatch mode",
+  earlier_role_change_unresolved: "an earlier change to this role has an unconfirmed result",
+  role_change_in_progress: "another change to this role is in progress",
+  removal_cause_withdrawn: "the ban was lifted or replaced before the removal was sent",
+  never_dispatched: "the removal was stopped before it was sent",
+  refused_403: "Discord refused the removal (403)",
+  refused_404: "Discord reported the member or the role as missing (404)",
+  rate_limited_429: "Discord rate-limited the removal; the role sweep tries again",
+  delete_outcome_unknown: "Discord's answer was lost",
+  confirmation_unknown: "the confirming member read failed",
+  effect_not_confirmed: "the role was still present after Discord accepted the removal",
+  receipt_unknown: "the result could not be recorded",
+  interrupted_after_ack: "Discord accepted the removal, but the command stopped before confirming it",
+  visit_interrupted: "the command stopped before this removal was sent",
+};
+const BAN_RANK_HOLDS: Record<string, string> = {
+  ban_rank1112_configuration_held: "the Olympus rank configuration is not active",
+  ban_rank1112_venue_held: "the role-settlement service is not enabled",
+  ban_rank1112_original_capture_required: "the account's privacy state was not captured",
+  ban_rank1112_ban_event_required: "the ban record could not be read",
+  subject_held: "the account is not in an active privacy state",
+  original_removal_generation_changed: "the account changed while the command ran",
+  removal_cause_withdrawn: "the ban was lifted or replaced while the command ran",
+  role_request_budget: "no Discord request budget was left",
+  bot_identity: "the bot's identity did not match",
+  role_inventory: "Discord's role data could not be read",
+  bot_inventory: "Discord's role data could not be read",
+  target_inventory_unknown: "the member holds a role missing from the server's role list",
+  ban_rank1112_inventory_or_currentness_held: "Discord's role or member data could not be read",
+};
+/** Past this length the role list gives way to counts, so the reply, the staff card and the log line all stay inside
+ * Discord's 2,000 characters next to a 400-character reason and the member summary (repair round, 12 Nov 2026). */
+const BAN_RANK_NOTE_MAX = 900;
+/** Staff-facing summary: every role removed, held, unknown or left for the sweep, and why (owner ruling, 12 Nov 2026).
+ * Roles that share a reason are listed together, so the reason text appears once. */
+function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): string {
+  const role = (id: string) => `<@&${id}>`;
+  const grouped = (xs: readonly { role: string; reason: string }[]) => {
+    const by = new Map<string, string[]>();
+    for (const x of xs) { const why = BAN_RANK_REASONS[x.reason] ?? "held"; by.set(why, [...(by.get(why) ?? []), role(x.role)]); }
+    return [...by].map(([why, roles]) => `${roles.join(", ")} (${why})`).join("; ");
+  };
+  if (r.inServer === false) return "\nNot in the Discord server, so no rank role was removed.";
+  const lines: string[] = [];
+  if (r.removed.length) lines.push(`Rank roles removed (confirmed absent): ${r.removed.map(role).join(", ")}.`);
+  if (r.held.length) lines.push(`Rank roles not removed: ${grouped(r.held)}.${r.held.some((x) => !["removal_cause_withdrawn", "rate_limited_429"].includes(x.reason)) ? " Remove them in Discord by hand if they must go now." : ""}`);
+  if (r.unknown.length) lines.push(`Rank roles with an unconfirmed result: ${grouped(r.unknown)}. Nothing is sent again; check the member in Discord.`);
+  if (r.deferred.length) lines.push(`Rank roles left for the role sweep: ${r.deferred.map(role).join(", ")}. This command's Discord requests ran out or Discord asked it to wait; the role sweep removes one per run.`);
+  if (r.raced) lines.push("The ban was lifted while a removal was in flight. Removed roles are not given back automatically.");
+  if (!lines.length) {
+    if (r.reason === "no_rank_role_present") lines.push("They held no Olympus rank role.");
+    else lines.push(`Rank-role removal is held: ${BAN_RANK_HOLDS[r.reason] ?? "the check did not complete"}. ${r.dispatched ? "A removal was already sent" : "No rank role was removed"}; check the member's roles in Discord.`);
+  }
+  const note = "\n" + lines.join("\n");
+  if (note.length <= BAN_RANK_NOTE_MAX) return note;
+  return `\nRank roles: ${r.removed.length} removed (confirmed absent), ${r.held.length} not removed, ${r.unknown.length} with an unconfirmed result, ${r.deferred.length} left for the role sweep (one per run). Check the member's roles in Discord for the details.`;
+}
+
 async function runAdminBan(env: Env, actor: string, target: string, reason: string, lane: LaneCapture | undefined, defer: Defer | undefined, roleDispatch: BetaRoleDispatch, removalDispatch: BetaRoleDispatch['capture'], targetCapture: Awaited<ReturnType<typeof readPrivacySubject>> | undefined): Promise<Response> {
   await env.DB.prepare(
     "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
@@ -540,7 +608,25 @@ async function runAdminBan(env: Env, actor: string, target: string, reason: stri
   // With ROLE_GUILD_MEMBER unset there is no member role to take away, and saying "could not remove" on every
   // ban would be noise about a role that no longer exists.
   let roleNote = "";
-  if (env.ROLE_GUILD_MEMBER) {
+  if (captureCanonicalRankConfig233(env).present) {
+    // Owner ruling, 12 Nov 2026: a ban removes the member's Olympus rank role immediately, whether the bot or a staff
+    // member granted it. One source-owned writer covers all 18 fixed rank IDs (the shared Member role included), so the
+    // old Guild Member remover is not also run against the same role.
+    let outcome: import("./role-settlements").BanRankOutcome1112 | undefined;
+    try {
+      const event = await env.DB.prepare("SELECT MAX(id) AS id FROM audit WHERE action = 'admin.ban' AND subject = ?1").bind(target).first<{ id: number | null }>();
+      const central = await import("./role-settlements");
+      const budget = callBudget(env);
+      budget.limit = Math.min(budget.limit, BAN_RANK_COMMAND_REQUESTS);
+      outcome = await central.removeBanRankRoles1112(env, target, { kind: "command", banEvent: event?.id ?? 0 }, targetCapture === undefined ? undefined : targetCapture?.subjectGeneration ?? null, budget, roleDispatch);
+      roleNote = banRankNote1112(outcome);
+    } catch (e) {
+      roleNote = `\n⚠️ Rank-role removal stopped before its result was confirmed: ${adminBanFailure(e)}`;
+      await audit(env, "system", "role.remove_failed", target, { error: errorRef(e) }).catch(() => {});
+    }
+    // Repair round, 12 Nov 2026: the audit is written after the note, so its failure never replaces the real result.
+    if (outcome) await audit(env, "system", "role.ban_rank1112", target, { source: "interaction:ban", state: outcome.state, reason: outcome.reason, removed: outcome.removed.length, held: outcome.held.length, unknown: outcome.unknown.length, deferred: outcome.deferred.length, raced: outcome.raced, requests: outcome.requests, dispatched: outcome.dispatched, observed: outcome.observed }).catch(() => {});
+  } else if (env.ROLE_GUILD_MEMBER) {
     try {
       if(betaRoleDispatchHeld(env,roleDispatch,env.GUILD_ID,env.ROLE_GUILD_MEMBER)
         &&(betaSourceEpochState(roleDispatch.env,removalDispatch).mode!=='active'||!membershipSettlementEnabled(env))){
@@ -596,7 +682,8 @@ async function runAdminBan(env: Env, actor: string, target: string, reason: stri
       // BAN_BUTTON_ENABLED is on, the card lists the account and says what a Guild Leader can do by hand.
       const button = env.BAN_BUTTON_ENABLED === "true";
       await postMessage(env, channel, {
-        content: `\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`,
+        // Repair round, 12 Nov 2026: fitted like reply(), so a long role note never stops the card from posting.
+        content: fitContent(`\u{1F528} **Verification ban** \u2014 <@${target}> banned from verifying by <@${actor}>${reason ? ` \u2014 ${reason}` : ""}.${roleNote}\n${who.text}${inGame}${button ? "" : `\nA Discord ban, if wanted, is a <@&${env.ROLE_GUILD_LEADER}> decision made in the server settings; the bot does not hold Ban Members here.`}`),
         components: button
           ? [
               {
