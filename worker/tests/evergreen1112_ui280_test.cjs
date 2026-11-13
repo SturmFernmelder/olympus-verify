@@ -190,7 +190,7 @@ const runUi280=String.raw`
   const statusBad=[{...S0,notes:['x']},{...S0,state:'done'},{...S0,completion:{...S0.completion,note:'x'}},{...S0,completion:{...S0.completion,version:2}},{...S0,completion:null},{...S0,state:'not_recorded'},{...S0,remainingCoveredNotes:'0'}];
   check('D1 the module admits only the exact preview and status replies of the route; any extra, missing or odd field is refused',!!NR.readPreview(P0)&&!!NR.readStatus(S0)&&!!NR.readStatus({...S0,state:'not_recorded',completion:null})&&previewBad.every(x=>NR.readPreview(x)===null)&&statusBad.every(x=>NR.readStatus(x)===null));
   const R=(status,error)=>({status,data:error?{error}:null});
-  check('D2 only refusals the route returns before any write count as refusals; a lost reply, a 5xx or an unknown code is not one',NR.refusal(R(403,'forbidden'))==='forbidden'&&NR.refusal(R(409,'receipt_note_cleanup_held'))==='held'&&NR.refusal(R(400,'confirmation_required'))==='incomplete'&&NR.refusal(R(0,null))===null&&NR.refusal(R(500,'internal'))===null&&NR.refusal(R(200,'unreadable_answer'))===null&&NR.refusal(R(409,'conflict'))===null&&NR.refusal(R(429,'slow_down'))===null);
+  check('D2 only refusals the route returns before any write count as refusals; a lost reply, a 5xx or an unknown code is not one',NR.refusal(R(403,'forbidden'))==='forbidden'&&NR.refusal({status:409,data:{error:'receipt_note_cleanup_held',message:'m',nextAction:'status'}})==='held'&&NR.refusal(R(409,'receipt_note_cleanup_held'))===null&&NR.refusal(R(400,'confirmation_required'))==='incomplete'&&NR.refusal(R(0,null))===null&&NR.refusal(R(500,'internal'))===null&&NR.refusal(R(200,'unreadable_answer'))===null&&NR.refusal(R(409,'conflict'))===null&&NR.refusal(R(429,'slow_down'))===null);
   // A hung apply at module level (the page uses 30 s; here 50 ms): shown as not confirmed, kept, never resent.
   const w=makeWindow('{}'),doc=w.document,calls=[];
   const hm=(tag,props,...kids)=>{const el=doc.createElement(tag);for(const [k,v] of Object.entries(props||{})){if(v===undefined||v===null||v===false)continue;if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else if(k.startsWith('on')&&typeof v==='function')el.addEventListener(k.slice(2),v);else if(k==='disabled')el.disabled=!!v;else el.setAttribute(k,v===true?'':String(v));}for(const c of kids.flat(9)){if(c===null||c===undefined||c===false||c==='')continue;el.appendChild(typeof c==='object'?c:doc.createTextNode(String(c)));}return el;};
@@ -247,9 +247,13 @@ const runUi280=String.raw`
  const realPreview=async()=>{const r=await indexMod.default.fetch(new Request('https://guild.example'+NR_PATH,{method:'POST',headers:{Cookie:await cookieFor(STAFF),'X-Olympus':'2',Origin:'https://guild.example','Content-Type':'application/json'},body:JSON.stringify({action:'preview'})}),env(ADMINS),ctx);return r.json();};
  const toConfirm=async pg=>{await clickIn(pg,'Count the notes');await waitFor(()=>stageOf(pg)==='confirm'||stageOf(pg)==='held'||stageOf(pg)==='refused','confirm step',8000);if(stageOf(pg)!=='confirm')return false;tickReal(pg);await clickIn(pg,byText(ctl(pg),'button','Blank 8 notes')?'Blank 8 notes':'?');await waitFor(()=>!['confirm'].includes(stageOf(pg))&&!pg.app.textContent.includes('Sending the cleanup request'),'apply settles',8000);return true;};
  const pv=await realPreview();
- const s1=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify({error:'receipt_note_cleanup_held',message:'held'}),{status:409}));
+ const realHoldResponse=await indexMod.default.fetch(new Request('https://guild.example'+NR_PATH,{method:'POST',headers:{Cookie:await cookieFor(STAFF),'X-Olympus':'2',Origin:'https://guild.example','Content-Type':'application/json'},body:JSON.stringify({action:'apply',review:'{"id":"x"}.not-a-signature',confirm:'BLANK RECEIPT NOTES'})}),env(ADMINS),ctx);
+ const realHold=await realHoldResponse.json();
+ const s1=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify(realHold),{status:409}));
  await toConfirm(s1.pg);
- check('D13 a held apply (409) is shown as a plain refusal that reports no change, clears the attempt and offers a new count or a status read',stageOf(s1.pg)==='refused'&&ctl(s1.pg).textContent.includes('reported no change')&&ctlButtons(s1.pg)==='Count the notes|Read the stored status'&&s1.pg.sessionStorage.getItem('olympus.noteRedactionAttempt280')===null);
+ // Round 3 (Codex b908253): the hold refuses this request before its own write; it promises nothing else, so the
+ // control says only that, settles this request and offers the status read as the only way on.
+ check('D13 a held apply (the 409 body of the real route) says the request was refused before it wrote anything, claims nothing else, clears this attempt and offers only a status read',realHoldResponse.status===409&&Object.keys(realHold).sort().join(',')==='error,message,nextAction'&&realHold.nextAction==='status'&&stageOf(s1.pg)==='held'&&ctl(s1.pg).textContent.includes('refused this request before it wrote anything')&&!/reported no change|Nothing was changed|nothing has changed/i.test(ctl(s1.pg).textContent)&&ctlButtons(s1.pg)==='Read the stored status'&&s1.pg.sessionStorage.getItem('olympus.noteRedactionAttempt280')===null&&s1.seen.filter(x=>x.includes('"apply"')).length===1,JSON.stringify({realHold,stage:stageOf(s1.pg),buttons:ctlButtons(s1.pg),text:ctl(s1.pg)&&ctl(s1.pg).textContent.slice(-400)}));
  const s2=await scripted(b=>b.action==='preview'?new Response(JSON.stringify(pv),{status:200}):new Response(JSON.stringify({state:'recorded'}),{status:200}));
  await toConfirm(s2.pg);
  check('D14 an apply answered in an unexpected form is not taken as success: shown as not confirmed with the request kept',stageOf(s2.pg)==='unconfirmed'&&ctl(s2.pg).textContent.includes('not in the expected form')&&ctlButtons(s2.pg)==='Read the stored status'&&s2.seen.filter(x=>x.includes('"apply"')).length===1);
@@ -398,6 +402,69 @@ const runUi280=String.raw`
   check('G1 with the table, the frame states the count time once outside the renderer’s caption (the source strip)',o1.n===1&&!!gf1.querySelector('caption'),JSON.stringify(o1));
   check('G2 without the table (script unavailable), the time is stated once, and the retained sentence says only how the figures are counted',o2.n===1&&sentence(gf2).startsWith('Joined and left compare complete, checked roster exports')&&!sentence(gf2).includes('As of'),JSON.stringify({o2,s:sentence(gf2)}));
  }
+
+ // ---------------------------------------------------------------- Round 3, item 1: the cleanup's final error contract
+ console.log('\n== Part H: receipt-note cleanup under Codex\'s final error contract (b908253, round 3) ==');
+ if(NR){
+  let clock=now;const w3=makeWindow('{}'),d3=w3.document;
+  const hx=(tag,props,...kids)=>{const el=d3.createElement(tag);for(const [k,v] of Object.entries(props||{})){if(v===undefined||v===null||v===false)continue;if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else if(k.startsWith('on')&&typeof v==='function')el.addEventListener(k.slice(2),v);else if(k==='disabled')el.disabled=!!v;else el.setAttribute(k,v===true?'':String(v));}for(const c of kids.flat(9)){if(c===null||c===undefined||c===false||c==='')continue;el.appendChild(typeof c==='object'?c:d3.createTextNode(String(c)));}return el;};
+  const OP='0123abcd-0123-4abc-8def-0123456789ab';
+  const PV=()=>({state:'preview',ceiling:90,receiptRows:11,coveredRows:10,notesToBlank:8,review:'{"id":"'+OP+'"}.sig',expiresAt:clock+600,confirmation:'BLANK RECEIPT NOTES',scope:'s'});
+  const NOT={state:'not_recorded',completion:null,remainingCoveredNotes:8,unclassifiedReceiptRows:0,scope:'s'};
+  // The exact replies of treasury-note-maintenance280.ts refused() and unconfirmed().
+  const HOLD=(extra={})=>({status:409,data:{error:'receipt_note_cleanup_held',message:'The cleanup is held or its outcome is unconfirmed. Check cleanup status before any further action.',nextAction:'status',...extra}});
+  const UNC=(extra={})=>({status:503,data:{error:'receipt_note_cleanup_unconfirmed',message:'The cleanup outcome is not confirmed. Check cleanup status before any further action.',nextAction:'status',...extra}});
+  const has=typeof NR.readHold==='function'&&typeof NR.readUnconfirmed==='function';
+  check('H1 the hold and the unconfirmed reply are admitted only in their exact shapes (keys, nextAction "status", optional whole unclassifiedReceiptRows)',has
+   &&JSON.stringify(NR.readHold(HOLD()))==='{"unclassified":null}'&&NR.readHold(HOLD({unclassifiedReceiptRows:3})).unclassified===3&&NR.readHold(HOLD({unclassifiedReceiptRows:0})).unclassified===0
+   &&[HOLD({nextAction:'preview'}),HOLD({nextAction:undefined}),HOLD({extra:1}),HOLD({unclassifiedReceiptRows:'3'}),HOLD({unclassifiedReceiptRows:-1}),HOLD({unclassifiedReceiptRows:1.5}),HOLD({message:7}),{status:400,data:HOLD().data},{status:409,data:{error:'receipt_note_cleanup_held',message:'held'}},{status:409,data:null}].every(e=>NR.readHold(JSON.parse(JSON.stringify(e)))===null)
+   &&NR.readUnconfirmed(UNC())===true&&[UNC({extra:1}),UNC({nextAction:'apply'}),{status:500,data:UNC().data},{status:503,data:{error:'receipt_note_cleanup_unconfirmed'}},{status:503,data:HOLD().data}].every(e=>NR.readUnconfirmed(e)===false)
+   &&NR.refusal(UNC())===null&&NR.refusal({status:409,data:{error:'receipt_note_cleanup_held',message:'held'}})===null);
+  // A scripted route: each action answers with its scripted result ({status,data} rejects as the page's api() does).
+  let script={},sent3=[];
+  const api3=(method,p,body)=>{sent3.push(JSON.stringify(body));const next=script[body.action];const r=typeof next==='function'?next():next;return r&&typeof r.status==='number'?Promise.reject(r):r===undefined?Promise.reject({status:0}):Promise.resolve(r);};
+  const mountH=()=>{const box=d3.body.appendChild(d3.createElement('div'));NR.mount(box,{h:hx,api:api3,user:{id:NR.OWNER,isAdmin:true},live:()=>true,now:()=>clock,fmtDateTime:t=>'T'+t,storage:()=>w3.sessionStorage});return box;};
+  const st=box=>box.querySelector('[data-note-redaction280-stage]');
+  const view=box=>({state:st(box).getAttribute('data-note-redaction280-state'),head:st(box).querySelector('h3')?.textContent,text:st(box).textContent,buttons:st(box).querySelectorAll('button').map(b=>b.textContent).join('|'),kept:box.querySelector('#note-redaction280-request')?.value||null,stored:w3.sessionStorage.getItem(NR.STORE),focus:d3.activeElement===st(box).querySelector('h3')});
+  const press=async(box,text)=>{const b=byText(box,'button',text);if(!b)return false;b.click();for(let i=0;i<6;i++)await settle();return true;};
+  const toApply=async box=>{await press(box,'Count the notes');const t=box.querySelector('#note-redaction280-understood');if(!t)return false;t.checked=true;t.dispatchEvent(new Event('change'));return press(box,'Blank 8 notes');};
+  const NOTHING=/Nothing was changed|nothing has changed|reported no change|no change/i;
+  const fresh=()=>{for(const c of [...d3.body.childNodes])d3.body.removeChild(c);w3.sessionStorage.removeItem(NR.STORE);sent3=[];clock=now;};
+  const applies=()=>sent3.filter(x=>x.includes('"apply"')).length;
+
+  fresh();script={preview:PV(),apply:HOLD({unclassifiedReceiptRows:2})};const b1=mountH();await toApply(b1);const v1=view(b1);
+  check('H2 an apply answered with the exact hold says this request was refused before it wrote anything, shows the unclassified count, settles this request only and offers only a status read',
+   v1.state==='held'&&v1.head==='Cleanup held'&&v1.text.includes('refused this request before it wrote anything')&&v1.text.includes('Receipt rows the cleanup cannot classify: 2')&&!NOTHING.test(v1.text)&&v1.buttons==='Read the stored status'&&v1.stored===null&&v1.focus&&applies()===1,JSON.stringify(v1));
+  fresh();script={preview:PV(),apply:{status:409,data:{error:'receipt_note_cleanup_held',message:'held'}}};const b2=mountH();await toApply(b2);const v2=view(b2);
+  check('H3 a 409 hold in any other shape (here without nextAction) is not taken as a refusal: not confirmed, the request kept and stored, only a status read',
+   v2.state==='unconfirmed'&&!!v2.kept&&v2.stored!==null&&v2.buttons==='Read the stored status'&&v2.text.includes('could not be read')&&applies()===1,JSON.stringify(v2));
+  fresh();script={preview:PV(),apply:UNC()};const b3=mountH();await toApply(b3);const v3=view(b3);
+  check('H4 the exact 503 says the server could not confirm this request\'s outcome, keeps the request on screen and stored, and offers only a status read; nothing is resent',
+   v3.state==='unconfirmed'&&v3.text.includes('The server reported that the outcome of this request is not confirmed.')&&v3.text.includes('It is not known whether the notes were blanked.')&&!!v3.kept&&v3.stored!==null&&v3.buttons==='Read the stored status'&&applies()===1&&!NOTHING.test(v3.text),JSON.stringify(v3));
+  // A hold that arrives while an earlier attempt of this tab is pending (the attempt of H4 is still stored).
+  script={status:HOLD({unclassifiedReceiptRows:4})};const keptBefore=v3.kept;await press(b3,'Read the stored status');const v6=view(b3);
+  check('H5 a hold that arrives while an earlier attempt is pending does not settle it: "Outcome not confirmed" and the same request stay, the unclassified count shows, no sentence says nothing changed, only a status read',
+   v6.state==='unconfirmed'&&v6.head==='Outcome not confirmed'&&v6.kept===keptBefore&&v6.text.includes('does not settle the request below')&&v6.text.includes('Receipt rows the cleanup cannot classify: 4')&&v6.text.includes('It is not known whether the notes were blanked.')&&!NOTHING.test(v6.text)&&v6.buttons==='Read the stored status'&&v6.stored!==null&&v6.focus&&applies()===1,JSON.stringify(v6));
+  script={status:UNC()};await press(b3,'Read the stored status');const v6b=view(b3);
+  script={status:()=>({status:0})};await press(b3,'Read the stored status');const v6c=view(b3);
+  check('H6 while that attempt is pending, a 503 or a lost status reply keeps the request and the status read as the only way on',v6b.state==='unconfirmed'&&v6b.kept===keptBefore&&v6b.text.includes('could not confirm the stored state')&&v6b.buttons==='Read the stored status'&&v6c.state==='unconfirmed'&&v6c.kept===keptBefore&&v6c.buttons==='Read the stored status'&&v6c.stored!==null&&applies()===1,JSON.stringify([v6b.text.slice(0,300),v6c.text.slice(0,300)]));
+  fresh();script={preview:PV(),apply:UNC({retry:true})};const b4=mountH();await toApply(b4);const v4=view(b4);
+  check('H7 a 503 in any other shape is still not confirmed, kept and never resent',v4.state==='unconfirmed'&&!!v4.kept&&v4.stored!==null&&v4.buttons==='Read the stored status'&&applies()===1&&!v4.text.includes('The server reported'),JSON.stringify(v4));
+  fresh();script={preview:HOLD({unclassifiedReceiptRows:5})};const b8=mountH();await press(b8,'Count the notes');const v8=view(b8);
+  fresh();script={preview:HOLD()};const b8b=mountH();await press(b8b,'Count the notes');const v8b=view(b8b);
+  check('H8 a count answered with the hold: "Cleanup held", no count, the unclassified count only when the reply carries it, only a status read, nothing said about other changes',
+   v8.state==='held'&&v8.text.includes('so it gave no count')&&v8.text.includes('Receipt rows the cleanup cannot classify: 5')&&v8.buttons==='Read the stored status'&&!NOTHING.test(v8.text)&&v8b.state==='held'&&!v8b.text.includes('cannot classify:')&&v8b.buttons==='Read the stored status',JSON.stringify([v8,v8b]));
+  fresh();script={preview:UNC()};const b9=mountH();await press(b9,'Count the notes');const v9=view(b9);
+  fresh();script={preview:()=>({status:0})};const b9b=mountH();await press(b9b,'Count the notes');const v9b=view(b9b);
+  check('H9 a count answered with the 503 (a malformed completion record) or lost: only a status read is offered, never a new count',v9.state==='not-confirmed'&&v9.text.includes('could not confirm the stored state')&&v9.buttons==='Read the stored status'&&v9b.state==='held'&&v9b.head==='Count not shown'&&v9b.buttons==='Read the stored status'&&!NOTHING.test(v9.text+v9b.text),JSON.stringify([v9,v9b]));
+  // An earlier record of this tab that cannot be read back: pending until a status read settles it.
+  fresh();w3.sessionStorage.setItem(NR.STORE,'{"broken":');script={status:NOT};const b10=mountH();const v10=view(b10);
+  clock=now+300;await press(b10,'Read the stored status');const v10b=view(b10);
+  clock=now+661;await press(b10,'Read the stored status');const v10c=view(b10);
+  check('H10 an unreadable record of an earlier request is held as not confirmed: no count is offered, a "not recorded" read inside 660 s keeps it, and only a later read settles it',
+   v10.state==='unconfirmed'&&v10.text.includes('could not be read back')&&v10.buttons==='Read the stored status'&&v10b.state==='unconfirmed'&&v10b.text.includes('at the latest')&&v10b.buttons==='Read the stored status'&&v10b.stored==='{"broken":'&&v10c.state==='not-recorded'&&v10c.buttons==='Count the notes|Read the stored status'&&v10c.stored===null&&applies()===0,JSON.stringify([v10,v10b,v10c]));
+  fresh();
+ } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10'])check(name+' (module unavailable)',false);
  console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);
