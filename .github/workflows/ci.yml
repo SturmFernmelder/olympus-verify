@@ -61,6 +61,10 @@ jobs:
         run: |
           node tests/lane_progress280_test.cjs --layout canonical --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-canonical"
           node tests/lane_progress280_test.cjs --layout recorded-live-pre-seal-20261017 --only ordinary-last,ban-last,erase-late,read-unknown --out "$RUNNER_TEMP/role-progress-recorded"
+          node tests/cursor_retired_followup280_workerd_test.cjs --layout canonical --out "$RUNNER_TEMP/retired-progress-canonical"
+          node tests/cursor_retired_followup280_workerd_test.cjs --layout recorded-live-pre-seal-20261017 --out "$RUNNER_TEMP/retired-progress-recorded"
+          node tests/neutral_existing_followup280_workerd_test.cjs --out "$RUNNER_TEMP/neutral-existing"
+          node tests/neutral_lineage_followup280_workerd_test.cjs --out "$RUNNER_TEMP/neutral-lineage"
         working-directory: worker
       - name: Install the hash-pinned LuaJIT bridge for the Watcher's Lua round trips
         run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt
