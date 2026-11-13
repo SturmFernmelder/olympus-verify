@@ -1254,3 +1254,35 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
   .olympus-rank-planner .filter-row > label { min-width: 0; flex-wrap: wrap; }
   .olympus-rank-planner .filter-row select { max-width: 100%; }
 }
+
+/* ---------- launch operations v234 (owner ladder 12 Nov 2026; /static/launch-operations234.js) ---------- */
+[data-launch234] .btn, [data-launch234] .btn.small { min-height: 44px; }
+[data-launch234] table { width: 100%; border-collapse: collapse; }
+[data-launch234] table caption { text-align: left; padding: 6px 10px; }
+[data-launch234] :is(th, td) { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+[data-launch234] tbody th { font-weight: 600; }
+.launch234-ranks { max-width: 28rem; }
+.launch234-path ol { margin: 0 0 4px; padding-left: 1.4em; }
+.launch234-path li { white-space: nowrap; }
+.launch234-holds { margin: 4px 0 0; padding-left: 1.2em; }
+.launch234-holds li + li { margin-top: 4px; }
+.launch234-source { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 12px 0; }
+.launch234-source dt { color: var(--gold); }
+.launch234-source dd { margin: 0; min-width: 0; }
+.launch234-source code { overflow-wrap: anywhere; word-break: break-all; }
+.launch234-digest > summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; text-decoration: underline; }
+.launch234-digest > code { display: block; padding: 4px 0; }
+@media (max-width: 640px) {
+  .launch234-source { grid-template-columns: minmax(0, 1fr); }
+  .launch234-path li { white-space: normal; }
+  /* Narrow screens: each promotion becomes a card so every step stays visible without sideways scrolling. */
+  .launch234-promotions :is(table, thead, tbody, tr, th, td) { display: block; }
+  .launch234-promotions thead tr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .launch234-promotions tbody tr { padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+  .launch234-promotions tbody :is(th, td) { border-bottom: 0; padding: 4px 10px; }
+  .launch234-promotions td[data-label]::before { content: attr(data-label) / ""; display: block; color: var(--gold); font-size: 0.78rem; }
+}
+@media (forced-colors: active) {
+  [data-launch234] :is(th, td) { border-bottom: 1px solid CanvasText; }
+  .launch234-digest > summary:focus-visible, [data-launch234] .table-wrap:focus-visible { outline: 2px solid Highlight; }
+}

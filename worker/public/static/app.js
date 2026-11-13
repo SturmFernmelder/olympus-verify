@@ -4311,6 +4311,7 @@
     const more = h('button', {type:'button', class:'btn', text:'Load next 20 role checks', hidden:true, onclick:() => nextCursor && load(nextCursor)});
     const dispose = () => {if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;sequence++;scanning=false;model=null;pages.clear();clear(output);if(disposeTool===dispose)disposeTool=null;};
     disposeTool = dispose;
+    body.setAttribute('data-launch234',''); // v234 rank view (owner ladder 12 Nov 2026): /static/launch-operations234.js
     clear(body); add(body, [h('h1', {text:'Launch operations & MOTD'}),
       h('p', {text:'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.'}),
       h('div', {class:'btn-row'}, refresh, scan, stop, more), status, output]);
@@ -4323,7 +4324,7 @@
       }});
     }
     function draw(d) {
-      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt;
+      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=window.OlympusLaunch234, ui234={h,frame};
       clear(output);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
       const short=h('textarea',{id:'launch-motd229',rows:'2',value:d.motd.short}),bulletin=h('textarea',{id:'launch-bulletin229',rows:'8',value:d.motd.bulletin});
       short.readOnly=true;bulletin.readOnly=true;short.setAttribute('readonly','');bulletin.setAttribute('readonly','');
@@ -4336,7 +4337,8 @@
         h('p',{text:d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.'}),
         h('p',{role:'status','data-launch-progress229':'',text:(complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.'}),
         h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.':'No confirmed native scan.'}),
-        h('p',{class:'muted small',text:(d.heldReasons||[]).join(' · ')})));
+        L234.holdList(d.heldReasons||[],ui234)));
+      add(output,L234.rankFrame(d,ui234));
       const table=(head,rows)=>h('div',{class:'table-wrap'},h('table',null,h('thead',null,h('tr',null,head.map(text=>h('th',{scope:'col',text})))),h('tbody',null,rows)));
       const inviteRows=[...pages.values()].flatMap(p=>p.dto.invites.map(r=>({r,current:p.deadline>clock&&!scanExpired&&nowSec()<r.expiresAt})));
       add(output,frame('Unguilded Knight+ invite queue',h('span',{class:'badge',text:String(inviteRows.filter(x=>x.current).length)}),
@@ -4344,16 +4346,15 @@
         table(['Character','Evidence expires','Status'],inviteRows.map(({r,current})=>h('tr',{'data-launch-invite233':r.proofId},h('td',{text:r.fullName}),h('td',{text:fmtDateTime(r.expiresAt)}),h('td',{text:current?'Recheck and invite in-game':'Stale advisory · fresh native proof required'}))))));
       for(const [offset,p] of [...pages].sort((a,b)=>a[0]-b[0])){
         const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor);}});
-        const promotionTable=reason=>table(['Character','Native slots','Evidence'],p.dto.promotions.filter(r=>r.reason===reason).map(r=>h('tr',{[eligible?'data-launch-promotion229':'data-launch-advisory229']:r.guid},h('td',{text:r.name}),h('td',{text:r.currentSlot+' to '+r.targetName+' (index '+r.targetSlot+')'}),h('td',{text:eligible?'Role evidence current':'Stale advisory · recheck required'}))));
         add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:eligible?'Role evidence current':'Stale advisory'}),
-          h('p',{text:'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Live targets: Knights below Veteran to Veteran (index 6); other verified Initiates to Member (index 8). Actions require an attended in-game click or key press.'}),recheck,
-          h('h3',{text:'Knight+ → Veteran'}),promotionTable('knight-veteran'),h('h3',{text:'Verified Initiates → Member'}),promotionTable('verified-initiate')));
+          h('p',{text:'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
+          L234.promotionGroups(p.dto,eligible,ui234)));
       }
       const risks=[...pages.values()].flatMap(p=>p.dto.riskBuffer),held=[...pages.values()].flatMap(p=>p.dto.held);
       add(output,frame('Initiate space buffer · review only',h('span',{class:'badge',text:String(risks.length)}),
         h('p',{text:'Longest measured offline, then lowest measured level first. Unknown values stay unknown. This is dated native-snapshot advice. Removal requires an attended native review.'}),
         table(['Character','Level','Last online'],risks.sort((a,b)=>(b.lastOnlineDays??-1)-(a.lastOnlineDays??-1)||(a.level??Infinity)-(b.level??Infinity)||a.name.localeCompare(b.name)).map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:r.level??'Unknown'}),h('td',{text:r.lastOnlineDays===null?'Unknown':Math.round(r.lastOnlineDays*10)/10+' days'}))))));
-      if(held.length)add(output,frame('Held evidence',null,table(['Character','Reason'],held.map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:r.reason}))))));
+      if(held.length)add(output,frame('Held evidence',null,table(['Character','Reason'],held.map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:L234.rowHoldText(r.reason)}))))));
       const remaining=[...pages.values()].map(p=>p.deadline-clock).filter(n=>n>0);for(const {r,current}of inviteRows)if(current)remaining.push((r.expiresAt-nowSec())*1000);if(d.scan?.expiresAt&&!scanExpired)remaining.push((d.scan.expiresAt-nowSec())*1000);
       if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent='A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
       if(focused){const field=document.getElementById(focused);if(field)field.focus({preventScroll:true});}
@@ -4366,9 +4367,12 @@
       if(!cursor){model=null;pages.clear();nextCursor=null;lastOffset=-1;clear(output);if(expiryTimer)clearTimeout(expiryTimer);}
       status.textContent='Reading at most 20 current Discord role records…';
       try {
+        await loadMemberScript('OlympusLaunch234','/static/launch-operations234.js');if(!current())return;
         const d=await api('GET','/api/admin/launch-operations'+(cursor?'?cursor='+encodeURIComponent(cursor):''),undefined,{live:current});
         if(!current())return;
-        if(!d||d.protocol!=='officer-operations-v233'||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
+        const verdict234=window.OlympusLaunch234.assess(d,cursor&&model?model:null);
+        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,window.OlympusLaunch234.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
+        if(!d||d.protocol!==window.OlympusLaunch234.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
           ||!Array.isArray(d.promotions)||!Array.isArray(d.riskBuffer)||!Array.isArray(d.held)||!Array.isArray(d.invites)||d.invites.length>3||d.promotions.length>1000||d.riskBuffer.length>1000||d.held.length>1000
           ||d.status==='held'&&(d.promotions.length||d.riskBuffer.length||d.invites.length)||!Number.isSafeInteger(d.fetchedAt)||!Number.isSafeInteger(d.expiresAt)
           ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
@@ -4377,7 +4381,7 @@
           const e=d.entitlements;
           if(!d.scan||!/^[a-f0-9]{32}$/.test(d.scan.id)||!Number.isSafeInteger(d.scan.startedAt)||!Number.isSafeInteger(d.scan.expiresAt)||d.scan.expiresAt>d.scan.startedAt+600||d.scan.expiresAt>d.snapshotAt+600
             ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||typeof d.pageCursor!=='string'||d.pageCursor.length>2048)throw Error('launch_page_unconfirmed');
-          for(const r of d.promotions)if(!Number.isInteger(r.currentSlot)||!(r.targetSlot===6&&r.targetName==='Veteran'&&r.reason==='knight-veteran'&&r.currentSlot>6&&r.currentSlot<=9||r.targetSlot===8&&r.targetName==='Member'&&r.reason==='verified-initiate'&&r.currentSlot===9))throw Error('launch_target_unconfirmed');
+          for(const r of d.promotions)if(!window.OlympusLaunch234.promotionShape(r))throw Error('launch_target_unconfirmed');
           const inviteIds=new Set(),inviteProofs=new Set();
           for(const r of d.invites){if(e.offset!==0||!Number.isSafeInteger(r.queueId)||r.queueId<1||inviteIds.has(r.queueId)||typeof r.proofId!=='string'||!/^[a-f0-9]{32}$/.test(r.proofId)||inviteProofs.has(r.proofId)||typeof r.fullName!=='string'||!r.fullName||r.fullName.length>100||/[\x00-\x1f\x7f]/.test(r.fullName)||!/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(r.guid)||r.scopeHash!==d.scopeHash||!Number.isSafeInteger(r.observedAt)||!Number.isSafeInteger(r.expiresAt)||r.expiresAt<=r.observedAt||r.expiresAt>r.observedAt+60||r.observedAt>d.fetchedAt+5||r.reason!=='knight-unguilded'||r.source!=='native-who-unit-v233')throw Error('launch_invite_unconfirmed');inviteIds.add(r.queueId);inviteProofs.add(r.proofId);}
           const others=new Set([...pages].filter(([offset])=>offset!==e.offset).flatMap(([,p])=>[...p.dto.promotions,...p.dto.riskBuffer,...p.dto.held].map(r=>r.guid))),seen=new Set();
