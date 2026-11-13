@@ -3,6 +3,9 @@
 // Piece 2 (Part C): the News activity table (/static/activity280.js) through the real News route and /api/news.
 // Piece 3 (Part D): the owner's receipt-note cleanup (/static/note-redaction280.js) through the real admin route and
 // the real POST /api/admin/treasury/ledger/note-redaction on synthetic receipts in the in-memory database.
+// Round 2: Parts E (member picker), F (cleanup after a lost apply) and G (News count time).
+// Round 3 (13 Nov 2026): Part H (the cleanup under Codex's final error contract, b908253), Part I (launch invite rows
+// from the v233 and v242 evidence sources), E10 (the "verified in game" badge) and G3/G4 (the News heading hook).
 // Part A runs the real view module (/static/launch-operations234.js) against pages made by the real
 // producer (worker/src/launch-operations229.ts, native-rank-schemes.ts) in the repo's DOM fixture.
 // Part B runs the real app.js admin route against the real Worker and SQLite (frontend_check.cjs,
@@ -343,6 +346,14 @@ const runUi280=String.raw`
   const nul=await tryReply(()=>new Response('null',{status:200}),'Synthetic Pickn',()=>fp.root.textContent.includes('unavailable'));
   check('E7 a reply that carries onSite but not siteProfilesVisible shows no badge and no filter',fz.rows===3&&fz.badges===0&&fz.hidden===true,JSON.stringify(fz));
   check('E8 empty, unavailable and null replies default to no filter and no badge, with the plain message',un.hidden===true&&un.text.includes('Discord search is unavailable right now. Try again shortly.')&&emptyR.hidden===true&&emptyR.text.includes('Nobody found.')&&!emptyR.text.includes('None of these')&&nul.hidden===true&&nul.text.includes('unavailable'),JSON.stringify([un.text,emptyR.text,nul.text]));
+  // Round 3, item 5a (second review): "verified in game" is mapped like the site-profile flag.
+  const vbadges=()=>fp.root.querySelectorAll('[role="option"] .badge').map(b=>b.textContent).filter(t=>t==='verified in game').length;
+  const linkedRows=v=>adminReply.body.results.map((r,i)=>({...r,linked:i===0?v:false}));
+  const linkedCase=async(body,q)=>{await tryReply(()=>new Response(JSON.stringify(body),{status:200}),q,()=>rowsOf(fp).length===3);return vbadges();};
+  const vb=[await linkedCase({results:linkedRows(true),siteProfilesVisible:false},'Synthetic Pickl'),await linkedCase({results:linkedRows(true)},'Synthetic Pickm'),
+   await linkedCase({results:linkedRows('yes'),siteProfilesVisible:true},'Synthetic Pickq'),await linkedCase({results:linkedRows(true),siteProfilesVisible:'true'},'Synthetic Pickr'),
+   await linkedCase({results:linkedRows(true),siteProfilesVisible:true},'Synthetic Picks')];
+  check('E10 the "verified in game" badge shows only when the reply’s siteProfilesVisible is exactly true and the row’s linked flag is exactly true',JSON.stringify(vb)==='[0,0,0,0,1]',JSON.stringify(vb));
   pa.intercept(null);
   const appointmentNonAdmin=await searchAs(MEMBER,'Synthetic Pick','appointment');
   check('E9 an ordinary member asking for the appointment purpose still gets the ordinary reply (no onSite, siteProfilesVisible false)',appointmentNonAdmin.status===200&&appointmentNonAdmin.body.siteProfilesVisible===false&&appointmentNonAdmin.body.results.every(r=>!Object.hasOwn(r,'onSite')&&!Object.hasOwn(r,'appointmentStatus')));
@@ -395,11 +406,20 @@ const runUi280=String.raw`
  console.log('\n== Part G: the count time appears once from the page side of the figures frame (round 2) ==');
  {
   await putFigures(FIG);
-  const timeOnce=f=>{const strip=f&&f.querySelector('[data-source-strip]'),m=strip&&/Counted (.+?); refreshed/.exec(strip.textContent);if(!m)return {n:-1};const caption=f.querySelector('caption');const own=f.textContent.replace(caption?caption.textContent:'\u0000','');return {n:own.split(m[1]).length-1,t:m[1]};};
-  const g1=await openNews();await supplyScript(g1,ACT_SEL,installActivity);const gf1=figFrame(g1),o1=timeOnce(gf1);
+  // Round 3: the renderer's caption no longer repeats the time (Codex f5ad5a1), so the whole frame, caption included, is counted.
+  const timeOnce=f=>{const strip=f&&f.querySelector('[data-source-strip]'),m=strip&&/Counted (.+?); refreshed/.exec(strip.textContent);if(!m)return {n:-1};return {n:f.textContent.split(m[1]).length-1,t:m[1],caption:f.querySelector('caption')?.textContent||null};};
+  let rendered=null;const installTracked=pg=>{installActivity(pg);const real=pg.window.OlympusActivity280;pg.window.OlympusActivity280={render:(...a)=>(rendered=real.render(...a))};};
+  const g1=await openNews();await supplyScript(g1,ACT_SEL,installTracked);const gf1=figFrame(g1),o1=timeOnce(gf1);
   const g2=await openNews();await supplyScript(g2,ACT_SEL,installActivity,true);const gf2=figFrame(g2),o2=timeOnce(gf2);
   const sentence=f=>f?f.querySelectorAll('p.muted.small').map(p=>p.textContent).find(t=>t.includes('Joined and left compare'))||'':'';
-  check('G1 with the table, the frame states the count time once outside the renderer’s caption (the source strip)',o1.n===1&&!!gf1.querySelector('caption'),JSON.stringify(o1));
+  check('G1 with the table, the count time appears exactly once in the whole frame (the source strip), the caption included',o1.n===1&&!!o1.caption&&!o1.caption.includes(o1.t),JSON.stringify(o1));
+  const heads1=gf1?gf1.querySelectorAll('h1,h2,h3,h4,h5,h6').map(x=>x.tagName+':'+x.textContent.trim()):[];
+  check('G3 the heading order is h2 for the frame, then the renderer’s own h3, inserted as the renderer built it',JSON.stringify(heads1)==='["H2:The guild in figures","H3:Activity at a glance"]'&&!!rendered&&gf1.contains(rendered)&&rendered.querySelector('h3')?.parentNode===rendered,JSON.stringify(heads1));
+  // The temporary h4-to-h3 swap is gone: a renderer section carrying an h4 sub-heading reaches the page unchanged.
+  const installWithH4=pg=>{installActivity(pg);const real=pg.window.OlympusActivity280;pg.window.OlympusActivity280={render:(...a)=>{const s=real.render(...a);if(s){const x=pg.document.createElement('h4');x.textContent='Synthetic renderer sub-heading';s.appendChild(x);}return s;}};};
+  const g4=await openNews();await supplyScript(g4,ACT_SEL,installWithH4);const gf4=figFrame(g4);
+  const heads4=gf4?gf4.querySelectorAll('h2,h3,h4').map(x=>x.tagName+':'+x.textContent.trim()):[];
+  check('G4 the page inserts the renderer’s section without rewriting its headings (no h4-to-h3 swap)',JSON.stringify(heads4)==='["H2:The guild in figures","H3:Activity at a glance","H4:Synthetic renderer sub-heading"]',JSON.stringify(heads4));
   check('G2 without the table (script unavailable), the time is stated once, and the retained sentence says only how the figures are counted',o2.n===1&&sentence(gf2).startsWith('Joined and left compare complete, checked roster exports')&&!sentence(gf2).includes('As of'),JSON.stringify({o2,s:sentence(gf2)}));
  }
 
@@ -463,8 +483,19 @@ const runUi280=String.raw`
   clock=now+661;await press(b10,'Read the stored status');const v10c=view(b10);
   check('H10 an unreadable record of an earlier request is held as not confirmed: no count is offered, a "not recorded" read inside 660 s keeps it, and only a later read settles it',
    v10.state==='unconfirmed'&&v10.text.includes('could not be read back')&&v10.buttons==='Read the stored status'&&v10b.state==='unconfirmed'&&v10b.text.includes('at the latest')&&v10b.buttons==='Read the stored status'&&v10b.stored==='{"broken":'&&v10c.state==='not-recorded'&&v10c.buttons==='Count the notes|Read the stored status'&&v10c.stored===null&&applies()===0,JSON.stringify([v10,v10b,v10c]));
+  // Item 5c: in the pending state the "until about" time is given once.
+  fresh();script={preview:PV(),apply:()=>({status:0}),status:NOT};const b11=mountH();await toApply(b11);clock=now+100;await press(b11,'Read the stored status');const v11=view(b11);
+  const until='T'+(now+600+60);
+  check('H11 the pending state gives the "until about" time once',v11.state==='unconfirmed'&&v11.text.includes('until about '+until)&&v11.text.split(until).length-1===1&&v11.buttons==='Read the stored status',JSON.stringify(v11.text));
+  // Item 5b: an expiring count moves focus only when focus is in the control or on the page.
+  fresh();script={preview:()=>({...PV(),expiresAt:clock+1})};const b12=mountH();await press(b12,'Count the notes');
+  const elsewhere=d3.body.appendChild(d3.createElement('input'));elsewhere.focus();
+  await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();const v12=view(b12),away=d3.activeElement===elsewhere;
+  d3.body.removeChild(elsewhere);await press(b12,'Count the notes');byText(b12,'button','Cancel')?.focus();
+  await new Promise(r=>setTimeout(r,1250));for(let i=0;i<4;i++)await settle();const v12b=view(b12);
+  check('H12 an expired count returns to the start; focus moves to its heading only when it was inside the control (an owner typing elsewhere keeps focus)',v12.state==='idle'&&away&&!v12.focus&&v12b.state==='idle'&&v12b.focus&&v12.text.includes('so nothing was sent'),JSON.stringify({away,v12:v12.focus,v12b:v12b.focus,t:v12.text.slice(0,200)}));
   fresh();
- } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10'])check(name+' (module unavailable)',false);
+ } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10','H11','H12'])check(name+' (module unavailable)',false);
 
  // ---------------------------------------------------------------- Round 3, item 3: invite evidence sources
  console.log('\n== Part I: launch invite rows from both evidence sources the backend projects (round 3) ==');

@@ -1311,6 +1311,7 @@
     let last = null;
     // CL2-258 (Codex 59fd954, 12 Nov 2026): only an administrator's search says who has a site profile, and it says so
     // with siteProfilesVisible: true. Any other reply (a member's, an empty or an unavailable one) gets no filter and no badge.
+    // Round 3 (second review, 13 Nov 2026): the "verified in game" badge follows the same rule as the site-profile badge.
     let profiles = false;
     const selectable = it => (allowSelf || !it.self) && !exclude(it) && (!appointmentOnly || it.appointmentStatus === "eligible");
     const appointmentHint = it => it.appointmentStatus === "eligible" ? "Discord membership confirmed. No website sign-in is required; Save checks again."
@@ -1346,7 +1347,7 @@
       if (!profiles) { showTools(false); onlySite.checked = false; }
       items = (res.results || [])
         .filter((r) => !onlySite.checked || r.onSite)
-        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: profiles && r.onSite === true, linked: r.linked, appointmentStatus: r.appointmentStatus })); // .114: shown = every differing name; label = what a pick stores
+        .map((r) => ({ kind: "discord", key: r.id, label: r.label, shown: r.shown, avatarUrl: r.avatarUrl, self: r.self, onSite: profiles && r.onSite === true, linked: profiles && r.linked === true, appointmentStatus: r.appointmentStatus })); // .114: shown = every differing name; label = what a pick stores
       const problem = typedProblem(q);
       if (allowTyped && !problem) items.push({ kind: "name", key: q.toLowerCase().replace(/\s+/g, " "), label: q.replace(/\s+/g, " "), typed: true });
       active = items.findIndex(selectable);
@@ -6861,9 +6862,10 @@
         : null,
     ]);
     // Codex's /static/activity280.js (13 Nov 2026) redraws the same admitted figures as one table in place of the
-    // day and week lists; the lists stay when the script cannot load or the renderer declines the figures.
-    if (f) loadMemberScript("OlympusActivity280", "/static/activity280.js").then(() => { const lists = figures.slice(f.roster.day || f.roster.week ? 0 : 1, 5), chart = window.OlympusActivity280.render(f, fmtDateTime), glance = chart && chart.querySelector("h4");
-      if (!chart || !lists[0].isConnected) return; if (glance) glance.replaceWith(h("h3", { text: glance.textContent })); lists[0].replaceWith(chart); for (const n of lists.slice(1)) n.remove(); }).catch(() => {});
+    // day and week lists; the lists stay when the script cannot load or the renderer declines the figures. Its section is
+    // inserted as it is: the renderer now starts with an h3 under the frame's h2 (Codex f5ad5a1), so the page no longer rewrites it.
+    if (f) loadMemberScript("OlympusActivity280", "/static/activity280.js").then(() => { const lists = figures.slice(f.roster.day || f.roster.week ? 0 : 1, 5), chart = window.OlympusActivity280.render(f, fmtDateTime);
+      if (!chart || !lists[0].isConnected) return; lists[0].replaceWith(chart); for (const n of lists.slice(1)) n.remove(); }).catch(() => {});
   }
   const proofBadge = (source) => (source === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : h("span", { class: "badge muted", text: "self-labelled" }));
   const altBadge = (a) => (a.status === "officer_confirmed" ? h("span", { class: "badge green", text: "officer-confirmed" }) : a.proof === "keeper" ? h("span", { class: "badge green", text: "confirmed" }) : a.status === "rejected" ? h("span", { class: "badge red", text: "rejected" }) : h("span", { class: "badge muted", text: "claimed" }));

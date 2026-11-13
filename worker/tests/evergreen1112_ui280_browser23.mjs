@@ -40,6 +40,8 @@ cdp.on('Fetch.requestPaused', async p => {
     sent.push(body);
     if (mode.kind === 'lost-apply' && body.includes('"apply"')) return await cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionClosed' });
     if (mode.kind === 'hang-apply' && body.includes('"apply"')) return; // never answered: the page's own 30 s limit decides
+    // Round 3: an apply answered with a given reply (the real route's 409 hold body), never reaching the Worker.
+    if (mode.kind === 'reply-apply' && body.includes('"apply"')) return await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: mode.status, responseHeaders: [{ name: 'Content-Type', value: 'application/json; charset=utf-8' }, { name: 'Cache-Control', value: 'private, no-store' }], body: Buffer.from(JSON.stringify(mode.body)).toString('base64') });
     return await cdp.send('Fetch.continueRequest', { requestId: p.requestId });
   } catch (e) { console.log('intercept error', e.message); }
 });
@@ -90,10 +92,10 @@ try {
   const exact = F ? [F.roster.day?.joined, F.roster.week?.joined, F.roster.day?.left, F.roster.week?.left, F.applications.day.firstSaved, F.applications.week.firstSaved, F.applications.day.decided, F.applications.week.decided].filter(v => Number.isSafeInteger(v)) : [];
   check('News: bars only for exact numbers, scaled to the largest, hidden from assistive technology', !!shown && shown.meters.length === exact.length && shown.meters.every((m, i) => m[0] === exact[i] && m[1] === Math.max(1, ...exact) && m[2] === 'true'), shown && shown.meters);
   check('News: the day and week lists are replaced, the source explanation stays, headings run h2 then h3', !!shown && shown.lists === 0 && shown.explanation && JSON.stringify(shown.headings) === JSON.stringify(['H2:The guild in figures', 'H3:Activity at a glance']), shown);
-  // Round 2 (12 Nov): outside the renderer's caption the frame states the count time once (in its source strip).
+  // Round 3 (13 Nov): the renderer's caption no longer repeats the time, so the whole frame states it exactly once (the source strip).
   const timeOnce = await evalJ(`(() => { const s = document.querySelector('[data-activity-comparison="news"]'), frame = s.closest('section.frame'), strip = frame.querySelector('[data-source-strip]'); const m = strip && /Counted (.+?); refreshed/.exec(strip.textContent); if (!m) return { n: -1 };
-    const own = frame.textContent.replace(s.querySelector('caption')?.textContent || '\\u0000', ''); return { t: m[1], n: own.split(m[1]).length - 1, sentence: [...frame.querySelectorAll('p')].map(p => p.textContent).find(t => t.includes('Joined and left compare')) }; })()`);
-  check('News: the count time appears once outside the table caption, and the retained sentence says only how the figures are counted', timeOnce.n === 1 && typeof timeOnce.sentence === 'string' && timeOnce.sentence.startsWith('Joined and left compare'), timeOnce);
+    return { t: m[1], n: frame.textContent.split(m[1]).length - 1, caption: s.querySelector('caption')?.textContent || null, sentence: [...frame.querySelectorAll('p')].map(p => p.textContent).find(t => t.includes('Joined and left compare')) }; })()`);
+  check('News: the count time appears exactly once in the whole frame, caption included, and the retained sentence says only how the figures are counted', timeOnce.n === 1 && !!timeOnce.caption && typeof timeOnce.sentence === 'string' && timeOnce.sentence.startsWith('Joined and left compare'), timeOnce);
   const newsLayout = [];
   for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); newsLayout.push({ w, ...(await measure('[data-activity-comparison="news"]')) }); if ([320, 390, 1280].includes(w)) await screenshot(cdp, path.join(OUT, `news-${w}.png`), true); }
   check('News: no page overflow, nothing past the viewport and no sideways scroll inside the table at all six widths', newsLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && x.wraps.every(v => v <= 0)), newsLayout.map(x => ({ w: x.w, o: x.docOverflowPx, out: x.outside, wraps: x.wraps })));
@@ -172,6 +174,25 @@ try {
   // The text label of the read-only request box is not a control of its own (the box is the target), so it is not sized.
   const controlsOnly = x => x.small.filter(s => !(s.t === 'LABEL' && s.text.startsWith('The request sent at')));
   check('Ledger: the pending state with its counts has no overflow and 44 px controls at all six widths', pendingLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && controlsOnly(x).length === 0), pendingLayout.map(x => ({ w: x.w, o: x.docOverflowPx, out: x.outside, small: controlsOnly(x) })));
+
+  // Round 3 (Codex b908253): an apply answered with the route's exact hold, in a new tab session. The body is the real
+  // route's own 409 (a review it cannot verify); the page's request is answered with it and never reaches the Worker.
+  const realHold = await api('owner', 'POST', NR_PATH, { action: 'apply', review: '{"id":"x"}.not-a-signature', confirm: 'BLANK RECEIPT NOTES' });
+  await evalJ(`sessionStorage.clear(); true`);
+  await go('#/admin/donation-ledger', `${CTL}?.getAttribute('data-note-redaction280-state') === 'idle'`);
+  await evalJ(`[...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent === 'Count the notes')?.click(); true`);
+  for (let i = 0; i < 60 && (await stage()) !== 'confirm'; i++) await sleep(150);
+  mode = { kind: 'reply-apply', status: 409, body: { ...realHold.json, unclassifiedReceiptRows: 0 } };
+  const beforeHold = sent.length;
+  await evalJ(`(() => { const t = document.querySelector('#note-redaction280-understood'); t?.click(); [...document.querySelectorAll('[data-note-redaction280] button')].find(b => b.textContent.startsWith('Blank'))?.click(); return true; })()`);
+  for (let i = 0; i < 60 && (await stage()) !== 'held'; i++) await sleep(150);
+  const heldView = await evalJ(`({ head: ${CTL}?.querySelector('h3')?.textContent, focus: document.activeElement === ${CTL}?.querySelector('h3'), text: ${CTL}?.textContent || '', buttons: [...document.querySelectorAll('[data-note-redaction280] button')].map(b => b.textContent).join('|'), stored: sessionStorage.getItem('olympus.noteRedactionAttempt280') })`);
+  check('Ledger (round 3): an apply answered with the route’s exact hold says it was refused before it wrote anything, shows the unclassified count, claims nothing else and offers only a status read', realHold.status === 409 && Object.keys(realHold.json || {}).sort().join(',') === 'error,message,nextAction' && (await stage()) === 'held' && heldView.head === 'Cleanup held' && heldView.focus && heldView.text.includes('refused this request before it wrote anything') && heldView.text.includes('Receipt rows the cleanup cannot classify: 0') && !/Nothing was changed|no change/i.test(heldView.text) && heldView.buttons === 'Read the stored status' && heldView.stored === null && sent.slice(beforeHold).filter(b => b.includes('"apply"')).length === 1, { realHold, heldView });
+  const heldLayout = [];
+  for (const w of WIDTHS) { await viewport(cdp, w, 900); await sleep(250); heldLayout.push({ w, ...(await measure('[data-note-redaction280]')) }); if (w === 320) await screenshot(cdp, path.join(OUT, 'ledger-held-320.png'), true); }
+  await viewport(cdp, 1280, 900);
+  check('Ledger (round 3): the held state has no overflow and 44 px controls at all six widths', heldLayout.every(x => x.present && x.docOverflowPx <= 0 && x.outside.length === 0 && x.small.length === 0), heldLayout.map(x => ({ w: x.w, o: x.docOverflowPx, out: x.outside, small: x.small })));
+  mode = { kind: 'real' };
 
   // A hung apply in a new tab session: the page gives up after its own 30 s and shows it as not confirmed.
   await evalJ(`sessionStorage.clear(); true`);

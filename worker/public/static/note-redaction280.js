@@ -138,6 +138,14 @@
       return heading;
     };
     const focusOn = heading => { if (heading && typeof heading.focus === 'function') heading.focus(); };
+    // Round 3 (second review, 13 Nov 2026): a step change that happens on its own (an expired count) moves focus only
+    // when focus is inside this control or on the page itself, so an owner typing elsewhere is not interrupted.
+    const focusIsOurs = () => {
+      let doc = root.ownerDocument || null;
+      if (!doc) { doc = root; while (doc.parentNode) doc = doc.parentNode; }
+      const active = doc.activeElement;
+      return !active || active === doc.body || active === doc.documentElement || root.contains(active);
+    };
     const statusButton = () => button('Read the stored status', readStatusNow, {action: 'status'});
     const previewButton = () => button('Count the notes', previewNow, {action: 'preview'});
     const countsList = (items) => h('ul', {class: 'note-redaction280-counts'}, items.map(([label, value]) => h('li', null, label + ': ', h('strong', {text: value === null ? 'not known' : String(value)}))));
@@ -166,7 +174,11 @@
         h('label', {class: 'note-redaction280-check', for: 'note-redaction280-understood'}, tick, ' I understand that ' + plural(p.notesToBlank, 'note', 'notes') + ' will be blanked and cannot be restored from the site.'),
         h('div', {class: 'btn-row'}, apply, cancel));
       const left = (p.expiresAt - now()) * 1000;
-      expiryTimer = setTimeout(() => { if (current() && lastPreview === p && !busy) focusOn(idle('That count expired before it was confirmed, so nothing was sent. Count the notes again.')); }, Math.max(0, Math.min(left, 2147483647)));
+      expiryTimer = setTimeout(() => {
+        if (!current() || lastPreview !== p || busy) return;
+        const ours = focusIsOurs(), next = idle('That count expired before it was confirmed, so nothing was sent. Count the notes again.');
+        if (ours) focusOn(next);
+      }, Math.max(0, Math.min(left, 2147483647)));
       return heading;
     }
     // The pending state: this tab's request (kept on screen exactly as sent) or an earlier request whose record could
@@ -187,7 +199,8 @@
       return show('unconfirmed', 'Outcome not confirmed', h('p', {text: lead}), kept, extra || null,
         s ? h('div', {class: 'stack', 'data-note-redaction280-status': 'not-recorded'},
           h('p', {text: 'Stored status, just read: no cleanup recorded.'}), countsList(statusItems(s)),
-          h('p', {class: 'small', text: 'Read the stored status again after ' + until + ' before counting again.'})) : null,
+          // Round 3: the time is given once, in the sentence above.
+          h('p', {class: 'small', text: 'Read the stored status again after that time. A new count is offered only then.'})) : null,
         h('div', {class: 'btn-row'}, statusButton()));
     }
     /** A reply that settles nothing: keeps any pending request on screen; otherwise only a status read is offered. */
