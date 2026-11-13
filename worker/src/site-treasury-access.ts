@@ -147,6 +147,8 @@ export function treasuryGateDescription(env: Env): string {
     if (roles.length) clauses.push(`the Discord ${listOf(roles)} role${roles.length > 1 ? "s" : ""}`);
   }
   clauses.push("the published Co-Guild Master and Treasurer appointments", "site administrators");
+  // Round 3 (12 Nov 2026): with only the two configuration-independent paths left, the sentence is a plain pair, not a list.
+  if (clauses.length === 2) return `The treasury programme and financial model are open to ${clauses[0]} and to ${clauses[1]}.`;
   return `The treasury programme and financial model are open to: ${clauses.slice(0, -1).join("; ")}; and ${clauses[clauses.length - 1]}.`;
 }
 

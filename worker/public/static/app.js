@@ -2789,7 +2789,10 @@
     return [];
   }
   function treasuryRefusal218(admits) {
-    return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
+    // Round 3 (12 Nov 2026): the badge must not claim officers when the gate's description below names no officer path
+    // (treasuryGateDescription writes a roster "rank" clause and a "Discord" role clause only when those paths admit).
+    const officers = !admits || /\brank\b|\bDiscord\b/.test(admits);
+    return frame("Treasury programme", h("span", { class: "badge", text: officers ? "Officers and above" : "Appointments and administrators" }),
       // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
       // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
       // REV-SITEA-3 (12 Nov 2026): the sentence is the Worker's own description of the gate under its current configuration
