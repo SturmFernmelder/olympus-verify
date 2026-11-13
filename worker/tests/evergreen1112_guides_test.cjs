@@ -406,7 +406,7 @@ check('renderer: every .218 class, spec and profession link and every race opens
   const bad = [];
   for (const parts of routes) {
     const p = await open(parts), h1 = text(p.container.querySelector('h1'));
-    if (!h1 || p.container.querySelector('p[role="alert"]') || /There is no such guide|carried over from the earlier/.test(p.container.textContent)) bad.push(parts.join('/') + ' :: ' + (h1 || text(p.container).slice(0, 80)));
+    if (!h1 || / not found$/.test(h1) || p.container.querySelector('p[role="alert"]') || /There is no such|carried over from the earlier/.test(p.container.textContent)) bad.push(parts.join('/') + ' :: ' + (h1 || text(p.container).slice(0, 80)));
   }
   const frost = await open(['class', 'mage', 'frost']);
   return bad.length === 0 && routes.length === 9 + 27 + 12 + 5 && text(frost.container.querySelector('h1')) === 'Frost Mage' || bad.slice(0, 6).join(' | ') || routes.length;
@@ -415,7 +415,24 @@ check('renderer: an unwritten race says so, and an unknown guide or chapter is r
   // Every race is written now; a planned index entry must still render "not written yet" and load no course file.
   const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
   const a = await open(['race', 'dwarf'], undefined, planned), b = await open(['class', 'warrior', 'nope']), c = await open(['class', 'warrior', 'arms', '101', 'missing-chapter']), d = await open(['race', 'orc']);
-  return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1 && [b, c, d].every(x => /There is no such guide\./.test(x.container.textContent));
+  const h1 = x => x.container.querySelectorAll('h1').map(text);
+  return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1
+    && JSON.stringify([b, c, d].map(h1)) === '[["Spec not found"],["Chapter not found"],["Race guide not found"]]' && !c.container.querySelector('fieldset') || JSON.stringify([b, c, d].map(h1));
+});
+// INT-UNI-1 / CL2-105 (12 Nov 2026): every university address that names nothing renders one H1 ending in "not found",
+// one role="status" sentence and a link back to #/guides, and loads no course file it does not need.
+check('INT-UNI-1: an unknown class, spec, profession, race, track, chapter, exam or page renders one "… not found" H1, a status sentence and a way back', async () => {
+  const cases = [['class/no-such-class', 'Class guide not found'], ['class/warrior/nope', 'Spec not found'], ['profession/no-such-profession', 'Profession guide not found'],
+    ['race/orc', 'Race guide not found'], ['class/warrior/401', 'Track not found'], ['class/warrior/arms/999', 'Track not found'], ['race/human/401', 'Track not found'],
+    ['class/warrior/arms/101/missing-chapter', 'Chapter not found'], ['race/human/101/Bad_Chapter!', 'Chapter not found'], ['exam/spec-warrior-nope/101', 'Exam not found'],
+    ['exam/class-nope/101', 'Exam not found'], ['exam/class-warrior/401', 'Exam not found'], ['nonsense', 'Guide not found'], ['class/warrior/arms/101/x/y', 'Page not found']];
+  const bad = [];
+  for (const [route, want] of cases) {
+    const p = await open(route.split('/')), h1 = p.container.querySelectorAll('h1').map(text);
+    const status = p.container.querySelectorAll('[role="status"]').map(text).filter(Boolean), back = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === '#/guides' && /Back to Olympus University/.test(text(a)));
+    if (JSON.stringify(h1) !== JSON.stringify([want]) || status.length !== 1 || !/\.$/.test(status[0]) || !back || p.container.querySelector('[role="alert"]')) bad.push(route + ' :: ' + JSON.stringify({ h1, status, back }));
+  }
+  return bad.length === 0 || bad.join(' | ');
 });
 check('renderer: the Related rail links the talent calculator, hub tools, the Class Lead office, the Workshop charter and the exam index (CL2-207)', async () => {
   const hrefs = async parts => (await open(parts)).container.querySelector('nav[aria-label="Related"]').querySelectorAll('a').map(a => a.getAttribute('href'));

@@ -63,19 +63,23 @@
     };
   })();
 
+  // An address that names nothing returns { view: "missing", what } so the page can say which part was not found
+  // (INT-UNI-1 / CL2-105, 12 Nov 2026).
   function parseRoute(parts) {
     const p = parts.map(x => String(x || "").toLowerCase());
     const tier = x => x === "101" || x === "201" || x === "301";
+    const missing = what => ({ view: "missing", what });
     if (!p.length) return { view: "hub" };
     if (p[0] === "exams" && p.length === 1) return { view: "exams" };
-    if (p[0] === "exam" && p.length === 3 && /^(class|spec|race|profession)-[a-z][a-z0-9-]{0,60}$/.test(p[1]) && tier(p[2])) return { view: "exam", scope: p[1], tier: p[2] };
-    if (!["class", "race", "profession"].includes(p[0]) || !SLUG.test(p[1] || "")) return null;
+    if (p[0] === "exam" || p[0] === "exams") return p[0] === "exam" && p.length === 3 && /^(class|spec|race|profession)-[a-z][a-z0-9-]{0,60}$/.test(p[1]) && tier(p[2]) ? { view: "exam", scope: p[1], tier: p[2] } : missing("exam");
+    if (!["class", "race", "profession"].includes(p[0])) return missing("guide");
+    if (!SLUG.test(p[1] || "")) return missing(p[0]);
     const r = { view: "guide", kind: p[0], id: p[1], spec: null, tier: "101", chapter: null, explicitTier: false };
     let i = 2;
-    if (p[0] === "class" && p[i] && !tier(p[i])) { if (!SLUG.test(p[i])) return null; r.spec = p[i++]; }
-    if (p[i]) { if (!tier(p[i])) return null; r.tier = p[i++]; r.explicitTier = true; }
-    if (p[i]) { if (!/^[a-z0-9][a-z0-9.-]{0,119}$/.test(p[i])) return null; r.chapter = p[i++]; }
-    return i === p.length ? r : null;
+    if (p[0] === "class" && p[i] && !tier(p[i])) { if (!SLUG.test(p[i])) return missing(/^[0-9]+$/.test(p[i]) ? "track" : "spec"); r.spec = p[i++]; }
+    if (p[i]) { if (!tier(p[i])) return missing("track"); r.tier = p[i++]; r.explicitTier = true; }
+    if (p[i]) { if (!/^[a-z0-9][a-z0-9.-]{0,119}$/.test(p[i])) return missing("chapter"); r.chapter = p[i++]; }
+    return i === p.length ? r : missing("page");
   }
 
   const count = n => Number.isInteger(n) && n >= 0 && n <= 5000;
@@ -425,10 +429,10 @@
 
     function guideView(ctx, entry, route) {
       const g = ctx.guide, spec = route.spec ? g.specs.find(s => s.id === route.spec) : null;
-      if (route.spec && !spec) return notFound();
+      if (route.spec && !spec) return notFound("spec", g.name + " has no spec by that name.", [guideHref(entry), g.name + " class course"]);
       const owner = spec || g, base = guideHref(entry, spec && spec.id), scopeKey = spec ? "spec:" + g.id + "-" + spec.id : g.kind + ":" + g.id;
-      if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound();
       const title = spec ? spec.name + " " + g.name : g.name, used = ctx.used;
+      if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound("chapter", "The " + TRACK_NAMES[route.tier] + " track of the " + title + " course has no chapter by that name.", [base + "/" + route.tier, title + " " + TRACK_NAMES[route.tier]]);
       for (const id of owner.overview.facts) used.add(ctx.facts.get(id).grade);
       const frag = [], trail = [["#/guides", "Olympus University"]];
       if (spec) trail.push([guideHref(entry), g.name], [null, spec.name]); else trail.push([null, g.name]);
@@ -450,7 +454,7 @@
     function examView(ctx, entry, route) {
       const g = ctx.guide, [kind, ...rest] = route.scope.split("-"), id = rest.join("-");
       const spec = kind === "spec" ? g.specs.find(s => g.id + "-" + s.id === id) : null;
-      if (kind === "spec" && !spec) return notFound();
+      if (kind === "spec" && !spec) return notFound("exam");
       const scopeKey = kind + ":" + id, examKey = scopeKey + ":" + route.tier, pool = examPool(ctx, scopeKey, route.tier);
       const name = (spec ? spec.name + " " : "") + g.name, back = guideHref(entry, spec && spec.id) + "/" + route.tier;
       const frag = [crumbs(["#/guides", "Olympus University"], ["#/guides/exams", "Mastery exams"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
@@ -477,20 +481,32 @@
       return frag;
     }
 
-    const notFound = () => [el("p", { text: "There is no such guide." }), link("#/guides", "Back to Olympus University", "btn")];
+    // INT-UNI-1 / CL2-105 (12 Nov 2026): every address that names nothing gets one H1 ending in "not found", a status
+    // sentence and a way back to the hub (and to the nearest page that does exist, when there is one).
+    const MISSING = { guide: ["Guide", "There is no such guide in Olympus University."], class: ["Class guide", "There is no such class guide in Olympus University."],
+      race: ["Race guide", "There is no such race guide in Olympus University."], profession: ["Profession guide", "There is no such profession guide in Olympus University."],
+      spec: ["Spec", "There is no such spec."], track: ["Track", "Every course has three tracks: 101 Foundations, 201 Intermediate and 301 Advanced."],
+      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page in Olympus University."] };
+    const notFound = (what, sentence, back) => {
+      const [noun, fallback] = MISSING[what] || MISSING.page, title = noun + " not found";
+      if (!back && what === "exam") back = ["#/guides/exams", "Browse every exam"];
+      return [crumbs(["#/guides", "Olympus University"], [null, title]),
+        el("header", { class: "uni-head" }, el("div", null, el("h1", { text: title }), el("p", { role: "status", text: sentence || fallback }))),
+        el("div", { class: "btn-row" }, back ? link(back[0], back[1], "btn") : null, link("#/guides", "Back to Olympus University", "btn"))];
+    };
 
     async function render() {
       if (!alive) return;
       store.load();
       try {
         index = checkIndex(await getJson("index.json"));
-        if (!route) { shell.replaceChildren(...notFound()); return; }
+        if (route.view === "missing") { shell.replaceChildren(...notFound(route.what)); return; }
         if (route.view === "hub") { shell.replaceChildren(...hub()); return; }
         if (route.view === "exams") { shell.replaceChildren(...examsIndex()); return; }
         const kind = route.view === "exam" ? (route.scope.startsWith("spec-") ? "class" : route.scope.split("-")[0]) : route.kind;
         const id = route.view === "exam" ? route.scope.slice(route.scope.indexOf("-") + 1) : route.id;
         const entry = index.guides.find(g => g.kind === kind && (g.id === id || (route.view === "exam" && route.scope.startsWith("spec-") && id.startsWith(g.id + "-"))));
-        if (!entry) { shell.replaceChildren(...notFound()); return; }
+        if (!entry) { shell.replaceChildren(...notFound(route.view === "exam" ? "exam" : kind)); return; }
         if (entry.status === "planned") {
           shell.replaceChildren(crumbs(["#/guides", "Olympus University"], [null, entry.name]), header(entry.name + " guide", null, null),
             section("Not written yet", el("p", { text: "The " + entry.name + " guide has not been written yet. It will be built only from reviewed facts the site holds." }), link("#/guides", "Back to Olympus University", "btn")));
