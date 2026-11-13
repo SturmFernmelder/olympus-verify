@@ -78,6 +78,11 @@ export function canonicalNativeRole233(policy:CanonicalRankPolicy233,index:unkno
 export function currentDirectiveCanonicalPolicy233(policy:CanonicalRankPolicy233|null):policy is CanonicalRankPolicy233{
  return !!policy&&originals.has(policy)&&policy.enabled&&policy.version===2&&policy.profile===DIRECTIVE_CANONICAL_PROFILE;
 }
+/** Preserve the serving policy's original mapping without activating Directive
+ * or reviving the older .232 mirror-role producer. Parsed policy identity matters. */
+export function currentOriginalCanonicalPolicy233(policy:CanonicalRankPolicy233|null):policy is CanonicalRankPolicy233{
+ return !!policy&&originals.has(policy)&&policy.enabled&&policy.version===1&&policy.profile===CANONICAL_PROFILE233;
+}
 /** A present selection suppresses old producers even if malformed/disabled. It
  * never changes an old ACK or supplies authority to delete a role. */
 export function canonicalProducerHeld233(env:unknown,guild:string,role:string):boolean{

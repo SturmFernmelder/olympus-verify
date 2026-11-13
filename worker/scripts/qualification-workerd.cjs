@@ -5,6 +5,8 @@ const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareO
 const root=path.resolve(__dirname,'..'),out=process.argv[2],targets=process.argv.slice(3);
 if(!out||!path.isAbsolute(out)||!fs.statSync(out).isDirectory()||targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('invalid_runtime_arguments');
 const kinds=['baseline',...targets],calls=[],handoffs=[],present=new Set(),blocked='800000000000000103';
+const canonicalGuild='236932545793490944',canonicalSubject='800000000000000399',canonicalGM='1554261979684933742',canonicalBot='800000000000000002',canonicalBotRole='888888888888888888';
+let canonicalPresent=false;
 const bundle=buildSync({entryPoints:[path.join(root,'tests/qualification_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
 let mf,complete=false;
 const observations=[];
@@ -27,6 +29,12 @@ async function run(){
         assert.equal(u.origin,'https://discord.com','only synthetic Discord HTTP is permitted');
         assert.equal(u.search,'','unexpected outbound query');
         calls.push({method:request.method,path:p});
+        if(p==='/users/@me'||p.startsWith('/guilds/'+canonicalGuild+'/'))assert(u.pathname.startsWith('/api/v10/'),'exact canonical Discord API prefix');
+        if(request.method==='GET'&&p==='/users/@me')return Response.json({id:canonicalBot,bot:true});
+        if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/roles')return Response.json([{id:canonicalGuild,name:'@everyone',position:0,permissions:'0',managed:false},{id:canonicalBotRole,name:'Fixture Bot',position:100,permissions:'268435456',managed:false},{id:canonicalGM,name:'Olympus Guild Master',position:50,permissions:'0',managed:false},{id:'1552077551839617104',name:'Olympus Member',position:1,permissions:'0',managed:false}]);
+        if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/members/'+canonicalBot)return Response.json({user:{id:canonicalBot,bot:true},roles:[canonicalBotRole]});
+        if(request.method==='GET'&&p==='/guilds/'+canonicalGuild+'/members/'+canonicalSubject)return Response.json({user:{id:canonicalSubject},roles:canonicalPresent?[canonicalGM]:[]});
+        if(request.method==='PUT'&&p==='/guilds/'+canonicalGuild+'/members/'+canonicalSubject+'/roles/'+canonicalGM){canonicalPresent=true;return new Response(null,{status:204});}
         if(request.method==='GET'&&p==='/guilds/800000000000000001/roles')return Response.json([{id:'800000000000000010'},{id:'800000000000000011'}]);
         const member=p.match(/^\/guilds\/800000000000000001\/members\/(80000000000000010[123])$/);
         if(request.method==='GET'&&member)return Response.json({user:{id:member[1]},roles:member[1]===blocked?['800000000000000011']:present.has(member[1])?['800000000000000010']:[]});
@@ -43,8 +51,8 @@ async function run(){
       for(const check of observation.checks)console.log('PASS '+target+': '+check.name);
     }
     const effects=calls.filter(x=>x.method!=='GET');
-    assert.deepEqual(effects,[{method:'PUT',path:'/guilds/800000000000000001/members/800000000000000101/roles/800000000000000010'}],'only the eligible synthetic grant may dispatch');
-    console.log('PASS only one eligible synthetic Discord effect; no banned, blocked or unproven Native effect');
+    assert.deepEqual(effects,[{method:'PUT',path:'/guilds/800000000000000001/members/800000000000000101/roles/800000000000000010'},...(targets.includes('reconciliation')?[{method:'PUT',path:'/guilds/'+canonicalGuild+'/members/'+canonicalSubject+'/roles/'+canonicalGM}]:[])],'only the eligible common grant and separately proved original-policy Native grant may dispatch');
+    console.log('PASS only eligible common and original-policy Native grants; no banned, blocked, mirror or Member-stack effect');
     assert.deepEqual(handoffs.map(x=>[x.kind,x.status]),targets.includes('reconciliation')?[['requests',503],['sweep',202]]:[],'failed requests handoff must not suppress or repeat the independent sweep');
     if(targets.includes('reconciliation'))console.log('PASS signed request503 and independent same-generation sweep202 each attempted once in order');
     complete=true;

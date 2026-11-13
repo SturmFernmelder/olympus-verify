@@ -12,6 +12,7 @@ import {CANONICAL_PROFILE233, CANONICAL_RANKS233, NATIVE_NAMES233} from '../src/
 import {kickRoleWorkGroups266} from '../src/role-reconcile242.ts';
 import {D1_PERFORMANCE_INDEX_NAME, D1_PERFORMANCE_INDEX_DDL} from '../src/d1-performance-index.ts';
 import {readOriginalCompleteSchema} from '../src/privacy-schema-source-plan.ts';
+import {originalCanonicalSmoke280} from './canonical_v1_compat280_smoke.mjs';
 
 const EPOCH='a'.repeat(32), GUILD='800000000000000001', ROLE='800000000000000010';
 const ALLOWED='800000000000000101', BANNED='800000000000000102', BLOCKED='800000000000000103', PRIVATE='800000000000000104';
@@ -43,7 +44,7 @@ export default {async fetch(request,bindings,ctx){
   const kind=new URL(request.url).pathname.slice(1), checks=[];
   if(request.method!=='POST'||!['baseline','lease','treasury','reconciliation'].includes(kind)||ONCE.has(kind))return new Response(null,{status:404});
   ONCE.add(kind);
-  const check=(name,condition)=>{if(!condition)throw Error(name);checks.push({name,passed:true});};
+  const check=(name,condition,observed)=>{if(!condition)throw Error(name+(observed===undefined?'':': '+JSON.stringify(observed)));checks.push({name,passed:true,...(observed===undefined?{}:{observed})});};
   const refused=async work=>{try{await work();return false;}catch{return true;}};
   const db=bindings['DB_'+kind];
   try{
@@ -51,7 +52,7 @@ export default {async fetch(request,bindings,ctx){
       const uninstalled=await worker.fetch(new Request('https://verify.example/health'),{...config,DB:db},ctx);
       check('actual Worker refuses an uninstalled D1',uninstalled.status===503);
     }
-    const env=await provision(db,kind==='reconciliation'?'recorded-live-pre-seal-20261017':'canonical');
+    let env=await provision(db,kind==='reconciliation'?'recorded-live-pre-seal-20261017':'canonical');
     if(kind==='baseline'){
       const health=await worker.fetch(new Request('https://verify.example/health'),{...config,DB:db},ctx),body=await health.json();
       check('actual Worker health consumes installed schema successfully',health.status===200&&body.ok===true&&body.d1==='ok');
@@ -206,6 +207,10 @@ export default {async fetch(request,bindings,ctx){
       let schedulingFailure;
       try{await kickRoleWorkGroups266(env,{id:walk,n:5});}catch(error){schedulingFailure=error;}
       check('request handoff failure remains visible after the independent sweep attempt',schedulingFailure instanceof AggregateError&&schedulingFailure.errors.length===1&&schedulingFailure.errors[0]?.status===503);
+      // The original fixed-ID selector cases and signed handoff finish first.
+      // The smoke publishes later snapshots, then returns the rebound writer
+      // before the existing independent schema-index negative controls.
+      env=await originalCanonicalSmoke280(db,env,check);
       const health=()=>worker.fetch(new Request('https://verify.example/health'),{...env,DB:db},ctx);
       await db.prepare(D1_PERFORMANCE_INDEX_DDL).run();
       check('exact optional performance index preserves actual Worker health',(await health()).status===200);

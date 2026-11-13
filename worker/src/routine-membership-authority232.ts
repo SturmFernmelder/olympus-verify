@@ -8,16 +8,16 @@ import { linksNotBefore } from './db';
 import { privacyProviderCustodyDatabase,privacyGenerationFenceSql } from './privacy-serving-authority';
 import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
-import {captureCanonicalRankConfig233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233,NATIVE_NAMES233} from './canonical-ranks233';
 import {recognizedMembershipAnchor232 as ANCHOR} from './roster-verification275';
 import {DIRECTIVE_RANK_NAMES,DIRECTIVE_NATIVE_PROFILE,nativeMembershipSourceMatches,qualifiedNativeSnapshotSource} from './native-rank-schemes';
-import {directiveSnapshotSql280} from './directive-native-authority';
+import {canonicalRankSource280,canonicalRankSnapshotSql280,canonicalRankWitnessMatches280} from './canonical-native-authority280';
 
 declare const routine232Brand:unique symbol;
 export type RoutineMembership232=Readonly<{[routine232Brand]:true}>;
 export type RoutineMembership232Facts=Readonly<{subject:string;subjectGeneration:string|null;snapshotId:number;snapshotExportedAt:number;
  deadline:number;primary:Readonly<{guid:string;nameKey:string;rank:string;index:number}>|null;policyRaw:string;
- rankQualified:boolean;rankProfile:string|null;
+ rankQualified:boolean;rankProfile:string|null;canonicalRankProfile:string|null;
  cause:'eligible'|'departure'|'ban'|'rename_hold'|'blocking_role'}>;
 type Scalar=string|number|null;
 type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void};
@@ -102,6 +102,9 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   if(!Array.isArray(rows)||rows.length!==row.member_count||rows.length<floor||rows.length>1000||!Number.isSafeInteger(row.previous_count)||(row.previous_count-rows.length)*100>shrink*row.previous_count||!Array.isArray(links)||!links.length||links.length>100||standing.length!==3||standing.some(v=>v!==0&&v!==1))return null;
   const directiveSource=row.source===qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm),rankNames=directiveSource?DIRECTIVE_RANK_NAMES:NATIVE_RANK_NAMES232;
   const rankQualified=directiveSource&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===DIRECTIVE_RANK_NAMES[r[3]]);
+   const canonicalSource=canonical.mode==='enabled'?canonicalRankSource280(canonical.policy,row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm):null;
+   const canonicalNames=canonicalSource==='directive-native-v2'?DIRECTIVE_RANK_NAMES:NATIVE_NAMES233;
+   const canonicalRankProfile=canonicalSource&&(canonicalSource==='original-native-v1'||rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===canonicalNames[r[3]]))?canonical.policy!.profile:null;
   const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>();
   for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
    if(typeof key!=='string'||!key||names.has(key))return null;
@@ -149,7 +152,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   eligible.sort((a,b)=>a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
   const cause:RoutineMembership232Facts['cause']=standing[0]===1||standing[1]===1?'ban':standing[2]===1?'rename_hold':eligible.length?'eligible':'departure';
   const primary=cause==='eligible'?eligible[0]!:null,deadline=Math.min(at+300,row.exported_at+600);
-  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?DIRECTIVE_NATIVE_PROFILE:null});
+  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?DIRECTIVE_NATIVE_PROFILE:null,canonicalRankProfile});
   const values=Object.freeze([subject,row.generation,row.id,row.exported_at,row.source,row.member_count,row.rows_json,row.links_json,row.standing_json,deadline,cutoff,row.previous_count,selection.raw,canonical.mode==='enabled'?canonical.raw:'null']);
   const effectCheck=(effect:Env)=>{check();const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
    for(const key of CONFIG){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}};
@@ -180,9 +183,10 @@ export function closeRoutineMembership232(cap:RoutineMembership232):void{origina
  * at every queue/claim/final admission, including across provider awaits. */
 export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1,rankConversion=false):Readonly<{sql:string;receiptSourceIntegritySql:string;values:readonly Scalar[];next:number}>{
  assertRoutineMembership232(env,cap);if(!Number.isSafeInteger(start)||start<1||start>75)return held();const r=originals.get(cap)!;
- if(rankConversion&&!r.facts.rankQualified)return held();
+ const canonical=captureCanonicalRankConfig233(env);
+ if(rankConversion&&(canonical.mode!=='enabled'||!canonical.current()||!canonicalRankWitnessMatches280(canonical.policy,r.facts.canonicalRankProfile,r.facts.rankQualified)))return held();
  const q=(n:number)=>'?'+(start+n),replace=(sql:string)=>sql.replace(/\?1\b/g,q(0));
- const originalSourcePredicate=(standing:boolean)=>`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${directiveSnapshotSql280(q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
+ const originalSourcePredicate=(standing:boolean)=>`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${canonicalRankSnapshotSql280(canonical.policy,q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
   AND EXISTS(SELECT 1 FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=${q(0)} WHERE
   (s.id=${q(2)} AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.exported_at=${q(3)} AND s.source=${q(4)})
   AND (s.member_count=${q(5)} AND s.complete=1 AND s.trusted=1 AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
