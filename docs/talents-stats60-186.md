@@ -45,8 +45,9 @@ both rows share by talent rank (.193): a rank change on the same modifier shows 
   (`stat-effects186.json` `source.textRecheck` and `counts`). No DB2 export of 1.60.1.70755 was checked.
 - Historical (16 October 2026 snapshot, revision 260cf99b52db): 141 components in 130 talents (tiers A 63, B 34, C 10,
   M 34), each equal to its Talents Forever rank text for client 1.60.1.70425. 135 also equalled the client's
-  TraitDefinitionEffectPoints and CurvePoint curves in 1.60.1.70425 and 1.60.1.70450 (grade A). Six carry a semantic reading of client data (grade B): Anger Management,
-  Lone Wolf, Leader of the Pack, the fixed Spirit Tap Spirit bonus and the added Spirit Tap casting regen are read from
+  TraitDefinitionEffectPoints and CurvePoint curves in 1.60.1.70425 and 1.60.1.70450 (grade A).
+- Six components carry a semantic reading of client data (grade B), then and now: Anger Management, Lone Wolf,
+  Leader of the Pack, the fixed Spirit Tap Spirit bonus and the added Spirit Tap casting regen are read from
   SpellEffect, and Careful Aim's ranged attack power is an exact curve whose stat is read from its aura (aura 580 occurs
   only on Careful Aim; aura 598, the melee attack power aura of Mental Dexterity and Cat Form, is its melee component).
   Each component pins the SHA-256 of every rank text; the browser re-hashes the shipped `data.json` texts and withholds
