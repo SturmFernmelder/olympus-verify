@@ -570,6 +570,19 @@ check('INT-UNI-2: the hub says Forever launched on 4 November 2026 and gives the
   return /Forever launched worldwide on 4 November 2026 at 23:00 UTC\. First raid unlock date: 9 December 2026\./.test(t) && !/announced|upcoming/i.test(t)
     && /Raid unlock date: 9 December 2026/.test(hunter.container.textContent) && !/open on 9 Dec/.test(hunter.container.textContent) || JSON.stringify({ hub: t.slice(0, 400) });
 });
+// REV-UNI-2 (12 Nov 2026): examView built the legend before it collected the grades its questions cite, so no exam
+// page showed "How to read the grades". Every exam must show it, listing exactly the grades its drawn questions cite.
+check('REV-UNI-2: a mastery exam shows the "How to read the grades" legend with the grades its questions cite', async () => {
+  const F = allFacts(), Q = quizzes(), bad = [];
+  for (const parts of [['exam', 'spec-warrior-arms', '101'], ['exam', 'class-warrior', '201'], ['exam', 'race-human', '101'], ['exam', 'profession-alchemy', '101']]) {
+    const p = await open(parts), legend = p.container.querySelector('details.uni-legend');
+    const ids = p.container.querySelectorAll('fieldset').map(b => b.getAttribute('data-question'));
+    const want = ['A', 'B', 'C', 'D', 'E', 'U'].filter(g => ids.some(id => Q.get(id).facts.some(f => F.get(f).grade === g)));
+    const shown = legend ? legend.querySelectorAll('dt').map(text) : [];
+    if (!ids.length || !legend || text(legend.querySelector('summary')) !== 'How to read the grades' || JSON.stringify(shown) !== JSON.stringify(want)) bad.push(parts.join('/') + ' ' + JSON.stringify({ legend: !!legend, shown, want }));
+  }
+  return bad.length === 0 || bad.join(' | ');
+});
 
 (async () => {
   for (const run of pending) {

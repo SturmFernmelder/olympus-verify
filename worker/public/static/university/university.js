@@ -478,9 +478,10 @@
           el("div", { class: "btn-row" }, el("button", { type: "button", class: "btn", text: "Take a new exam", onclick: () => { store.next(examKey); render(); } }), link(back, "Back to the course", "btn")));
         result.focus();
       } }, blocks, el("div", { class: "btn-row" }, submit));
+      // REV-UNI-2 (12 Nov 2026): the grades the answers cite are collected before the legend is built, so the legend shows.
+      for (const q of picked) for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade);
       frag.push(section("About this exam", el("p", { text: picked.length + " questions drawn from the " + pool.length + " in this track. Choose one answer for each, then submit. Unanswered questions count as wrong." })),
         result, form, scoresPanel(), legend(ctx.used));
-      for (const q of picked) for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade);
       return frag;
     }
 
