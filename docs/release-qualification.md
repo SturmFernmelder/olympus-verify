@@ -37,10 +37,16 @@ says what runs today and where it still falls short of the directive's wording.
      for both Native sweep selectors, against every table in the database: each
      full scan must match an entry of `KNOWN_REQUEST_SCANS` or
      `KNOWN_SWEEP_SCANS` (in `worker/tests/launch_roster_pacing271_runtime.mjs`)
-     by exact plan text and count. A new scan, a changed one or one more
-     occurrence fails the target, and so does a `SCAN` target the check cannot
-     resolve to a table. The pinned scans are the shipped plans, not a pass:
-     they are listed under "Known full scans" below;
+     by exact plan text and count. A full scan is a `SCAN` row, or a
+     `SEARCH ... USING AUTOMATIC [PARTIAL] [COVERING] INDEX` row, on a table or
+     a table alias: an automatic index is what SQLite plans for a join on an
+     unindexed column, and it is built by reading the whole table on every run.
+     Rows on a common table expression, a derived table or an unnamed subquery
+     are not table reads (the reads inside them are plan rows of their own). A
+     new scan, a changed one or one more occurrence fails the target, and so
+     does a scan target the check cannot resolve to a table. The pinned scans
+     are the shipped plans, not a pass: they are listed under "Known full
+     scans" below (the shipped plans have no automatic index on a table);
    - every read statement of the page and the display, and both sweep selectors,
      re-run alone on the same data the requests read (before the ingest writes a
      new snapshot), finishes in under one second. Locally the slowest takes tens

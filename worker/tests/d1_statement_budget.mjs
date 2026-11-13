@@ -52,7 +52,9 @@ const NOT_ALIAS = new Set(['where', 'on', 'join', 'left', 'right', 'full', 'inne
 /**
  * Run EXPLAIN QUERY PLAN for every logged statement that names a table, with its original binds, on the genuine binding
  * (EXPLAIN never executes the statement), and return every plan row that reads a whole physical table. SQLite reports
- * those as `SCAN <table or alias>` (optionally `USING [COVERING] INDEX ...`); an indexed lookup is `SEARCH ...`.
+ * those as `SCAN <table or alias>` (optionally `USING [COVERING] INDEX ...`) and, for a join on an unindexed column, as
+ * `SEARCH <table or alias> USING AUTOMATIC ... INDEX`, whose index is built from the whole table on every run. Any other
+ * `SEARCH ...` is an indexed lookup.
  *
  * `tables` limits the check to the named tables; leave it out (12 Nov review of CL2-024) to check every table in the
  * database, so a scan of a table nobody thought to list cannot pass unseen. A `SCAN` of a common table expression, a
@@ -94,11 +96,17 @@ export async function fullScans(genuine, log, tables) {
     for (const row of rows) {
       const detail = String(row.detail ?? '');
       const scan = detail.match(/^SCAN (?:TABLE )?(?:(?:main|temp)\.)?([A-Za-z_][A-Za-z0-9_]*)/);
-      if (!scan) continue;
-      const name = scan[1].toLowerCase();
+      // 12 Nov 2026 review (REV-GATE-1): a join on an unindexed column plans as `SEARCH <alias> USING AUTOMATIC
+      // [PARTIAL] [COVERING] INDEX (...)`. SQLite builds that index by reading the whole table on every run, so on a
+      // physical table it is a full scan that would otherwise pass as an indexed lookup. It is counted like a SCAN.
+      const automatic = scan ? null : detail.match(/^SEARCH (?:TABLE )?(?:(?:main|temp)\.)?(\S+) USING AUTOMATIC\b/);
+      if (!scan && !automatic) continue;
+      const name = (scan ?? automatic)[1].toLowerCase();
       // A name that is both an alias and a CTE counts as a table scan: the ambiguity fails closed.
       if (aliases.has(name)) scans.push({table: aliases.get(name), detail, sql: sql.slice(0, 240)});
       else if (ctes.has(name) || /VIRTUAL TABLE/.test(detail) || name === 'constant') continue;
+      // An automatic index on a subquery result (`subquery-17`) is built from rows the plan already lists on their own.
+      else if (automatic && /^\(?subquery-\d+\)?$/.test(name)) continue;
       else if (!tables) unresolved.push({detail, sql: sql.slice(0, 240)}); // a narrowed check ignores other tables
     }
   }

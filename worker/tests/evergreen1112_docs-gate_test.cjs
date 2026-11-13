@@ -71,6 +71,25 @@ async function budget() {
   const masked = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SCAN zz'}]})} : genuine.prepare(sql)};
   const closed = await mod.fullScans(masked, [{sql: 'SELECT * FROM members', values: []}]);
   check('a SCAN target that cannot be resolved to a table is reported, so the gate fails closed', closed.unresolved.length === 1 && closed.scans.length === 0);
+  // 12 Nov review (REV-GATE-1): an equality join on an unindexed column plans as SEARCH ... USING AUTOMATIC ... INDEX,
+  // which builds an index over the whole table on every run. On a physical table that is a full scan.
+  const automatic = await mod.fullScans(genuine, [
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN audit a ON a.action = m.discord_id', values: []},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN audit ON audit.action = m.discord_id', values: []},
+    {sql: 'WITH recent AS MATERIALIZED (SELECT name_key FROM roster_members WHERE snapshot_id = ?1) SELECT m.banned FROM members m LEFT JOIN recent x ON x.name_key = m.discord_id', values: [1]},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN (SELECT action FROM audit GROUP BY action) AS d ON d.action = m.discord_id', values: []},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN (SELECT action FROM audit GROUP BY action) ON action = m.discord_id', values: []},
+  ]);
+  const autoRows = automatic.scans.filter(s => / USING AUTOMATIC /.test(s.detail));
+  check('an unindexed equality join (automatic index) on a table, by alias or by name, is reported as a full scan of that table',
+    autoRows.length === 2 && autoRows.every(s => s.table === 'audit' && /^SEARCH (?:a|audit) USING AUTOMATIC (?:PARTIAL )?(?:COVERING )?INDEX \(action=\?\)/.test(s.detail)));
+  check('an automatic index on a CTE, a derived table or an unnamed subquery is not counted as a table read',
+    automatic.unresolved.length === 0 && !automatic.scans.some(s => /^SEARCH (?:x|d|\(subquery-\d+\)) /.test(s.detail)));
+  check('the allow-list key of an automatic-index scan names the table and the exact plan text',
+    mod.scanCounts(automatic.scans)['audit: SEARCH a USING AUTOMATIC COVERING INDEX (action=?) LEFT-JOIN'] === 1);
+  const maskedAuto = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SEARCH zz USING AUTOMATIC COVERING INDEX (x=?)'}]})} : genuine.prepare(sql)};
+  const closedAuto = await mod.fullScans(maskedAuto, [{sql: 'SELECT * FROM members', values: []}]);
+  check('an automatic-index target that cannot be resolved to a table is reported, so the gate fails closed', closedAuto.unresolved.length === 1 && closedAuto.scans.length === 0);
   db.close();
   const runtime = read('worker/tests/launch_roster_pacing271_runtime.mjs'), target = read('worker/tests/launch_roster_pacing271_workerd_test.cjs');
   check('the promotions target measures the page, the strict display and a 1,000-member ingest through worker.fetch',
