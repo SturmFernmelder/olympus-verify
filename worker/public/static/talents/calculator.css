@@ -111,3 +111,11 @@
   .talents-tree-header { flex-wrap: wrap; height: auto; min-height: 42px; }
   .talents-tree-header :is(h3, strong) { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 }
+/* Evergreen Stage 2 (12 Nov 2026): a talent without an official icon on file keeps the plain dark tile; archived builds carry a read-only notice; the calculator's own "Attach to my application" control. */
+.talents-pick>.talents-noart{display:block;width:40px;height:40px;background:linear-gradient(135deg,#202020,#111)}
+.talents-tooltip-heading>.talents-noart{display:block;flex:0 0 32px;width:32px;height:32px;border:1px solid #b8a15e;background:#151515}
+.talents-archive-notice{margin:0;padding:10px 12px;font-size:13px;line-height:1.45;color:#f4e6bd;background:#3b311f;border-top:1px solid #8b7442;border-bottom:1px solid #8b7442}
+.talents-attach{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 14px;padding:8px 12px;background:#1d1d1d;border-top:1px solid #3e3e35}
+.talents-tool .talents-attach-button{min-height:44px;padding:8px 16px;font-weight:700;color:#fff1ba;background:#49402c;border-color:#b39c63}
+.talents-attach-note{margin:0;max-width:52ch;font-size:12px;line-height:1.45;color:#cfc8b4;text-align:center}
+@media(max-width:560px){.talents-attach{flex-direction:column;align-items:stretch}.talents-tool .talents-attach-button{width:100%}}

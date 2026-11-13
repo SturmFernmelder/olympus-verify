@@ -1803,6 +1803,8 @@
         return window.OlympusTalentStats60;
       }),
       className: dec(parts[0] || "warrior"), build: dec(parts[1] || ""),
+      // CL2-088 (12 Nov 2026): the calculator's own "Attach to my application" uses the guide presets' pending-attachment path.
+      canAttach: talentAttachAllowed218(), attachReason: TALENT_ATTACH_CLOSED218, onAttach: attachTalentBuild218,
       onBuildChange: value => {
         if (main.parentNode !== app) return;
         history.replaceState(null, "", "#/talents/" + encodeURIComponent(value.className) + "/" + encodeURIComponent(value.build));
@@ -1837,6 +1839,12 @@
   // application form for the applicant to check and save; it never saves, never ticks a consent and never changes board sharing.
   const GUIDE_TOOLS218 = { attunements: "Attunements & pre-raid checklist", buffs: "World buffs & consumables", "raid-structure": "Raid team structure & leadership", changes: "What changed in Forever" };
   let talentAttachment218 = null;
+  // Evergreen Stage 2 (owner ruling, 12 Nov 2026): codes made on an archived talent revision stay readable. The calculator
+  // opens them read-only from talents/archive/; keep this list equal to ARCHIVES in talents/calculator.js.
+  const TALENT_ARCHIVES218 = Object.freeze({ "260cf99b52db": "16 October beta data" });
+  const TALENT_ATTACH_CLOSED218 = "Applications are closed right now, so a build cannot be attached.";
+  const talentAttachAllowed218 = () => S.settings?.applicationsOpen !== false || ["submitted","reviewing"].includes(S.application?.status);
+  const attachTalentBuild218 = build => { talentAttachment218 = { classId: build.classId, level: build.level, code: build.code, label: build.label, at: Date.now() }; location.hash = "#/apply"; };
   function guideTitle218(kind, key) {
     const k = dec(key || "");
     if (kind === "class") { const cls = M().classes.find(c => c.key === k); return cls ? `${cls.label} guide · Guides` : "Guides"; }
@@ -1852,8 +1860,7 @@
     return memberTool(main, "OlympusGuides", "/static/guides218.js", "/static/guides218.css", {
       view, classId: view === "class" ? first : undefined, specId: view === "class" && second ? second : undefined,
       profession: view === "profession" ? first : undefined, tool: view === "tool" ? first : undefined, talentRevision: M().talentSnapshotRevision,
-      canAttach: S.settings?.applicationsOpen !== false || ["submitted","reviewing"].includes(S.application?.status), attachReason: "Applications are closed right now, so a build cannot be attached.",
-      onAttach: preset => { talentAttachment218 = { classId: preset.classId, level: preset.level, code: preset.code, label: preset.label, at: Date.now() }; location.hash = "#/apply"; },
+      canAttach: talentAttachAllowed218(), attachReason: TALENT_ATTACH_CLOSED218, onAttach: attachTalentBuild218,
     });
   }
   function applyTalentAttachment218({ talentRows, cls, box, touch }) {
@@ -1870,7 +1877,7 @@
     if (!cls.value || cls.value === "undecided") { cls.value = pending.classId; cls.dispatchEvent(new Event("change")); classNote = ` Your class is now ${wanted.label}.`; }
     const field = pending.level === 30 ? talentRows[0].at30 : talentRows[0].at60;
     field.value = pending.code; touch();
-    say(`Attached "${pending.label}" as your level ${pending.level} beta build.${classNote} Review it against the current in-game talents. Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
+    say(`Attached "${pending.label}" as your level ${pending.level} build.${classNote} Check the form, tick the confirmation and save when ready. Nothing has been sent yet.`);
     field.focus();
   }
   ROUTES.guide = (main, parts) => {
@@ -3624,7 +3631,10 @@
         const code = String(ans[q.key]);
         const match = /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(?:[1-5][0-9]|60)\.[0-5]+$/.exec(code);
         const currentBuild = match && match[1] === meta.talentSnapshotRevision && match[2] === a.class;
-        add(paper, [h("h4", { text: q.label }), currentBuild ? h("a", { href: `#/talents/${match[2]}/${encodeURIComponent(code)}`, text: "Open the attached talent build" }) : h("p", { class: "muted small", text: "This attachment is unavailable in the current calculator." })]);
+        const archivedBuild = match && own(TALENT_ARCHIVES218, match[1]) && match[2] === a.class;
+        add(paper, [h("h4", { text: q.label }), currentBuild ? h("a", { href: `#/talents/${match[2]}/${encodeURIComponent(code)}`, text: "Open the attached talent build" })
+          : archivedBuild ? h("a", { href: `#/talents/${match[2]}/${encodeURIComponent(code)}`, text: `Open the attached build (${TALENT_ARCHIVES218[match[1]]}, read-only)` })
+          : h("p", { class: "muted small", text: "This attachment is unavailable in the current calculator." })]);
         continue;
       }
       add(paper, [h("h4", { text: q.label }), h("div", { class: "text", text: ans[q.key] })]);
@@ -3642,7 +3652,8 @@
     return h("ul", {class:"talent-build-links"}, items.slice(0,6).map(item => {
       const code = typeof item.code === "string" ? item.code : "", match = /^ot1\.([a-f0-9]{12})\.(warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid)\.(30|60)\.[0-5]+$/.exec(code);
       const current = match && match[1] === M().talentSnapshotRevision && match[2] === item.class && Number(match[3]) === item.level;
-      return h("li",null,h("span",{text:String(item.character || "Declared character")+" · "+labelOf(M().classes || [],item.class)+" · level "+item.level+" — "}),current ? h("a",{href:`#/talents/${match[2]}/${encodeURIComponent(code)}`,text:"Open build"}) : h("span",{class:"muted",text:"Unavailable in the current calculator"}));
+      const archived = match && own(TALENT_ARCHIVES218, match[1]) && match[2] === item.class && Number(match[3]) === item.level;
+      return h("li",null,h("span",{text:String(item.character || "Declared character")+" · "+labelOf(M().classes || [],item.class)+" · level "+item.level+" — "}),current ? h("a",{href:`#/talents/${match[2]}/${encodeURIComponent(code)}`,text:"Open build"}) : archived ? h("a",{href:`#/talents/${match[2]}/${encodeURIComponent(code)}`,text:`Open archived build (${TALENT_ARCHIVES218[match[1]]})`}) : h("span",{class:"muted",text:"Unavailable in the current calculator"}));
     }));
   }
 
