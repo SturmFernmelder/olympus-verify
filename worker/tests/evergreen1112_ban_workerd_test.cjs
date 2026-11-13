@@ -146,8 +146,13 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  const B0='100000000000000000';
  // The closed refusal reason exactly as captureDeleteRefusal280 writes it (fixed key order, ASCII literals only). For a
  // 429 the stored delta is due-floor(EOF) with due=ceil(EOF+60), so 60 or 61 seconds for retry_after 60.
- const refusalReason=(status,code,delta)=>'{"version":1,"type":"ban-rank-delete-refusal-v1","status":'+status+',"code":'+(code===null?'null':code)+',"retryAfterSeconds":'+delta+'}';
- const isRefusal=(row,status)=>status===429?[60,61].some(d=>row?.reason===refusalReason(429,null,d)):row?.reason===refusalReason(status,REFUSALS[status].body.code,0);
+ // Round 5 final (13 Nov 2026, Codex's 9a66048): a ban refusal is version 2 of type ban-rank-refusal-v2 with a sixth key,
+ // the ban's mandate: the first 32 hex digits of SHA-256 over ["olympus-ban-rank-mandate-v1", guild, subject, the row's
+ // generation, the newest admin.ban audit id, the newest admin.unban audit id] (role-settlements.ts removeBanRankRoles1112,
+ // captureDeleteRefusal280). The driver recomputes it from the ban cause the fixture reads back, so the check is exact.
+ const mandateOf=(x,row)=>require('node:crypto').createHash('sha256').update(JSON.stringify(['olympus-ban-rank-mandate-v1',G,SUBJECT,row?.subject_generation??null,x?.banCause?.ban??null,x?.banCause?.unban??null])).digest('hex').slice(0,32);
+ const refusalReason=(status,code,delta,mandate)=>'{"version":2,"type":"ban-rank-refusal-v2","status":'+status+',"code":'+(code===null?'null':code)+',"retryAfterSeconds":'+delta+',"mandate":"'+mandate+'"}';
+ const isRefusal=(row,status,x)=>{const m=mandateOf(x,row);return /^[0-9a-f]{32}$/.test(m)&&Number.isSafeInteger(x?.banCause?.ban)&&(status===429?[60,61].some(d=>row?.reason===refusalReason(429,null,d,m)):row?.reason===refusalReason(status,REFUSALS[status].body.code,0,m));};
  const seedSweep=async(k,details)=>{const y=await call('sweepstate/'+k,{details});return laneHead(y,'ordinary')?.id;};
  // A well-formed earlier row (32/64-hex identity fields, a closed 300 s window in the past), for synthetic controls.
  let rowSeq=0;const synthetic=async(k,o)=>{const now=(await call('clock/'+k)).now,n=(++rowSeq).toString(16);return {id:n.padStart(32,'a'),subject:SUBJECT,purpose:o.purpose,proof_id:o.purpose===BAN?n.padStart(32,'b'):null,guild_id:G,role_id:o.role??VETERAN,desired:o.desired,state:o.state,reason:o.reason,attempts:1,claim_nonce:n.padStart(32,'c'),subject_generation:o.generation??null,request_digest:n.padStart(64,'d'),native_profile:o.profile,created_at:now-1000,expires_at:now-700,checked_at:now-690};};
@@ -230,13 +235,17 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  await setup('known-404',{present:[VETERAN,ADDON],rank:5});state.get('known-404').del[VETERAN]=404;x=await ban('known-404');
  // Round 5 gate2 (13 Nov 2026): since fdf2158 a complete closed refusal is stored as its closed JSON reason
  // (role-settlements.ts captureDeleteRefusal280 and persistDeleteRefusal280), no longer as ban_rank1112_refused_404.
+ // Round 5 final (13 Nov 2026): version 2 with the ban's mandate since 9a66048 (refusalReason above).
  const k404=banRows(x).find(r=>r.role_id===VETERAN);
- check('known-positive: setup, a DELETE answered 404 is held with no effect',k404?.state==='held'&&isRefusal(k404,404)&&k404.attempts===1,x.rows);
+ check('known-positive: setup, a DELETE answered 404 is held with no effect',k404?.state==='held'&&isRefusal(k404,404,x)&&k404.attempts===1,x.rows);
  state.get('known-404').present.get(SUBJECT).delete(VETERAN);await unban('known-404');await call('refresh/known-404');x=await freshVerify('known-404');
- // Round 5 gate2: a 403/404 refusal is known (it does not fence as unresolved) but "Known permission/missing-member/role
- // refusals require attended resolution" (role-delete-refusal280.ts manualRankRefusalSql280, applied to the grant by
- // managedRankTargetAllowedSql280 in queueAndSettleLaunchMembership230): the fresh grant of that role is held.
- check('known-positive: a proved no-effect 404 is a known refusal that waits for attended resolution: after an unban fresh verification binds the member but sends no PUT for that role, and the refusal row is never changed',putsTo('known-404',VETERAN)===0&&!present('known-404').includes(VETERAN)&&x.verify?.body?.result==='member'&&x.verify.body.roleGranted===false&&same(banRows(x).find(r=>r.id===k404?.id),k404),{verify:x.verify,row:banRows(x).find(r=>r.id===k404?.id)});
+ // Round 5 final (13 Nov 2026): Codex's 630989f and 9a66048 scope the manual hold of a 403/404 refusal to that ban's own
+ // removal of that role: managedRankTargetAllowedSql280 (role-delete-refusal280.ts) binds a ban hold to the refusal's
+ // mandate and is applied only to ban and routine DELETE guards (role-settlements.ts removeBanRankRoles1112 and the
+ // canonical routine's desired===0 pacing); the verification grant's admission (queueAndSettleLaunchMembership230) now
+ // checks only the clear predicate, where banRank1112KnownReceipt counts the refusal as known, and the managed-rank
+ // cooldown. So after the unban the known no-effect 404 lets the fresh grant through, as before fdf2158.
+ check('known-positive: a proved no-effect 404 is a known refusal that holds only that ban\'s removal: after an unban fresh verification grants the rank (one PUT), and the refusal row is never changed',putsTo('known-404',VETERAN)===1&&present('known-404').includes(VETERAN)&&x.verify?.body?.result==='member'&&x.verify.body.roleGranted===true&&same(banRows(x).find(r=>r.id===k404?.id),k404),{verify:x.verify,row:banRows(x).find(r=>r.id===k404?.id)});
  });
  // A malformed or unrelated observation reason on an otherwise well-formed ban row cannot open the fence; the same row
  // with the acknowledgement reason can (inserted-ack-control), so only the reason differs.
@@ -409,9 +418,14 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  // closed JSON reason of fdf2158 instead of ban_rank1112_refused_<status> / ban_rank1112_rate_limited_429.
  for(const [k,status] of [['delete-404',404],['delete-403',403],['delete-429',429]]){
   await setup(k,{present:[MEMBER]});state.get(k).del[MEMBER]=status;x=await ban(k);const refused=banRows(x)[0];
-  check('DELETE '+status+': one DELETE, recorded as held with no effect',deletes(k).length===1&&banRows(x).length===1&&refused.state==='held'&&isRefusal(refused,status)&&refused.attempts===1&&present(k).includes(MEMBER),x.rows);
-  check('DELETE '+status+': the officer is told the role was not removed and why',lastReply(k).includes('Rank roles not removed: <@&'+MEMBER+'>')&&lastReply(k).includes('('+status+')')===(status!==429),lastReply(k));
-  if(status===429)check('DELETE 429: the reply makes no per-member "every 30 minutes" promise; the sweep tries again when its banned rotation reaches this account',lastReply(k).includes('the role sweep can try again when its banned rotation reaches this account')&&!lastReply(k).includes('every 30 minutes'),lastReply(k));
+  check('DELETE '+status+': one DELETE, recorded as held with no effect',deletes(k).length===1&&banRows(x).length===1&&refused.state==='held'&&isRefusal(refused,status,x)&&refused.attempts===1&&present(k).includes(MEMBER),x.rows);
+  // Round 5 final (13 Nov 2026, Codex's 7ecfe3b): the held role is named with the text of its own reason
+  // (interactions.ts BAN_RANK_REASONS): provider_refused_manual for a 403 or 404, which names both statuses and tells the
+  // officer to remove the role by hand, and managed_rank_cooldown for a 429, which needs no hand removal.
+  const refusedText=status===429?"Rank roles not removed: <@&"+MEMBER+">"+" (Discord's recorded wait deadline is still active; normal rank-role changes wait for it)."
+   :'Rank roles not removed: <@&'+MEMBER+'> (Discord returned a confirmed 403/404 refusal; that original removal is not repeated automatically). Remove them in Discord by hand if they must go now.';
+  check('DELETE '+status+': the officer is told the role was not removed and why',lastReply(k).includes(refusedText)&&lastReply(k).includes(String(status))===(status!==429)&&!/Rank roles removed|unconfirmed result/.test(lastReply(k)),lastReply(k));
+  if(status===429)check('DELETE 429: the reply makes no per-member "every 30 minutes" promise; it says Discord\'s recorded wait deadline is still active',lastReply(k).includes("Discord's recorded wait deadline is still active")&&!lastReply(k).includes('every 30 minutes')&&!lastReply(k).includes('Remove them in Discord by hand'),lastReply(k));
   // Round 5 gate2: a 403/404 refusal waits for attended resolution (role-delete-refusal280.ts manualRankRefusalSql280);
   // a later visit holds the role and never sends a second DELETE.
   if(status!==429){const from=deletes(k).length;x=await sweep(k);
@@ -424,7 +438,7 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  check('DELETE 429: inside Discord\'s retry window the banned sweep sends no DELETE, and one guild-wide cooldown is stored at the reply\'s own deadline',deletes('delete-429').length===paceFrom&&present('delete-429').includes(MEMBER)&&banRows(x).length===1&&Number.isSafeInteger(retry429)&&x.cooldown===JSON.stringify({version:1,due:r429.checked_at+retry429}),{cooldown:x.cooldown,row:r429,result:x.result,http:state.get('delete-429').http.slice(-6)});
  await call('cooldownpass/delete-429',{seconds:62});
  x=await sweep('delete-429');costs.sweep429=x.statements;
- check('after a 429 the banned sweep continues with a new DELETE that removes the role',deletes('delete-429').length===2&&!present('delete-429').includes(MEMBER)&&banRows(x).length===2&&banRows(x)[1].state==='settled'&&isRefusal(banRows(x)[0],429),x.rows);
+ check('after a 429 the banned sweep continues with a new DELETE that removes the role',deletes('delete-429').length===2&&!present('delete-429').includes(MEMBER)&&banRows(x).length===2&&banRows(x)[1].state==='settled'&&isRefusal(banRows(x)[0],429,x),x.rows);
  });
 
  // Round 5 gate2 (13 Nov 2026): negative controls for the ban lane. None of these replies is a complete closed refusal,
