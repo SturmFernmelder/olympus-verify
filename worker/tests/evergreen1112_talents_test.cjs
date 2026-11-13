@@ -239,6 +239,33 @@ check('the Discord talent replies name the 10 November data, not the 16 October 
   return !/16 October beta talent snapshot|'16 October beta builds'/.test(source) && /encoded against the 10 November talent data/.test(source) && /made on the 16 October beta data/.test(source);
 });
 
+// --- Docs (follow-up item 11, 12 Nov 2026): the two talent docs state the 10 November snapshot, and every paragraph or
+// bullet that still gives a 16 October number is labelled historical.
+check('docs: talents-data169.md and talents-stats60-186.md describe the 10 November data and label the 16 October facts historical', () => {
+  const doc = name => readText(repo, 'docs', name), bad = [];
+  const d169 = doc('talents-data169.md'), s60 = doc('talents-stats60-186.md');
+  const want169 = ['02e1e101d1a5', '1.60.1.70755', '3, 4, 6 and 10 November', '467 talents and 1,297 rank descriptions', '/static/talents/archive/260cf99b52db/', 'The 17 talents whose icon is not on file',
+    String(data.source.rawBytes).replace(/\B(?=(\d{3})+(?!\d))/g, ','), data.source.rawSHA256];
+  for (const w of want169) if (!d169.includes(w)) bad.push('talents-data169.md lacks ' + w);
+  const art = JSON.parse(readText(folder, 'art.json'));
+  if (art.talentIconsUnavailable.length !== 17 || data.counts.talents !== 467 || data.counts.ranks !== 1297) bad.push('the stated counts no longer match the shipped files');
+  const effects = JSON.parse(readText(folder, 'stat-effects186.json'));
+  const c = effects.counts, wantS60 = [c.components + ' components in ' + c.talents + ' talents', c.textMatchesCurrent + ' components match byte for byte', c.withheldTextChanged + ' have changed rank text', '02e1e101d1a5'];
+  for (const w of wantS60) if (!s60.includes(w)) bad.push('talents-stats60-186.md lacks ' + w);
+  // A block (paragraph or bullet) that gives an old snapshot number must say it is historical or name 16 October.
+  // In the sheet doc 1.60.1.70425 stays current as the DB2 build of its checks, so only the data doc refuses it.
+  const STALE = /\b466\b|1,313|260cf99b52db|141 components|reachable in this snapshot|Priest and Shaman have none|This beta snapshot/;
+  for (const [name, text, own] of [['talents-data169.md', d169, /\b70425\b/], ['talents-stats60-186.md', s60, /$^/]]) {
+    const blocks = text.split(/\n\s*\n|\n(?=- )/);
+    let historical = false;
+    for (const b of blocks) {
+      if (/^#{2,3} /m.test(b)) historical = /^#{2,3} Historical/m.test(b.match(/^#{2,3} .*$/m)[0]);
+      if ((STALE.test(b) || own.test(b)) && !historical && !/Historical|16 October|archive|archived|Archive/.test(b)) bad.push(name + ': ' + b.trim().slice(0, 90));
+    }
+  }
+  return bad.length === 0 || bad.slice(0, 6).join(' | ');
+});
+
 // --- CL2-088: the calculator's own Attach control uses the guide presets' attachment path.
 check('the calculator offers Attach only for level 30/60, hands over the exact code and is absent from archived builds', () => {
   const source = readText(folder, 'calculator.js'), app = readText(worker, 'public/static/app.js');
