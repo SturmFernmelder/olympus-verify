@@ -564,7 +564,7 @@ check('only the yearly cleanup and the erasure delete role records: the source h
   return /the yearly cleanup does not remove it, so it stays until the account is erased\./.test(html)
     && JSON.stringify(hits.sort()) === JSON.stringify(['beta-reset-retention.ts', 'beta-reset-retention.ts', 'qr-beta-fern-data.ts', 'qr-phase1-data.ts']) || hits;
 });
-check('policy: after a rate-limit answer the bot pauses rank-role changes guild-wide, up to a day, in one setting that names no one (behaviour, node:sqlite)', () => {
+check('policy: after a recorded rate-limit reply, normal rank-role synchronization waits up to a day, in one setting that names no one; erasure does not use the wait (behaviour, node:sqlite)', () => {
   if (!roleMod) return 'bundle unavailable';
   const m = roleMod, db = new DatabaseSync(':memory:');
   db.exec(read('worker/schema.sql'));
@@ -578,7 +578,7 @@ check('policy: after a rate-limit answer the bot pauses rank-role changes guild-
   const pacing = [m.roleDeletePacing280(1000.5, 86400, null), m.roleDeletePacing280(1000, 86401, null)];
   const src = read('worker/src/role-settlements.ts'), deletes = fs.readdirSync(path.join(worker, 'src')).filter(f => f.endsWith('.ts')).some(f => /DELETE FROM site_settings[^`]*cooldown280|DELETE FROM site_settings[^`]*MANAGED_RANK_COOLDOWN280/.test(fs.readFileSync(path.join(worker, 'src', f), 'utf8')));
   const p = /Guild role synchronization\.([^<]*)/.exec(html.replace(/<\/?strong>/g, ''))?.[1] || '';
-  return /After Discord asks the bot to wait, the bot pauses its automatic rank-role changes for the whole guild for as long as Discord asked, up to one day, and keeps that end time and when it was set in one setting that names no one\./.test(p)
+  return /When Discord answers a role removal with a complete rate-limit reply and the bot has recorded that reply, the bot's normal automatic rank-role synchronization for the guild waits until the end time Discord asked for, at most one day away; it keeps that end time and when it was set in one setting that names no one\. Account erasure and its role cleanup do not use this wait\. If the reply or its recording could not be confirmed, no wait is set and the change stays held for review\./.test(p) && !/pauses its automatic rank-role changes for the whole guild/.test(p)
     && before === 1 && during === 0 && after === 1 && withName === null && !/\?\d/.test(m.managedRankCooldownAllowedSql280())
     && pacing[0] && pacing[0].retryAfterSeconds <= 86401 && pacing[1] === null
     && /json_object\('version',1,'due',CAST\(\?\$\{dueAt\} AS INTEGER\)\),\$\{DB_NOW\},NULL/.test(src) && !deletes
