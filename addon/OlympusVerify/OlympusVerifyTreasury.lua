@@ -13,6 +13,7 @@ local REFERENCE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 local frame = CreateFrame("Frame", "OlympusVerifyTreasuryFrame")
 local trade, mailbox, mailBatch, cache, totals, scanSerial = nil, false, nil, {}, {}, 0
 local cacheComplete = false
+local cacheWitness280
 local uncertainTradeUntil = 0
 local hooksReady, mailHooked, warned = false, false, false
 local hookedMailActions = {}
@@ -257,9 +258,38 @@ local function settleMail()
   batch.before = current; batch.intents = kept
   if #kept == 0 then mailBatch = nil end
 end
+local function mailClock280()
+  local value=call(GetTime)
+  if type(value)=='number' and value==value and value>=0 and value<math.huge then return value end
+end
+local function mailIdentity280()
+  local collector,guid,guild,realm=identity()
+  if not collector then return nil end
+  return {collector=collector,guid=guid,guild=guild,realm=realm}
+end
+local function sameMailIdentity280(a,b)
+  return a and b and a.collector==b.collector and a.guid==b.guid and a.guild==b.guild and a.realm==b.realm
+end
+local function sameMailRows280(a,b)
+  if #a~=#b then return false end
+  for i,row in ipairs(a) do
+    local other=b[i]
+    if not other or row.sender~=other.sender or row.bucket~=other.bucket or row.reference~=other.reference
+      or row.money~=other.money or row.cod~=other.cod then return false end
+  end
+  return true
+end
+local function holdMailReuse280()
+  if mailBatch then mailBatch.reuseHeld280=true;mailBatch.keys={};mailBatch.carried280={} end
+end
 local function scanMail()
-  if not mailbox or not identity() then return end
+  if not mailbox then return end
+  local who=mailIdentity280()
+  if not who then cacheComplete=false;holdMailReuse280();return end
+  local priorComplete,priorRows,priorWitness,priorSerial=cacheComplete,cache,cacheWitness280,scanSerial
+  local walletBefore=balance()
   cacheComplete = false
+  local function failed() holdMailReuse280();return false end
   local function countInbox()
     if type(GetInboxNumItems) ~= "function" then return nil end
     local ok, loaded, total = pcall(GetInboxNumItems)
@@ -269,24 +299,46 @@ local function scanMail()
     return loaded
   end
   local count = countInbox()
-  if not count then return false end
+  if not count then return failed() end
   local rows, sums = {}, {}
   for i = 1, count do
     local row = header(i)
     -- One unreadable counted row refuses the WHOLE snapshot; it is not an empty/depleted bucket.
-    if not row then return false end
+    if not row then return failed() end
     rows[i] = row
     sums[row.bucket] = (sums[row.bucket] or 0) + row.money
   end
-  if countInbox() ~= count then return false end
+  if countInbox() ~= count then return failed() end
   -- The native inbox has no stable message ID. Refuse a shifting/duplicated transient read rather than
   -- attributing a disappearance to a payer; identical real mails still retain their multiplicity.
   for i = 1, count do
     local row = header(i)
-    if not row or row.sender ~= rows[i].sender or row.bucket ~= rows[i].bucket or row.money ~= rows[i].money or row.cod ~= rows[i].cod then return false end
+    if not row or row.sender ~= rows[i].sender or row.bucket ~= rows[i].bucket or row.money ~= rows[i].money or row.cod ~= rows[i].cod then return failed() end
   end
-  if countInbox() ~= count then return false end
+  if countInbox() ~= count then return failed() end
+  local afterWho,walletAfter=mailIdentity280(),balance()
+  if not sameMailIdentity280(who,afterWho) then return failed() end
+  local batch=mailBatch
+  if batch then
+    local carry=not batch.reuseHeld280 and priorComplete and priorWitness
+      and sameMailIdentity280(priorWitness.identity,who) and sameMailIdentity280(batch.identity280,who)
+      and sameMailRows280(priorRows,rows) and walletBefore~=nil and walletBefore==walletAfter
+      and walletBefore==batch.before
+      and mailClock280()~=nil and batch.mono280~=nil and mailClock280()>=batch.mono280 and mailClock280()-batch.mono280<8
+    local keys,carried={},{}
+    if carry then
+      for i,row in ipairs(rows) do
+        local pending=batch.keys[tostring(priorSerial)..":"..tostring(i)]
+        if pending and pending.bucket==row.bucket and pending.money==row.money and row.cod==0 then
+          local key=tostring(priorSerial+1)..":"..tostring(i)
+          keys[key],carried[key]=pending,true
+        end
+      end
+    else batch.reuseHeld280=true end
+    batch.keys,batch.carried280=keys,carried
+  end
   cache, totals, scanSerial = rows, sums, scanSerial + 1
+  cacheWitness280={identity=who,wallet=walletAfter}
   cacheComplete = true
   settleMail()
   return true
@@ -300,7 +352,14 @@ local function expireMail(expected)
 end
 local function takingMoney(index)
   if not mailbox or not identity() or not cacheComplete then return end
-  local row = cache[tonumber(index)]
+  local currentClock=mailClock280()
+  if mailBatch and mailBatch.mono280~=nil and (currentClock==nil or currentClock<mailBatch.mono280 or currentClock-mailBatch.mono280>=8) then
+    expireMail(mailBatch)
+    if not mailbox or not identity() or not cacheComplete then return end
+  end
+  index=integer(call(tonumber,index))
+  if not index or index<1 or index>#cache then return end
+  local row = cache[index]
   if not row or row.money <= 0 then return end
   if row.cod ~= 0 then
     if mailBatch then mailBatch.ambiguous=true end
@@ -309,12 +368,20 @@ local function takingMoney(index)
   end
   if not mailBatch then
     local copied = {}; for k, v in pairs(totals) do copied[k] = v end
-    mailBatch = { before = balance(), baselines = copied, intents = {}, keys = {}, at = time() }
+    mailBatch = { before = balance(), baselines = copied, intents = {}, keys = {}, at = time(),mono280=mailClock280(),identity280=mailIdentity280(),carried280={} }
+    if not cacheWitness280 or not sameMailIdentity280(cacheWitness280.identity,mailBatch.identity280)
+      then mailBatch.reuseHeld280=true end
     local expected = mailBatch
     if C_Timer and C_Timer.After then C_Timer.After(8, function() expireMail(expected) end) end
   end
   local key = tostring(scanSerial) .. ":" .. tostring(index)
-  if mailBatch.keys[key] then return mailBatch.keys[key] end
+  if mailBatch.keys[key] then
+    if mailBatch.carried280[key] and (mailBatch.reuseHeld280 or balance()~=mailBatch.before
+      or not sameMailIdentity280(mailBatch.identity280,mailIdentity280())) then
+      mailBatch.ambiguous=true;return
+    end
+    return mailBatch.keys[key]
+  end
   -- Excluded gold is transient wallet accounting only. It gets no sender copy,
   -- transfer ID, receipt, reference or MAC and never leaves this live batch.
   local intent = { money = row.money, bucket = row.bucket }
@@ -385,7 +452,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
     end
   elseif event == "PLAYER_MONEY" then
     settleTrade()
-    if mailBatch then settleMail() end
+    if mailBatch then mailBatch.reuseHeld280=true;for k in pairs(mailBatch.carried280 or {}) do mailBatch.keys[k]=nil end;mailBatch.carried280={};settleMail() end
   elseif event == "MAIL_SHOW" then mailbox = true; scanMail()
   elseif event == "MAIL_INBOX_UPDATE" then scanMail()
   elseif event == "MAIL_CLOSED" then

@@ -62,12 +62,14 @@ SUITES = {
     "tithe_slash280": (TESTS, Path("test_tithe_slash280.lua")),
     "live_safety280": (TESTS, Path("test_live_safety280.lua")),
     "tithe_successor280": (TESTS, Path("test_tithe_successor280.lua")),
+    "tithe_hookorder280": (TESTS, Path("test_tithe_hookorder280.lua")),
 }
 PYTHON_RUNNERS = {
     "tithe280": ("run_tithe280.py", False),
     "tithe_slash280": ("run_tithe_slash280.py", False),
     "live_safety280": ("run_live_safety280.py", True),
     "tithe_successor280": ("run_tithe_successor280.py", True),
+    "tithe_hookorder280": ("run_tithe_hookorder280.py", True),
 }
 TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps"}
 
