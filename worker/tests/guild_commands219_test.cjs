@@ -82,14 +82,19 @@ async function guildCommands219(){
   if(sub==='class'){
    const arms=guide219.classes.find(c=>c.id==='warrior').specs.find(s=>s.id==='arms');
    check('CC-015 guide paragraphs preserve their trusted blank line',embed?.description===arms.beginner.summary.slice(0,2).map(p=>clean219(p)).join('\n\n'));
-   check('CC-005 class preset links share one dated beta notice and current Blizzard reference',
-    embed?.fields?.filter(row=>row.name==='16 October beta builds').length===1
-    &&embed.fields.some(row=>row.value.includes('https://us.forums.blizzard.com/en/wow/t/2360696/9'))
-    &&embed.fields.some(row=>row.value.includes('/#/talents/warrior/ot1.')));
+   // Owner ruling of 12 Nov 2026 (talent data moved to the 10 November export; df7e646, CL2-087): the one dated notice
+   // now names the 10 November data, and every preset link is encoded against the current snapshot revision.
+   const talentRevision=load('./talent-build-contract').TALENT_SNAPSHOT_REVISION;
+   check('CC-005 class preset links share one dated talent-data notice and current Blizzard reference',
+    embed?.fields?.filter(row=>/10 November talent data/.test(row.value)).length===1
+    &&embed.fields.some(row=>row.name==='Talent builds'&&row.value.includes('https://us.forums.blizzard.com/en/wow/t/2360696/9'))
+    &&embed.fields.filter(row=>row.value.includes('/#/talents/warrior/ot1.')).length>0
+    &&embed.fields.filter(row=>row.value.includes('/#/talents/warrior/ot1.')).every(row=>row.value.includes('/#/talents/warrior/ot1.'+talentRevision+'.'))
+    &&!JSON.stringify(embed).includes('16 October'),JSON.stringify(embed?.fields?.map(row=>row.name)));
   }
-  if(sub==='talent')check('CC-005 signed talent preview shows its beta snapshot date and newer Blizzard notes',
-   embed?.description.includes('16 October beta talent snapshot')
-   &&embed.fields?.some(row=>row.name==='Blizzard’s 2 November notes'&&row.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'));
+  if(sub==='talent')check('CC-005 signed talent preview shows its talent-data date and newer Blizzard notes',
+   embed?.description.includes('10 November talent data')&&!embed.description.includes('16 October')
+   &&embed.fields?.some(row=>row.name==='Blizzard’s 2 November notes'&&row.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'),embed?.description);
   if(sub==='attunement'&&v.raid==='onyxia'){
    const raid=guide219.tools.attunements.find(a=>a.id==='onyxias-lair');
    check('CC-015 Onyxia opening and requirement retain one separate line',embed?.description===[raid.opens,raid.requirement.value].map(p=>clean219(p)).join('\n'));
