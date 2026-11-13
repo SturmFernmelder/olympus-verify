@@ -323,6 +323,8 @@ legend { padding: 0; }
 .section-title { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
 .section-title :is(h2, h3) { margin: 0; }
 .section-title h2 { font-size: 1.2rem; } /* CL2-099: form sections are H2 siblings, sized as before */
+/* Round 4 item 2 (13 Nov 2026): the Apply talent builds section has its H2 outside .section-title; same size as its siblings. */
+section.field[data-field="talentBuilds"] > h2 { font-size: 1.2rem; }
 
 /* Position choices: tooltip cards with the role's icon. */
 .options { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }

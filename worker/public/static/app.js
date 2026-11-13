@@ -931,6 +931,7 @@
   // This page's version, sent with every call. The Worker refuses saves from a page older than itself (a page opened
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
+  const WRITE_ANSWER_LOST = "The answer did not arrive, so it is not known whether this took effect. Reload the page and check before you repeat it.";
   let boardSummaryRead = null; // Session-memory counts only, never candidate records or write authority.
   const SESSION_ENDED_ENTRY = "/?entry=session-ended";
   let endingSiteSession = false;
@@ -958,7 +959,10 @@
     try {
       res = await fetch(path, init);
     } catch {
-      throw new ApiError(0, { message: "The site could not be reached. Check your connection and try again." });
+      // Round 4 item 1 (13 Nov 2026): a failed fetch can be an answer lost after the Worker acted, so only a read invites a
+      // retry. For a write the message wins over every caller's fallback in explain() and err.message, so none can undo it.
+      if (method === "GET" || method === "HEAD") throw new ApiError(0, { message: "The site could not be reached. Check your connection and try again." });
+      throw new ApiError(0, { message: WRITE_ANSWER_LOST });
     }
     let data = null;
     const raw = await res.text().catch(() => null);
@@ -6932,12 +6936,10 @@
   ];
   const visibleCommunitySections = () => COMMUNITY_SECTIONS.filter(section => section.visible());
   const communitySection = key => COMMUNITY_SECTIONS.find(section => section.key === key);
-  // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
-  function communityTabs(sub) {
-    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
-      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
-    // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
-    // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+  // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
+  // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+  // Round 4 item 5 (13 Nov 2026): shared by the member and the admin Community rows.
+  function scrollCurrentTabIntoRow(nav) {
     requestAnimationFrame(() => {
       const current = nav.isConnected && nav.scrollWidth > nav.clientWidth ? nav.querySelector('[aria-current="page"]') : null;
       if (!current) return;
@@ -6945,6 +6947,12 @@
       if (link.left < row.left + pad) nav.scrollLeft -= row.left + pad - link.left;
       else if (link.right > row.right - pad) nav.scrollLeft += link.right - (row.right - pad);
     });
+  }
+  // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
+  function communityTabs(sub) {
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
+      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
+    scrollCurrentTabIntoRow(nav);
     return h("div", { class: "community-tabs" }, nav,
       // The scroll hint is for sighted phone users only; it is not tied to the nav, so it is never announced where it is hidden.
       h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
@@ -6995,7 +7003,19 @@
       } catch (error) {
         // RC-017 (round 3, 12 Nov 2026): since CL2-017 a bare failure shows this fallback, and a lost answer may already have
         // issued a code, so it asks for a status check before a second request instead of inviting a retry.
-        if (live()) add(result, h("p", {class:"err",text:explain(error,"The answer did not arrive, so it is not known whether a code was issued. Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.")}));
+        // Round 4 item 4 (13 Nov 2026): each case says what happened. A lost answer, an unreadable one and any 5xx leave the
+        // outcome unknown; a refusal the Worker answered (4xx) keeps its own words, and one without a message says so.
+        // Round 4 review (13 Nov 2026): every 5xx counts, with or without a code: the Worker's own {error:"internal"} (500) and
+        // {error:"original_serving_held"} (503) prove nothing about whether a code was issued. A 4xx's `content` is its reason.
+        const statusCheck = " Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.";
+        const worded = error && error.data && [error.data.message, error.data.content].find(text => typeof text === "string" && text.trim());
+        const said = error && error.status === 0 ? "The answer did not arrive, so it is not known whether a code was issued." + statusCheck
+          : codeOf(error) === "unreadable_answer" ? "The answer could not be read, so it is not known whether a code was issued." + statusCheck
+          : error && error.status >= 500 ? "The site had a problem answering, so it is not known whether a code was issued." + statusCheck
+          : worded ? worded
+          : codeOf(error) === "account_held" ? "Your account cannot request a code right now, so none was issued. Ask High Council to use /olympus check."
+          : explain(error, "The site refused the request without giving a reason." + statusCheck);
+        if (live()) add(result, h("p", {class:"err",text:said}));
       } finally { if (live()) submit.disabled = false; }
     });
   };
@@ -8912,8 +8932,9 @@
     if (feat("contributions")) tabs.push(["ledger", "Ledger"]);
     if (feat("privacy_intake")) tabs.push(["inbox", "Private inbox"]);
     if (feat("directory")) tabs.push(["claims", "Character claims"]);
-    return h("div", { class: "community-admin-nav" },
-      h("nav", { class: "btn-row", "aria-label": "Community admin sections", "aria-describedby": "community-admin-scroll-hint" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false }))),
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community admin sections", "aria-describedby": "community-admin-scroll-hint" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
+    scrollCurrentTabIntoRow(nav); // Round 4 item 5 (13 Nov 2026): the current tab is scrolled into view on phones, as on the member row.
+    return h("div", { class: "community-admin-nav" }, nav,
       h("p", { class: "community-admin-scroll-hint", id: "community-admin-scroll-hint", text: "Scroll for more Community sections." }));
   }
   async function adminCommunity(body, parts) {

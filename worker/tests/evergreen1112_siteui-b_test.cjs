@@ -82,6 +82,17 @@ async function sourceChecks() {
     const entry = (json.match(/\{\s*"id": "olympus-guild"[\s\S]*?\n    \}/) || [''])[0];
     check('CL2-071', 'the catalogue entry carries no version, minimum version, release date or file link', !!entry && !/"(?:version|minimumVersion|releasedAt|fileUrl)":/.test(entry), entry.slice(0, 160));
   }
+  if (want('R4-6')) {
+    // Round 4 item 6 (13 Nov 2026): the operator guide follows the integration documents corrected in round 3 (CL2-233): it
+    // names the current author release 1.5.8, points at the integration record's activation limits, and dates 1.4.4.
+    const guide = src('docs/launch229-operator.md');
+    const paras = guide.split(/\n\s*\n/).filter(p => /\b1\.4\.4\b/.test(p));
+    const present = paras.filter(p => /\b(?:is|are) 1\.4\.4\b|addon is 1\.4\.4|exists\b|do not qualify/.test(p));
+    const integration = src('docs/dan155-integration.md');
+    check('R4-6', 'docs/launch229-operator.md names Olympus Guild 1.5.8 as the current author release, links the integration record\'s activation limits and speaks of 1.4.4 only in the past',
+      /current author release of the third-party Olympus Guild addon is 1\.5\.8/.test(guide) && guide.includes('(dan155-integration.md#current-status-12-november-2026)') && /^## Current status \(12 November 2026\)$/m.test(integration)
+      && /\| Off now \| Before it is switched on \| Who switches it \|/.test(integration) && paras.length >= 1 && present.length === 0, { present: present.map(p => p.slice(0, 160)) });
+  }
   if (want('CL2-259')) {
     // Round 3 (13 Nov 2026): the Terms page names its contact, as the Privacy Policy does, and the served copy is regenerated.
     const terms = src('policies/terms.html');
@@ -489,6 +500,30 @@ async function browserChecks() {
       const res = await fetch(BASE + '/legal/terms'), html = await res.text();
       const contact = (html.match(/<h2>Contact<\/h2>\s*<p>([\s\S]*?)<\/p>/) || [])[1] || '';
       check('CL2-259', 'the served /legal/terms (anonymous) has the Contact section with Rich Campbell and richwcampbell.', res.status === 200 && /Rich Campbell/.test(contact) && /richwcampbell\./.test(contact), { status: res.status, contact: contact.slice(0, 160) });
+    }
+    if (want('R4-5')) {
+      // Round 4 item 5 (13 Nov 2026): the admin Community row scrolls its current tab into view on phones, as RC-272 does for
+      // the member row; only the row moves, never the page.
+      const seen = {};
+      for (const w of [390, 320]) {
+        await open('admin', w, 'admin/community'); await sleep(400);
+        const hrefs = await ev(`return [...document.querySelectorAll('nav[aria-label="Community admin sections"] a')].map(a=>a.getAttribute('href'))`);
+        for (const href of hrefs) {
+          await open('admin', w, href.slice(2)); await sleep(600);
+          seen[`${href}@${w}`] = await ev(`const n=document.querySelector('nav[aria-label="Community admin sections"]');if(!n)return {tabs:false};const c=n.querySelector('[aria-current="page"]');if(!c)return {tabs:true,current:null};const a=n.getBoundingClientRect(),b=c.getBoundingClientRect();return {tabs:true,current:c.textContent,visible:b.left>=a.left-0.5&&b.right<=a.right+0.5&&b.left>=-0.5&&b.right<=innerWidth+0.5,scrolled:Math.round(n.scrollLeft),overflowing:n.scrollWidth>n.clientWidth,pageX:Math.round(scrollX),docOverflow:document.documentElement.scrollWidth-innerWidth}`);
+        }
+      }
+      const rows = Object.entries(seen).filter(([, x]) => x.tabs);
+      const offscreenStart = rows.filter(([, x]) => x.scrolled > 0).length;
+      check('R4-5', 'at 390 and 320 px the current admin Community tab is fully visible on every admin Community section, with no page scroll', rows.length >= 8 && rows.every(([, x]) => x.current && x.visible && x.pageX === 0 && x.docOverflow <= 0) && offscreenStart > 0,
+        { sections: rows.length, rowScrolledFor: offscreenStart, failing: rows.filter(([, x]) => !(x.current && x.visible && x.pageX === 0 && x.docOverflow <= 0)).map(([k, x]) => k + ' ' + JSON.stringify(x)).slice(0, 6) });
+    }
+    if (want('R4-3')) {
+      // Round 4 item 3 (13 Nov 2026): nobody checked a Forever file on the Olympus Guild CurseForge page (CL2-071, round 3),
+      // so the card's status label claims only the project-page link the site did check.
+      await open('member', 1280, 'addons'); await sleep(800);
+      const r = await ev(`const c=[...document.querySelectorAll('main article, main .resources169-featured')].find(x=>/Olympus Guild/.test(x.querySelector('h2,h3,h4')?.textContent||''));return c?{badges:[...c.querySelectorAll('.badge, [class*=badge]')].map(b=>b.textContent),text:c.textContent.slice(0,400)}:null`);
+      check('R4-3', 'the Olympus Guild card no longer says "Author lists Forever file" and its status label names only the linked project page', !!r && !/Author lists/.test(r.text) && r.badges.includes('Linked to its project page; no file reviewed'), r);
     }
     if (st.exceptions.length) check('PAGE', 'no page exceptions during the browser checks', false, st.exceptions.slice(0, 3));
   } finally { await cdp.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile briefly. */ } }
