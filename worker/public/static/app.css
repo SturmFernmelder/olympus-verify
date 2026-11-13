@@ -1395,7 +1395,10 @@ main.shell:focus-visible { outline: none; }
      list and its reference strip, and the member legal view's account strip. */
   #app #application-track-chooser228 li > a:not(.btn), #app section.frame > p.small > a:is([href="#/roles"], [href="#/apply"]),
   #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a, #app .current-council218 li > a,
-  #app .current-council218 details > p > a, #app .legal-view196 .data-controls p > a {
+  #app .current-council218 details > p > a, #app .legal-view196 .data-controls p > a,
+  /* A link placed directly in a section, on a line of its own between blocks (second round 5 review, 13 Nov 2026): the Apply
+     form's "Open the talent calculator" and the Organization Council summary's reference link. */
+  #app section.field > a:not(.btn), #app .org-alliance-current-council > a {
     display: inline-flex; align-items: center; min-height: 44px;
   }
   #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a { min-width: 44px; }

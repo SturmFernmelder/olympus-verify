@@ -544,10 +544,13 @@ async function browserChecks() {
       // inside a sentence are exempt, WCAG 2.5.8). The whole-site sweep with route tables is tests/evergreen1112_touch_browser.mjs.
       // A link is inside a sentence only when its block keeps at least four words once the text of every link, button, tab and
       // summary is removed; a strip or list of links is standalone (round 5 review, 13 Nov 2026: the earlier rule counted the
-      // other links' text as running text, so every strip of two links passed).
+      // other links' text as running text, so every strip of two links passed). Only text on the link's own lines counts: a text
+      // node whose nearest non-inline ancestor is a nested block (a heading, paragraph or list beside a link placed directly in a
+      // section) is not running text around the link (second round 5 review, 13 Nov 2026).
       const small = `const MIN=44;const shown=e=>{if(!e.getClientRects().length)return null;const r=e.getBoundingClientRect();if(r.width<2&&r.height<2)return null;const c=getComputedStyle(e);if(c.visibility==='hidden'||+c.opacity===0||e.closest('[inert],[aria-hidden="true"]'))return null;return r};
         const blockOf=e=>{let p=e.parentElement;while(p&&/^inline/.test(getComputedStyle(p).display)&&p!==document.body)p=p.parentElement;return p};
-        const words=b=>{const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);let n,t='';while((n=w.nextNode())){const c=n.parentElement&&n.parentElement.closest('a[href],button,summary,[role=button],[role=tab]');if(c&&b.contains(c))continue;t+=' '+n.textContent}return (t.match(/\\p{L}{2,}/gu)||[]).length};
+        const sameBlock=(n,b)=>{let q=n.parentElement;while(q&&q!==b&&/^inline/.test(getComputedStyle(q).display))q=q.parentElement;return q===b};
+        const words=b=>{const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);let n,t='';while((n=w.nextNode())){if(!sameBlock(n,b))continue;const c=n.parentElement&&n.parentElement.closest('a[href],button,summary,[role=button],[role=tab]');if(c&&b.contains(c))continue;t+=' '+n.textContent}return (t.match(/\\p{L}{2,}/gu)||[]).length};
         const inline=e=>{if(e.tagName!=='A'||e.classList.contains('btn')||e.getAttribute('role')||getComputedStyle(e).display!=='inline')return false;const b=blockOf(e);return !!b&&words(b)>=4};
         for(const d of document.querySelectorAll('main details:not([open])'))d.open=true;await new Promise(r=>setTimeout(r,400));
         const out=[];for(const e of document.querySelectorAll('main :is(a[href],button,summary,input:not([type=hidden]),select,textarea,[role=button],[role=tab]), footer :is(a[href],button)')){let r=shown(e);if(!r||inline(e))continue;

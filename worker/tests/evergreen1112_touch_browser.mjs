@@ -9,7 +9,9 @@
 // What counts as a control: a[href], button, summary, input (not hidden), select, textarea, [role=button], [role=tab].
 // Exempt (WCAG 2.5.8 inline exception), and listed separately: an a[href] without .btn or a role whose computed display is
 // `inline` and whose nearest non-inline ancestor keeps at least four words of running text once the text of every link,
-// button, tab and summary in it is removed (a link inside a sentence; separators and numbers are not words). Text inputs,
+// button, tab and summary in it is removed (a link inside a sentence; separators and numbers are not words). Only text on the
+// link's own lines counts: text whose nearest non-inline ancestor is a nested block (a heading, paragraph or list beside a
+// link placed directly in a section) is left out, so a link on a line of its own is standalone. Text inputs,
 // selects and textareas are measured for height only. A checkbox or radio is measured together with its label: the larger
 // of the box and the label that activates it.
 // Usage: node tests/evergreen1112_touch_browser.mjs --base http://127.0.0.1:63685 --cdp 63686 --out <file.json>
@@ -18,6 +20,7 @@
 //        node tests/evergreen1112_touch_browser.mjs --assert <after.json> [--before <before.json>]   (exit code = failures)
 //        --except-policy-pages leaves out the script-free policy pages (/legal/privacy, /legal/terms and #/data, which opens
 //        /privacy/account): their stylesheet, policies.css, is pinned by digest outside this area (handoff to Root).
+//        --policy-css <file> (sweep) appends that CSS to the script-free policy pages before measuring (the handoff check).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -40,8 +43,11 @@ const MEASURE = String.raw`(() => {
   // Running text of a block: its text without the text of every link, button, tab and summary inside it; separators and
   // numbers are not words. A link counts as inside a sentence only when its block keeps at least four words of running text,
   // so a strip or list of links ("Raider · Raider guide · Organization chart", "Leader (Guild Master) Rank 1 · Slot 0") is
-  // standalone (round 5 review, 13 Nov 2026).
-  const runningWords = b => { const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n, t = ''; while ((n = w.nextNode())) { const c = n.parentElement && n.parentElement.closest('a[href], button, summary, [role=button], [role=tab]'); if (c && b.contains(c)) continue; t += ' ' + n.textContent; } return (t.match(/\p{L}{2,}/gu) || []).length; };
+  // standalone (round 5 review, 13 Nov 2026). Only text on the link's own lines counts: a text node whose nearest non-inline
+  // ancestor is a nested block (a heading, paragraph or list beside a link placed directly in a section) is skipped, so a
+  // link on a line of its own between two paragraphs is standalone (second round 5 review, 13 Nov 2026).
+  const sameBlock = (n, b) => { let q = n.parentElement; while (q && q !== b && /^inline/.test(getComputedStyle(q).display)) q = q.parentElement; return q === b; };
+  const runningWords = b => { const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n, t = ''; while ((n = w.nextNode())) { if (!sameBlock(n, b)) continue; const c = n.parentElement && n.parentElement.closest('a[href], button, summary, [role=button], [role=tab]'); if (c && b.contains(c)) continue; t += ' ' + n.textContent; } return (t.match(/\p{L}{2,}/gu) || []).length; };
   const inline = e => { if (e.tagName !== 'A' || e.classList.contains('btn') || e.getAttribute('role')) return false; if (getComputedStyle(e).display !== 'inline') return false; const b = blockOf(e); if (!b) return false; return runningWords(b) >= 4; };
   const out = [], inl = [];
   for (const e of document.querySelectorAll('a[href], button, summary, input:not([type=hidden]), select, textarea, [role=button], [role=tab]')) {
@@ -79,10 +85,17 @@ async function sweep() {
   const ev = expr => cdp.eval(expr);
   const started = Date.now();
   const result = { base: BASE, at: new Date().toISOString(), widths, personas, pages: [], density: [], errors: [] };
+  // --policy-css <file> appends that CSS to the script-free policy pages before they are measured, so the policies.css
+  // handoff to Root can be checked before Root applies it and re-pins the file (the served file stays untouched).
+  const POLICY_CSS = arg('--policy-css', null) ? fs.readFileSync(arg('--policy-css'), 'utf8') : null;
+  result.policyCss = POLICY_CSS ? { file: arg('--policy-css'), bytes: Buffer.byteLength(POLICY_CSS) } : null;
+  // The policy pages' CSP allows only the served stylesheet, so the browser is told to skip CSP for this measuring run only.
+  if (POLICY_CSS) await cdp.send('Page.setBypassCSP', { enabled: true });
   const go = async (hashOrPath, wait = 500) => {
     if (hashOrPath.startsWith('/')) { await cdp.send('Page.navigate', { url: BASE + hashOrPath }); }
     else { await ev(`location.hash = ${JSON.stringify('#/' + hashOrPath)}; 0`); }
     await idle(st, { quiet: 300, max: 6000 }); await sleep(wait);
+    if (POLICY_CSS) await ev(`(() => { if (!document.body.classList.contains('olympus-policy') || document.getElementById('touch-policy-css')) return 0; const s = document.createElement('style'); s.id = 'touch-policy-css'; s.textContent = ${JSON.stringify(POLICY_CSS)}; document.head.append(s); return 1; })()`);
   };
   const atWidth = async w => { await viewport(cdp, w, w >= 768 ? 900 : 800); await cdp.send('Page.reload', {}); await idle(st); await sleep(400); };
   try {
