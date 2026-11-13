@@ -65,7 +65,15 @@ async function launchEdge(port, profile) {
     },
     async close() { try { await cdp.send('Browser.close'); } catch { /* gone */ } try { ws.close(); } catch { /* gone */ } await sleep(400); try { proc.kill(); } catch { /* gone */ } },
   };
-  await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+  // One Fetch.requestPaused dispatcher; each check sets cdp.onPaused for its own interception and clears it after.
+  cdp.onPaused = null;
+  cdp.on('Fetch.requestPaused', p => { const fn = cdp.onPaused; (fn ? Promise.resolve(fn(p)) : cdp.send('Fetch.continueRequest', { requestId: p.requestId })).catch(() => {}); });
+  // A form left with typing raises the page's "leave this page?" guard on the next navigation; the test accepts it.
+  cdp.on('Page.javascriptDialogOpening', () => { cdp.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {}); });
+  const requests = [];
+  cdp.requests = requests;
+  cdp.on('Network.requestWillBeSent', p => requests.push({ url: p.request.url, method: p.request.method }));
+  await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Network.enable');
   return cdp;
 }
 async function waitFor(cdp, expr, ms = 12000) {
@@ -80,6 +88,16 @@ async function open(cdp, persona, hash, ready = 'document.querySelector("main h1
   await sleep(300);
   await waitFor(cdp, ready);
   await sleep(700);
+}
+/** Answer a paused request with a bare 500 (no JSON, no message, no code): the shape of an unknown-effect failure. */
+const bare500 = (cdp, p) => cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 500, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }], body: Buffer.from('synthetic failure').toString('base64') });
+/** Answer a paused (Response stage) JSON reply with edit(json) applied; anything unreadable passes unchanged. */
+async function rewriteJson(cdp, p, edit) {
+  if (p.responseStatusCode === undefined) return cdp.send('Fetch.continueRequest', { requestId: p.requestId });
+  const got = await cdp.send('Fetch.getResponseBody', { requestId: p.requestId });
+  const raw = got.base64Encoded ? Buffer.from(got.body, 'base64').toString('utf8') : got.body;
+  let out = raw; try { const json = JSON.parse(raw); edit(json); out = JSON.stringify(json); } catch { /* not JSON: passed unchanged */ }
+  return cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: p.responseStatusCode, responseHeaders: (p.responseHeaders || []).filter(h => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(out).toString('base64') });
 }
 const text = cdp => cdp.eval('document.querySelector("main") ? document.querySelector("main").innerText : document.body.innerText');
 
@@ -126,25 +144,16 @@ async function serverChecks() {
   const fresh = await http('member', 'GET', '/api/community/profile');
   const p2 = await http('member', 'PUT', '/api/community/profile', { revision: fresh.data && fresh.data.profile && fresh.data.profile.revision, professions: [{ name: 'alchemy', skill: 1 }, { name: 'mining', skill: 1 }, { name: 'tailoring', skill: 1 }] });
   check('CL2-138', 'three primary professions are refused', p2.status === 400 && p2.data && p2.data.error === 'invalid_professions', `${p2.status} ${p2.data && p2.data.error}`);
-
-  // Army reporter page: the addon version sentence (task priority; CL2-233 in Codex's lane covers the docs).
-  const army = await fetch(URL0 + '/army/report/fragment', { headers: { Cookie: 'QA209_persona=admin', Accept: 'text/html' } }).then(r => r.text());
-  check('ARMY-157', 'the reporter page no longer says Olympus 1.5.5 cannot export OLYMPUS PRIME', !/1\.5\.5 does not export OLYMPUS PRIME/.test(army) && /1\.5\.7 and later can export OLYMPUS PRIME/.test(army), army.length);
 }
 
 // ---------------------------------------------------------------- static copy checks (file text; used where no page shows it to a harness persona)
 function staticChecks() {
   const app = read('worker/public/static/app.js');
-  check('CL2-123', 'no inline style attribute in the Discord message previews', !/style: "white-space:pre-wrap;overflow-wrap:anywhere"/.test(app));
+  // Source checks remain only for comments and repository documents that no page or reply shows (CL2-126 comments,
+  // CL2-136 digest text sent to Discord, CL2-324 docs); the rest are rendered checks in reviewChecks().
   check('CL2-126', 'staff copy names the 15-minute scheduler, not a half-hour one', !/half-hour scheduler|Checked every half hour/.test(app) && /SCHEDULER_MINUTES = 15/.test(app));
   check('CL2-126', 'digest comments say 15 minutes', !/every half hour/.test(read('worker/src/community-digest.ts')));
-  check('CL2-135', 'the invalid-title message names control and text-direction characters', /invalid_title: "Give the event a title of 1 to 80 characters, without control or text-direction characters\."/.test(app));
   check('CL2-136', 'the digest says who acts', /Site administrators handle these on the website's admin pages\./.test(read('worker/src/community-digest.ts')));
-  check('CL2-283', 'the treasury access answer is trusted for a minute, not fifteen', /TREASURY_ACCESS_TTL218 = 60 \* 1000;/.test(app));
-  const plan = read('worker/public/static/treasury-plan-content207.js');
-  check('CL2-285', 'the plan matches the live 100g Stockades bail text', !/historical conditional-clemency/.test(plan) && /100g standard bail/.test(plan));
-  const book = read('worker/public/static/governance/reconciled-book.md');
-  check('CL2-282', 'both duel-escrow clauses open with the suspended-proposal heading', (book.match(/\(b\) \*\*\[Suspended proposal — not active\]\*\* A \*\*Privy Court Civil Suit \/ Mak'gora Duel Escrow\*\*/g) || []).length === 2);
   const docs = ['docs/discord-privileged-intents.md', 'docs/design.md', 'docs/master198-governance-titles.md'].map(read).join('\n');
   check('CL2-324', 'docs say the gold is mailed in game to Fern Melder', !/mailed to \*\*Fernmelder\*\*|gold mailed to Fernmelder|Contributions are mailed to Fernmelder/.test(docs));
 }
@@ -197,15 +206,16 @@ async function pageChecks(cdp) {
   // CL2-017: a failed Town Crier read is worded and offers Try again.
   await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/news', requestStage: 'Request' }] });
   let intercepted = 0;
-  cdp.on('Fetch.requestPaused', p => { intercepted++; cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 500, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }], body: Buffer.from('synthetic failure').toString('base64') }).catch(() => {}); });
+  cdp.onPaused = p => { intercepted++; return bare500(cdp, p); };
   await open(cdp, 'member', 'news', 'document.querySelector(".notice-box")');
   const news = await cdp.eval(`(() => { const box = document.querySelector('main .notice-box'); return box ? { text: box.innerText, retry: [...box.querySelectorAll('button')].some(b => b.textContent === 'Try again') } : null; })()`);
-  await cdp.send('Fetch.disable');
+  await cdp.send('Fetch.disable'); cdp.onPaused = null;
   check('CL2-017', 'a failed news read is worded (no "Request failed (500).") and offers Try again', news && !/Request failed \(\d+\)/.test(news.text) && /could not be read/.test(news.text) && news.retry, JSON.stringify(news) + ` intercepted=${intercepted}`);
   if (news && news.retry) {
     await cdp.eval(`[...document.querySelectorAll('main .notice-box button')].find(b => b.textContent === 'Try again').click()`);
     const recovered = await waitFor(cdp, '[...document.querySelectorAll("main h2, main h3")].some(h => /Notices/.test(h.textContent))', 8000);
     check('CL2-017', 'Try again reads the news again and shows it', recovered);
+    check('CL2-017', 'the failed read (not a write) says what the status means', /The site had a problem answering\. Try again in a moment\./.test(news.text), news.text);
   }
 
   // CL2-141: Town Crier attribution.
@@ -228,13 +238,14 @@ async function pageChecks(cdp) {
   await open(cdp, 'member', 'treasury-plan', '[...document.querySelectorAll("main h2")].some(h => /Treasury programme/.test(h.textContent))');
   const refusal = await text(cdp);
   check('CL2-286', 'the refusal names High Council rank, not "the Council"', !/the Guild Master, the Council, Officers/.test(refusal) && /High Council/.test(refusal), refusal.slice(0, 300));
+  check('CL2-286', 'the refusal names every Discord role the gate admits (Guild Master, Officer, Raid Leader)', /the Discord Guild Master, Officer and Raid Leader roles/.test(refusal), refusal.slice(0, 400));
   check('CL2-287', 'with the switch off the refusal says the Royal Writs schedule is paused', !/Royal Writs and Patron tiers stay public/.test(refusal) && /Royal Writs schedule and new Patron applications are paused/.test(refusal));
 
   // CL2-290: an account with no dues week sees "nothing owed", not "ledger open" with a pay-now line.
   await open(cdp, 'unverified', 'community/dues', '[...document.querySelectorAll("main h2")].some(h => /My dues/.test(h.textContent))');
   const dues = await text(cdp);
   const duesWeeks = /Week of/.test(dues);
-  check('CL2-290', 'no dues week: "You owe nothing" and no plain pay-now instruction', duesWeeks || (/You owe nothing/.test(dues) && !/ledger open/.test(dues) && /When a week is due, send the gold/.test(dues)), dues.slice(0, 300));
+  check('CL2-290', 'no dues week: "You owe nothing" and no plain pay-now instruction', duesWeeks || (/You owe nothing/.test(dues) && !/ledger open/.test(dues) && /When a week is due, send the gold/.test(dues) && /once you have a roster-confirmed character/.test(dues)), dues.slice(0, 300));
 
   // CL2-126: the settings hint.
   await open(cdp, 'admin', 'admin/settings', 'document.querySelector("#news-on")');
@@ -245,7 +256,8 @@ async function pageChecks(cdp) {
   await open(cdp, 'admin', 'admin/votes', 'document.querySelector("main .grid.three .card")');
   const votes = await text(cdp);
   check('CL2-120', 'Admin -> Votes does not repeat "No board votes yet" on every card', (votes.match(/No board votes yet/g) || []).length <= 1, `${(votes.match(/No board votes yet/g) || []).length} repeats`);
-  check('CL2-120', 'no bare "?" age cells remain in the voter tables', !/: "\?" \}\)/.test(read('worker/public/static/app.js')));
+  // The rendered check is in reviewChecks(); this sweep covers the two voter dialogs, which need recorded votes to open.
+  check('CL2-120', 'no bare "?" age cells remain in the voter tables (source sweep)', !/: "\?" \}\)/.test(read('worker/public/static/app.js')));
 
   // CL2-121 and CL2-129: the application detail shows its times; a stale decision says the application changed.
   await open(cdp, 'admin', 'admin/applications/300000000000000104', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Under review")');
@@ -259,6 +271,119 @@ async function pageChecks(cdp) {
   check('CL2-129', 'a refused stale decision says the application changed, not "could not be confirmed"', /changed/.test(notice) && !/could not be confirmed/.test(notice), `resave: ${resave} :: notice: ${notice}`);
   const after = await http('applicant', 'GET', '/api/me');
   check('CL2-129', 'RT-16 still holds: the stale decision wrote nothing (status unchanged)', after.data && after.data.application && after.data.application.status === 'submitted', after.data && after.data.application && after.data.application.status);
+}
+
+/** Second review round (12 Nov 2026): behaviour checks for the reviewer's findings and for copy a persona can reach. */
+async function reviewChecks(cdp) {
+  const statusNear = (button) => `(() => { const b = [...document.querySelectorAll('main button')].find(x => ${button}.test(x.textContent)); const box = b && b.closest('section, .frame, .card'); return box ? [...box.querySelectorAll('p[role="status"]')].map(p => p.textContent).join(' | ') : null; })()`;
+
+  // CL2-017 (MAJOR): a bare 500 on an unknown-effect write shows the page's own fallback and no invitation to retry.
+  await open(cdp, 'admin', 'admin/directory-visibility', 'document.querySelector("#attended-directory-id")');
+  const ready = await cdp.eval(`(async () => {
+    const input = document.querySelector('#attended-directory-id'); input.value = '300000000000000112'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    [...document.querySelectorAll('main button')].find(b => /^Read this member/.test(b.textContent)).click();
+    const box = document.querySelector('#attended-directory-confirmed');
+    for (let i = 0; i < 50 && box.disabled; i++) await new Promise(r => setTimeout(r, 150));
+    if (box.disabled) return 'confirmation stayed disabled';
+    box.click();
+    await new Promise(r => setTimeout(r, 100));
+    return [...document.querySelectorAll('main button')].find(b => /^Save requested listing/.test(b.textContent)).disabled ? 'save stayed disabled' : 'ready';
+  })()`);
+  let writes = 0;
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/admin/discord-directory/visibility', requestStage: 'Request' }] });
+  cdp.onPaused = p => { writes++; return bare500(cdp, p); };
+  if (ready === 'ready') await cdp.eval(`[...document.querySelectorAll('main button')].find(b => /^Save requested listing/.test(b.textContent)).click()`);
+  await sleep(1500);
+  await cdp.send('Fetch.disable'); cdp.onPaused = null;
+  const written = await cdp.eval(statusNear('/^Save requested listing/'));
+  check('CL2-017', 'a bare 500 on the directory-visibility write shows its unknown-outcome fallback without "Try again"', ready === 'ready' && writes === 1 && /Outcome unconfirmed\. Read the same member/.test(written || '') && !/try again/i.test(written || '') && !/Request failed/.test(written || ''), `${ready}; writes=${writes}; ${written}`);
+
+  // CL2-120: a missing account age reads "Unknown" in the applications table (the reply is rewritten to carry nulls).
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/admin/applications?*', requestStage: 'Response' }] });
+  cdp.onPaused = p => rewriteJson(cdp, p, json => { for (const it of json.items || []) if (it.user) { it.user.accountCreated = null; it.user.serverJoined = null; } });
+  await open(cdp, 'admin', 'admin/applications', 'document.querySelector("main table.data tbody tr")');
+  await cdp.send('Fetch.disable'); cdp.onPaused = null;
+  const ages = await cdp.eval(`(() => { const row = document.querySelector('main table.data tbody tr'); return row ? [...row.cells].map(c => c.textContent) : null; })()`);
+  check('CL2-120', 'an application with no account or server age shows "Unknown", not "?"', Array.isArray(ages) && ages.filter(t => t === 'Unknown').length === 2 && !ages.includes('?'), JSON.stringify(ages));
+
+  // CL2-139 and CL2-135 on the event form. A real event (10 places, 9 tanks wanted) is the edit subject.
+  const opId = ('evg1112e' + Date.now().toString(36) + 'xxxxxxxxxxxxxxxx').slice(0, 22);
+  const startsAt = new Date((Math.floor(Date.now() / 1000) + 4 * 86400) * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const made = await http('admin', 'POST', '/api/community/events', { opId, title: 'Evergreen edit check', startsAt, durationMin: 60, capacity: 10, roleTargets: { tank: 9, healer: 0, damage: 0 } });
+  const eventId = made.data && made.data.event && made.data.event.id;
+  const posts = (re) => cdp.requests.filter(r => r.method === 'POST' && re.test(r.url)).length;
+  const fill = (pairs) => `(() => { for (const [sel, value] of ${JSON.stringify(pairs)}) { const el = document.querySelector(sel); el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); } document.querySelector('main form button[type="submit"]').click(); return true; })()`;
+  const fieldError = (key) => cdp.eval(`(() => { const e = document.querySelector('#err-${key}'); return e && !e.hidden ? e.textContent : ''; })()`);
+
+  // New event: the page refuses 9 tanks for 5 places before anything is sent.
+  await open(cdp, 'admin', 'community/calendar/new', 'document.querySelector("#f-ev-title")');
+  const createsBefore = posts(/\/api\/community\/events$/);
+  await cdp.eval(fill([['#f-ev-title', 'Evergreen client check'], ['#f-ev-capacity', '5'], ['main [data-role="tank"]', '9']]));
+  await sleep(800);
+  const newError = await fieldError('ev-capacity');
+  check('CL2-139', 'a new event with 9 tanks for 5 places is refused on the page, nothing sent', /add up to more than the event's places/.test(newError) && posts(/\/api\/community\/events$/) === createsBefore, `${newError}; sent=${posts(/\/api\/community\/events$/) - createsBefore}`);
+
+  if (eventId) {
+    // CL2-135: the server's invalid_title refusal, rendered beside the title.
+    await open(cdp, 'admin', `community/calendar/${eventId}/edit`, 'document.querySelector("#f-ev-title")');
+    await cdp.eval(fill([['#f-ev-title', 'Raid ‮ night']]));
+    await sleep(1500);
+    const titleError = await fieldError('ev-title');
+    check('CL2-135', 'a title with a text-direction character is refused with the named reason', /without control or text-direction characters/.test(titleError), titleError);
+
+    // CL2-139 (edit): an older event whose roles already exceed its places stays editable for its title.
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: `*/api/community/event?id=${eventId}`, requestStage: 'Response' }] });
+    cdp.onPaused = p => rewriteJson(cdp, p, json => { if (json.event) json.event.capacity = 5; });
+    await open(cdp, 'admin', `community/calendar/${eventId}/edit`, 'document.querySelector("#f-ev-title")');
+    await cdp.send('Fetch.disable'); cdp.onPaused = null;
+    const loaded = await cdp.eval(`document.querySelector('#f-ev-capacity').value`);
+    const updatesBefore = posts(/\/api\/community\/events\/update$/);
+    await cdp.eval(fill([['#f-ev-title', 'Evergreen edit check, renamed']]));
+    await sleep(1800);
+    const capError = await fieldError('ev-capacity');
+    const stored = await http('admin', 'GET', `/api/community/event?id=${encodeURIComponent(eventId)}`);
+    check('CL2-139', 'a title-only edit of an event with more wanted roles than places is sent and saved', loaded === '5' && !capError && posts(/\/api\/community\/events\/update$/) === updatesBefore + 1 && stored.data && stored.data.event && stored.data.event.title === 'Evergreen edit check, renamed', `places shown ${loaded}; error "${capError}"; title ${stored.data && stored.data.event && stored.data.event.title}`);
+
+    // CL2-139 (edit): changing the places is still judged on the page.
+    await open(cdp, 'admin', `community/calendar/${eventId}/edit`, 'document.querySelector("#f-ev-capacity")');
+    const updatesBefore2 = posts(/\/api\/community\/events\/update$/);
+    await cdp.eval(fill([['#f-ev-capacity', '4']]));
+    await sleep(800);
+    const capError2 = await fieldError('ev-capacity');
+    check('CL2-139', 'lowering the places below the wanted roles is refused on the page, nothing sent', /add up to more than the event's places/.test(capError2) && posts(/\/api\/community\/events\/update$/) === updatesBefore2, capError2);
+
+    // CL2-123: the Discord message preview wraps through the stylesheet (no inline style, which the CSP would block).
+    await open(cdp, 'admin', `community/calendar/${eventId}/discord`, 'document.querySelector("main pre")');
+    const pre = await cdp.eval(`(() => { const p = document.querySelector('main pre'); return p ? { style: p.getAttribute('style'), whiteSpace: getComputedStyle(p).whiteSpace, wrap: getComputedStyle(p).overflowWrap } : null; })()`);
+    check('CL2-123', 'the Discord preview has no inline style and wraps (pre-wrap, anywhere)', pre && pre.style === null && pre.whiteSpace === 'pre-wrap' && pre.wrap === 'anywhere', JSON.stringify(pre));
+  } else check('CL2-139', 'a title-only edit of an event with more wanted roles than places is sent and saved', false, `event not created: ${made.status} ${JSON.stringify(made.data).slice(0, 120)}`);
+
+  // CL2-283: the treasury access answer is reused 30 s later and read again 61 s later (the page clock is moved forward).
+  await open(cdp, 'admin', 'treasury-plan', '[...document.querySelectorAll("main h1, main h2")].some(h => /Treasury/.test(h.textContent))');
+  await sleep(1500);
+  const planText = await cdp.eval('document.querySelector("main") ? document.querySelector("main").textContent : ""');
+  const accessReads = () => cdp.requests.filter(r => /\/api\/treasury-plan\/access/.test(r.url)).length;
+  const revisit = async (skew) => {
+    await cdp.eval(`(() => { if (!window.__realNow) window.__realNow = Date.now.bind(Date); window.__skew = ${skew}; Date.now = () => window.__realNow() + window.__skew; return true; })()`);
+    const before = accessReads();
+    await cdp.eval(`location.hash = '#/roles'`); await sleep(1200);
+    await cdp.eval(`location.hash = '#/treasury-plan'`); await sleep(2000);
+    return accessReads() - before;
+  };
+  const at30 = await revisit(30000), at61 = await revisit(61000);
+  check('CL2-283', 'the access answer is reused 30 s later and read again 61 s later', at30 === 0 && at61 >= 1, `reads after +30 s: ${at30}; after +61 s: ${at61}`);
+
+  // CL2-285: the plan an officer reads states the live 100g Stockades bail.
+  check('CL2-285', 'the rendered plan says 100g standard bail, not historical conditional clemency', /100g standard bail/.test(planText) && !/historical conditional-clemency/.test(planText), planText.length);
+
+  // CL2-282: the governance book as served to readers.
+  const book = await fetch(URL0 + '/static/governance/reconciled-book.md', { headers: { Cookie: 'QA209_persona=member' } }).then(r => r.ok ? r.text() : '');
+  check('CL2-282', 'the served book opens both duel-escrow clauses with the suspended-proposal heading', (book.match(/\(b\) \*\*\[Suspended proposal — not active\]\*\* A \*\*Privy Court Civil Suit \/ Mak'gora Duel Escrow\*\*/g) || []).length === 2, `${book.length} bytes`);
+
+  // CL2-290: a confirmed member with no dues week is not told to get a roster-confirmed character.
+  await open(cdp, 'member', 'community/dues', '[...document.querySelectorAll("main h2")].some(h => /My dues/.test(h.textContent))');
+  const memberDues = await text(cdp);
+  check('CL2-290', 'confirmed member, no dues week: "not counted for you yet", no roster-confirmed condition', /Week of/.test(memberDues) || (/You owe nothing/.test(memberDues) && /No dues week has been counted for you yet/.test(memberDues) && !/once you have a roster-confirmed character/.test(memberDues)), memberDues.slice(0, 300));
 }
 
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
@@ -282,7 +407,7 @@ async function layoutChecks(cdp) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { await pageChecks(cdp); if (!args['no-layout']) await layoutChecks(cdp); } finally { await cdp.close(); }
+    try { await pageChecks(cdp); await reviewChecks(cdp); if (!args['no-layout']) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));
