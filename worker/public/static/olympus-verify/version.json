@@ -9,8 +9,8 @@
   },
   "archive": {
     "path": "/static/olympus-verify/olympus-verify-0.6.38.zip",
-    "bytes": 772126,
-    "sha256": "54be637d61a6df790a583809650bf0db034e677d1384fd0ad42027d209803561"
+    "bytes": 772015,
+    "sha256": "d91d723fc0caafd0b0182e55b97d29e4a96f9aff82b6969ce386f151c00d290b"
   },
   "files": [
     {
@@ -20,8 +20,8 @@
     },
     {
       "path": "OlympusVerify/Config.example.lua",
-      "bytes": 9692,
-      "sha256": "217f237cf5251136656748a188e5aaab7e5210301c214c9e724a81cf7e5aaa0b"
+      "bytes": 9581,
+      "sha256": "26bb782191ebf4875d5c222fb00820c1e24a6659a186ee515d3e24532fbecb52"
     },
     {
       "path": "OlympusVerify/Libs/OlympusHmac.lua",
