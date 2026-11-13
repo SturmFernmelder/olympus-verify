@@ -27,11 +27,28 @@
    "kind": "theory",
    "grade": "C",
    "label": "Camp objects",
-   "value": "Camp Tent at skill 20, Tanning Rack at 140 (blueprint from Razorclaw the Butcher in Shadowfang Keep) and Sewing Machine at 300. The Camp Tent tops up rested XP to 5% of a level.",
+   "value": "Camp Tent at skill 20, Tanning Rack at 125 (blueprint from Razorclaw the Butcher in Shadowfang Keep) and Sewing Machine at 300. The Camp Tent tops up rested XP to 5% of a level.",
    "sources": [
-    "g218-100"
+    "g218-100",
+    "g218-156"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-leatherworking.tanning-rack-skill",
+   "scope": {
+    "profession": "leatherworking"
+   },
+   "topic": "profession-skill-threshold",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Tanning Rack skill",
+   "value": "Blizzard's hotfix of 6 November 2026 lowered the Tanning Rack's skill requirement to 125 (it was 140) and lowered its skill-ups by 15 points.",
+   "sources": [
+    "g218-156"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {

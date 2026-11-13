@@ -455,17 +455,63 @@ check('renderer: presets show "Talent build" (not "Beta snapshot build") with At
 const allFacts = () => new Map(listJson('facts').flatMap(d => d.facts.map(f => [f.id, { ...(d.defaults || {}), ...f }])));
 const guideFiles = () => ['courses', 'races', 'professions'].flatMap(d => fs.readdirSync(path.join(uni, d)).filter(f => f.endsWith('.json')).map(f => json(uni, d, f)));
 const chaptersOf = g => [g, ...(g.specs || [])].flatMap(o => ['101', '201', '301'].flatMap(t => o.tracks[t].chapters));
-check('review: talent facts the 2 Nov notes overtook carry the note and their successor, get no value question, and are never cited alone', () => {
-  const F = allFacts(), Q = quizzes(), bad = [];
-  for (const id of ['talents-shaman.enhancement-mental-dexterity.r1', 'talents-shaman.enhancement-mental-dexterity.r3', 'talents-shaman.enhancement-stormstrike', 'talents-shaman.enhancement-stormstrike.r1']) {
-    const f = F.get(id);
-    if (!f || !f.supersededBy || !/2 Nov notes/.test(f.note || '') || !F.get(f.supersededBy) || F.get(f.supersededBy).grade !== 'B') bad.push(id);
-  }
-  if (Q.has('talents-shaman.enhancement-mental-dexterity.value')) bad.push('value question still generated');
-  const step = chaptersOf(json(uni, 'courses/shaman.json')).find(c => c.id === 'shaman-enhancement-101-talents').praxis.steps.find(s => /Mental Dexterity/.test(s.text) && /Intellect/.test(s.text));
-  if (!/50%, 100% or 150%/.test(step.text) || !/check the tooltip in game/.test(step.text)) bad.push('101 step: ' + step.text);
-  for (const q of Q.values()) if (q.facts.some(id => F.get(id) && F.get(id).supersededBy && !q.facts.includes(F.get(id).supersededBy))) bad.push(q.id);
+// CONTENT-01 and CONTENT-09 (12 Nov 2026): Blizzard's hotfixes of 6 and 10 November 2026 (one dated source, g218-156 in
+// both catalogues) lowered the Tanning Rack to skill 125, let weapon imbues and weapon totems work together, set
+// Stormstrike to 100% weapon damage on an 8 sec cooldown, Mental Dexterity to 33/66/100%, Maelstrom Weapon to 20% per
+// stack at every rank, and made Wrack speed up Siphon Life, Corruption and Bane of Agony instead of adding 10%.
+// An earlier review (12 Nov) had marked the talent data as superseded by the 2 Nov notes; the hotfix proves the reverse.
+const HOTFIX_URL = 'https://worldofwarcraft.blizzard.com/en-us/news/24315281/wow-forever-hotfixes-november-11-2026';
+// A stale claim is refused unless its own sentence dates it as history ("had", "was", "until", "before").
+const HOTFIX_STALE = [/Tanning Rack at 140|skill-140 camp object/i, /matching (?:weapon )?imbue,? (?:you )?gets? nothing|(?:get|gets|expect) nothing from (?:a|the|that) [^.]*totem/i,
+  /150% normalized/i, /Stormstrike[^.]*six-second|six-second cooldown/i, /50%, 100% or 150%/, /triggers twice as often|doubled the chance for Maelstrom/i,
+  /4% per stack/i, /other Shadow DoTs[^.]*10%|10% harder/i, /Wrack \(snapshot\)|36 Shadow damage/i, /check the tooltip in game|Go by the tooltip in game/i];
+const historical = sentence => /\b(?:had|was|were|until|before)\b/i.test(sentence);
+const staleHotfixClaims = strings => strings.flatMap(([where, s]) => s.split(/(?<=[.;!?])\s+|\(|\)/).filter(x => !historical(x) && HOTFIX_STALE.some(re => re.test(x))).map(x => where + ': ' + x.slice(0, 100)));
+check('CONTENT-01/09: one dated Blizzard hotfix source in both catalogues, and the hotfixed facts state what the site\'s talent data and that source say', () => {
+  const g = json(stat, 'guides218.json'), S = new Map(json(uni, 'sources.json').sources.map(s => [s.id, s])), F = allFacts(), data = json(stat, 'talents/data.json'), bad = [];
+  const tal = new Map(data.classes.flatMap(c => c.trees.flatMap(t => t.talents.map(x => [x.id, x]))));
+  const hs = S.get('g218-156');
+  if (!g.sources[156] || g.sources[156].url !== HOTFIX_URL || g.sources[156].kind !== 'official' || g.sources[156].checkedAt !== '2026-11-12' || !hs || hs.url !== HOTFIX_URL || hs.label !== g.sources[156].label) bad.push('hotfix source');
+  const want = { 'profession-leatherworking.camp-objects': /Tanning Rack at 125/, 'profession-leatherworking.tanning-rack-skill': /6 November 2026 lowered the Tanning Rack's skill requirement to 125 \(it was 140\)/,
+    'class-shaman.imbues-with-totems': /weapon imbues and weapon totems work at the same time/, 'class-shaman.stormstrike': /100% weapon damage and has an 8-second cooldown/,
+    'class-shaman.change-7': /Stormstrike deals 100% weapon damage on an 8-second cooldown/, 'class-shaman.intellect-into-power': /33%, 66% or 100%/, 'class-shaman.maelstrom-weapon': /20% at every rank[^.]*6, 7, 8, 9 or 10 times per minute/,
+    'class-warlock.wrack-snapshot': /deal their periodic damage 100% faster/ };
+  for (const [id, re] of Object.entries(want)) { const f = F.get(id); if (!f || !re.test(f.value) || (id !== 'class-warlock.wrack-snapshot' && !f.sources.includes('g218-156'))) bad.push(id); }
+  // The source of truth is the site's own 10 November talent data; the hotfix text must agree with it.
+  const ss = tal.get('shaman-enhancement-stormstrike'), md = tal.get('shaman-enhancement-mental-dexterity'), mw = tal.get('shaman-enhancement-maelstrom-weapon'), wr = tal.get('warlock-affliction-wrack');
+  if (!/100% weapon damage/.test(ss.descriptions[0]) || !/8 sec cooldown/.test(ss.cost)) bad.push('talent data Stormstrike');
+  if (md.descriptions.map(d => /(\d+)% of your Intellect/.exec(d)[1]).join() !== '33,66,100') bad.push('talent data Mental Dexterity');
+  if (!mw.descriptions.every(d => /by 20%/.test(d)) || mw.descriptions.map(d => /about (\d+) times per minute/.exec(d)[1]).join() !== '6,7,8,9,10') bad.push('talent data Maelstrom Weapon');
+  if (!/60 Shadow damage every 1 sec[^.]*\. While channeling, your Siphon Life, Corruption, and Bane of Agony effects on the target deal their periodic damage 100% faster/.test(wr.descriptions[0])) bad.push('talent data Wrack');
+  // The generated talent facts are no longer marked superseded, and Mental Dexterity gets its value question back.
+  for (const id of ['talents-shaman.enhancement-mental-dexterity.r1', 'talents-shaman.enhancement-mental-dexterity.r3', 'talents-shaman.enhancement-stormstrike', 'talents-shaman.enhancement-stormstrike.r1'])
+    if (!F.get(id) || F.get(id).supersededBy || /superseded/i.test(F.get(id).note || '')) bad.push(id + ' still superseded');
+  if (!quizzes().has('talents-shaman.enhancement-mental-dexterity.value')) bad.push('no Mental Dexterity value question');
+  const rack = quizzes().get('profession-leatherworking.rack-skill');
+  if (!rack || rack.choices[rack.answer] !== '125' || rack.choices.includes('140')) bad.push('rack-skill question');
   return bad.length === 0 || bad.join('; ');
+});
+check('CONTENT-01/09: no university text and no guides218.json text (Discord /guide, tools, presets) states a pre-hotfix claim as current', () => {
+  // Fact notes and heldBack records are dated history by design; every other string is checked sentence by sentence.
+  const uniCurrent = uniStrings().filter(([w]) => !/\.note$|\.heldBack\[/.test(w));
+  const g = json(stat, 'guides218.json'), gs = [], walk = (v, w) => { if (typeof v === 'string') gs.push([w, v]); else if (Array.isArray(v)) v.forEach((x, i) => walk(x, w + '/' + i)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, w + '/' + k); };
+  walk(g.classes, 'guides218/classes'); walk(g.professions, 'guides218/professions'); walk(g.tools, 'guides218/tools'); walk(g.presets, 'guides218/presets');
+  const bad = staleHotfixClaims([...uniCurrent, ...gs]);
+  // The matcher itself refuses the four pre-hotfix wordings Codex listed and accepts a dated history sentence.
+  const probe = staleHotfixClaims([['p1', 'Stormstrike deals 150% normalized weapon damage on a six-second cooldown.'], ['p2', 'A Shaman with the matching imbue gets nothing from the totem.'],
+    ['p3', 'Mental Dexterity converts 50%, 100% or 150% of Intellect into Attack Power.'], ['p4', 'Wrack makes your other Shadow DoTs hit the target 10% harder for 6 sec.'], ['ok', "Blizzard's 2 November notes had given 150% normalized weapon damage."]]);
+  return bad.length === 0 && probe.length === 4 && !probe.some(x => x.startsWith('ok')) || JSON.stringify({ bad: bad.slice(0, 6), n: bad.length, probe });
+});
+check('CONTENT-01/09: the rendered Leatherworking, Enhancement and Dwarf pages give the hotfix values and cite the dated hotfix', async () => {
+  const bad = [];
+  for (const [parts, must] of [[['profession', 'leatherworking', '101'], [/Tanning Rack at 125/, /skill-125 camp object/]], [['class', 'shaman', 'enhancement', '101'], [/100% weapon damage on an 8 sec cooldown/, /33%, 66% or 100% of your Intellect/]],
+    [['class', 'shaman', 'enhancement', '201'], [/your own weapon imbue and the matching totem work at the same time/]], [['race', 'dwarf', '201'], [/a Windfury Weapon Shaman still gains from Windfury Totem/]]]) {
+    const p = await open(parts), t = p.container.textContent;
+    const cites = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === HOTFIX_URL);
+    const stale = staleHotfixClaims([[parts.join('/'), t]]).filter(x => !/had given|it was 140|got nothing/.test(x));
+    if (!must.every(re => re.test(t)) || !cites || stale.length) bad.push(parts.join('/') + ' ' + JSON.stringify({ missing: must.filter(re => !re.test(t)).map(String), cites, stale: stale.slice(0, 3) }));
+  }
+  return bad.length === 0 || bad.join(' | ');
 });
 check('review: the validator refuses a question that cites a superseded fact without the fact that supersedes it', refused(({ bundle, quiz }) => {
   const q = quiz.questions.find(x => x.facts.some(id => id.startsWith('talents-warrior.')));

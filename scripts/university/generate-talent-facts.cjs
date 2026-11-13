@@ -20,12 +20,10 @@ const chapterFor = (cls, tree, tier) => cls + "-" + tree + "-" + tier + "-talent
 // 12 Nov 2026. Their facts stay as the talent data reads, carry a note and name the grade-B fact that supersedes them
 // (validate.js then requires that fact beside them wherever they are cited), and no value question is written for them.
 // "facts" lists which generated facts the notes contradict: the tree fact (cooldown, cost) and/or the rank facts.
-const SUPERSEDED = {
-  "shaman-enhancement-mental-dexterity": { by: "class-shaman.intellect-into-power", facts: ["ranks"],
-    note: "Talent data, superseded by Blizzard's 2 Nov notes: they give 50%, 100% or 150% of your Intellect. Check the tooltip in game." },
-  "shaman-enhancement-stormstrike": { by: "class-shaman.stormstrike", facts: ["tree", "ranks"],
-    note: "Talent data, superseded by Blizzard's 2 Nov notes: they give 150% normalized weapon damage and a 6 sec cooldown. Check the tooltip in game." },
-};
+// CONTENT-09 (12 Nov 2026): the two entries listed here (Mental Dexterity 50/100/150% and Stormstrike 150% on a 6 sec
+// cooldown) are gone. Blizzard's hotfix of 10 November 2026 (g218-156) set both talents to what the talent data already
+// says (33/66/100%; 100% weapon damage, 8 sec cooldown), so the data was current and the 2 Nov values were the stale ones.
+const SUPERSEDED = {};
 const check = process.argv.includes("--check");
 let stale = 0;
 // One fact or question per line keeps the files small and their diffs readable.

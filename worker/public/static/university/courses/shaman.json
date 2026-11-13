@@ -83,7 +83,7 @@
   {
    "from": "classes[5].specs[1].beginner.summary[1]",
    "text": "Stormstrike is a 16-point talent on a six-second cooldown. Spirit Weapons arrives at 21 points and Rage of the Farseer at 31.",
-   "reason": "No reviewed fact holds the point totals, and the talent data's cooldown differs from Blizzard's notes; the overview now gives both values."
+   "reason": "No reviewed fact holds the point totals. The overview gives Stormstrike's cooldown as Blizzard's hotfix of 10 November 2026 set it."
   },
   {
    "from": "classes[5].specs[1].beginner.leveling[0]",
@@ -186,6 +186,7 @@
      "theory": [
       "class-shaman.change-1",
       "class-shaman.change-2",
+      "class-shaman.imbues-with-totems",
       "class-shaman.change-3",
       "class-shaman.totemic-call"
      ],
@@ -244,10 +245,10 @@
         ]
        },
        {
-        "mistake": "Dropping Windfury Totem for your own Windfury-imbued weapon.",
-        "fix": "A Shaman with the matching imbue gets nothing from the totem.",
+        "mistake": "Skipping Windfury Totem because your own weapon has Windfury Weapon.",
+        "fix": "Since Blizzard's hotfix of 10 November 2026, weapon imbues and weapon totems work at the same time, so you get both.",
         "facts": [
-         "class-shaman.change-2"
+         "class-shaman.imbues-with-totems"
         ]
        }
       ]
@@ -1139,7 +1140,7 @@
     "lead": "Enhancement is the Shaman melee spec: weapon imbues, Stormstrike, and Lightning Bolts sped up by Maelstrom Weapon.",
     "points": [
      {
-      "text": "Blizzard's notes give Stormstrike 150% normalized weapon damage on a six-second cooldown, while the talent data lists 100% weapon damage and an 8 sec cooldown. Go by the tooltip in game.",
+      "text": "Stormstrike deals 100% weapon damage on an 8 sec cooldown, as Blizzard's hotfix of 10 November 2026 set it and the talent data shows.",
       "facts": [
        "class-shaman.stormstrike",
        "talents-shaman.enhancement-stormstrike",
@@ -1193,7 +1194,7 @@
           ]
          },
          {
-          "text": "Blizzard's 2 Nov notes give Mental Dexterity 50%, 100% or 150% of your Intellect as Attack Power; the 10 Nov talent data still shows 33%, 66% and 100%, so check the tooltip in game. Flurry requires it.",
+          "text": "Mental Dexterity gives 33%, 66% or 100% of your Intellect as Attack Power, the values Blizzard's hotfix of 10 November 2026 set. Flurry requires it.",
           "facts": [
            "talents-shaman.enhancement-mental-dexterity.r1",
            "class-shaman.intellect-into-power",
@@ -1458,7 +1459,7 @@
           ]
          },
          {
-          "text": "Value Intellect: Mental Dexterity turns it into Attack Power (150% at rank 3 in Blizzard's 2 Nov notes; the talent data still shows 100%), and Mental Quickness adds up to 30% of it to spell damage and healing.",
+          "text": "Value Intellect: Mental Dexterity turns 100% of it into Attack Power at rank 3, and Mental Quickness adds up to 30% of it to spell damage and healing.",
           "facts": [
            "class-shaman.intellect-into-power",
            "talents-shaman.enhancement-mental-dexterity.r3",
@@ -1565,6 +1566,7 @@
        "title": "In the raid",
        "theory": [
         "class-shaman.windfury-and-flametongue-totems",
+        "class-shaman.imbues-with-totems",
         "class-shaman.threat",
         "class-shaman.temporary-tank",
         "class-shaman.personal-burst",
@@ -1579,9 +1581,9 @@
           ]
          },
          {
-          "text": "A Shaman with the matching imbue gets nothing from the totem, so weigh that when you pick your imbue and your totem.",
+          "text": "Since Blizzard's hotfix of 10 November 2026 your own weapon imbue and the matching totem work at the same time, so you can keep both.",
           "facts": [
-           "class-shaman.windfury-and-flametongue-totems"
+           "class-shaman.imbues-with-totems"
           ]
          },
          {

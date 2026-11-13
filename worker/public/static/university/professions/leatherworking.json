@@ -21,10 +21,11 @@
   "lead": "Leatherworkers make gear for leather and mail wearers plus armor kits, and Forever adds kits that give stats as well as armor.",
   "points": [
    {
-    "text": "Blizzard says the more advanced recipes need a Tanning Rack, so the skill-140 camp object matters early.",
+    "text": "Blizzard says the more advanced recipes need a Tanning Rack, so the skill-125 camp object matters early.",
     "facts": [
      "profession-leatherworking.tanning-rack",
-     "profession-leatherworking.camp-objects"
+     "profession-leatherworking.camp-objects",
+     "profession-leatherworking.tanning-rack-skill"
     ]
    }
   ],
@@ -51,6 +52,7 @@
      "theory": [
       "profession-leatherworking.tanning-rack",
       "profession-leatherworking.camp-objects",
+      "profession-leatherworking.tanning-rack-skill",
       "profession-leatherworking.camp-rules",
       "profession-leatherworking.campsite-size",
       "profession-leatherworking.professions-window"
@@ -64,9 +66,10 @@
         ]
        },
        {
-        "text": "Place a Camp Tent at skill 20, a Tanning Rack at 140 and a Sewing Machine at 300. The Tanning Rack blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
+        "text": "Place a Camp Tent at skill 20, a Tanning Rack at 125 and a Sewing Machine at 300. The Tanning Rack blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
         "facts": [
-         "profession-leatherworking.camp-objects"
+         "profession-leatherworking.camp-objects",
+         "profession-leatherworking.tanning-rack-skill"
         ]
        },
        {
@@ -92,10 +95,11 @@
       "mistakes": [
        {
         "mistake": "Planning the advanced recipes without a Tanning Rack.",
-        "fix": "Blizzard says they need one. It is the skill-140 camp object, and its blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
+        "fix": "Blizzard says they need one. It is the skill-125 camp object, and its blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
         "facts": [
          "profession-leatherworking.tanning-rack",
-         "profession-leatherworking.camp-objects"
+         "profession-leatherworking.camp-objects",
+         "profession-leatherworking.tanning-rack-skill"
         ]
        }
       ]

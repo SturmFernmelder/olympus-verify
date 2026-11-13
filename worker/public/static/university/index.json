@@ -486,7 +486,7 @@
     {
      "scope": "class:shaman",
      "tier": "201",
-     "questions": 45
+     "questions": 46
     },
     {
      "scope": "spec:shaman-elemental",
@@ -506,7 +506,7 @@
     {
      "scope": "spec:shaman-enhancement",
      "tier": "201",
-     "questions": 16
+     "questions": 17
     },
     {
      "scope": "spec:shaman-restoration",
