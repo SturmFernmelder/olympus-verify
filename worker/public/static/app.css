@@ -1006,7 +1006,10 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 @media(max-width:370px){.topbar-in{gap:8px}.topbar-actions{gap:6px}.beta-epoch-figures{grid-template-columns:1fr}.beta-epoch-figures dd{margin-bottom:8px}}
 @media (max-width: 180px) {
   .brand { gap: 6px; }
-  .brand small { display: none; } /* CL2-323: at 320 px and 200% zoom 'FOREVER' pushed the header 5 px wide */
+  /* CL2-323: at 320 px and 200% zoom (160 CSS px, 145 px beside a scrollbar) the brand pushed the page 5 px wide. */
+  .brand small { display: none; }
+  .brand img { width: 36px; height: 36px; }
+  .brand b { font-size: 1.1rem; }
 }
 @media(forced-colors:active){.stream-shield-toggle[aria-pressed="true"]{outline:3px solid Highlight;box-shadow:none}.stream-shield-toggle[aria-pressed="true"] .ico{filter:none}}
 
