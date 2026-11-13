@@ -63,7 +63,8 @@ import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
 import { handleSite } from "./site";
-import { rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import { apiJson, rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import {botResponse280} from "./bot-response280";
 import { handleLookup, isAsmongoldLookup, LOOKUP_COMMAND } from "./lookup";
 import { recordNames, refreshNames, verifiedOnRoster } from "./names";
 import {captureSiteOAuthOrigin,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
@@ -228,7 +229,7 @@ export default {
     let globalEntry:ReturnType<typeof captureGlobalServingEntry>;try{globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request);}catch{return json({error:'original_serving_held'},503); }env=globalEntry.env;request=globalEntry.request!;
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
-    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return json({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
     let namesOrigin:HandlerServingOrigin|undefined;
     if(host==="bot"&&request.method==="POST"&&path==="/interactions"){try{namesOrigin=captureHandlerServingOrigin(request,env,ctx);}catch{}}
     let siteOAuthOrigin:SiteOAuthOrigin|undefined;
@@ -301,7 +302,7 @@ export default {
         // A refused registration is audited, then propagates exactly as .160's did: the legacy sweep rides on this deferral.
         else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
       }
-      return res;
+      return botResponse280(res);
     } catch (e) {
       if(e instanceof RecoveryFloorHeld)throw e;
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
@@ -394,6 +395,9 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
 /** Source-owned whole-schedule measurement seam. The real handler checks the installed Epoch2 qualification guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
 type OriginalScheduledSliceCost = Readonly<{state:string;statements:number;pendingGroups:number;failedGroups:number}>;
+// The installed retention slice is25 physical statements; the existing Native
+// receipt purge costs5. It may use only their difference, never another job's reserve.
+const RETENTION_SLICE_STATEMENTS280=25,RECEIPT_PURGE_STATEMENTS280=5;
 export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null,readOriginalRetentionCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
     const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
@@ -465,7 +469,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
       // another job's budget or supplies identity/deletion authority.
       let cost:OriginalScheduledSliceCost|null=null;
       try{cost=readOriginalRetentionCost?.()??null;}catch{return;}
-      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>20)return;
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>RETENTION_SLICE_STATEMENTS280-RECEIPT_PURGE_STATEMENTS280)return;
       try{await purgeReceipt242(env);}
       catch(e){console.error('receipt retention held',errorRef(e));}
     });

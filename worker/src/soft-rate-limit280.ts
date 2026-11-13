@@ -28,6 +28,32 @@ export function consumeRateLimit280(key:string,max:number,windowSeconds:number):
  b.n=Math.min(b.n+1,Number.MAX_SAFE_INTEGER);
  return result(b.n>max,b.n>max?remaining(b.reset,t):0);
 }
+/** Census needs both its account allowance and the shared preview allowance.
+ * Check and spend synchronously as one isolate-local operation: a refusal by
+ * either bucket must not consume the other member's capacity. No await, bucket
+ * eviction or reset of an existing window is permitted here. */
+export function consumeRateLimitPair280(firstKey:string,firstMax:number,secondKey:string,secondMax:number,windowSeconds:number):RateLimitResult280{
+ const specs=[{key:firstKey,max:firstMax},{key:secondKey,max:secondMax}];
+ if(firstKey===secondKey||!Number.isSafeInteger(windowSeconds)||windowSeconds<1||windowSeconds>86400
+  ||specs.some(s=>typeof s.key!=='string'||!s.key.length||s.key.length>512||!Number.isSafeInteger(s.max)||s.max<1))throw Error('invalid_soft_rate_limit');
+ const t=now();
+ for(const {key} of specs){const b=buckets.get(key);if(b&&b.reset<=t)buckets.delete(key);}
+ const missing=()=>specs.reduce((n,s)=>n+(buckets.has(s.key)?0:1),0);
+ if(buckets.size+missing()>CAPACITY&&earliest<=t){
+  earliest=Infinity;
+  for(const [key,b] of buckets){if(b.reset<=t)buckets.delete(key);else earliest=Math.min(earliest,b.reset);}
+ }
+ let retry=0;
+ for(const {key,max} of specs){const b=buckets.get(key);if(b&&(b.window!==windowSeconds||b.n>=max))retry=Math.max(retry,remaining(b.reset,t));}
+ if(retry)return result(true,retry);
+ if(buckets.size+missing()>CAPACITY)return result(true,remaining(earliest,t));
+ for(const {key} of specs){
+  const b=buckets.get(key);
+  if(b)b.n++;
+  else{const reset=t+windowSeconds;buckets.set(key,{n:1,reset,window:windowSeconds});earliest=Math.min(earliest,reset);}
+ }
+ return result(false,0);
+}
 /** Compatibility for non-HTTP callers; consuming and boolean paths share state. */
 export function rateLimited(key:string,max:number,windowSeconds:number):boolean{return consumeRateLimit280(key,max,windowSeconds).limited;}
 export function rateLimitHeaders280(receipt:RateLimitResult280):Record<string,string>{return receipt.limited?{'Retry-After':String(receipt.retryAfterSeconds)}:{};}

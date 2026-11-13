@@ -57,14 +57,15 @@ read-only and commits to nothing; stop after it if the answer is "not yet".
     grant, and no future roster pass will ever give them one. They land in the new server with no role.
 
     Build `.26` adds `GET /admin/backfill-roles` for this. It is **dry by default** — it reports what it would do
-    and changes nothing until `&apply=1`. It pages explicitly so a single call can never run away across the whole
+    and changes nothing until an explicit `POST` with `&apply=1`. It pages explicitly so a single call can never run away across the whole
     membership, and each response carries the `next` URL to call.
 
         curl -H "Authorization: Bearer <watcher token>" "<base>/admin/backfill-roles"
-        curl -H "Authorization: Bearer <watcher token>" "<base>/admin/backfill-roles?apply=1&limit=25"
+        curl -X POST -H "Authorization: Bearer <watcher token>" "<base>/admin/backfill-roles?apply=1&limit=25"
         # then follow the `next` field until `finished` is true
 
-    It skips anyone who already holds the role, so re-running is safe. People not yet in the new server are
+    Use `POST` for each apply page; opening an apply URL with `GET` is refused. If a reply is lost or unreadable,
+    stop and inspect current roles before an attended retry. People not yet in the new server are
     reported as `notInServer` rather than failing — run it again later and they get picked up. A 403 stops the
     pass immediately, because that almost always means the bot's role sits below the Guild Member role and every
     remaining row would fail the same way.

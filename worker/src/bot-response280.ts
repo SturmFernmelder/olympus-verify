@@ -12,6 +12,13 @@ export function botResponseHeaders280(extra:Record<string,string>={},html=false)
  if(html)headers.set('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
  return headers;
 }
+/** Apply only after bot-route response bookkeeping. Keep the original stream and
+ * HTTP semantics; existing document/form CSP stays exactly as the route authored it. */
+export function botResponse280(response:Response):Response {
+ const headers=new Headers(response.headers);
+ for(const [name,value] of botResponseHeaders280())headers.set(name,value);
+ return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
 const escape=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 /** Both inputs are text. Structured, already escaped interstitial HTML has its separate renderer. */
 export function oauthResultPage280(title:string,body:string,status:number,extraHeaders:Record<string,string>={}):Response {

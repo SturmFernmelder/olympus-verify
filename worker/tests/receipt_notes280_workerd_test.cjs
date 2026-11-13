@@ -1,14 +1,16 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),os=require('node:os');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.join(__dirname,'..'),args=process.argv.slice(2),outArg=args.indexOf('--out'),phaseArg=args.indexOf('--phase');
 if(outArg<0||!args[outArg+1])throw Error('Pass --out <evidence-directory>');
 const out=path.resolve(args[outArg+1]),phase=phaseArg<0?'after':args[phaseArg+1],runId='r-'+crypto.randomUUID();fs.mkdirSync(out,{recursive:true});
+const runtimeRoot=fs.mkdtempSync(path.join(os.tmpdir(),'notes280-'));
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const files=['src/treasury-note-maintenance280.ts','src/site-admin.ts','tests/receipt_notes280_runtime_test.mjs','tests/receipt_notes280_workerd_test.cjs'];
 const inputs=()=>Object.fromEntries(files.map(file=>[file,hash(fs.readFileSync(path.join(root,file)))]));
 const before=inputs(),http=[];
-const bundle=buildSync({entryPoints:[path.join(__dirname,'receipt_notes280_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),logLevel:'silent'}).outputFiles[0].text;
+const built=buildSync({entryPoints:[path.join(__dirname,'receipt_notes280_runtime_test.mjs')],absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:async_hooks'],tsconfig:path.join(root,'tsconfig.json'),metafile:true,logLevel:'silent'});
+const bundle=built.outputFiles[0].text,compiledInputs=Object.keys(built.metafile.inputs).map(file=>({path:path.resolve(root,file),sha256:hash(fs.readFileSync(path.resolve(root,file)))}));
 const response=(status,value)=>new Response(value===undefined?null:JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
 async function provider(request){
  const u=new URL(request.url),p=u.pathname.replace(/^\/api\/v10/,''),method=request.method,auth=request.headers.get('Authorization')||'';http.push({method,host:u.hostname,path:p});
@@ -27,14 +29,14 @@ async function provider(request){
  throw Error('unexpected synthetic Discord '+method+' '+p);
 }
 (async()=>{let mf;try{
- mf=new Miniflare(convertV4MiniflareOptions({rootPath:out,script:bundle,modules:true,name:'receipt-notes280',compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:34280,cf:false,log:new Log(LogLevel.WARN),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,resourceTmpPath:path.join(out,runId,'tmp'),resourcePersistencePath:path.join(out,runId,'persist'),isolatedResourcePersistencePath:path.join(out,runId,'isolated'),d1Databases:{DB:'receipt-notes280-fixture'},outboundService:provider}));
+ mf=new Miniflare(convertV4MiniflareOptions({rootPath:runtimeRoot,script:bundle,modules:true,name:'receipt-notes280',compatibilityDate:'2026-09-01',compatibilityFlags:['nodejs_compat'],host:'127.0.0.1',port:0,cf:false,log:new Log(LogLevel.WARN),logRequests:false,telemetry:{enabled:false},unsafeRegisterWorker:false,unsafeLocalExplorer:false,unsafeObservability:false,resourceTmpPath:path.join(runtimeRoot,'tmp'),resourcePersistencePath:path.join(runtimeRoot,'persist'),isolatedResourcePersistencePath:path.join(runtimeRoot,'isolated'),d1Databases:{DB:'receipt-notes280-fixture'},outboundService:provider}));
  await mf.ready;const r=await mf.dispatchFetch('http://fixture.invalid/receipt-notes280?layout='+encodeURIComponent(phase),{method:'POST'}),text=await r.text();
  let result;try{result=JSON.parse(text);}catch{throw Error('fixture returned '+r.status+' '+text);}
- const after=inputs(),stable=JSON.stringify(before)===JSON.stringify(after);
- const receipt={at:new Date().toISOString(),phase,httpStatus:r.status,inputsBefore:before,inputsAfter:after,ownedInputsStable:stable,bundleSHA256:hash(bundle),providerHTTP:http,result};
+ const after=inputs(),stable=JSON.stringify(before)===JSON.stringify(after),compiledStable=compiledInputs.every(row=>hash(fs.readFileSync(row.path))===row.sha256);
+ const receipt={at:new Date().toISOString(),phase,httpStatus:r.status,inputsBefore:before,inputsAfter:after,ownedInputsStable:stable,compiledStable,compiledInputs,bundleSHA256:hash(bundle),providerHTTP:http,result};
  fs.writeFileSync(path.join(out,'receipt-notes280-'+runId+'.json'),JSON.stringify(receipt,null,2)+'\n');
  fs.writeFileSync(path.join(out,'receipt-notes280-'+phase+'.json'),JSON.stringify(receipt,null,2)+'\n');
  for(const row of result.cases??[])console.log((row.pass?'PASS ':'FAIL ')+row.name+(row.observed?' '+JSON.stringify(row.observed):''));
  console.log(JSON.stringify({phase,checks:result.checks,ok:result.ok,ownedInputsStable:stable,bundleSHA256:receipt.bundleSHA256}));
- if(r.status!==200||!result.ok||!stable)process.exitCode=1;
+ if(r.status!==200||!result.ok||!stable||!compiledStable)process.exitCode=1;
  }finally{if(mf)await mf.dispose();}})().catch(error=>{fs.writeFileSync(path.join(out,'receipt-notes280-'+runId+'.error.json'),JSON.stringify({at:new Date().toISOString(),phase,inputsBefore:before,bundleSHA256:hash(bundle),error:String(error.stack),scope:'Fixture setup/execution error; not a passing product result.'},null,2)+'\n');console.error(error.stack);process.exitCode=1;});

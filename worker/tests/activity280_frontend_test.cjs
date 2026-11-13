@@ -11,7 +11,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/static/activi
 const render = context.window.OlympusActivity280.render, all = root => root ? [root, ...root.children.flatMap(all)] : [];
 const text = root => all(root).map(x => x.textContent).join('|');
 const input = {asOf: 1794528000, roster: {day: {joined: 2, left: 0}, week: null}, applications: {day: {firstSaved: 'few', decided: 0}, week: {firstSaved: 17, decided: 'few'}}};
-const original = JSON.stringify(input), result = render(input, value => 'ORIGINAL-' + value), nodes = all(result);
+const original = JSON.stringify(input), result = render(input, () => { throw Error('The News frame owns the observation timestamp'); }), nodes = all(result);
 assert.equal(JSON.stringify(input), original, 'the admitted DTO is never rewritten');
 assert.equal(nodes.filter(x => x.tagName === 'tr').length, 5);
 assert.equal(nodes.filter(x => x.tagName === 'th' && x.attrs.scope === 'row').length, 4);
@@ -20,7 +20,8 @@ assert.equal(nodes.filter(x => x.tagName === 'meter').length, 4, 'only exact dis
 assert(nodes.filter(x => x.tagName === 'meter').every(x => x.attrs['aria-hidden'] === 'true' && x.attrs.tabindex === '-1'));
 assert.equal(nodes.filter(x => x.tagName === 'span' && x.textContent === 'Fewer than 5').length, 2);
 assert.equal(nodes.filter(x => x.tagName === 'span' && x.textContent === 'Unavailable').length, 2);
-assert(text(result).includes('ORIGINAL-1794528000'), 'use the original observation time');
+assert.equal(nodes.filter(x => x.tagName === 'h3').length, 1, 'the activity heading follows the News frame h2');
+assert.equal(nodes.filter(x => x.tagName === 'h4').length, 0);
 assert(text(result).includes('do not add the columns'));
 assert(!nodes.some(x => x.tagName === 'meter' && x.value === 'few'));
 const malformed = render({asOf: input.asOf, roster: {day: {joined: -1, left: 3.1}, week: {joined: '0', left: NaN}}, applications: {day: {firstSaved: 3, decided: '3'}, week: {firstSaved: Infinity, decided: -1}}}, String);

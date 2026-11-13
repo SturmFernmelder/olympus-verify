@@ -156,20 +156,25 @@ async function caseWith(name, run) {
       ['BOM', '\ufeff' + raw, 'invalid_census'],
       ['duplicate decoded key', raw.replace('"format":', '"f\\u006frmat":"olympus-census-v1","format":'), 'invalid_census'],
       ['fractional lexical timestamp', raw.replace('"observedAt":' + f.now, '"observedAt":' + f.now + '.0000000000000001'), 'invalid_census'],
-      ['malformed UTF-8', new Uint8Array([0xc3, 0x28]), 'invalid_utf8'],
     ]) {
       const out = await f.invoke(f.request(rawBody));
       check(label + ' is refused without partial rows', out.response.status === 400 && out.body.error === error && Object.keys(out.body).length === 1);
     }
+  });
+  // Independent parser controls must not spend more than one account's new
+  // six-preview allowance and accidentally test the limiter instead of UTF-8.
+  await caseWith('UTF-8 byte boundaries', async f => {
+    const malformed = await f.invoke(f.request(new Uint8Array([0xc3, 0x28])));
+    check('malformed UTF-8 is refused without partial rows', malformed.response.status === 400 && malformed.body.error === 'invalid_utf8' && Object.keys(malformed.body).length === 1);
     const split = encoder.encode(JSON.stringify({ ...snapshot(f.now), realmGroup: 'Fictional \u00e9' }));
     const at = split.indexOf(0xc3);
     const out = await f.invoke(f.request(chunks([split.slice(0, at + 1), split.slice(at + 1)])));
     check('split multibyte UTF-8 is decoded as one stream', out.response.status === 200 && out.body.snapshot.realmGroup === 'Fictional \u00e9');
   });
-  await caseWith('shared soft limiter', async f => {
+  await caseWith('per-account soft limiter within the shared ceiling', async f => {
     for (let i = 0; i < 13; i++) {
       const out = await f.invoke(f.request(JSON.stringify(snapshot(f.now))));
-      check('constant bucket request ' + (i + 1), i < 12 ? out.response.status === 200 : out.response.status === 429 && out.body.error === 'slow_down');
+      check('account bucket request ' + (i + 1), i < 6 ? out.response.status === 200 : out.response.status === 429 && out.body.error === 'slow_down');
     }
   });
   await caseWith('real anonymous and unconfirmed contexts', async f => {
@@ -300,6 +305,9 @@ async function caseWith(name, run) {
     try { response = await f.route.censusPreview(req, prepared.bound, prepared.ctx); }
     catch (error) { failure = error; }
     if (response) returned = await response.json();
+    if (!completed) console.log('CENSUS_BOUNDARY_NOT_REACHED ' + JSON.stringify({label,boundary,
+      entered,status:response?.status,error:returned?.error,failure:failure?.name,
+      nativeStatements:f.native.nativeTrace.length,elapsedSeconds:Math.floor(Date.now()/1000)-f.now}));
     check('original admitted competing mutation completed', completed);
     const Held = f.load('privacy-serving-authority').PrivacySiteRequestHeld;
     check('changed original authority has an exact known refusal or typed custody hold',
