@@ -17,7 +17,33 @@ const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).joi
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')throw Error('original_method');return d.value;}}throw Error('original_method');};
 export function refusalFixture280(seed){const spent=new Set(),active=new Map();return {async fetch(request,bindings){
  const name=new URL(request.url).pathname.slice(1);
- if(name.startsWith('mutate/')){const kind=name.slice(7),a=active.get(kind);if(!a)return new Response(null,{status:404});if(kind==='transition-refusal429-tuple-race'){await a.env.DB.prepare("UPDATE role_settlements SET claim_nonce=(CASE substr(claim_nonce,1,1) WHEN '7' THEN '6' ELSE '7' END)||substr(claim_nonce,2) WHERE desired=0 AND state='dispatching'").run();return Response.json({mutated:true});}if(kind==='transition-policy')a.env.CANONICAL_RANKS233='off';
+ if(name.startsWith('mutate/')){const kind=name.slice(7),a=active.get(kind);if(!a)return new Response(null,{status:404});const fence=/^transition-fence-(routine|ban)-(403|429)-(generation|source|venue|unban)$/.exec(kind);
+ if(fence){
+  if(a.flags.fenceInvalidated)throw Error('fixed_fence_mutation_repeated');
+  a.flags.fenceOriginal=await a.env.DB.prepare("SELECT * FROM role_settlements WHERE desired=0 AND attempts=1 AND state='dispatching' ORDER BY created_at,id LIMIT 1").first();
+  if(!a.flags.fenceOriginal)throw Error('genuine_original_dispatch_missing');
+  const boundary=fence[3];
+  if(boundary==='generation'){
+   a.flags.fenceBefore=await a.env.DB.prepare('SELECT * FROM privacy_subjects WHERE subject_id=?1').bind(a.subject).first();
+   await a.env.DB.prepare("INSERT INTO privacy_subjects(subject_id,generation,state,revision,created_at,updated_at)VALUES(?1,?2,'active',1,CAST(strftime('%s','now') AS INTEGER),CAST(strftime('%s','now') AS INTEGER))ON CONFLICT(subject_id)DO UPDATE SET generation=excluded.generation,revision=privacy_subjects.revision+1,updated_at=excluded.updated_at").bind(a.subject,'9'.repeat(32)).run();
+   a.flags.fenceAfter=await a.env.DB.prepare('SELECT * FROM privacy_subjects WHERE subject_id=?1').bind(a.subject).first();
+  }else if(boundary==='source'){
+   a.flags.fenceBefore=await a.env.DB.prepare('SELECT id,source,exported_at FROM roster_snapshots ORDER BY id DESC LIMIT 1').first();
+   await a.env.DB.prepare("UPDATE roster_snapshots SET source='addon-native-v1:'||?1").bind(JSON.stringify(a.scope)).run();
+   a.flags.fenceAfter=await a.env.DB.prepare('SELECT id,source,exported_at FROM roster_snapshots ORDER BY id DESC LIMIT 1').first();
+  }else if(boundary==='venue'){
+   a.flags.fenceBefore=await a.env.DB.prepare('SELECT key,value,updated_at FROM site_settings WHERE key=?1').bind(a.closureKey).first();
+   if(!a.flags.fenceBefore)throw Error('genuine_original_venue_missing');
+   await a.env.DB.prepare("UPDATE site_settings SET value=value||'-changed-original-venue-seal' WHERE key=?1").bind(a.closureKey).run();
+   a.flags.fenceAfter=await a.env.DB.prepare('SELECT key,value,updated_at FROM site_settings WHERE key=?1').bind(a.closureKey).first();
+  }else if(boundary==='unban'){
+   a.flags.fenceBefore=await a.env.DB.prepare("SELECT banned,(SELECT MAX(id)FROM audit WHERE action='admin.unban' AND subject=?1) AS unban_event FROM members WHERE discord_id=?1").bind(a.subject).first();
+   await a.env.DB.batch([a.env.DB.prepare('UPDATE members SET banned=0 WHERE discord_id=?1').bind(a.subject),a.env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.unban','system',?1,NULL)").bind(a.subject)]);
+   a.flags.fenceAfter=await a.env.DB.prepare("SELECT banned,(SELECT MAX(id)FROM audit WHERE action='admin.unban' AND subject=?1) AS unban_event FROM members WHERE discord_id=?1").bind(a.subject).first();
+  }else throw Error('fixed_fence_boundary_required');
+  a.flags.fenceInvalidated=boundary;a.flags.fenceMutationAt=Date.now();return Response.json({mutated:true,boundary});
+ }
+ if(kind==='transition-refusal429-tuple-race'){await a.env.DB.prepare("UPDATE role_settlements SET claim_nonce=(CASE substr(claim_nonce,1,1) WHEN '7' THEN '6' ELSE '7' END)||substr(claim_nonce,2) WHERE desired=0 AND state='dispatching'").run();return Response.json({mutated:true});}if(kind==='transition-policy')a.env.CANONICAL_RANKS233='off';
  else if(kind==='transition-sourcegraph-ban'){const row=a.sourceGraph();if(!row)throw Error('original_source_graph_not_observed');row.rows_json='[]';a.flags.sourceGraphMutated=true;}
  else if(kind==='transition-provider-token-ban')a.env.DISCORD_BOT_TOKEN+='-changed';
  else if(kind==='transition-method-ban'){Object.defineProperty(a.raw,'batch',{value:async()=>{throw Error('synthetic_changed_original_method');},configurable:true,writable:true});a.flags.methodChanged=true;}
@@ -68,7 +94,7 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
   }
   return r;
  }});
- const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};active.set(kind,{env,subject,scope,raw:db,flags:flags280,sourceGraph:()=>sourceGraph});let result,error=null,repeat=null,visits280=[],visitCosts280=[],prelude280=null,manualOriginal280=null,manualAfter280=null,retention=null,original=null,originalAfter=null,selector=null,integrity280=[];const start=wires.length;
+ const env={...config,DB:createPrivacyWriteAdmissionDatabase(db,'writer','recorded-live-pre-seal-20261017',config.PRIVACY_WRITE_ADMISSION_EPOCH)};active.set(kind,{env,subject,scope,raw:db,flags:flags280,closureKey:'membership230:closure:'+closure.operationId,sourceGraph:()=>sourceGraph});let result,error=null,repeat=null,visits280=[],visitCosts280=[],prelude280=null,manualOriginal280=null,manualAfter280=null,retention=null,original=null,originalAfter=null,selector=null,integrity280=[];const start=wires.length;
  try{
   if(kind==='transition-consumed-due'||kind==='transition-consumed-malformed')await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES('role.managed.cooldown280',?1,CAST(strftime('%s','now') AS INTEGER),NULL)").bind(kind.endsWith('malformed')?'{"version":1,"due":false}':JSON.stringify({version:1,due:Math.floor(Date.now()/1000)+60})).run();
   if(kind==='legacy-anchor'){original=await db.prepare("SELECT * FROM role_settlements WHERE id=?1").bind('a'.repeat(32)).first();result=await runNativeSubject232(env,subject,callBudget(env));originalAfter=await db.prepare("SELECT * FROM role_settlements WHERE id=?1").bind('a'.repeat(32)).first();}
@@ -152,7 +178,7 @@ export function refusalFixture280(seed){const spent=new Set(),active=new Map();r
     const selected=await captureRuntimeVenue230(env);if(selected.mode!=='enabled')throw Error('genuine_migration_venue_held');const venue=runtimeVenue230Facts(selected.venue),at=Math.floor(Date.now()/1000);
     const plan={version:1,profile:CANONICAL_MIGRATION_PROFILE233,guildId:env.GUILD_ID,operationId:(await H(kind)).slice(0,32),epoch:venue.epoch,seal:await H(venue.sealJSON),sourceTree:'2'.repeat(40),policySHA256:await H(env.CANONICAL_RANKS233),packetSHA256:'3'.repeat(64),issuedAt:at,expiresAt:at+120,entries:[{subject,generation:null,currentRoles:[CANONICAL_RANKS233[7].roleId],targetRole:CANONICAL_RANKS233[9].roleId}]};
     env.CANONICAL_MIGRATION_SOURCE_TREE233=plan.sourceTree;env.CANONICAL_MIGRATION233=JSON.stringify(plan);repeat=await migrateCanonicalRank233(env,subject,callBudget(env));visits280.push(repeat);repeat=await migrateCanonicalRank233(env,subject,callBudget(env));visits280.push(repeat);
-   }else if(kind.startsWith('transition-banrefusal')||kind.startsWith('transition-banunknown')){
+   }else if(kind.startsWith('transition-banrefusal')||kind.startsWith('transition-banunknown')||kind.startsWith('transition-fence-ban-')){
     await env.DB.prepare('UPDATE members SET banned=1 WHERE discord_id=?1').bind(subject).run();
     const event=await env.DB.prepare("INSERT INTO audit(ts,action,actor,subject,details)VALUES(CAST(strftime('%s','now') AS INTEGER),'admin.ban','system',?1,NULL)RETURNING id").bind(subject).first();
     const origin={kind:'command',banEvent:event.id};repeat=await removeBanRankRoles1112(env,subject,origin,null,calls);visits280.push(repeat);repeat=await removeBanRankRoles1112(env,subject,origin,null,callBudget(env));visits280.push(repeat);
