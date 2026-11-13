@@ -397,6 +397,16 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
     const outcomes = Object.fromEntries(Object.entries(cases).map(([name, fn]) => [name, mutate(fn)]));
     check('CL2-039', 'the inverse refuses or changes its result for every broken record or undeclared model change', Object.values(outcomes).every(d => d !== BASE_MODEL1113),
       JSON.stringify(Object.entries(outcomes).filter(([, d]) => d === BASE_MODEL1113).map(([k]) => k)));
+    // Review of 390f337 (13 Nov 2026), MEDIUM: the inverse cannot see a further change that the model declares in its own
+    // record (it restores to the same base). So the record itself is pinned: exactly the twelve owner-ruled changes.
+    const RECORD1113 = 'b5d676a512b13c91af596ce299d27ec27dfe002fb72edd262a5e89f9f7c8661e';
+    const recordDigest = m => sha256(JSON.stringify(m.reportingLines1113));
+    const selfDeclared = structuredClone(model), staff1113 = selfDeclared.nodes.find(n => n.id === 'staff');
+    selfDeclared.reportingLines1113.changes.push({ nodeId: 'staff', field: 'parent', before: staff1113.parent, after: 'founder' }); staff1113.parent = 'founder';
+    check('CL2-039', 'the dated record is pinned to exactly the twelve owner-ruled changes, so a self-declared further change fails',
+      model.reportingLines1113.changes.length === 12 && recordDigest(model) === RECORD1113
+      && restoredDigest(selfDeclared) === BASE_MODEL1113 && recordDigest(selfDeclared) !== RECORD1113,
+      JSON.stringify({ changes: model.reportingLines1113.changes.length, record: recordDigest(model), selfDeclaredRestores: restoredDigest(selfDeclared) === BASE_MODEL1113 }));
   }
   // Review LOW 3: one name for the top tier. The Council node and Section II.8.1(a) name the Co-GM's top-tier place too.
   check('CL2-039', 'the High Council node and Section II.8.1(a) place the Co-Guild Master in the top tier beside the Guild Master',
