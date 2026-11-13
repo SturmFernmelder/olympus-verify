@@ -161,7 +161,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
                 or not _text(row["fullName"], 100) or not row["fullName"] or "|" in row["fullName"] or row["fullName"].strip().lower() != row["name"].strip().lower()
                 or row["scopeHash"] != report["scopeHash"] or not _integer(row["observedAt"], 1) or row["observedAt"] > fetched + 5
                 or not _integer(row["expiresAt"], 1) or not row["observedAt"] < row["expiresAt"] <= row["observedAt"] + 60
-                or row["reason"] != "knight-unguilded" or row["source"] != "native-who-unit-v233" or row["guid"] in guids
+                or row["reason"] != "knight-unguilded" or row["source"] not in ("native-who-unit-v233", "native-who-whisper-v242") or row["guid"] in guids
                 or not allow_stale and at >= row["expiresAt"]):
             return False
         guids.add(row["guid"]); queue_ids.add(row["queueId"]); proof_ids.add(row["proofId"])
