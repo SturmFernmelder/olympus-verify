@@ -53,12 +53,7 @@ export function policyResponse(request: Request, path: string): Response | null 
   }
   // Finite root addresses only: account/access/erasure suffixes keep their own original handlers and credentials.
   // Respond before the member gate so a retired link cannot fall through to a successful sign-in page.
-  // CL2-320 (12 Nov 2026): the status stays 410 (no redirect); a person who follows an old link reads where the text is now.
-  if (retired) {
-    const target = path === "/privacy" ? ["/legal/privacy", "Privacy Policy"] : ["/legal/terms", "Terms of Service"];
-    const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Address retired — Olympus</title></head><body><h1>This address was retired</h1><p>Read the current <a href="${target[0]}">${target[1]}</a>.</p></body></html>`;
-    return new Response(request.method === "HEAD" ? null : body, { status: 410, headers });
-  }
+  if (retired) return new Response(null, { status: 410, headers });
   if (canonical !== path) {
     headers.set("Location", canonical); // Fixed local target; query strings and account-action suffixes are never forwarded.
     return new Response(null, { status: 301, headers });

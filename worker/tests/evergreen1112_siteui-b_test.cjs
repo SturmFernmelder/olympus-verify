@@ -292,9 +292,14 @@ async function browserChecks() {
       check('CL2-172', 'review dates on /#/addons read as plain dates, not raw timestamps', r.length > 0 && r.every(t => !/\d{4}-\d{2}-\d{2}/.test(t)), r);
     }
     if (want('CL2-320')) {
-      const res = await fetch(BASE + '/privacy', { headers: { Accept: 'text/html' } });
-      const body = await res.text();
-      check('CL2-320', '/privacy stays 410 and links the current policy', res.status === 410 && /href="\/legal\/privacy"/.test(body), { status: res.status, bytes: body.length });
+      // RC-320 (round 3, 12 Nov 2026): CL2-320 is withdrawn. The owner's 21 October instruction (CLAUDE.md) retires exactly
+      // /privacy and /terms with an EMPTY 410 and no redirect; this asserts the restored behaviour through the real Worker.
+      const out = {};
+      for (const p of ['/privacy', '/terms']) for (const method of ['GET', 'HEAD']) {
+        const res = await fetch(BASE + p, { method, headers: { Accept: 'text/html' }, redirect: 'manual' });
+        out[`${method} ${p}`] = { status: res.status, bytes: (await res.text()).length, location: res.headers.get('Location'), cookie: res.headers.has('Set-Cookie') };
+      }
+      check('CL2-320', '/privacy and /terms are empty 410 responses (GET and HEAD) with no redirect and no cookie', Object.values(out).every(x => x.status === 410 && x.bytes === 0 && x.location === null && !x.cookie), out);
     }
     // ---- Review follow-ups (12 Nov 2026) ----
     const contrastJs = `const L=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4};const lum=([r,g,b])=>0.2126*L(r)+0.7152*L(g)+0.0722*L(b);const rat=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05)};const rgb=s=>s.match(/[\\d.]+/g).slice(0,3).map(Number);`;
