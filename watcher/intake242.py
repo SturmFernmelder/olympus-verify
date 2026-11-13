@@ -8,6 +8,7 @@ import time
 import re
 import codes
 import savedvars
+import savedvars_source280
 import intake_schema280
 PATH = "/ingest/intake242"
 SOURCE_VERSION = "0.6.25"
@@ -144,88 +145,127 @@ def _schedule_financial_retry(watcher, original, receipt, at):
     known[id(original)] = {"original": original, "metadata": {**metadata, "receipt": dict(receipt)}}
 
 
-def collect(watcher):
+def _transport_identity_error(body):
+    # Worker ordinary ACKs preserve at most100 UTF16 code units. Reject new
+    # unsupported identities; retained originals are held, never truncated/id-only matched.
+    character = body.get("character") if type(body) is dict else None
+    try:
+        return type(character) is not str or len(character.encode("utf-16-le")) // 2 > 100
+    except UnicodeError:
+        return True
+
+
+def collect(watcher, snapshot=None):
     state = watcher.state.d.get("intake242", {})
     if type(state) is not dict:
         watcher._custody_halted = True
         raise ValueError("intake custody ledger held")
-    for name in ("OlympusVerify.lua", "Olympus.lua", "OlympusRecord.lua", "OlympusRecordDB.lua"):
-        path = watcher.sv_file.with_name(name)
+    if snapshot is None:
         try:
-            if not path.is_file():
-                continue
-            before = path.stat()
-            data = savedvars.parse_file(str(path))
-            after = path.stat()
-            if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
-                continue
-        except (OSError, ValueError, TypeError, RecursionError):
+            snapshot = savedvars_source280.owned(watcher)
+        except savedvars_source280.SourceUnavailable:
+            return state
+    db = snapshot.data.get("OlympusVerifyDB")
+    if type(db) is not dict:
+        return state
+    intake = db.get("intake242")
+    rows = intake.get("entries") if type(intake) is dict else None
+    values = rows.values() if type(rows) is dict else rows if type(rows) is list else ()
+    changed, invalid = False, 0
+    for entry in values:
+        if type(entry) is not dict:
+            invalid += 1
             continue
-        if type(data) is not dict:
+        eid = entry.get("id")
+        if type(eid) is not str or re.fullmatch(r"[A-Za-z0-9:._-]{1,128}", eid) is None:
+            invalid += 1
             continue
-        for dbname in ("OlympusVerifyDB", "OlympusDB", "OlympusRecordDB"):
-            db = data.get(dbname)
-            if not isinstance(db, dict):
-                continue
-            intake = db.get("intake242")
-            for rows in (intake.get("entries") if isinstance(intake, dict) else None, db.get("pendingRoleUpdates")):
-                values = list(rows.values()) if isinstance(rows, dict) else rows if isinstance(rows, list) else []
-                for entry in values:
-                    if type(entry) is not dict:
-                        continue
-                    eid = entry.get("id")
-                    if not isinstance(eid, str) or re.fullmatch(r"[A-Za-z0-9:._-]{1,128}", eid) is None:
-                        continue
-                    canonical = _canonical_body(entry)
-                    if canonical is None:
-                        continue  # invalid input cannot taint an already held original
-                    body, digest = canonical
-                    metadata = intake.get("bridgeMetadata") if isinstance(intake, dict) else None
-                    mirrored = metadata.get(eid) if isinstance(metadata, dict) else None
-                    tainted = dbname in ("OlympusDB", "OlympusRecordDB") or isinstance(mirrored, dict) and mirrored.get("untrusted") is True
-                    origin = mirrored.get("origin") if isinstance(mirrored, dict) else None
-                    if tainted and origin not in (None, ""):
-                        if type(origin) is not str or len(origin) > 128:
-                            continue
-                        try:
-                            origin.encode("utf-8")
-                        except UnicodeError:
-                            continue
-                    original = state.get(eid)
-                    # A new inadmissible source must not create another copy of
-                    # old correspondence or poison an already valid original.
-                    policy = intake_schema280.policy_error(body, watcher.secret, watcher.officer)
-                    financial = body.get("type") == "donation"
-                    local_financial = name == "OlympusVerify.lua" and dbname == "OlympusVerifyDB" and not tainted
-                    if policy or financial and not local_financial:
-                        continue
-                    if financial and original is not None and original.get("sha256") == digest:
-                        continue  # exact local/mirrored observation, no new authority or custody edit
-                    if original is None:
-                        watcher.state.d["intake242"] = state
-                        state[eid] = {"body":body,"sha256":digest,"state":"pending","attempted":False}
-                    elif original.get("sha256") != digest:
-                        original["sourceConflict"] = True
-                    # Source taint is custody metadata, not a change to the
-                    # original body or authority to mint/upgrade a native MAC.
-                    # The Worker still validates every original proof itself.
-                    if tainted:
-                        record = state[eid]
-                        record["bridgeUntrusted"] = True
-                        origins = record.setdefault("untrustedSources", [])
-                        origin = origin or dbname
-                        if origin not in origins:
-                            origins.append(origin)
-    if "intake242" in watcher.state.d:
+        canonical = _canonical_body(entry)
+        if canonical is None:
+            invalid += 1
+            continue  # invalid input cannot taint an already held original
+        body, digest = canonical
+        metadata = intake.get("bridgeMetadata")
+        # Historical foreign mirrors remain in SavedVariables and custody state.
+        # They are neither re-imported nor upgraded into owned observations.
+        if type(metadata) is dict and eid in metadata:
+            invalid += 1
+            continue
+        policy = intake_schema280.policy_error(body, watcher.secret, watcher.officer)
+        if policy or body.get("type") != "donation" and _transport_identity_error(body):
+            invalid += 1
+            continue
+        original = state.get(eid)
+        if original is None:
+            watcher.state.d["intake242"] = state
+            state[eid] = {"body": body, "sha256": digest, "state": "pending", "attempted": False}
+            changed = True
+        elif type(original) is not dict:
+            watcher._custody_halted = True
+            raise ValueError("intake custody row held")
+        elif original.get("sha256") != digest and original.get("sourceConflict") is not True:
+            original["sourceConflict"] = True
+            changed = True
+    diagnosis = getattr(watcher, "_source_counts280", None)
+    if diagnosis is not None:
+        diagnosis("intake", invalid)
+    if changed:
         _save_state(watcher)
     return state
 
+
+def _ordinary_no_effect_matches(original, receipt):
+    body = original.get("body")
+    canonical = _canonical_body(body)
+    return (type(receipt) is dict and set(receipt) == {"id", "character", "guid", "outcome", "originalNoEffect"}
+            and receipt.get("originalNoEffect") is True and receipt.get("outcome") in
+                ("membership_source_pending", "approved_branch_authority_pending")
+            and canonical is not None and canonical[1] == original.get("sha256")
+            and type(body) is dict and body.get("type") in ("verify", "role", "guild")
+            and receipt.get("id") == body.get("id") and receipt.get("character") == body.get("character")
+            and receipt.get("guid") == body.get("guid", ""))
+
+
+def _ordinary_retry_witness(watcher, original):
+    witness = getattr(watcher, "_intake_no_effect280", {}).get(id(original))
+    metadata = original.get("retrySchedule280")
+    canonical = _canonical_body(original.get("body"))
+    if (type(witness) is not dict or witness.get("original") is not original
+            or canonical is None or witness.get("bodySHA256") != canonical[1]
+            or canonical[1] != original.get("sha256")
+            or witness.get("binding") != watcher._delivery_binding() or type(metadata) is not dict
+            or metadata != witness.get("metadata") or metadata.get("spent") is not False
+            or not _ordinary_no_effect_matches(original, metadata.get("receipt"))):
+        return None
+    return witness
+
+
+def _schedule_ordinary_retry(watcher, original, receipt, at):
+    if not _ordinary_no_effect_matches(original, receipt):
+        return
+    delay = 300 if receipt["outcome"] == "approved_branch_authority_pending" else 60
+    metadata = {"spent": False, "nextAt": at + delay, "receipt": dict(receipt)}
+    original["retrySchedule280"] = metadata
+    known = getattr(watcher, "_intake_no_effect280", None)
+    if known is None:
+        known = watcher._intake_no_effect280 = {}
+    known[id(original)] = {"original": original, "binding": watcher._delivery_binding(),
+                           "bodySHA256": _canonical_body(original["body"])[1],
+                           "metadata": {**metadata, "receipt": dict(receipt)}}
+
+
 def drain(watcher, collect_inputs=True):
     state = collect(watcher) if collect_inputs else watcher.state.d.get("intake242", {})
+    if type(state) is not dict:
+        watcher._custody_halted = True
+        raise ValueError("intake custody ledger held")
     if watcher.worker.paused() or watcher._custody_halted:
         return
     batch, changed, at = [], False, int(time.time())
-    for original in state.values():
+    items = list(state.values())
+    offset = getattr(watcher, "_intake_cursor280", 0) % max(1, len(items))
+    ordered = items[offset:] + items[:offset]
+    for position, original in enumerate(ordered):
         if type(original) is not dict:
             watcher._custody_halted = True
             raise ValueError("intake custody row held")
@@ -235,11 +275,30 @@ def drain(watcher, collect_inputs=True):
                 original["policyHold"] = policy
                 changed = True
             continue
+        canonical = _canonical_body(original.get("body"))
+        if canonical is None or canonical[1] != original.get("sha256"):
+            if original.get("policyHold") != "intake_original_integrity_held":
+                original["policyHold"] = "intake_original_integrity_held"
+                changed = True
+        if not policy and original.get("body", {}).get("type") != "donation" and _transport_identity_error(original.get("body")):
+            if original.get("policyHold") != "transport_identity_held":
+                original["policyHold"] = "transport_identity_held"
+                changed = True
         if original.get("policyHold"):
             continue  # original remains held for attended review; never silently renew/re-authorize it
         if original.get("sourceConflict") or original.get("state") != "pending":
             continue
-        if original["body"].get("type") == "donation" and original.get("attempted"):
+        # A loaded falsey/missing field is not evidence of a known unsent
+        # original. Preserve the malformed value and all original bytes; this
+        # fixed metadata hold does not classify any delivery outcome.
+        if type(original.get("attempted")) is not bool:
+            if original.get("custodyHold280") != "attempt_state_unqualified":
+                original["custodyHold280"] = "attempt_state_unqualified"
+                changed = True
+            continue
+        if original.get("custodyHold280"):
+            continue
+        if original["body"].get("type") == "donation" and original["attempted"] is True:
             witness = _financial_retry_witness(watcher, original)
             if witness is None:
                 original["state"] = "outcome_unknown"
@@ -247,11 +306,16 @@ def drain(watcher, collect_inputs=True):
                 continue
             if witness["metadata"]["nextAt"] > at:
                 continue
-        if original["body"].get("type") == "verify" and original.get("attempted"):
-            original["state"] = "outcome_unknown"
-            changed = True
-            continue
+        if original["body"].get("type") != "donation" and original["attempted"] is True:
+            witness = _ordinary_retry_witness(watcher, original)
+            if witness is None:
+                original["state"] = "outcome_unknown"
+                changed = True
+                continue
+            if witness["metadata"]["nextAt"] > at:
+                continue
         batch.append(original)
+        watcher._intake_cursor280 = (offset + position + 1) % max(1, len(items))
         if len(batch) == 25:
             break
     if not batch:
@@ -266,39 +330,46 @@ def drain(watcher, collect_inputs=True):
             # custody halt; an unknown reply cannot reuse this original receipt.
             original["collectorRetry280"] = {**witness["metadata"], "spent": True}
             watcher._tithe_no_effect280.pop(id(original), None)
+        ordinary = _ordinary_retry_witness(watcher, original)
+        if ordinary is not None:
+            original["retrySchedule280"] = {**ordinary["metadata"], "spent": True}
+            watcher._intake_no_effect280.pop(id(original), None)
     _save_state(watcher)
-    okay, response = watcher.worker.call("POST", PATH, {"entries":[r["body"] for r in batch]}, retries=1)
+    selected = {r["body"]["id"]: r for r in batch}
+    # Transport receives a copy; it cannot mutate the frozen custody original.
+    payload = json.loads(json.dumps({"entries": [r["body"] for r in batch]}, allow_nan=False))
+    okay, response = watcher.worker.call("POST", PATH, payload, retries=1)
     if not okay or not isinstance(response, dict) or response.get("version") != 242:
         return
-    selected = {r["body"]["id"]:r for r in batch}
     holds = response.get("policyHolds")
     for hold in holds if isinstance(holds, list) else []:
-        if isinstance(hold, dict) and hold.get("outcome") == "intake_policy_held":
+        if isinstance(hold, dict) and type(hold.get("id")) is str and hold.get("outcome") == "intake_policy_held":
             original = selected.get(hold.get("id"))
             if original is not None:
                 original["policyHold"] = "server_intake_policy_held"
     deferred = response.get("deferred")
-    selected = {r["body"]["id"]:r for r in batch}
     for receipt in deferred if isinstance(deferred, list) else []:
+        if type(receipt) is not dict or type(receipt.get("id")) is not str:
+            continue
         if isinstance(receipt, dict) and receipt.get("outcome") == "receipt_collector_pending":
             original = selected.get(receipt.get("id"))
             if original and original["body"].get("source") == intake_schema280.V2:
                 _schedule_financial_retry(watcher, original, receipt, at)
         if isinstance(receipt, dict) and receipt.get("originalNoEffect") is True and receipt.get("outcome") in ("membership_source_pending", "approved_branch_authority_pending"):
             original = selected.get(receipt.get("id"))
-            if original and original["body"].get("type") == "verify":
-                original["attempted"] = False  # explicit original server pre-effect refusal, never an unknown result
-                original["lastOutcome"] = receipt["outcome"]
+            if original is not None:
+                _schedule_ordinary_retry(watcher, original, receipt, at)
     receipts = response.get("acknowledgements")
     if not isinstance(receipts, list):
         _save_state(watcher)
         return
-    selected = {r["body"]["id"]:r for r in batch}
     for receipt in receipts:
-        if not isinstance(receipt, dict) or receipt.get("status") not in ("done", "rejected"):
+        if not isinstance(receipt, dict) or type(receipt.get("id")) is not str or receipt.get("status") not in ("done", "rejected"):
             continue
         original = selected.get(receipt.get("id"))
-        if original is None or receipt.get("character") != original["body"].get("character", original["body"].get("name")):
+        if (original is None or receipt.get("character") != original["body"].get("character", original["body"].get("name"))
+                or original["body"].get("guid") and receipt.get("guid") != original["body"]["guid"]
+                or _canonical_body(original["body"]) != (original["body"], original.get("sha256"))):
             continue
         original["state"] = receipt["status"]
         original["receipt"] = {k:receipt.get(k, "") for k in ("id","status","character","guid","discordRole","outcome")}
@@ -317,10 +388,12 @@ def receipts(watcher):
         observed = int(original.get("acknowledgedAt") or 0)
         if observed <= 0 or observed > at + 5:
             continue
-        # Renew delivery validity only. A stored terminal ACK is not a new
-        # verification, POST or claim, and its original timestamp never moves.
-        window = max(0, (at - observed) // 86340)
-        expires = observed + window * 86340 + 86400
+        # Terminal ACK delivery is available only for its original24h window.
+        # Keep the original ledger/body/ACK indefinitely until owner retention
+        # policy says otherwise; this is projection visibility, never erasure.
+        expires = observed + 86400
+        if at >= expires:
+            continue
         receipt.update(observedAt=observed, expiresAt=expires)
         message = "|".join(str(x) for x in ("intake242",receipt["id"],receipt["status"],receipt.get("guid") or "",codes.normalize_character(receipt["character"]),receipt.get("discordRole") or "",observed,expires))
         receipt["mac"] = hmac.new(watcher.secret.encode(),message.encode(),hashlib.sha256).hexdigest()[:32]

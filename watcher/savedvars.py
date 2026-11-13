@@ -152,5 +152,8 @@ def parse(text: str) -> dict[str, Any]:
 
 
 def parse_file(path: str) -> dict[str, Any]:
-    with open(path, encoding="utf-8", errors="replace") as f:
-        return parse(f.read())
+    # Keep the existing parser entrypoint, including read-only diagnostics, on
+    # the same bounded regular-file contract as the ordinary intake lane.
+    from pathlib import Path
+    from savedvars_source280 import read
+    return read(Path(path)).data

@@ -16,6 +16,10 @@ ROOT = SOURCE.parent
 sys.path.insert(0, os.environ.get("WATCHER_TEST_SOURCE", str(SOURCE)))
 import intake242
 import watcher
+try:
+    from lupa.luajit21 import LuaRuntime
+except ImportError:
+    LuaRuntime = None
 
 
 class StopLoop(BaseException):
@@ -52,7 +56,7 @@ class IntakeShapeTests(unittest.TestCase):
         self.calls.append((method, path, copy.deepcopy(body), retries))
         return True, {"version": 242, "acknowledgements": [
             {"id": r["id"], "character": r.get("character", r.get("name")),
-             "status": "done", "outcome": "synthetic-observation", "guid": "", "discordRole": ""}
+             "status": "done", "outcome": "synthetic-observation", "guid": r.get("guid", ""), "discordRole": ""}
             for r in body["entries"]]}
 
     def row(self, eid="valid"):
@@ -101,43 +105,42 @@ class IntakeShapeTests(unittest.TestCase):
         self.assertEqual([r["id"] for r in self.calls[0][2]["entries"]], ["good"])
         self.assertEqual(self.w.state.d["intake242"]["good"]["state"], "done")
 
-    def test_actual_wire_queue_collect_and_run_keep_current_verify_factory_and_later_lanes(self):
-        from lupa.luajit21 import LuaRuntime
+    @unittest.skipUnless(LuaRuntime is not None, "Lupa unavailable in this interpreter; separate actual-Lua qualification is mandatory")
+    def test_actual_wire_rejects_malformed_remote_and_new_self_factory_reaches_later_lanes(self):
         fixture = (ROOT / "addon/tests/test_live242.lua").read_text(encoding="utf-8").split("\ndo\n", 1)[0]
+        helpers = (ROOT / "addon/tests/test_live_safety280.lua").read_text(encoding="utf-8").split("\ndo\n", 1)[0]
         runtime = LuaRuntime(unpack_returned_tuples=True)
+        import time
+        runtime.globals().LIVE280_NOW = int(time.time())
         with contextlib.chdir(ROOT / "addon/tests"):
-            rows = runtime.execute(fixture + r'''
-local x=fixture()
-local function wire(v)
- if type(v)=='string' then return 's'..#v..':'..v end
- if type(v)=='number' then local s=tostring(v);return 'n'..#s..':'..s end
- local n,parts=0,{};for k,value in pairs(v) do n=n+1;parts[#parts+1]=wire(k)..wire(value) end
- return 't'..n..':'..table.concat(parts)
-end
+            result = runtime.execute(fixture + helpers + r'''
+local receiver=fixture()
 local id=string.rep('e',32)
-local raw=wire({id=id,type='verify',source='whisper',character='Synthetic Sender',code='ABC234',status='pending',[7]='numeric extra'})
-local count=math.ceil(#raw/170)
-for i=1,count do x.event('CHAT_MSG_ADDON','OLV242',id..':'..i..':'..count..':'..raw:sub((i-1)*170+1,i*170),'WHISPER','Synthetic Sender') end
-local observation=x.v.NewVerificationObservation('whisper','Fresh Sender','Player-1-9999ABCD',100)
-x.v.CaptureVerification('whisper','Fresh Sender','ABC234','Player-1-9999ABCD',nil,false,observation)
-return x.rows()
+emit(receiver,{id=id,type='verify',source='whisper',character='Synthetic Sender',code='ABC234',status='pending',[7]='numeric extra'},'Synthetic Sender')
+local rejected=receiver.rows()[id]==nil
+local sender=member('Remote Sender');sender.v.QueueSelf('ABC234');drain(sender,receiver)
+return {rejected=rejected,rows=receiver.rows()}
 ''')
         def convert(v):
             return {k: convert(child) for k, child in v.items()} if hasattr(v, "items") else v
-        native = convert(rows)
-        self.assertEqual(native["e" * 32][7], "numeric extra", "actual wire stored malformed row")
-        self.assertTrue(native["e" * 32]["bridgeUntrusted"])
-        self.write(native)
+        native = convert(result)
+        self.assertTrue(native["rejected"], "actual closed remote admission refuses the malformed packet before durable capture")
+        self.assertEqual(len(native["rows"]), 1, "new sender->receiver self243 factory remains admitted")
+        self.write(native["rows"])
         self.run_once()
-        self.assertFalse(any("loop error" in line for line in self.logs), "actual mixed-key wire must not abort the run prefix")
         retained = self.w.state.d["intake242"]
         self.assertNotIn("e" * 32, retained)
-        self.assertEqual(len(retained), 1, "the actual current verification factory remains admitted")
+        self.assertEqual(len(retained), 1)
         original = next(iter(retained.values()))
         self.assertEqual(original["body"]["type"], "verify")
+        self.assertEqual(original["body"]["source"], "addon-bridge242")
         self.assertEqual(original["body"]["code"], "ABC234")
+        self.assertTrue(original["body"]["bridgeUntrusted"])
         self.assertEqual(original["state"], "done")
         self.assertEqual(len(self.calls), 1)
+        output = os.environ.get("OLYMPUS_BRIDGE280_VECTOR_OUT")
+        if output:
+            Path(output).write_text(json.dumps(self.calls[0][2]["entries"][0], ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
         self.assertEqual([e for e in self.events if e in ("flush", "tail", "launch", "queue", "diag")],
                          ["flush", "tail", "launch", "queue", "diag"])
         self.assertFalse(any("loop error" in line for line in self.logs))
@@ -190,11 +193,11 @@ return x.rows()
         intake242.drain(self.w, collect_inputs=False)
         self.assertEqual(self.calls, [])
 
-    def test_unreadable_source_file_does_not_hide_another_file_valid_row(self):
+    def test_unreadable_owned_source_never_falls_back_to_unqualified_foreign_file(self):
         self.w.sv_file.write_text("not valid Lua !PRIVATE_INPUT", encoding="utf-8")
         self.write({"valid": self.row()}, name="OlympusRecordDB.lua")
         intake242.collect(self.w)
-        self.assertEqual(list(self.w.state.d["intake242"]), ["valid"])
+        self.assertFalse(self.w.state.d.get("intake242"))
 
     def test_recoverable_savedvariables_shape_failure_allows_later_lanes(self):
         self.w.sv_file.write_text("OlympusVerifyDB=42", encoding="utf-8")
