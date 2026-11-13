@@ -499,14 +499,12 @@
    "grade": "A",
    "label": "Hack and Slash at 5/5",
    "value": "Axes and swords: 5% chance of an extra attack. Daggers and fist weapons: +5% crit. Maces: ignore 15% of armor.",
-   "note": "Matches Warcraft Tavern's Combat guide; the talentsforever changes page lists some conflicting per-rank values.",
    "sources": [
-    "g218-39",
-    "g218-43"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-combat-hack-and-slash"
   },
   {
    "id": "class-rogue.weapon-expertise",
@@ -536,13 +534,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Adrenaline Rush",
-   "value": "+100% Energy regeneration for 15 seconds; marked unchanged from Classic in the snapshot.",
+   "value": "Adrenaline Rush increases your Energy regeneration rate by 100% for 15 seconds, on a 5-minute cooldown. It now requires Blade Flurry.",
    "sources": [
-    "g218-39"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-combat-adrenaline-rush"
   },
   {
    "id": "class-rogue.raid-outlook-2",
@@ -571,13 +569,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Blade Flurry",
-   "value": "20% melee attack speed, and your melee attacks strike an additional nearby enemy for 15 seconds.",
+   "value": "Blade Flurry increases your melee attack speed by 20%, and your melee attacks strike an additional nearby enemy, for 15 seconds.",
    "sources": [
-    "g218-39"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-combat-blade-flurry"
   },
   {
    "id": "class-rogue.expose-armor-2",
@@ -708,13 +706,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Serrated Blades",
-   "value": "Attacks ignore 3% of the target's armor and Rupture deals 10% more damage (rank 1).",
+   "value": "Serrated Blades makes your attacks ignore 3% of the target's armor and raises Rupture damage by 10% per rank, up to 9% and 30% at rank 3 of 3.",
    "sources": [
-    "g218-39"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-subtlety-serrated-blades"
   },
   {
    "id": "class-rogue.ghostly-strike",
@@ -731,6 +729,196 @@
     "g218-150"
    ],
    "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.hack-and-slash-replaces",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Hack and Slash replaces the weapon specializations",
+   "value": "Hack and Slash replaces Classic's Sword Specialization, Dagger Specialization, Fist Weapon Specialization and Mace Specialization.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-combat-hack-and-slash"
+  },
+  {
+   "id": "class-rogue.combat-removed-classic",
+   "scope": {
+    "class": "rogue",
+    "spec": "combat"
+   },
+   "topic": "combat-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Classic Combat talents not in Forever",
+   "value": "The 10 November talent data has no Improved Backstab, Dagger Specialization, Mace Specialization or Fist Weapon Specialization in the Combat tree.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "rogue-combat"
+  },
+  {
+   "id": "class-rogue.subtlety-removed-classic",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Classic Subtlety talents not in Forever",
+   "value": "The 10 November talent data has no Sleight of Hand, Improved Sap or Deadliness in the Subtlety tree.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "rogue-subtlety"
+  },
+  {
+   "id": "class-rogue.premeditation-stealth",
+   "scope": {
+    "class": "rogue",
+    "spec": "subtlety"
+   },
+   "topic": "subtlety-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Premeditation without Stealth",
+   "value": "Premeditation no longer requires Stealth; the Classic version did.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "rogue-subtlety-premeditation"
+  },
+  {
+   "id": "class-rogue.vs-warrior-improved-berserker-rage",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Warrior matchup: Improved Berserker Rage",
+   "value": "Improved Berserker Rage at rank 2 of 2 gives the Warrior's Berserker Rage a 100% chance to remove all movement impairing effects.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-fury-improved-berserker-rage"
+  },
+  {
+   "id": "class-rogue.vs-warrior-mortal-strike",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Warrior matchup: Mortal Strike",
+   "value": "Mortal Strike reduces the effectiveness of any healing on its target by 50% for 10 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-arms-mortal-strike"
+  },
+  {
+   "id": "class-rogue.vs-warrior-improved-hamstring",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Warrior matchup: Improved Hamstring",
+   "value": "Improved Hamstring gives Hamstring up to a 15% chance to immobilize the target for 5 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-arms-improved-hamstring"
+  },
+  {
+   "id": "class-rogue.vs-warrior-victory-rush",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Warrior matchup: Victory Rush",
+   "value": "Victory Rush is an instant Warrior strike, usable for 20 seconds after the Warrior kills a non-trivial enemy, that heals 10% of their maximum health.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.vs-hunter-traps",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Hunter matchup: traps",
+   "value": "Hunters can lay traps in combat, and all their traps share one 30-second cooldown.",
+   "sources": [
+    "g218-31",
+    "g218-1",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-rogue.vs-hunter-entrapment",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Hunter matchup: Entrapment",
+   "value": "With Entrapment, every target caught when a Hunter's trap triggers is Entrapped and cannot move for 1 to 5 sec, depending on rank.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-survival-entrapment"
+  },
+  {
+   "id": "class-rogue.vs-hunter-auto-shot",
+   "scope": {
+    "class": "rogue"
+   },
+   "topic": "pvp-matchup",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Hunter matchup: Auto Shot",
+   "value": "Since 16 Oct, a Hunter's Auto Shot needs about half a second of standing still before it fires.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   }
  ]

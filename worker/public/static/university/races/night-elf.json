@@ -1,0 +1,276 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "race",
+ "id": "night-elf",
+ "name": "Night Elf",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "factFiles": [
+  "common",
+  "class-priest",
+  "class-hunter",
+  "class-druid",
+  "race-skyborne"
+ ],
+ "quizFiles": [
+  "race-night-elf"
+ ],
+ "overview": {
+  "lead": "Night Elves are one of the five Alliance races the Olympus guides name. The site holds no graded Night Elf racial value yet, so this guide covers the Night Elf class quests the guides do document.",
+  "points": [
+   {
+    "text": "The class guides name Night Elves for Hunter, Priest and Druid. Alliance Druids are Night Elf or High Order Skyborne.",
+    "facts": [
+     "race-skyborne.classes"
+    ]
+   },
+   {
+    "text": "No racial grants weapon skill in Forever, so a Night Elf's weapon choice is free of racial math.",
+    "facts": [
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "class-priest.quest-racial-priest-spells",
+   "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[2].specs[0].pvp.overview[2]",
+   "text": "Warcraft Tavern suggests Dwarf or Human for Alliance PvP Hunters and notes that Night Elf Shadowmeld is fun in PvP.",
+   "reason": "PvP prose with no grade or source. The PvP chapter waits for a reviewed fact."
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[1]",
+   "text": "Alliance racials add tools: Dwarf Chastise roots humanoids, Gnome Confounding Flash confuses up to 5 nearby enemies, and Night Elf Elune's Grace makes melee and ranged attacks miss you more often.",
+   "reason": "PvP prose with no grade or source; no reviewed fact says what Elune's Grace does."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "The Night Elf class quests for Priests, Hunters and Druids. Night Elf racial values wait for a reviewed source.",
+   "chapters": [
+    {
+     "id": "night-elf-101-racials",
+     "section": "overview",
+     "title": "Night Elf racials in Forever",
+     "theory": [],
+     "unavailable": "The racial values the site holds from Blizzard's notes cover Dwarves, Gnomes, Humans and Skyborne, not Night Elves. This chapter waits for a reviewed Night Elf value."
+    },
+    {
+     "id": "night-elf-101-class-quests",
+     "section": "overview",
+     "title": "Night Elf class quests",
+     "theory": [
+      "class-priest.quest-racial-priest-spells",
+      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+      "class-hunter.quest-taming-the-beast"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "As a Night Elf Priest, plan the racial spell quests at levels 10 and 20. They unlock Starshards and Elune's Grace.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Fear Ward and Devouring Plague need no quest: every Priest race learns both at 20.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       },
+       {
+        "text": "As a Night Elf Hunter, see your trainer at level 10. It starts your race's chain of three Taming the Beast quests, then Training the Beast, which unlocks Beast Training, Feed Pet and Revive Pet.",
+        "facts": [
+         "class-hunter.quest-taming-the-beast"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Following another race's Priest spell list as a Night Elf.",
+        "fix": "Night Elf Priests unlock Starshards and Elune's Grace. Divine Grace and Feedback are the Human spells.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "mistake": "Stopping after the three Taming the Beast quests.",
+        "fix": "Training the Beast comes next, and it is the quest that unlocks Beast Training, Feed Pet and Revive Pet.",
+        "facts": [
+         "class-hunter.quest-taming-the-beast"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "night-elf-101-druid-quests",
+     "section": "overview",
+     "title": "Druid quests for Night Elves",
+     "theory": [
+      "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
+      "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain",
+      "class-druid.quest-aquatic-form-a-lesson-to-learn",
+      "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "At level 10, start the Bear Form chain ('Heeding the Call' to 'Body and Heart') in Darnassus. It takes you to the Great Bear Spirit in Moonglade and back to your capital, and teaches Bear Form, Growl and Maul.",
+        "facts": [
+         "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+        ]
+       },
+       {
+        "text": "Keep Teleport: Moonglade. The Moonglade step of the Bear Form chain gives it.",
+        "facts": [
+         "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+        ]
+       },
+       {
+        "text": "At level 14, 'Lessons Anew' teaches Cure Poison. The Alliance version also starts in Darnassus.",
+        "facts": [
+         "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+        ]
+       },
+       {
+        "text": "At level 16, 'A Lesson to Learn' is a set of trials that ends with the 'Aquatic Form' quest.",
+        "facts": [
+         "class-druid.quest-aquatic-form-a-lesson-to-learn"
+        ]
+       },
+       {
+        "text": "At level 20, Cat Form is a quest: recover relics from the Stormrage Barrow Den in Moonglade, then do 'Blessings of the Great Cat Spirit' and 'To Darnassus', which teaches Cat Form, Claw, Prowl and Rip.",
+        "facts": [
+         "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting for the trainer to teach Cat Form at level 20.",
+        "fix": "Cat Form is no longer simply trained in Forever. 'The Great Cat Spirit' chain teaches it.",
+        "facts": [
+         "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "night-elf-101-pvp",
+     "section": "praxis",
+     "title": "Night Elf racials in PvP",
+     "theory": [],
+     "unavailable": "The site holds no reviewed fact on what Night Elf racials do in PvP, such as Shadowmeld. This chapter waits for one."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Races have no talent tree; see your class guide."
+    },
+    {
+     "section": "rotation",
+     "reason": "Races have no rotation of their own."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Hit, crit and defense caps are not known for Forever yet; each class guide's stat caps chapter tracks them."
+    },
+    {
+     "section": "gear",
+     "reason": "Races have no gear of their own."
+    },
+    {
+     "section": "consumables",
+     "reason": "Races have no consumables of their own."
+    },
+    {
+     "section": "macros",
+     "reason": "No racial macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "201": {
+   "summary": "No intermediate Night Elf chapter can be written yet: the site holds no further reviewed Night Elf facts.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No further reviewed Night Elf fact exists yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "No advanced Night Elf chapter can be written yet: the site holds no reviewed Night Elf racial value to build on.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No reviewed Night Elf racial value exists yet."
+    }
+   ]
+  }
+ }
+}

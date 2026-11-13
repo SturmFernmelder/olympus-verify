@@ -1,0 +1,106 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "race-skyborne",
+ "questions": [
+  {
+   "id": "race-skyborne.wind-blessed",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-racials",
+   "type": "mcq",
+   "stem": "What does the Skyborne racial Wind-Blessed give in Forever?",
+   "choices": [
+    "+2% haste",
+    "+1% hit",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Wind-Blessed gives +2% haste. +1% hit is Dwarf Artisan's Precision and +1% crit is Human Ruthless.",
+   "facts": [
+    "common.racial-skyborne-wind-blessed"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-human-ruthless"
+   ]
+  },
+  {
+   "id": "race-skyborne.attuned",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-racials",
+   "type": "scenario",
+   "stem": "Your Skyborne Hunter zones into a raid. Which racial bonus is removed?",
+   "choices": [
+    "Attuned",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "Skyborne's Attuned bonus is removed when you enter a raid. The guides record no such limit for Wind-Blessed's +2% haste.",
+   "facts": [
+    "common.racial-skyborne-attuned",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "race-skyborne.pack",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-access",
+   "type": "mcq",
+   "stem": "Which new Alliance option needs a paid Forever pack?",
+   "choices": [
+    "The Skyborne race",
+    "Dwarf Shaman",
+    "Gnome Priest"
+   ],
+   "answer": 0,
+   "explanation": "The Skyborne race needs a paid Forever pack. Dwarf Shaman and Gnome Priest are new class choices for existing Alliance races.",
+   "facts": [
+    "race-skyborne.pack"
+   ],
+   "distractorFacts": [
+    "common.alliance-new-race-class-combos"
+   ]
+  },
+  {
+   "id": "race-skyborne.zephras-isle",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-class-quests",
+   "type": "mcq",
+   "stem": "Where do Skyborne Hunters do their own versions of the Taming the Beast quests?",
+   "choices": [
+    "Zephras Isle",
+    "Darnassus",
+    "Moonglade"
+   ],
+   "answer": 0,
+   "explanation": "Skyborne have their own Taming the Beast quests on Zephras Isle. Darnassus and Moonglade are stops on the Alliance Druid Bear Form chain.",
+   "facts": [
+    "class-hunter.quest-taming-the-beast"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+   ]
+  },
+  {
+   "id": "race-skyborne.hunter-racials",
+   "scope": "race:skyborne",
+   "tier": 201,
+   "chapter": "skyborne-201-raid-racials",
+   "type": "mcq",
+   "stem": "Which Alliance Hunter racial gives +2% haste?",
+   "choices": [
+    "Skyborne Wind-Blessed",
+    "Dwarf Artisan's Precision",
+    "Human Ruthless"
+   ],
+   "answer": 0,
+   "explanation": "Skyborne Wind-Blessed gives +2% haste. Dwarf Artisan's Precision gives +1% hit and Human Ruthless +1% crit.",
+   "facts": [
+    "class-hunter.racials"
+   ]
+  }
+ ]
+}

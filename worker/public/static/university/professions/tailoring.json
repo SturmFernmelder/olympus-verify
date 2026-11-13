@@ -4,14 +4,16 @@
  "id": "tailoring",
  "name": "Tailoring",
  "type": "primary",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[8] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[8] (2026-11-04), rewritten into a full course on 2026-11-12",
  "factFiles": [
   "common",
   "profession-tailoring"
  ],
- "quizFiles": [],
+ "quizFiles": [
+  "profession-tailoring"
+ ],
  "pairsWith": [
   "enchanting"
  ],
@@ -19,47 +21,156 @@
   "lead": "Tailors make cloth armor and bags. Forever adds reagent bags for the new reagent-only bag slot and makes several bags bigger.",
   "points": [
    {
-    "text": "Enchanting is the usual partner, and Icy Veins steers Mages, Priests and Warlocks toward Tailoring."
+    "text": "Enchanting is the usual partner."
+   },
+   {
+    "text": "The Runecloth Bag now needs dyes that alchemists make.",
+    "facts": [
+     "profession-tailoring.dyes-in-recipes"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-tailoring.reagent-bags",
+   "profession-tailoring.bigger-bags"
+  ]
  },
+ "heldBack": [
+  {
+   "from": "professions[8].overview[1]",
+   "text": "Icy Veins steers Mages, Priests and Warlocks toward Tailoring.",
+   "reason": "No graded fact holds the class recommendation."
+  }
+ ],
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "What Tailoring makes in Forever, its camp objects and how to level it.",
    "chapters": [
     {
      "id": "tailoring-101-changes",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "What Forever changes for Tailoring",
      "theory": [
       "profession-tailoring.reagent-bags",
       "profession-tailoring.bigger-bags",
-      "profession-tailoring.dyes-in-recipes",
-      "profession-tailoring.gear-only-you-can-make",
-      "profession-tailoring.camp-objects"
-     ]
+      "profession-tailoring.camp-objects",
+      "profession-tailoring.faction-banner",
+      "profession-tailoring.camp-rules",
+      "profession-tailoring.campsite-size",
+      "profession-tailoring.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-tailoring.professions-window"
+        ]
+       },
+       {
+        "text": "Make a reagent bag early: the new bag slot takes only reagent bags, starting with the 6-slot Linen Reagent Bag and later the Woolen and Mageweave Reagent Bags.",
+        "facts": [
+         "profession-tailoring.reagent-bags"
+        ]
+       },
+       {
+        "text": "Note the bigger bags: Red Linen Bag is now 8 slots, Mooncloth Bag 18 and Bottomless Bag 20.",
+        "facts": [
+         "profession-tailoring.bigger-bags"
+        ]
+       },
+       {
+        "text": "Place a Faction Banner at skill 20, a Spinning Wheel at 140 and a Loom at 300. The Spinning Wheel blueprint drops from the Unstable Sentinel in Dalaran.",
+        "facts": [
+         "profession-tailoring.camp-objects"
+        ]
+       },
+       {
+        "text": "Plant the Banner only when no Priest's Divine Spirit is up: its buff matches Divine Spirit, does not stack with it and works only for your own faction.",
+        "facts": [
+         "profession-tailoring.faction-banner"
+        ]
+       },
+       {
+        "text": "Sit at the camp for at least 1 minute to get its buff. A basic campsite holds 3 camp features, one per player, so agree in the group who places what.",
+        "facts": [
+         "profession-tailoring.camp-rules",
+         "profession-tailoring.campsite-size"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Putting an ordinary bag in the reagent slot.",
+        "fix": "The new bag slot takes only reagent bags, such as the 6-slot Linen Reagent Bag.",
+        "facts": [
+         "profession-tailoring.reagent-bags"
+        ]
+       },
+       {
+        "mistake": "Planting the Faction Banner while a Priest's Divine Spirit is up.",
+        "fix": "The Banner's buff matches Divine Spirit and does not stack with the Priest buff.",
+        "facts": [
+         "profession-tailoring.faction-banner"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "tailoring-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks, Favor and Legacy",
      "theory": [
       "profession-tailoring.skill-ranks",
       "profession-tailoring.merchants-favor",
-      "profession-tailoring.legacy"
-     ]
-    },
-    {
-     "id": "tailoring-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-tailoring.unknown-1",
-      "profession-tailoring.unknown-2",
-      "profession-tailoring.unknown-3",
-      "profession-tailoring.unknown-4"
-     ]
+      "profession-tailoring.earning-favor",
+      "profession-tailoring.legacy",
+      "profession-tailoring.profession-title"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-tailoring.skill-ranks"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+        "facts": [
+         "profession-tailoring.earning-favor"
+        ]
+       },
+       {
+        "text": "Spend that Favor on Favor recipes from the Azeroth Commerce Authority at Three Corners.",
+        "facts": [
+         "profession-tailoring.merchants-favor"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point. Dedicated Study gives a daily skill-up.",
+        "facts": [
+         "profession-tailoring.legacy"
+        ]
+       },
+       {
+        "text": "At 300, earn the certification item that unlocks your profession title. Alliance players get it from the Azeroth Commerce Authority.",
+        "facts": [
+         "profession-tailoring.profession-title"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-tailoring.skill-ranks"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -81,11 +192,11 @@
     },
     {
      "section": "consumables",
-     "reason": "Covered in 201."
+     "reason": "No reviewed fact covers a tailoring consumable in Forever."
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -94,44 +205,97 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "Cloth gear, bags and the market.",
    "chapters": [
     {
-     "id": "tailoring-201-raid",
-     "section": "consumables",
-     "title": "Value for the raid",
+     "id": "tailoring-201-gear",
+     "section": "gear",
+     "title": "Cloth gear",
      "theory": [
       "profession-tailoring.spell-school-sets",
-      "profession-tailoring.faction-banner"
-     ]
-    },
-    {
-     "id": "tailoring-201-gold",
-     "section": "praxis",
-     "title": "Gold and the Auction House",
-     "theory": [],
+      "profession-tailoring.gear-only-you-can-make"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "Bags sell to every class, and reagent bags fill the new bag slot. The Runecloth Bag now needs alchemist dyes, so price that cost in. Trading is subject to Blizzard policy."
+        "text": "Buy the spell-school cloth set recipes from the Azeroth Commerce Authority with Merchant's Favor.",
+        "facts": [
+         "profession-tailoring.spell-school-sets"
+        ]
+       },
+       {
+        "text": "Make Bind on Pickup pieces such as Novice Ardent's Sash and Filigreed Flame Circlet for yourself.",
+        "facts": [
+         "profession-tailoring.gear-only-you-can-make"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Promising a Filigreed Flame Circlet to a guildmate.",
+        "fix": "It is Bind on Pickup for the tailor who makes it.",
+        "facts": [
+         "profession-tailoring.gear-only-you-can-make"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "tailoring-201-market",
+     "section": "praxis",
+     "title": "Bags and the Auction House",
+     "theory": [
+      "profession-tailoring.bigger-bags",
+      "profession-tailoring.reagent-bags",
+      "profession-tailoring.dyes-in-recipes",
+      "profession-tailoring.vendor-prices"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Bags sell to every class, and reagent bags fill the new bag slot. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-tailoring.reagent-bags",
+         "profession-tailoring.bigger-bags"
+        ]
+       },
+       {
+        "text": "Price the alchemist's dyes into every Runecloth Bag: it now needs 4 Magenta Dye and 2 Cerulean Dye.",
+        "facts": [
+         "profession-tailoring.dyes-in-recipes"
+        ]
+       },
+       {
+        "text": "Check the Auction House before you sell surplus crafts to a vendor: Blizzard's beta notes say many profession-made items sell to vendors for less.",
+        "facts": [
+         "profession-tailoring.vendor-prices"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Pricing a Runecloth Bag from the cloth alone.",
+        "fix": "It now needs 4 Magenta Dye and 2 Cerulean Dye, which alchemists make.",
+        "facts": [
+         "profession-tailoring.dyes-in-recipes"
+        ]
+       },
+       {
+        "mistake": "Selling surplus crafts to a vendor out of Classic habit.",
+        "fix": "Many profession-made items sell to vendors for less in Forever, so compare the Auction House first.",
+        "facts": [
+         "profession-tailoring.vendor-prices"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 overview covers this."
     },
     {
      "section": "talents",
@@ -144,33 +308,34 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed fact covers a tailoring consumable in Forever."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Skill-by-skill routes, trainer lists and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "tailoring-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-tailoring.unknown-1",
+      "profession-tailoring.unknown-2",
+      "profession-tailoring.unknown-3",
+      "profession-tailoring.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route, trainer list or recipe-source list exists for Forever yet. The site holds rank thresholds, camp objects, bag sizes and the Favor cloth sets (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -182,6 +347,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No reviewed fact covers a tailoring consumable in Forever."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

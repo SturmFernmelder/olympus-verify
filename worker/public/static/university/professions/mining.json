@@ -4,14 +4,19 @@
  "id": "mining",
  "name": "Mining",
  "type": "gathering",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[6] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[6] (2026-11-04), rewritten into the course format on 2026-11-12",
  "factFiles": [
   "common",
+  "profession-mining",
+  "profession-herbalism",
+  "profession-skinning",
+  "profession-cooking"
+ ],
+ "quizFiles": [
   "profession-mining"
  ],
- "quizFiles": [],
  "pairsWith": [
   "blacksmithing",
   "engineering"
@@ -20,46 +25,168 @@
   "lead": "Miners gather ore and smelt bars for Blacksmithing and Engineering.",
   "points": [
    {
-    "text": "Forever adds scarce ores and new bars such as Heavy Thorium and Azerothium, and one of them needs a camp object to smelt."
+    "text": "Forever adds the scarce ores Pyrite, Bauxite and Pitchblende and new bars such as Heavy Thorium and Azerothium. Heavy Thorium is smelted at the Molten Foundry camp object.",
+    "facts": [
+     "profession-mining.scarce-ores",
+     "profession-mining.new-bars",
+     "profession-mining.camp-objects"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-mining.scarce-ores",
+   "profession-mining.new-bars"
+  ]
  },
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "What Forever changes for Mining, its camp objects, and how to level it.",
    "chapters": [
     {
      "id": "mining-101-changes",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "What Forever changes for Mining",
      "theory": [
       "profession-mining.starter-zone-book",
       "profession-mining.scarce-ores",
       "profession-mining.new-bars",
-      "profession-mining.camp-objects",
       "profession-mining.no-jewelcrafting"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Pick up Mining for Dummies, the quest item that drops in starting zones. It teaches Mining and gives +2 skill.",
+        "facts": [
+         "profession-mining.starter-zone-book"
+        ]
+       },
+       {
+        "text": "Expect scarce Pyrite, Bauxite and Pitchblende from your nodes as well as ordinary ore.",
+        "facts": [
+         "profession-mining.scarce-ores"
+        ]
+       },
+       {
+        "text": "Make Azerothium Bars from Pitchblende and Coal once you reach Mining 275.",
+        "facts": [
+         "profession-mining.new-bars"
+        ]
+       },
+       {
+        "text": "Smelt Heavy Thorium Bars at a Molten Foundry. Legionite Bar is an Alchemy transmute, not a smelt.",
+        "facts": [
+         "profession-mining.new-bars"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning to sell ore to jewelcrafters.",
+        "fix": "Blizzard's starter guide lists 12 professions, and Jewelcrafting and Inscription are not among them.",
+        "facts": [
+         "profession-mining.no-jewelcrafting"
+        ]
+       },
+       {
+        "mistake": "Looking for a Legionite smelting recipe.",
+        "fix": "Legionite Bar is an Alchemy transmute.",
+        "facts": [
+         "profession-mining.new-bars"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "mining-101-camp",
+     "section": "overview",
+     "title": "Camp objects",
+     "theory": [
+      "profession-mining.camp-objects",
+      "profession-cooking.campfire",
+      "profession-cooking.camp-rules"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place a Lodestone at Mining 20, a Rock Garden at 140 and a Molten Foundry at 300.",
+        "facts": [
+         "profession-mining.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Rock Garden blueprint from the Relic Guardian in the Excavation Site: Wetlands.",
+        "facts": [
+         "profession-mining.camp-objects"
+        ]
+       },
+       {
+        "text": "Your Molten Foundry is where Heavy Thorium Bars are smelted.",
+        "facts": [
+         "profession-mining.camp-objects",
+         "profession-mining.new-bars"
+        ]
+       },
+       {
+        "text": "Add your object to a camp, then sit or craft nearby for about a minute. The benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules",
+         "profession-cooking.bigger-camps"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Expecting a trainer to sell the Rock Garden.",
+        "fix": "Trainers and NPCs hand out the skill-20 camp objects. The Rock Garden comes from a blueprint that drops from the Relic Guardian in the Excavation Site: Wetlands.",
+        "facts": [
+         "profession-mining.camp-objects",
+         "profession-cooking.campfire"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "mining-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks and Legacy perks",
      "theory": [
       "profession-mining.skill-caps",
       "profession-mining.level-for-each-rank",
       "profession-mining.legacy-perks"
-     ]
-    },
-    {
-     "id": "mining-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-mining.unknown-1",
-      "profession-mining.unknown-2",
-      "profession-mining.unknown-3"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Apprentice Mining goes up to 75, Journeyman to 150, Expert to 225 and Artisan to 300.",
+        "facts": [
+         "profession-mining.skill-caps"
+        ]
+       },
+       {
+        "text": "Check the level each rank needs in game before you plan around it. Icy Veins lists none for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35.",
+        "facts": [
+         "profession-mining.level-for-each-rank"
+        ]
+       },
+       {
+        "text": "Two Legacy perks help a miner: Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+        "facts": [
+         "profession-mining.legacy-perks"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Trusting one guide's level for Expert or Artisan.",
+        "fix": "Icy Veins and Warcraft Tavern disagree: 10 or 20 for Expert, 25 or 35 for Artisan. Check in game.",
+        "facts": [
+         "profession-mining.level-for-each-rank"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -77,7 +204,7 @@
     },
     {
      "section": "gear",
-     "reason": "Covered in 201."
+     "reason": "Mining makes no gear."
     },
     {
      "section": "consumables",
@@ -85,7 +212,7 @@
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -94,43 +221,70 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "What Mining adds to a group and to the market.",
    "chapters": [
     {
      "id": "mining-201-raid",
      "section": "consumables",
-     "title": "Value for the raid",
+     "title": "The Lodestone for your group",
      "theory": [
-      "profession-mining.lodestone"
-     ]
+      "profession-mining.lodestone",
+      "profession-mining.camp-objects"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place the Lodestone when your group has no Paladin. Its buff matches Blessing of Might (melee attack power) and does not stack with it.",
+        "facts": [
+         "profession-mining.lodestone"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Placing the Lodestone for a group that already has Blessing of Might.",
+        "fix": "The Lodestone's buff matches Blessing of Might and does not stack with it, so it adds nothing there.",
+        "facts": [
+         "profession-mining.lodestone"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "mining-201-gold",
      "section": "praxis",
      "title": "Gold and the Auction House",
-     "theory": [],
+     "theory": [
+      "profession-mining.scarce-ores",
+      "profession-mining.new-bars"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "Scarce ores and the new bars are inputs for Forever recipes, and smiths, engineers and alchemists all use mining output. Trading is subject to Blizzard policy."
+        "text": "List scarce Pyrite, Bauxite and Pitchblende apart from ordinary ore. Pitchblende goes into Azerothium Bars. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-mining.scarce-ores",
+         "profession-mining.new-bars"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Selling all your Pitchblende before you reach Mining 275.",
+        "fix": "Azerothium Bar is made from Pitchblende and Coal at Mining 275, so keep some for your own bars.",
+        "facts": [
+         "profession-mining.new-bars"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 track covers this."
     },
     {
      "section": "talents",
@@ -143,33 +297,33 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Mining makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Ore routes and the open questions about the new bars need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "mining-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Ore routes and open questions",
+     "theory": [
+      "profession-mining.unknown-1",
+      "profession-mining.unknown-2",
+      "profession-mining.unknown-3"
+     ],
+     "unavailable": "No reviewed ore route or node map exists for Forever yet. Where the Molten Foundry blueprint drops, when Heavy Thorium, Azerothium and Legionite become available, where the new ores spawn and whether any passive Mining perk exists are also open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -181,6 +335,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Mining makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

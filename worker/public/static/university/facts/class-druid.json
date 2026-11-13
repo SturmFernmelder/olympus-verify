@@ -121,20 +121,56 @@
   {
    "id": "class-druid.change-8",
    "scope": {
-    "class": "druid"
+    "class": "druid",
+    "spec": "balance"
    },
-   "topic": "class-change",
+   "topic": "talent-removed",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "removed from the trees: Nature's Grasp, Improved Nature's Grasp, Natural Weapons, Improved Thorns, Omen of Clarity (Balance); Feral Aggression, Faerie Fire (Feral) (Feral); Improved Mark of the Wild, Improved Enrage (Restoration). Several of these became baseline spells.",
+   "label": "Balance talents gone since Classic 1.12",
+   "value": "Five Classic Balance talents are gone from the tree: Nature's Grasp, Improved Nature's Grasp, Natural Weapons, Improved Thorns and Omen of Clarity.",
    "sources": [
-    "g218-15",
-    "g218-85"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-balance"
+  },
+  {
+   "id": "class-druid.change-8-feral-combat",
+   "scope": {
+    "class": "druid",
+    "spec": "feral-combat"
+   },
+   "topic": "talent-removed",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Feral Combat talents gone since Classic 1.12",
+   "value": "Two Classic Feral Combat talents are gone from the tree: Feral Aggression and Faerie Fire (Feral).",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-feral-combat"
+  },
+  {
+   "id": "class-druid.change-8-restoration",
+   "scope": {
+    "class": "druid",
+    "spec": "restoration"
+   },
+   "topic": "talent-removed",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Restoration talents gone since Classic 1.12",
+   "value": "Two Classic Restoration talents are gone from the tree: Improved Mark of the Wild and Improved Enrage.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "druid-restoration"
   },
   {
    "id": "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
@@ -235,13 +271,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Eclipse loop",
-   "value": "Each Wrath readies your next 2 Starfires to cast faster (0.17 s each at rank 1), storing up to 4 charges for 15 s. Alternate short Wrath bursts with Starfires so charges do not expire.",
+   "value": "Eclipse: each Wrath cuts the cast time of your next 2 Starfires by 0.17, 0.33 or 0.50 sec, depending on rank. It stores up to 4 charges, and they last 15 sec.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-eclipse"
   },
   {
    "id": "class-druid.damage-over-time",
@@ -252,14 +288,14 @@
    "topic": "balance-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Damage over time",
-   "value": "Genesis raises periodic damage (1% at rank 1), Improved Moonfire adds Moonfire damage and crit, and Nature's Splendor extends Moonfire by 3 s and Insect Swarm by 2 s.",
+   "label": "Damage over time: Nature's Splendor",
+   "value": "Nature's Splendor adds 3 sec to Moonfire and Rejuvenation, 6 sec to Regrowth and 2 sec to Insect Swarm.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-nature-s-splendor"
   },
   {
    "id": "class-druid.crit-chain",
@@ -270,14 +306,14 @@
    "topic": "balance-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Crit chain",
-   "value": "Nature's Majesty (+2% crit at rank 1), Vengeance (+20% crit damage bonus at rank 1) and Nature's Grace (10% faster casts and global cooldown for 3 s after a non-periodic crit) all reward crit.",
+   "label": "Crit chain: Nature's Grace",
+   "value": "Nature's Grace: after a non-periodic spell crit, your spellcasting speed rises and your global cooldown shortens by 10% for 3 sec.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-nature-s-grace"
   },
   {
    "id": "class-druid.mana",
@@ -288,14 +324,14 @@
    "topic": "balance-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Mana",
-   "value": "Moonglow cuts damaging spell costs (8% at rank 1), Improved Wrath cuts Wrath's cost, and Moonkin Form doubles your Omen of Clarity chance.",
+   "label": "Mana: Moonglow",
+   "value": "Moonglow cuts the Mana cost of your damaging spells by 8%, 17% or 25% across its 3 ranks.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-balance-moonglow"
   },
   {
    "id": "class-druid.spell-hit-classic-baseline-for-the-cap",
@@ -599,14 +635,14 @@
    "topic": "feral-combat-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Swipe in the beta snapshot",
-   "value": "In the pinned October beta build, Feral Instinct added 10% Swipe damage at rank 1.",
+   "label": "Swipe: Feral Instinct",
+   "value": "Feral Instinct adds 10%, 20% or 30% to Swipe damage across its 3 ranks and makes you harder to detect while Prowling.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-feral-combat-feral-instinct"
   },
   {
    "id": "class-druid.weapon-procs-in-form",
@@ -754,14 +790,14 @@
    "topic": "restoration-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Heal-over-time core",
-   "value": "Improved Rejuvenation (+5% at rank 1), Genesis in Balance (+1% periodic healing at rank 1) and Nature's Splendor (+3 s Rejuvenation, +6 s Regrowth) all raise your heal-over-time output.",
+   "label": "Heal-over-time core: Improved Rejuvenation",
+   "value": "Improved Rejuvenation raises the effect of your Rejuvenation by 5%, 10% or 15% across its 3 ranks.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-restoration-improved-rejuvenation"
   },
   {
    "id": "class-druid.crits",
@@ -824,14 +860,14 @@
    "topic": "restoration-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Mana",
-   "value": "Reflection keeps part of your regen while casting (17% at rank 1), Tranquil Spirit cuts Healing Touch and Tranquility costs, and Living Spirit adds Spirit (5% at rank 1).",
+   "label": "Mana: Reflection",
+   "value": "Reflection lets 17%, 33% or 50% of your Mana regeneration continue while casting.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "druid-restoration-reflection"
   },
   {
    "id": "class-druid.wild-growth",
@@ -970,6 +1006,22 @@
    ],
    "reviewedAt": "2026-11-04",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-druid.launch-raids",
+   "scope": {
+    "class": "druid"
+   },
+   "topic": "druid-raid-calendar",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
   }
  ]
 }

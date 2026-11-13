@@ -111,14 +111,50 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "removed: Consecration, Improved Lay on Hands, Improved Blessing of Wisdom, Lasting Judgement (Holy); Improved Devotion Aura, Blessing of Kings, Improved Concentration Aura, Blessing of Sanctuary (Protection); Improved Blessing of Might, Improved Seal of the Crusader, Improved Retribution Aura, Sanctity Aura (Retribution).",
+   "label": "Talent data: Classic Holy talents that are gone",
+   "value": "Holy: Consecration, Improved Lay on Hands, Improved Blessing of Wisdom and Lasting Judgement are no longer in the tree.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "paladin-holy"
+  },
+  {
+   "id": "class-paladin.change-7-protection",
+   "scope": {
+    "class": "paladin",
+    "spec": "protection"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Classic Protection talents that are gone",
+   "value": "Protection: Improved Devotion Aura, Blessing of Kings, Improved Concentration Aura, Blessing of Sanctuary and One-Handed Weapon Specialization are no longer in the tree.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "paladin-protection"
+  },
+  {
+   "id": "class-paladin.change-7-retribution",
+   "scope": {
+    "class": "paladin",
+    "spec": "retribution"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Classic Retribution talents that are gone",
+   "value": "Retribution: Improved Blessing of Might, Improved Seal of the Crusader, Improved Retribution Aura and Sanctity Aura are no longer in the tree.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "paladin-retribution"
   },
   {
    "id": "class-paladin.change-8",
@@ -248,13 +284,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Infusion of Light",
-   "value": "Holy Shock and Flash of Light crits cut 0.5 s (rank 1) off your next Holy Light within 15 s.",
+   "value": "Holy Shock and Flash of Light crits cut 0.5 sec (rank 1) or 1.0 sec (rank 2) off your next Holy Light within 15 sec.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "paladin-holy-infusion-of-light"
   },
   {
    "id": "class-paladin.casting-under-pressure",
@@ -317,13 +353,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Healing Light",
-   "value": "Raises Holy Light, Flash of Light and Holy Shock healing (4% at rank 1).",
+   "value": "Raises Holy Light, Flash of Light and Holy Shock healing by 4% at rank 1, up to 12% at rank 3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "paladin-holy-healing-light"
   },
   {
    "id": "class-paladin.role",
@@ -558,13 +594,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Defense and armor",
-   "value": "Anticipation adds Defense Skill (4 at rank 1) and Toughness adds armor from items (2% at rank 1).",
+   "value": "Anticipation adds 4 Defense Skill per rank (20 at rank 5), and Toughness adds 2% armor from items per rank (10% at rank 5).",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "paladin-protection"
   },
   {
    "id": "class-paladin.multi-target-threat",
@@ -815,7 +851,9 @@
    "grade": "B",
    "label": "Champion of the Light",
    "value": "Turns Intellect into spell damage; the 16 Oct notes cut it to 10/20/30% across its ranks.",
+   "note": "Superseded: the 10 November talent data gives Champion of the Light five ranks, up to 60% of your Intellect at rank 5.",
    "sources": [
+    "talents-data",
     "g218-17",
     "g218-16"
    ],
@@ -924,6 +962,38 @@
    ],
    "reviewedAt": "2026-11-04",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-paladin.launch-raids",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "paladin-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
+  },
+  {
+   "id": "class-paladin.onyxias-lair-entry",
+   "scope": {
+    "class": "paladin"
+   },
+   "topic": "paladin-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Every raider must carry their own Drakefire Amulet in their bags, and Blizzard tells raids to build fire resistance before the fight.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
   }
  ]
 }

@@ -20,7 +20,12 @@
   "lead": "Warriors tank or deal melee damage, and everything runs on Rage. Blizzard's deep dive singles out their sustained damage when several enemies are in melee range and the buffs and debuffs only Warriors bring. Their weak spot is recovering quickly from heavy damage.",
   "points": [
    {
-    "text": "Protection is Forever's shield tank, Fury is the dual-wield spec Warcraft Tavern points raiders to, and Arms suits a two-hander and is the guides' pick for battlegrounds."
+    "text": "Protection is the shield tank, Fury is the dual-wield spec Warcraft Tavern names for raids, and Arms is its pick for battlegrounds.",
+    "facts": [
+     "class-warrior.use-a-shield",
+     "class-warrior.raid-role",
+     "class-warrior.raid-role-2"
+    ]
    },
    {
     "text": "Racials changed on 26 October: Human Ruthless is +1% crit and Dwarf Artisan's Precision is +1% hit with spells and attacks. No racial grants weapon skill.",
@@ -419,9 +424,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern's author calls Arms the traditional leveling pick and prefers Bloodthrill over Weaponmaster while leveling."
-         },
-         {
           "text": "Victory Rush (level 20) stays usable for 20 seconds after a kill and heals 10% of your maximum health, so open the next pull with it.",
           "facts": [
            "class-warrior.change-2"
@@ -548,9 +550,6 @@
            "talents-warrior.arms-spearing-strike",
            "talents-warrior.arms-spearing-strike.r1"
           ]
-         },
-         {
-          "text": "The Legacy perk Talented can start your talent points earlier; guides disagree on how much."
          }
         ],
         "mistakes": [
@@ -965,9 +964,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern rates every Warrior spec viable for leveling but says Fury takes more damage and has more downtime."
-         },
-         {
           "text": "Blood Craze heals you a little after you take a critical strike or a big hit, and Gore Drinker heals on your next swings after Enrage, Bloodrage, Berserker Rage, Death Wish or Bloodthirst.",
           "facts": [
            "talents-warrior.fury-blood-craze.r3",
@@ -978,6 +974,13 @@
           "text": "Enrage can trigger from any damaging attack you take, so its damage bonus is up often while you level.",
           "facts": [
            "talents-warrior.fury-enrage.r5"
+          ]
+         },
+         {
+          "text": "Flurry no longer requires Death Wish, and Death Wish now leads to Bloodthirst, so plan the tree around Flurry first.",
+          "facts": [
+           "class-warrior.change-7",
+           "talents-warrior.fury-bloodthirst"
           ]
          }
         ],
@@ -1066,10 +1069,10 @@
           ]
          },
          {
-          "text": "Queuing Heroic Strike no longer raises your off-hand hit chance in Forever."
-         },
-         {
-          "text": "Unbridled Wrath no longer doubles its Rage with two-handed weapons."
+          "text": "Unbridled Wrath gives each weapon hit a chance to generate extra Rage, so dual wielding feeds it twice as often.",
+          "facts": [
+           "talents-warrior.fury-unbridled-wrath.r1"
+          ]
          },
          {
           "text": "Lingering Rage delays Rage decay after combat, so you carry Rage into the next pull.",
@@ -1080,8 +1083,8 @@
         ],
         "mistakes": [
          {
-          "mistake": "Queuing Heroic Strike to raise off-hand hit.",
-          "fix": "That no longer works; off-hand hit comes from Furious Precision.",
+          "mistake": "Looking for a Warrior talent that adds main-hand hit.",
+          "fix": "None exists: Furious Precision covers off-hand attacks only, so main-hand hit comes from gear or the Dwarf racial.",
           "facts": [
            "class-warrior.main-hand-hit-from-talents"
           ]
@@ -1318,7 +1321,10 @@
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern says Fury has no real PvP tools, and that Berserker Stance and Death Wish leave it fragile. Guides point PvP Warriors to Arms."
+          "text": "Warcraft Tavern names Fury as the PvE spec and presents Arms as the battleground spec, so most PvP Warriors play Arms.",
+          "facts": [
+           "class-warrior.raid-role"
+          ]
          },
          {
           "text": "Without a Bloodthirst heal, Fury leans on Victory Rush, Blood Craze and Gore Drinker for sustain.",
@@ -1470,16 +1476,19 @@
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern rates all three Warrior specs viable for leveling, but its Protection guide says the spec does poorly when you are not tanking."
-         },
-         {
           "text": "Defensive Stance comes from the level 10 class quest, and Taunt and Sunder Armor are trained after it.",
           "facts": [
            "class-warrior.quest-defensive-stance-quest"
           ]
          },
          {
-          "text": "Rend and Sunder Armor tag mobs instantly, so you claim shared quest mobs quickly."
+          "text": "Defensive Stance carries an 80% threat bonus, and Defiance adds 7%, 13% or 20% over its three points.",
+          "facts": [
+           "class-warrior.use-a-shield"
+          ]
+         },
+         {
+          "text": "Open the dungeon build below in the talent calculator and check it against your talents in game before you spend points."
          }
         ],
         "mistakes": [
@@ -1572,9 +1581,6 @@
            "talents-warrior.protection-last-stand",
            "talents-warrior.protection-last-stand.r1"
           ]
-         },
-         {
-          "text": "Thunder Clap's threat was lowered to balance its new damage, so pair it with Demoralizing Shout on big pulls."
          },
          {
           "text": "Shield Slam needs a shield, so use it whenever it is ready.",
@@ -1821,9 +1827,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Protection is built for dungeons and raids; Warcraft Tavern says it does poorly when you are not tanking."
-         },
          {
           "text": "Concussion Blow stuns for 5 sec, and Improved Shield Bash gives Shield Bash a chance to silence for 3 sec, which helps when guarding a flag or a healer.",
           "facts": [

@@ -10,15 +10,17 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "The pinned snapshot adds seven Mage talents: Missile Barrage, Arcane Geometry, Arcane Blast, Arcane Wrath, Heating Up, Ice Lance and Fingers of Frost. Magic Attunement left the tree because Blizzard made its effect baseline.",
+   "label": "Talent data: Arcane",
+   "value": "Compared with Classic 1.12, the Arcane tree adds Missile Barrage, Arcane Geometry, Arcane Blast and Arcane Wrath, and Arcane Focus and Magic Attunement are gone. The tree holds 45 talent points.",
+   "note": "Blizzard's Mage deep dive says Magic Attunement's effect is now baseline.",
    "sources": [
-    "g218-15",
-    "g218-61"
+    "talents-data",
+    "g218-61",
+    "g218-150"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "mage-arcane"
   },
   {
    "id": "class-mage.change-2",
@@ -95,13 +97,14 @@
    "kind": "theory",
    "grade": "B",
    "label": "Announced by Blizzard",
-   "value": "Ice Block is now the 16-point Frost talent, and Cold Snap is the 21-point one with a 10 min cooldown (was 5). Arcane Power now needs Presence of Mind, and talentsforever's datamine shows Ice Barrier needing Cold Snap.",
+   "value": "Ice Block is now the 16-point Frost talent and Cold Snap the 21-point one, with a 10 min cooldown. Arcane Power now needs Presence of Mind, and Ice Barrier needs Cold Snap.",
    "sources": [
     "g218-61",
-    "g218-69"
+    "g218-69",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026; talent data of 10 Nov 2026)"
   },
   {
    "id": "class-mage.change-7",
@@ -136,6 +139,76 @@
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
+   "id": "class-mage.change-9",
+   "scope": {
+    "class": "mage",
+    "spec": "fire"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Fire",
+   "value": "Compared with Classic 1.12, the Fire tree adds one talent, Heating Up, and no Classic Fire talent is gone. The tree holds 46 talent points.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "mage-fire"
+  },
+  {
+   "id": "class-mage.change-10",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Frost",
+   "value": "Compared with Classic 1.12, the Frost tree adds Ice Lance and Fingers of Frost, and Piercing Ice is gone. The tree holds 48 talent points.",
+   "sources": [
+    "talents-data",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "mage-frost"
+  },
+  {
+   "id": "class-mage.blizzards-class-view",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "class-identity",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Blizzard's class view",
+   "value": "Blizzard describes the Mage through unique buffs, conjured food and water, strong control such as Polymorph, and strong single-target and area damage. The weak spot is melee range.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.frost-for-leveling",
+   "scope": {
+    "class": "mage",
+    "spec": "frost"
+   },
+   "topic": "spec-choice",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Frost for leveling and PvP",
+   "value": "Warcraft Tavern's beta Mage guide says Frost has mostly been used for leveling and PvP.",
+   "sources": [
+    "g218-75"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
    "id": "class-mage.quest-mage-class-quests",
    "scope": {
     "class": "mage"
@@ -143,7 +216,7 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "C",
-   "label": "Mage class quests (10, 15 and 26)",
+   "label": "Mage class quests (levels 10, 15 and 26)",
    "value": "Warcraft Tavern's beta leveling guide lists Mage class quests at these levels, with rewards such as robes, staves, off-hands and wands. Quests above level 26 are not documented yet.",
    "sources": [
     "g218-76"
@@ -159,7 +232,7 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "C",
-   "label": "Teleports (portal trainer) (20 and 30)",
+   "label": "Teleports from the portal trainer (levels 20 and 30)",
    "value": "Alliance: Teleport: Stormwind and Teleport: Ironforge at 20, Teleport: Darnassus at 30. The files show the same spells as Classic, taught by portal trainers. Warcraft Tavern lists Rune of Teleportation as the reagent.",
    "sources": [
     "g218-69",
@@ -176,7 +249,7 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "C",
-   "label": "Portals (portal trainer) (40 and 50)",
+   "label": "Portals from the portal trainer (levels 40 and 50)",
    "value": "Alliance: Portal: Stormwind and Portal: Ironforge at 40, Portal: Darnassus at 50. Warcraft Tavern lists Rune of Portals as the reagent.",
    "sources": [
     "g218-69",
@@ -209,7 +282,7 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "C",
-   "label": "Comprehension: Comprehend Scroll (6 (beta reports))",
+   "label": "Comprehension: Comprehend Scroll (level 6 in beta reports)",
    "value": "Blizzard confirms the Mage-only tradeskill and leaves rewards to discovery. Beta reports from Warcraft Tavern: a failed decipher turns you into a sheep until the skill improves, and returning books to librarians unlocks a Research tradeskill.",
    "sources": [
     "g218-61",
@@ -368,14 +441,14 @@
    "topic": "arcane-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Threat control (snapshot)",
-   "value": "Arcane Subtlety: your Arcane spells cause 15% less threat at rank 1",
+   "label": "Threat control: Arcane Subtlety",
+   "value": "Arcane Subtlety: your Arcane spells cause 15% less threat at rank 1 and 30% less at rank 2.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-arcane-arcane-subtlety"
   },
   {
    "id": "class-mage.mana-on-long-fights-snapshot",
@@ -386,16 +459,30 @@
    "topic": "arcane-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Mana on long fights (snapshot)",
-   "value": "Arcane Meditation keeps 17% of your regen going while casting at rank 1 and needs Arcane Concentration 5/5",
-   "note": "talentsforever reads up to 50% at 3/3 (Classic: 15%), and Mage Armor keeps 50% (Classic: 30%).",
+   "label": "Mana on long fights: Arcane Meditation",
+   "value": "Arcane Meditation lets 17% of your mana regeneration continue while casting, 33% with two points and 50% at 3/3. It requires Arcane Concentration.",
    "sources": [
-    "g218-15",
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-arcane-arcane-meditation"
+  },
+  {
+   "id": "class-mage.mage-armor-regen",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "mana-regen",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Mage Armor regeneration (datamine)",
+   "value": "In the talentsforever datamine, Mage Armor lets 50% of your mana regeneration continue while casting (Classic: 30%).",
+   "sources": [
     "g218-69"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
    "id": "class-mage.alliance-racials-for-raiders",
@@ -448,6 +535,40 @@
     "g218-2"
    ],
    "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.dps-rankings",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "rankings",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Raid DPS rankings",
+   "value": null,
+   "note": "Icy Veins lists raid DPS rankings as TBD, and no Forever raid logs exist yet.",
+   "sources": [
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-mage.pvp-rankings",
+   "scope": {
+    "class": "mage"
+   },
+   "topic": "rankings",
+   "kind": "theory",
+   "grade": "U",
+   "label": "PvP rankings",
+   "value": null,
+   "note": "Icy Veins' Forever PvP overview lists every Mage spec as TBD.",
+   "sources": [
+    "g218-74"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -635,14 +756,14 @@
    "topic": "fire-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Fire Power (snapshot)",
-   "value": "1% more Fire damage for each of your Fire effects on the target at rank 1, up to 4%; mixed-school effects do not count",
+   "label": "Fire Power",
+   "value": "Fire Power raises your Fire damage by 1% for each of your Fire effects on the target at rank 1, up to 4%, and by 3% per effect, up to 12%, at 3/3. Effects that mix schools of magic do not count.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-fire-fire-power"
   },
   {
    "id": "class-mage.combustion-snapshot",
@@ -653,14 +774,14 @@
    "topic": "fire-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Combustion (snapshot)",
-   "value": "Each Fire hit adds 10% Fire crit chance until you score 3 non-periodic Fire crits",
+   "label": "Combustion",
+   "value": "Combustion: each of your Fire spell hits adds 10% crit chance with Fire spells until you have scored 3 non-periodic Fire crits. It has a 3 min cooldown.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-fire-combustion"
   },
   {
    "id": "class-mage.threat-snapshot",
@@ -671,14 +792,14 @@
    "topic": "fire-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Threat (snapshot)",
-   "value": "Burning Soul: your Fire spells cause 10% less threat at rank 1",
+   "label": "Threat: Burning Soul",
+   "value": "Burning Soul: your Fire spells cause 10% less threat at rank 1 and 30% less at 3/3, and have a 23% to 70% chance not to lose casting time when you take damage.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-fire-burning-soul"
   },
   {
    "id": "class-mage.aoe-snapshot",
@@ -689,14 +810,14 @@
    "topic": "fire-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "AoE (snapshot)",
-   "value": "Improved Flamestrike adds 5% Flamestrike crit at rank 1; Blast Wave hits all nearby enemies and dazes them",
+   "label": "AoE: Improved Flamestrike",
+   "value": "Improved Flamestrike adds 5% crit chance to Flamestrike per rank, up to 15% at 3/3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-fire-improved-flamestrike"
   },
   {
    "id": "class-mage.classic-1-12-caster-kit-reference-2",
@@ -810,14 +931,14 @@
    "topic": "frost-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Fingers of Frost (snapshot)",
-   "value": "Your Chill effects get a 15% chance at rank 1 to make your next spell treat the target as Frozen (15 sec); needs Ice Lance",
+   "label": "Fingers of Frost",
+   "value": "Fingers of Frost gives your Chill effects a 15% chance to make your next spell treat the target as Frozen, or your next 2 spells at 2/2. The effect lasts 15 sec, and the talent requires Ice Lance.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-frost-fingers-of-frost"
   },
   {
    "id": "class-mage.frostfire-bolt-for-hybrids",
@@ -863,14 +984,14 @@
    "topic": "frost-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Threat and mana (snapshot)",
-   "value": "Frost Channeling: Frost spells cost 5% less mana and cause 10% less threat at rank 1",
+   "label": "Threat and mana: Frost Channeling",
+   "value": "Frost Channeling: your Frost spells cost 5% less mana and cause 10% less threat at rank 1, and 15% less mana and 30% less threat at 3/3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-frost-frost-channeling"
   },
   {
    "id": "class-mage.survival-snapshot",
@@ -881,14 +1002,14 @@
    "topic": "frost-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Survival (snapshot)",
-   "value": "Ice Block: 10 sec immunity to physical attacks and spells, but you cannot act. Ice Barrier: absorb for 1 min, no pushback while it holds",
+   "label": "Survival: Ice Block",
+   "value": "Ice Block protects you from all physical attacks and spells for 10 sec, but you cannot attack, move or cast while it lasts. It has a 5 min cooldown.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "mage-frost-ice-block"
   },
   {
    "id": "class-mage.ice-barrier",

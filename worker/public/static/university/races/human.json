@@ -17,7 +17,10 @@
   "lead": "Humans are one of the five Alliance races the Olympus guides name. Their Forever racials changed on 26 October: Ruthless now gives +1% crit and the Spirit racial +10% Spirit.",
   "points": [
    {
-    "text": "The class guides name Humans for Warrior, Paladin, Hunter, Rogue, Priest, Mage and Warlock. Human Hunters are new in Forever."
+    "text": "The class guides name Humans for Warrior, Paladin, Hunter, Rogue, Priest, Mage and Warlock. Human Hunters are new in Forever.",
+    "facts": [
+     "common.alliance-new-race-class-combos"
+    ]
    },
    {
     "text": "No racial grants weapon skill in Forever, so a Human's weapon choice is free of racial math.",

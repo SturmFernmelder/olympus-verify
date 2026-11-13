@@ -113,10 +113,12 @@
    "label": "Announced by Blizzard",
    "value": "Stormstrike deals 150% normalized weapon damage on a six-second cooldown, and Maelstrom Weapon triggers twice as often. Riptide is a heal over time with a 12-second cooldown and roughly 40% lower mana cost.",
    "sources": [
-    "g218-150"
+    "g218-150",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists Stormstrike at 100% weapon damage with an 8 sec cooldown."
   },
   {
    "id": "class-shaman.change-8",
@@ -127,13 +129,30 @@
    "kind": "theory",
    "grade": "A",
    "label": "Talent data",
-   "value": "The October snapshot had no Call of Thunder in Elemental. Compared with Classic, it also omits Shield Specialization, Enhancing Totems, Two-Handed Axes and Maces, Improved Weapon Totems, Weapon Mastery (Enhancement); Nature's Guidance, Totemic Mastery (Restoration).",
+   "value": "Compared with Classic, the Enhancement tree no longer has Shield Specialization, Enhancing Totems, Two-Handed Axes and Maces, Improved Weapon Totems or Weapon Mastery.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "shaman-enhancement"
+  },
+  {
+   "id": "class-shaman.change-9",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Compared with Classic, the Restoration tree no longer has Nature's Guidance or Totemic Mastery.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "shaman-restoration"
   },
   {
    "id": "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
@@ -201,6 +220,22 @@
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
+   "id": "class-shaman.launch-raids",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "shaman-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
+  },
+  {
    "id": "class-shaman.call-of-thunder",
    "scope": {
     "class": "shaman",
@@ -245,13 +280,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Crit damage",
-   "value": "Elemental Fury raises the crit damage bonus of Fire, Frost and Nature spells and Searing and Magma Totems (20% at rank 1); it requires Lightning Overload at 3/3.",
+   "value": "Elemental Fury raises the critical strike damage bonus of your Searing and Magma Totems and your Fire, Frost and Nature spells: 20% with one point, up to 100% with all five. It requires Lightning Overload.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-elemental-elemental-fury"
   },
   {
    "id": "class-shaman.chain-lightning",
@@ -475,10 +510,12 @@
    "label": "Stormstrike",
    "value": "The strike deals 150% normalized weapon damage and has a six-second cooldown.",
    "sources": [
-    "g218-150"
+    "g218-150",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists 100% weapon damage and an 8 sec cooldown instead."
   },
   {
    "id": "class-shaman.maelstrom-weapon",
@@ -527,10 +564,12 @@
    "label": "Intellect into power",
    "value": "Mental Dexterity converts 50%, 100% or 150% of Intellect into Attack Power.",
    "sources": [
-    "g218-150"
+    "g218-150",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists 33%, 66% and 100%."
   },
   {
    "id": "class-shaman.elemental-devastation",
@@ -542,13 +581,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Elemental Devastation",
-   "value": "Crits from direct damage spells raise your melee crit chance (3% at rank 1) for 10 s.",
+   "value": "Elemental Devastation: critical strikes with direct damage spells raise your melee crit chance by 3%, 6% or 9% for 10 sec.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-elemental-elemental-devastation"
   },
   {
    "id": "class-shaman.melee-hit-cap-vs-raid-bosses",
@@ -594,13 +633,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Threat",
-   "value": "Spirit Weapons lowers your threat by 30% while Rockbiter Weapon is not active.",
+   "value": "Spirit Weapons reduces the threat from your attacks by 30% while Rockbiter Weapon is not active and increases it by 30% while Rockbiter Weapon is active.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-enhancement-spirit-weapons"
   },
   {
    "id": "class-shaman.temporary-tank",
@@ -733,13 +772,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Healing Wave",
-   "value": "Improved Healing Wave cuts its cast (0.1 s at rank 1) and Healing Way adds healing (8% at rank 1); Riptide requires Healing Way at 3/3.",
+   "value": "Improved Healing Wave shortens Healing Wave's cast by 0.1 sec per rank, up to 0.5 sec at rank 5.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-improved-healing-wave"
   },
   {
    "id": "class-shaman.water-shield",
@@ -769,13 +808,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Regen while casting",
-   "value": "Mindfulness lets part of your mana regeneration continue while casting (17% at rank 1).",
+   "value": "Mindfulness lets 17%, 33% or 50% of your mana regeneration continue while casting.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-mindfulness"
   },
   {
    "id": "class-shaman.crit",
@@ -787,13 +826,14 @@
    "kind": "theory",
    "grade": "A",
    "label": "Crit",
-   "value": "Tidal Mastery adds healing crit (1% at rank 1), which also feeds Water Shield and Ancestral Healing.",
+   "value": "Tidal Mastery raises the critical effect chance of your healing spells by 1% per rank, up to 5%.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-tidal-mastery",
+   "note": "A healing crit also triggers Water Shield and Ancestral Healing."
   },
   {
    "id": "class-shaman.totemic-call",
@@ -891,13 +931,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Reincarnation",
-   "value": "Improved Reincarnation cuts Reincarnation's cooldown by 10 minutes, adds 2% max health and raises the health and mana you return with (rank 1).",
+   "value": "Improved Reincarnation cuts Reincarnation's cooldown by 10 or 20 min, raises your maximum health by 2% or 4%, and adds 10% or 20% to the health and mana you come back with.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-improved-reincarnation"
   },
   {
    "id": "class-shaman.classic-baseline",

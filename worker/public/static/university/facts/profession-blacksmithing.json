@@ -23,7 +23,7 @@
    "scope": {
     "profession": "blacksmithing"
    },
-   "topic": "profession-change",
+   "topic": "profession-gear",
    "kind": "theory",
    "grade": "C",
    "label": "Gear only you can make",
@@ -39,7 +39,7 @@
    "scope": {
     "profession": "blacksmithing"
    },
-   "topic": "profession-change",
+   "topic": "profession-skill-threshold",
    "kind": "theory",
    "grade": "C",
    "label": "Camp objects",
@@ -55,7 +55,7 @@
    "scope": {
     "profession": "blacksmithing"
    },
-   "topic": "profession-leveling",
+   "topic": "profession-skill-threshold",
    "kind": "theory",
    "grade": "C",
    "label": "Skill ranks",
@@ -209,6 +209,155 @@
    "sources": [],
    "reviewedAt": "2026-11-04",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.professions-window",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-change",
+   "grade": "B",
+   "label": "Professions window",
+   "value": "Professions have their own window, opened with K. Recipe lists can be searched and filtered, and you can track a recipe in the objectives frame.",
+   "sources": [
+    "g218-95"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.camp-rules",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones. You sit at the camp for at least 1 minute to get them.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.campsite-size",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Campsite size",
+   "value": "A basic campsite holds 3 camp features, one per player. Cooking upgrades raise this to 5 or 10.",
+   "sources": [
+    "g218-116",
+    "g218-97",
+    "g218-24",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.earning-favor",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Earning Merchant's Favor",
+   "value": "Fill Waylaid Crates (found in the world or bought on the Auction House) and hand the sealed crates to Marcy Baker of the Azeroth Commerce Authority at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+   "sources": [
+    "g218-113"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.profession-title",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Profession title",
+   "value": "Crafters who reach 300 can earn a certification item that unlocks a profession title. Alliance players get it from the Azeroth Commerce Authority.",
+   "sources": [
+    "g218-25"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.vendor-prices",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-market",
+   "grade": "B",
+   "label": "Vendor prices",
+   "value": "Blizzard's beta notes say many profession-made items sell to vendors for less.",
+   "sources": [
+    "g218-49"
+   ],
+   "gameBuild": "WoW: Forever (Blizzard beta notes of 16 Oct 2026)"
+  },
+  {
+   "id": "profession-blacksmithing.stones-with-poisons",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "topic": "profession-raid",
+   "grade": "B",
+   "label": "Stones with poisons",
+   "value": "Poisons can now be applied alongside sharpening stones or weightstones.",
+   "sources": [
+    "g218-38"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.stones-with-imbues",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "topic": "profession-raid",
+   "grade": "B",
+   "label": "Stones with Shaman imbues",
+   "value": "Shaman weapon imbues stack with sharpening stones and weightstones.",
+   "sources": [
+    "g218-61"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.stones-in-form",
+   "scope": {
+    "profession": "blacksmithing"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "topic": "profession-raid",
+   "grade": "B",
+   "label": "Stones in Druid forms",
+   "value": "Sharpening stones work while a Druid is in form.",
+   "sources": [
+    "g218-85",
+    "g218-62"
+   ]
   }
  ]
 }

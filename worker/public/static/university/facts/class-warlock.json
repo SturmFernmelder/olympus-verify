@@ -10,15 +10,14 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "The pinned snapshot has 17 new Warlock talents, including Wrack, Pandemic, Demonic Brand, Demonic Knowledge, Demonic Pact, Bane of Havoc and Incinerate. Fifteen Classic talents are gone, such as Dark Pact, Devastation and Improved Healthstone. Only Improved Voidwalker and Improved Sayaad are unchanged, and Improved Life Tap, Grim Reach and Destructive Reach only moved.",
+   "label": "Talent data: Affliction",
+   "value": "Affliction: Soul Harvest, Improved Drains, Pandemic, Malevolence and Wrack are new. Improved Curse of Weakness, Improved Drain Soul, Improved Drain Mana, Improved Curse of Exhaustion and Dark Pact are gone, and Improved Life Tap and Grim Reach only moved.",
    "sources": [
-    "g218-15",
-    "g218-77"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-affliction"
   },
   {
    "id": "class-warlock.change-2",
@@ -127,13 +126,64 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "C",
-   "label": "Not settled yet",
-   "value": "talentsforever's 30 Oct datamine: Improved Drains now covers Drain Life, Drain Soul and Drain Mana, and Wrack was dropped from it. The files also show Healthstones healing as if fully talented (Major Healthstone: 1,440). No Blizzard note confirms the hotfix yet.",
+   "label": "Healthstones: not confirmed by Blizzard",
+   "value": "Improved Healthstone is no longer a talent, and talentsforever's 30 Oct datamine shows Healthstones healing as if fully talented (Major Healthstone: 1,440). No Blizzard note confirms the healing yet.",
    "sources": [
-    "g218-77"
+    "g218-77",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.change-9",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Demonology",
+   "value": "Demonology: Demonic Aegis, Demonic Energies, Decimation, Demonic Brand, Improved Felhunter, Demonic Knowledge and Demonic Pact are new. Improved Healthstone, Fel Stamina, Improved Subjugate Demon, Improved Firestone and Improved Spellstone are gone. Improved Voidwalker and Improved Sayaad are the only Warlock talents left unchanged.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-demonology"
+  },
+  {
+   "id": "class-warlock.change-10",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data: Destruction",
+   "value": "Destruction: Molten Skin, Bane of Havoc, Fire and Brimstone, Shadow and Flame and Incinerate are new. Improved Firebolt, Improved Lash of Pain, Devastation, Improved Immolate and Emberstorm are gone, and Destructive Reach only moved.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warlock-destruction"
+  },
+  {
+   "id": "class-warlock.launch-raids",
+   "scope": {
+    "class": "warlock"
+   },
+   "topic": "class-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview, 20 Oct 2026)"
   },
   {
    "id": "class-warlock.quest-demon-quests-imp-voidwalker-succubus-incubus-felhunter",
@@ -144,7 +194,7 @@
    "kind": "theory",
    "grade": "C",
    "label": "Demon quests: Imp, Voidwalker, Succubus, Incubus, Felhunter (1, 10, 20, 20 and 30)",
-   "value": "Warcraft Tavern's beta guide says each demon comes from a class quest, and demon trainers sell grimoires for pet abilities. Named quests: 'Devourer of Souls' (Succubus), 'What Is Love?' (Incubus, Stormwind) and 'Seeking Strahad' (Felhunter).",
+   "value": "Warcraft Tavern's Warlock leveling guide says each demon comes from a class quest, and demon trainers sell grimoires for pet abilities. Named quests: 'Devourer of Souls' (Succubus), 'What Is Love?' (Incubus, Stormwind) and 'Seeking Strahad' (Felhunter).",
    "sources": [
     "g218-80"
    ],
@@ -299,14 +349,14 @@
    "topic": "affliction-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Wrack (snapshot)",
-   "value": "36 Shadow damage every 1 sec at rank 1, and your other Shadow DoTs deal 10% more to the target for 6 sec; needs Siphon Life",
+   "label": "Wrack",
+   "value": "Wrack channels for 6 sec, dealing 60 Shadow damage every 1 sec. While you channel it, your Siphon Life, Corruption and Bane of Agony on the target deal their periodic damage 100% faster. It requires Siphon Life.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-wrack"
   },
   {
    "id": "class-warlock.spirit-and-mana",
@@ -388,14 +438,14 @@
    "topic": "affliction-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Demonic Sacrifice (snapshot)",
-   "value": "Sacrificing your Imp gives 15% more Shadow damage for 2 hours; summoning any demon cancels the effect, so you fight without a pet while it lasts",
+   "label": "Demonic Sacrifice",
+   "value": "Demonic Sacrifice gives an effect for 2 hours that depends on the demon. Imp: 15% more Shadow damage. Voidwalker: 2% of your total Mana every 4 sec. Succubus or Incubus: 15% more Fire damage. Felhunter: 3% of your total Health every 4 sec. Summoning any demon cancels the effect.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-sacrifice"
   },
   {
    "id": "class-warlock.group-utility",
@@ -431,6 +481,24 @@
     "g218-46"
    ],
    "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warlock.remove-lesser-curse",
+   "scope": {
+    "class": "warlock",
+    "spec": "affliction"
+   },
+   "topic": "affliction-pvp",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Mages and Banes",
+   "value": "A Mage's Remove Lesser Curse also removes Banes.",
+   "note": "Icy Veins Forever, as the Mage guide cites it.",
+   "sources": [
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -514,14 +582,14 @@
    "topic": "demonology-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Demonic Knowledge (snapshot)",
-   "value": "You and your demon gain spell damage up to 33% of your level while a demon is summoned (rank 1)",
+   "label": "Demonic Knowledge",
+   "value": "Demonic Knowledge raises your spell damage and your demon's by up to 33% of your level for one point and up to 100% at 3/3, while a demon is summoned.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-knowledge"
   },
   {
    "id": "class-warlock.sacrifice-and-pact",
@@ -566,14 +634,14 @@
    "topic": "demonology-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Hit for Demonology (snapshot)",
-   "value": "Demonology has no hit talent; Suppression sits in Affliction row 1 (1% hit at rank 1, 5 ranks)",
+   "label": "Hit for Demonology",
+   "value": "Demonology has no hit talent; Suppression sits in Affliction row 1 (1% hit at rank 1, 5 ranks).",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-suppression"
   },
   {
    "id": "class-warlock.decimation-snapshot",
@@ -584,14 +652,14 @@
    "topic": "demonology-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Decimation (snapshot)",
-   "value": "Soul Fire's cooldown is 45% shorter at rank 1, and Shadow Bolt or Searing Pain on a target under 35% health speeds up Soul Fire for 10 sec",
+   "label": "Decimation",
+   "value": "Decimation cuts Soul Fire's cooldown by 45% at rank 1. After you cast Shadow Bolt or Searing Pain on an enemy below 35% health, Soul Fire casts 20% faster and costs no Soul Shard for 10 sec.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-decimation"
   },
   {
    "id": "class-warlock.pet-tanking-in-raids",
@@ -620,14 +688,14 @@
    "topic": "demonology-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Demonic Brand threat (snapshot)",
-   "value": "Searing Pain generates 17% less threat at rank 1, and Shadow damage from the brand carries high threat",
+   "label": "Demonic Brand threat",
+   "value": "With one point in Demonic Brand, Searing Pain generates 17% less threat, and Shadow damage from the brand carries high threat.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-demonology-demonic-brand"
   },
   {
    "id": "class-warlock.pet-utility",
@@ -762,14 +830,14 @@
    "topic": "destruction-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Cast speed (snapshot)",
-   "value": "Bane: Shadow Bolt, Immolate and Incinerate 0.1 sec faster and Soul Fire 0.4 sec faster at rank 1, 5 ranks",
+   "label": "Cast speed: Bane",
+   "value": "Bane: Shadow Bolt, Immolate and Incinerate cast 0.1 sec faster and Soul Fire 0.4 sec faster at rank 1, up to 0.5 sec and 2 sec at 5/5.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-bane"
   },
   {
    "id": "class-warlock.destruction-damage-snapshot",
@@ -780,14 +848,14 @@
    "topic": "destruction-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Destruction damage (snapshot)",
-   "value": "Agonizing Flames: 3% more Destruction damage and 3% Searing Pain crit at rank 1. Ruin: 20% more Destruction crit damage at rank 1",
+   "label": "Agonizing Flames",
+   "value": "Agonizing Flames adds 3% damage to all your Destruction spells and 3% crit chance to Searing Pain for one point, and 10% each at 3/3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-agonizing-flames"
   },
   {
    "id": "class-warlock.hit-for-destruction-snapshot",
@@ -798,14 +866,14 @@
    "topic": "destruction-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Hit for Destruction (snapshot)",
-   "value": "Destruction has no hit talent; Suppression (Affliction row 1) is the Warlock's hit source",
+   "label": "Hit for Destruction",
+   "value": "Destruction has no hit talent; Suppression (Affliction row 1) is the Warlock's hit source.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-affliction-suppression"
   },
   {
    "id": "class-warlock.classic-1-12-hit-cap-reference-only-2",
@@ -867,14 +935,14 @@
    "topic": "destruction-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Mana (snapshot)",
-   "value": "Cataclysm: Destruction spells cost 3% less mana at rank 1",
+   "label": "Mana: Cataclysm",
+   "value": "Cataclysm makes your Destruction spells cost 3% less mana for one point and 10% less at 3/3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warlock-destruction-cataclysm"
   },
   {
    "id": "class-warlock.curse-of-the-elements-files",

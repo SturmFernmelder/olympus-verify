@@ -4,14 +4,16 @@
  "id": "blacksmithing",
  "name": "Blacksmithing",
  "type": "primary",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[1] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[1] (2026-11-04), rewritten into a full course on 2026-11-12",
  "factFiles": [
   "common",
   "profession-blacksmithing"
  ],
- "quizFiles": [],
+ "quizFiles": [
+  "profession-blacksmithing"
+ ],
  "pairsWith": [
   "mining"
  ],
@@ -19,46 +21,160 @@
   "lead": "Blacksmiths forge armor, weapons and weapon stones, and Mining supplies most of what they use.",
   "points": [
    {
-    "text": "Forever adds Bind on Pickup gear that only the blacksmith can make, and guides point plate wearers such as Warriors toward it."
+    "text": "Forever adds Bind on Pickup gear that only the blacksmith can make for themselves, such as Sentinel's Sabatons.",
+    "facts": [
+     "profession-blacksmithing.gear-only-you-can-make"
+    ]
+   },
+   {
+    "text": "Rogue poisons and Shaman weapon imbues now go on alongside sharpening stones and weightstones, so more of the raid can use your stones.",
+    "facts": [
+     "profession-blacksmithing.stones-with-poisons",
+     "profession-blacksmithing.stones-with-imbues"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-blacksmithing.new-recipes",
+   "profession-blacksmithing.camp-objects"
+  ]
  },
+ "heldBack": [
+  {
+   "from": "professions[1].overview[1]",
+   "text": "Guides point plate wearers such as Warriors toward it.",
+   "reason": "No graded fact holds the class recommendation."
+  },
+  {
+   "from": "professions[1].goldNote",
+   "text": "Camp feature items can be traded or sold on the Auction House, but placing one needs the profession skill.",
+   "reason": "No graded fact holds the trading rule for camp feature items."
+  }
+ ],
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "What Blacksmithing makes in Forever, its camp objects and how to level it.",
    "chapters": [
     {
      "id": "blacksmithing-101-changes",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "What Forever changes for Blacksmithing",
      "theory": [
       "profession-blacksmithing.new-recipes",
-      "profession-blacksmithing.gear-only-you-can-make",
-      "profession-blacksmithing.camp-objects"
-     ]
+      "profession-blacksmithing.camp-objects",
+      "profession-blacksmithing.sharpening-wheel-buff",
+      "profession-blacksmithing.camp-rules",
+      "profession-blacksmithing.campsite-size",
+      "profession-blacksmithing.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-blacksmithing.professions-window"
+        ]
+       },
+       {
+        "text": "Expect a longer recipe list than in Classic: Blizzard says Forever adds more than 600 new recipes across professions and level ranges.",
+        "facts": [
+         "profession-blacksmithing.new-recipes"
+        ]
+       },
+       {
+        "text": "Place a Sharpening Wheel at skill 20, an Anvil at 140 and a Master Forge at 300. The Anvil blueprint drops from Gilnid in the Deadmines.",
+        "facts": [
+         "profession-blacksmithing.camp-objects"
+        ]
+       },
+       {
+        "text": "Sit at the camp for at least 1 minute to get its buff. A basic campsite holds 3 camp features, one per player, so agree in the group who places what.",
+        "facts": [
+         "profession-blacksmithing.camp-rules",
+         "profession-blacksmithing.campsite-size"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting the Sharpening Wheel buff on top of the matching class buff.",
+        "fix": "Camp buffs are weaker copies of class buffs and do not stack with them. Guides also disagree on whether the Wheel gives Strength or Attack Power.",
+        "facts": [
+         "profession-blacksmithing.sharpening-wheel-buff",
+         "profession-blacksmithing.camp-rules"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "blacksmithing-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks, Favor and Legacy",
      "theory": [
       "profession-blacksmithing.skill-ranks",
       "profession-blacksmithing.specialization-classic-baseline",
       "profession-blacksmithing.merchants-favor",
-      "profession-blacksmithing.legacy"
-     ]
-    },
-    {
-     "id": "blacksmithing-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-blacksmithing.unknown-1",
-      "profession-blacksmithing.unknown-2",
-      "profession-blacksmithing.unknown-3",
-      "profession-blacksmithing.unknown-4"
-     ]
+      "profession-blacksmithing.earning-favor",
+      "profession-blacksmithing.legacy",
+      "profession-blacksmithing.profession-title"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-blacksmithing.skill-ranks"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+        "facts": [
+         "profession-blacksmithing.earning-favor"
+        ]
+       },
+       {
+        "text": "Spend that Favor on Favor recipes from the Azeroth Commerce Authority at Three Corners.",
+        "facts": [
+         "profession-blacksmithing.merchants-favor"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point. Working Overtime improves your skill-up chance, and Dedicated Study gives a daily skill-up.",
+        "facts": [
+         "profession-blacksmithing.legacy"
+        ]
+       },
+       {
+        "text": "Plan your specialization. Forever guides list the same paths as Classic 1.12: Armorsmith or Weaponsmith, and a Weaponsmith can go on to become an Axe, Sword or Hammer master.",
+        "facts": [
+         "profession-blacksmithing.specialization-classic-baseline"
+        ]
+       },
+       {
+        "text": "At 300, earn the certification item that unlocks your profession title. Alliance players get it from the Azeroth Commerce Authority.",
+        "facts": [
+         "profession-blacksmithing.profession-title"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-blacksmithing.skill-ranks"
+        ]
+       },
+       {
+        "mistake": "Following a Classic 1.12 specialization walkthrough as if it were confirmed for Forever.",
+        "fix": "Forever guides list the same paths, but the quests themselves have not been checked in Forever yet.",
+        "facts": [
+         "profession-blacksmithing.specialization-classic-baseline"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -84,7 +200,7 @@
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -93,44 +209,129 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "Gear only you can make, weapon stones for the raid, and the market.",
    "chapters": [
     {
-     "id": "blacksmithing-201-raid",
-     "section": "consumables",
-     "title": "Value for the raid",
+     "id": "blacksmithing-201-gear",
+     "section": "gear",
+     "title": "Gear only you can make",
      "theory": [
-      "profession-blacksmithing.weapon-stones",
-      "profession-blacksmithing.sharpening-wheel-buff"
-     ]
-    },
-    {
-     "id": "blacksmithing-201-gold",
-     "section": "praxis",
-     "title": "Gold and the Auction House",
-     "theory": [],
+      "profession-blacksmithing.gear-only-you-can-make"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "Bind on Pickup crafts are for your own use, so sell weapon stones and other tradeable crafts instead. Camp feature items can be traded or sold on the Auction House, but placing one needs the profession skill. Trading is subject to Blizzard policy."
+        "text": "Make Bind on Pickup pieces such as Sentinel's Sabatons for yourself. No other crafter can supply them.",
+        "facts": [
+         "profession-blacksmithing.gear-only-you-can-make"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Asking another blacksmith to craft Sentinel's Sabatons for you.",
+        "fix": "Blacksmiths make that Bind on Pickup gear for themselves, so you need the profession yourself.",
+        "facts": [
+         "profession-blacksmithing.gear-only-you-can-make"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "blacksmithing-201-raid",
+     "section": "consumables",
+     "title": "Weapon stones for the raid",
+     "theory": [
+      "profession-blacksmithing.weapon-stones",
+      "profession-blacksmithing.stones-with-poisons",
+      "profession-blacksmithing.stones-with-imbues",
+      "profession-blacksmithing.stones-in-form"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Stock Dense Sharpening Stones, Dense Weightstones and Elemental Sharpening Stones for the raid's melee.",
+        "facts": [
+         "profession-blacksmithing.weapon-stones"
+        ]
+       },
+       {
+        "text": "Offer stones to Rogues and Shamans too: poisons and Shaman weapon imbues now go on alongside sharpening stones and weightstones.",
+        "facts": [
+         "profession-blacksmithing.stones-with-poisons",
+         "profession-blacksmithing.stones-with-imbues"
+        ]
+       },
+       {
+        "text": "Feral Druids can use sharpening stones as well, because they work while a Druid is in form.",
+        "facts": [
+         "profession-blacksmithing.stones-in-form"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Telling a Rogue to choose between poisons and a weightstone.",
+        "fix": "Poisons can now be applied alongside sharpening stones or weightstones.",
+        "facts": [
+         "profession-blacksmithing.stones-with-poisons"
+        ]
+       },
+       {
+        "mistake": "Quoting stones stacking with Windfury Totem as settled.",
+        "fix": "Only Warcraft Tavern reports it, so it is unconfirmed. Blizzard confirms stones work with poisons and with Shaman weapon imbues.",
+        "facts": [
+         "profession-blacksmithing.weapon-stones",
+         "profession-blacksmithing.stones-with-poisons",
+         "profession-blacksmithing.stones-with-imbues"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "blacksmithing-201-market",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-blacksmithing.weapon-stones",
+      "profession-blacksmithing.gear-only-you-can-make",
+      "profession-blacksmithing.vendor-prices"
+     ],
+     "noQuiz": "Its facts are a vendor-price change and the binding rule asked in the gear chapter; neither offers a fair wrong answer from reviewed facts.",
+     "praxis": {
+      "steps": [
+       {
+        "text": "Sell weapon stones to the raid's melee and keep Bind on Pickup crafts such as Sentinel's Sabatons for yourself. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-blacksmithing.weapon-stones",
+         "profession-blacksmithing.gear-only-you-can-make"
+        ]
+       },
+       {
+        "text": "Check the Auction House before you sell surplus crafts to a vendor: Blizzard's beta notes say many profession-made items sell to vendors for less.",
+        "facts": [
+         "profession-blacksmithing.vendor-prices"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling surplus crafts to a vendor out of Classic habit.",
+        "fix": "Many profession-made items sell to vendors for less in Forever, so compare the Auction House first.",
+        "facts": [
+         "profession-blacksmithing.vendor-prices"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 overview covers this."
     },
     {
      "section": "talents",
@@ -143,33 +344,30 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Skill-by-skill routes, trainer lists and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "blacksmithing-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-blacksmithing.unknown-1",
+      "profession-blacksmithing.unknown-2",
+      "profession-blacksmithing.unknown-3",
+      "profession-blacksmithing.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route, trainer list or recipe-source list exists for Forever yet. The site holds rank thresholds, camp objects, Favor sources and the weapon-stone rules (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -181,6 +379,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

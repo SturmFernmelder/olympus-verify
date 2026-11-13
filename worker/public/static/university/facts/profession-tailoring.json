@@ -7,7 +7,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-change",
+   "topic": "profession-bag",
    "kind": "theory",
    "grade": "C",
    "label": "Reagent bags",
@@ -24,7 +24,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-change",
+   "topic": "profession-bag",
    "kind": "theory",
    "grade": "C",
    "label": "Bigger bags",
@@ -40,7 +40,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-change",
+   "topic": "profession-bag",
    "kind": "theory",
    "grade": "C",
    "label": "Dyes in recipes",
@@ -56,7 +56,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-change",
+   "topic": "profession-gear",
    "kind": "theory",
    "grade": "C",
    "label": "Gear only you can make",
@@ -72,7 +72,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-change",
+   "topic": "profession-skill-threshold",
    "kind": "theory",
    "grade": "C",
    "label": "Camp objects",
@@ -88,7 +88,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-leveling",
+   "topic": "profession-skill-threshold",
    "kind": "theory",
    "grade": "C",
    "label": "Skill ranks",
@@ -137,7 +137,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-raid",
+   "topic": "profession-gear",
    "kind": "theory",
    "grade": "C",
    "label": "Spell-school sets",
@@ -153,7 +153,7 @@
    "scope": {
     "profession": "tailoring"
    },
-   "topic": "profession-raid",
+   "topic": "profession-camp",
    "kind": "theory",
    "grade": "C",
    "label": "Faction Banner",
@@ -223,6 +223,106 @@
    "sources": [],
    "reviewedAt": "2026-11-04",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.professions-window",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-change",
+   "grade": "B",
+   "label": "Professions window",
+   "value": "Professions have their own window, opened with K. Recipe lists can be searched and filtered, and you can track a recipe in the objectives frame.",
+   "sources": [
+    "g218-95"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.camp-rules",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones. You sit at the camp for at least 1 minute to get them.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.campsite-size",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-camp",
+   "grade": "C",
+   "label": "Campsite size",
+   "value": "A basic campsite holds 3 camp features, one per player. Cooking upgrades raise this to 5 or 10.",
+   "sources": [
+    "g218-116",
+    "g218-97",
+    "g218-24",
+    "g218-26"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.earning-favor",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Earning Merchant's Favor",
+   "value": "Fill Waylaid Crates (found in the world or bought on the Auction House) and hand the sealed crates to Marcy Baker of the Azeroth Commerce Authority at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+   "sources": [
+    "g218-113"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.profession-title",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-leveling",
+   "grade": "C",
+   "label": "Profession title",
+   "value": "Crafters who reach 300 can earn a certification item that unlocks a profession title. Alliance players get it from the Azeroth Commerce Authority.",
+   "sources": [
+    "g218-25"
+   ],
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "profession-tailoring.vendor-prices",
+   "scope": {
+    "profession": "tailoring"
+   },
+   "kind": "theory",
+   "reviewedAt": "2026-11-12",
+   "topic": "profession-market",
+   "grade": "B",
+   "label": "Vendor prices",
+   "value": "Blizzard's beta notes say many profession-made items sell to vendors for less.",
+   "sources": [
+    "g218-49"
+   ],
+   "gameBuild": "WoW: Forever (Blizzard beta notes of 16 Oct 2026)"
   }
  ]
 }

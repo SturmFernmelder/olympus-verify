@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-blacksmithing",
+ "questions": [
+  {
+   "id": "profession-blacksmithing.anvil-skill",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-changes",
+   "type": "mcq",
+   "stem": "At what Blacksmithing skill can you place the Anvil camp object?",
+   "choices": [
+    "140",
+    "300",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "The Sharpening Wheel comes at skill 20, the Anvil at 140 and the Master Forge at 300.",
+   "facts": [
+    "profession-blacksmithing.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.campsite-size",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-changes",
+   "type": "mcq",
+   "stem": "How many camp features does a basic campsite hold?",
+   "choices": [
+    "3",
+    "5",
+    "10"
+   ],
+   "answer": 0,
+   "explanation": "A basic campsite holds 3 camp features, one per player. Cooking upgrades raise the limit to 5 or 10.",
+   "facts": [
+    "profession-blacksmithing.campsite-size"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.wheel-recap",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-changes",
+   "type": "mcq",
+   "stem": "Beta guides say the Sharpening Wheel gives Strength. What did Blizzard's recap say it gives?",
+   "choices": [
+    "Attack Power",
+    "Strength"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard's recap said Attack Power; beta guides say Strength. Either way the buff does not stack with the matching class buff.",
+   "facts": [
+    "profession-blacksmithing.sharpening-wheel-buff"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.expert-training",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-leveling",
+   "type": "mcq",
+   "stem": "What does Expert Blacksmithing training need?",
+   "choices": [
+    "skill 125, level 20",
+    "skill 50, level 10",
+    "skill 200, level 35"
+   ],
+   "answer": 0,
+   "explanation": "Journeyman needs skill 50 and level 10, Expert skill 125 and level 20, and Artisan skill 200 and level 35.",
+   "facts": [
+    "profession-blacksmithing.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.skill-cap",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-leveling",
+   "type": "mcq",
+   "stem": "What is the Blacksmithing skill cap in Forever?",
+   "choices": [
+    "300",
+    "225",
+    "150"
+   ],
+   "answer": 0,
+   "explanation": "Artisan goes up to 300, which is the cap. Expert stops at 225 and Journeyman at 150.",
+   "facts": [
+    "profession-blacksmithing.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.weaponsmith",
+   "scope": "profession:blacksmithing",
+   "tier": 101,
+   "chapter": "blacksmithing-101-leveling",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which Blacksmithing specialization can go on to become an Axe, Sword or Hammer master?",
+   "choices": [
+    "Weaponsmith",
+    "Armorsmith"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 you choose Armorsmith or Weaponsmith, and only a Weaponsmith goes on to an Axe, Sword or Hammer mastery. Forever guides list the same paths.",
+   "facts": [
+    "profession-blacksmithing.specialization-classic-baseline"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.bop-example",
+   "scope": "profession:blacksmithing",
+   "tier": 201,
+   "chapter": "blacksmithing-201-gear",
+   "type": "mcq",
+   "stem": "Which item does the Forever guide name as Bind on Pickup gear that only a blacksmith can make for themselves?",
+   "choices": [
+    "Sentinel's Sabatons",
+    "Dense Weightstones",
+    "Elemental Sharpening Stones"
+   ],
+   "answer": 0,
+   "explanation": "The guide's example is Sentinel's Sabatons. Dense Weightstones and Elemental Sharpening Stones are the weapon stones blacksmiths make for the raid's melee.",
+   "facts": [
+    "profession-blacksmithing.gear-only-you-can-make",
+    "profession-blacksmithing.weapon-stones"
+   ]
+  },
+  {
+   "id": "profession-blacksmithing.windfury-source",
+   "scope": "profession:blacksmithing",
+   "tier": 201,
+   "chapter": "blacksmithing-201-raid",
+   "type": "mcq",
+   "stem": "Which source reports that weapon stones now stack with Windfury Totem, a claim that is still unconfirmed?",
+   "choices": [
+    "Warcraft Tavern",
+    "Blizzard"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern is the only source for the Windfury Totem claim. Blizzard has confirmed that stones work alongside poisons and Shaman weapon imbues.",
+   "facts": [
+    "profession-blacksmithing.weapon-stones"
+   ],
+   "distractorFacts": [
+    "profession-blacksmithing.sharpening-wheel-buff"
+   ]
+  }
+ ]
+}

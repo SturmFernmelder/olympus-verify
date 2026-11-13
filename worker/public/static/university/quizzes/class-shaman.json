@@ -1,0 +1,784 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-shaman",
+ "questions": [
+  {
+   "id": "class-shaman.lava-burst",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-forever-changes",
+   "type": "mcq",
+   "stem": "What replaces Lava Burst in the Elemental tree?",
+   "choices": [
+    "Call of Thunder",
+    "Lightning Mastery",
+    "Lightning Overload"
+   ],
+   "answer": 0,
+   "explanation": "Call of Thunder replaces Lava Burst and adds 5% crit to Lightning Bolt and Chain Lightning. Lightning Mastery is the new name for Elemental Mastery, and Lightning Overload is a separate talent with a 10%, 20% or 30% trigger chance.",
+   "facts": [
+    "class-shaman.change-5"
+   ]
+  },
+  {
+   "id": "class-shaman.imbue-duration",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-forever-changes",
+   "type": "mcq",
+   "stem": "How long does a Shaman weapon imbue last in Forever?",
+   "choices": [
+    "60 minutes",
+    "5 minutes",
+    "30 seconds"
+   ],
+   "answer": 0,
+   "explanation": "Weapon imbues last 60 minutes and stack with weapon enhancements. Five minutes is how long persistent buff totems last, and 30 seconds is Totemic Call's cooldown.",
+   "facts": [
+    "class-shaman.change-4"
+   ],
+   "distractorFacts": [
+    "class-shaman.change-1",
+    "class-shaman.change-3"
+   ]
+  },
+  {
+   "id": "class-shaman.totem-gcd",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-totems",
+   "type": "mcq",
+   "stem": "What is the totem global cooldown in Forever?",
+   "choices": [
+    "1.0 s",
+    "1.5 s",
+    "2.5 seconds"
+   ],
+   "answer": 0,
+   "explanation": "The totem global cooldown is 1.0 s, down from 1.5 s. Chain Lightning's cast is 2.5 seconds.",
+   "facts": [
+    "class-shaman.change-1"
+   ],
+   "distractorFacts": [
+    "class-shaman.change-4"
+   ]
+  },
+  {
+   "id": "class-shaman.totemic-call",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-totems",
+   "type": "mcq",
+   "stem": "What does Totemic Call do?",
+   "choices": [
+    "Moves your totems to your current position",
+    "Drops a saved set of totems",
+    "Refunds 25% of totem mana"
+   ],
+   "answer": 0,
+   "explanation": "Totemic Call moves your totems to your current position on a 30-second cooldown. Call of the Elements drops a saved set, and Totemic Recall refunds 25% of totem mana.",
+   "facts": [
+    "class-shaman.totemic-call",
+    "class-shaman.change-3"
+   ]
+  },
+  {
+   "id": "class-shaman.windfury-conflict",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-totems",
+   "type": "mcq",
+   "stem": "Which totem buff can't be active at the same time as Windfury Totem?",
+   "choices": [
+    "Flametongue",
+    "Grace of Air",
+    "Strength of Earth"
+   ],
+   "answer": 0,
+   "explanation": "Windfury and Flametongue Totems can't both be active. Since 16 October, Grace of Air no longer conflicts with them.",
+   "facts": [
+    "class-shaman.change-2"
+   ]
+  },
+  {
+   "id": "class-shaman.healing-stream-quest",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest rewards Healing Stream Totem?",
+   "choices": [
+    "Water totem quest",
+    "Fire totem quest",
+    "Earth totem quest"
+   ],
+   "answer": 0,
+   "explanation": "The level 20 Water totem quest rewards Water Totem and Healing Stream Totem.",
+   "facts": [
+    "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+   ],
+   "distractorFacts": [
+    "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+    "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+   ]
+  },
+  {
+   "id": "class-shaman.fire-quest-reward",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-class-quests",
+   "type": "mcq",
+   "stem": "What does the level 10 Fire totem quest reward?",
+   "choices": [
+    "Fire Totem and Searing Totem",
+    "Earth Totem and Stoneskin Totem",
+    "Water Totem and Healing Stream Totem"
+   ],
+   "answer": 0,
+   "explanation": "The Fire totem quest rewards Fire Totem and Searing Totem. Earth Totem and Stoneskin Totem come from the Earth quest, and Water Totem and Healing Stream Totem from the Water quest.",
+   "facts": [
+    "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle"
+   ],
+   "distractorFacts": [
+    "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
+    "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+   ]
+  },
+  {
+   "id": "class-shaman.earth-quest-start",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-class-quests",
+   "type": "mcq",
+   "stem": "Where does the Earth totem quest start?",
+   "choices": [
+    "Anvilmar",
+    "Arathi Highlands",
+    "Loch Modan"
+   ],
+   "answer": 0,
+   "explanation": "It starts in Anvilmar, Dun Morogh. The Water totem quest starts in Loch Modan, and the Air totem quest is a trip to Arathi Highlands.",
+   "facts": [
+    "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+   ],
+   "distractorFacts": [
+    "class-shaman.quest-air-totem-quest-veyric-arathi-highlands",
+    "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+   ]
+  },
+  {
+   "id": "class-shaman.artisans-precision",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-race",
+   "type": "mcq",
+   "stem": "What does the Dwarf racial Artisan's Precision give in Forever?",
+   "choices": [
+    "+1% hit with spells and attacks",
+    "+1% crit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Artisan's Precision gives +1% hit with spells and attacks. +1% crit is Human Ruthless and +2% haste is Skyborne Wind-Blessed.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-shaman.classic-faction",
+   "scope": "class:shaman",
+   "tier": 101,
+   "chapter": "shaman-101-race",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which faction could play a Shaman?",
+   "choices": [
+    "Horde",
+    "Alliance"
+   ],
+   "answer": 0,
+   "explanation": "Shamans were Horde-only in Classic, so Alliance raids never had Shaman totems. Forever adds the Dwarf Shaman.",
+   "facts": [
+    "class-shaman.classic-baseline"
+   ]
+  },
+  {
+   "id": "class-shaman.farseer-personal",
+   "scope": "class:shaman",
+   "tier": 201,
+   "chapter": "shaman-201-raid-utility",
+   "type": "mcq",
+   "stem": "What kind of cooldown is Rage of the Farseer?",
+   "choices": [
+    "A personal cooldown",
+    "A party or raid effect"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard made Rage of the Farseer a personal cooldown on purpose rather than a party or raid effect. No raid-wide Bloodlust or Heroism has been announced.",
+   "facts": [
+    "class-shaman.personal-burst"
+   ]
+  },
+  {
+   "id": "class-shaman.onyxia-size",
+   "scope": "class:shaman",
+   "tier": 201,
+   "chapter": "shaman-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which launch raid is the 40-player raid?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps is for 10 players, Hyjal Summit for 20 and Onyxia's Lair for 40; all three open on 9 December 2026.",
+   "facts": [
+    "class-shaman.launch-raids"
+   ]
+  },
+  {
+   "id": "class-shaman.grace-of-air",
+   "scope": "class:shaman",
+   "tier": 201,
+   "chapter": "shaman-201-raid-utility",
+   "type": "mcq",
+   "stem": "Since the 16 October notes, which totem no longer conflicts with Windfury and Flametongue Totems?",
+   "choices": [
+    "Grace of Air",
+    "Tranquil Air Totem",
+    "Fire Nova Totem"
+   ],
+   "answer": 0,
+   "explanation": "Grace of Air no longer conflicts with Windfury and Flametongue. Tranquil Air Totem is gone, and Fire Nova Totem became the Fire Nova spell.",
+   "facts": [
+    "class-shaman.change-2"
+   ],
+   "distractorFacts": [
+    "class-shaman.change-1"
+   ]
+  },
+  {
+   "id": "class-shaman.chain-lightning-mana",
+   "scope": "spec:shaman-elemental",
+   "tier": 101,
+   "chapter": "shaman-elemental-101-rotation",
+   "type": "mcq",
+   "stem": "Compared with a comparable Lightning Bolt, how much mana does Chain Lightning cost?",
+   "choices": [
+    "About 225%",
+    "About 145%"
+   ],
+   "answer": 0,
+   "explanation": "Chain Lightning costs about 225% of the mana; about 145% is the damage its primary target takes. Keep it for groups.",
+   "facts": [
+    "class-shaman.chain-lightning"
+   ]
+  },
+  {
+   "id": "class-shaman.elemental-focus",
+   "scope": "spec:shaman-elemental",
+   "tier": 101,
+   "chapter": "shaman-elemental-101-rotation",
+   "type": "mcq",
+   "stem": "What chance does Elemental Focus give to enter Clearcasting after a Fire, Frost or Nature damage spell?",
+   "choices": [
+    "10%",
+    "30%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Elemental Focus has a 10% chance; Clearcasting then cuts the mana cost of your next damage spell by 100%. 30% is Lightning Overload at rank 3.",
+   "facts": [
+    "talents-shaman.elemental-elemental-focus.r1",
+    "talents-shaman.elemental-lightning-overload.r3"
+   ]
+  },
+  {
+   "id": "class-shaman.reverberation",
+   "scope": "spec:shaman-elemental",
+   "tier": 101,
+   "chapter": "shaman-elemental-101-fire",
+   "type": "mcq",
+   "stem": "Which Elemental talent reduces the cooldown of your Shock spells?",
+   "choices": [
+    "Reverberation",
+    "Call of Flame",
+    "Concussion"
+   ],
+   "answer": 0,
+   "explanation": "Reverberation cuts your Shock cooldowns by up to 1.0 sec. Call of Flame strengthens fire totems, Flame Shock and Fire Nova, and Concussion adds damage to Lightning Bolt, Chain Lightning and Earth Shock.",
+   "facts": [
+    "talents-shaman.elemental-reverberation",
+    "talents-shaman.elemental-reverberation.r5"
+   ],
+   "distractorFacts": [
+    "talents-shaman.elemental-call-of-flame",
+    "talents-shaman.elemental-concussion"
+   ]
+  },
+  {
+   "id": "class-shaman.trial-by-fire",
+   "scope": "spec:shaman-elemental",
+   "tier": 101,
+   "chapter": "shaman-elemental-101-fire",
+   "type": "scenario",
+   "stem": "You have Trial by Fire at 2/2. By how much does it cut Fire Nova's cooldown?",
+   "choices": [
+    "4 sec",
+    "2 sec"
+   ],
+   "answer": 0,
+   "explanation": "At rank 2 Trial by Fire cuts Fire Nova's cooldown by 4 sec; rank 1 cuts it by 2 sec.",
+   "facts": [
+    "talents-shaman.elemental-trial-by-fire.r2"
+   ],
+   "distractorFacts": [
+    "talents-shaman.elemental-trial-by-fire.r1"
+   ]
+  },
+  {
+   "id": "class-shaman.classic-spell-hit",
+   "scope": "spec:shaman-elemental",
+   "tier": 201,
+   "chapter": "shaman-elemental-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much spell hit did casters need against raid bosses three levels higher?",
+   "choices": [
+    "16%",
+    "1%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Classic casters needed 16%. Forever's cap is not known yet, so treat 16% as a Classic reference only.",
+   "facts": [
+    "class-shaman.spell-hit-classic-baseline-for-the-cap"
+   ],
+   "distractorFacts": [
+    "class-shaman.call-of-thunder"
+   ]
+  },
+  {
+   "id": "class-shaman.spell-hit-talent",
+   "scope": "spec:shaman-elemental",
+   "tier": 201,
+   "chapter": "shaman-elemental-201-priorities",
+   "type": "mcq",
+   "stem": "Which Restoration talent improves your chance to hit?",
+   "choices": [
+    "Tidal Focus",
+    "Tidal Mastery",
+    "Mindfulness"
+   ],
+   "answer": 0,
+   "explanation": "Tidal Focus improves your chance to hit by 1% per rank, up to 5%. Tidal Mastery adds healing crit, and Mindfulness keeps mana regeneration going while casting.",
+   "facts": [
+    "talents-shaman.restoration-tidal-focus",
+    "talents-shaman.restoration-tidal-focus.r5"
+   ],
+   "distractorFacts": [
+    "talents-shaman.restoration-tidal-mastery",
+    "talents-shaman.restoration-mindfulness"
+   ]
+  },
+  {
+   "id": "class-shaman.elixir-of-cunning",
+   "scope": "spec:shaman-elemental",
+   "tier": 201,
+   "chapter": "shaman-elemental-201-consumables",
+   "type": "mcq",
+   "stem": "According to Warcraft Tavern, which new Forever elixir gives Agility plus Intellect?",
+   "choices": [
+    "Elixir of Cunning",
+    "Minor Arcane Elixir",
+    "Elixir of the Grizzly"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of Cunning gives Agility plus Intellect. Minor Arcane Elixir is the other new caster elixir, and Elixir of the Grizzly gives Strength plus crit.",
+   "facts": [
+    "class-shaman.new-forever-elixirs",
+    "class-shaman.new-forever-elixir"
+   ]
+  },
+  {
+   "id": "class-shaman.fire-resistance",
+   "scope": "spec:shaman-elemental",
+   "tier": 201,
+   "chapter": "shaman-elemental-201-raid",
+   "type": "mcq",
+   "stem": "For which launch raid does Blizzard ask raids to build fire resistance?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard asks raids to build fire resistance for Onyxia, and Resistance Totems cover the whole raid group.",
+   "facts": [
+    "class-shaman.resistance-totems",
+    "class-shaman.launch-raids"
+   ]
+  },
+  {
+   "id": "class-shaman.earthbound",
+   "scope": "spec:shaman-elemental",
+   "tier": 201,
+   "chapter": "shaman-elemental-201-pvp",
+   "type": "mcq",
+   "stem": "Which talent makes your Earthbind Totem immobilize nearby targets when cast?",
+   "choices": [
+    "Earthbound",
+    "Earth's Grasp",
+    "Elemental Warding"
+   ],
+   "answer": 0,
+   "explanation": "Earthbound makes Earthbind Totem immobilize nearby targets for 5 sec. Earth's Grasp widens Earthbind's radius and strengthens Stoneclaw Totem, and Elemental Warding reduces Fire, Frost and Nature damage taken.",
+   "facts": [
+    "talents-shaman.elemental-earthbound",
+    "talents-shaman.elemental-earthbound.r1",
+    "talents-shaman.enhancement-earth-s-grasp"
+   ],
+   "distractorFacts": [
+    "talents-shaman.elemental-elemental-warding"
+   ]
+  },
+  {
+   "id": "class-shaman.maelstrom-spell",
+   "scope": "spec:shaman-enhancement",
+   "tier": 101,
+   "chapter": "shaman-enhancement-101-rotation",
+   "type": "mcq",
+   "stem": "Which spell does Maelstrom Weapon make faster and cheaper?",
+   "choices": [
+    "Lightning Bolt",
+    "Chain Lightning",
+    "Earth Shock"
+   ],
+   "answer": 0,
+   "explanation": "Maelstrom Weapon reduces the cast time and mana cost of your next Lightning Bolt. Chain Lightning and Earth Shock benefit from Stormstrike's bonus instead.",
+   "facts": [
+    "talents-shaman.enhancement-maelstrom-weapon.r5",
+    "talents-shaman.enhancement-stormstrike.r1"
+   ]
+  },
+  {
+   "id": "class-shaman.stormstrike-window",
+   "scope": "spec:shaman-enhancement",
+   "tier": 101,
+   "chapter": "shaman-enhancement-101-rotation",
+   "type": "mcq",
+   "stem": "After Stormstrike, how long does its bonus on your next Lightning Bolt, Chain Lightning or Earth Shock last?",
+   "choices": [
+    "12 sec",
+    "30 sec",
+    "25 sec"
+   ],
+   "answer": 0,
+   "explanation": "Stormstrike's 20% bonus lasts 12 sec. Maelstrom Weapon stacks last 30 sec, and Rage of the Farseer lasts 25 sec.",
+   "facts": [
+    "talents-shaman.enhancement-stormstrike.r1",
+    "talents-shaman.enhancement-maelstrom-weapon.r5",
+    "talents-shaman.enhancement-rage-of-the-farseer.r1"
+   ]
+  },
+  {
+   "id": "class-shaman.rockbiter-threat",
+   "scope": "spec:shaman-enhancement",
+   "tier": 101,
+   "chapter": "shaman-enhancement-101-threat",
+   "type": "mcq",
+   "stem": "With Spirit Weapons, what happens to your threat while Rockbiter Weapon is active?",
+   "choices": [
+    "Increases all threat generated by 30%",
+    "Reduces all threat generated by your attacks by 30%"
+   ],
+   "answer": 0,
+   "explanation": "Spirit Weapons raises your threat by 30% while Rockbiter Weapon is active and lowers it by 30% while it is not, so use Rockbiter only when you mean to hold threat.",
+   "facts": [
+    "talents-shaman.enhancement-spirit-weapons.r1"
+   ]
+  },
+  {
+   "id": "class-shaman.shamanistic-focus",
+   "scope": "spec:shaman-enhancement",
+   "tier": 101,
+   "chapter": "shaman-enhancement-101-threat",
+   "type": "mcq",
+   "stem": "Which talent cuts the mana cost of your Shock and Lightning Shield spells by 45%?",
+   "choices": [
+    "Shamanistic Focus",
+    "Improved Lightning Shield",
+    "Mental Quickness"
+   ],
+   "answer": 0,
+   "explanation": "Shamanistic Focus cuts Shock and Lightning Shield costs by 45%. Improved Lightning Shield adds orb damage, and Mental Quickness adds spell damage from Intellect.",
+   "facts": [
+    "talents-shaman.enhancement-shamanistic-focus",
+    "talents-shaman.enhancement-shamanistic-focus.r1"
+   ],
+   "distractorFacts": [
+    "talents-shaman.enhancement-improved-lightning-shield",
+    "talents-shaman.enhancement-mental-quickness"
+   ]
+  },
+  {
+   "id": "class-shaman.mental-dexterity",
+   "scope": "spec:shaman-enhancement",
+   "tier": 201,
+   "chapter": "shaman-enhancement-201-priorities",
+   "type": "mcq",
+   "stem": "Which Enhancement talent turns Intellect into Attack Power?",
+   "choices": [
+    "Mental Dexterity",
+    "Mental Quickness",
+    "Ancestral Knowledge"
+   ],
+   "answer": 0,
+   "explanation": "Mental Dexterity turns Intellect into Attack Power. Mental Quickness turns it into spell damage and healing, and Ancestral Knowledge raises Intellect itself.",
+   "facts": [
+    "talents-shaman.enhancement-mental-dexterity",
+    "talents-shaman.enhancement-mental-dexterity.r3"
+   ],
+   "distractorFacts": [
+    "talents-shaman.enhancement-mental-quickness",
+    "talents-shaman.enhancement-ancestral-knowledge"
+   ]
+  },
+  {
+   "id": "class-shaman.grizzly",
+   "scope": "spec:shaman-enhancement",
+   "tier": 201,
+   "chapter": "shaman-enhancement-201-consumables",
+   "type": "mcq",
+   "stem": "According to Warcraft Tavern, which new Forever elixir gives Strength plus crit?",
+   "choices": [
+    "Elixir of the Grizzly",
+    "Elixir of Cunning",
+    "Minor Arcane Elixir"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Grizzly gives Strength plus crit. Elixir of Cunning gives Agility plus Intellect, and Minor Arcane Elixir is a caster elixir.",
+   "facts": [
+    "class-shaman.new-forever-elixir",
+    "class-shaman.new-forever-elixirs"
+   ]
+  },
+  {
+   "id": "class-shaman.enhancement-tanking",
+   "scope": "spec:shaman-enhancement",
+   "tier": 201,
+   "chapter": "shaman-enhancement-201-raid",
+   "type": "mcq",
+   "stem": "What kind of tanking has Blizzard described for Enhancement?",
+   "choices": [
+    "Tank small groups for a while",
+    "Endgame tanking"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard only says Enhancement can tank small groups for a while, and Warcraft Tavern doubts current talents are enough for endgame tanking.",
+   "facts": [
+    "class-shaman.temporary-tank"
+   ]
+  },
+  {
+   "id": "class-shaman.stormstrike-reset",
+   "scope": "spec:shaman-enhancement",
+   "tier": 201,
+   "chapter": "shaman-enhancement-201-pvp",
+   "type": "mcq",
+   "stem": "What can reset Stormstrike's cooldown with Improved Stormstrike?",
+   "choices": [
+    "Each time you Dodge or Parry",
+    "Dealing a melee critical strike"
+   ],
+   "answer": 0,
+   "explanation": "Improved Stormstrike gives Stormstrike's cooldown a 50% or 100% chance to reset each time you dodge or parry. A melee crit triggers Flurry instead.",
+   "facts": [
+    "talents-shaman.enhancement-improved-stormstrike.r1",
+    "talents-shaman.enhancement-flurry.r5"
+   ]
+  },
+  {
+   "id": "class-shaman.natures-swiftness",
+   "scope": "spec:shaman-restoration",
+   "tier": 101,
+   "chapter": "shaman-restoration-101-rotation",
+   "type": "scenario",
+   "stem": "The tank is about to die. Which talent turns your next Nature spell with a cast under 10 sec into an instant cast?",
+   "choices": [
+    "Nature's Swiftness",
+    "Riptide",
+    "Mana Tide Totem"
+   ],
+   "answer": 0,
+   "explanation": "Nature's Swiftness makes your next Nature spell with a cast under 10 sec instant. Riptide has no initial heal, and Mana Tide Totem restores mana.",
+   "facts": [
+    "talents-shaman.restoration-nature-s-swiftness",
+    "talents-shaman.restoration-nature-s-swiftness.r1",
+    "class-shaman.riptide"
+   ],
+   "distractorFacts": [
+    "talents-shaman.restoration-mana-tide-totem"
+   ]
+  },
+  {
+   "id": "class-shaman.riptide-duration",
+   "scope": "spec:shaman-restoration",
+   "tier": 101,
+   "chapter": "shaman-restoration-101-rotation",
+   "type": "mcq",
+   "stem": "Over how long does Riptide heal its target?",
+   "choices": [
+    "15 sec",
+    "12 sec"
+   ],
+   "answer": 0,
+   "explanation": "Riptide heals 445 over 15 sec; 12 sec is its cooldown.",
+   "facts": [
+    "talents-shaman.restoration-riptide.r1",
+    "talents-shaman.restoration-riptide"
+   ]
+  },
+  {
+   "id": "class-shaman.restorative-totems",
+   "scope": "spec:shaman-restoration",
+   "tier": 101,
+   "chapter": "shaman-restoration-101-totems",
+   "type": "scenario",
+   "stem": "You have Restorative Totems at 5/5. How much stronger is your Healing Stream Totem?",
+   "choices": [
+    "50%",
+    "25%",
+    "40%"
+   ],
+   "answer": 0,
+   "explanation": "At rank 5 Healing Stream Totem is 50% stronger; Mana Spring Totem gains 25%. 40% is Healing Stream at rank 4.",
+   "facts": [
+    "talents-shaman.restoration-restorative-totems.r5"
+   ],
+   "distractorFacts": [
+    "talents-shaman.restoration-restorative-totems.r4"
+   ]
+  },
+  {
+   "id": "class-shaman.totemic-recall",
+   "scope": "spec:shaman-restoration",
+   "tier": 101,
+   "chapter": "shaman-restoration-101-totems",
+   "type": "mcq",
+   "stem": "Which spell refunds 25% of your totems' mana?",
+   "choices": [
+    "Totemic Recall",
+    "Totemic Call",
+    "Call of the Elements"
+   ],
+   "answer": 0,
+   "explanation": "Totemic Recall refunds 25% of totem mana. Totemic Call moves your totems, and Call of the Elements drops a saved set.",
+   "facts": [
+    "class-shaman.change-3"
+   ]
+  },
+  {
+   "id": "class-shaman.mindfulness",
+   "scope": "spec:shaman-restoration",
+   "tier": 201,
+   "chapter": "shaman-restoration-201-priorities",
+   "type": "mcq",
+   "stem": "Which talent lets part of your mana regeneration continue while casting?",
+   "choices": [
+    "Mindfulness",
+    "Tidal Focus",
+    "Totemic Focus"
+   ],
+   "answer": 0,
+   "explanation": "Mindfulness lets 17%, 33% or 50% of your mana regeneration continue while casting. Tidal Focus cuts healing costs and Totemic Focus cuts totem costs.",
+   "facts": [
+    "talents-shaman.restoration-mindfulness",
+    "class-shaman.regen-while-casting"
+   ],
+   "distractorFacts": [
+    "talents-shaman.restoration-tidal-focus",
+    "talents-shaman.restoration-totemic-focus"
+   ]
+  },
+  {
+   "id": "class-shaman.healing-potions",
+   "scope": "spec:shaman-restoration",
+   "tier": 201,
+   "chapter": "shaman-restoration-201-consumables",
+   "type": "mcq",
+   "stem": "According to Warcraft Tavern, which profession makes healing potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+   "facts": [
+    "class-shaman.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-shaman.mana-tide-reach",
+   "scope": "spec:shaman-restoration",
+   "tier": 201,
+   "chapter": "shaman-restoration-201-raid",
+   "type": "mcq",
+   "stem": "Who does Mana Tide Totem restore mana to?",
+   "choices": [
+    "Group members within 30 yards",
+    "The whole raid"
+   ],
+   "answer": 0,
+   "explanation": "Mana Tide Totem restores mana to group members within 30 yards. Your buff totems are the ones that reach the whole raid.",
+   "facts": [
+    "talents-shaman.restoration-mana-tide-totem.r1",
+    "class-shaman.raid-wide-buff-totems-2"
+   ]
+  },
+  {
+   "id": "class-shaman.mana-tide-duration",
+   "scope": "spec:shaman-restoration",
+   "tier": 201,
+   "chapter": "shaman-restoration-201-raid",
+   "type": "mcq",
+   "stem": "How long does Mana Tide Totem last?",
+   "choices": [
+    "12 sec",
+    "5 min"
+   ],
+   "answer": 0,
+   "explanation": "The totem lasts 12 sec and restores 88 mana every 3 seconds; 5 min is its cooldown.",
+   "facts": [
+    "talents-shaman.restoration-mana-tide-totem.r1",
+    "talents-shaman.restoration-mana-tide-totem"
+   ]
+  },
+  {
+   "id": "class-shaman.ancestral-healing",
+   "scope": "spec:shaman-restoration",
+   "tier": 201,
+   "chapter": "shaman-restoration-201-pvp",
+   "type": "mcq",
+   "stem": "Which talent raises your target's armor after one of your heals crits?",
+   "choices": [
+    "Ancestral Healing",
+    "Healing Focus",
+    "Purification"
+   ],
+   "answer": 0,
+   "explanation": "Ancestral Healing raises your target's armor by up to 25% for 15 sec after a healing crit. Healing Focus protects your casts, and Purification raises healing.",
+   "facts": [
+    "talents-shaman.restoration-ancestral-healing",
+    "talents-shaman.restoration-ancestral-healing.r3"
+   ],
+   "distractorFacts": [
+    "talents-shaman.restoration-healing-focus",
+    "talents-shaman.restoration-purification"
+   ]
+  }
+ ]
+}

@@ -4,14 +4,16 @@
  "id": "engineering",
  "name": "Engineering",
  "type": "primary",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[3] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[3] (2026-11-04), rewritten into a full course on 2026-11-12",
  "factFiles": [
   "common",
   "profession-engineering"
  ],
- "quizFiles": [],
+ "quizFiles": [
+  "profession-engineering"
+ ],
  "pairsWith": [
   "mining",
   "alchemy"
@@ -20,48 +22,156 @@
   "lead": "Engineers build explosives, gadgets and devices. Forever adds explosives that anyone can use, satchel bombs for the thrown slot and belts for every armor type.",
   "points": [
    {
-    "text": "Mining supplies most materials. Warcraft Tavern also suggests Alchemy as a partner, because many new engineering recipes use alchemy materials."
+    "text": "Mining supplies most of the materials."
+   },
+   {
+    "text": "The Gnome racial no longer adds Engineering skill; it now makes devices fail and backfire less often.",
+    "facts": [
+     "profession-engineering.gnome-racial"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-engineering.saf-t-explosives",
+   "profession-engineering.satchel-bombs"
+  ]
  },
+ "heldBack": [
+  {
+   "from": "professions[3].overview[1]",
+   "text": "Many new engineering recipes use alchemy materials.",
+   "reason": "No graded engineering fact names the alchemy materials."
+  }
+ ],
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "What Engineering makes in Forever, its camp objects and how to level it.",
    "chapters": [
     {
      "id": "engineering-101-changes",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "What Forever changes for Engineering",
      "theory": [
-      "profession-engineering.satchel-bombs",
-      "profession-engineering.clanking-cord-belts",
       "profession-engineering.skill-scaling",
       "profession-engineering.gnome-racial",
-      "profession-engineering.camp-objects"
-     ]
+      "profession-engineering.camp-objects",
+      "profession-engineering.camp-rules",
+      "profession-engineering.campsite-size",
+      "profession-engineering.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-engineering.professions-window"
+        ]
+       },
+       {
+        "text": "Place your first engineering camp object at skill 20, the second at 140 and the Anarchist's Workbench at 300. The skill-140 blueprint drops from Sneed in the Deadmines.",
+        "facts": [
+         "profession-engineering.camp-objects"
+        ]
+       },
+       {
+        "text": "Keep your Engineering skill up as you level: Icy Veins says some gadgets now scale with it.",
+        "facts": [
+         "profession-engineering.skill-scaling"
+        ]
+       },
+       {
+        "text": "As a Gnome, expect fewer failures and backfires rather than extra skill: Engineering Specialization now cuts that rate by 20%.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       },
+       {
+        "text": "Sit at the camp for at least 1 minute to get its buff. A basic campsite holds 3 camp features, one per player, so agree in the group who places what.",
+        "facts": [
+         "profession-engineering.camp-rules",
+         "profession-engineering.campsite-size"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting on the Gnome racial for extra Engineering skill.",
+        "fix": "It no longer adds skill. It cuts the failure and backfire rate of engineering devices by 20%.",
+        "facts": [
+         "profession-engineering.gnome-racial"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "engineering-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks, Favor and Legacy",
      "theory": [
       "profession-engineering.skill-ranks",
       "profession-engineering.specialization-classic-baseline",
       "profession-engineering.favor-recipes",
-      "profession-engineering.legacy"
-     ]
-    },
-    {
-     "id": "engineering-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-engineering.unknown-1",
-      "profession-engineering.unknown-2",
-      "profession-engineering.unknown-3",
-      "profession-engineering.unknown-4"
-     ]
+      "profession-engineering.earning-favor",
+      "profession-engineering.legacy",
+      "profession-engineering.profession-title"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-engineering.skill-ranks"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+        "facts": [
+         "profession-engineering.earning-favor"
+        ]
+       },
+       {
+        "text": "Your first Favor recipe can come early: SAF-T Dynamite costs 45 Merchant's Favor at skill 25.",
+        "facts": [
+         "profession-engineering.favor-recipes"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point. Performance Bonus adds extra Merchant's Favor, and Working Overtime improves your skill-up chance.",
+        "facts": [
+         "profession-engineering.legacy"
+        ]
+       },
+       {
+        "text": "Plan the Goblin or Gnomish choice. Forever guides list the same choice as Classic 1.12, where a quest at skill 200 decides it and switching means unlearning.",
+        "facts": [
+         "profession-engineering.specialization-classic-baseline"
+        ]
+       },
+       {
+        "text": "At 300, earn the certification item that unlocks your profession title. Alliance players get it from the Azeroth Commerce Authority.",
+        "facts": [
+         "profession-engineering.profession-title"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-engineering.skill-ranks"
+        ]
+       },
+       {
+        "mistake": "Picking Goblin or Gnomish without looking at the devices.",
+        "fix": "Choose by what you want: in Classic 1.12 Goblin engineers get Dimensional Ripper - Everlook, Gnomish engineers get Ultrasafe Transporter: Gadgetzan and World Enlarger, and switching means unlearning.",
+        "facts": [
+         "profession-engineering.specialization-classic-baseline"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -87,7 +197,7 @@
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -96,44 +206,125 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "Gear, explosives for the raid, and the market.",
    "chapters": [
     {
-     "id": "engineering-201-raid",
-     "section": "consumables",
-     "title": "Value for the raid",
+     "id": "engineering-201-gear",
+     "section": "gear",
+     "title": "Belts and the Emergency Field Cloak",
      "theory": [
-      "profession-engineering.saf-t-explosives",
-      "profession-engineering.emergency-field-cloak"
-     ]
-    },
-    {
-     "id": "engineering-201-gold",
-     "section": "praxis",
-     "title": "Gold and the Auction House",
-     "theory": [],
+      "profession-engineering.clanking-cord-belts",
+      "profession-engineering.emergency-field-cloak",
+      "profession-engineering.favor-recipes"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "SAF-T explosives work for anyone, which opens a market beyond other engineers. Test satchel bombs and gadgets once live prices settle. Trading is subject to Blizzard policy."
+        "text": "Make a Clanking Cord belt for your armor type: engineers can make one for each.",
+        "facts": [
+         "profession-engineering.clanking-cord-belts"
+        ]
+       },
+       {
+        "text": "Plan for the Emergency Field Cloak if you want an invisibility trinket. The recipe needs Honored and 270 Favor, and the trinket is Bind on Pickup.",
+        "facts": [
+         "profession-engineering.emergency-field-cloak",
+         "profession-engineering.favor-recipes"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Promising a guildmate an Emergency Field Cloak.",
+        "fix": "It is Bind on Pickup: only the engineer who makes it can use it.",
+        "facts": [
+         "profession-engineering.emergency-field-cloak"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "engineering-201-raid",
+     "section": "consumables",
+     "title": "Explosives for the raid",
+     "theory": [
+      "profession-engineering.saf-t-explosives",
+      "profession-engineering.satchel-bombs",
+      "profession-engineering.explosives-classic-baseline"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Hand SAF-T explosives such as SAF-T Dynamite out to the group: non-engineers can use them.",
+        "facts": [
+         "profession-engineering.saf-t-explosives"
+        ]
+       },
+       {
+        "text": "Satchel bombs go in the thrown-weapon slot and run from Copper up to Dark Iron, which needs skill 285 and Honored.",
+        "facts": [
+         "profession-engineering.satchel-bombs"
+        ]
+       },
+       {
+        "text": "Treat Goblin Sapper Charge, Thorium Grenade and Dark Iron Bomb as Classic 1.12 raid explosives until someone checks them in Forever.",
+        "facts": [
+         "profession-engineering.explosives-classic-baseline"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Keeping every explosive for engineers.",
+        "fix": "Non-engineers can use SAF-T explosives, so an engineer can hand them out to the group.",
+        "facts": [
+         "profession-engineering.saf-t-explosives"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "engineering-201-market",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-engineering.saf-t-explosives",
+      "profession-engineering.emergency-field-cloak",
+      "profession-engineering.vendor-prices"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "SAF-T explosives work for anyone, so they sell beyond other engineers. Test satchel bombs and gadgets once live prices settle. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-engineering.saf-t-explosives"
+        ]
+       },
+       {
+        "text": "Check the Auction House before you sell surplus crafts to a vendor: Blizzard's beta notes say many profession-made items sell to vendors for less.",
+        "facts": [
+         "profession-engineering.vendor-prices"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling surplus crafts to a vendor out of Classic habit.",
+        "fix": "Many profession-made items sell to vendors for less in Forever, so compare the Auction House first.",
+        "facts": [
+         "profession-engineering.vendor-prices"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 overview covers this."
     },
     {
      "section": "talents",
@@ -146,33 +337,30 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Skill-by-skill routes, trainer lists and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "engineering-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-engineering.unknown-1",
+      "profession-engineering.unknown-2",
+      "profession-engineering.unknown-3",
+      "profession-engineering.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route, trainer list or recipe-source list exists for Forever yet. The site holds rank thresholds, camp objects and Favor recipes (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -184,6 +372,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

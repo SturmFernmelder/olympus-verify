@@ -116,6 +116,26 @@
    ],
    "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
+  },
+  {
+   "id": "common.alliance-new-race-class-combos",
+   "scope": {},
+   "topic": "race-class",
+   "kind": "theory",
+   "grade": "B",
+   "label": "New Alliance race and class combinations",
+   "value": "Alliance gains Human Hunter, Dwarf Shaman and Gnome Priest, so Alliance raids can now plan around Shaman totems.",
+   "note": "Restated from the What Changed compendium entry 'Races and classes' in guides218.json, with its sources.",
+   "sources": [
+    "g218-62",
+    "g218-46",
+    "g218-140",
+    "g218-126",
+    "g218-116",
+    "g218-71"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard announcements to 29 Oct 2026)"
   }
  ]
 }

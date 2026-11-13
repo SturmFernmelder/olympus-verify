@@ -3,35 +3,183 @@
  "kind": "class",
  "id": "druid",
  "name": "Druid",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json classes[8] (2026-11-04)",
+ "migratedFrom": "guides218.json classes[8] (2026-11-04), rewritten by hand against the 10 November talent data",
  "factFiles": [
   "common",
   "class-druid",
   "talents-druid"
  ],
- "quizFiles": [],
+ "quizFiles": [
+  "class-druid",
+  "talents-druid"
+ ],
  "overview": {
-  "lead": "Druids can tank, heal or deal damage. Blizzard describes their healing as heals over time that reward planning, and names their gaps: no snares, no silence or interrupt, and lighter crowd control, so Druids lean on their group in dungeons and raids.",
+  "lead": "Druids tank, heal or deal damage by changing form. Blizzard describes their healing as heals over time that need planning, and in Forever most potions, weapon enchants and procs work in form.",
   "points": [
    {
-    "text": "For Olympus (Alliance), Druids are Night Elf or High Order Skyborne. Skyborne needs a paid Forever upgrade and has its own bird-like form models. On 26 Oct its Read Ley Line racial dropped to a 50% regen bonus that can't be used during Innervate."
+    "text": "Moonkin Aura and Leader of the Pack each improve every type of critical strike, and only one of them can apply, so a raid with both a Balance and a Feral Druid chooses one.",
+    "facts": [
+     "class-druid.change-5",
+     "class-druid.moonkin-aura-with-leader-of-the-pack"
+    ]
    },
    {
-    "text": "Main changes from Classic: most potions, weapon enchants and procs now work in form, Moonkin Aura and Leader of the Pack reach the whole raid, and Restoration gains Wild Growth at 31 points."
+    "text": "Several Classic talents are now baseline spells: Nature's Grasp, Omen of Clarity, Faerie Fire (Feral) and Improved Mark of the Wild. Berserk, Tiger's Fury and Gift of the Earthmother are gone.",
+    "facts": [
+     "class-druid.change-2",
+     "class-druid.change-7"
+    ]
+   },
+   {
+    "text": "Restoration's new capstone is Wild Growth on row 7, a heal over time for the target's whole party.",
+    "facts": [
+     "talents-druid.restoration-wild-growth",
+     "talents-druid.restoration-wild-growth.r1"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "class-druid.change-1",
+   "class-druid.blizzards-healer-intent"
+  ]
  },
+ "heldBack": [
+  {
+   "from": "classes[8].overview[0]",
+   "text": "and names their gaps: no snares, no silence or interrupt, and lighter crowd control, so Druids lean on their group in dungeons and raids.",
+   "reason": "No reviewed fact holds Blizzard's list of Druid gaps."
+  },
+  {
+   "from": "classes[8].overview[1]",
+   "text": "For Olympus (Alliance), Druids are Night Elf or High Order Skyborne. Skyborne needs a paid Forever upgrade and has its own bird-like form models. On 26 Oct its Read Ley Line racial dropped to a 50% regen bonus that can't be used during Innervate.",
+   "reason": "No reviewed fact holds the race list, the upgrade, the form models or Read Ley Line."
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[0]",
+   "text": "Talents start at level 10. ... at 11 points, ... at 16, ... at 21.",
+   "reason": "No reviewed fact holds the talent start level or points per row; the step now gives rows from the talent data."
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[3], classes[8].specs[2].beginner.leveling[3]",
+   "text": "Dual Specialization unlocks at level 40, so you can keep Balance and a second spec.",
+   "reason": "No reviewed fact holds the level."
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[0]",
+   "text": "Apply Moonfire and Insect Swarm to targets that live long enough for the damage to tick.",
+   "reason": "Kept for Insect Swarm only; no reviewed fact describes baseline Moonfire."
+  },
+  {
+   "from": "classes[8].specs[0].beginner.summary[2]",
+   "text": "Warcraft Tavern's Forever guide argues Balance has left its Classic reputation behind, while admitting its endgame performance is still unknown.",
+   "reason": "No reviewed fact holds Warcraft Tavern's view; the Classic baseline fact replaces it."
+  },
+  {
+   "from": "classes[8].specs[0].pvp.overview[0], classes[8].specs[1].pvp.overview[0], classes[8].specs[2].pvp.overview[1]",
+   "text": "Warcraft Tavern points to Druid mobility (Dash, Travel Form, Teleport: Moonglade) ...",
+   "reason": "No reviewed fact holds Warcraft Tavern's mobility list."
+  },
+  {
+   "from": "classes[8].specs[0].pvp.matchups[0]",
+   "text": "Warcraft Tavern notes Warlocks have no blink or sprint, so Entangling Roots and range let you set the distance.",
+   "reason": "No reviewed fact holds the Warlock claim."
+  },
+  {
+   "from": "classes[8].specs[0].pvp.matchups[1]",
+   "text": "Insect Swarm lowers their chance to hit, and baseline Nature's Grasp gives you a way out when they open on you.",
+   "reason": "Kept as general PvP steps; no reviewed Rogue matchup fact exists."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[0]",
+   "text": "Travel Form (30) and Dire Bear Form (40) are trained.",
+   "reason": "No reviewed fact holds either level."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[3]",
+   "text": "Warcraft Tavern says Druids can use polearms from level 20; Blizzard has not confirmed it.",
+   "reason": "No reviewed fact holds the polearm claim."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[0]",
+   "text": "build combo points with Claw, Rake and Shred, then spend them on Rip.",
+   "reason": "No reviewed fact says which abilities build or spend combo points."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[1]",
+   "text": "Use it when Energy is low, not while Energy is full.",
+   "reason": "Advice not held by a reviewed fact; the step gives Shifting Power's data instead."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[2]",
+   "text": "Bear: Growl to taunt, Swipe for packs and Maul for single targets.",
+   "reason": "No reviewed fact describes Growl, Swipe or Maul in use."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[3]",
+   "text": "Bear: Faerie Fire (Feral) is free in form on a 6 s cooldown and now causes threat, so use it often.",
+   "reason": "No reviewed fact holds the cost, cooldown or threat."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[1]",
+   "text": "Bears still cannot block or parry (Warcraft Tavern), so dodge, armor and health carry your defense.",
+   "reason": "No reviewed fact holds the claim."
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[3]",
+   "text": "Doors, objects and racials can now be used without leaving form.",
+   "reason": "No reviewed fact holds the claim."
+  },
+  {
+   "from": "classes[8].specs[1].pvp.overview[1]",
+   "text": "without rooting or interrupting",
+   "reason": "The talent data says only that the Cat version leaps behind the target."
+  },
+  {
+   "from": "classes[8].specs[1].pvp.matchups[0]",
+   "text": "Against a Fear user, stay in range of friendly dispels or save a line-of-sight route. The older Berserk immunity is gone.",
+   "reason": "No reviewed Warlock matchup fact exists; Berserk's removal is kept in the PvP chapter."
+  },
+  {
+   "from": "classes[8].specs[1].pvp.matchups[1]",
+   "text": "Blizzard calls Mages fragile in melee; Feral Charge and Cat Form help you close the gap and stay on them.",
+   "reason": "No reviewed fact holds Blizzard's Mage remark."
+  },
+  {
+   "from": "classes[8].specs[2].beginner.summary[0]",
+   "text": "a new party heal over time that also covers pets.",
+   "reason": "The talent data does not mention pets."
+  },
+  {
+   "from": "classes[8].specs[2].beginner.leveling[2]",
+   "text": "Revive (12) brings allies back out of combat, and Rebirth (20) works in combat.",
+   "reason": "Kept the levels; no reviewed fact describes when each can be cast."
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[0]",
+   "text": "add Regrowth when someone needs a direct heal plus a heal over time.",
+   "reason": "No reviewed fact describes Regrowth's direct heal."
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[0]",
+   "text": "Nature's Focus gives a chance to avoid interruption when you are hit while casting (14% at rank 1).",
+   "reason": "Reworded: the talent data says the spell does not lose casting time."
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[2]",
+   "text": "Mark of the Wild (level 1)",
+   "reason": "No reviewed fact holds the level."
+  }
+ ],
  "tracks": {
   "101": {
-   "summary": "What every Druid should know before choosing a spec.",
+   "summary": "What every Druid should know before choosing a spec: what Forever changed, the form quests and the racial choice.",
    "chapters": [
     {
      "id": "druid-101-forever-changes",
      "section": "overview",
-     "title": "What Forever changes for Druid",
+     "title": "What Forever changes for Druids",
      "theory": [
       "class-druid.change-1",
       "class-druid.change-2",
@@ -40,8 +188,69 @@
       "class-druid.change-5",
       "class-druid.change-6",
       "class-druid.change-7",
-      "class-druid.change-8"
-     ]
+      "class-druid.change-8",
+      "class-druid.change-8-feral-combat",
+      "class-druid.change-8-restoration"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Drink potions without leaving form: most potions and consumables work in form, Rage potions and Thistletea included, and Mana Potions again since 8 Oct.",
+        "facts": [
+         "class-druid.change-1"
+        ]
+       },
+       {
+        "text": "Choose your weapon for its damage even as a Feral Druid: form auto-attacks use your weapon's DPS, and weapon enchants and procs work in form.",
+        "facts": [
+         "class-druid.change-1"
+        ]
+       },
+       {
+        "text": "Learn the new baseline spells as you level: Nature's Grasp at 10, Revive at 12 and Omen of Clarity at 20.",
+        "facts": [
+         "class-druid.change-2"
+        ]
+       },
+       {
+        "text": "Look for Furor in Feral Combat and Heart of the Wild in Restoration: the two talents swapped trees.",
+        "facts": [
+         "class-druid.change-7"
+        ]
+       },
+       {
+        "text": "Use Hurricane freely on packs: it has no cooldown in Forever.",
+        "facts": [
+         "class-druid.change-6"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Shifting out of Cat or Bear Form to drink a potion.",
+        "fix": "Most potions and consumables work in form, so stay in it.",
+        "facts": [
+         "class-druid.change-1"
+        ]
+       },
+       {
+        "mistake": "Following a Classic build that spends points on Nature's Grasp or Omen of Clarity.",
+        "fix": "Both are gone from the Balance tree and are baseline spells now.",
+        "facts": [
+         "class-druid.change-2",
+         "class-druid.change-8"
+        ]
+       },
+       {
+        "mistake": "Planning around Berserk or Tiger's Fury.",
+        "fix": "Both were removed in Forever.",
+        "facts": [
+         "class-druid.change-2",
+         "class-druid.change-7"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "druid-101-class-quests",
@@ -52,7 +261,57 @@
       "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain",
       "class-druid.quest-aquatic-form-a-lesson-to-learn",
       "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "At level 10, start 'Heeding the Call' in Darnassus. It sends you to the Great Bear Spirit in Moonglade and teaches Bear Form, Growl and Maul.",
+        "facts": [
+         "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+        ]
+       },
+       {
+        "text": "Keep Teleport: Moonglade, which the Moonglade step of that quest gives you.",
+        "facts": [
+         "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+        ]
+       },
+       {
+        "text": "At level 14, 'Lessons Anew' teaches Cure Poison.",
+        "facts": [
+         "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+        ]
+       },
+       {
+        "text": "At level 16, 'A Lesson to Learn' leads through a set of trials to the 'Aquatic Form' quest.",
+        "facts": [
+         "class-druid.quest-aquatic-form-a-lesson-to-learn"
+        ]
+       },
+       {
+        "text": "At level 20, recover the relics from the Stormrage Barrow Den in Moonglade, then finish 'Blessings of the Great Cat Spirit' and 'To Darnassus' to learn Cat Form, Claw, Prowl and Rip.",
+        "facts": [
+         "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting for the trainer to teach Cat Form.",
+        "fix": "Cat Form is no longer simply trained: it comes from 'The Great Cat Spirit' chain at level 20.",
+        "facts": [
+         "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+        ]
+       },
+       {
+        "mistake": "Skipping the level 10 Bear Form quest.",
+        "fix": "It teaches Bear Form, Growl and Maul and gives you Teleport: Moonglade.",
+        "facts": [
+         "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "druid-101-unconfirmed",
@@ -60,7 +319,98 @@
      "title": "Unconfirmed quest reports",
      "theory": [
       "class-druid.quest-skyborne-druid-form-quests"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "If you play a Skyborne Druid, note that a single report (Method) starts the form quests on Zephras Isle.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       },
+       {
+        "text": "The same report names 'The Great Ursera Spirit' for Bear Form and 'The Great Windborne Cat Spirit' for Cat Form.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       },
+       {
+        "text": "Other reports disagree on the quest givers and start points, so confirm the start in game before you travel.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Treating the Zephras Isle report as settled.",
+        "fix": "It is one report, and other reports disagree on the NPCs and start points.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       }
+      ]
+     },
+     "noQuiz": "The only fact here is a single unconfirmed report, which cannot carry a fair question."
+    },
+    {
+     "id": "druid-101-race",
+     "section": "overview",
+     "title": "Choosing a race",
+     "theory": [
+      "class-druid.quest-skyborne-druid-form-quests",
+      "common.racial-skyborne-wind-blessed",
+      "common.racial-skyborne-attuned",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "A High Order Skyborne Druid gets +2% haste from Wind-Blessed.",
+        "facts": [
+         "common.racial-skyborne-wind-blessed"
+        ]
+       },
+       {
+        "text": "Leave Skyborne's Attuned bonus out of your raid plans: it is removed when you enter a raid.",
+        "facts": [
+         "common.racial-skyborne-attuned"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of the choice: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       },
+       {
+        "text": "The site holds no reviewed Night Elf racial fact yet, so this chapter does not compare the two races."
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting Attuned in a raid.",
+        "fix": "Skyborne's Attuned bonus is removed when you enter a raid.",
+        "facts": [
+         "common.racial-skyborne-attuned"
+        ]
+       },
+       {
+        "mistake": "Choosing a race for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "druid-101-macros",
+     "section": "macros",
+     "title": "Essential macros",
+     "theory": [],
+     "unavailable": "No Druid macro has been checked in Forever yet. When one is, it will use only /cast, /use, /target and /stopattack with conditionals, because custom scripts stay disabled in the game client."
     }
    ],
    "omitted": [
@@ -85,88 +435,125 @@
      "reason": "Covered in each spec's course."
     },
     {
-     "section": "macros",
-     "reason": "Covered in each spec's course."
-    },
-    {
      "section": "praxis",
      "reason": "Covered in each spec's course."
     }
    ]
   },
   "201": {
-   "summary": "Class-wide intermediate chapters.",
-   "chapters": [],
+   "summary": "What a Druid brings to the raid, whatever the spec.",
+   "chapters": [
+    {
+     "id": "druid-201-raid-utility",
+     "section": "praxis",
+     "title": "What Druids bring to a raid",
+     "theory": [
+      "class-druid.raid-utility-levels",
+      "class-druid.change-5",
+      "class-druid.moonkin-aura-with-leader-of-the-pack",
+      "class-druid.world-buffs",
+      "class-druid.blizzards-healer-intent"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "By level 50 a Druid has Rebirth (20), Remove Curse (24), Abolish Poison (26), Tranquility (30), Innervate (40) and Gift of the Wild (50).",
+        "facts": [
+         "class-druid.raid-utility-levels"
+        ]
+       },
+       {
+        "text": "Settle before the pull which crit aura the raid gets: Moonkin Aura and Leader of the Pack both improve every type of critical strike, and only one can apply.",
+        "facts": [
+         "class-druid.change-5",
+         "class-druid.moonkin-aura-with-leader-of-the-pack"
+        ]
+       },
+       {
+        "text": "Plan raid nights without world buffs: Wowhead's Forever data marks Rallying Cry of the Dragonslayer as having no effect in a raid instance.",
+        "facts": [
+         "class-druid.world-buffs"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Bringing a Balance and a Feral Druid and counting both crit auras.",
+        "fix": "Only one of the two auras can apply, so coordinate before setting the composition.",
+        "facts": [
+         "class-druid.moonkin-aura-with-leader-of-the-pack"
+        ]
+       }
+      ]
+     }
+    }
+   ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
+     "reason": "The 101 overview covers this."
     },
     {
      "section": "talents",
-     "reason": "Not written yet."
+     "reason": "Covered in each spec's course."
     },
     {
      "section": "rotation",
-     "reason": "Not written yet."
+     "reason": "Covered in each spec's course."
     },
     {
      "section": "stat-caps",
-     "reason": "Not written yet."
+     "reason": "Covered in each spec's course."
     },
     {
      "section": "gear",
-     "reason": "Not written yet."
+     "reason": "Covered in each spec's course."
     },
     {
      "section": "consumables",
-     "reason": "Not written yet."
+     "reason": "Covered in each spec's course."
     },
     {
      "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
+     "reason": "No Druid macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Class-wide advanced chapters.",
+   "summary": "Advanced chapters live in each spec's 301 track.",
    "chapters": [],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "talents",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "rotation",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "stat-caps",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "gear",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "consumables",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "macros",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     },
     {
      "section": "praxis",
-     "reason": "Not written yet."
+     "reason": "Each spec's 301 track holds the advanced chapters."
     }
    ]
   }
@@ -179,44 +566,92 @@
     "caster"
    ],
    "overview": {
-    "lead": "Balance is the Druid caster spec: Nature and Arcane damage from range, ending in Moonkin Form at 31 points, which gives your raid spell crit.",
+    "lead": "Balance is the Druid caster spec: Arcane and Nature damage from range, with Moonkin Form at the bottom of the tree raising the crit chance of party and raid members near you by 3%.",
     "points": [
      {
-      "text": "In Forever, Insect Swarm is a 16-point Balance talent (damage over time that also lowers the target's hit chance), and the new Eclipse talent lets Wrath speed up your next Starfires."
+      "text": "Insect Swarm sits on row 4: damage over time that also lowers the target's chance to hit by 2%. Eclipse, new in Forever, lets each Wrath speed up your next 2 Starfires.",
+      "facts": [
+       "talents-druid.balance-insect-swarm",
+       "talents-druid.balance-insect-swarm.r1",
+       "class-druid.eclipse-loop"
+      ]
      },
      {
-      "text": "Warcraft Tavern's Forever guide argues Balance has left its Classic reputation behind, while admitting its endgame performance is still unknown."
+      "text": "In Classic 1.12, Balance was weak in raids and mainly brought for its spell-crit aura. In Forever, Moonkin Aura's crit bonus applies to all attacks and spells.",
+      "facts": [
+       "class-druid.classic-baseline",
+       "class-druid.moonkin-aura"
+      ]
      }
     ],
-    "facts": []
+    "facts": [
+     "talents-druid.balance-summary",
+     "talents-druid.balance-moonkin-form.r1"
+    ]
    },
    "tracks": {
     "101": {
-     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "summary": "Leveling as Balance, the core rotation and the habits that keep you alive.",
      "chapters": [
       {
        "id": "druid-balance-101-talents",
        "section": "talents",
        "title": "Leveling and talents",
        "theory": [
-        "talents-druid.balance-summary"
+        "talents-druid.balance-summary",
+        "talents-druid.balance-improved-wrath.r5",
+        "talents-druid.balance-nature-s-splendor",
+        "talents-druid.balance-insect-swarm",
+        "talents-druid.balance-improved-entangling-roots.r1"
        ],
        "praxis": {
         "steps": [
          {
-          "text": "Talents start at level 10. Balance reaches Nature's Splendor at 11 points, Insect Swarm at 16, and row-5 picks such as Nature's Grace and Eclipse at 21."
+          "text": "Improved Wrath cuts Wrath's cast time by 0.1 sec and its Mana cost by 10% at rank 1, up to 0.5 sec and 50% at rank 5.",
+          "facts": [
+           "talents-druid.balance-improved-wrath.r1",
+           "talents-druid.balance-improved-wrath.r5"
+          ]
          },
          {
-          "text": "Improved Wrath makes your main filler faster and cheaper. Improved Entangling Roots lets Roots hold through more damage, and Roots now works indoors."
+          "text": "Nature's Splendor sits on row 3 and requires Nature's Majesty; Insect Swarm sits on row 4.",
+          "facts": [
+           "talents-druid.balance-nature-s-splendor",
+           "talents-druid.balance-insect-swarm"
+          ]
          },
          {
-          "text": "Nature's Grasp is baseline at level 10 and works in forms and indoors, which gives you an escape."
+          "text": "Improved Entangling Roots lets a rooted enemy take 25% more damage at rank 1, and 75% at rank 3, before the root breaks. Entangling Roots now works indoors.",
+          "facts": [
+           "talents-druid.balance-improved-entangling-roots.r1",
+           "talents-druid.balance-improved-entangling-roots.r3",
+           "class-druid.change-6"
+          ]
          },
          {
-          "text": "Dual Specialization unlocks at level 40, so you can keep Balance and a second spec."
+          "text": "Nature's Grasp is a baseline spell at 10 that works in forms and indoors, so it is your escape while you level.",
+          "facts": [
+           "class-druid.change-2"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Spending points on Nature's Grasp or Improved Thorns from a Classic build.",
+          "fix": "Both are gone from the Balance tree, and Nature's Grasp is now a baseline spell.",
+          "facts": [
+           "class-druid.change-8",
+           "class-druid.change-2"
+          ]
+         },
+         {
+          "mistake": "Saving points for Nature's Splendor without taking Nature's Majesty.",
+          "fix": "Nature's Splendor requires Nature's Majesty.",
+          "facts": [
+           "talents-druid.balance-nature-s-splendor"
+          ]
+         }
+        ]
        },
        "presets": [
         "druid-balance-leveling-30"
@@ -226,49 +661,117 @@
        "id": "druid-balance-101-rotation",
        "section": "rotation",
        "title": "Core rotation",
-       "theory": [],
+       "theory": [
+        "talents-druid.balance-insect-swarm.r1",
+        "class-druid.eclipse-loop",
+        "talents-druid.balance-moonkin-form.r1",
+        "class-druid.crit-chain",
+        "class-druid.change-6"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Apply Moonfire and Insect Swarm to targets that live long enough for the damage to tick."
+          "text": "Put Insect Swarm on targets that live long enough: it deals its damage over 12 sec and lowers their chance to hit by 2%.",
+          "facts": [
+           "talents-druid.balance-insect-swarm.r1"
+          ]
          },
          {
-          "text": "Cast Wrath to bank Eclipse charges: each Wrath readies your next 2 Starfires to cast faster, up to 4 charges for 15 s. Then spend them on Starfire."
+          "text": "Cast Wrath to bank Eclipse charges, then spend them on Starfire. Each Wrath speeds up your next 2 Starfires, you can store up to 4 charges, and they last 15 sec.",
+          "facts": [
+           "class-druid.eclipse-loop"
+          ]
          },
          {
-          "text": "Stay in Moonkin Form: you can cast every non-healing spell in it, and it doubles your Omen of Clarity chance."
+          "text": "Stay in Moonkin Form once you have it: it raises Omen of Clarity's chance to trigger by 100%, but you cannot cast healing spells in it.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
          },
          {
-          "text": "Hurricane (level 40) has no cooldown in Forever, so use it on large packs."
+          "text": "A non-periodic spell crit triggers Nature's Grace, which speeds up your casting and shortens your global cooldown by 10% for 3 sec.",
+          "facts": [
+           "class-druid.crit-chain"
+          ]
          },
          {
-          "text": "Nature's Grace speeds up your casts and global cooldown for 3 s after a non-periodic crit, so a Starfire crit makes the next cast faster."
+          "text": "Use Hurricane on large packs: it has no cooldown in Forever.",
+          "facts": [
+           "class-druid.change-6"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Letting Eclipse charges run out.",
+          "fix": "They last 15 sec, so follow a run of Wrath casts with Starfire before they expire.",
+          "facts": [
+           "class-druid.eclipse-loop"
+          ]
+         },
+         {
+          "mistake": "Trying to heal yourself in Moonkin Form.",
+          "fix": "Moonkin Form prevents the use of healing spells.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
+         }
+        ]
        }
       },
       {
        "id": "druid-balance-101-tips",
        "section": "rotation",
-       "title": "Tips",
-       "theory": [],
+       "title": "Utility and survival",
+       "theory": [
+        "class-druid.change-2",
+        "class-druid.change-6",
+        "talents-druid.balance-moonkin-form.r1",
+        "class-druid.raid-utility-levels"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Omen of Clarity is now a baseline spell at level 20, so keep it active; Moonkin Form doubles its chance to trigger."
+          "text": "Omen of Clarity is a baseline spell from level 20. Keep it active: Moonkin Form raises its chance to trigger by 100%.",
+          "facts": [
+           "class-druid.change-2",
+           "talents-druid.balance-moonkin-form.r1"
+          ]
          },
          {
-          "text": "Thorns now scales with spell power."
+          "text": "Thorns now scales with spell power.",
+          "facts": [
+           "class-druid.change-6"
+          ]
          },
          {
-          "text": "Moonkin Form raises armor from items a lot (360% per the talent text), which helps when something reaches you."
+          "text": "Moonkin Form raises the armor you get from items by 360%, which helps when an enemy reaches you.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
          },
          {
-          "text": "Keep Rebirth (level 20) and Innervate (level 40) on your bars; they were the Druid's signature raid tools in Classic too."
+          "text": "Moonkin Form also protects you from Polymorph, and shifting into it frees you of Polymorph and movement-impairing effects.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
+         },
+         {
+          "text": "Keep Rebirth (20) and Innervate (40) on your bars.",
+          "facts": [
+           "class-druid.raid-utility-levels"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Standing in a slow or root you could shift out of.",
+          "fix": "Shifting into Moonkin Form frees you of movement-impairing effects.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
+         }
+        ]
        }
       }
      ],
@@ -295,18 +798,59 @@
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "See the class course: no Druid macro has been checked in Forever yet."
       }
      ]
     },
     "201": {
-     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
      "chapters": [
       {
        "id": "druid-balance-201-talents",
        "section": "talents",
-       "title": "Level-60 builds",
-       "theory": [],
+       "title": "Level-60 build",
+       "theory": [
+        "talents-druid.balance-moonkin-form",
+        "talents-druid.balance-vengeance.r5",
+        "talents-druid.balance-moonfury.r5",
+        "talents-druid.balance-eclipse.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Vengeance requires Improved Moonfire. At rank 5 it adds 100% to the crit damage bonus of your Arcane and Nature spells.",
+          "facts": [
+           "talents-druid.balance-vengeance",
+           "talents-druid.balance-vengeance.r5"
+          ]
+         },
+         {
+          "text": "Moonfury raises your Arcane and Nature damage by 10% at rank 5 of 5.",
+          "facts": [
+           "talents-druid.balance-moonfury.r5"
+          ]
+         },
+         {
+          "text": "Moonkin Form, on row 7, raises the crit chance of party and raid members within 45 yards by 3%.",
+          "facts": [
+           "talents-druid.balance-moonkin-form",
+           "talents-druid.balance-moonkin-form.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping Improved Moonfire on the way to Vengeance.",
+          "fix": "Vengeance requires Improved Moonfire.",
+          "facts": [
+           "talents-druid.balance-vengeance"
+          ]
+         }
+        ]
+       },
        "presets": [
         "druid-balance-raid-60"
        ]
@@ -316,12 +860,65 @@
        "section": "stat-caps",
        "title": "Stat priorities and caps",
        "theory": [
-        "class-druid.eclipse-loop",
-        "class-druid.damage-over-time",
         "class-druid.crit-chain",
+        "class-druid.damage-over-time",
         "class-druid.mana",
-        "class-druid.spell-hit-classic-baseline-for-the-cap"
-       ]
+        "class-druid.spell-hit-classic-baseline-for-the-cap",
+        "talents-druid.balance-nature-s-majesty.r2",
+        "talents-druid.balance-nature-s-reach.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Crit feeds three Balance talents: Nature's Majesty adds 4% crit at rank 2, Vengeance raises your crit damage bonus, and Nature's Grace speeds up your casts after a crit.",
+          "facts": [
+           "talents-druid.balance-nature-s-majesty.r2",
+           "talents-druid.balance-vengeance.r5",
+           "class-druid.crit-chain"
+          ]
+         },
+         {
+          "text": "Nature's Reach gives 4% hit and 20% more range for your offensive Balance spells at rank 2 of 2.",
+          "facts": [
+           "talents-druid.balance-nature-s-reach.r2"
+          ]
+         },
+         {
+          "text": "Treat Forever's spell hit cap as unknown: Icy Veins says there is one but its value is not known yet. In the Classic reference, casters needed 16% against raid bosses three levels higher.",
+          "facts": [
+           "class-druid.spell-hit-classic-baseline-for-the-cap"
+          ]
+         },
+         {
+          "text": "Moonglow cuts the Mana cost of your damaging spells by up to 25%.",
+          "facts": [
+           "class-druid.mana"
+          ]
+         },
+         {
+          "text": "Nature's Splendor makes Moonfire last 3 sec longer and Insect Swarm 2 sec longer.",
+          "facts": [
+           "class-druid.damage-over-time"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Gearing to the Classic 16% spell hit cap as if it were Forever's.",
+          "fix": "That number is a Classic reference; Forever's cap is not known yet.",
+          "facts": [
+           "class-druid.spell-hit-classic-baseline-for-the-cap"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "druid-balance-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
       },
       {
        "id": "druid-balance-201-consumables",
@@ -329,9 +926,54 @@
        "title": "Consumables",
        "theory": [
         "class-druid.potions-in-moonkin-form",
+        "class-druid.new-forever-elixirs",
         "class-druid.classic-caster-kit",
-        "class-druid.new-forever-elixirs"
-       ]
+        "class-druid.world-buffs"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Drink potions in Moonkin Form: most potions and consumables work in form, and Mana Potions in form were restored on 8 Oct.",
+          "facts": [
+           "class-druid.potions-in-moonkin-form"
+          ]
+         },
+         {
+          "text": "Warcraft Tavern reports two new elixirs in Forever: Elixir of Cunning (Agility plus Intellect) and Minor Arcane Elixir.",
+          "facts": [
+           "class-druid.new-forever-elixirs"
+          ]
+         },
+         {
+          "text": "Flasks are brewed at a portable Alchemy Laboratory camp object, per Warcraft Tavern.",
+          "facts": [
+           "class-druid.new-forever-elixirs"
+          ]
+         },
+         {
+          "text": "Read the Classic caster kit (Flask of Supreme Power, Greater Arcane Elixir, Major Mana Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-druid.classic-caster-kit"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Leaving Moonkin Form to drink a Mana Potion.",
+          "fix": "Mana Potions work in form again since 8 Oct.",
+          "facts": [
+           "class-druid.potions-in-moonkin-form"
+          ]
+         },
+         {
+          "mistake": "Counting on world buffs inside the raid.",
+          "fix": "Wowhead's Forever data marks Rallying Cry of the Dragonslayer as having no effect in a raid instance.",
+          "facts": [
+           "class-druid.world-buffs"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-balance-201-raid",
@@ -340,92 +982,179 @@
        "theory": [
         "class-druid.moonkin-aura",
         "class-druid.moonkin-aura-with-leader-of-the-pack",
+        "talents-druid.balance-moonkin-form.r1",
         "class-druid.raid-utility-levels",
-        "class-druid.world-buffs",
         "class-druid.classic-baseline"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Moonkin Aura's crit bonus applies to all attacks and spells, so melee and casters both gain from it.",
+          "facts": [
+           "class-druid.moonkin-aura"
+          ]
+         },
+         {
+          "text": "Only one of Moonkin Aura and Leader of the Pack can apply: settle with the Feral Druid which one your raid uses.",
+          "facts": [
+           "class-druid.moonkin-aura-with-leader-of-the-pack"
+          ]
+         },
+         {
+          "text": "The aura reaches party or raid members within 45 yards, so stand where the group it is meant for can stay in range.",
+          "facts": [
+           "talents-druid.balance-moonkin-form.r1"
+          ]
+         },
+         {
+          "text": "Hurricane (40) has no cooldown, so use it on large packs of adds.",
+          "facts": [
+           "class-druid.raid-utility-levels",
+           "class-druid.change-6"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning a raid around both crit auras.",
+          "fix": "Only one of Moonkin Aura and Leader of the Pack can apply.",
+          "facts": [
+           "class-druid.moonkin-aura-with-leader-of-the-pack"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-balance-201-pvp",
        "section": "praxis",
        "title": "PvP",
-       "theory": [],
+       "theory": [
+        "talents-druid.balance-insect-swarm.r1",
+        "talents-druid.balance-overgrowth.r1",
+        "talents-druid.balance-improved-starfire.r5",
+        "class-druid.change-1",
+        "class-druid.change-6",
+        "talents-druid.balance-moonkin-form.r1"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "As a caster you want distance: Warcraft Tavern points to Druid mobility (Dash, Travel Form, Teleport: Moonglade) and baseline Nature's Grasp as your escape tools."
+          "text": "Insect Swarm lowers an attacker's chance to hit with attacks by 2%.",
+          "facts": [
+           "talents-druid.balance-insect-swarm.r1"
+          ]
          },
          {
-          "text": "Balance adds Insect Swarm to lower an attacker's hit chance, Entangling Roots that works indoors (Overgrowth lets it hold one more target) and Improved Starfire's small chance to stun."
+          "text": "Entangling Roots now works indoors, and Overgrowth lets you keep it on 1 more target at rank 1.",
+          "facts": [
+           "class-druid.change-6",
+           "talents-druid.balance-overgrowth.r1"
+          ]
          },
          {
-          "text": "Forms have been immune to Disarm since 1 Oct, and Moonkin Form multiplies armor from items."
+          "text": "Improved Starfire gives Starfire a 15% chance to stun its target for 3 sec at rank 5.",
+          "facts": [
+           "talents-druid.balance-improved-starfire.r5"
+          ]
          },
          {
-          "text": "Against Warlock: Warcraft Tavern notes Warlocks have no blink or sprint, so Entangling Roots and range let you set the distance."
+          "text": "Forms have been immune to Disarm since 1 Oct, and shifting into Moonkin Form frees you of Polymorph and movement-impairing effects.",
+          "facts": [
+           "class-druid.change-1",
+           "talents-druid.balance-moonkin-form.r1"
+          ]
          },
          {
-          "text": "Against Rogue: Insect Swarm lowers their chance to hit, and baseline Nature's Grasp gives you a way out when they open on you."
+          "text": "Nature's Grasp is baseline and works in forms and indoors, which gives you a way out when someone opens on you.",
+          "facts": [
+           "class-druid.change-2"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Holding Insect Swarm back against a melee attacker.",
+          "fix": "It lowers their chance to hit with attacks by 2%, so apply it early.",
+          "facts": [
+           "talents-druid.balance-insect-swarm.r1"
+          ]
+         }
+        ]
        }
       }
      ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "The spec overview above covers this."
       },
       {
        "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "gear",
-       "reason": "Not written yet."
+       "reason": "The 101 rotation covers what the reviewed facts support."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "No Druid macro has been checked in Forever yet."
       }
      ]
     },
     "301": {
-     "summary": "Advanced theory and min-maxing.",
-     "chapters": [],
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "druid-balance-301-coefficients",
+       "section": "rotation",
+       "title": "Spell coefficients and cast timing",
+       "theory": [],
+       "unavailable": "Forever's spell power coefficients for Wrath, Starfire, Moonfire and Insect Swarm have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "druid-balance-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and haste breakpoints",
+       "theory": [
+        "class-druid.spell-hit-classic-baseline-for-the-cap"
+       ],
+       "unavailable": "Icy Veins says Forever has a spell hit cap but its value is not known yet, so no breakpoint formula can be given. The 16% figure is the Classic 1.12 cap."
+      },
+      {
+       "id": "druid-balance-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-druid.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "druid-balance-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "The site holds no reviewed matchup notes for Druids yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "talents",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "stat-caps",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "gear",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "consumables",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "praxis",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       }
      ]
     }
@@ -439,44 +1168,95 @@
     "melee"
    ],
    "overview": {
-    "lead": "Feral tanks in Bear Form and deals melee damage in Cat Form. Leader of the Pack benefits every type of critical strike and is exclusive with Moonkin Aura.",
+    "lead": "Feral tanks in Bear Form and deals melee damage in Cat Form. Leader of the Pack raises the crit chance of party or raid members within 45 yards by 3% and is exclusive with Moonkin Aura.",
     "points": [
      {
-      "text": "Choose the Bear or Cat path for the job you do most. Primal Bite follows Leader of the Pack, and Shifting Power follows Predatory Discipline. Both are 31-point choices."
+      "text": "Choose the Bear or Cat path for the job you do most: Primal Bite follows Leader of the Pack and Shifting Power follows Predatory Discipline, both on row 7.",
+      "facts": [
+       "talents-druid.feral-combat-primal-bite",
+       "talents-druid.feral-combat-shifting-power",
+       "class-druid.feral-capstones"
+      ]
      },
      {
-      "text": "Weapon enchants, procs and most potions now work in form, and form auto-attacks use your weapon's DPS, so your weapon matters."
+      "text": "Weapon enchants, procs and most potions now work in form, and form auto-attacks use your weapon's DPS, so your weapon matters.",
+      "facts": [
+       "class-druid.change-1"
+      ]
      }
     ],
-    "facts": []
+    "facts": [
+     "talents-druid.feral-combat-summary",
+     "talents-druid.feral-combat-leader-of-the-pack.r1",
+     "class-druid.leader-of-the-pack",
+     "class-druid.change-3"
+    ]
    },
    "tracks": {
     "101": {
-     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "summary": "Leveling as Feral, the core Cat and Bear rotations and the Rage and Energy habits that matter first.",
      "chapters": [
       {
        "id": "druid-feral-combat-101-talents",
        "section": "talents",
        "title": "Leveling and talents",
        "theory": [
-        "talents-druid.feral-combat-summary"
+        "talents-druid.feral-combat-summary",
+        "talents-druid.feral-combat-feral-swiftness.r2",
+        "talents-druid.feral-combat-thick-hide.r1",
+        "talents-druid.feral-combat-lacerate",
+        "class-druid.change-4"
        ],
        "praxis": {
         "steps": [
          {
-          "text": "Bear Form comes from a level-10 quest and Cat Form from a new level-20 quest chain; Travel Form (30) and Dire Bear Form (40) are trained."
+          "text": "Bear Form, Growl and Maul come from the level 10 class quest; Cat Form, Claw, Prowl and Rip come from the level 20 chain.",
+          "facts": [
+           "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart",
+           "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+          ]
          },
          {
-          "text": "Feral Swiftness makes Cat Form faster and adds dodge, and Thick Hide adds armor in Bear, Cat and Moonkin Form."
+          "text": "Feral Swiftness makes you 30% faster in Cat Form and adds 4% dodge at rank 2 of 2.",
+          "facts": [
+           "talents-druid.feral-combat-feral-swiftness.r2"
+          ]
          },
          {
-          "text": "Lacerate is on row 4. Leader of the Pack leads to Primal Bite, and Cats learn Poised at level 32."
+          "text": "Thick Hide adds base armor in Bear, Cat, Dire Bear and Moonkin Form.",
+          "facts": [
+           "talents-druid.feral-combat-thick-hide.r1"
+          ]
          },
          {
-          "text": "Upgrade your weapon as you level, since form attacks use its DPS. Warcraft Tavern says Druids can use polearms from level 20; Blizzard has not confirmed it."
+          "text": "Lacerate is a one-point talent on row 4 and requires Savage Fury.",
+          "facts": [
+           "talents-druid.feral-combat-lacerate"
+          ]
+         },
+         {
+          "text": "Cats learn Poised at level 32: start a fight from full Energy to save 10 Energy on your next Energy ability.",
+          "facts": [
+           "class-druid.change-4"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Saving a point for Lacerate without taking Savage Fury.",
+          "fix": "Lacerate requires Savage Fury.",
+          "facts": [
+           "talents-druid.feral-combat-lacerate"
+          ]
+         },
+         {
+          "mistake": "Leveling with an old weapon because you fight in form.",
+          "fix": "Form auto-attacks use your weapon's DPS, and weapon enchants and procs work in form.",
+          "facts": [
+           "class-druid.change-1"
+          ]
+         }
+        ]
        },
        "presets": [
         "druid-feral-combat-leveling-30"
@@ -486,49 +1266,113 @@
        "id": "druid-feral-combat-101-rotation",
        "section": "rotation",
        "title": "Core rotation",
-       "theory": [],
+       "theory": [
+        "talents-druid.feral-combat-savage-fury.r2",
+        "talents-druid.feral-combat-shredding-attacks.r3",
+        "class-druid.bleed-bonus",
+        "talents-druid.feral-combat-lacerate.r1",
+        "talents-druid.feral-combat-primal-bite",
+        "talents-druid.feral-combat-primal-bite.r1"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Cat: open from Prowl, build combo points with Claw, Rake and Shred, then spend them on Rip."
+          "text": "Cat: open from Prowl. Feral Instinct makes you harder to detect while Prowling.",
+          "facts": [
+           "talents-druid.feral-combat-feral-instinct.r1"
+          ]
          },
          {
-          "text": "Cat: after Predatory Discipline, take Shifting Power at 31 points. Use it when Energy is low, not while Energy is full."
+          "text": "Cat: Savage Fury adds 10% to Claw, Rake and Shred damage at rank 2, and Shredding Attacks cuts Shred's Energy cost by 18 at rank 3.",
+          "facts": [
+           "talents-druid.feral-combat-savage-fury.r2",
+           "talents-druid.feral-combat-shredding-attacks.r3"
+          ]
          },
          {
-          "text": "Bear: Growl to taunt, Swipe for packs and Maul for single targets. Add Lacerate on row 4 and Primal Bite on row 7 once talented."
+          "text": "Cat: Blizzard raised the base damage and attack-power scaling of Rip and Rake, and Rend and Tear adds up to 15% to your melee abilities against bleeding targets.",
+          "facts": [
+           "class-druid.bleed-bonus"
+          ]
          },
          {
-          "text": "Bear: Faerie Fire (Feral) is free in form on a 6 s cooldown and now causes threat, so use it often."
+          "text": "Bear: Lacerate makes the target bleed, causes a high amount of threat and stacks up to 5 times.",
+          "facts": [
+           "talents-druid.feral-combat-lacerate.r1"
+          ]
          },
          {
-          "text": "In Bear Form, use Swipe when you need threat on several targets. In Cat Form, start from full Energy to benefit from Poised once you reach level 32."
+          "text": "Bear: Primal Bite, on row 7, costs 20 Rage, has a 6 sec cooldown and generates a high amount of threat.",
+          "facts": [
+           "talents-druid.feral-combat-primal-bite",
+           "talents-druid.feral-combat-primal-bite.r1"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Letting Lacerate drop after one application.",
+          "fix": "Each existing application adds 10% weapon damage to the bleed, and it stacks up to 5 times.",
+          "facts": [
+           "talents-druid.feral-combat-lacerate.r1"
+          ]
+         },
+         {
+          "mistake": "Opening a Cat fight with low Energy after level 32.",
+          "fix": "Poised saves 10 Energy on your next Energy ability when you start the fight from full Energy.",
+          "facts": [
+           "class-druid.change-4"
+          ]
+         }
+        ]
        }
       },
       {
        "id": "druid-feral-combat-101-tips",
        "section": "rotation",
-       "title": "Tips",
-       "theory": [],
+       "title": "Rage, Energy and survival",
+       "theory": [
+        "class-druid.rage-potions-and-thistletea",
+        "class-druid.bear-survival",
+        "talents-druid.feral-combat-furor.r5",
+        "class-druid.rage"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Rage potions and Thistletea now work in form, and Mana Potions in form came back on 8 Oct."
+          "text": "Rage Potions and Thistletea now work for Druids, and most potions work in form.",
+          "facts": [
+           "class-druid.rage-potions-and-thistletea"
+          ]
          },
          {
-          "text": "Bears still cannot block or parry (Warcraft Tavern), so dodge, armor and health carry your defense."
+          "text": "Frenzied Regeneration can heal up to 100% of your maximum health over its duration, so use it when a pull runs long.",
+          "facts": [
+           "class-druid.bear-survival"
+          ]
          },
          {
-          "text": "Frenzied Regeneration can heal up to 100% of your max health over its duration; use it when a pull runs long."
+          "text": "Furor at rank 5 gives you 10 Rage every time you shift into Bear Form or Dire Bear Form, and restores the Energy you had when you return to Cat Form.",
+          "facts": [
+           "talents-druid.feral-combat-furor.r5"
+          ]
          },
          {
-          "text": "Doors, objects and racials can now be used without leaving form."
+          "text": "Later beta notes doubled Rage from crits, so crit feeds your Rage in Bear Form.",
+          "facts": [
+           "class-druid.rage"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Leaving Defense off a bear's gear.",
+          "fix": "Thick Hide adds armor from Defense bonuses, so Defense gear now helps.",
+          "facts": [
+           "class-druid.bear-survival"
+          ]
+         }
+        ]
        }
       }
      ],
@@ -555,18 +1399,66 @@
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "See the class course: no Druid macro has been checked in Forever yet."
       }
      ]
     },
     "201": {
-     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "summary": "The level-60 Cat and Bear builds, stat priorities, consumables, the raid and PvP.",
      "chapters": [
       {
        "id": "druid-feral-combat-201-talents",
        "section": "talents",
        "title": "Level-60 builds",
-       "theory": [],
+       "theory": [
+        "talents-druid.feral-combat-leader-of-the-pack",
+        "talents-druid.feral-combat-primal-bite",
+        "talents-druid.feral-combat-shifting-power.r1",
+        "talents-druid.feral-combat-predatory-strikes.r3",
+        "talents-druid.feral-combat-natural-reaction.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Bear: Leader of the Pack, on row 5, leads to Primal Bite on row 7.",
+          "facts": [
+           "talents-druid.feral-combat-leader-of-the-pack",
+           "talents-druid.feral-combat-primal-bite"
+          ]
+         },
+         {
+          "text": "Cat: Predatory Discipline leads to Shifting Power, which converts 55% of base Mana into 40 Energy on an 8 sec cooldown.",
+          "facts": [
+           "talents-druid.feral-combat-shifting-power",
+           "talents-druid.feral-combat-shifting-power.r1"
+          ]
+         },
+         {
+          "text": "Predatory Strikes adds melee Attack Power equal to 150% of your level in Cat, Bear and Dire Bear Form at rank 3.",
+          "facts": [
+           "talents-druid.feral-combat-predatory-strikes.r3"
+          ]
+         },
+         {
+          "text": "Natural Reaction at rank 5 adds 5% dodge and gives you 5 Rage each time you dodge.",
+          "facts": [
+           "talents-druid.feral-combat-natural-reaction.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following a Classic or beta build that ends in Berserk.",
+          "fix": "Berserk was removed: choose Primal Bite for Bear Form or Shifting Power for Cat Form.",
+          "facts": [
+           "class-druid.feral-capstones"
+          ]
+         }
+        ]
+       },
        "presets": [
         "druid-feral-combat-raid-60",
         "druid-feral-combat-dungeon-60"
@@ -583,19 +1475,98 @@
         "class-druid.cat-energy",
         "class-druid.bleed-bonus",
         "class-druid.feral-capstones"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Bear and Dire Bear Form carry a 115% threat bonus.",
+          "facts": [
+           "class-druid.bear-threat"
+          ]
+         },
+         {
+          "text": "Defense now helps a bear: Thick Hide adds armor from Defense bonuses.",
+          "facts": [
+           "class-druid.bear-survival"
+          ]
+         },
+         {
+          "text": "Predatory Discipline lets Ferocious Bite benefit from excess Energy without spending it.",
+          "facts": [
+           "class-druid.cat-energy"
+          ]
+         },
+         {
+          "text": "Treat the melee hit cap against raid bosses as unknown: no Forever value has been published."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Pooling Energy to pour into Ferocious Bite after taking Predatory Discipline.",
+          "fix": "Ferocious Bite no longer converts extra Energy into damage, but it still deals extra damage based on your excess Energy.",
+          "facts": [
+           "class-druid.cat-energy",
+           "talents-druid.feral-combat-predatory-discipline.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "druid-feral-combat-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
       },
       {
        "id": "druid-feral-combat-201-consumables",
        "section": "consumables",
        "title": "Consumables",
        "theory": [
-        "class-druid.classic-tank-kit",
-        "class-druid.flasks",
         "class-druid.rage-potions-and-thistletea",
         "class-druid.new-forever-elixirs-2",
+        "class-druid.classic-tank-kit",
+        "class-druid.flasks",
         "class-druid.fire-resistance-for-onyxia"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Bring Rage Potions and Thistletea: Druids can use them now, and most potions work in form.",
+          "facts": [
+           "class-druid.rage-potions-and-thistletea"
+          ]
+         },
+         {
+          "text": "Warcraft Tavern reports Elixir of the Grizzly (Strength plus crit) and Elixir of Cunning (Agility plus Intellect) in Forever.",
+          "facts": [
+           "class-druid.new-forever-elixirs-2"
+          ]
+         },
+         {
+          "text": "Read the Classic tank kit (Flask of the Titans, Elixir of the Mongoose, Greater Stoneshield Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-druid.classic-tank-kit"
+          ]
+         },
+         {
+          "text": "Build fire resistance before Onyxia. Blizzard gives no target number.",
+          "facts": [
+           "class-druid.fire-resistance-for-onyxia"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning to drink two flasks.",
+          "fix": "In the Classic reference only one flask is active at a time, and it persists through death.",
+          "facts": [
+           "class-druid.flasks"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-feral-combat-201-raid",
@@ -603,94 +1574,180 @@
        "title": "In the raid",
        "theory": [
         "class-druid.leader-of-the-pack",
-        "class-druid.bear-raid-tanking",
-        "class-druid.swipe-in-the-beta-snapshot",
         "class-druid.weapon-procs-in-form",
+        "class-druid.swipe-in-the-beta-snapshot",
+        "talents-druid.feral-combat-feral-instinct.r3",
+        "class-druid.bear-raid-tanking",
         "class-druid.classic-baseline-2",
         "class-druid.melee-hit-cap-vs-raid-bosses"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Leader of the Pack's crit bonus applies to spells and attacks and is exclusive with Moonkin Aura, so agree with any Balance Druid which one the raid uses.",
+          "facts": [
+           "class-druid.leader-of-the-pack"
+          ]
+         },
+         {
+          "text": "Windfury Totem, Crusader and sharpening stones all work in form, and Alliance raids can now field Dwarf Shamans for Windfury Totem.",
+          "facts": [
+           "class-druid.weapon-procs-in-form"
+          ]
+         },
+         {
+          "text": "Feral Instinct adds 30% to Swipe damage at rank 3 of 3.",
+          "facts": [
+           "talents-druid.feral-combat-feral-instinct.r3"
+          ]
+         },
+         {
+          "text": "No Forever raid has been tanked yet, so treat bear raid tanking as untested until reviewed logs exist."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping a weapon enchant because you fight in form.",
+          "fix": "Weapon enchants and procs work in form.",
+          "facts": [
+           "class-druid.change-1",
+           "class-druid.weapon-procs-in-form"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-feral-combat-201-pvp",
        "section": "praxis",
        "title": "PvP",
-       "theory": [],
+       "theory": [
+        "talents-druid.feral-combat-feral-charge",
+        "talents-druid.feral-combat-feral-charge.r1",
+        "talents-druid.feral-combat-brutal-impact.r2",
+        "talents-druid.feral-combat-feral-swiftness.r2",
+        "class-druid.change-1",
+        "class-druid.feral-capstones"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern highlights Druid mobility (Prowl, Dash, Travel Form, Teleport: Moonglade), Nature's Grasp as a baseline escape, and Bear Form for peeling and survival."
+          "text": "Feral Charge, on row 3, immobilizes the target and interrupts its spellcasting for 4 sec. Feral Charge (Cat) leaps behind the target, on a 30 sec cooldown.",
+          "facts": [
+           "talents-druid.feral-combat-feral-charge",
+           "talents-druid.feral-combat-feral-charge.r1"
+          ]
          },
          {
-          "text": "Feral Charge (11 points) immobilizes and interrupts; its Cat version leaps behind the target on a 30 s cooldown without rooting or interrupting. Brutal Impact lengthens Bash and Pounce stuns."
+          "text": "Brutal Impact lengthens Bash and Pounce stuns by 1 sec and cuts Bash's cooldown by 30 sec at rank 2.",
+          "facts": [
+           "talents-druid.feral-combat-brutal-impact.r2"
+          ]
          },
          {
-          "text": "Berserk is gone. Plan your opener and escape around the control your opponent can still use."
+          "text": "Feral Swiftness adds 30% movement speed in Cat Form at rank 2, for chasing or getting away.",
+          "facts": [
+           "talents-druid.feral-combat-feral-swiftness.r2"
+          ]
          },
          {
-          "text": "Against Warlock: Against a Fear user, stay in range of friendly dispels or save a line-of-sight route. The older Berserk immunity is gone."
+          "text": "Forms have been immune to Disarm since 1 Oct.",
+          "facts": [
+           "class-druid.change-1"
+          ]
          },
          {
-          "text": "Against Mage: Blizzard calls Mages fragile in melee; Feral Charge and Cat Form help you close the gap and stay on them."
+          "text": "Berserk is gone, so plan your opener and your escape around the control your opponent still has.",
+          "facts": [
+           "class-druid.feral-capstones"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Waiting out Bash's old cooldown.",
+          "fix": "Brutal Impact cuts Bash's cooldown by 15 sec at rank 1 and 30 sec at rank 2.",
+          "facts": [
+           "talents-druid.feral-combat-brutal-impact.r1",
+           "talents-druid.feral-combat-brutal-impact.r2"
+          ]
+         }
+        ]
        }
       }
      ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "The spec overview above covers this."
       },
       {
        "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "gear",
-       "reason": "Not written yet."
+       "reason": "The 101 rotation covers what the reviewed facts support."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "No Druid macro has been checked in Forever yet."
       }
      ]
     },
     "301": {
-     "summary": "Advanced theory and min-maxing.",
-     "chapters": [],
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "druid-feral-combat-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power coefficients for form abilities and the swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "druid-feral-combat-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and defense breakpoints",
+       "theory": [
+        "class-druid.melee-hit-cap-vs-raid-bosses"
+       ],
+       "unavailable": "No Forever melee hit cap against raid bosses has been published, and no defense breakpoint for bears has been measured, so no formula can be given yet."
+      },
+      {
+       "id": "druid-feral-combat-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-druid.launch-raids",
+        "class-druid.bear-raid-tanking"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "druid-feral-combat-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "The site holds no reviewed matchup notes for Druids yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "talents",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "stat-caps",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "gear",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "consumables",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "praxis",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       }
      ]
     }
@@ -703,44 +1760,89 @@
     "healer"
    ],
    "overview": {
-    "lead": "Restoration heals mostly with heals over time: Rejuvenation, Regrowth and, at 31 points, Wild Growth, a new party heal over time that also covers pets.",
+    "lead": "Restoration heals mostly with heals over time: Rejuvenation, Regrowth and, on row 7, Wild Growth, which heals the target's party quickly at first and more slowly over 7 sec.",
     "points": [
      {
-      "text": "Since 24 Sep, Rejuvenation, Tranquility and Wild Growth can crit, and Swiftmend (16 points) no longer consumes the heal over time it draws on."
+      "text": "Rejuvenation, Tranquility and Wild Growth can crit since 24 Sep, and Swiftmend leaves the heal over time it draws on in place.",
+      "facts": [
+       "class-druid.crits",
+       "class-druid.swiftmend"
+      ]
      },
      {
-      "text": "Blizzard calls Druid healing less versatile than a Priest's and built on planning, so put heals over time out before the damage lands."
+      "text": "Blizzard calls Druid healing less versatile than a Priest's and built on planning, so put heals over time out before the damage lands.",
+      "facts": [
+       "class-druid.blizzards-healer-intent"
+      ]
      }
     ],
-    "facts": []
+    "facts": [
+     "talents-druid.restoration-summary",
+     "talents-druid.restoration-wild-growth",
+     "talents-druid.restoration-wild-growth.r1"
+    ]
    },
    "tracks": {
     "101": {
-     "summary": "Leveling, the core rotation and the habits that matter first.",
+     "summary": "Leveling as Restoration, the core healing rotation and the mana habits that matter first.",
      "chapters": [
       {
        "id": "druid-restoration-101-talents",
        "section": "talents",
        "title": "Leveling and talents",
        "theory": [
-        "talents-druid.restoration-summary"
+        "talents-druid.restoration-summary",
+        "talents-druid.restoration-bloom.r1",
+        "talents-druid.restoration-swiftmend",
+        "talents-druid.restoration-nature-s-swiftness",
+        "class-druid.utility"
        ],
        "praxis": {
         "steps": [
          {
-          "text": "Bloom heals when your Rejuvenation or Regrowth expires. It also heals for a smaller amount when either effect is dispelled."
+          "text": "Bloom heals the target for 100% of your Spirit when your Rejuvenation or Regrowth expires, and for 50% if it is dispelled.",
+          "facts": [
+           "talents-druid.restoration-bloom.r1"
+          ]
          },
          {
-          "text": "Cure Poison comes from a level-14 quest, and Remove Curse (24) and Abolish Poison (26) arrive while you level."
+          "text": "Swiftmend sits on row 4. Nature's Swiftness, on row 5, requires Naturalist.",
+          "facts": [
+           "talents-druid.restoration-swiftmend",
+           "talents-druid.restoration-nature-s-swiftness"
+          ]
          },
          {
-          "text": "Revive (12) brings allies back out of combat, and Rebirth (20) works in combat."
+          "text": "Cure Poison comes from the level 14 quest; Remove Curse (24) and Abolish Poison (26) arrive while you level.",
+          "facts": [
+           "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain",
+           "class-druid.utility"
+          ]
          },
          {
-          "text": "Dual Specialization at level 40 lets you keep Feral or Balance for questing."
+          "text": "Revive is a baseline spell at 12, and Rebirth comes at 20.",
+          "facts": [
+           "class-druid.change-2",
+           "class-druid.utility"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Saving a point for Nature's Swiftness without taking Naturalist.",
+          "fix": "Nature's Swiftness requires Naturalist.",
+          "facts": [
+           "talents-druid.restoration-nature-s-swiftness"
+          ]
+         },
+         {
+          "mistake": "Looking for Gift of the Earthmother in the tree.",
+          "fix": "It was removed, and Restoration gains Bloom.",
+          "facts": [
+           "class-druid.change-7"
+          ]
+         }
+        ]
        },
        "presets": [
         "druid-restoration-dungeon-30"
@@ -750,49 +1852,122 @@
        "id": "druid-restoration-101-rotation",
        "section": "rotation",
        "title": "Core rotation",
-       "theory": [],
+       "theory": [
+        "talents-druid.restoration-swiftmend",
+        "talents-druid.restoration-swiftmend.r1",
+        "class-druid.swiftmend",
+        "talents-druid.restoration-wild-growth.r1",
+        "talents-druid.restoration-nature-s-swiftness",
+        "talents-druid.restoration-improved-tranquility.r2"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Keep Rejuvenation on targets taking steady damage, and add Regrowth when someone needs a direct heal plus a heal over time."
+          "text": "Keep Rejuvenation or Regrowth on the targets taking steady damage: Swiftmend and Bloom both work from them.",
+          "facts": [
+           "talents-druid.restoration-swiftmend.r1",
+           "talents-druid.restoration-bloom.r1"
+          ]
          },
          {
-          "text": "Swiftmend instantly heals a target that has your Rejuvenation or Regrowth, and the heal over time keeps running."
+          "text": "Swiftmend instantly heals a target that has your Rejuvenation or Regrowth for the full duration of that effect, on a 15 sec cooldown, and the heal over time keeps running.",
+          "facts": [
+           "talents-druid.restoration-swiftmend",
+           "talents-druid.restoration-swiftmend.r1",
+           "class-druid.swiftmend"
+          ]
          },
          {
-          "text": "Use Wild Growth when a whole party takes damage; it heals fast at first and slows down over 7 s."
+          "text": "Use Wild Growth when a whole party takes damage: it heals the target and their party, quickly at first and more slowly over 7 sec.",
+          "facts": [
+           "talents-druid.restoration-wild-growth.r1"
+          ]
          },
          {
-          "text": "Nature's Swiftness makes your next Nature spell instant; save it for emergencies."
+          "text": "Nature's Swiftness makes your next Nature spell instant on a 3 min cooldown, so save it for emergencies.",
+          "facts": [
+           "talents-druid.restoration-nature-s-swiftness",
+           "talents-druid.restoration-nature-s-swiftness.r1"
+          ]
          },
          {
-          "text": "Tranquility (level 30) is your big group heal; Improved Tranquility cuts its cooldown and threat."
+          "text": "Tranquility arrives at 30. Improved Tranquility cuts its threat by 100% and its cooldown by 60% at rank 2.",
+          "facts": [
+           "class-druid.utility",
+           "talents-druid.restoration-improved-tranquility.r2"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Casting Swiftmend on a target without your Rejuvenation or Regrowth.",
+          "fix": "Swiftmend requires your own Rejuvenation or Regrowth on the target.",
+          "facts": [
+           "class-druid.swiftmend"
+          ]
+         },
+         {
+          "mistake": "Holding Swiftmend back to keep your heal over time running.",
+          "fix": "Blizzard confirmed Swiftmend leaves that effect in place.",
+          "facts": [
+           "class-druid.swiftmend"
+          ]
+         }
+        ]
        }
       },
       {
        "id": "druid-restoration-101-tips",
        "section": "rotation",
-       "title": "Tips",
-       "theory": [],
+       "title": "Mana and casting",
+       "theory": [
+        "talents-druid.restoration-nature-s-focus.r1",
+        "class-druid.mana-2",
+        "talents-druid.restoration-living-spirit.r3",
+        "class-druid.change-2",
+        "class-druid.change-8-restoration"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Nature's Focus gives a chance to avoid interruption when you are hit while casting (14% at rank 1)."
+          "text": "Nature's Focus gives your Arcane and Nature spells a 14% chance not to lose casting time when you take damage at rank 1, up to 70% at rank 5.",
+          "facts": [
+           "talents-druid.restoration-nature-s-focus.r1",
+           "talents-druid.restoration-nature-s-focus.r5"
+          ]
          },
          {
-          "text": "Living Spirit (required for Wild Growth) raises Spirit, and Reflection keeps part of your regen going while you cast."
+          "text": "Reflection lets 17%, 33% or 50% of your Mana regeneration continue while you cast.",
+          "facts": [
+           "class-druid.mana-2"
+          ]
          },
          {
-          "text": "Mark of the Wild (level 1) and Gift of the Wild (level 50) are your raid buffs, and Improved Mark of the Wild is now baseline."
+          "text": "Living Spirit raises your Spirit by up to 15%, which feeds Bloom, and Wild Growth requires it.",
+          "facts": [
+           "talents-druid.restoration-living-spirit.r3",
+           "talents-druid.restoration-bloom.r1",
+           "talents-druid.restoration-wild-growth"
+          ]
          },
          {
-          "text": "Innervate arrives at level 40."
+          "text": "Improved Mark of the Wild is now baseline, and Gift of the Wild arrives at 50.",
+          "facts": [
+           "class-druid.change-2",
+           "class-druid.raid-utility-levels"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Following a Classic build that spends points on Improved Mark of the Wild.",
+          "fix": "It is gone from the Restoration tree and is now baseline.",
+          "facts": [
+           "class-druid.change-8-restoration",
+           "class-druid.change-2"
+          ]
+         }
+        ]
        }
       }
      ],
@@ -819,18 +1994,57 @@
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "See the class course: no Druid macro has been checked in Forever yet."
       }
      ]
     },
     "201": {
-     "summary": "Stat priorities, raid duties, consumables and PvP.",
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
      "chapters": [
       {
        "id": "druid-restoration-201-talents",
        "section": "talents",
-       "title": "Level-60 builds",
-       "theory": [],
+       "title": "Level-60 build",
+       "theory": [
+        "talents-druid.restoration-wild-growth",
+        "talents-druid.restoration-gift-of-nature.r5",
+        "talents-druid.restoration-naturalist.r5",
+        "talents-druid.restoration-improved-regrowth.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Wild Growth, on row 7, requires Living Spirit. It costs 550 Mana, has a 3 sec cast and a 6 sec cooldown.",
+          "facts": [
+           "talents-druid.restoration-wild-growth"
+          ]
+         },
+         {
+          "text": "Naturalist cuts the cast time of Healing Touch and Wild Growth by 0.5 sec at rank 5 and adds 10% to all damage you deal.",
+          "facts": [
+           "talents-druid.restoration-naturalist.r5"
+          ]
+         },
+         {
+          "text": "Gift of Nature raises all your healing by 10% at rank 5 of 5.",
+          "facts": [
+           "talents-druid.restoration-gift-of-nature.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping Living Spirit on the way to Wild Growth.",
+          "fix": "Wild Growth requires Living Spirit.",
+          "facts": [
+           "talents-druid.restoration-wild-growth"
+          ]
+         }
+        ]
+       },
        "presets": [
         "druid-restoration-raid-60"
        ]
@@ -838,25 +2052,107 @@
       {
        "id": "druid-restoration-201-priorities",
        "section": "stat-caps",
-       "title": "Stat priorities and caps",
+       "title": "Stat priorities",
        "theory": [
-        "class-druid.heal-over-time-core",
-        "class-druid.crits",
-        "class-druid.swiftmend",
         "class-druid.bloom",
         "class-druid.mana-2",
+        "class-druid.crits",
+        "class-druid.heal-over-time-core",
+        "class-druid.swiftmend",
         "class-druid.wild-growth"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spirit does two jobs: Bloom heals for 100% of your Spirit at natural expiry, and Reflection keeps up to 50% of your Mana regeneration going while you cast.",
+          "facts": [
+           "class-druid.bloom",
+           "class-druid.mana-2"
+          ]
+         },
+         {
+          "text": "Rejuvenation, Tranquility and Wild Growth can crit since 24 Sep, so crit now adds to your heals over time.",
+          "facts": [
+           "class-druid.crits"
+          ]
+         },
+         {
+          "text": "Improved Rejuvenation raises Rejuvenation's effect by up to 15%.",
+          "facts": [
+           "class-druid.heal-over-time-core"
+          ]
+         },
+         {
+          "text": "Wild Growth's base cast time is 3 seconds; Naturalist shortens it by up to 0.5 seconds.",
+          "facts": [
+           "class-druid.wild-growth"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Dropping crit because heals over time used to ignore it.",
+          "fix": "Rejuvenation, Tranquility and Wild Growth can crit since 24 Sep.",
+          "facts": [
+           "class-druid.crits"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "druid-restoration-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
       },
       {
        "id": "druid-restoration-201-consumables",
        "section": "consumables",
        "title": "Consumables",
        "theory": [
-        "class-druid.classic-healer-kit",
         "class-druid.forever-alchemy",
-        "class-druid.camp-buffs"
-       ]
+        "class-druid.camp-buffs",
+        "class-druid.classic-healer-kit"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Get healing potions from First Aid crafters: Warcraft Tavern says they moved from Alchemy to First Aid.",
+          "facts": [
+           "class-druid.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Flasks are brewed at a portable Alchemy Laboratory camp object.",
+          "facts": [
+           "class-druid.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Profession camps grant slightly weaker copies of class buffs that do not stack with the real ones, and you must sit at the camp for at least 1 minute.",
+          "facts": [
+           "class-druid.camp-buffs"
+          ]
+         },
+         {
+          "text": "Read the Classic healer kit (Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-druid.classic-healer-kit"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting a camp buff to stack with the real class buff.",
+          "fix": "Camp copies do not stack with the real class buffs.",
+          "facts": [
+           "class-druid.camp-buffs"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-restoration-201-raid",
@@ -867,80 +2163,159 @@
         "class-druid.several-druids-together",
         "class-druid.utility",
         "class-druid.classic-baseline-3"
-       ]
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Plan ahead: Druid healing relies on heals over time, so put them out before the damage lands.",
+          "facts": [
+           "class-druid.blizzards-healer-intent"
+          ]
+         },
+         {
+          "text": "Several Restoration Druids can share a raid: Warcraft Tavern says heals over time stack and crit, and a 16 Oct fix stops high-rank Rejuvenation from blocking another Druid's.",
+          "facts": [
+           "class-druid.several-druids-together"
+          ]
+         },
+         {
+          "text": "Keep Innervate (40) and Rebirth (20) ready, and cover poisons and curses with Abolish Poison (26) and Remove Curse (24).",
+          "facts": [
+           "class-druid.utility"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Waiting for damage to land before casting heals over time.",
+          "fix": "Blizzard describes Druid healing as heals over time that need planning, so cast them ahead of the damage.",
+          "facts": [
+           "class-druid.blizzards-healer-intent"
+          ]
+         }
+        ]
+       }
       },
       {
        "id": "druid-restoration-201-pvp",
        "section": "praxis",
        "title": "PvP",
-       "theory": [],
+       "theory": [
+        "talents-druid.restoration-swiftmend.r1",
+        "talents-druid.restoration-nature-s-swiftness.r1",
+        "talents-druid.restoration-nature-s-focus.r5",
+        "class-druid.change-1",
+        "class-druid.change-2"
+       ],
        "praxis": {
         "steps": [
          {
-          "text": "Your heals over time keep ticking after the cast, and Swiftmend and Nature's Swiftness give you instant emergency heals."
+          "text": "Swiftmend and Nature's Swiftness are your instant emergency heals: Swiftmend heals at once from your Rejuvenation or Regrowth, and Nature's Swiftness makes your next Nature spell instant.",
+          "facts": [
+           "talents-druid.restoration-swiftmend.r1",
+           "talents-druid.restoration-nature-s-swiftness.r1"
+          ]
          },
          {
-          "text": "You keep the Druid escape kit: Nature's Grasp, Travel Form and Dash, plus Bear Form when you need to survive a burst."
+          "text": "Nature's Focus gives your Nature spells up to a 70% chance not to lose casting time when you are hit, at rank 5.",
+          "facts": [
+           "talents-druid.restoration-nature-s-focus.r5"
+          ]
+         },
+         {
+          "text": "Nature's Grasp is baseline and works in forms and indoors, which gives you a way out.",
+          "facts": [
+           "class-druid.change-2"
+          ]
+         },
+         {
+          "text": "Forms have been immune to Disarm since 1 Oct.",
+          "facts": [
+           "class-druid.change-1"
+          ]
          }
         ],
-        "mistakes": []
+        "mistakes": [
+         {
+          "mistake": "Hard-casting a long heal while a melee player hits you.",
+          "fix": "Use Nature's Swiftness to make your next Nature spell instant.",
+          "facts": [
+           "talents-druid.restoration-nature-s-swiftness.r1"
+          ]
+         }
+        ]
        }
       }
      ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "The spec overview above covers this."
       },
       {
        "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "gear",
-       "reason": "Not written yet."
+       "reason": "The 101 rotation covers what the reviewed facts support."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
+       "reason": "No Druid macro has been checked in Forever yet."
       }
      ]
     },
     "301": {
-     "summary": "Advanced theory and min-maxing.",
-     "chapters": [],
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "druid-restoration-301-coefficients",
+       "section": "rotation",
+       "title": "Healing coefficients",
+       "theory": [],
+       "unavailable": "Forever's healing coefficients for Rejuvenation, Regrowth, Healing Touch and Wild Growth have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "druid-restoration-301-caps",
+       "section": "stat-caps",
+       "title": "Crit, Spirit and mana breakpoints",
+       "theory": [],
+       "unavailable": "No reviewed Forever breakpoint for healing crit, Spirit or mana regeneration exists yet, so no formula can be given."
+      },
+      {
+       "id": "druid-restoration-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-druid.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "druid-restoration-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "The site holds no reviewed matchup notes for Druids yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
      "omitted": [
       {
        "section": "overview",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "talents",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "rotation",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "stat-caps",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "gear",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "consumables",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       },
       {
        "section": "macros",
-       "reason": "Not written yet."
-      },
-      {
-       "section": "praxis",
-       "reason": "Not written yet."
+       "reason": "Nothing beyond 201 has been reviewed yet."
       }
      ]
     }

@@ -12,7 +12,7 @@
 const fs = require("node:fs"), path = require("node:path");
 const UNI = path.resolve(__dirname, ".."), STATIC = path.resolve(UNI, "..");
 const data = JSON.parse(fs.readFileSync(path.join(STATIC, "talents", "data.json"), "utf8"));
-const QUIZ_CLASSES = ["warrior"];
+const QUIZ_CLASSES = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior"];
 const REVIEWED = "2026-11-12", BUILD = data.source.clientBuilds.join(", ") + " (talent data " + data.revision + ", " + data.source.upstreamGenerated + ")";
 const chapterFor = (cls, tree, tier) => cls + "-" + tree + "-" + tier + "-talents";
 const check = process.argv.includes("--check");

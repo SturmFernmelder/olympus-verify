@@ -95,14 +95,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Talent data",
-   "value": "Beast Mastery: Thick Hide is folded into Endurance Training and Improved Eyes of the Beast is now baseline. Focused Fire and Summon Hawk are new, Pathfinding moved, and Improved Revive Pet, Frenzy and Bestial Wrath are unchanged.",
+   "value": "Beast Mastery: Thick Hide and Improved Eyes of the Beast are gone from the tree, and Endurance Training now raises your pets' Armor as well as their Health. Focused Fire and Summon Hawk are new, Improved Revive Pet moved, and Pathfinding, Frenzy and Bestial Wrath are unchanged.",
    "sources": [
-    "g218-32",
-    "g218-31"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "hunter-beast-mastery"
   },
   {
    "id": "class-hunter.change-7",
@@ -113,14 +112,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Talent data",
-   "value": "Marksmanship: Aimed Shot and Improved Hunter's Mark are now baseline, and Improved Scorpid Sting is gone. Careful Aim, Rapid Killing, Lone Wolf, Rapid Recuperation and Sniper Shot are new, Hawk Eye and Scatter Shot moved, and Improved Concussive Shot and Ranged Weapon Specialization are unchanged.",
+   "value": "Marksmanship: Aimed Shot, Improved Hunter's Mark and Improved Scorpid Sting are gone from the tree. Careful Aim, Rapid Killing, Lone Wolf, Rapid Recuperation and Sniper Shot are new, Hawk Eye and Scatter Shot moved, and Improved Concussive Shot and Ranged Weapon Specialization are unchanged.",
    "sources": [
-    "g218-32",
-    "g218-31"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "hunter-marksmanship"
   },
   {
    "id": "class-hunter.change-8",
@@ -133,11 +131,11 @@
    "label": "Talent data",
    "value": "Survival: Monster Slaying, Humanoid Slaying, Trap Mastery, Improved Feign Death, Killer Instinct and Wyvern Sting are gone. Improved Tracking, Survival Tactics, Predator's Edge, Resourcefulness, Expose Prey, Survivalist's Discipline, Strider Kick and Lacerating Strikes are new.",
    "sources": [
-    "g218-32"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "hunter-survival"
   },
   {
    "id": "class-hunter.quest-taming-the-beast",
@@ -186,12 +184,11 @@
    "label": "Summon Hawk",
    "value": "Deals 32 plus 5% of your Ranged Attack Power, then keeps attacking for 18 seconds. Only 2 hawks can be out, and it shares Arcane Shot's cooldown.",
    "sources": [
-    "g218-32",
-    "g218-31"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-beast-mastery-summon-hawk"
   },
   {
    "id": "class-hunter.unleashed-fury-and-ferocity",
@@ -222,11 +219,11 @@
    "label": "Focused Fire",
    "value": "You and your pet deal more damage while the pet is active (1% at rank 1, 2 ranks).",
    "sources": [
-    "g218-32"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-beast-mastery-focused-fire"
   },
   {
    "id": "class-hunter.hit-cap-at-level-60",
@@ -538,14 +535,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Rapid Killing",
-   "value": "Cuts Rapid Fire's cooldown by 1 minute per rank (2 minutes at 2/2), and a kill or a Serpent Sting death raises your next Shot's damage by 10% per rank.",
+   "value": "Cuts Rapid Fire's cooldown by 1 minute per rank (2 minutes at 2/2). When you kill a non-trivial enemy, or it dies with your Serpent Sting on it, your next Shot within 20 sec deals 10% more damage per rank.",
    "sources": [
-    "g218-32",
-    "g218-33"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-marksmanship-rapid-killing"
   },
   {
    "id": "class-hunter.hit-cap-at-level-60-2",
@@ -662,13 +658,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Savage Strikes",
-   "value": "+2% crit chance for all melee abilities at rank 1 (2 ranks).",
+   "value": "+2% crit chance for all melee abilities per rank, 4% at 2 of 2.",
    "sources": [
-    "g218-32"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-survival-savage-strikes"
   },
   {
    "id": "class-hunter.predators-edge",
@@ -680,13 +676,13 @@
    "kind": "theory",
    "grade": "A",
    "label": "Predator's Edge",
-   "value": "+6% melee ability crit damage and +10% off-hand weapon damage at rank 1 (5 ranks).",
+   "value": "+6% melee ability crit damage and +10% off-hand weapon damage per rank, 30% and 50% at 5 of 5.",
    "sources": [
-    "g218-32"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-survival-predator-s-edge"
   },
   {
    "id": "class-hunter.lacerating-strikes",
@@ -700,11 +696,11 @@
    "label": "Lacerating Strikes",
    "value": "Mongoose Bite also makes the target bleed for 40% of the bite's damage over 21 seconds.",
    "sources": [
-    "g218-32"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "hunter-survival-lacerating-strikes"
   },
   {
    "id": "class-hunter.surefooted",
@@ -790,6 +786,56 @@
     "g218-2"
    ],
    "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-hunter.vs-warrior-spearing-strike",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "pvp-opponent",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Warrior Spearing Strike (Arms)",
+   "value": "Spearing Strike deals an additional 75% weapon damage against mounted targets. Mounted targets are dismounted. It has a 20 sec cooldown.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-arms-spearing-strike"
+  },
+  {
+   "id": "class-hunter.vs-warrior-improved-berserker-rage",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "pvp-opponent",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Warrior Improved Berserker Rage (Fury)",
+   "value": "At rank 2 of 2, Improved Berserker Rage gives Berserker Rage a 100% chance to remove all movement impairing effects.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-fury-improved-berserker-rage"
+  },
+  {
+   "id": "class-hunter.vs-rogue-sap-distract",
+   "scope": {
+    "class": "hunter"
+   },
+   "topic": "pvp-opponent",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Rogue Sap and Distract",
+   "value": "Sap no longer breaks a Rogue's Stealth, and Distract warns enemy players that a Rogue is near.",
+   "sources": [
+    "g218-38"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   }
  ]

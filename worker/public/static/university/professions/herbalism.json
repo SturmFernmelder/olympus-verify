@@ -4,61 +4,205 @@
  "id": "herbalism",
  "name": "Herbalism",
  "type": "gathering",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[4] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[4] (2026-11-04), rewritten into the course format on 2026-11-12",
  "factFiles": [
   "common",
+  "profession-herbalism",
+  "profession-mining",
+  "profession-skinning",
+  "profession-cooking"
+ ],
+ "quizFiles": [
   "profession-herbalism"
  ],
- "quizFiles": [],
  "pairsWith": [
-  "alchemy"
+  "alchemy",
+  "first-aid"
  ],
  "overview": {
-  "lead": "Herbalists gather herbs for Alchemy, and now for First Aid too, since healing potions moved there.",
+  "lead": "Herbalists gather herbs for Alchemy and, since healing potions became First Aid crafts, for First Aid too.",
   "points": [
    {
-    "text": "Forever adds scarce herbs that alchemists turn into dyes. Pair it with Alchemy to stock your own consumables."
+    "text": "Forever adds the scarce herbs Frilled Lichen, Rosecap and Stranglevine, which alchemists turn into dyes.",
+    "facts": [
+     "profession-herbalism.scarce-herbs"
+    ]
+   },
+   {
+    "text": "Pair it with Alchemy or First Aid to stock your own consumables.",
+    "facts": [
+     "profession-herbalism.healing-potion-herbs"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-herbalism.healing-potion-herbs",
+   "profession-herbalism.scarce-herbs"
+  ]
  },
+ "heldBack": [
+  {
+   "from": "guides218.json professions[4].goldNote",
+   "text": "Icy Veins suggests two gathering professions if gold is your main goal.",
+   "reason": "No reviewed fact holds this advice."
+  }
+ ],
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "What Forever changes for Herbalism, its camp objects, and how to level it.",
    "chapters": [
     {
      "id": "herbalism-101-changes",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "What Forever changes for Herbalism",
      "theory": [
       "profession-herbalism.starter-zone-book",
       "profession-herbalism.scarce-herbs",
-      "profession-herbalism.camp-objects",
+      "profession-herbalism.healing-potion-herbs",
       "profession-herbalism.no-passive-bonus"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Pick up Wild Harvest, the quest item that drops in starting zones. It teaches Herbalism and gives +2 skill.",
+        "facts": [
+         "profession-herbalism.starter-zone-book"
+        ]
+       },
+       {
+        "text": "Gather Frilled Lichen, Rosecap and Stranglevine when you find them. They are new scarce herbs that alchemists turn into dyes.",
+        "facts": [
+         "profession-herbalism.scarce-herbs"
+        ]
+       },
+       {
+        "text": "Supply First Aid as well as Alchemy: healing potions are First Aid crafts now, and they use Sungrass or Golden Sansam.",
+        "facts": [
+         "profession-herbalism.healing-potion-herbs"
+        ]
+       },
+       {
+        "text": "Choose Herbalism for the herbs. Warcraft Tavern's beta guide says professions give no passive stat bonuses.",
+        "facts": [
+         "profession-herbalism.no-passive-bonus"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Taking Herbalism for a passive stat bonus.",
+        "fix": "Warcraft Tavern's beta guide says professions give no passive stat bonuses.",
+        "facts": [
+         "profession-herbalism.no-passive-bonus"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "herbalism-101-camp",
+     "section": "overview",
+     "title": "Camp objects",
+     "theory": [
+      "profession-herbalism.camp-objects",
+      "profession-cooking.campfire",
+      "profession-cooking.camp-rules"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place an Incense Candle at Herbalism 20, a Greenhouse at 140 and a Seed Hybridizer at 300.",
+        "facts": [
+         "profession-herbalism.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Greenhouse blueprint from Shadetooth in the Excavation Site: Wetlands.",
+        "facts": [
+         "profession-herbalism.camp-objects"
+        ]
+       },
+       {
+        "text": "Add your object to a camp, then sit or craft nearby for about a minute. The benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules",
+         "profession-cooking.bigger-camps"
+        ]
+       },
+       {
+        "text": "Set up camp outside major cities: camps cannot be placed in them.",
+        "facts": [
+         "profession-cooking.camp-rules"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting the Incense Candle buff on top of Arcane Intellect.",
+        "fix": "The Candle's buff matches Arcane Intellect and does not stack with it.",
+        "facts": [
+         "profession-herbalism.camp-objects"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "herbalism-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks and Legacy perks",
      "theory": [
       "profession-herbalism.skill-caps",
       "profession-herbalism.level-for-each-rank",
       "profession-herbalism.legacy-perks",
       "profession-herbalism.switching"
-     ]
-    },
-    {
-     "id": "herbalism-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-herbalism.unknown-1",
-      "profession-herbalism.unknown-2",
-      "profession-herbalism.unknown-3"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Apprentice Herbalism goes up to 75, Journeyman to 150, Expert to 225 and Artisan to 300.",
+        "facts": [
+         "profession-herbalism.skill-caps"
+        ]
+       },
+       {
+        "text": "Check the level each rank needs in game before you plan around it. Icy Veins lists none for Journeyman, 10 for Expert and 25 for Artisan; Warcraft Tavern lists 10, 20 and 35.",
+        "facts": [
+         "profession-herbalism.level-for-each-rank"
+        ]
+       },
+       {
+        "text": "Two Legacy perks help a herbalist: Bountiful Harvest gives extra Scarce resources from gathering, and Working Overtime improves your skill-up chance.",
+        "facts": [
+         "profession-herbalism.legacy-perks"
+        ]
+       },
+       {
+        "text": "To drop Herbalism, click the red X in the Professions window and type the confirmation. All skill and recipes are lost.",
+        "facts": [
+         "profession-herbalism.switching"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Trusting one guide's level for Expert or Artisan.",
+        "fix": "Icy Veins and Warcraft Tavern disagree: 10 or 20 for Expert, 25 or 35 for Artisan. Check in game.",
+        "facts": [
+         "profession-herbalism.level-for-each-rank"
+        ]
+       },
+       {
+        "mistake": "Dropping Herbalism to try another profession and expecting to keep the skill.",
+        "fix": "Dropping a primary profession loses all skill and recipes.",
+        "facts": [
+         "profession-herbalism.switching"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -76,7 +220,7 @@
     },
     {
      "section": "gear",
-     "reason": "Covered in 201."
+     "reason": "Herbalism makes no gear."
     },
     {
      "section": "consumables",
@@ -84,7 +228,7 @@
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -93,43 +237,70 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "What Herbalism supplies to raiders and the market.",
    "chapters": [
     {
      "id": "herbalism-201-raid",
      "section": "consumables",
-     "title": "Value for the raid",
+     "title": "Herbs for raid consumables",
      "theory": [
-      "profession-herbalism.healing-potion-herbs"
-     ]
+      "profession-herbalism.healing-potion-herbs",
+      "profession-herbalism.scarce-herbs"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Keep Sungrass and Golden Sansam for raiders who make their own healing potions. Those potions are First Aid crafts that use either herb.",
+        "facts": [
+         "profession-herbalism.healing-potion-herbs"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling every herb to alchemists.",
+        "fix": "Healing potions are First Aid crafts now, so First Aid makers need Sungrass or Golden Sansam too.",
+        "facts": [
+         "profession-herbalism.healing-potion-herbs"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "herbalism-201-gold",
      "section": "praxis",
      "title": "Gold and the Auction House",
-     "theory": [],
+     "theory": [
+      "profession-herbalism.scarce-herbs",
+      "profession-herbalism.healing-potion-herbs"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "Herbs now sell to alchemists and to anyone making healing potions, and the scarce herbs feed dyes that other crafts need. Icy Veins suggests two gathering professions if gold is your main goal. Trading is subject to Blizzard policy."
+        "text": "Herbs now sell to alchemists and to anyone making healing potions, and the scarce herbs feed the dyes alchemists make. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-herbalism.healing-potion-herbs",
+         "profession-herbalism.scarce-herbs"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Listing Frilled Lichen, Rosecap and Stranglevine with ordinary herbs.",
+        "fix": "They are new scarce herbs that alchemists turn into dyes, so price them on their own.",
+        "facts": [
+         "profession-herbalism.scarce-herbs"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 track covers this."
     },
     {
      "section": "talents",
@@ -142,33 +313,33 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Herbalism makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Gathering routes and the open camp questions need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "herbalism-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Gathering routes and open questions",
+     "theory": [
+      "profession-herbalism.unknown-1",
+      "profession-herbalism.unknown-2",
+      "profession-herbalism.unknown-3"
+     ],
+     "unavailable": "No reviewed herb route or node map exists for Forever yet. Where the Seed Hybridizer blueprint drops, the exact Incense Candle buff and whether any passive Herbalism perk exists are also open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -180,6 +351,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Herbalism makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

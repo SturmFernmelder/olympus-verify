@@ -10,16 +10,14 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "The October snapshot records 14 Priest additions, among them Penance, Divine Aegis, Soul Warding, Prayer of Mending, Binding Heal (since replaced by Holy Binding), Improved Mind Flay and Dark Inspiration. Lightwell, Force of Will and Shadow Affinity are among nine Classic talents removed.",
+   "label": "Discipline tree in the 10 Nov talent data",
+   "value": "Discipline: Power in Light, Twin Disciplines, Holy Precision, Soul Warding, Penance, Renewed Hope and Divine Aegis are new. Unbreakable Will, Improved Power Word: Fortitude, Divine Spirit and Force of Will are gone, and the other 11 talents changed.",
    "sources": [
-    "g218-15",
-    "g218-46",
-    "g218-150"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-discipline"
   },
   {
    "id": "class-priest.change-2",
@@ -94,14 +92,14 @@
    "topic": "class-change",
    "kind": "theory",
    "grade": "A",
-   "label": "Talent data",
-   "value": "Unchanged from Classic in the snapshot: Improved Renew, Holy Specialization, Spell Warding, Divine Fury and Holy Reach. Blackout, Improved Mind Blast and Improved Shadow Word: Pain only moved position.",
+   "label": "Holy tree in the 10 Nov talent data",
+   "value": "Holy: Holy Binding, Litany of Light and Prayer of Mending are new. Improved Prayer of Healing and Lightwell are gone. Improved Renew, Holy Specialization, Spell Warding, Divine Fury and Holy Reach are unchanged from Classic 1.12, and the other 9 talents changed.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-holy"
   },
   {
    "id": "class-priest.change-7",
@@ -136,6 +134,23 @@
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
+   "id": "class-priest.change-9",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Shadow tree in the 10 Nov talent data",
+   "value": "Shadow: Improved Mind Flay, Dark Inspiration, Devouring Contagion and Early Demise are new. Shadow Affinity, Improved Fade and Improved Vampiric Embrace are gone. Blackout, Improved Mind Blast and Improved Shadow Word: Pain only moved, and the other 10 talents changed.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-shadow"
+  },
+  {
    "id": "class-priest.quest-racial-priest-spells",
    "scope": {
     "class": "priest"
@@ -143,13 +158,13 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "C",
-   "label": "Racial Priest spells (10 and 20)",
+   "label": "Racial Priest spells (levels 10 and 20)",
    "value": "Warcraft Tavern lists them as class-quest unlocks. Human: Divine Grace, Feedback. Dwarf: Desperate Prayer, Chastise. Night Elf: Starshards, Elune's Grace. Gnome: Confounding Flash, Contingency Plan.",
    "sources": [
     "g218-53",
     "g218-46"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -157,16 +172,16 @@
    "scope": {
     "class": "priest"
    },
-   "topic": "class-quest",
+   "topic": "class-baseline-spell",
    "kind": "theory",
    "grade": "B",
-   "label": "No quest needed: Fear Ward and Devouring Plague (20)",
+   "label": "Baseline at level 20: Fear Ward and Devouring Plague",
    "value": "Every Priest race learns both now. In the files Fear Ward lasts 3 min on a 3 min cooldown (talentsforever).",
    "sources": [
     "g218-46",
     "g218-45"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -174,16 +189,16 @@
    "scope": {
     "class": "priest"
    },
-   "topic": "class-quest",
+   "topic": "class-baseline-spell",
    "kind": "theory",
    "grade": "B",
-   "label": "No quest needed: Divine Spirit and Shadow Word: Death (30 and 32)",
+   "label": "Baseline at levels 30 and 32: Divine Spirit and Shadow Word: Death",
    "value": "Both are baseline spells now. In the files Divine Spirit lasts 1 hour (was 30 min) and Prayer of Spirit covers the raid (talentsforever).",
    "sources": [
     "g218-46",
     "g218-45"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -194,13 +209,13 @@
    "topic": "class-quest",
    "kind": "theory",
    "grade": "E",
-   "label": "Benediction and Anathema (Classic) (60)",
+   "label": "Benediction and Anathema (Classic 1.12, level 60)",
    "value": "Classic needs the Eye of Divinity (Majordomo Executus, Molten Core), the Eye of Shadow (Lord Kazzak or elite demons in the Blasted Lands and Winterspring) and Eris Havenfire's Splinter of Nordrassil quest. Unconfirmed in Forever: Molten Core is not a 9 Dec raid.",
    "sources": [
     "g218-59",
     "g218-2"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "Classic 1.12 reference"
   },
   {
@@ -208,15 +223,15 @@
    "scope": {
     "class": "priest"
    },
-   "topic": "class-quest",
+   "topic": "class-myth",
    "kind": "theory",
    "grade": "E",
-   "label": "Shadowmourne is not a Priest item (Not applicable)",
+   "label": "Shadowmourne is not a Priest item",
    "value": "Shadowmourne is a legendary two-handed axe from Wrath of the Lich King patch 3.3.0, usable by Paladins, Death Knights and Warriors. It is not a Classic item.",
    "sources": [
     "g218-60"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "Classic 1.12 reference"
   },
   {
@@ -246,14 +261,14 @@
    "topic": "discipline-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Soul Warding (snapshot)",
-   "value": "Power Word: Shield's cooldown is 4 sec shorter and it costs 15% less; needs Improved Power Word: Shield 3/3",
+   "label": "Soul Warding",
+   "value": "Soul Warding cuts Power Word: Shield's cooldown by 4 sec and its mana cost by 15%. It requires Improved Power Word: Shield.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-soul-warding"
   },
   {
    "id": "class-priest.penance",
@@ -282,16 +297,14 @@
    "topic": "discipline-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Divine Aegis (snapshot)",
-   "value": "Non-periodic crit heals leave an absorb worth 5% of the heal at rank 1, up to 1,200, for 12 sec",
-   "note": "talentsforever reads 15% at 3/3.",
+   "label": "Divine Aegis",
+   "value": "Divine Aegis: your non-periodic critical heals leave a shield on the target worth 5% of the amount healed per rank (15% at rank 3), absorbing up to 1,200 damage for 12 sec.",
    "sources": [
-    "g218-15",
-    "g218-45"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-divine-aegis"
   },
   {
    "id": "class-priest.intellect",
@@ -320,16 +333,16 @@
    "topic": "discipline-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Power Infusion (snapshot)",
-   "value": "+20% spell damage and healing on a target for 15 sec; needs Penance",
-   "note": "Warcraft Tavern expects it to stay in demand.",
+   "label": "Power Infusion",
+   "value": "Power Infusion raises the target's spell damage and healing done by 20% for 15 sec. It requires Penance and has a 3 min cooldown.",
    "sources": [
-    "g218-15",
+    "talents-data",
     "g218-52"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "note": "Warcraft Tavern expects it to stay in demand.",
+   "talent": "priest-discipline-power-infusion"
   },
   {
    "id": "class-priest.fear-ward-for-every-priest",
@@ -375,14 +388,14 @@
    "topic": "discipline-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Threat (snapshot)",
-   "value": "Silent Resolve: your spells generate 10% less threat at rank 1",
+   "label": "Threat: Silent Resolve",
+   "value": "Silent Resolve: your spells generate 10% less threat per rank, up to 30% at rank 3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-silent-resolve"
   },
   {
    "id": "class-priest.prayer-of-healing",
@@ -516,14 +529,14 @@
    "topic": "holy-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Spiritual Guidance (snapshot)",
-   "value": "Spell healing rises by 5% of your total Spirit and spell damage by 1% of it at rank 1, 5 ranks",
+   "label": "Spiritual Guidance",
+   "value": "Spiritual Guidance raises your spell healing by up to 5% of your total Spirit and your spell damage by up to 1% of it at rank 1, rising to 25% and 8% at rank 5.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-spiritual-guidance"
   },
   {
    "id": "class-priest.human-spirit-racial",
@@ -551,15 +564,15 @@
    "topic": "holy-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Spiritual Healing (snapshot)",
-   "value": "3% more healing at rank 1 and 10% at 3/3; it is now a 3-point talent",
+   "label": "Spiritual Healing",
+   "value": "Spiritual Healing has 3 ranks: your spells heal 3% more at the first and 10% more at the third.",
    "sources": [
-    "g218-15",
+    "talents-data",
     "g218-46"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-spiritual-healing"
   },
   {
    "id": "class-priest.improved-healing-snapshot",
@@ -570,14 +583,14 @@
    "topic": "holy-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Improved Healing (snapshot)",
-   "value": "Lesser Heal, Heal, Greater Heal, Penance and Prayer of Mending cost 5% less at rank 1",
+   "label": "Improved Healing",
+   "value": "Improved Healing makes Lesser Heal, Heal, Greater Heal, Penance and Prayer of Mending cost 5% less per rank, up to 15% at rank 3.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-improved-healing"
   },
   {
    "id": "class-priest.prayer-of-mending",
@@ -727,16 +740,16 @@
    "topic": "shadow-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Shadow hit from talents (snapshot)",
-   "value": "Shadow Focus: 1% hit with Shadow spells at rank 1, 5 ranks",
-   "note": "Blizzard moved it to row 1 and switched it from resist reduction to hit.",
+   "label": "Shadow hit from talents",
+   "value": "Shadow Focus adds 1% hit with Shadow spells per rank and has 5 ranks.",
    "sources": [
-    "g218-15",
+    "talents-data",
     "g218-46"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "note": "Blizzard moved it to row 1 and switched it from resist reduction to hit.",
+   "talent": "priest-shadow-shadow-focus"
   },
   {
    "id": "class-priest.spell-hit-cap-against-raid-bosses-forever",
@@ -799,14 +812,14 @@
    "topic": "shadow-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Shadowform (snapshot)",
-   "value": "10% more Shadow damage, 50% cheaper Shadow spells, 100% more Shadow crit damage bonus and less physical damage taken",
+   "label": "Shadowform",
+   "value": "Shadowform adds 10% Shadow damage, makes Shadow spells cost 50% less, adds 100% to the critical strike damage bonus of Shadow spells and cuts Physical damage taken by 15%. You cannot cast healing spells in it.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-shadowform"
   },
   {
    "id": "class-priest.darkness-snapshot",
@@ -817,14 +830,14 @@
    "topic": "shadow-priority",
    "kind": "theory",
    "grade": "A",
-   "label": "Darkness (snapshot)",
-   "value": "2% more Shadow damage at rank 1, 5 ranks",
+   "label": "Darkness",
+   "value": "Darkness adds 2% Shadow damage per rank and has 5 ranks.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-darkness"
   },
   {
    "id": "class-priest.shadow-weaving-is-personal",
@@ -890,14 +903,14 @@
    "topic": "shadow-raid",
    "kind": "theory",
    "grade": "A",
-   "label": "Dark Inspiration (snapshot)",
-   "value": "Mind Blast and fully channelled Mind Flay raise your and your party's Spirit by 3% for 10 sec at rank 1",
+   "label": "Dark Inspiration",
+   "value": "Dark Inspiration: Mind Blast and a fully channeled Mind Flay raise your and your party's Spirit by 3% for 10 sec at rank 1, up to 15% at rank 5.",
    "sources": [
-    "g218-15"
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "1.60.1.70425 talent snapshot (16 Oct 2026)",
-   "recheck": "Checked against the 16 October talent data; not yet re-checked against the 10 November data."
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-dark-inspiration"
   },
   {
    "id": "class-priest.dps-rankings",

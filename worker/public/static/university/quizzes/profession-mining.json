@@ -1,0 +1,150 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-mining",
+ "questions": [
+  {
+   "id": "profession-mining.starter-book",
+   "scope": "profession:mining",
+   "tier": 101,
+   "chapter": "mining-101-changes",
+   "type": "mcq",
+   "stem": "Which starting-zone quest item teaches Mining?",
+   "choices": [
+    "Mining for Dummies",
+    "Wild Harvest",
+    "Pelt Collecting for Beginners"
+   ],
+   "answer": 0,
+   "explanation": "Mining for Dummies teaches Mining and gives +2 skill. Wild Harvest teaches Herbalism, and Pelt Collecting for Beginners teaches Skinning.",
+   "facts": [
+    "profession-mining.starter-zone-book"
+   ],
+   "distractorFacts": [
+    "profession-herbalism.starter-zone-book",
+    "profession-skinning.starter-zone-book"
+   ]
+  },
+  {
+   "id": "profession-mining.azerothium-skill",
+   "scope": "profession:mining",
+   "tier": 101,
+   "chapter": "mining-101-changes",
+   "type": "mcq",
+   "stem": "At what Mining skill can you make Azerothium Bars?",
+   "choices": [
+    "275",
+    "300",
+    "140"
+   ],
+   "answer": 0,
+   "explanation": "Azerothium Bar is made from Pitchblende and Coal at Mining 275. Skill 140 and 300 are where the Rock Garden and the Molten Foundry unlock.",
+   "facts": [
+    "profession-mining.new-bars"
+   ],
+   "distractorFacts": [
+    "profession-mining.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-mining.heavy-thorium",
+   "scope": "profession:mining",
+   "tier": 101,
+   "chapter": "mining-101-changes",
+   "type": "mcq",
+   "stem": "Where are Heavy Thorium Bars smelted?",
+   "choices": [
+    "Molten Foundry",
+    "Rock Garden",
+    "Lodestone"
+   ],
+   "answer": 0,
+   "explanation": "Heavy Thorium Bar is smelted at a Molten Foundry, the Mining camp object that unlocks at skill 300.",
+   "facts": [
+    "profession-mining.new-bars"
+   ],
+   "distractorFacts": [
+    "profession-mining.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-mining.rock-garden",
+   "scope": "profession:mining",
+   "tier": 101,
+   "chapter": "mining-101-camp",
+   "type": "mcq",
+   "stem": "Who drops the Rock Garden blueprint?",
+   "choices": [
+    "Relic Guardian",
+    "Shadetooth",
+    "Lady Anacondra"
+   ],
+   "answer": 0,
+   "explanation": "The Relic Guardian in the Excavation Site: Wetlands drops the Rock Garden blueprint. Shadetooth drops the Herbalism Greenhouse and Lady Anacondra the Skinning Field Guide.",
+   "facts": [
+    "profession-mining.camp-objects"
+   ],
+   "distractorFacts": [
+    "profession-herbalism.camp-objects",
+    "profession-skinning.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-mining.journeyman-cap",
+   "scope": "profession:mining",
+   "tier": 101,
+   "chapter": "mining-101-leveling",
+   "type": "mcq",
+   "stem": "Up to what skill does Journeyman Mining go?",
+   "choices": [
+    "150",
+    "75",
+    "225"
+   ],
+   "answer": 0,
+   "explanation": "Apprentice goes up to 75, Journeyman to 150, Expert to 225 and Artisan to 300.",
+   "facts": [
+    "profession-mining.skill-caps"
+   ]
+  },
+  {
+   "id": "profession-mining.lodestone",
+   "scope": "profession:mining",
+   "tier": 201,
+   "chapter": "mining-201-raid",
+   "type": "scenario",
+   "stem": "Your group has no Paladin. Which Mining camp object gives a buff that matches Blessing of Might?",
+   "choices": [
+    "Lodestone",
+    "Rock Garden",
+    "Molten Foundry"
+   ],
+   "answer": 0,
+   "explanation": "The Lodestone's buff matches Blessing of Might and does not stack with it, so it helps most in groups without a Paladin.",
+   "facts": [
+    "profession-mining.lodestone",
+    "profession-mining.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-mining.pitchblende",
+   "scope": "profession:mining",
+   "tier": 201,
+   "chapter": "mining-201-gold",
+   "type": "mcq",
+   "stem": "Which scarce ore goes into Azerothium Bars?",
+   "choices": [
+    "Pitchblende",
+    "Bauxite",
+    "Pyrite"
+   ],
+   "answer": 0,
+   "explanation": "Azerothium Bar is made from Pitchblende and Coal. Pyrite and Bauxite are the other new scarce yields.",
+   "facts": [
+    "profession-mining.new-bars"
+   ],
+   "distractorFacts": [
+    "profession-mining.scarce-ores"
+   ]
+  }
+ ]
+}

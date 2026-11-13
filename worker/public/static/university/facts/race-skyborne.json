@@ -1,0 +1,51 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "race-skyborne",
+ "note": "Skyborne facts no other guide cites. Each restates one claim the .218 guides already held, with its sources.",
+ "facts": [
+  {
+   "id": "race-skyborne.classes",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "race-class",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Skyborne classes",
+   "value": "The new Skyborne race (Alliance High Order) can be a Druid, Hunter, Mage, Rogue or Warrior.",
+   "note": "Restated from the What Changed compendium entry 'Races and classes' in guides218.json, with its sources.",
+   "sources": [
+    "g218-62",
+    "g218-46",
+    "g218-140",
+    "g218-126",
+    "g218-116",
+    "g218-71"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard announcements to 29 Oct 2026)"
+  },
+  {
+   "id": "race-skyborne.pack",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "race-class",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Skyborne needs a Forever pack",
+   "value": "The Skyborne race needs a paid Forever pack.",
+   "note": "Restated from the What Changed compendium entry 'Races and classes' in guides218.json, with its sources.",
+   "sources": [
+    "g218-62",
+    "g218-46",
+    "g218-140",
+    "g218-126",
+    "g218-116",
+    "g218-71"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard announcements to 29 Oct 2026)"
+  }
+ ]
+}

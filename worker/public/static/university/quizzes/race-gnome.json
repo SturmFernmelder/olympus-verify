@@ -1,0 +1,81 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "race-gnome",
+ "questions": [
+  {
+   "id": "race-gnome.eureka",
+   "scope": "race:gnome",
+   "tier": 101,
+   "chapter": "gnome-101-racials",
+   "type": "mcq",
+   "stem": "What does the Gnome racial Eureka! do in Forever?",
+   "choices": [
+    "makes non-periodic abilities 10% cheaper and stronger",
+    "+1% hit with spells and attacks",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Eureka! is an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger. +1% hit is Dwarf Artisan's Precision and +2% haste is Skyborne Wind-Blessed.",
+   "facts": [
+    "common.racial-gnome-eureka"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "race-gnome.engineering",
+   "scope": "race:gnome",
+   "tier": 101,
+   "chapter": "gnome-101-engineering",
+   "type": "mcq",
+   "stem": "What does the Gnome racial Engineering Specialization do in Forever?",
+   "choices": [
+    "cuts the failure and backfire rate of engineering devices by 20%",
+    "adds skill"
+   ],
+   "answer": 0,
+   "explanation": "In Forever Engineering Specialization no longer adds skill. It cuts the failure and backfire rate of engineering devices by 20%.",
+   "facts": [
+    "profession-engineering.gnome-racial"
+   ]
+  },
+  {
+   "id": "race-gnome.priest-spells",
+   "scope": "race:gnome",
+   "tier": 101,
+   "chapter": "gnome-101-priest",
+   "type": "mcq",
+   "stem": "Which racial spells does a Gnome Priest unlock through class quests?",
+   "choices": [
+    "Confounding Flash, Contingency Plan",
+    "Desperate Prayer, Chastise",
+    "Divine Grace, Feedback"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Confounding Flash and Contingency Plan for Gnomes. Desperate Prayer and Chastise are Dwarf, Divine Grace and Feedback Human.",
+   "facts": [
+    "class-priest.quest-racial-priest-spells"
+   ]
+  },
+  {
+   "id": "race-gnome.raid-racials",
+   "scope": "race:gnome",
+   "tier": 201,
+   "chapter": "gnome-201-raid-racials",
+   "type": "mcq",
+   "stem": "Which Alliance racial for raiding Mages is an 8 sec buff that makes non-periodic abilities cheaper and stronger?",
+   "choices": [
+    "Gnome Eureka!",
+    "Human Ruthless",
+    "High Order Skyborne Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "That is Gnome Eureka!. Human Ruthless gives +1% crit and High Order Skyborne Wind-Blessed +2% haste.",
+   "facts": [
+    "class-mage.alliance-racials-for-raiders"
+   ]
+  }
+ ]
+}

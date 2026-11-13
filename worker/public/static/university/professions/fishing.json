@@ -4,58 +4,122 @@
  "id": "fishing",
  "name": "Fishing",
  "type": "secondary",
- "status": "migrated",
+ "status": "complete",
  "reviewedAt": "2026-11-12",
- "migratedFrom": "guides218.json professions[10] (2026-11-04)",
+ "migratedFrom": "guides218.json professions[10] (2026-11-04), rewritten into the course format on 2026-11-12",
  "factFiles": [
   "common",
+  "profession-fishing",
+  "profession-cooking"
+ ],
+ "quizFiles": [
   "profession-fishing"
  ],
- "quizFiles": [],
  "pairsWith": [
   "cooking"
  ],
  "overview": {
-  "lead": "Fishing has its own camp objects, and the Fish Bowl gives one of the few camp buffs with a fixed number.",
+  "lead": "Fishing supplies the seafood for several reworked raid foods and has camp objects of its own.",
   "points": [
    {
-    "text": "Pair it with Cooking: several reworked raid foods are seafood dishes."
+    "text": "The Fish Bowl gives 8% to all stats and does not stack with Blessing of Kings.",
+    "facts": [
+     "profession-fishing.fish-bowl"
+    ]
    }
   ],
-  "facts": []
+  "facts": [
+   "profession-fishing.seafood-for-raid-foods",
+   "profession-fishing.camp-objects"
+  ]
  },
  "tracks": {
   "101": {
-   "summary": "What the profession makes in Forever and how to level it.",
+   "summary": "Fishing's camp objects and how to level it.",
    "chapters": [
     {
-     "id": "fishing-101-changes",
+     "id": "fishing-101-camp",
      "section": "overview",
-     "title": "What Forever changes",
+     "title": "Camp objects",
      "theory": [
       "profession-fishing.camp-objects",
-      "profession-fishing.luremaster"
-     ]
+      "profession-cooking.campfire",
+      "profession-cooking.camp-rules"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place a Fish Bowl at Fishing 20, a Fishing Rack at 140 and a Fishing Hut at 300.",
+        "facts": [
+         "profession-fishing.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Fishing Rack blueprint from Gelihast in Blackfathom Deeps.",
+        "facts": [
+         "profession-fishing.camp-objects"
+        ]
+       },
+       {
+        "text": "Add your object to a camp, then sit or craft nearby for about a minute. The benefits last an hour.",
+        "facts": [
+         "profession-cooking.camp-rules",
+         "profession-cooking.bigger-camps"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Expecting a trainer to sell the Fishing Rack.",
+        "fix": "Trainers and NPCs hand out the skill-20 camp objects. The Fishing Rack comes from a blueprint that drops from Gelihast in Blackfathom Deeps.",
+        "facts": [
+         "profession-fishing.camp-objects",
+         "profession-cooking.campfire"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "fishing-101-leveling",
      "section": "overview",
-     "title": "Skill ranks, trainers and leveling",
+     "title": "Skill ranks and Legacy perks",
      "theory": [
+      "profession-fishing.skill-cap",
       "profession-fishing.artisan-step",
-      "profession-fishing.skill-cap"
-     ]
-    },
-    {
-     "id": "fishing-101-unknown",
-     "section": "overview",
-     "title": "Still unknown",
-     "theory": [
-      "profession-fishing.unknown-1",
-      "profession-fishing.unknown-2",
-      "profession-fishing.unknown-3",
-      "profession-fishing.unknown-4"
-     ]
+      "profession-fishing.luremaster"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Fishing tops out at 300, like the other professions.",
+        "facts": [
+         "profession-fishing.skill-cap"
+        ]
+       },
+       {
+        "text": "Artisan Fishing comes from Nat Pagle at level 35.",
+        "facts": [
+         "profession-fishing.artisan-step"
+        ]
+       },
+       {
+        "text": "Take the Luremaster Legacy perk for a chance of an extra fish.",
+        "facts": [
+         "profession-fishing.luremaster"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Expecting to learn Artisan Fishing before level 35.",
+        "fix": "Artisan Fishing comes from Nat Pagle at level 35.",
+        "facts": [
+         "profession-fishing.artisan-step"
+        ]
+       }
+      ]
+     }
     }
    ],
    "omitted": [
@@ -73,7 +137,7 @@
     },
     {
      "section": "gear",
-     "reason": "Covered in 201."
+     "reason": "Fishing makes no gear."
     },
     {
      "section": "consumables",
@@ -81,7 +145,7 @@
     },
     {
      "section": "macros",
-     "reason": "Covered in 201."
+     "reason": "No profession macro has been checked in Forever yet."
     },
     {
      "section": "praxis",
@@ -90,44 +154,75 @@
    ]
   },
   "201": {
-   "summary": "Raid value and the market.",
+   "summary": "What Fishing adds to a group and to the market.",
    "chapters": [
     {
      "id": "fishing-201-raid",
      "section": "consumables",
-     "title": "Value for the raid",
+     "title": "The Fish Bowl and raid seafood",
      "theory": [
       "profession-fishing.fish-bowl",
       "profession-fishing.seafood-for-raid-foods"
-     ]
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Place the Fish Bowl in groups without a Paladin. It gives 8% to all stats, a little under the 10% from Blessing of Kings, and does not stack with it.",
+        "facts": [
+         "profession-fishing.fish-bowl"
+        ]
+       },
+       {
+        "text": "Fish for your cook: Grilled Squid, Hot Smoked Bass, Baked Salmon and Lobster Stew are seafood dishes.",
+        "facts": [
+         "profession-fishing.seafood-for-raid-foods"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Placing the Fish Bowl for a group that already has Blessing of Kings.",
+        "fix": "The Fish Bowl's 8% does not stack with the 10% from Blessing of Kings, so it adds nothing there.",
+        "facts": [
+         "profession-fishing.fish-bowl"
+        ]
+       }
+      ]
+     }
     },
     {
      "id": "fishing-201-gold",
      "section": "praxis",
      "title": "Gold and the Auction House",
-     "theory": [],
+     "theory": [
+      "profession-fishing.seafood-for-raid-foods",
+      "profession-cooking.reworked-raid-foods"
+     ],
      "praxis": {
       "steps": [
        {
-        "text": "Cooks need fish for several reworked raid foods, so a steady catch should find buyers. Trading is subject to Blizzard policy."
+        "text": "Cooks need fish for several reworked raid foods, so a steady catch should find buyers. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-fishing.seafood-for-raid-foods"
+        ]
        }
       ],
-      "mistakes": []
+      "mistakes": [
+       {
+        "mistake": "Fishing only to level Cooking.",
+        "fix": "Several reworked raid foods, such as Grilled Squid and Lobster Stew, are seafood dishes, so raid cooks buy fish too.",
+        "facts": [
+         "profession-fishing.seafood-for-raid-foods"
+        ]
+       }
+      ]
      }
     }
    ],
    "omitted": [
     {
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
+     "reason": "The 101 track covers this."
     },
     {
      "section": "talents",
@@ -140,33 +235,34 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Fishing makes no gear."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
     }
    ]
   },
   "301": {
-   "summary": "Advanced routes and min-maxing.",
-   "chapters": [],
-   "omitted": [
+   "summary": "Fishing routes and the open perk questions need reviewed data the site does not have yet.",
+   "chapters": [
     {
+     "id": "fishing-301-routes",
      "section": "overview",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "gear",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "consumables",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "macros",
-     "reason": "Not written yet."
-    },
-    {
-     "section": "praxis",
-     "reason": "Not written yet."
-    },
+     "title": "Fishing routes and open questions",
+     "theory": [
+      "profession-fishing.unknown-1",
+      "profession-fishing.unknown-2",
+      "profession-fishing.unknown-3",
+      "profession-fishing.unknown-4"
+     ],
+     "unavailable": "No reviewed fishing route or catch table exists for Forever yet. Where the Fishing Hut blueprint drops, whether the Fish Bowl buff gets toned down, Luremaster's final values and ranks, and whether the Master Forager perk is live are also open."
+    }
+   ],
+   "omitted": [
     {
      "section": "talents",
      "reason": "Professions have no talent tree."
@@ -178,6 +274,22 @@
     {
      "section": "stat-caps",
      "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Fishing makes no gear."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
     }
    ]
   }

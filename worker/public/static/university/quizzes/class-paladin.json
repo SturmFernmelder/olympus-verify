@@ -1,0 +1,1133 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-paladin",
+ "questions": [
+  {
+   "id": "class-paladin.holy-strike-level",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-forever-changes",
+   "type": "mcq",
+   "stem": "At what level does a Paladin learn Holy Strike?",
+   "choices": [
+    "6",
+    "10",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "Holy Strike arrives at level 6. Seal of Fury and Righteous Fury come at 10, and Consecration and Blessing of Kings become baseline at 20.",
+   "facts": [
+    "class-paladin.change-1"
+   ],
+   "distractorFacts": [
+    "class-paladin.change-2"
+   ]
+  },
+  {
+   "id": "class-paladin.lay-on-hands",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-forever-changes",
+   "type": "mcq",
+   "stem": "How long is Lay on Hands' cooldown in Forever?",
+   "choices": [
+    "20-minute",
+    "1-hour"
+   ],
+   "answer": 0,
+   "explanation": "Lay on Hands drops from a 1-hour to a 20-minute cooldown.",
+   "facts": [
+    "class-paladin.change-2"
+   ]
+  },
+  {
+   "id": "class-paladin.removed-blessing",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which of these did Blizzard remove from the Paladin class?",
+   "choices": [
+    "Blessing of Light",
+    "Blessing of Kings",
+    "Righteous Fury"
+   ],
+   "answer": 0,
+   "explanation": "Blessing of Light was removed with Salvation, Mass Salvation and Revoke. Blessing of Kings is now baseline at 20, and Righteous Fury is trained at 10.",
+   "facts": [
+    "class-paladin.change-4"
+   ],
+   "distractorFacts": [
+    "class-paladin.change-2"
+   ]
+  },
+  {
+   "id": "class-paladin.aura-range",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-forever-changes",
+   "type": "mcq",
+   "stem": "How far do the Fire, Frost and Shadow Resistance Auras reach?",
+   "choices": [
+    "30 yards",
+    "10 yards"
+   ],
+   "answer": 0,
+   "explanation": "They reach raid members within 30 yards. Ten yards is the range of the Seal of Fury Judgement taunt.",
+   "facts": [
+    "class-paladin.change-3"
+   ],
+   "distractorFacts": [
+    "class-paladin.change-1"
+   ]
+  },
+  {
+   "id": "class-paladin.capstone",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which talent replaces the old Twist of Light capstone?",
+   "choices": [
+    "Unsealed Wrath",
+    "Oath of Light",
+    "Boundless Light"
+   ],
+   "answer": 0,
+   "explanation": "Unsealed Wrath is a 31-point Retribution talent that requires Repentance. Oath of Light and Boundless Light are new Holy talents.",
+   "facts": [
+    "class-paladin.change-5"
+   ],
+   "distractorFacts": [
+    "class-paladin.change-6"
+   ]
+  },
+  {
+   "id": "class-paladin.redemption",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest grants Redemption?",
+   "choices": [
+    "The Tome of Divinity",
+    "The Tome of Valor",
+    "Must be Delgren"
+   ],
+   "answer": 0,
+   "explanation": "The Tome of Divinity (level 12) grants Redemption. The Tome of Valor (20) teaches Sense Undead, and Must be Delgren (22) is an unconfirmed report.",
+   "facts": [
+    "class-paladin.quest-the-tome-of-divinity"
+   ],
+   "distractorFacts": [
+    "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness",
+    "class-paladin.quest-must-be-delgren"
+   ]
+  },
+  {
+   "id": "class-paladin.verigan",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-class-quests",
+   "type": "mcq",
+   "stem": "Who forges Verigan's Fist?",
+   "choices": [
+    "Jordan Stilwell",
+    "Lord Grayson Shadowbreaker"
+   ],
+   "answer": 0,
+   "explanation": "Jordan Stilwell forges Verigan's Fist in The Test of Righteousness. Lord Grayson Shadowbreaker starts the Classic Summon Charger chain.",
+   "facts": [
+    "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness"
+   ],
+   "distractorFacts": [
+    "class-paladin.quest-summon-charger"
+   ]
+  },
+  {
+   "id": "class-paladin.warhorse",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-class-quests",
+   "type": "scenario",
+   "stem": "Sources disagree on Summon Warhorse at level 40. What does Warcraft Tavern list it as?",
+   "choices": [
+    "a trainer unlock",
+    "The Tome of Nobility"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Summon Warhorse as a trainer unlock alongside Apprentice Riding; warcraft.wiki.gg links it to The Tome of Nobility.",
+   "facts": [
+    "class-paladin.quest-summon-warhorse"
+   ]
+  },
+  {
+   "id": "class-paladin.charger-classic",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-class-quests",
+   "type": "mcq",
+   "stem": "In Classic 1.12, where did the Summon Charger chain end?",
+   "choices": [
+    "Scholomance",
+    "Deadmines",
+    "Shadowfang Keep"
+   ],
+   "answer": 0,
+   "explanation": "The Classic chain from Lord Grayson Shadowbreaker ends with Judgment and Redemption in Scholomance. Deadmines and Shadowfang Keep hold materials for Verigan's Fist.",
+   "facts": [
+    "class-paladin.quest-summon-charger"
+   ],
+   "distractorFacts": [
+    "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness"
+   ]
+  },
+  {
+   "id": "class-paladin.dwarf-hit",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-race",
+   "type": "mcq",
+   "stem": "Which racial gives a Dwarf Paladin +1% hit with spells and attacks?",
+   "choices": [
+    "Artisan's Precision",
+    "Ruthless",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "Dwarf Artisan's Precision gives +1% hit with spells and attacks. Human Ruthless gives +1% crit and Skyborne Wind-Blessed +2% haste.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-paladin.ruthless",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-race",
+   "type": "mcq",
+   "stem": "Since the 26 October notes, what does Human Ruthless give?",
+   "choices": [
+    "+1% crit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Ruthless was cut from 2% to +1% crit on 26 October.",
+   "facts": [
+    "common.racial-human-ruthless"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-paladin.human-spirit",
+   "scope": "class:paladin",
+   "tier": 101,
+   "chapter": "paladin-101-race",
+   "type": "mcq",
+   "stem": "What does the Human Spirit racial give in the 26 October notes?",
+   "choices": [
+    "+10% Spirit",
+    "+1% crit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Humans get +10% Spirit. Ruthless is the +1% crit racial, and +2% haste is Skyborne's Wind-Blessed.",
+   "facts": [
+    "common.racial-human-spirit"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-paladin.onyxia-size",
+   "scope": "class:paladin",
+   "tier": 201,
+   "chapter": "paladin-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which launch raid is the 40-player raid?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps is for 10 players, Hyjal Summit for 20 and Onyxia's Lair for 40; all three open on 9 December 2026.",
+   "facts": [
+    "class-paladin.launch-raids"
+   ]
+  },
+  {
+   "id": "class-paladin.camp-kings",
+   "scope": "class:paladin",
+   "tier": 201,
+   "chapter": "paladin-201-raid-utility",
+   "type": "mcq",
+   "stem": "Warcraft Tavern says a profession camp object gives a Kings-like buff. How strong is it?",
+   "choices": [
+    "8%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "The camp copy gives 8% instead of the real Blessing's 10%, and it does not stack with the real buff.",
+   "facts": [
+    "class-paladin.camp-buffs-vs-blessings"
+   ]
+  },
+  {
+   "id": "class-paladin.drakefire",
+   "scope": "class:paladin",
+   "tier": 201,
+   "chapter": "paladin-201-raid-utility",
+   "type": "mcq",
+   "stem": "What must every raider carry in their own bags to enter Onyxia's Lair?",
+   "choices": [
+    "Drakefire Amulet",
+    "Bastion of Stormwind"
+   ],
+   "answer": 0,
+   "explanation": "Every raider must carry their own Drakefire Amulet. The Bastion of Stormwind is the shield from The Tome of Valor.",
+   "facts": [
+    "class-paladin.onyxias-lair-entry",
+    "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness"
+   ]
+  },
+  {
+   "id": "class-paladin.holy-shock-cd",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-rotation",
+   "type": "mcq",
+   "stem": "What is Holy Shock's cooldown?",
+   "choices": [
+    "10 sec cooldown",
+    "6 sec cooldown",
+    "2 min cooldown"
+   ],
+   "answer": 0,
+   "explanation": "Holy Shock has a 10 sec cooldown. Light's Vigil has a 6 sec cooldown and Divine Favor a 2 min one.",
+   "facts": [
+    "talents-paladin.holy-holy-shock"
+   ],
+   "distractorFacts": [
+    "talents-paladin.holy-light-s-vigil",
+    "talents-paladin.holy-divine-favor"
+   ]
+  },
+  {
+   "id": "class-paladin.vigil-duration",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-rotation",
+   "type": "mcq",
+   "stem": "How long does Light's Vigil stay on its target?",
+   "choices": [
+    "30 sec",
+    "6 sec"
+   ],
+   "answer": 0,
+   "explanation": "Light's Vigil lasts 30 sec on a friendly target; 6 sec is its cooldown.",
+   "facts": [
+    "talents-paladin.holy-light-s-vigil.r1",
+    "talents-paladin.holy-light-s-vigil"
+   ]
+  },
+  {
+   "id": "class-paladin.oath-holy-light",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-rotation",
+   "type": "mcq",
+   "stem": "Oath of Light adds up to 400 healing to which of your spells on the sworn ally?",
+   "choices": [
+    "Holy Light",
+    "Flash of Light",
+    "Holy Shock"
+   ],
+   "answer": 0,
+   "explanation": "Oath of Light adds up to 400 to Holy Light, 115 to Flash of Light and 230 to Holy Shock.",
+   "facts": [
+    "talents-paladin.holy-oath-of-light.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.infusion-r1",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-rotation",
+   "type": "mcq",
+   "stem": "With Infusion of Light at rank 1, how much do Holy Shock and Flash of Light crits cut from your next Holy Light?",
+   "choices": [
+    "0.5 sec",
+    "1.0 sec"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 cuts 0.5 sec; rank 2 cuts 1.0 sec, for a Holy Light cast within 15 sec.",
+   "facts": [
+    "talents-paladin.holy-infusion-of-light.r1"
+   ],
+   "distractorFacts": [
+    "talents-paladin.holy-infusion-of-light.r2"
+   ]
+  },
+  {
+   "id": "class-paladin.purifying-power",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-mana",
+   "type": "mcq",
+   "stem": "Purifying Power lowers the mana cost of which spells?",
+   "choices": [
+    "Cleanse and Purify",
+    "Exorcism and Holy Wrath"
+   ],
+   "answer": 0,
+   "explanation": "Purifying Power cuts the mana cost of Cleanse and Purify. It shortens the cooldown of Exorcism and Holy Wrath instead.",
+   "facts": [
+    "talents-paladin.holy-purifying-power.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.reverence",
+   "scope": "spec:paladin-holy",
+   "tier": 101,
+   "chapter": "paladin-holy-101-mana",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much of your mana regeneration does Reverence keep going while you cast?",
+   "choices": [
+    "30%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Reverence keeps 15% at rank 1 and 30% at rank 2.",
+   "facts": [
+    "talents-paladin.holy-reverence.r2"
+   ],
+   "distractorFacts": [
+    "talents-paladin.holy-reverence.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.holy-power",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-priorities",
+   "type": "mcq",
+   "stem": "What does Holy Power now increase?",
+   "choices": [
+    "the critical healing bonus of Holy spells",
+    "hit with Holy spells"
+   ],
+   "answer": 0,
+   "explanation": "Holy Power raises the critical healing bonus of Holy spells by 10% per point, up to 50%. Divine Precision is the talent that adds hit with Holy spells.",
+   "facts": [
+    "class-paladin.crit-and-mana"
+   ],
+   "distractorFacts": [
+    "class-paladin.holy-spell-hit"
+   ]
+  },
+  {
+   "id": "class-paladin.divine-precision",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-priorities",
+   "type": "mcq",
+   "stem": "How much hit with Holy spells does Divine Precision give at its second point?",
+   "choices": [
+    "8%",
+    "4%"
+   ],
+   "answer": 0,
+   "explanation": "Divine Precision grants 4% or 8% hit with Holy spells.",
+   "facts": [
+    "class-paladin.holy-spell-hit"
+   ]
+  },
+  {
+   "id": "class-paladin.spiritual-focus-row",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-priorities",
+   "type": "mcq",
+   "stem": "Where does Spiritual Focus sit in the Holy tree?",
+   "choices": [
+    "row 1",
+    "row 2"
+   ],
+   "answer": 0,
+   "explanation": "Spiritual Focus has five points on row 1; Reverence has two points on row 2.",
+   "facts": [
+    "class-paladin.casting-under-pressure"
+   ]
+  },
+  {
+   "id": "class-paladin.potions-first-aid",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-consumables",
+   "type": "mcq",
+   "stem": "According to Warcraft Tavern, which profession makes healing potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+   "facts": [
+    "class-paladin.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-paladin.classic-flask",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which of these healer consumables is a flask?",
+   "choices": [
+    "Flask of Distilled Wisdom",
+    "Elixir of the Sages",
+    "Major Mana Potion"
+   ],
+   "answer": 0,
+   "explanation": "Flask of Distilled Wisdom heads the Classic healer kit; Elixir of the Sages is an elixir and Major Mana Potion a potion.",
+   "facts": [
+    "class-paladin.classic-healer-kit"
+   ]
+  },
+  {
+   "id": "class-paladin.oath-replaces",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-raid",
+   "type": "mcq",
+   "stem": "Blessing of Light is gone. Which Holy talent strengthens healing on one ally instead?",
+   "choices": [
+    "Oath of Light",
+    "Salvation",
+    "Revoke"
+   ],
+   "answer": 0,
+   "explanation": "Oath of Light is the Holy talent that strengthens healing on one ally. Salvation and Revoke were removed too.",
+   "facts": [
+    "class-paladin.blessing-of-light"
+   ],
+   "distractorFacts": [
+    "class-paladin.threat-after-salvation"
+   ]
+  },
+  {
+   "id": "class-paladin.fire-aura-onyxia",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-raid",
+   "type": "mcq",
+   "stem": "Which resistance aura answers Blizzard's request to build resistance before Onyxia?",
+   "choices": [
+    "Fire",
+    "Frost",
+    "Shadow"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard asks raids to build fire resistance before Onyxia, and Fire Resistance Aura now reaches raid members within 30 yards.",
+   "facts": [
+    "class-paladin.resistance-auras"
+   ]
+  },
+  {
+   "id": "class-paladin.divine-precision-silence",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much does Divine Precision shorten Silence effects on you?",
+   "choices": [
+    "20%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Divine Precision reduces Silence durations by 10% at rank 1 and 20% at rank 2.",
+   "facts": [
+    "talents-paladin.holy-divine-precision.r2"
+   ],
+   "distractorFacts": [
+    "talents-paladin.holy-divine-precision.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.unyielding-faith",
+   "scope": "spec:paladin-holy",
+   "tier": 201,
+   "chapter": "paladin-holy-201-pvp",
+   "type": "mcq",
+   "stem": "Which talent shortens Fear and Disorient effects on you?",
+   "choices": [
+    "Unyielding Faith",
+    "Eye for an Eye",
+    "Turn Evil"
+   ],
+   "answer": 0,
+   "explanation": "Unyielding Faith, now on row 3 of the Retribution tree, shortens Fear and Disorient effects by 15% or 30%.",
+   "facts": [
+    "talents-paladin.retribution-unyielding-faith.r2",
+    "talents-paladin.retribution-unyielding-faith"
+   ],
+   "distractorFacts": [
+    "talents-paladin.retribution-eye-for-an-eye",
+    "talents-paladin.retribution-turn-evil"
+   ]
+  },
+  {
+   "id": "class-paladin.righteous-fury",
+   "scope": "spec:paladin-protection",
+   "tier": 101,
+   "chapter": "paladin-protection-101-rotation",
+   "type": "mcq",
+   "stem": "How much does Righteous Fury raise all threat?",
+   "choices": [
+    "33%",
+    "90%"
+   ],
+   "answer": 0,
+   "explanation": "Righteous Fury raises all threat by 33% and adds a further 90% threat bonus to Holy damage.",
+   "facts": [
+    "class-paladin.threat"
+   ]
+  },
+  {
+   "id": "class-paladin.seal-of-fury-taunt",
+   "scope": "spec:paladin-protection",
+   "tier": 101,
+   "chapter": "paladin-protection-101-rotation",
+   "type": "mcq",
+   "stem": "From how far does judging Seal of Fury taunt?",
+   "choices": [
+    "10 yards",
+    "30 yards"
+   ],
+   "answer": 0,
+   "explanation": "Judging Seal of Fury taunts from 10 yards. Thirty yards is the reach of the raid-wide resistance auras.",
+   "facts": [
+    "class-paladin.change-1"
+   ],
+   "distractorFacts": [
+    "class-paladin.change-3"
+   ]
+  },
+  {
+   "id": "class-paladin.holy-shield-charges",
+   "scope": "spec:paladin-protection",
+   "tier": 101,
+   "chapter": "paladin-protection-101-rotation",
+   "type": "mcq",
+   "stem": "How much Holy damage does Holy Shield deal for each attack you block while it is active?",
+   "choices": [
+    "75 Holy damage",
+    "20% additional threat"
+   ],
+   "answer": 0,
+   "explanation": "Holy Shield deals 75 Holy damage for each blocked attack, and that damage causes 20% additional threat.",
+   "facts": [
+    "talents-paladin.protection-holy-shield.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.bulwark-forbearance",
+   "scope": "spec:paladin-protection",
+   "tier": 101,
+   "chapter": "paladin-protection-101-cooldowns",
+   "type": "mcq",
+   "stem": "How long does the Forbearance from Templar's Bulwark last?",
+   "choices": [
+    "1 min",
+    "8 sec",
+    "5 min"
+   ],
+   "answer": 0,
+   "explanation": "Templar's Bulwark applies Forbearance for 1 min. The absorb lasts 8 sec, and the cooldown is 5 min.",
+   "facts": [
+    "talents-paladin.protection-templar-s-bulwark.r1",
+    "talents-paladin.protection-templar-s-bulwark"
+   ]
+  },
+  {
+   "id": "class-paladin.sacred-duty",
+   "scope": "spec:paladin-protection",
+   "tier": 101,
+   "chapter": "paladin-protection-101-cooldowns",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much does Sacred Duty shorten Forbearance?",
+   "choices": [
+    "10 sec",
+    "5 sec"
+   ],
+   "answer": 0,
+   "explanation": "Sacred Duty shortens Forbearance by 5 sec at rank 1 and 10 sec at rank 2.",
+   "facts": [
+    "talents-paladin.protection-sacred-duty.r2"
+   ],
+   "distractorFacts": [
+    "talents-paladin.protection-sacred-duty.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.shield-spec-mana",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-priorities",
+   "type": "mcq",
+   "stem": "With both points in Shield Specialization, what chance does a block have to restore 4% of maximum mana?",
+   "choices": [
+    "100%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Two points give a 50% or 100% chance to restore 4% of maximum mana, and 15% or 30% more shield block value.",
+   "facts": [
+    "class-paladin.shield-specialization"
+   ]
+  },
+  {
+   "id": "class-paladin.bulwark-dispel",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-priorities",
+   "type": "mcq",
+   "stem": "Which of these can be dispelled?",
+   "choices": [
+    "Templar's Bulwark",
+    "Swift Judgement"
+   ],
+   "answer": 0,
+   "explanation": "Templar's Bulwark sits on row 3 and can be dispelled. Swift Judgement releases your active Seal on its own cooldown.",
+   "facts": [
+    "class-paladin.cooldowns"
+   ]
+  },
+  {
+   "id": "class-paladin.onyxia-fire-target",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-consumables",
+   "type": "scenario",
+   "stem": "Blizzard asks raids to build fire resistance before Onyxia. What target does it set?",
+   "choices": [
+    "no number",
+    "+16",
+    "+15"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard gives no number. The +16 and +15 values are Classic item and enchant values, not a Forever target.",
+   "facts": [
+    "class-paladin.fire-resistance-for-onyxia"
+   ],
+   "distractorFacts": [
+    "class-paladin.classic-fire-resistance-sources"
+   ]
+  },
+  {
+   "id": "class-paladin.scale-cloak",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much fire resistance did the Onyxia Scale Cloak give?",
+   "choices": [
+    "+16",
+    "+15"
+   ],
+   "answer": 0,
+   "explanation": "In Classic the Onyxia Scale Cloak gave +16; the Drakefire Amulet, Juju Ember and the cloak enchant gave +15.",
+   "facts": [
+    "class-paladin.classic-fire-resistance-sources"
+   ]
+  },
+  {
+   "id": "class-paladin.sanctuary",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-raid",
+   "type": "mcq",
+   "stem": "What happened to Blessing of Sanctuary in Forever?",
+   "choices": [
+    "Removed in Forever",
+    "moved to row 5"
+   ],
+   "answer": 0,
+   "explanation": "Blessing of Sanctuary is removed in Forever. Holy Shield is the talent that moved to row 5.",
+   "facts": [
+    "class-paladin.blessing-of-sanctuary"
+   ],
+   "distractorFacts": [
+    "class-paladin.holy-shield-threat"
+   ]
+  },
+  {
+   "id": "class-paladin.hyjal-size",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-raid",
+   "type": "mcq",
+   "stem": "How many players does Hyjal Summit hold?",
+   "choices": [
+    "20",
+    "10",
+    "40"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps holds 10, Hyjal Summit 20 and Onyxia's Lair 40.",
+   "facts": [
+    "class-paladin.launch-raids"
+   ]
+  },
+  {
+   "id": "class-paladin.stoicism",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-pvp",
+   "type": "mcq",
+   "stem": "Which Protection talent shortens Stun and Charm effects on you?",
+   "choices": [
+    "Stoicism",
+    "Redoubt",
+    "Toughness"
+   ],
+   "answer": 0,
+   "explanation": "Stoicism shortens Stun and Charm effects by 10% or 20%. Redoubt raises your block chance and Toughness your armor.",
+   "facts": [
+    "talents-paladin.protection-stoicism.r2",
+    "talents-paladin.protection-stoicism"
+   ],
+   "distractorFacts": [
+    "talents-paladin.protection-redoubt",
+    "talents-paladin.protection-toughness"
+   ]
+  },
+  {
+   "id": "class-paladin.shieldsworn-block",
+   "scope": "spec:paladin-protection",
+   "tier": 201,
+   "chapter": "paladin-protection-201-pvp",
+   "type": "mcq",
+   "stem": "With Shieldsworn, how long can you block spells after Holy Strike?",
+   "choices": [
+    "6 sec",
+    "4 sec"
+   ],
+   "answer": 0,
+   "explanation": "Shieldsworn lets you block spells for 6 sec; 4 sec is how much it cuts from Holy Strike's cooldown.",
+   "facts": [
+    "talents-paladin.protection-shieldsworn.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.sacred-arbiter",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-rotation",
+   "type": "mcq",
+   "stem": "How much does Sacred Arbiter raise Holy Strike's damage?",
+   "choices": [
+    "20%",
+    "70%"
+   ],
+   "answer": 0,
+   "explanation": "Sacred Arbiter adds 20% to Holy Strike and makes it refresh all Judgement effects on the target. 70% of weapon damage is Seal of Command's extra Holy damage.",
+   "facts": [
+    "talents-paladin.retribution-sacred-arbiter.r1",
+    "talents-paladin.retribution-seal-of-command.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.unsealed-duration",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-rotation",
+   "type": "mcq",
+   "stem": "How long does Unsealed Wrath keep a stored copy of your Seal?",
+   "choices": [
+    "15 sec",
+    "30 sec"
+   ],
+   "answer": 0,
+   "explanation": "Stored copies last 15 sec and stack up to 3 times. 30 sec is how long Seal of Command lasts.",
+   "facts": [
+    "talents-paladin.retribution-unsealed-wrath.r1",
+    "talents-paladin.retribution-seal-of-command.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.improved-judgement",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-rotation",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much does Improved Judgement cut from Judgement's cooldown?",
+   "choices": [
+    "2 sec",
+    "1 sec"
+   ],
+   "answer": 0,
+   "explanation": "Improved Judgement takes 1 sec off at rank 1 and 2 sec at rank 2.",
+   "facts": [
+    "talents-paladin.retribution-improved-judgement.r2"
+   ],
+   "distractorFacts": [
+    "talents-paladin.retribution-improved-judgement.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.eye-cap",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-utility",
+   "type": "mcq",
+   "stem": "Eye for an Eye's damage will not exceed what share of your total health?",
+   "choices": [
+    "50%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Eye for an Eye returns 5% of critical strike damage at rank 1, capped at 50% of the Paladin's total health.",
+   "facts": [
+    "talents-paladin.retribution-eye-for-an-eye.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.vindication",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-utility",
+   "type": "mcq",
+   "stem": "At rank 1, how much does Vindication lower the target's Attack Power?",
+   "choices": [
+    "68",
+    "204"
+   ],
+   "answer": 0,
+   "explanation": "Vindication lowers Attack Power by 68 at rank 1 and 204 at rank 3, for 30 sec.",
+   "facts": [
+    "talents-paladin.retribution-vindication.r1"
+   ],
+   "distractorFacts": [
+    "talents-paladin.retribution-vindication.r3"
+   ]
+  },
+  {
+   "id": "class-paladin.turn-evil",
+   "scope": "spec:paladin-retribution",
+   "tier": 101,
+   "chapter": "paladin-retribution-101-utility",
+   "type": "mcq",
+   "stem": "Which talent lets Turn Undead affect Demons?",
+   "choices": [
+    "Turn Evil",
+    "Vindication",
+    "Eye for an Eye"
+   ],
+   "answer": 0,
+   "explanation": "Turn Evil shortens Turn Undead's cast time and cooldown and lets it affect Demons.",
+   "facts": [
+    "talents-paladin.retribution-turn-evil.r2",
+    "talents-paladin.retribution-turn-evil"
+   ],
+   "distractorFacts": [
+    "talents-paladin.retribution-vindication",
+    "talents-paladin.retribution-eye-for-an-eye"
+   ]
+  },
+  {
+   "id": "class-paladin.conviction",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-priorities",
+   "type": "mcq",
+   "stem": "How much crit does Conviction add at its third point?",
+   "choices": [
+    "6%",
+    "4%",
+    "2%"
+   ],
+   "answer": 0,
+   "explanation": "Conviction adds 2%, 4% or 6% crit to attacks and spells.",
+   "facts": [
+    "class-paladin.crit-and-vengeance"
+   ]
+  },
+  {
+   "id": "class-paladin.vengeance-stacks",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-priorities",
+   "type": "mcq",
+   "stem": "Vengeance needs Seal of Command. How many times can it stack?",
+   "choices": [
+    "five",
+    "three"
+   ],
+   "answer": 0,
+   "explanation": "Vengeance can stack five times. Three is Unsealed Wrath's stack limit.",
+   "facts": [
+    "class-paladin.crit-and-vengeance"
+   ],
+   "distractorFacts": [
+    "class-paladin.unsealed-wrath"
+   ]
+  },
+  {
+   "id": "class-paladin.twohand-threat",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-priorities",
+   "type": "mcq",
+   "stem": "With all three points in Two-Handed Weapon Specialization, how much does it lower your threat?",
+   "choices": [
+    "20%",
+    "14%",
+    "7%"
+   ],
+   "answer": 0,
+   "explanation": "It lowers threat by 7%, 14% or 20% while adding 2%, 4% or 6% Holy and Physical damage.",
+   "facts": [
+    "class-paladin.two-handed-weapons"
+   ]
+  },
+  {
+   "id": "class-paladin.classic-elixir",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which elixir was on the melee consumables list?",
+   "choices": [
+    "Elixir of the Giants",
+    "Elixir of the Grizzly"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Giants is on the Classic melee list. Elixir of the Grizzly is new in Forever.",
+   "facts": [
+    "class-paladin.classic-melee-kit"
+   ],
+   "distractorFacts": [
+    "class-paladin.new-forever-elixir"
+   ]
+  },
+  {
+   "id": "class-paladin.grizzly",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-consumables",
+   "type": "mcq",
+   "stem": "What does Warcraft Tavern report Elixir of the Grizzly gives?",
+   "choices": [
+    "Strength plus crit",
+    "No effect while in a raid instance"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Grizzly gives Strength plus crit. 'No effect while in a raid instance' is Wowhead's note on Rallying Cry of the Dragonslayer.",
+   "facts": [
+    "class-paladin.new-forever-elixir",
+    "class-paladin.world-buffs"
+   ]
+  },
+  {
+   "id": "class-paladin.champion-r5",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-raid",
+   "type": "mcq",
+   "stem": "In the 10 November talent data, how much of your Intellect does Champion of the Light turn into spell damage at rank 5?",
+   "choices": [
+    "60%",
+    "12%"
+   ],
+   "answer": 0,
+   "explanation": "Champion of the Light gives up to 12% of your Intellect at rank 1 and 60% at rank 5. The 10/20/30% figure from the 16 October notes is out of date.",
+   "facts": [
+    "talents-paladin.retribution-champion-of-the-light.r5"
+   ],
+   "distractorFacts": [
+    "talents-paladin.retribution-champion-of-the-light.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.ret-threat",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-raid",
+   "type": "mcq",
+   "stem": "Which talent now supplies Retribution's threat reduction?",
+   "choices": [
+    "Two-Handed Weapon Specialization",
+    "Instrument of Law"
+   ],
+   "answer": 0,
+   "explanation": "Instrument of Law was removed; Two-Handed Weapon Specialization now lowers Retribution's threat.",
+   "facts": [
+    "class-paladin.retribution-threat"
+   ]
+  },
+  {
+   "id": "class-paladin.repentance-targets",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-pvp",
+   "type": "mcq",
+   "stem": "Repentance only works against which targets?",
+   "choices": [
+    "Humanoids",
+    "Demons"
+   ],
+   "answer": 0,
+   "explanation": "Repentance incapacitates Humanoids for up to 6 sec. Demons are what Turn Evil adds to Turn Undead.",
+   "facts": [
+    "talents-paladin.retribution-repentance.r1",
+    "talents-paladin.retribution-turn-evil.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.command-judgement",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-pvp",
+   "type": "scenario",
+   "stem": "You judge Seal of Command on a target that is stunned or incapacitated. How much Holy damage does it deal?",
+   "choices": [
+    "137 to 145",
+    "68 to 73"
+   ],
+   "answer": 0,
+   "explanation": "The Judgement deals 68 to 73 Holy damage, or 137 to 145 if the target is stunned or incapacitated.",
+   "facts": [
+    "talents-paladin.retribution-seal-of-command.r1"
+   ]
+  },
+  {
+   "id": "class-paladin.scorpid",
+   "scope": "spec:paladin-retribution",
+   "tier": 201,
+   "chapter": "paladin-retribution-201-pvp",
+   "type": "mcq",
+   "stem": "Against a Hunter, what does Scorpid Sting now do?",
+   "choices": [
+    "lowers the target's hit chance by 2%",
+    "drops twice as much threat"
+   ],
+   "answer": 0,
+   "explanation": "Scorpid Sting now lowers the target's hit chance by 2%. Disengage is the ability that drops twice as much threat.",
+   "facts": [
+    "class-hunter.change-4"
+   ]
+  }
+ ]
+}

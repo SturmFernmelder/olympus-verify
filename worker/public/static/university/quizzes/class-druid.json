@@ -1,0 +1,667 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-druid",
+ "questions": [
+  {
+   "id": "class-druid.omen-baseline-level",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-forever-changes",
+   "type": "mcq",
+   "stem": "At what level do Druids learn Omen of Clarity, now a baseline spell?",
+   "choices": [
+    "At 20",
+    "At 10",
+    "At 12"
+   ],
+   "answer": 0,
+   "explanation": "Omen of Clarity is baseline at 20. Nature's Grasp comes at 10 and Revive at 12.",
+   "facts": [
+    "class-druid.change-2"
+   ]
+  },
+  {
+   "id": "class-druid.berserk-removed",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Feral ability was removed in Forever?",
+   "choices": [
+    "Berserk",
+    "Furor",
+    "Leader of the Pack"
+   ],
+   "answer": 0,
+   "explanation": "Berserk was removed, along with Gift of the Earthmother. Furor moved into the Feral tree, and Leader of the Pack is still there.",
+   "facts": [
+    "class-druid.change-7"
+   ],
+   "distractorFacts": [
+    "class-druid.change-5"
+   ]
+  },
+  {
+   "id": "class-druid.hurricane-cooldown",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which of these Druid spells has no cooldown in Forever?",
+   "choices": [
+    "Hurricane",
+    "Swiftmend",
+    "Tranquility"
+   ],
+   "answer": 0,
+   "explanation": "Hurricane has no cooldown in Forever. Swiftmend has a 15 sec cooldown, and Improved Tranquility exists to shorten Tranquility's.",
+   "facts": [
+    "class-druid.change-6"
+   ]
+  },
+  {
+   "id": "class-druid.cat-form-quest",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest chain teaches Cat Form in Forever?",
+   "choices": [
+    "The Great Cat Spirit",
+    "A Lesson to Learn",
+    "Heeding the Call"
+   ],
+   "answer": 0,
+   "explanation": "Cat Form is no longer simply trained: 'The Great Cat Spirit' chain at 20 teaches it. 'A Lesson to Learn' leads to Aquatic Form, and 'Heeding the Call' to Bear Form.",
+   "facts": [
+    "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-aquatic-form-a-lesson-to-learn",
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+   ]
+  },
+  {
+   "id": "class-druid.bear-quest-teaches",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-class-quests",
+   "type": "mcq",
+   "stem": "Besides Bear Form, what does the level 10 Bear Form quest teach?",
+   "choices": [
+    "Growl and Maul",
+    "Claw, Prowl and Rip",
+    "Cure Poison"
+   ],
+   "answer": 0,
+   "explanation": "The Bear Form quest teaches Bear Form, Growl and Maul. Claw, Prowl and Rip come with Cat Form, and Cure Poison has its own quest at 14.",
+   "facts": [
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever",
+    "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+   ]
+  },
+  {
+   "id": "class-druid.cure-poison-quest",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-class-quests",
+   "type": "mcq",
+   "stem": "Which quest teaches Cure Poison?",
+   "choices": [
+    "Lessons Anew",
+    "A Lesson to Learn",
+    "Body and Heart"
+   ],
+   "answer": 0,
+   "explanation": "'Lessons Anew', part of the 'Power over Poison' chain at 14, teaches Cure Poison. 'A Lesson to Learn' leads to Aquatic Form and 'Body and Heart' ends the Bear Form quest.",
+   "facts": [
+    "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+   ],
+   "distractorFacts": [
+    "class-druid.quest-aquatic-form-a-lesson-to-learn",
+    "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+   ]
+  },
+  {
+   "id": "class-druid.wind-blessed",
+   "scope": "class:druid",
+   "tier": 101,
+   "chapter": "druid-101-race",
+   "type": "mcq",
+   "stem": "What does the High Order Skyborne racial Wind-Blessed give in Forever?",
+   "choices": [
+    "+2% haste",
+    "+1% hit",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Wind-Blessed gives +2% haste. +1% hit is the Dwarf's Artisan's Precision and +1% crit is the Human's Ruthless.",
+   "facts": [
+    "common.racial-skyborne-wind-blessed"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-human-ruthless"
+   ]
+  },
+  {
+   "id": "class-druid.innervate-level",
+   "scope": "class:druid",
+   "tier": 201,
+   "chapter": "druid-201-raid-utility",
+   "type": "mcq",
+   "stem": "At what level do Druids learn Innervate, per the warcraft.wiki.gg Forever ability table?",
+   "choices": [
+    "40",
+    "20",
+    "30"
+   ],
+   "answer": 0,
+   "explanation": "Innervate (and Hurricane) come at 40. Rebirth is 20 and Tranquility 30.",
+   "facts": [
+    "class-druid.raid-utility-levels"
+   ]
+  },
+  {
+   "id": "class-druid.gift-of-the-wild-level",
+   "scope": "class:druid",
+   "tier": 201,
+   "chapter": "druid-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which Druid raid spell arrives last, at level 50?",
+   "choices": [
+    "Gift of the Wild",
+    "Tranquility",
+    "Rebirth"
+   ],
+   "answer": 0,
+   "explanation": "Gift of the Wild comes at 50. Tranquility is 30 and Rebirth 20.",
+   "facts": [
+    "class-druid.raid-utility-levels"
+   ]
+  },
+  {
+   "id": "class-druid.eclipse-duration",
+   "scope": "spec:druid-balance",
+   "tier": 101,
+   "chapter": "druid-balance-101-rotation",
+   "type": "mcq",
+   "stem": "How long do Eclipse charges last?",
+   "choices": [
+    "15 sec",
+    "3 sec",
+    "6 sec"
+   ],
+   "answer": 0,
+   "explanation": "Eclipse stores up to 4 charges, and they last 15 sec. 3 and 6 sec are what Nature's Splendor adds to Moonfire and Regrowth.",
+   "facts": [
+    "class-druid.eclipse-loop"
+   ],
+   "distractorFacts": [
+    "class-druid.damage-over-time"
+   ]
+  },
+  {
+   "id": "class-druid.natures-grace-haste",
+   "scope": "spec:druid-balance",
+   "tier": 101,
+   "chapter": "druid-balance-101-rotation",
+   "type": "mcq",
+   "stem": "After a non-periodic spell crit, by how much does Nature's Grace speed up your casting and shorten your global cooldown?",
+   "choices": [
+    "10%",
+    "8%",
+    "25%"
+   ],
+   "answer": 0,
+   "explanation": "Nature's Grace gives 10% for 3 sec. 8% and 25% are Moonglow's mana cost reductions at ranks 1 and 3.",
+   "facts": [
+    "class-druid.crit-chain"
+   ],
+   "distractorFacts": [
+    "class-druid.mana"
+   ]
+  },
+  {
+   "id": "class-druid.moonkin-armor",
+   "scope": "spec:druid-balance",
+   "tier": 101,
+   "chapter": "druid-balance-101-tips",
+   "type": "mcq",
+   "stem": "By how much does Moonkin Form raise the armor you get from items?",
+   "choices": [
+    "360%",
+    "100%",
+    "3%"
+   ],
+   "answer": 0,
+   "explanation": "Moonkin Form raises armor from items by 360%. It also raises Omen of Clarity's trigger chance by 100% and nearby party and raid crit chance by 3%.",
+   "facts": [
+    "talents-druid.balance-moonkin-form.r1"
+   ]
+  },
+  {
+   "id": "class-druid.classic-spell-hit",
+   "scope": "spec:druid-balance",
+   "tier": 201,
+   "chapter": "druid-balance-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much spell hit did casters need against raid bosses three levels higher?",
+   "choices": [
+    "16%",
+    "2%",
+    "8%"
+   ],
+   "answer": 0,
+   "explanation": "Classic casters needed 16%. Forever has a cap too, but Icy Veins says its value is not known yet. 2% is Nature's Reach at rank 1.",
+   "facts": [
+    "class-druid.spell-hit-classic-baseline-for-the-cap"
+   ],
+   "distractorFacts": [
+    "class-druid.mana"
+   ]
+  },
+  {
+   "id": "class-druid.natures-reach-hit",
+   "scope": "spec:druid-balance",
+   "tier": 201,
+   "chapter": "druid-balance-201-priorities",
+   "type": "mcq",
+   "stem": "How much hit does Nature's Reach give at rank 2 of 2?",
+   "choices": [
+    "4%",
+    "2%",
+    "20%"
+   ],
+   "answer": 0,
+   "explanation": "Nature's Reach gives 4% hit at rank 2 (2% at rank 1). The 20% is its extra range at rank 2.",
+   "facts": [
+    "talents-druid.balance-nature-s-reach.r2"
+   ],
+   "distractorFacts": [
+    "talents-druid.balance-nature-s-reach.r1"
+   ]
+  },
+  {
+   "id": "class-druid.cunning-elixir",
+   "scope": "spec:druid-balance",
+   "tier": 201,
+   "chapter": "druid-balance-201-consumables",
+   "type": "mcq",
+   "stem": "Which new Forever elixir does Warcraft Tavern report for Agility plus Intellect?",
+   "choices": [
+    "Elixir of Cunning",
+    "Greater Arcane Elixir",
+    "Mageblood Potion"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern reports Elixir of Cunning (Agility plus Intellect). Greater Arcane Elixir and Mageblood Potion are from the Classic 1.12 caster list.",
+   "facts": [
+    "class-druid.new-forever-elixirs"
+   ],
+   "distractorFacts": [
+    "class-druid.classic-caster-kit"
+   ]
+  },
+  {
+   "id": "class-druid.hurricane-level",
+   "scope": "spec:druid-balance",
+   "tier": 201,
+   "chapter": "druid-balance-201-raid",
+   "type": "mcq",
+   "stem": "At what level do Druids learn Hurricane, per the warcraft.wiki.gg Forever ability table?",
+   "choices": [
+    "40",
+    "30",
+    "24"
+   ],
+   "answer": 0,
+   "explanation": "Hurricane (and Innervate) come at 40. Tranquility is 30 and Remove Curse 24.",
+   "facts": [
+    "class-druid.raid-utility-levels"
+   ]
+  },
+  {
+   "id": "class-druid.improved-starfire-stun",
+   "scope": "spec:druid-balance",
+   "tier": 201,
+   "chapter": "druid-balance-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 5 of 5, what chance does Improved Starfire give Starfire to stun its target?",
+   "choices": [
+    "15%",
+    "3%",
+    "0.5 sec"
+   ],
+   "answer": 0,
+   "explanation": "Rank 5 gives a 15% chance to stun for 3 sec and cuts Starfire's cast time by 0.5 sec. Rank 1 gives 3%.",
+   "facts": [
+    "talents-druid.balance-improved-starfire.r5"
+   ],
+   "distractorFacts": [
+    "talents-druid.balance-improved-starfire.r1"
+   ]
+  },
+  {
+   "id": "class-druid.lacerate-stacks",
+   "scope": "spec:druid-feral-combat",
+   "tier": 101,
+   "chapter": "druid-feral-combat-101-rotation",
+   "type": "mcq",
+   "stem": "Up to how many times does Lacerate stack on the same target?",
+   "choices": [
+    "5",
+    "15",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "Lacerate stacks up to 5 times. It bleeds for 20 damage over 15 sec, plus 10% weapon damage per existing application.",
+   "facts": [
+    "talents-druid.feral-combat-lacerate.r1"
+   ]
+  },
+  {
+   "id": "class-druid.primal-bite-cost",
+   "scope": "spec:druid-feral-combat",
+   "tier": 101,
+   "chapter": "druid-feral-combat-101-rotation",
+   "type": "mcq",
+   "stem": "How much Rage does Primal Bite cost?",
+   "choices": [
+    "20 Rage",
+    "15 Rage",
+    "5 Rage"
+   ],
+   "answer": 0,
+   "explanation": "Primal Bite costs 20 Rage and has a 6 sec cooldown. Lacerate costs 15 Rage and Feral Charge 5.",
+   "facts": [
+    "talents-druid.feral-combat-primal-bite"
+   ],
+   "distractorFacts": [
+    "talents-druid.feral-combat-lacerate",
+    "talents-druid.feral-combat-feral-charge"
+   ]
+  },
+  {
+   "id": "class-druid.furor-chance",
+   "scope": "spec:druid-feral-combat",
+   "tier": 101,
+   "chapter": "druid-feral-combat-101-tips",
+   "type": "mcq",
+   "stem": "At rank 5 of 5, what chance does Furor give you to gain 10 Rage when you shift into Bear Form?",
+   "choices": [
+    "100%",
+    "20%",
+    "60%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 5 gives a 100% chance; each rank adds 20%, so rank 1 gives 20% and rank 3 gives 60%.",
+   "facts": [
+    "talents-druid.feral-combat-furor.r5"
+   ],
+   "distractorFacts": [
+    "talents-druid.feral-combat-furor.r1",
+    "talents-druid.feral-combat-furor.r3"
+   ]
+  },
+  {
+   "id": "class-druid.bear-threat-bonus",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-priorities",
+   "type": "mcq",
+   "stem": "What threat bonus do Bear Form and Dire Bear Form have?",
+   "choices": [
+    "115%",
+    "100%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Bear and Dire Bear Form have a 115% threat bonus. 100% is how much of your health Frenzied Regeneration can heal, and 15% is Rend and Tear's top bonus.",
+   "facts": [
+    "class-druid.bear-threat"
+   ],
+   "distractorFacts": [
+    "class-druid.bear-survival",
+    "class-druid.bleed-bonus"
+   ]
+  },
+  {
+   "id": "class-druid.predatory-discipline",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-priorities",
+   "type": "scenario",
+   "stem": "You have taken Predatory Discipline. What does Ferocious Bite do with your excess Energy?",
+   "choices": [
+    "Still deals extra damage based on your excess Energy",
+    "Converts extra Energy into damage"
+   ],
+   "answer": 0,
+   "explanation": "With Predatory Discipline, Ferocious Bite no longer converts extra Energy into damage, but it still deals extra damage based on your excess Energy, so you keep the Energy.",
+   "facts": [
+    "talents-druid.feral-combat-predatory-discipline.r1",
+    "class-druid.cat-energy"
+   ]
+  },
+  {
+   "id": "class-druid.grizzly-elixir",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-consumables",
+   "type": "mcq",
+   "stem": "Which new Forever elixir does Warcraft Tavern report for Strength plus crit?",
+   "choices": [
+    "Elixir of the Grizzly",
+    "Elixir of the Mongoose",
+    "Elixir of the Giants"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern reports Elixir of the Grizzly (Strength plus crit). Elixir of the Mongoose and Elixir of the Giants are on the Classic 1.12 tank list.",
+   "facts": [
+    "class-druid.new-forever-elixirs-2"
+   ],
+   "distractorFacts": [
+    "class-druid.classic-tank-kit"
+   ]
+  },
+  {
+   "id": "class-druid.feral-instinct-swipe",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-raid",
+   "type": "mcq",
+   "stem": "How much does Feral Instinct add to Swipe damage at rank 3 of 3?",
+   "choices": [
+    "30%",
+    "10%",
+    "20%"
+   ],
+   "answer": 0,
+   "explanation": "Feral Instinct adds 30% at rank 3, 20% at rank 2 and 10% at rank 1.",
+   "facts": [
+    "talents-druid.feral-combat-feral-instinct.r3"
+   ],
+   "distractorFacts": [
+    "talents-druid.feral-combat-feral-instinct.r1",
+    "talents-druid.feral-combat-feral-instinct.r2"
+   ]
+  },
+  {
+   "id": "class-druid.brutal-impact-bash",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 2 of 2, how much does Brutal Impact cut Bash's cooldown?",
+   "choices": [
+    "30 sec",
+    "15 sec",
+    "1 sec"
+   ],
+   "answer": 0,
+   "explanation": "Rank 2 cuts Bash's cooldown by 30 sec and adds 1 sec to Bash and Pounce stuns. Rank 1 cuts it by 15 sec.",
+   "facts": [
+    "talents-druid.feral-combat-brutal-impact.r2"
+   ],
+   "distractorFacts": [
+    "talents-druid.feral-combat-brutal-impact.r1"
+   ]
+  },
+  {
+   "id": "class-druid.feral-charge-duration",
+   "scope": "spec:druid-feral-combat",
+   "tier": 201,
+   "chapter": "druid-feral-combat-201-pvp",
+   "type": "mcq",
+   "stem": "How long does Bear Form's Feral Charge immobilize the target and interrupt its spellcasting?",
+   "choices": [
+    "4 sec",
+    "30 sec",
+    "15 sec"
+   ],
+   "answer": 0,
+   "explanation": "Feral Charge immobilizes and interrupts for 4 sec. Its Bear cooldown is 15 sec, and the Cat version has a 30 sec cooldown.",
+   "facts": [
+    "talents-druid.feral-combat-feral-charge.r1",
+    "talents-druid.feral-combat-feral-charge"
+   ]
+  },
+  {
+   "id": "class-druid.swiftmend-cooldown",
+   "scope": "spec:druid-restoration",
+   "tier": 101,
+   "chapter": "druid-restoration-101-rotation",
+   "type": "mcq",
+   "stem": "What is Swiftmend's cooldown?",
+   "choices": [
+    "15 sec",
+    "3 min",
+    "6 sec"
+   ],
+   "answer": 0,
+   "explanation": "Swiftmend has a 15 sec cooldown. Nature's Swiftness has 3 min and Wild Growth 6 sec.",
+   "facts": [
+    "talents-druid.restoration-swiftmend"
+   ],
+   "distractorFacts": [
+    "talents-druid.restoration-nature-s-swiftness",
+    "talents-druid.restoration-wild-growth"
+   ]
+  },
+  {
+   "id": "class-druid.wild-growth-duration",
+   "scope": "spec:druid-restoration",
+   "tier": 101,
+   "chapter": "druid-restoration-101-rotation",
+   "type": "mcq",
+   "stem": "Over how long does Wild Growth heal the target's party?",
+   "choices": [
+    "7 sec",
+    "6 sec",
+    "3 sec"
+   ],
+   "answer": 0,
+   "explanation": "Wild Growth heals over 7 sec, quickly at first and then more slowly. It has a 3 sec cast and a 6 sec cooldown.",
+   "facts": [
+    "talents-druid.restoration-wild-growth.r1",
+    "talents-druid.restoration-wild-growth"
+   ]
+  },
+  {
+   "id": "class-druid.mark-baseline",
+   "scope": "spec:druid-restoration",
+   "tier": 101,
+   "chapter": "druid-restoration-101-tips",
+   "type": "mcq",
+   "stem": "Which former Restoration talent is a baseline spell in Forever?",
+   "choices": [
+    "Improved Mark of the Wild",
+    "Bloom",
+    "Heart of the Wild"
+   ],
+   "answer": 0,
+   "explanation": "Improved Mark of the Wild is baseline now. Bloom is a new Restoration talent, and Heart of the Wild moved into Restoration from Feral.",
+   "facts": [
+    "class-druid.change-2"
+   ],
+   "distractorFacts": [
+    "class-druid.change-7"
+   ]
+  },
+  {
+   "id": "class-druid.bloom-expiry",
+   "scope": "spec:druid-restoration",
+   "tier": 201,
+   "chapter": "druid-restoration-201-priorities",
+   "type": "scenario",
+   "stem": "Your Rejuvenation runs its full duration. How much does Bloom heal the target for?",
+   "choices": [
+    "100% of your Spirit",
+    "50% of your Spirit"
+   ],
+   "answer": 0,
+   "explanation": "Bloom heals for 100% of your Spirit at natural expiry, and 50% when the effect is dispelled.",
+   "facts": [
+    "class-druid.bloom",
+    "talents-druid.restoration-bloom.r1"
+   ]
+  },
+  {
+   "id": "class-druid.healing-potions",
+   "scope": "spec:druid-restoration",
+   "tier": 201,
+   "chapter": "druid-restoration-201-consumables",
+   "type": "mcq",
+   "stem": "Which profession makes healing potions in Forever, per Warcraft Tavern?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+   "facts": [
+    "class-druid.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-druid.abolish-poison-level",
+   "scope": "spec:druid-restoration",
+   "tier": 201,
+   "chapter": "druid-restoration-201-raid",
+   "type": "mcq",
+   "stem": "At what level do Druids learn Abolish Poison, per the warcraft.wiki.gg Forever table?",
+   "choices": [
+    "26",
+    "24",
+    "30"
+   ],
+   "answer": 0,
+   "explanation": "Abolish Poison comes at 26. Remove Curse is 24 and Tranquility 30.",
+   "facts": [
+    "class-druid.utility"
+   ]
+  },
+  {
+   "id": "class-druid.natures-swiftness",
+   "scope": "spec:druid-restoration",
+   "tier": 201,
+   "chapter": "druid-restoration-201-pvp",
+   "type": "mcq",
+   "stem": "What does Nature's Swiftness do when you activate it?",
+   "choices": [
+    "Your next Nature spell becomes an instant cast spell",
+    "Instantly heals a target with your active Rejuvenation or Regrowth effect"
+   ],
+   "answer": 0,
+   "explanation": "Nature's Swiftness makes your next Nature spell instant. Instantly healing from your Rejuvenation or Regrowth is Swiftmend.",
+   "facts": [
+    "talents-druid.restoration-nature-s-swiftness.r1",
+    "talents-druid.restoration-swiftmend.r1"
+   ]
+  }
+ ]
+}

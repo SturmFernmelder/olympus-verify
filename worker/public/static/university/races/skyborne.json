@@ -1,0 +1,367 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "race",
+ "id": "skyborne",
+ "name": "Skyborne (High Order)",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "factFiles": [
+  "common",
+  "race-skyborne",
+  "class-mage",
+  "class-hunter",
+  "class-druid",
+  "class-warrior"
+ ],
+ "quizFiles": [
+  "race-skyborne"
+ ],
+ "overview": {
+  "lead": "The Skyborne, the Alliance High Order, are a new race in Forever and need a paid Forever pack. Their racial Wind-Blessed gives +2% haste, and their Attuned bonus is removed when you enter a raid.",
+  "points": [
+   {
+    "text": "Skyborne can be a Druid, Hunter, Mage, Rogue or Warrior.",
+    "facts": [
+     "race-skyborne.classes"
+    ]
+   },
+   {
+    "text": "No racial grants weapon skill in Forever, so a Skyborne's weapon choice is free of racial math.",
+    "facts": [
+     "common.racial-weapon-skill"
+    ]
+   }
+  ],
+  "facts": [
+   "common.racial-skyborne-wind-blessed",
+   "common.racial-skyborne-attuned",
+   "race-skyborne.pack"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[8].overview[1]",
+   "text": "Skyborne needs a paid Forever upgrade and has its own bird-like form models. On 26 Oct its Read Ley Line racial dropped to a 50% regen bonus that can't be used during Innervate.",
+   "reason": "Druid overview prose with no grade or source; no reviewed fact holds the form models or the Read Ley Line value."
+  },
+  {
+   "from": "classes[6].overview[1]",
+   "text": "Skyborne is new to the class and needs a paid Forever upgrade, such as a Skyborne pack; a plain subscription does not include the race.",
+   "reason": "The pack requirement is carried as race-skyborne.pack; the plain-subscription line has no grade or source."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "Wind-Blessed and Attuned, how to get a Skyborne character and its classes, and the Skyborne class quests the guides document.",
+   "chapters": [
+    {
+     "id": "skyborne-101-racials",
+     "section": "overview",
+     "title": "Skyborne racials in Forever",
+     "theory": [
+      "common.racial-skyborne-wind-blessed",
+      "common.racial-skyborne-attuned",
+      "common.racial-weapon-skill"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Count +2% haste from Wind-Blessed.",
+        "facts": [
+         "common.racial-skyborne-wind-blessed"
+        ]
+       },
+       {
+        "text": "Leave Attuned out of raid plans: it is removed when you enter a raid.",
+        "facts": [
+         "common.racial-skyborne-attuned"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of your plans: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning a raid setup around the Attuned bonus.",
+        "fix": "Attuned is removed when you enter a raid.",
+        "facts": [
+         "common.racial-skyborne-attuned"
+        ]
+       },
+       {
+        "mistake": "Choosing Skyborne for a weapon-skill bonus.",
+        "fix": "No racial grants weapon skill in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skyborne-101-other-racials",
+     "section": "overview",
+     "title": "Attuned and Read Ley Line values",
+     "theory": [
+      "common.racial-skyborne-attuned"
+     ],
+     "unavailable": "The site holds no reviewed value for what Attuned gives outside raids, only that it is removed when you enter one, and no graded fact on Read Ley Line. This chapter waits for both."
+    },
+    {
+     "id": "skyborne-101-access",
+     "section": "overview",
+     "title": "Getting a Skyborne character",
+     "theory": [
+      "race-skyborne.pack",
+      "race-skyborne.classes",
+      "common.alliance-new-race-class-combos"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Check your account first: the Skyborne race needs a paid Forever pack.",
+        "facts": [
+         "race-skyborne.pack"
+        ]
+       },
+       {
+        "text": "Pick one of the five Skyborne classes: Druid, Hunter, Mage, Rogue or Warrior.",
+        "facts": [
+         "race-skyborne.classes"
+        ]
+       },
+       {
+        "text": "Skyborne is a new race. The other new Alliance options are new classes for existing races: Human Hunter, Dwarf Shaman and Gnome Priest.",
+        "facts": [
+         "race-skyborne.classes",
+         "common.alliance-new-race-class-combos"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Assuming every Forever account can create a Skyborne character.",
+        "fix": "The Skyborne race needs a paid Forever pack.",
+        "facts": [
+         "race-skyborne.pack"
+        ]
+       },
+       {
+        "mistake": "Planning a Skyborne character in a class outside the Skyborne list.",
+        "fix": "Skyborne can be a Druid, Hunter, Mage, Rogue or Warrior.",
+        "facts": [
+         "race-skyborne.classes"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skyborne-101-class-quests",
+     "section": "overview",
+     "title": "Skyborne class quests",
+     "theory": [
+      "class-hunter.quest-taming-the-beast",
+      "class-druid.quest-skyborne-druid-form-quests",
+      "class-warrior.quest-defensive-stance-quest"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "As a Skyborne Hunter, do your race's own versions of the Taming the Beast quests on Zephras Isle at level 10.",
+        "facts": [
+         "class-hunter.quest-taming-the-beast"
+        ]
+       },
+       {
+        "text": "Finish with Training the Beast, which unlocks Beast Training, Feed Pet and Revive Pet.",
+        "facts": [
+         "class-hunter.quest-taming-the-beast"
+        ]
+       },
+       {
+        "text": "As a Skyborne Druid, expect your form quests to start on Zephras Isle, but treat the details as unconfirmed. A single report (Method) names 'The Great Ursera Spirit' for Bear and 'The Great Windborne Cat Spirit' for Cat, and other reports disagree.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       },
+       {
+        "text": "As a Skyborne Warrior, expect a race-specific quest at level 10 that unlocks Defensive Stance. Taunt and Sunder Armor are trained after it.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Treating the Skyborne Druid quest names as settled.",
+        "fix": "Only one report (Method) gives them, and other reports disagree on the NPCs and start points.",
+        "facts": [
+         "class-druid.quest-skyborne-druid-form-quests"
+        ]
+       },
+       {
+        "mistake": "Following the Bartleby quest as a Skyborne Warrior.",
+        "fix": "The Defensive Stance quest is race-specific, and the Bartleby quest is the Human version.",
+        "facts": [
+         "class-warrior.quest-defensive-stance-quest"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "skyborne-101-pvp",
+     "section": "praxis",
+     "title": "Skyborne racials in PvP",
+     "theory": [],
+     "unavailable": "The site holds no reviewed fact on what Skyborne racials do in PvP. This chapter waits for one."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Races have no talent tree; see your class guide."
+    },
+    {
+     "section": "rotation",
+     "reason": "Races have no rotation of their own."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Hit, crit and defense caps are not known for Forever yet; each class guide's stat caps chapter tracks them."
+    },
+    {
+     "section": "gear",
+     "reason": "Races have no gear of their own."
+    },
+    {
+     "section": "consumables",
+     "reason": "Races have no consumables of their own."
+    },
+    {
+     "section": "macros",
+     "reason": "No racial macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "201": {
+   "summary": "How Wind-Blessed compares with the other Alliance racials for raiding Hunters and Mages.",
+   "chapters": [
+    {
+     "id": "skyborne-201-raid-racials",
+     "section": "praxis",
+     "title": "Wind-Blessed next to the other raid racials",
+     "theory": [
+      "class-hunter.racials",
+      "class-mage.alliance-racials-for-raiders",
+      "common.racial-skyborne-attuned"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "For a raiding Hunter, the 26 October racials are Dwarf Artisan's Precision +1% hit, Human Ruthless +1% crit and Skyborne Wind-Blessed +2% haste.",
+        "facts": [
+         "class-hunter.racials"
+        ]
+       },
+       {
+        "text": "For a raiding Mage, weigh Wind-Blessed's +2% haste against Human Ruthless +1% crit and Gnome Eureka!, an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger.",
+        "facts": [
+         "class-mage.alliance-racials-for-raiders"
+        ]
+       },
+       {
+        "text": "Leave Attuned out of the comparison: it is removed when you enter a raid.",
+        "facts": [
+         "common.racial-skyborne-attuned"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Counting Attuned when comparing raid racials.",
+        "fix": "Attuned is removed when you enter a raid. Compare Wind-Blessed's +2% haste instead.",
+        "facts": [
+         "class-mage.alliance-racials-for-raiders"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No further reviewed Skyborne fact exists yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "No advanced Skyborne chapter can be written yet: haste math for Wind-Blessed needs measured Forever data.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "talents",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "rotation",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "gear",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No measured Forever racial data exists yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "No measured Forever racial data exists yet."
+    }
+   ]
+  }
+ }
+}
