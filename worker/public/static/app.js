@@ -6998,7 +6998,15 @@
       } catch (error) {
         // RC-017 (round 3, 12 Nov 2026): since CL2-017 a bare failure shows this fallback, and a lost answer may already have
         // issued a code, so it asks for a status check before a second request instead of inviting a retry.
-        if (live()) add(result, h("p", {class:"err",text:explain(error,"The answer did not arrive, so it is not known whether a code was issued. Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.")}));
+        // Round 4 item 4 (13 Nov 2026): each case says what happened. A lost answer, an unreadable one and a bare 5xx leave the
+        // outcome unknown; a refusal the Worker answered keeps its own words, and one without a message says so.
+        const statusCheck = " Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.";
+        const said = error && error.status === 0 ? "The answer did not arrive, so it is not known whether a code was issued." + statusCheck
+          : error && error.data && error.data.message ? explain(error)
+          : codeOf(error) === "unreadable_answer" ? "The answer could not be read, so it is not known whether a code was issued." + statusCheck
+          : uncertain(error) ? "The site had a problem answering, so it is not known whether a code was issued." + statusCheck
+          : explain(error, "The site refused the request without giving a reason." + statusCheck);
+        if (live()) add(result, h("p", {class:"err",text:said}));
       } finally { if (live()) submit.disabled = false; }
     });
   };

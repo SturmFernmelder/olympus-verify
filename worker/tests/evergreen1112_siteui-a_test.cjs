@@ -809,6 +809,33 @@ async function round4Checks(cdp) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
     check('R4-2', '/#/apply at 1280 and 375 px: "Character talent builds (optional)" has the section-title size of its sibling H2s, below the H1', Object.values(sizes).every(s => s.talent && s.siblings.length === 1 && s.talent === s.siblings[0] && s.talent < s.h1), JSON.stringify(sizes));
   }
+  if (want('R4-4')) {
+    // The verification request's failure line says what happened: a refusal the Worker answered without a message is not
+    // "the answer did not arrive", and each unknown-outcome case keeps the status-check advice.
+    const reply = (status, body, type = 'application/json') => p => cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: status, responseHeaders: [{ name: 'Content-Type', value: type }], body: Buffer.from(body).toString('base64') });
+    const cases = {
+      bare403: reply(403, '', 'text/plain'),
+      bare400: reply(400, '{}'),
+      bare500: reply(500, 'synthetic failure', 'text/plain'),
+      worded400: reply(400, JSON.stringify({ error: 'invalid', message: 'Synthetic worded refusal.' })),
+      lost: p => cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' }),
+    };
+    const said = {};
+    for (const [name, answer] of Object.entries(cases)) {
+      await open(cdp, 'member', 'verify', 'document.querySelector("main form input")');
+      await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/me/verification', requestStage: 'Request' }] });
+      cdp.onPaused = answer;
+      await cdp.eval(`(() => { const i = document.querySelector('main form input'); i.value = 'Fern Melder'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('main form button[type="submit"]').click(); return true; })()`);
+      await waitFor(cdp, 'document.querySelector("main form [role=status] p.err")', 6000);
+      cdp.onPaused = null; await cdp.send('Fetch.disable');
+      said[name] = await cdp.eval(`document.querySelector('main form [role=status] p.err')?.textContent || ''`);
+    }
+    const advice = /Check My status or \/verify-status in Discord before asking again/;
+    check('R4-4', 'a refusal answered without a message (bare 403, empty 400) says the site refused it, not that the answer did not arrive', ['bare403', 'bare400'].every(k => /refused the request without giving a reason/.test(said[k]) && !/did not arrive|not known whether/.test(said[k]) && advice.test(said[k])), JSON.stringify(said));
+    check('R4-4', 'a bare 500 says the site had a problem answering and that it is not known whether a code was issued', /had a problem answering/.test(said.bare500) && /not known whether a code was issued/.test(said.bare500) && !/did not arrive/.test(said.bare500) && advice.test(said.bare500), said.bare500);
+    check('R4-4', 'a lost answer says it did not arrive and that it is not known whether a code was issued', /did not arrive/.test(said.lost) && /not known whether a code was issued/.test(said.lost) && advice.test(said.lost) && !/try again/i.test(said.lost), said.lost);
+    check('R4-4', 'control: a refusal with a message still shows the Worker\'s own words', said.worded400 === 'Synthetic worded refusal.', said.worded400);
+  }
 }
 
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
