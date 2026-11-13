@@ -8,8 +8,8 @@ import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_RANK_NAMES} from './native-rank-co
 import {NATIVE_RANK_NAMES232} from './native-rank-reconciliation232';
 
 export const MANAGED_RANK_COOLDOWN280='role.managed.cooldown280';
-export const CANONICAL_DELETE_REFUSAL280='canonical-routine-delete-refusal-v1';
-export const BAN_DELETE_REFUSAL280='ban-rank-delete-refusal-v1';
+export const CANONICAL_DELETE_REFUSAL280='canonical-routine-refusal-v1';
+export const BAN_DELETE_REFUSAL280='ban-rank-refusal-v1';
 const BAN_PROFILE='olympus-ban-rank-removal-20261112-v1';
 const SAFE=9_007_199_254_740_991;
 const REASON_KEYS=['version','type','status','code','retryAfterSeconds'] as const;
@@ -97,7 +97,13 @@ export function managedRankCooldownAllowedSql280():string{
 export function manualRankRefusalSql280(name:string):string{
  const a=alias(name);return all([any([canonicalDeleteRefusalSql280(a),banDeleteRefusalSql280(a)]),`(CASE WHEN json_valid(${a}.reason) THEN json_extract(${a}.reason,'$.status') ELSE NULL END) IN(403,404)`]);
 }
-export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string):string{
- for(const v of [subject,guild,role])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
- return `NOT EXISTS(SELECT 1 FROM role_settlements manual280 WHERE ${all([`manual280.subject=${subject}`,`manual280.guild_id=${guild}`,`manual280.role_id=${role}`,manualRankRefusalSql280('manual280')])})`;
+export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
+ const original=binding.kind==='routine'?binding.parent:binding.mandate;
+ for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
+ const mandate=binding.kind==='routine'?all(["manual280.purpose='canonical_routine233'",`manual280.request_digest=${original}`]):all(["manual280.purpose='canonical_ban_remove_v1'",`manual280.proof_id=${original}`]);
+ return `NOT EXISTS(SELECT 1 FROM role_settlements manual280 WHERE ${all([`manual280.subject=${subject}`,`manual280.guild_id=${guild}`,`manual280.role_id=${role}`,`manual280.subject_generation IS ${binding.generation}`,mandate,manualRankRefusalSql280('manual280')])})`;
+}
+/** Data-only Native status for an original pacing read; never effect authority. */
+export function managedRankCooldownStatusSql280():string{
+ return `(CASE WHEN EXISTS(SELECT 1 FROM site_settings pace280 WHERE pace280.key='${MANAGED_RANK_COOLDOWN280}' AND NOT(${managedRankCooldownValidSql280('pace280')})) THEN 2 WHEN ${managedRankCooldownAllowedSql280()} THEN 0 ELSE 1 END)`;
 }
