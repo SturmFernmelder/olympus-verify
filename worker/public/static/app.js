@@ -305,7 +305,8 @@
             return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("strong", { text: label }),
               h("ul", null, own.map(row => { const reporting = roleReporting218(row, family, {includeMinistry:false});
                 return h("li", { "data-rosetta-key1112": row.key }, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }),
-                  " · ", row.ministry || row.department, reporting ? " · " + reporting : ""); })));
+                  // Round 4 (13 Nov 2026): the scope is its own span so phones can put it under the 44 px link.
+                  h("span", { class: "rosetta-key-scope1112" }, h("span", { class: "rosetta-sep1112", "aria-hidden": "true", text: " · " }), row.ministry || row.department, reporting ? " · " + reporting : "")); })));
           }))),
           h("p", { class: "rosetta-access1112" }, role ? h("strong", { text: role.roleName }) : h("span", { class: "muted", text: "Discord role unavailable" }),
             role?.granted === "verified_alt" ? " · given from the verified-alt record, not from the in-game rank." : role ? " · follows this rank on the verified roster." : "",

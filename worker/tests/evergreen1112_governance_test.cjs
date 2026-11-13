@@ -473,6 +473,23 @@ async function round4Checks({ open, ev, show, bcheck }) {
   const bad = Object.entries(ladders).filter(([, v]) => !v || v.links !== 10 || v.broken.length || v.cellOverflow.length || v.over > 0).map(([k, v]) => k + ' ' + show(v));
   bcheck('R4-GOV-2', 'the Roles rank ladder breaks no rank name or "Slot N" label inside a word and does not overflow (320, 360, 375, 390, 768, 1024, 1280, 1440 px)',
     bad.length === 0, bad.length ? bad.slice(0, 4).join(' | ') : show({ checked: Object.keys(ladders).length, sample: ladders['roles@320'] }));
+
+  // R4-GOV-3: the cross-links this work put on /#/organization and /#/roles are 44 px touch targets on phones. Every group
+  // must be present (a missing group fails), and the page must not overflow.
+  const GROUPS3 = {
+    organization: { composition: '.org-composition-links > a', lanes: '[data-alliance-context1112] a', inspectorTitles: '.org-inspector h3 + ul > li > a' },
+    roles: { chooserRosetta: '.application-directory201 > .plaque > a:not(.btn)', rosettaFamily: 'li[data-rosetta-family1112] > a', rosettaKey: 'li[data-rosetta-key1112] > a', rosettaApply: 'tr[data-rank-crosswalk] > td:last-child a' },
+  };
+  const touch = {};
+  for (const width of [390, 375, 320]) for (const [route, groups] of Object.entries(GROUPS3)) {
+    await open('member', width, route);
+    touch[`${route}@${width}`] = await ev(`for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,500));const out={};
+      for(const [k,sel] of Object.entries(${JSON.stringify(groups)})){const hs=[...document.querySelectorAll(sel)].filter(a=>a.getClientRects().length).map(a=>Math.round(a.getBoundingClientRect().height*10)/10);out[k]=hs.length?{n:hs.length,min:Math.min(...hs)}:{n:0,min:0}}
+      out.over=document.documentElement.scrollWidth-document.documentElement.clientWidth;return out`);
+  }
+  const small = Object.entries(touch).flatMap(([page, groups]) => Object.entries(groups).filter(([k, v]) => k === 'over' ? v > 0 : !v.n || v.min < 44).map(([k, v]) => page + ' ' + k + ' ' + show(v)));
+  bcheck('R4-GOV-3', 'Council reference, lane and independent-review family, inspector title, Rosetta and chooser links are at least 44 px tall at 390, 375 and 320 px, with no page overflow',
+    small.length === 0, small.length ? small.slice(0, 8).join(' | ') : show(touch));
 }
 
 // ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views
