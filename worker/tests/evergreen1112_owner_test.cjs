@@ -385,6 +385,17 @@ async function part1b() {
   check('CL2-091', 'the gate exports exactly the five keys of the Co-Guild Master and Lord High Treasurer families', JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS) === '["office_19","office_86","co_gm","treasurer","rank_treasurer"]' && Object.isFrozen(treasury.TREASURY_APPOINTMENT_SEATS)
     && (() => { const src = fs.readFileSync(path.join(ROOT, 'src/site-role-directory203.ts'), 'utf8'), offices = fs.readFileSync(path.join(ROOT, 'src/governance-offices.ts'), 'utf8');
       return /key: 'co_gm'[^\n]*primaryKey: 'office_19'/.test(src) && /key: 'treasurer'[^\n]*primaryKey: 'office_86'/.test(src) && /"key": "rank_treasurer",\s*"label": "[^"]*",\s*"group": "office",\s*"aliasOf": "office_86"/.test(offices); })(), treasury.TREASURY_APPOINTMENT_SEATS);
+  // The admin page says what the gate does (13 Nov 2026): its two seat keys, its list of older records and its sentence
+  // together name exactly the five exported keys, and the old "open nothing" sentence is gone.
+  { const app = fs.readFileSync(path.join(ROOT, 'public/static/app.js'), 'utf8');
+    const aliases = (/const TREASURY_SEAT_ALIASES1112 = (\[[^\]]*\]);/.exec(app) || [])[1];
+    const named = ['office_19', 'office_86', ...(aliases ? JSON.parse(aliases) : [])];
+    check('CL2-091', 'admin Settings names exactly the five keys the gate admits, in its labels and in its sentence, and no longer says the older records open nothing',
+      JSON.stringify(named) === JSON.stringify(treasury.TREASURY_APPOINTMENT_SEATS)
+      && /office\.key === "office_19" \|\| office\.key === "office_86"\) return "Treasury-plan access seat"/.test(app)
+      && /TREASURY_SEAT_ALIASES1112\.includes\(office\.key\)\) return [^\n]*" · opens the Treasury plan"/.test(app)
+      && app.includes('The Co-Guild Master seat (office_19) and the Lord High Treasurer seat (office_86) open the officer Treasury plan. The older records of the same two seats (co_gm, treasurer and rank_treasurer) open it too. A holder recorded on any of these five with a current published Discord account association qualifies. No other appointment record opens it.')
+      && !/open nothing/.test(app), named); }
   EXTRA = {};
 }
 
@@ -513,8 +524,8 @@ async function part2round3(cdp, go, size) {
   let seats = null;
   for (let i = 0; i < 50 && !seats; i++) { seats = await cdp.eval(`(() => { const t = document.querySelector('main')?.textContent || ''; return /Treasury-plan access seat/.test(t) ? t : null; /* the rows sit in collapsed details */ })()`); if (!seats) await sleep(200); }
   const kinds = seats ? [...seats.matchAll(/\(([a-z_0-9]+)\)\n?[^\n]*/g)].length : 0;
-  check('CL2-091', 'admin Settings labels office_19 and office_86 as the Treasury-plan access seats, and co_gm and treasurer as display aliases', !!seats && /Co-Guild Master — Treasury-plan access seat \(office_19\)/.test(seats) && /Lord High Treasurer · Minister of the Imperial Exchequer — Treasury-plan access seat \(office_86\)/.test(seats)
-    && /Co-Guild Master — Leadership display alias \(co_gm\)/.test(seats) && !/Treasury-plan access appointment/.test(seats) && /The older co_gm and treasurer records are display aliases and open nothing\./.test(seats), seats ? (seats.match(/[^\n]*Treasury-plan[^\n]*/g) || []).slice(0, 4) : kinds);
+  check('CL2-091', 'admin Settings labels office_19 and office_86 as the Treasury-plan access seats, and co_gm as an alias that opens the plan too', !!seats && /Co-Guild Master — Treasury-plan access seat \(office_19\)/.test(seats) && /Lord High Treasurer · Minister of the Imperial Exchequer — Treasury-plan access seat \(office_86\)/.test(seats)
+    && /Co-Guild Master — Leadership display alias · opens the Treasury plan \(co_gm\)/.test(seats) && !/Treasury-plan access appointment/.test(seats) && /The older records of the same two seats \(co_gm, treasurer and rank_treasurer\) open it too\./.test(seats) && !/open nothing/.test(seats), seats ? (seats.match(/[^\n]*Treasury-plan[^\n]*/g) || []).slice(0, 4) : kinds);
 
   console.log('== CL2-016 through the harness ==');
   const startsAt = new Date(Math.ceil(Date.now() / 1000 + 3 * 3600) * 1000).toISOString();

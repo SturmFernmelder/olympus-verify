@@ -154,6 +154,19 @@ async function sourceChecks() {
     check('CL2-105', 'the tool not-found view renders an H1, a status sentence and a way back, and every unknown tool reaches it',
       !!nf && /el\("h1", \{ text: title \}\)/.test(nf[1]) && /role: "status"/.test(nf[1]) && /link\("#\/guides"/.test(nf[1]) && fallback);
   }
+  if (want('R5-TOUCH')) {
+    // Round 5, area touch (13 Nov 2026): the touch minimums live inside the lane's query only, so desktop pointers keep their density.
+    const css = src('worker/public/static/app.css');
+    const at = css.indexOf('/* Round 5 (13 Nov 2026, area touch)');
+    const open = at < 0 ? -1 : css.indexOf('@media', at);
+    let depth = 0, end = -1;
+    if (open > 0) for (let i = css.indexOf('{', open); i < css.length; i++) { if (css[i] === '{') depth++; else if (css[i] === '}' && --depth === 0) { end = i; break; } }
+    const head = open > 0 ? css.slice(open, css.indexOf('{', open)).trim() : '';
+    const between = at < 0 ? '' : css.slice(css.indexOf('*/', at) + 2, open).trim();
+    const next = end < 0 ? '' : css.slice(end + 1, css.indexOf('\n/*', end + 1)).trim();
+    check('R5-TOUCH', 'the round-5 touch rules sit in one "@media (pointer: coarse), (max-width: 720px)" block directly after the siteui-b block, with no rule outside it',
+      head === '@media (pointer: coarse), (max-width: 720px)' && between === '' && next === '' && at > css.indexOf('(lane siteui-b)') && at < css.indexOf('launch operations v234'), { head, between: between.slice(0, 80), next: next.slice(0, 80) });
+  }
   if (want('CL2-178')) {
     const dir = JSON.parse(src('worker/public/static/resources169.json')).ownerDirectory;
     check('CL2-178', 'the owner directory follow-up date matches the 12 November recheck', dir.reconciledAt === '2026-11-12' && /November 12 follow-up rechecked Zygor/.test(dir.scopeNote), dir.reconciledAt);
@@ -524,6 +537,52 @@ async function browserChecks() {
       await open('member', 1280, 'addons'); await sleep(800);
       const r = await ev(`const c=[...document.querySelectorAll('main article, main .resources169-featured')].find(x=>/Olympus Guild/.test(x.querySelector('h2,h3,h4')?.textContent||''));return c?{badges:[...c.querySelectorAll('.badge, [class*=badge]')].map(b=>b.textContent),text:c.textContent.slice(0,400)}:null`);
       check('R4-3', 'the Olympus Guild card no longer says "Author lists Forever file" and its status label names only the linked project page', !!r && !/Author lists/.test(r.text) && r.badges.includes('Linked to its project page; no file reviewed'), r);
+    }
+    if (want('R5-TOUCH')) {
+      // Round 5, area touch (13 Nov 2026): Codex asked for the phone-control gap to be closed before signatures. On phones every
+      // standalone control on these pages is at least 44 by 44 CSS px (fields: height; a check box counts with its label; links
+      // inside a sentence are exempt, WCAG 2.5.8). The whole-site sweep with route tables is tests/evergreen1112_touch_browser.mjs.
+      // A link is inside a sentence only when its block keeps at least four words once the text of every link, button, tab and
+      // summary is removed; a strip or list of links is standalone (round 5 review, 13 Nov 2026: the earlier rule counted the
+      // other links' text as running text, so every strip of two links passed). Only text on the link's own lines counts: a text
+      // node whose nearest non-inline ancestor is a nested block (a heading, paragraph or list beside a link placed directly in a
+      // section) is not running text around the link (second round 5 review, 13 Nov 2026).
+      const small = `const MIN=44;const shown=e=>{if(!e.getClientRects().length)return null;const r=e.getBoundingClientRect();if(r.width<2&&r.height<2)return null;const c=getComputedStyle(e);if(c.visibility==='hidden'||+c.opacity===0||e.closest('[inert],[aria-hidden="true"]'))return null;return r};
+        const blockOf=e=>{let p=e.parentElement;while(p&&/^inline/.test(getComputedStyle(p).display)&&p!==document.body)p=p.parentElement;return p};
+        const sameBlock=(n,b)=>{let q=n.parentElement;while(q&&q!==b&&/^inline/.test(getComputedStyle(q).display))q=q.parentElement;return q===b};
+        const words=b=>{const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);let n,t='';while((n=w.nextNode())){if(!sameBlock(n,b))continue;const c=n.parentElement&&n.parentElement.closest('a[href],button,summary,[role=button],[role=tab]');if(c&&b.contains(c))continue;t+=' '+n.textContent}return (t.match(/\\p{L}{2,}/gu)||[]).length};
+        const inline=e=>{if(e.tagName!=='A'||e.classList.contains('btn')||e.getAttribute('role')||getComputedStyle(e).display!=='inline')return false;const b=blockOf(e);return !!b&&words(b)>=4};
+        for(const d of document.querySelectorAll('main details:not([open])'))d.open=true;await new Promise(r=>setTimeout(r,400));
+        const out=[];for(const e of document.querySelectorAll('main :is(a[href],button,summary,input:not([type=hidden]),select,textarea,[role=button],[role=tab]), footer :is(a[href],button)')){let r=shown(e);if(!r||inline(e))continue;
+          const check=e.matches('input[type=checkbox],input[type=radio]'),field=!check&&e.matches('input:not([type=button]):not([type=submit]),select,textarea');let w=r.width,h=r.height;
+          if(check)for(const l of [...(e.labels||[])].map(shown).filter(Boolean))if(Math.min(l.width,l.height)>Math.min(w,h)){w=l.width;h=l.height}
+          if(field?h<MIN-0.5:(h<MIN-0.5||w<MIN-0.5))out.push(e.tagName.toLowerCase()+[...e.classList].slice(0,2).map(c=>'.'+c).join('')+' "'+(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,24)+'" '+Math.round(w)+'x'+Math.round(h))}
+        return {count:out.length,first:out.slice(0,8),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`;
+      const seen = {};
+      for (const w of [390, 320]) for (const [who, route] of [['member', ''], ['member', 'apply'], ['member', 'vote'], ['member', 'roles'], ['member', 'organization'], ['member', 'talents'], ['member', 'legal/privacy'], ['owner', 'admin/settings'], ['owner', 'admin/names'], ['owner', 'admin/ranks']]) {
+        await open(who, w, route); await sleep(route.startsWith('admin') || route === 'talents' ? 900 : 400);
+        seen[`${route || 'home'}@${w}`] = await ev(small);
+      }
+      const bad = Object.entries(seen).filter(([, x]) => x.count > 0 || x.over > 0);
+      check('R5-TOUCH', 'at 390 and 320 px every standalone control on Home, Apply, Vote, Roles, Organization, Talents, the member privacy view and three admin pages is at least 44 by 44 px (link strips and link lists count as standalone), with no page overflow',
+        bad.length === 0, bad.length ? Object.fromEntries(bad.slice(0, 6)) : Object.keys(seen));
+      // The availability grid scrolls inside its own box on a phone; a fade on its right edge shows that more days lie beyond,
+      // lets taps through, and at the end of the week covers no day (round 5 review, 13 Nov 2026).
+      const fade = {};
+      for (const w of [390, 320]) {
+        await open('member', w, 'apply'); await sleep(400);
+        fade[w] = await ev(`const wrap=document.querySelector('main .avail-wrap');const g=wrap&&wrap.querySelector('.grid-avail');if(!g)return null;const a=getComputedStyle(wrap,'::after');
+          const box=()=>wrap.getBoundingClientRect();const start=wrap.scrollLeft;wrap.scrollLeft=wrap.scrollWidth;await new Promise(r=>setTimeout(r,80));
+          const cells=[...g.querySelectorAll('tr')].map(r=>r.lastElementChild).filter(Boolean);const lastRight=Math.max(...cells.map(c=>c.getBoundingClientRect().right));const end=box().right-parseFloat(a.width||'0');
+          const res={hidden:Math.round(wrap.scrollWidth-wrap.clientWidth),content:a.content,position:a.position,right:a.right,width:a.width,events:a.pointerEvents,gradient:/gradient/.test(a.backgroundImage),lastDayClearOfFadeAtEnd:lastRight<=end+0.5,lastRight:Math.round(lastRight),fadeStart:Math.round(end)};wrap.scrollLeft=start;return res`);
+      }
+      check('R5-TOUCH', 'at 390 and 320 px the scrolling availability grid shows a right-edge fade that lets taps through and covers no day at the end of the week',
+        [390, 320].every(w => { const f = fade[w]; return f && f.hidden > 0 && f.content === '""' && f.position === 'sticky' && f.right === '0px' && f.width === '24px' && f.events === 'none' && f.gradient && f.lastDayClearOfFadeAtEnd; }), fade);
+      // Desktop density is unchanged: at 1280 px with a mouse the same controls keep their compact sizes.
+      await open('member', 1280, 'apply'); await sleep(400);
+      const desk = await ev(`const hgt=s=>{const e=[...document.querySelectorAll(s)].find(x=>x.getClientRects().length);return e?Math.round(e.getBoundingClientRect().height*10)/10:null};const g=document.querySelector('.grid-avail button');return {btnSmall:hgt('main .btn.small'),select:hgt('main select'),text:hgt('main input[type=text]'),prof:hgt('main .prof'),summary:hgt('main details.zone > summary'),grid:g?[Math.round(g.getBoundingClientRect().width),Math.round(g.getBoundingClientRect().height)]:null}`);
+      check('R5-TOUCH', 'control: at 1280 px with a mouse the small buttons, fields, profession toggles, disclosures and availability cells keep their desktop sizes',
+        desk.btnSmall === 30 && desk.select === 41 && desk.text === 41 && desk.prof === 40 && desk.summary === 32 && JSON.stringify(desk.grid) === '[46,28]', desk);
     }
     if (st.exceptions.length) check('PAGE', 'no page exceptions during the browser checks', false, st.exceptions.slice(0, 3));
   } finally { await cdp.close(); try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile briefly. */ } }
