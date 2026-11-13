@@ -685,6 +685,26 @@ const runUi280=String.raw`
    ];
    const wrongNeg=[...neg.map(([name,d,code])=>[name,admit(d),code]),...pairs].filter(([,v,code])=>v.ok!==false||v.code!==code||typeof v.text!=='string'||!v.text||/officer-operations|v23\d/.test(v.text));
    check('L3 the contract\'s negative pages (the Lua refusals, mirrored) and the cross-page cases are each refused with their own plain reason ('+(neg.length+pairs.length)+' cases)',wrongNeg.length===0,JSON.stringify(wrongNeg.map(([name,v,code])=>[name,code,v])));
+   // Review of 13 Nov 2026. Finding 1: a held v235 page (held229's shape, as held235 sends it) is admitted after a rank-held
+   // or a qualified page and ends the scan; as a first page it is a plain held page. Finding 3: a rank-held page's counts
+   // match its rows and a qualified page's space-buffer rows have the producer's shape. Finding 4: the restart sentence.
+   const heldPage=()=>Object.assign(RH(),{status:'held',snapshotId:null,snapshotAt:null,memberCount:null,guild:null,canonicalGuild:null,realm:null,scopeHash:null,held:[],invites:[],pageCursor:null,nextCursor:null,
+    scan:{id:null,startedAt:null,expiresAt:null},entitlements:{offset:0,pageSize:20,scanned:0,total:0,unscanned:0,retryAfterSeconds:null},heldReasons:['native-unguilded-proof-required','native-snapshot-unavailable','native-rank-scheme-unconfirmed','launch-read-window-exhausted']});
+   const endings=[['after a rank-held page',D.assess(heldPage(),copy('held1000-first'),20),true],['after a qualified page',D.assess(heldPage(),copy('qualified1000-first'),20),true],['as a first page',D.assess(heldPage(),null,0),false]];
+   const endWrong=endings.filter(([,v,ended])=>v.ok!==true||v.rankHeld!==null||(v.scanEnded===true)!==ended);
+   const R1000=()=>copy('held1000-offset20'),F1000=()=>copy('held1000-first'),Q1000=()=>copy('qualified1000-first');
+   const counts=[
+    ['a held row removed',(()=>{const x=R1000();x.held.pop();return x;})(),F1000()],['scanned 7 with 20 held rows',(()=>{const x=R1000();x.entitlements.scanned=7;return x;})(),F1000()],
+    ['unscanned +20',(()=>{const x=R1000();x.entitlements.unscanned+=20;return x;})(),F1000()],['member count 1001 on a first page',Object.assign(F1000(),{memberCount:1001}),null],
+    ['export id -1 on a first page',Object.assign(F1000(),{snapshotId:-1}),null],['export id missing on a first page',(()=>{const x=F1000();delete x.snapshotId;return x;})(),null],
+    ['no next-page link with members left',Object.assign(F1000(),{nextCursor:null}),null],['page size 21',(()=>{const x=F1000();x.entitlements.pageSize=21;return x;})(),null],
+   ].map(([name,d,first])=>[name,D.assess(d,first,first?20:0),'page-counts']);
+   const risks=[['a number',7],['text','x'],['a list',[]],['an empty object',{}],['level 0',r=>({...r,level:0})],['an extra field',r=>({...r,targetSlot:7})],['another reason',r=>({...r,reason:'knight-veteran'})],['slot 8',r=>({...r,currentSlot:8})],['not review-only',r=>({...r,reviewOnly:false})],['minus one day offline',r=>({...r,lastOnlineDays:-1})]]
+    .map(([name,change])=>{const x=Q1000();x.riskBuffer[0]=typeof change==='function'?change(x.riskBuffer[0]):change;return ['a space-buffer row: '+name,D.assess(x,null,0),'risk-row-shape'];});
+   const shapeWrong=[...counts,...risks].filter(([,v,code])=>v.ok!==false||v.code!==code||!v.text);
+   const restart=D.restartText?D.restartText('expired_or_invalid_launch_cursor'):'';
+   check('L3b a held v235 page ends a rank-held or qualified scan instead of being refused (and is a plain held page when read first); '+(counts.length+risks.length)+' count and space-buffer changes are refused; the expired-or-invalid link sentence names both',endWrong.length===0&&shapeWrong.length===0
+    &&restart==='The link to this page has expired or is no longer accepted. Start again from the first page.'&&D.assess(F1000(),null,0).ok===true&&D.assess(Q1000(),null,0).ok===true,JSON.stringify({endWrong,shapeWrong,restart}));
   } else for(const name of ['L1','L2','L3'])check(name+' (v235 module unavailable)',false);
 
   // The real admin route, with the page clock at each served page's fetch time (the pages are captured, not fresh).

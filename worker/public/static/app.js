@@ -4778,7 +4778,7 @@
   }
   async function adminLaunchOperations229(body) {
     const owner = S.user, route = currentRoute(), pages = new Map();
-    let busy = false, scanning = false, sequence = 0, model = null, expiryTimer = null, retryAt = 0, nextCursor = null, lastOffset = -1;
+    let busy = false, scanning = false, sequence = 0, model = null, expiryTimer = null, retryAt = 0, nextCursor = null, lastOffset = -1, endedOn = null;
     const live = () => S.user === owner && S.signedIn && !S.denied && S.user?.isAdmin && currentRoute() === route && app.contains(body);
     const monotonic = () => typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const status = h('p', {role:'status', 'aria-live':'polite', text:'Reading current launch evidence…'}), output = h('div', {class:'stack mt'});
@@ -4807,6 +4807,7 @@
     function draw(d) {
       const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=launchView235(d), ui234={h,frame};
       clear(output);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
+      if(endedOn===d&&L234.scanEndedNotice)add(output,L234.scanEndedNotice(ui234)); // review of 13 Nov 2026: a held later page ends a v235 scan
       const short=h('textarea',{id:'launch-motd229',rows:'2',value:d.motd.short}),bulletin=h('textarea',{id:'launch-bulletin229',rows:'8',value:d.motd.bulletin});
       short.readOnly=true;bulletin.readOnly=true;short.setAttribute('readonly','');bulletin.setAttribute('readonly','');
       add(output,frame('Guild message of the day',h('span',{class:'badge',text:d.motd.bytes+'/128 bytes'}),
@@ -4862,7 +4863,9 @@
         if(!d||d.protocol!==view.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
           ||!Array.isArray(d.promotions)||!Array.isArray(d.riskBuffer)||!Array.isArray(d.held)||!Array.isArray(d.invites)||d.invites.length>3||d.promotions.length>1000||d.riskBuffer.length>1000||d.held.length>1000
           ||d.status==='held'&&(d.promotions.length||d.riskBuffer.length||d.invites.length)||!Number.isSafeInteger(d.fetchedAt)||!Number.isSafeInteger(d.expiresAt)
-          ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
+          ||d.actions?.automatic!==false||d.actions?.roleGrants!==false||d.actions?.removals!==false||cursor&&model&&verdict234.scanEnded!==true&&identity(model)!==identity(d))throw Error('launch_response_unconfirmed');
+        // Review of 13 Nov 2026 (finding 1): the v235 reader admits a held later page as the end of its scan (it has no scan to compare); a v234 scan is unchanged.
+        endedOn=verdict234.scanEnded===true?d:null;
         if(d.status==='held'){pages.clear();nextCursor=null;scanning=false;}
         else {
           const e=d.entitlements;
@@ -4879,7 +4882,7 @@
           if(e.offset>=lastOffset){nextCursor=d.nextCursor;lastOffset=e.offset;}
         }
         model=d;retryAt=d.entitlements.retryAfterSeconds?nowSec()+d.entitlements.retryAfterSeconds:0;if(retryAt)scanning=false;
-        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':'Read complete. Discovery and current action eligibility are shown separately.';
+        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=endedOn===d?view.SCAN_ENDED_STATUS:d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':'Read complete. Discovery and current action eligibility are shown separately.';
       } catch(error){if(current()){const family=model?model.protocol:DISCOVERY235;model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';
         // Round 5 build (13 Nov 2026, codex-reviews-r5/discovery235.md section 5): on the v235 route a page link the server
         // no longer accepts means "start again from the first page", said plainly. A v234 scan keeps its message.

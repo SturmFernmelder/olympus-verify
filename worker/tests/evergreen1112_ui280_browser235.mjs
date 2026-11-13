@@ -122,6 +122,24 @@ try {
   const bad = await cdp.eval(`({ text: document.querySelector('[data-launch234] [role=status]')?.textContent || '', motd: !!document.querySelector('#launch-motd229'), more: [...document.querySelectorAll('[data-launch234] button')].find(b => b.textContent === 'Load next 20 role checks')?.hidden })`);
   check('a next-page link outside the alphabet holds the page as unconfirmed and offers no Load next', /could not be confirmed/.test(bad.text) && !bad.motd && bad.more === true && reads.length === 1, { bad, reads: reads.length });
 
+  // 5. Review of 13 Nov 2026 (finding 1): a held later page (held229's shape, as the real route sends it when the read
+  // window runs out) ends the scan; the notice and the held page hold at six widths, read twice, nothing refused.
+  const heldNow = () => Object.assign(current('rankheld'), { status: 'held', snapshotId: null, snapshotAt: null, memberCount: null, guild: null, canonicalGuild: null, realm: null, scopeHash: null, held: [], invites: [], pageCursor: null, nextCursor: null,
+    scan: { id: null, startedAt: null, expiresAt: null }, entitlements: { offset: 0, pageSize: 20, scanned: 0, total: 0, unscanned: 0, retryAfterSeconds: null }, heldReasons: ['native-unguilded-proof-required', 'native-snapshot-unavailable', 'native-rank-scheme-unconfirmed', 'launch-read-window-exhausted'] });
+  const ended = [];
+  for (const w of widths) {
+    await viewport(cdp, w, 900);
+    const first = current('held1000-first'), held = heldNow();
+    await go(() => first); serve = () => reads.length > 1 ? held : first;
+    await cdp.eval(`[...document.querySelectorAll('[data-launch234] button')].find(b => b.textContent === 'Load next 20 role checks').click(); true`);
+    for (let i = 0; i < 40 && !(await cdp.eval(`!!document.querySelector('[data-launch235-scan-ended]') || !!document.querySelector('[data-launch234-held]')`)); i++) await sleep(100);
+    await sleep(300);
+    const m = await cdp.eval(MEASURE), notice = await cdp.eval(`(() => { const el = document.querySelector('[data-launch235-scan-ended]'), r = el && el.getBoundingClientRect(); return { shown: !!el && r.width > 0 && r.height > 0, status: document.querySelector('[data-launch234] [role=status]')?.textContent || '', pages: [...document.querySelectorAll('[data-launch234] h2')].filter(h => /^Examined page /.test(h.textContent)).length }; })()`);
+    ended.push({ width: w, reads: reads.length, notice, refused: m.refused, overflow: m.docOverflowPx, outside: m.outside, small: m.small, wraps: m.wraps });
+    if (w === 390 || w === 320) await screenshot(cdp, path.join(OUT, `scan-ended-${w}.png`), true);
+  }
+  check('a held later page ends the scan: the notice is shown above it at all six widths after two reads, with no page of the scan left, no overflow and no control under 44 px', ended.every(x => x.reads === 2 && x.notice.shown && x.notice.pages === 0 && /scan stopped/.test(x.notice.status) && !x.refused && x.overflow <= 0 && x.outside.length === 0 && x.small.length === 0 && x.wraps.every(t => t.inner <= 0)), ended);
+
   check('no script errors on the page', state.exceptions.length === 0, state.exceptions);
 } finally {
   await cdp.close();
