@@ -1,6 +1,6 @@
 /* Olympus University rules (Evergreen Stage 2, 12 Nov 2026; CL2-052, CL2-057, CL2-059, CL2-060).
  * One closed validator shared by the page and the build: university.js refuses a guide that fails it, and
- * build/validate.cjs runs it over every file before a commit. It never fetches and never touches the DOM.
+ * scripts/university/validate.cjs runs it over every file before a commit. It never fetches and never touches the DOM.
  * The honesty rule it enforces: every quiz answer and distractor must be found in the facts a question cites,
  * an unavailable (grade U) or re-check fact can never be quizzed, and Classic 1.12 reference facts (grades D and E)
  * may only be asked about in a question that says "In Classic 1.12". */
@@ -344,7 +344,23 @@
     return out;
   }
 
-  const api = Object.freeze({ SECTIONS, TRACKS, GRADES, normalize, supports, numbersIn, fnv1a, order, safeUrl, validateBundle, examScopes, examPool, examCatalogue });
+  // INT-UNI-2 (12 Nov 2026): schedule lines are dated facts in the wording guides218.json uses ("Raid unlock date:
+  // 9 December 2026"). Forever launched on 4 November 2026, so a line that calls the launch upcoming or announced is
+  // stale, and so is "open on 9 Dec" shorthand. The build (scripts/university/validate.cjs) runs this over every string
+  // of every university file; it returns why a text is refused, or null.
+  const DATED = "write it as a dated fact, such as \"Raid unlock date: 9 December 2026\"";
+  const STALE_SCHEDULE = [
+    [/\b9 Dec\b(?!ember)/i, "write the date in full: 9 December 2026"],
+    [/\b9 December\b(?! 2026)/i, "give the year: 9 December 2026"],
+    [/\b(?:open|opens|opening)\s+(?:on\s+|from\s+)?9 Dec/i, DATED],
+    [/\braids?\s+(?:that\s+)?open\b/i, DATED],
+    [/\bfrom 9 Dec/i, DATED],
+    [/\bannounced\s+(?:global\s+|worldwide\s+)?launch|\blaunch\s+(?:is|was|has been)\s+announced|\bupcoming\s+launch|\bwill launch\b|\blaunches on\b/i,
+      "Forever launched on 4 November 2026: say so in the past tense"],
+  ];
+  const scheduleWording = text => { for (const [re, why] of STALE_SCHEDULE) if (re.test(String(text))) return why; return null; };
+
+  const api = Object.freeze({ SECTIONS, TRACKS, GRADES, normalize, supports, numbersIn, fnv1a, order, safeUrl, validateBundle, examScopes, examPool, examCatalogue, scheduleWording });
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.OlympusUniversityRules = api;
 })(typeof window !== "undefined" ? window : globalThis);

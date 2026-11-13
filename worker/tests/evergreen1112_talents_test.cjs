@@ -239,6 +239,33 @@ check('the Discord talent replies name the 10 November data, not the 16 October 
   return !/16 October beta talent snapshot|'16 October beta builds'/.test(source) && /encoded against the 10 November talent data/.test(source) && /made on the 16 October beta data/.test(source);
 });
 
+// --- Docs (follow-up item 11, 12 Nov 2026): the two talent docs state the 10 November snapshot, and every paragraph or
+// bullet that still gives a 16 October number is labelled historical.
+check('docs: talents-data169.md and talents-stats60-186.md describe the 10 November data and label the 16 October facts historical', () => {
+  const doc = name => readText(repo, 'docs', name), bad = [];
+  const d169 = doc('talents-data169.md'), s60 = doc('talents-stats60-186.md');
+  const want169 = ['02e1e101d1a5', '1.60.1.70755', '3, 4, 6 and 10 November', '467 talents and 1,297 rank descriptions', '/static/talents/archive/260cf99b52db/', 'The 17 talents whose icon is not on file',
+    String(data.source.rawBytes).replace(/\B(?=(\d{3})+(?!\d))/g, ','), data.source.rawSHA256];
+  for (const w of want169) if (!d169.includes(w)) bad.push('talents-data169.md lacks ' + w);
+  const art = JSON.parse(readText(folder, 'art.json'));
+  if (art.talentIconsUnavailable.length !== 17 || data.counts.talents !== 467 || data.counts.ranks !== 1297) bad.push('the stated counts no longer match the shipped files');
+  const effects = JSON.parse(readText(folder, 'stat-effects186.json'));
+  const c = effects.counts, wantS60 = [c.components + ' components in ' + c.talents + ' talents', c.textMatchesCurrent + ' components match byte for byte', c.withheldTextChanged + ' have changed rank text', '02e1e101d1a5'];
+  for (const w of wantS60) if (!s60.includes(w)) bad.push('talents-stats60-186.md lacks ' + w);
+  // A block (paragraph or bullet) that gives an old snapshot number must say it is historical or name 16 October.
+  // In the sheet doc 1.60.1.70425 stays current as the DB2 build of its checks, so only the data doc refuses it.
+  const STALE = /\b466\b|1,313|260cf99b52db|141 components|reachable in this snapshot|Priest and Shaman have none|This beta snapshot/;
+  for (const [name, text, own] of [['talents-data169.md', d169, /\b70425\b/], ['talents-stats60-186.md', s60, /$^/]]) {
+    const blocks = text.split(/\n\s*\n|\n(?=- )/);
+    let historical = false;
+    for (const b of blocks) {
+      if (/^#{2,3} /m.test(b)) historical = /^#{2,3} Historical/m.test(b.match(/^#{2,3} .*$/m)[0]);
+      if ((STALE.test(b) || own.test(b)) && !historical && !/Historical|16 October|archive|archived|Archive/.test(b)) bad.push(name + ': ' + b.trim().slice(0, 90));
+    }
+  }
+  return bad.length === 0 || bad.slice(0, 6).join(' | ');
+});
+
 // --- CL2-088: the calculator's own Attach control uses the guide presets' attachment path.
 check('the calculator offers Attach only for level 30/60, hands over the exact code and is absent from archived builds', () => {
   const source = readText(folder, 'calculator.js'), app = readText(worker, 'public/static/app.js');
@@ -248,5 +275,98 @@ check('the calculator offers Attach only for level 30/60, hands over the exact c
     && (app.match(/onAttach: attachTalentBuild218/g) || []).length === 2;
 });
 
-console.log(passed + ' passed, ' + failed + ' failed');
-process.exitCode = failed ? 1 : 0;
+// --- REV-UNI-5 / REV-SITEB-1 (12 Nov 2026): under the class H1 the tree names and "Guide builds" are H2 (styled as the
+// old H3s), and the class buttons and the toolbar controls are 44 px touch targets.
+check('REV-UNI-5: the calculator renders tree names and "Guide builds" as H2, and its CSS styles those H2s and no tree or guide H3', () => {
+  const source = readText(folder, 'calculator.js'), css = readText(folder, 'calculator.css');
+  return /h\("header", \{ class: "talents-tree-header" \}, image\(art\.treeIcons\[treeKey\]\), h\("h2", \{ text: tree\.name \}\)/.test(source)
+    && /h\("div", \{ class: "talents-guide-heading" \}, h\("h2", \{ text: "Guide builds" \}\)/.test(source)
+    && /\.talents-tree-header h2\{font-size:16px/.test(css) && /\.talents-guide-heading h2\{font-size:17px\}/.test(css) && !/\.talents-(?:tree-header|guide-heading) h3/.test(css);
+});
+check('REV-SITEB-1: the class buttons and the toolbar select and buttons have a 44 px minimum height', () => {
+  const css = readText(folder, 'calculator.css');
+  const classButton = /\.talents-classes \.talents-class-button\{[^}]*min-height:(\d+)px/.exec(css), toolbar = /\.talents-toolbar select,\.talents-toolbar button\{min-height:(\d+)px\}/.exec(css);
+  return !!classButton && Number(classButton[1]) >= 44 && !!toolbar && Number(toolbar[1]) >= 44 || JSON.stringify({ classButton: classButton && classButton[1], toolbar: toolbar && toolbar[1] });
+});
+check('the build contract pins the shipped calculator (scripts/build-talent-build-contract.cjs --check)', () => {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(repo, 'scripts/build-talent-build-contract.cjs'), '--check'], { cwd: repo, encoding: 'utf8', timeout: 60000 });
+  return r.status === 0 || (r.stdout + r.stderr).slice(-300);
+});
+
+// Browser part (opt-in): node tests/evergreen1112_talents_test.cjs --base http://127.0.0.1:<harness> --cdp <port>
+// counts heading jumps on /#/talents and measures the class buttons and the toolbar at 1280 and 375 px (member persona).
+async function browserChecks(base, port) {
+  const { launch, instrument, idle, viewport, sleep } = await import('file:///C:/Users/vikto/olympus-claude-candidates/audit279/tools/cdp.mjs');
+  const profile = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'talents-edge-'));
+  const cdp = await launch({ port, profile }), st = await instrument(cdp);
+  const result = (name, ok, detail) => { if (ok) passed++; else failed++; console.log((ok ? 'PASS ' : 'FAIL ') + name + ' :: ' + JSON.stringify(detail)); };
+  try {
+    await cdp.send('Page.navigate', { url: base + '/__qa/member' }); await idle(st);
+    for (const width of [1280, 375]) {
+      await viewport(cdp, width, 900);
+      await cdp.send('Page.navigate', { url: base + '/#/talents/warrior' }); await idle(st); await cdp.send('Page.reload', {}); await idle(st); await sleep(900);
+      const r = await cdp.eval(`(() => {
+        const hs = [...document.querySelectorAll('main h1, main h2, main h3, main h4, main h5, main h6')].filter(h => h.getClientRects().length);
+        const lv = hs.map(h => Number(h.tagName[1])), jumps = [];
+        for (let i = 1; i < lv.length; i++) if (lv[i] > lv[i - 1] + 1) jumps.push(hs[i - 1].tagName + ' ' + hs[i - 1].textContent.trim().slice(0, 24) + ' > ' + hs[i].tagName + ' ' + hs[i].textContent.trim().slice(0, 24));
+        const height = e => Math.round(e.getBoundingClientRect().height * 10) / 10;
+        const visible = [...document.querySelectorAll('.talents-class-button, #olympus-talent-level, .talents-toolbar button')].filter(e => e.getClientRects().length);
+        return { h1: lv.filter(x => x === 1).length, first: lv[0], jumps, smallest: Math.min(...visible.map(height)), level: height(document.querySelector('#olympus-talent-level')),
+          classButton: height(document.querySelector('.talents-class-button')), trees: [...document.querySelectorAll('.talents-tree-header h2')].length, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+      })()`);
+      result('browser ' + width + ' px: /#/talents has one H1, the three tree H2s and no heading jump', r.h1 === 1 && r.first === 1 && r.trees === 3 && r.jumps.length === 0, r);
+      result('browser ' + width + ' px: the class buttons, level select and toolbar buttons are at least 44 px tall, with no page overflow', r.smallest >= 44 && r.overflow <= 0, r);
+    }
+    if (st.exceptions.length) result('browser: no page exceptions', false, st.exceptions.slice(0, 3));
+  } finally { await Promise.race([cdp.close(), sleep(3000)]); try { cdp.proc.kill(); } catch { /* gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold it */ } }
+}
+
+// --- REV-UNI-3 (12 Nov 2026): the real /guide replies (guideLookup219 over the shipped guides218.json) carry a grade
+// footer that matches the site's six grades (university/index.json and guides218.json) and the 10 November export, with
+// no beta caveat, and every reply stays within Discord's embed limits. The file's database and Discord imports are stubs:
+// the member check answers yes and no provider is contacted.
+async function discordGuideFooter() {
+  const stub = new Proxy({}, { get: (_, key) => key === '__esModule' ? false : key === 'currentGuildActor219' ? async () => true
+    : key === 'destination' ? () => ({ host: 'verify.example' }) : () => { throw Error('unexpected call to ' + String(key)); } });
+  const out = ts.transpileModule(readText(worker, 'src/guild-utilities219.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'require', out.outputText)(module, module.exports, name => ['./talent-build-contract', './talent-build-attachment'].includes(name) ? load(name) : stub);
+  const env = { ASSETS: { fetch: async request => new Response(read(worker, 'public', new URL(request.url).pathname), { status: 200 }) } };
+  const index = JSON.parse(readText(folder, '../university/index.json'));
+  const asks = [['consumes', {}], ['buffs', {}], ['attunement', { raid: 'onyxia' }], ['attunement', { raid: 'mc' }]];
+  for (const c of guides.classes) { asks.push(['class', { class: c.id }]); for (const s of c.specs) asks.push(['class', { class: c.id, spec: s.id }]); }
+  const replies = [];
+  for (const [sub, v] of asks) replies.push([sub + ' ' + JSON.stringify(v), await module.exports.guideLookup219(env, { id: '1' }, sub, v)]);
+  const limits = e => (e.title || '').length <= 256 && (e.description || '').length <= 4096 && (e.fields || []).length <= 25
+    && (e.fields || []).every(f => f.name.length <= 256 && f.value.length <= 1024 && f.value.length > 0) && (e.footer?.text || '').length <= 2048
+    && (e.title || '').length + (e.description || '').length + (e.footer?.text || '').length + (e.fields || []).reduce((n, f) => n + f.name.length + f.value.length, 0) <= 6000;
+  const footer = replies[0][1].footer.text, legend = /^Grades: (.+?)\.(?= |$)/.exec(footer);
+  const pairs = legend ? legend[1].split(' · ').map(x => [x[0], x.slice(2)]) : [];
+  // Each footer label must say what the site's grade says (the key words of index.json's definition of that grade).
+  const meaning = { A: /talent data, 10 November 2026 export/, B: /official Blizzard/, C: /published Forever guide or community/, D: /derived from Classic/, E: /Classic reference/, U: /^unavailable$/ };
+  const siteSays = { A: /10 November 2026 export/, B: /Official Blizzard/, C: /Published Forever guide or community/, D: /Derived estimate from Classic/, E: /Classic reference/, U: /^Unavailable$/ };
+  const problems = [];
+  if (pairs.map(p => p[0]).join('') !== Object.keys(index.grades).join('') || Object.keys(index.grades).join('') !== Object.keys(guides.grades).join('')) problems.push('grade letters ' + pairs.map(p => p[0]).join(''));
+  for (const [g, label] of pairs) if (!meaning[g] || !meaning[g].test(label) || !siteSays[g].test(index.grades[g]) || !siteSays[g].test(guides.grades[g])) problems.push('grade ' + g + ': ' + label);
+  if (/beta|pinned|can differ|unknown/i.test(footer)) problems.push('stale footer: ' + footer);
+  const comment = /\n( \/\/[^\n]*\n)+ const evidence=/.exec(readText(worker, 'src/guild-utilities219.ts'));
+  if (!comment || /beta snapshot until replaced/.test(comment[0]) || !/10 November 2026 export/.test(comment[0])) problems.push('the comment above the footer does not describe the 10 November export');
+  for (const [ask, e] of replies) {
+    if (!e.footer || !e.footer.text.startsWith(legend ? legend[0] : '\u0000')) problems.push(ask + ': no shared footer');
+    if (!limits(e)) problems.push(ask + ': over a Discord embed limit');
+  }
+  return problems.length === 0 && replies.length === 4 + 9 + 27 || problems.slice(0, 6).join(' | ') || 'replies ' + replies.length;
+}
+
+(async () => {
+  {
+    let ok = false, detail = '';
+    try { const r = await discordGuideFooter(); ok = r === true; if (!ok) detail = String(r); } catch (error) { detail = error.message; }
+    if (ok) passed++; else failed++;
+    console.log((ok ? 'PASS ' : 'FAIL ') + 'REV-UNI-3: /guide replies end with the site\'s six grades and the 10 November export, no beta caveat, within Discord\'s embed limits' + (ok ? '' : ' :: ' + detail.slice(0, 400)));
+  }
+  const at = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
+  if (at('--base') && at('--cdp')) await browserChecks(at('--base'), Number(at('--cdp')));
+  console.log(passed + ' passed, ' + failed + ' failed');
+  process.exitCode = failed ? 1 : 0;
+})().catch(error => { console.error(error); process.exitCode = 1; });

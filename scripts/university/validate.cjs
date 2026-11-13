@@ -2,15 +2,16 @@
 /* The university build check (Evergreen Stage 2, 12 Nov 2026). Run it before every commit that touches
  * worker/public/static/university/:
  *
- *   node worker/public/static/university/build/validate.cjs           check everything, print a size table
- *   node worker/public/static/university/build/validate.cjs --quiet   errors only
+ *   node scripts/university/validate.cjs           check everything, print a size table
+ *   node scripts/university/validate.cjs --quiet   errors only
  *
  * It runs the page's own rules (validate.js) over every file at once, then once per guide with only the files that
  * guide declares (the page loads nothing else), and adds the checks only the build can make: talent facts against
  * talents/data.json, presets against guides218.json, generated files against their generator, and the index. */
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), cp = require("node:child_process"), zlib = require("node:zlib"), vm = require("node:vm");
-const UNI = path.resolve(__dirname, ".."), STATIC = path.resolve(UNI, "..");
+// INT-UNI-3 (12 Nov 2026): the build tools live in scripts/university/, outside the published static folder.
+const UNI = path.resolve(__dirname, "../../worker/public/static/university"), STATIC = path.resolve(UNI, "..");
 // worker/package.json makes .js files ES modules, so the shared rules file is run in a sandbox with a CommonJS module.
 const rules = (() => { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(UNI, "validate.js"), "utf8"), { module }, { filename: "validate.js" }); return module.exports; })();
 const quiet = process.argv.includes("--quiet");
@@ -34,6 +35,7 @@ quizFiles.forEach((doc, i) => { if (doc.file + ".json" !== listDir("quizzes")[i]
 // Index: every listed guide exists, every guide file is listed, races are only those the site's data names.
 const RACES = new Map([["dwarf", "Dwarf"], ["gnome", "Gnome"], ["human", "Human"], ["night-elf", "Night Elf"], ["skyborne", "Skyborne (High Order)"]]);
 if (index.schema !== "olympus-university-index-v1" || !Array.isArray(index.guides)) errors.push("index.json: schema");
+if (typeof index.schedule !== "string" || !/launched/.test(index.schedule) || !/Raid unlock date: 9 December 2026/i.test(index.schedule)) errors.push("index.json: schedule must say when Forever launched and give the first raid unlock date");
 const guides = [];
 for (const entry of index.guides || []) {
   const where = "index " + entry.kind + " " + entry.id;
@@ -51,9 +53,9 @@ for (const dir of ["courses", "races", "professions"]) for (const f of listDir(d
 // Presets: an exact copy of guides218.json, per class.
 for (const c of g218.classes) {
   const rel = "presets/" + c.id + ".json";
-  if (!exists(rel)) { errors.push(rel + ": missing (run build/migrate-guides218.cjs --presets)"); continue; }
+  if (!exists(rel)) { errors.push(rel + ": missing (run scripts/university/migrate-guides218.cjs --presets)"); continue; }
   const doc = read(rel), want = g218.presets.filter(p => p.classId === c.id);
-  if (JSON.stringify(doc.presets) !== JSON.stringify(want) || doc.talentRevision !== g218.talentRevision) errors.push(rel + ": differs from guides218.json (run build/migrate-guides218.cjs --presets)");
+  if (JSON.stringify(doc.presets) !== JSON.stringify(want) || doc.talentRevision !== g218.talentRevision) errors.push(rel + ": differs from guides218.json (run scripts/university/migrate-guides218.cjs --presets)");
 }
 
 // Generated files are current.
@@ -91,7 +93,7 @@ for (const { entry, guide } of guides) {
   const want = rules.examCatalogue(guide, own.questions);
   if (JSON.stringify(entry.exams) !== JSON.stringify(want)) {
     if (process.argv.includes("--write-exams")) { entry.exams = want; examsChanged = true; }
-    else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run build/validate.cjs --write-exams)");
+    else errors.push("index " + entry.kind + " " + entry.id + ": exams list is out of date (run scripts/university/validate.cjs --write-exams)");
   }
   // Chapter counts for the hub's status line (review, 12 Nov 2026: the hub must say what the courses hold, not more):
   // written chapters, and the chapters not available yet per track 101, 201, 301.
@@ -101,10 +103,20 @@ for (const { entry, guide } of guides) {
   });
   if (JSON.stringify(entry.chapters) !== JSON.stringify(counts)) {
     if (process.argv.includes("--write-exams")) { entry.chapters = counts; examsChanged = true; }
-    else errors.push("index " + entry.kind + " " + entry.id + ": chapter counts are out of date (run build/validate.cjs --write-exams)");
+    else errors.push("index " + entry.kind + " " + entry.id + ": chapter counts are out of date (run scripts/university/validate.cjs --write-exams)");
   }
 }
 if (examsChanged) { fs.writeFileSync(path.join(UNI, "index.json"), JSON.stringify(index, null, 1) + "\n"); console.log("index.json: exam lists and chapter counts rewritten"); }
+
+// Schedule wording (INT-UNI-2, 12 Nov 2026): every string of every university file, by the rule validate.js shares.
+{
+  const walk = (value, where) => {
+    if (typeof value === "string") { const why = rules.scheduleWording(value); if (why) errors.push(where + ": stale schedule wording (" + why + "): " + value.slice(0, 120)); }
+    else if (Array.isArray(value)) value.forEach((v, i) => walk(v, where + "[" + i + "]"));
+    else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) walk(v, where + "." + k);
+  };
+  for (const dir of ["", "courses", "races", "professions", "facts", "quizzes", "presets"]) for (const f of listDir(dir || ".")) walk(read((dir ? dir + "/" : "") + f), (dir ? dir + "/" : "") + f);
+}
 
 // Quiz questions must belong to a guide that lists their file.
 for (const doc of quizFiles) if (!guides.some(x => x.guide.quizFiles.includes(doc.file))) errors.push("quizzes/" + doc.file + ".json: no guide lists it in quizFiles");

@@ -82,7 +82,7 @@
 .uni-legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:6px 0 0}
 .uni-legend dd{margin:0}
 /* Hub jump bar, section focus and the exam index (integrator, 12 Nov 2026). */
-.uni-hub-status{margin:0}
+.uni-hub-status,.uni-hub-schedule{margin:0}
 .uni-jump ul{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
 .uni-section[tabindex="-1"]{scroll-margin-top:72px}
 .uni-section[tabindex="-1"]:focus{outline:none}

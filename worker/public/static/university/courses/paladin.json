@@ -424,7 +424,7 @@
         ]
        },
        {
-        "text": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026. Carry your own Drakefire Amulet for Onyxia's Lair.",
+        "text": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40). Carry your own Drakefire Amulet for Onyxia's Lair.",
         "facts": [
          "class-paladin.launch-raids",
          "class-paladin.onyxias-lair-entry"
@@ -857,7 +857,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "paladin-holy-201-consumables",
@@ -1050,7 +1050,7 @@
        "theory": [
         "class-paladin.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss healing is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss healing is written from the first reviewed logs after that."
       },
       {
        "id": "paladin-holy-301-duels",
@@ -1434,7 +1434,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "paladin-protection-201-consumables",
@@ -1500,7 +1500,7 @@
        "praxis": {
         "steps": [
          {
-          "text": "Treat raid tanking as untested until the raids open on 9 December 2026.",
+          "text": "Treat raid tanking as untested until the raids unlock. Raid unlock date: 9 December 2026.",
           "facts": [
            "class-paladin.launch-raids"
           ]
@@ -1625,7 +1625,7 @@
         "class-paladin.launch-raids",
         "class-paladin.raid-tanking-at-60"
        ],
-       "unavailable": "Raid tanking at level 60 is untested: the beta capped at level 30, and Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss tanking is written from the first reviewed logs after that."
+       "unavailable": "Raid tanking at level 60 is untested: the beta capped at level 30. Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss tanking is written from the first reviewed logs after that."
       },
       {
        "id": "paladin-protection-301-duels",
@@ -2012,7 +2012,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "paladin-retribution-201-consumables",
@@ -2214,7 +2214,7 @@
        "theory": [
         "class-paladin.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "paladin-retribution-301-duels",

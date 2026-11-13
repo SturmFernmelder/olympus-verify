@@ -9,6 +9,8 @@
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), cp = require('node:child_process');
 const repo = path.resolve(process.env.GUIDES_TEST_ROOT || path.join(__dirname, '../..'));
 const worker = path.join(repo, 'worker'), stat = path.join(worker, 'public/static'), uni = path.join(stat, 'university');
+// INT-UNI-3 (12 Nov 2026): the university build tools moved out of the published static folder.
+const tools = path.join(repo, 'scripts/university');
 const readText = (...p) => fs.readFileSync(path.join(...p), 'utf8');
 const json = (...p) => JSON.parse(readText(...p));
 let passed = 0, failed = 0;
@@ -28,13 +30,25 @@ const listJson = dir => fs.readdirSync(path.join(uni, dir)).filter(f => f.endsWi
 const strip = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:"'\\])\/\/.*$/gm, '$1');
 
 // ---------- Build check, data coverage and the honesty rules ----------
-check('the build check (build/validate.cjs) passes over every university file', () => {
-  const r = cp.spawnSync(process.execPath, [path.join(uni, 'build/validate.cjs'), '--quiet'], { encoding: 'utf8', timeout: 60000 });
+check('the build check (scripts/university/validate.cjs) passes over every university file', () => {
+  const r = cp.spawnSync(process.execPath, [path.join(tools, 'validate.cjs'), '--quiet'], { encoding: 'utf8', timeout: 60000 });
   return r.status === 0 && /university: valid/.test(r.stdout) || (r.stdout + r.stderr).slice(-600);
 });
 check('the generated talent facts and questions are current (generate-talent-facts.cjs --check)', () => {
-  const r = cp.spawnSync(process.execPath, [path.join(uni, 'build/generate-talent-facts.cjs'), '--check'], { encoding: 'utf8', timeout: 60000 });
+  const r = cp.spawnSync(process.execPath, [path.join(tools, 'generate-talent-facts.cjs'), '--check'], { encoding: 'utf8', timeout: 60000 });
   return r.status === 0 || (r.stdout + r.stderr).slice(-400);
+});
+// INT-UNI-3 (12 Nov 2026): everything under worker/public/ is served by the assets binding, so a build tool kept there
+// would be downloadable. No CommonJS, Python, shell or TypeScript file, no build/ folder and no migration map may remain.
+check('INT-UNI-3: no build tool or build-only file remains under worker/public/, and the tools run from scripts/university/', () => {
+  const bad = [], walk = dir => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name), rel = path.relative(worker, p).split(path.sep).join('/');
+    if (e.isDirectory()) { if (e.name === 'build') bad.push(rel + '/'); walk(p); }
+    else if (/\.(cjs|py|sh|ts|ps1|bat)$/i.test(e.name) || e.name === 'migration-map.json') bad.push(rel);
+  } };
+  walk(path.join(worker, 'public'));
+  const moved = ['validate.cjs', 'generate-talent-facts.cjs', 'migrate-guides218.cjs', 'migration-map.json'].filter(f => !fs.existsSync(path.join(tools, f)));
+  return bad.length === 0 && moved.length === 0 || JSON.stringify({ underPublic: bad, missingFromScripts: moved });
 });
 check('the shared rules use the directive section order and the three tracks', () => {
   const R = rules();
@@ -141,7 +155,7 @@ check('CL2-203: class quests, baseline spells, unconfirmed reports and myths are
     && paladin.get('paladin-101-unconfirmed').length >= 1 && druid.get('druid-101-unconfirmed').length >= 1 || JSON.stringify(quests);
 });
 check('the migration recorded every .218 class and profession entry it moved', () => {
-  const g = json(stat, 'guides218.json'), map = json(uni, 'build/migration-map.json').entries.map(e => e.from);
+  const g = json(stat, 'guides218.json'), map = json(tools, 'migration-map.json').entries.map(e => e.from);
   const want = [];
   g.classes.forEach((c, ci) => {
     c.changes.forEach((_, i) => want.push(`classes[${ci}].changes[${i}]`)); c.classQuests.forEach((_, i) => want.push(`classes[${ci}].classQuests[${i}]`));
@@ -392,7 +406,7 @@ check('renderer: every .218 class, spec and profession link and every race opens
   const bad = [];
   for (const parts of routes) {
     const p = await open(parts), h1 = text(p.container.querySelector('h1'));
-    if (!h1 || p.container.querySelector('p[role="alert"]') || /There is no such guide|carried over from the earlier/.test(p.container.textContent)) bad.push(parts.join('/') + ' :: ' + (h1 || text(p.container).slice(0, 80)));
+    if (!h1 || / not found$/.test(h1) || p.container.querySelector('p[role="alert"]') || /There is no such|carried over from the earlier/.test(p.container.textContent)) bad.push(parts.join('/') + ' :: ' + (h1 || text(p.container).slice(0, 80)));
   }
   const frost = await open(['class', 'mage', 'frost']);
   return bad.length === 0 && routes.length === 9 + 27 + 12 + 5 && text(frost.container.querySelector('h1')) === 'Frost Mage' || bad.slice(0, 6).join(' | ') || routes.length;
@@ -401,7 +415,24 @@ check('renderer: an unwritten race says so, and an unknown guide or chapter is r
   // Every race is written now; a planned index entry must still render "not written yet" and load no course file.
   const planned = x => { const ix = json(uni, 'index.json'), d = ix.guides.find(g => g.id === 'dwarf'); d.status = 'planned'; d.file = null; delete d.exams; delete d.chapters; x.files.set('index.json', ix); };
   const a = await open(['race', 'dwarf'], undefined, planned), b = await open(['class', 'warrior', 'nope']), c = await open(['class', 'warrior', 'arms', '101', 'missing-chapter']), d = await open(['race', 'orc']);
-  return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1 && [b, c, d].every(x => /There is no such guide\./.test(x.container.textContent));
+  const h1 = x => x.container.querySelectorAll('h1').map(text);
+  return /has not been written yet/.test(a.container.textContent) && a.requests.length === 1
+    && JSON.stringify([b, c, d].map(h1)) === '[["Spec not found"],["Chapter not found"],["Race guide not found"]]' && !c.container.querySelector('fieldset') || JSON.stringify([b, c, d].map(h1));
+});
+// INT-UNI-1 / CL2-105 (12 Nov 2026): every university address that names nothing renders one H1 ending in "not found",
+// one role="status" sentence and a link back to #/guides, and loads no course file it does not need.
+check('INT-UNI-1: an unknown class, spec, profession, race, track, chapter, exam or page renders one "… not found" H1, a status sentence and a way back', async () => {
+  const cases = [['class/no-such-class', 'Class guide not found'], ['class/warrior/nope', 'Spec not found'], ['profession/no-such-profession', 'Profession guide not found'],
+    ['race/orc', 'Race guide not found'], ['class/warrior/401', 'Track not found'], ['class/warrior/arms/999', 'Track not found'], ['race/human/401', 'Track not found'],
+    ['class/warrior/arms/101/missing-chapter', 'Chapter not found'], ['race/human/101/Bad_Chapter!', 'Chapter not found'], ['exam/spec-warrior-nope/101', 'Exam not found'],
+    ['exam/class-nope/101', 'Exam not found'], ['exam/class-warrior/401', 'Exam not found'], ['nonsense', 'Guide not found'], ['class/warrior/arms/101/x/y', 'Page not found']];
+  const bad = [];
+  for (const [route, want] of cases) {
+    const p = await open(route.split('/')), h1 = p.container.querySelectorAll('h1').map(text);
+    const status = p.container.querySelectorAll('[role="status"]').map(text).filter(Boolean), back = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === '#/guides' && /Back to Olympus University/.test(text(a)));
+    if (JSON.stringify(h1) !== JSON.stringify([want]) || status.length !== 1 || !/\.$/.test(status[0]) || !back || p.container.querySelector('[role="alert"]')) bad.push(route + ' :: ' + JSON.stringify({ h1, status, back }));
+  }
+  return bad.length === 0 || bad.join(' | ');
 });
 check('renderer: the Related rail links the talent calculator, hub tools, the Class Lead office, the Workshop charter and the exam index (CL2-207)', async () => {
   const hrefs = async parts => (await open(parts)).container.querySelector('nav[aria-label="Related"]').querySelectorAll('a').map(a => a.getAttribute('href'));
@@ -424,17 +455,89 @@ check('renderer: presets show "Talent build" (not "Beta snapshot build") with At
 const allFacts = () => new Map(listJson('facts').flatMap(d => d.facts.map(f => [f.id, { ...(d.defaults || {}), ...f }])));
 const guideFiles = () => ['courses', 'races', 'professions'].flatMap(d => fs.readdirSync(path.join(uni, d)).filter(f => f.endsWith('.json')).map(f => json(uni, d, f)));
 const chaptersOf = g => [g, ...(g.specs || [])].flatMap(o => ['101', '201', '301'].flatMap(t => o.tracks[t].chapters));
-check('review: talent facts the 2 Nov notes overtook carry the note and their successor, get no value question, and are never cited alone', () => {
-  const F = allFacts(), Q = quizzes(), bad = [];
-  for (const id of ['talents-shaman.enhancement-mental-dexterity.r1', 'talents-shaman.enhancement-mental-dexterity.r3', 'talents-shaman.enhancement-stormstrike', 'talents-shaman.enhancement-stormstrike.r1']) {
-    const f = F.get(id);
-    if (!f || !f.supersededBy || !/2 Nov notes/.test(f.note || '') || !F.get(f.supersededBy) || F.get(f.supersededBy).grade !== 'B') bad.push(id);
-  }
-  if (Q.has('talents-shaman.enhancement-mental-dexterity.value')) bad.push('value question still generated');
-  const step = chaptersOf(json(uni, 'courses/shaman.json')).find(c => c.id === 'shaman-enhancement-101-talents').praxis.steps.find(s => /Mental Dexterity/.test(s.text) && /Intellect/.test(s.text));
-  if (!/50%, 100% or 150%/.test(step.text) || !/check the tooltip in game/.test(step.text)) bad.push('101 step: ' + step.text);
-  for (const q of Q.values()) if (q.facts.some(id => F.get(id) && F.get(id).supersededBy && !q.facts.includes(F.get(id).supersededBy))) bad.push(q.id);
+// REV-UNI-4 (12 Nov 2026): a re-run of the reviewer's comparison over the base guides218.json (dfca7a2) found these old
+// lines with no trace in the university: no fact, step or question carries them and no heldBack record holds them (one
+// had only its "(1 Oct)" date recorded). None has a per-line source, so each is held back with its reason. A record
+// counts only when it holds at least half of the line, so a date fragment cannot stand in for a whole claim.
+const REV_UNI_4_DROPS = [
+  ['warrior', 'classes[0].specs[0].beginner.leveling[0]', "Warcraft Tavern's author calls Arms the traditional leveling pick and prefers Bloodthrill over Weaponmaster while leveling."],
+  ['warrior', 'classes[0].specs[1].beginner.leveling[0]', 'Warcraft Tavern rates every Warrior spec viable for leveling but says Fury takes more damage and has more downtime.'],
+  ['warrior', 'classes[0].specs[1].beginner.tips[1]', 'Queuing Heroic Strike no longer raises your off-hand hit chance in Forever.'],
+  ['warrior', 'classes[0].specs[1].beginner.tips[2]', 'Unbridled Wrath no longer doubles its Rage with two-handed weapons.'],
+  ['warrior', 'classes[0].specs[1].pro.raid[2].note', "Blizzard's 30 Sep deep dive also had it make Whirlwind hit with both weapons; the snapshot text no longer mentions that."],
+  ['warrior', 'classes[0].specs[1].pvp.overview[0]', 'Warcraft Tavern says Fury has no real PvP tools, and that Berserker Stance and Death Wish leave it fragile.'],
+  ['warrior', 'classes[0].specs[2].beginner.leveling[0]', 'Warcraft Tavern rates all three Warrior specs viable for leveling, but its Protection guide says the spec does poorly when you are not tanking.'],
+  ['warrior', 'classes[0].specs[2].pvp.overview[0]', 'Protection is built for dungeons and raids; Warcraft Tavern says it does poorly when you are not tanking.'],
+  ['warrior', 'classes[0].specs[2].beginner.tips[2]', "Thunder Clap's threat was lowered to balance its new damage, so pair it with Demoralizing Shout on big pulls."],
+  ['warrior', 'classes[0].specs[2].beginner.leveling[2]', 'Rend and Sunder Armor tag mobs instantly (1 Oct), so you claim shared quest mobs quickly.'],
+  ['warlock', 'classes[7].specs[2].beginner.leveling[0]', 'Warcraft Tavern rates Destruction the hardest of the three to level alone and recommends Affliction for leveling.'],
+  ['druid', 'classes[8].specs[1].beginner.rotation[4]', 'In Bear Form, use Swipe when you need threat on several targets.'],
+];
+const heldNorm = s => String(s).toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/\s+/g, ' ').trim();
+const holds = (h, from, text) => h.from.split(/,\s*/).includes(from) && heldNorm(h.text).length >= 0.5 * heldNorm(text).length && (heldNorm(h.text).includes(heldNorm(text)) || heldNorm(text).includes(heldNorm(h.text)));
+check('REV-UNI-4: every old line the migration dropped with no trace has a heldBack record that holds it, with a reason', () => {
+  const bad = REV_UNI_4_DROPS.filter(([course, from, text]) => !(json(uni, 'courses', course + '.json').heldBack || []).some(h => holds(h, from, text) && h.reason.length > 20)).map(x => x[1]);
+  const fragment = !holds({ from: 'classes[0].specs[2].beginner.leveling[2]', text: '(1 Oct)' }, REV_UNI_4_DROPS[9][1], REV_UNI_4_DROPS[9][2]);
+  return bad.length === 0 && fragment || JSON.stringify({ notHeld: bad, fragmentRefused: fragment });
+});
+
+// CONTENT-01 and CONTENT-09 (12 Nov 2026): Blizzard's hotfixes of 6 and 10 November 2026 (one dated source, g218-156 in
+// both catalogues) lowered the Tanning Rack to skill 125, let weapon imbues and weapon totems work together, set
+// Stormstrike to 100% weapon damage on an 8 sec cooldown, Mental Dexterity to 33/66/100%, Maelstrom Weapon to 20% per
+// stack at every rank, and made Wrack speed up Siphon Life, Corruption and Bane of Agony instead of adding 10%.
+// An earlier review (12 Nov) had marked the talent data as superseded by the 2 Nov notes; the hotfix proves the reverse.
+const HOTFIX_URL = 'https://worldofwarcraft.blizzard.com/en-us/news/24315281/wow-forever-hotfixes-november-11-2026';
+// A stale claim is refused unless its own sentence dates it as history ("had", "was", "until", "before").
+const HOTFIX_STALE = [/Tanning Rack at 140|skill-140 camp object/i, /matching (?:weapon )?imbue,? (?:you )?gets? nothing|(?:get|gets|expect) nothing from (?:a|the|that) [^.]*totem/i,
+  /150% normalized/i, /Stormstrike[^.]*six-second|six-second cooldown/i, /50%, 100% or 150%/, /triggers twice as often|doubled the chance for Maelstrom/i,
+  /4% per stack/i, /other Shadow DoTs[^.]*10%|10% harder/i, /Wrack \(snapshot\)|36 Shadow damage/i, /check the tooltip in game|Go by the tooltip in game/i];
+const historical = sentence => /\b(?:had|was|were|until|before)\b/i.test(sentence);
+const staleHotfixClaims = strings => strings.flatMap(([where, s]) => s.split(/(?<=[.;!?])\s+|\(|\)/).filter(x => !historical(x) && HOTFIX_STALE.some(re => re.test(x))).map(x => where + ': ' + x.slice(0, 100)));
+check('CONTENT-01/09: one dated Blizzard hotfix source in both catalogues, and the hotfixed facts state what the site\'s talent data and that source say', () => {
+  const g = json(stat, 'guides218.json'), S = new Map(json(uni, 'sources.json').sources.map(s => [s.id, s])), F = allFacts(), data = json(stat, 'talents/data.json'), bad = [];
+  const tal = new Map(data.classes.flatMap(c => c.trees.flatMap(t => t.talents.map(x => [x.id, x]))));
+  const hs = S.get('g218-156');
+  if (!g.sources[156] || g.sources[156].url !== HOTFIX_URL || g.sources[156].kind !== 'official' || g.sources[156].checkedAt !== '2026-11-12' || !hs || hs.url !== HOTFIX_URL || hs.label !== g.sources[156].label) bad.push('hotfix source');
+  const want = { 'profession-leatherworking.camp-objects': /Tanning Rack at 125/, 'profession-leatherworking.tanning-rack-skill': /6 November 2026 lowered the Tanning Rack's skill requirement to 125 \(it was 140\)/,
+    'class-shaman.imbues-with-totems': /weapon imbues and weapon totems work at the same time/, 'class-shaman.stormstrike': /100% weapon damage and has an 8-second cooldown/,
+    'class-shaman.change-7': /Stormstrike deals 100% weapon damage on an 8-second cooldown/, 'class-shaman.intellect-into-power': /33%, 66% or 100%/, 'class-shaman.maelstrom-weapon': /20% at every rank[^.]*6, 7, 8, 9 or 10 times per minute/,
+    'class-warlock.wrack-snapshot': /deal their periodic damage 100% faster/ };
+  for (const [id, re] of Object.entries(want)) { const f = F.get(id); if (!f || !re.test(f.value) || (id !== 'class-warlock.wrack-snapshot' && !f.sources.includes('g218-156'))) bad.push(id); }
+  // The source of truth is the site's own 10 November talent data; the hotfix text must agree with it.
+  const ss = tal.get('shaman-enhancement-stormstrike'), md = tal.get('shaman-enhancement-mental-dexterity'), mw = tal.get('shaman-enhancement-maelstrom-weapon'), wr = tal.get('warlock-affliction-wrack');
+  if (!/100% weapon damage/.test(ss.descriptions[0]) || !/8 sec cooldown/.test(ss.cost)) bad.push('talent data Stormstrike');
+  if (md.descriptions.map(d => /(\d+)% of your Intellect/.exec(d)[1]).join() !== '33,66,100') bad.push('talent data Mental Dexterity');
+  if (!mw.descriptions.every(d => /by 20%/.test(d)) || mw.descriptions.map(d => /about (\d+) times per minute/.exec(d)[1]).join() !== '6,7,8,9,10') bad.push('talent data Maelstrom Weapon');
+  if (!/60 Shadow damage every 1 sec[^.]*\. While channeling, your Siphon Life, Corruption, and Bane of Agony effects on the target deal their periodic damage 100% faster/.test(wr.descriptions[0])) bad.push('talent data Wrack');
+  // The generated talent facts are no longer marked superseded, and Mental Dexterity gets its value question back.
+  for (const id of ['talents-shaman.enhancement-mental-dexterity.r1', 'talents-shaman.enhancement-mental-dexterity.r3', 'talents-shaman.enhancement-stormstrike', 'talents-shaman.enhancement-stormstrike.r1'])
+    if (!F.get(id) || F.get(id).supersededBy || /superseded/i.test(F.get(id).note || '')) bad.push(id + ' still superseded');
+  if (!quizzes().has('talents-shaman.enhancement-mental-dexterity.value')) bad.push('no Mental Dexterity value question');
+  const rack = quizzes().get('profession-leatherworking.rack-skill');
+  if (!rack || rack.choices[rack.answer] !== '125' || rack.choices.includes('140')) bad.push('rack-skill question');
   return bad.length === 0 || bad.join('; ');
+});
+check('CONTENT-01/09: no university text and no guides218.json text (Discord /guide, tools, presets) states a pre-hotfix claim as current', () => {
+  // Fact notes and heldBack records are dated history by design; every other string is checked sentence by sentence.
+  const uniCurrent = uniStrings().filter(([w]) => !/\.note$|\.heldBack\[/.test(w));
+  const g = json(stat, 'guides218.json'), gs = [], walk = (v, w) => { if (typeof v === 'string') gs.push([w, v]); else if (Array.isArray(v)) v.forEach((x, i) => walk(x, w + '/' + i)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, w + '/' + k); };
+  walk(g.classes, 'guides218/classes'); walk(g.professions, 'guides218/professions'); walk(g.tools, 'guides218/tools'); walk(g.presets, 'guides218/presets');
+  const bad = staleHotfixClaims([...uniCurrent, ...gs]);
+  // The matcher itself refuses the four pre-hotfix wordings Codex listed and accepts a dated history sentence.
+  const probe = staleHotfixClaims([['p1', 'Stormstrike deals 150% normalized weapon damage on a six-second cooldown.'], ['p2', 'A Shaman with the matching imbue gets nothing from the totem.'],
+    ['p3', 'Mental Dexterity converts 50%, 100% or 150% of Intellect into Attack Power.'], ['p4', 'Wrack makes your other Shadow DoTs hit the target 10% harder for 6 sec.'], ['ok', "Blizzard's 2 November notes had given 150% normalized weapon damage."]]);
+  return bad.length === 0 && probe.length === 4 && !probe.some(x => x.startsWith('ok')) || JSON.stringify({ bad: bad.slice(0, 6), n: bad.length, probe });
+});
+check('CONTENT-01/09: the rendered Leatherworking, Enhancement and Dwarf pages give the hotfix values and cite the dated hotfix', async () => {
+  const bad = [];
+  for (const [parts, must] of [[['profession', 'leatherworking', '101'], [/Tanning Rack at 125/, /skill-125 camp object/]], [['class', 'shaman', 'enhancement', '101'], [/100% weapon damage on an 8 sec cooldown/, /33%, 66% or 100% of your Intellect/]],
+    [['class', 'shaman', 'enhancement', '201'], [/your own weapon imbue and the matching totem work at the same time/]], [['race', 'dwarf', '201'], [/a Windfury Weapon Shaman still gains from Windfury Totem/]]]) {
+    const p = await open(parts), t = p.container.textContent;
+    const cites = p.container.querySelectorAll('a').some(a => a.getAttribute('href') === HOTFIX_URL);
+    const stale = staleHotfixClaims([[parts.join('/'), t]]).filter(x => !/had given|it was 140|got nothing/.test(x));
+    if (!must.every(re => re.test(t)) || !cites || stale.length) bad.push(parts.join('/') + ' ' + JSON.stringify({ missing: must.filter(re => !re.test(t)).map(String), cites, stale: stale.slice(0, 3) }));
+  }
+  return bad.length === 0 || bad.join(' | ');
 });
 check('review: the validator refuses a question that cites a superseded fact without the fact that supersedes it', refused(({ bundle, quiz }) => {
   const q = quiz.questions.find(x => x.facts.some(id => id.startsWith('talents-warrior.')));
@@ -490,9 +593,15 @@ check('review: the Gnome guide teaches Eureka! on Power Word: Shield from the 16
 check('renderer: a track states each omission reason once, preset chapters carry no duplicate "check in game" step, and race leads open with their facts', async () => {
   const human = await open(['race', 'human', '201']), arms = await open(['class', 'warrior', 'arms', '301']);
   const counts = p => { const s = p.container.querySelectorAll('section').find(x => /Intermediate|Advanced/.test(text(x.querySelector('h2')))); const seen = new Map(); for (const li of s.querySelectorAll('li')) { const t = text(li).replace(/^[^:]*: /, ''); seen.set(t, (seen.get(t) || 0) + 1); } return [...seen.values()].every(n => n === 1); };
-  const dup = guideFiles().flatMap(chaptersOf).filter(c => c.presets && c.praxis && c.praxis.steps.some(s => /^Open the build in the talent calculator/.test(s.text))).map(c => c.id);
+  // REV-UNI-3 (12 Nov 2026): the preset block already says to check a build in game, so a preset chapter's own steps must
+  // not repeat it in any wording (check, compare or verify a build or talents in game, or open it in the calculator first).
+  const ownCheck = t => /\b(?:check|compare|verify|confirm)\b[^.]*\b(?:builds?|talents?|points)\b[^.]*\bin[- ]game\b/i.test(t) || /\bin[- ]game\b[^.]*\bbefore you (?:spend|use|attach|commit)/i.test(t)
+    || /\b(?:open|load)\b[^.]*\btalent calculator\b/i.test(t);
+  const dup = guideFiles().flatMap(chaptersOf).filter(c => c.presets && c.praxis && c.praxis.steps.some(s => ownCheck(s.text))).map(c => c.id);
+  const shown = ['Check a build against your talents in game before you use it or attach it to an application.', 'Open a build in the talent calculator and check it against your talents in game before you spend points.',
+    'Open the dungeon build below in the talent calculator and check it against your talents in game before you spend points.', 'Compare the build with your talents in-game first.'].every(ownCheck);
   const leads = guideFiles().filter(g => g.kind === 'race').filter(g => /one of the five Alliance races/.test(g.overview.lead)).map(g => g.id);
-  return counts(human) && counts(arms) && dup.length === 0 && leads.length === 0 || JSON.stringify({ dup, leads });
+  return counts(human) && counts(arms) && shown && dup.length === 0 && leads.length === 0 || JSON.stringify({ dup, leads, shown });
 });
 check('renderer: the hub says how many chapters are written and waiting, computed from the index, and claims no more', async () => {
   const ix = json(uni, 'index.json'), p = await open([]);
@@ -503,11 +612,92 @@ check('renderer: the hub says how many chapters are written and waiting, compute
     && !/Every course below has|Every chapter pairs Theory with Praxis and ends with a quiz/.test(p.container.textContent) && /Each written chapter pairs Theory with Praxis/.test(lead) || JSON.stringify({ status, lead });
 });
 
+// INT-UNI-2 / CL2-173, CL2-177 (12 Nov 2026): schedule lines are dated facts in guides218.json's wording, and the hub
+// says Forever launched (4 November 2026) and gives the first raid unlock date. The shared rule is checked, and the
+// files are scanned with an independent pattern so a weakened rule cannot pass.
+const uniStrings = () => {
+  const out = [], walk = (v, where) => { if (typeof v === 'string') out.push([where, v]); else if (Array.isArray(v)) v.forEach((x, i) => walk(x, where + '[' + i + ']')); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, where + '.' + k); };
+  for (const dir of ['', 'courses', 'races', 'professions', 'facts', 'quizzes', 'presets']) for (const f of fs.readdirSync(path.join(uni, dir)).filter(x => x.endsWith('.json'))) walk(json(uni, dir, f), (dir ? dir + '/' : '') + f);
+  return out;
+};
+check('INT-UNI-2: no university string says the raids "open on" a date, uses "9 Dec" shorthand or calls the launch upcoming or announced', () => {
+  const R = rules(), STALE = /\b9 Dec\b(?!ember)|\bopens? (?:on |from )?9 Dec|\braids? (?:that )?open\b|\bFrom 9 Dec|announced (?:global )?launch|upcoming launch/i;
+  const bad = uniStrings().filter(([, s]) => STALE.test(s) || (R.scheduleWording && R.scheduleWording(s)));
+  const raid = uniStrings().filter(([, s]) => /Raid unlock date: 9 December 2026/.test(s)).length;
+  return typeof R.scheduleWording === 'function' && bad.length === 0 && raid >= 40 || JSON.stringify({ rule: typeof R.scheduleWording, bad: bad.slice(0, 4).map(([w, s]) => w + ': ' + s.slice(0, 90)), nBad: bad.length, raid });
+});
+check('INT-UNI-2: the shared rule refuses "open on 9 Dec", "From 9 Dec", a date with no year and an announced launch, and accepts the dated wording', () => {
+  const R = rules();
+  if (typeof R.scheduleWording !== 'function') return 'validate.js exports no scheduleWording rule';
+  const refused = ['Barrow Deeps, Hyjal Summit and Onyxia\'s Lair open on 9 December 2026.', 'The first raids open on 9 Dec 2026.', 'From 9 Dec 2026: The Barrow Deeps',
+    'Molten Core is not one of the raids that open on 9 December.', 'The guides record the announced global launch for 4 November 2026.', 'Phase tables wait for the raids on 9 December.'];
+  const accepted = ['Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia\'s Lair.', 'First raid unlock date: 9 December 2026.', 'Forever launched worldwide on 4 November 2026 at 23:00 UTC.',
+    'Insect Swarm gives you a way out when they open on you.', 'No raid-wide Bloodlust has been announced.'];
+  const a = refused.filter(t => !R.scheduleWording(t)), b = accepted.filter(t => R.scheduleWording(t));
+  return a.length === 0 && b.length === 0 || JSON.stringify({ notRefused: a, wronglyRefused: b });
+});
+check('INT-UNI-2: the hub says Forever launched on 4 November 2026 and gives the first raid unlock date, and never says "announced"', async () => {
+  const p = await open([]), t = p.container.textContent;
+  const hunter = await open(['class', 'hunter', '201']);
+  return /Forever launched worldwide on 4 November 2026 at 23:00 UTC\. First raid unlock date: 9 December 2026\./.test(t) && !/announced|upcoming/i.test(t)
+    && /Raid unlock date: 9 December 2026/.test(hunter.container.textContent) && !/open on 9 Dec/.test(hunter.container.textContent) || JSON.stringify({ hub: t.slice(0, 400) });
+});
+// REV-UNI-2 (12 Nov 2026): examView built the legend before it collected the grades its questions cite, so no exam
+// page showed "How to read the grades". Every exam must show it, listing exactly the grades its drawn questions cite.
+check('REV-UNI-2: a mastery exam shows the "How to read the grades" legend with the grades its questions cite', async () => {
+  const F = allFacts(), Q = quizzes(), bad = [];
+  for (const parts of [['exam', 'spec-warrior-arms', '101'], ['exam', 'class-warrior', '201'], ['exam', 'race-human', '101'], ['exam', 'profession-alchemy', '101']]) {
+    const p = await open(parts), legend = p.container.querySelector('details.uni-legend');
+    const ids = p.container.querySelectorAll('fieldset').map(b => b.getAttribute('data-question'));
+    const want = ['A', 'B', 'C', 'D', 'E', 'U'].filter(g => ids.some(id => Q.get(id).facts.some(f => F.get(f).grade === g)));
+    const shown = legend ? legend.querySelectorAll('dt').map(text) : [];
+    if (!ids.length || !legend || text(legend.querySelector('summary')) !== 'How to read the grades' || JSON.stringify(shown) !== JSON.stringify(want)) bad.push(parts.join('/') + ' ' + JSON.stringify({ legend: !!legend, shown, want }));
+  }
+  return bad.length === 0 || bad.join(' | ');
+});
+
+// Browser part (opt-in): node tests/evergreen1112_guides_test.cjs --base http://127.0.0.1:<harness> --cdp <port>
+// INT-UNI-1, INT-UNI-2 and REV-UNI-2 in the real site at 1280 and 375 px (member persona).
+async function browserChecks(base, port) {
+  const { launch, instrument, idle, viewport, sleep } = await import('file:///C:/Users/vikto/olympus-claude-candidates/audit279/tools/cdp.mjs');
+  const profile = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'guides-edge-'));
+  const cdp = await launch({ port, profile }), st = await instrument(cdp), out = [];
+  const go = async (width, route) => { await viewport(cdp, width, 900); await cdp.send('Page.navigate', { url: base + '/#/' + route }); await idle(st); await cdp.send('Page.reload', {}); await idle(st); await sleep(900); };
+  try {
+    await cdp.send('Page.navigate', { url: base + '/__qa/member' }); await idle(st);
+    for (const width of [1280, 375]) {
+      const missing = [];
+      for (const route of ['guides/class/no-such-class', 'guides/class/warrior/nope', 'guides/profession/no-such-profession', 'guides/race/orc', 'guides/class/warrior/401', 'guides/class/warrior/arms/101/missing-chapter', 'guides/exam/class-nope/101']) {
+        await go(width, route);
+        const r = await cdp.eval(`(() => { const m = document.querySelector('main'), back = m.querySelector('.uni a[href="#/guides"]');
+          return { h1: [...m.querySelectorAll('h1')].map(h => h.textContent.trim()), status: [...m.querySelectorAll('.uni [role=status]')].map(s => s.textContent.trim()).filter(Boolean),
+            back: back ? Math.round(back.getBoundingClientRect().height) : 0, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+        if (r.h1.length !== 1 || !/ not found$/.test(r.h1[0]) || r.status.length !== 1 || r.back < 44 || r.overflow > 0) missing.push(route + ' ' + JSON.stringify(r));
+      }
+      out.push(['browser ' + width + ' px INT-UNI-1: seven unknown university addresses each show one "… not found" H1, one status sentence and a 44 px way back', missing.length === 0, missing]);
+      await go(width, 'guides/exam/spec-warrior-arms/101');
+      const exam = await cdp.eval(`(() => { const d = document.querySelector('main details.uni-legend'); return { legend: !!d && d.getClientRects().length > 0, summary: d ? d.querySelector('summary').textContent : null, grades: d ? [...d.querySelectorAll('dt')].map(x => x.textContent) : [] }; })()`);
+      out.push(['browser ' + width + ' px REV-UNI-2: the Arms 101 exam shows "How to read the grades"', exam.legend && exam.summary === 'How to read the grades' && exam.grades.length > 0, exam]);
+      await go(width, 'resources');
+      const hub = await cdp.eval(`(() => { const t = document.querySelector('main').textContent, s = document.querySelector('main .uni-hub-schedule'); return { schedule: s ? s.textContent : null, announced: /announced/i.test(t), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+      out.push(['browser ' + width + ' px INT-UNI-2: #/resources (the hub) says Forever launched and gives the first raid unlock date, and never "announced"',
+        /^Forever launched worldwide on 4 November 2026 at 23:00 UTC\. First raid unlock date: 9 December 2026\.$/.test(hub.schedule || '') && !hub.announced && hub.overflow <= 0, hub]);
+    }
+    if (st.exceptions.length) out.push(['browser: no page exceptions', false, st.exceptions.slice(0, 3)]);
+  } finally { await Promise.race([cdp.close(), sleep(3000)]); try { cdp.proc.kill(); } catch { /* gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold it */ } }
+  return out;
+}
+
 (async () => {
   for (const run of pending) {
     const [name, ok, detail] = await run();
     if (ok) passed++; else failed++;
     console.log((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : ' :: ' + String(detail).slice(0, 400)));
+  }
+  const at = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
+  if (at('--base') && at('--cdp')) for (const [name, ok, detail] of await browserChecks(at('--base'), Number(at('--cdp')))) {
+    if (ok) passed++; else failed++;
+    console.log((ok ? 'PASS ' : 'FAIL ') + name + ' :: ' + JSON.stringify(detail).slice(0, 600));
   }
   console.log(passed + ' passed, ' + failed + ' failed');
   process.exitCode = failed ? 1 : 0;

@@ -2,6 +2,7 @@
  "schema": "olympus-university-index-v1",
  "reviewedAt": "2026-11-12",
  "scopeNote": "Olympus University cites Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.",
+ "schedule": "Forever launched worldwide on 4 November 2026 at 23:00 UTC. First raid unlock date: 9 December 2026.",
  "grades": {
   "A": "Talent data: the calculator’s 10 November 2026 export, with server hotfixes",
   "B": "Official Blizzard announcement, notes or developer Q&A for Forever",
@@ -485,7 +486,7 @@
     {
      "scope": "class:shaman",
      "tier": "201",
-     "questions": 45
+     "questions": 46
     },
     {
      "scope": "spec:shaman-elemental",
@@ -505,7 +506,7 @@
     {
      "scope": "spec:shaman-enhancement",
      "tier": "201",
-     "questions": 16
+     "questions": 17
     },
     {
      "scope": "spec:shaman-restoration",

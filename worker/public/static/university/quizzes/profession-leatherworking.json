@@ -10,14 +10,15 @@
    "type": "mcq",
    "stem": "At what Leatherworking skill can you place the Tanning Rack?",
    "choices": [
-    "140",
+    "125",
     "300",
     "20"
    ],
    "answer": 0,
-   "explanation": "The Camp Tent comes at skill 20, the Tanning Rack at 140 and the Sewing Machine at 300.",
+   "explanation": "Since Blizzard's hotfix of 6 November 2026 the Tanning Rack needs skill 125 (it was 140). The Camp Tent comes at skill 20 and the Sewing Machine at 300.",
    "facts": [
-    "profession-leatherworking.camp-objects"
+    "profession-leatherworking.camp-objects",
+    "profession-leatherworking.tanning-rack-skill"
    ]
   },
   {

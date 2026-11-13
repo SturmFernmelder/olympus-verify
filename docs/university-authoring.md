@@ -28,16 +28,17 @@ Everything lives in `worker/public/static/university/`. The folder is member-gat
 | `facts/common.json` | Facts that more than one guide cites, such as the racials | Add a fact only when two guides need it |
 | `facts/class-<class>.json`, `facts/profession-<key>.json` | Facts migrated from the .218 guides, plus your own restatements | The author of that guide |
 | `facts/race-<race>.json` | Race-specific facts, if a race needs any beyond `common.json` | The author of that race |
-| `facts/talents-<class>.json` | Generated talent facts (grade A). **Do not edit** | `build/generate-talent-facts.cjs` |
+| `facts/talents-<class>.json` | Generated talent facts (grade A). **Do not edit** | `scripts/university/generate-talent-facts.cjs` |
 | `courses/<class>.json`, `races/<race>.json`, `professions/<key>.json` | The guide: overview, tracks, chapters | The author of that guide |
 | `quizzes/class-<class>.json`, `quizzes/race-<race>.json`, `quizzes/profession-<key>.json` | Hand-written questions | The author of that guide |
-| `quizzes/talents-<class>.json` | Generated talent questions. **Do not edit** | `build/generate-talent-facts.cjs` |
-| `presets/<class>.json` | Copies of the talent presets in `guides218.json`. **Do not edit** | `build/migrate-guides218.cjs --presets` |
+| `quizzes/talents-<class>.json` | Generated talent questions. **Do not edit** | `scripts/university/generate-talent-facts.cjs` |
+| `presets/<class>.json` | Copies of the talent presets in `guides218.json`. **Do not edit** | `scripts/university/migrate-guides218.cjs --presets` |
 | `validate.js` | The rules the page and the build share | Lane owner |
 | `university.js`, `university.css` | The renderer | Lane owner |
-| `build/` | The build check, the generator, the one-shot migration and its map | Lane owner |
 
-`build/migration-map.json` records where each `guides218.json` entry went. Use it to find the facts that came from your guide's old page.
+The build check, the generator, the one-shot migration and its map are not in this folder: they live in `scripts/university/` at the repository root, so the site never serves them (12 November 2026). Only the lane owner edits them.
+
+`scripts/university/migration-map.json` records where each `guides218.json` entry went. Use it to find the facts that came from your guide's old page.
 
 ## 3. Formats
 
@@ -67,7 +68,7 @@ All files are UTF-8 JSON. Text fields have no leading or trailing spaces. Ids ar
 | `sources` | 1 to 12 ids from `sources.json` (0 allowed for grade U) |
 | `reviewedAt`, `gameBuild` | The day you checked it and the build or notes it describes |
 | `recheck` | Set by the migration on every grade-A claim checked against the 16 October talent data. A re-check fact is shown with a "Needs re-check" note, **cannot be quizzed** and cannot appear in a complete guide. Re-check it against the 10 November data (`talents/data.json`), then either remove `recheck`, set `sources` to `["talents-data"]`, add `talent` or `tree`, and set `gameBuild` to `1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)`, or rewrite the value to what the data now says |
-| `supersededBy` | Optional: the id of a current fact (usually grade B) that a newer source gives instead, with a `note` saying what changed. `build/generate-talent-facts.cjs` sets it on talent facts whose 10 November text is older than Blizzard's 2 November notes (its `SUPERSEDED` list: Mental Dexterity and Stormstrike). Wherever such a fact is cited (theory, a step, a mistake, an overview point or a question), the fact that supersedes it must be cited beside it, and no value question is generated for it |
+| `supersededBy` | Optional: the id of a current fact (usually grade B) that a newer source gives instead, with a `note` saying what changed. `scripts/university/generate-talent-facts.cjs` sets it on talent facts whose 10 November text is older than Blizzard's 2 November notes (its `SUPERSEDED` list: Mental Dexterity and Stormstrike). Wherever such a fact is cited (theory, a step, a mistake, an overview point or a question), the fact that supersedes it must be cited beside it, and no value question is generated for it |
 | `talent` / `tree` | For grade A: the talent id (or the `class-tree` id) in `talents/data.json`. The build checks that every number in the value occurs in that talent's current rank text or cost |
 
 Grade D and E facts must say they are Classic references in the label, value, note or `gameBuild`.
@@ -206,13 +207,13 @@ Goal: a 101 chapter on Human racials with one quiz question, from facts the site
 Run from the repository root with Node 24.
 
 ```bash
-node worker/public/static/university/build/validate.cjs          # everything; prints a size table
-node worker/public/static/university/build/validate.cjs --quiet  # errors only
-node worker/public/static/university/build/validate.cjs --write-exams  # rewrite index.json's exam lists and chapter counts
+node scripts/university/validate.cjs          # everything; prints a size table
+node scripts/university/validate.cjs --quiet  # errors only
+node scripts/university/validate.cjs --write-exams  # rewrite index.json's exam lists and chapter counts
 cd worker && node tests/evergreen1112_guides_test.cjs            # the lane test: rules, renderer, routes, privacy
 ```
 
-`build/validate.cjs` runs the page's own rules over every file at once (ids, the honesty rules, the chapter rules), then once per guide with only the files that guide lists, as the page loads them. It also checks the talent facts against `talents/data.json`, the presets against `guides218.json`, the generated files against their generator, and that every file is listed in `index.json`. It fails when `index.json`'s exam lists or chapter counts (the hub's "N chapters are written" line) are stale: after adding or changing chapters or questions, run it with `--write-exams`. A guide the page cannot validate is not shown at all, so never commit with an error.
+`scripts/university/validate.cjs` runs the page's own rules over every file at once (ids, the honesty rules, the chapter rules), then once per guide with only the files that guide lists, as the page loads them. It also checks the talent facts against `talents/data.json`, the presets against `guides218.json`, the generated files against their generator, and that every file is listed in `index.json`. It fails when `index.json`'s exam lists or chapter counts (the hub's "N chapters are written" line) are stale: after adding or changing chapters or questions, run it with `--write-exams`. A guide the page cannot validate is not shown at all, so never commit with an error.
 
 ### 5.1 Promote a guide
 
@@ -221,8 +222,8 @@ When every chapter of your guide meets 3.4, set `"status": "complete"` in both t
 ### 5.2 Talent facts and talent questions
 
 ```bash
-node worker/public/static/university/build/generate-talent-facts.cjs          # write facts/talents-*.json and quizzes/talents-*.json
-node worker/public/static/university/build/generate-talent-facts.cjs --check  # fails if they are out of date
+node scripts/university/generate-talent-facts.cjs          # write facts/talents-*.json and quizzes/talents-*.json
+node scripts/university/generate-talent-facts.cjs --check  # fails if they are out of date
 ```
 
 The generator writes grade-A facts for every talent of all nine classes: a shape fact (`talents-<class>.<tree>-<talent>`, with rank count, row, column, prerequisite and cost) and one fact per rank (`... .r1`, `.r2`, ...), plus a tree summary (`talents-<class>.<tree>-summary`). Cite them directly as theory.
@@ -231,7 +232,7 @@ Questions are generated only for the classes in `QUIZ_CLASSES` at the top of the
 
 ### 5.3 Presets
 
-Presets belong to the talents lane and live in `guides218.json`. After any preset change there, run `node worker/public/static/university/build/migrate-guides218.cjs --presets`. Never edit `presets/*.json` by hand. The migration itself was a one-shot and never overwrites a guide or fact file.
+Presets belong to the talents lane and live in `guides218.json`. After any preset change there, run `node scripts/university/migrate-guides218.cjs --presets`. Never edit `presets/*.json` by hand. The migration itself was a one-shot and never overwrites a guide or fact file.
 
 ## 6. Sources you may use
 
@@ -252,6 +253,6 @@ Write as a careful human editor: plain, specific, one statement per fact, no rep
 
 | Scope | Edit | Create |
 |---|---|---|
-| Druid, Hunter, Mage, Paladin, Priest, Rogue, Shaman, Warlock (8 classes, 24 specs) | `courses/<class>.json`, `facts/class-<class>.json` (re-check every grade-A fact), `build/generate-talent-facts.cjs` (`QUIZ_CLASSES`), `index.json` status | `quizzes/class-<class>.json` (and the generated `quizzes/talents-<class>.json`) |
+| Druid, Hunter, Mage, Paladin, Priest, Rogue, Shaman, Warlock (8 classes, 24 specs) | `courses/<class>.json`, `facts/class-<class>.json` (re-check every grade-A fact), `scripts/university/generate-talent-facts.cjs` (`QUIZ_CLASSES`), `index.json` status | `quizzes/class-<class>.json` (and the generated `quizzes/talents-<class>.json`) |
 | Dwarf, Gnome, Night Elf, Skyborne (4 races) | `index.json` (file, status); `facts/common.json` if a racial is shared | `races/<race>.json`, `quizzes/race-<race>.json`, `facts/race-<race>.json` if needed |
 | Blacksmithing, Enchanting, Engineering, Herbalism, Leatherworking, Mining, Skinning, Tailoring, Cooking, Fishing, First Aid (11 professions) | `professions/<key>.json`, `facts/profession-<key>.json`, `index.json` status | `quizzes/profession-<key>.json` |

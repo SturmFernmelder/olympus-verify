@@ -378,7 +378,8 @@
      "theory": [
       "class-shaman.alliance-shamans",
       "class-shaman.raid-wide-buff-totems-2",
-      "class-shaman.change-2"
+      "class-shaman.change-2",
+      "class-shaman.imbues-with-totems"
      ],
      "praxis": {
       "steps": [
@@ -401,9 +402,9 @@
         ]
        },
        {
-        "text": "If you use the matching weapon imbue, expect nothing from that totem yourself: a Shaman with the matching imbue gets nothing from the totem.",
+        "text": "Your own weapon imbue and the matching totem work at the same time since Blizzard's hotfix of 10 November 2026, so a Windfury Weapon Shaman still gains from Windfury Totem.",
         "facts": [
-         "class-shaman.change-2"
+         "class-shaman.imbues-with-totems"
         ]
        }
       ],

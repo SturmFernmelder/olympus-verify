@@ -178,6 +178,11 @@
    "from": "classes[7].specs[1].beginner.leveling[0]",
    "text": "Warcraft Tavern says Demonology gets comfortable once you have Demonic Brand.",
    "reason": "No reviewed fact holds Warcraft Tavern's view; the row comes from the talent data."
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[0]",
+   "text": "Warcraft Tavern rates Destruction the hardest of the three to level alone and recommends Affliction for leveling.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling ranking."
   }
  ],
  "tracks": {
@@ -928,7 +933,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warlock-affliction-201-consumables",
@@ -1115,7 +1120,7 @@
        "theory": [
         "class-warlock.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warlock-affliction-301-duels",
@@ -1485,7 +1490,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warlock-demonology-201-consumables",
@@ -1682,7 +1687,7 @@
        "theory": [
         "class-warlock.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warlock-demonology-301-duels",
@@ -2046,7 +2051,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warlock-destruction-201-consumables",
@@ -2239,7 +2244,7 @@
        "theory": [
         "class-warlock.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warlock-destruction-301-duels",

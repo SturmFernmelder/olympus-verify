@@ -12,7 +12,7 @@
   const TRACK_NAMES = { 101: "101 Foundations", 201: "201 Intermediate", 301: "301 Advanced" };
   const TOOLS = [["attunements", "Attunements & pre-raid checklist"], ["buffs", "World buffs & consumables"], ["raid-structure", "Raid team structure & leadership"], ["changes", "What changed in Forever"]];
   // The same one-line descriptions guides218.js shows on the tool pages.
-  const TOOL_NOTES = { attunements: "Raid access, what Blizzard has announced, and a slot-by-slot gearing checklist.",
+  const TOOL_NOTES = { attunements: "Raid unlock dates, what each raid requires, and a slot-by-slot gearing checklist.",
     buffs: "Pick a role and compare recorded effects for different encounters, with every Classic number labelled.",
     "raid-structure": "Fox’s guide to organizing one roster for 10-, 20- and 40-player raids.", changes: "The systems Forever changes, and each class's talent changes in the calculator's data." };
   const ROLE_ICON = { tank: "role-tank", healer: "role-healer", melee: "role-dps", ranged: "role-dps", caster: "role-dps" };
@@ -63,30 +63,35 @@
     };
   })();
 
+  // An address that names nothing returns { view: "missing", what } so the page can say which part was not found
+  // (INT-UNI-1 / CL2-105, 12 Nov 2026).
   function parseRoute(parts) {
     const p = parts.map(x => String(x || "").toLowerCase());
     const tier = x => x === "101" || x === "201" || x === "301";
+    const missing = what => ({ view: "missing", what });
     if (!p.length) return { view: "hub" };
     if (p[0] === "exams" && p.length === 1) return { view: "exams" };
-    if (p[0] === "exam" && p.length === 3 && /^(class|spec|race|profession)-[a-z][a-z0-9-]{0,60}$/.test(p[1]) && tier(p[2])) return { view: "exam", scope: p[1], tier: p[2] };
-    if (!["class", "race", "profession"].includes(p[0]) || !SLUG.test(p[1] || "")) return null;
+    if (p[0] === "exam" || p[0] === "exams") return p[0] === "exam" && p.length === 3 && /^(class|spec|race|profession)-[a-z][a-z0-9-]{0,60}$/.test(p[1]) && tier(p[2]) ? { view: "exam", scope: p[1], tier: p[2] } : missing("exam");
+    if (!["class", "race", "profession"].includes(p[0])) return missing("guide");
+    if (!SLUG.test(p[1] || "")) return missing(p[0]);
     const r = { view: "guide", kind: p[0], id: p[1], spec: null, tier: "101", chapter: null, explicitTier: false };
     let i = 2;
-    if (p[0] === "class" && p[i] && !tier(p[i])) { if (!SLUG.test(p[i])) return null; r.spec = p[i++]; }
-    if (p[i]) { if (!tier(p[i])) return null; r.tier = p[i++]; r.explicitTier = true; }
-    if (p[i]) { if (!/^[a-z0-9][a-z0-9.-]{0,119}$/.test(p[i])) return null; r.chapter = p[i++]; }
-    return i === p.length ? r : null;
+    if (p[0] === "class" && p[i] && !tier(p[i])) { if (!SLUG.test(p[i])) return missing(/^[0-9]+$/.test(p[i]) ? "track" : "spec"); r.spec = p[i++]; }
+    if (p[i]) { if (!tier(p[i])) return missing("track"); r.tier = p[i++]; r.explicitTier = true; }
+    if (p[i]) { if (!/^[a-z0-9][a-z0-9.-]{0,119}$/.test(p[i])) return missing("chapter"); r.chapter = p[i++]; }
+    return i === p.length ? r : missing("page");
   }
 
   const count = n => Number.isInteger(n) && n >= 0 && n <= 5000;
   function checkIndex(index) {
     const ok = index && index.schema === "olympus-university-index-v1" && Array.isArray(index.guides) && index.guides.length <= 80 && index.grades && typeof index.scopeNote === "string"
+      && (index.schedule === undefined || (typeof index.schedule === "string" && index.schedule.length <= 240))
       && ["A", "B", "C", "D", "E", "U"].every(g => typeof index.grades[g] === "string")
       && index.guides.every(g => g && ["class", "race", "profession"].includes(g.kind) && SLUG.test(g.id) && typeof g.name === "string" && g.name.length <= 40
         && (g.status === "planned" ? g.file === null : ["complete", "migrated"].includes(g.status) && GUIDE_FILE.test(g.file))
         && (g.kind !== "class" || (Array.isArray(g.specs) && g.specs.length === 3 && g.specs.every(s => s && SLUG.test(s.id) && typeof s.name === "string" && Array.isArray(s.roles))))
         && (g.kind !== "profession" || ["primary", "gathering", "secondary"].includes(g.type))
-        // The exam index (built by build/validate.cjs --write-exams): every exam this guide's questions can fill.
+        // The exam index (built by scripts/university/validate.cjs --write-exams): every exam this guide's questions can fill.
         && (g.status === "planned" ? g.exams === undefined : Array.isArray(g.exams) && g.exams.length <= 12 && g.exams.every(x => x && EXAM_SCOPE.test(x.scope)
           && ["101", "201", "301"].includes(x.tier) && Number.isInteger(x.questions) && x.questions > 0 && x.questions <= 2000))
         // Chapter counts (same build step): written chapters and those not available yet in 101, 201 and 301.
@@ -227,6 +232,8 @@
         + (waiting301 ? ", " + waiting301 + " of them in the 301 tracks" : "") + ", and each says what it is waiting for." : "");
       const classes = ordered("class"), races = ordered("race"), exams = examCount(all);
       return [header("Olympus University", null, "Courses for every class, spec, race and profession in World of Warcraft: Forever, in 101, 201 and 301 tracks. Each written chapter pairs Theory with Praxis, and most end with a quiz."),
+        // INT-UNI-2 (12 Nov 2026): the hub states the schedule as dated facts: the launch is past, the raid unlock is next.
+        index.schedule ? el("p", { class: "small uni-hub-schedule", text: index.schedule }) : null,
         el("p", { class: "small uni-hub-status", text: status }),
         el("nav", { class: "uni-jump", "aria-label": "On this page" }, el("ul", null, [["uni-classes", "Classes"], ["uni-races", "Races"], ["uni-professions", "Professions"], ["uni-tools", "Hub tools"], ["uni-exams", "Mastery exams"]]
           // Buttons, not links: the hash belongs to the router, so a jump moves focus to the section instead.
@@ -425,10 +432,10 @@
 
     function guideView(ctx, entry, route) {
       const g = ctx.guide, spec = route.spec ? g.specs.find(s => s.id === route.spec) : null;
-      if (route.spec && !spec) return notFound();
+      if (route.spec && !spec) return notFound("spec", g.name + " has no spec by that name.", [guideHref(entry), g.name + " class course"]);
       const owner = spec || g, base = guideHref(entry, spec && spec.id), scopeKey = spec ? "spec:" + g.id + "-" + spec.id : g.kind + ":" + g.id;
-      if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound();
       const title = spec ? spec.name + " " + g.name : g.name, used = ctx.used;
+      if (route.chapter && !owner.tracks[route.tier].chapters.some(c => c.id === route.chapter)) return notFound("chapter", "The " + TRACK_NAMES[route.tier] + " track of the " + title + " course has no chapter by that name.", [base + "/" + route.tier, title + " " + TRACK_NAMES[route.tier]]);
       for (const id of owner.overview.facts) used.add(ctx.facts.get(id).grade);
       const frag = [], trail = [["#/guides", "Olympus University"]];
       if (spec) trail.push([guideHref(entry), g.name], [null, spec.name]); else trail.push([null, g.name]);
@@ -450,7 +457,7 @@
     function examView(ctx, entry, route) {
       const g = ctx.guide, [kind, ...rest] = route.scope.split("-"), id = rest.join("-");
       const spec = kind === "spec" ? g.specs.find(s => g.id + "-" + s.id === id) : null;
-      if (kind === "spec" && !spec) return notFound();
+      if (kind === "spec" && !spec) return notFound("exam");
       const scopeKey = kind + ":" + id, examKey = scopeKey + ":" + route.tier, pool = examPool(ctx, scopeKey, route.tier);
       const name = (spec ? spec.name + " " : "") + g.name, back = guideHref(entry, spec && spec.id) + "/" + route.tier;
       const frag = [crumbs(["#/guides", "Olympus University"], ["#/guides/exams", "Mastery exams"], [guideHref(entry), g.name], ...(spec ? [[guideHref(entry, spec.id), spec.name]] : []), [null, TRACK_NAMES[route.tier] + " exam"]),
@@ -471,26 +478,39 @@
           el("div", { class: "btn-row" }, el("button", { type: "button", class: "btn", text: "Take a new exam", onclick: () => { store.next(examKey); render(); } }), link(back, "Back to the course", "btn")));
         result.focus();
       } }, blocks, el("div", { class: "btn-row" }, submit));
+      // REV-UNI-2 (12 Nov 2026): the grades the answers cite are collected before the legend is built, so the legend shows.
+      for (const q of picked) for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade);
       frag.push(section("About this exam", el("p", { text: picked.length + " questions drawn from the " + pool.length + " in this track. Choose one answer for each, then submit. Unanswered questions count as wrong." })),
         result, form, scoresPanel(), legend(ctx.used));
-      for (const q of picked) for (const fid of q.facts) ctx.used.add(ctx.facts.get(fid).grade);
       return frag;
     }
 
-    const notFound = () => [el("p", { text: "There is no such guide." }), link("#/guides", "Back to Olympus University", "btn")];
+    // INT-UNI-1 / CL2-105 (12 Nov 2026): every address that names nothing gets one H1 ending in "not found", a status
+    // sentence and a way back to the hub (and to the nearest page that does exist, when there is one).
+    const MISSING = { guide: ["Guide", "There is no such guide in Olympus University."], class: ["Class guide", "There is no such class guide in Olympus University."],
+      race: ["Race guide", "There is no such race guide in Olympus University."], profession: ["Profession guide", "There is no such profession guide in Olympus University."],
+      spec: ["Spec", "There is no such spec."], track: ["Track", "Every course has three tracks: 101 Foundations, 201 Intermediate and 301 Advanced."],
+      chapter: ["Chapter", "There is no such chapter."], exam: ["Exam", "There is no such exam."], page: ["Page", "There is no such page in Olympus University."] };
+    const notFound = (what, sentence, back) => {
+      const [noun, fallback] = MISSING[what] || MISSING.page, title = noun + " not found";
+      if (!back && what === "exam") back = ["#/guides/exams", "Browse every exam"];
+      return [crumbs(["#/guides", "Olympus University"], [null, title]),
+        el("header", { class: "uni-head" }, el("div", null, el("h1", { text: title }), el("p", { role: "status", text: sentence || fallback }))),
+        el("div", { class: "btn-row" }, back ? link(back[0], back[1], "btn") : null, link("#/guides", "Back to Olympus University", "btn"))];
+    };
 
     async function render() {
       if (!alive) return;
       store.load();
       try {
         index = checkIndex(await getJson("index.json"));
-        if (!route) { shell.replaceChildren(...notFound()); return; }
-        if (route.view === "hub") { shell.replaceChildren(...hub()); return; }
+        if (route.view === "missing") { shell.replaceChildren(...notFound(route.what)); return; }
+        if (route.view === "hub") { shell.replaceChildren(...hub().filter(Boolean)); return; }
         if (route.view === "exams") { shell.replaceChildren(...examsIndex()); return; }
         const kind = route.view === "exam" ? (route.scope.startsWith("spec-") ? "class" : route.scope.split("-")[0]) : route.kind;
         const id = route.view === "exam" ? route.scope.slice(route.scope.indexOf("-") + 1) : route.id;
         const entry = index.guides.find(g => g.kind === kind && (g.id === id || (route.view === "exam" && route.scope.startsWith("spec-") && id.startsWith(g.id + "-"))));
-        if (!entry) { shell.replaceChildren(...notFound()); return; }
+        if (!entry) { shell.replaceChildren(...notFound(route.view === "exam" ? "exam" : kind)); return; }
         if (entry.status === "planned") {
           shell.replaceChildren(crumbs(["#/guides", "Olympus University"], [null, entry.name]), header(entry.name + " guide", null, null),
             section("Not written yet", el("p", { text: "The " + entry.name + " guide has not been written yet. It will be built only from reviewed facts the site holds." }), link("#/guides", "Back to Olympus University", "btn")));

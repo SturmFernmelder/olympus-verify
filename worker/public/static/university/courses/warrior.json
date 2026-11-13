@@ -59,8 +59,8 @@
   },
   {
    "from": "classes[0].specs[2].beginner.leveling[2]",
-   "text": "(1 Oct)",
-   "reason": "Date dropped; no reviewed fact carries it."
+   "text": "Rend and Sunder Armor tag mobs instantly (1 Oct), so you claim shared quest mobs quickly.",
+   "reason": "No reviewed fact holds the mob-tagging change of 1 October; only the date had been recorded here (REV-UNI-4, 12 Nov 2026)."
   },
   {
    "from": "classes[0].specs[2].beginner.leveling[3]",
@@ -81,6 +81,46 @@
    "from": "classes[0].specs[1].beginner.tips[0]",
    "text": "Dual-wield auto attacks miss more often than special attacks.",
    "reason": "Ungraded line: no reviewed fact holds the Forever dual-wield miss chance, and no Classic 1.12 reference fact has been added for it."
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[0]",
+   "text": "Warcraft Tavern's author calls Arms the traditional leveling pick and prefers Bloodthrill over Weaponmaster while leveling.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling advice; the 101 track teaches leveling from the presets and the talent data."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[0]",
+   "text": "Warcraft Tavern rates every Warrior spec viable for leveling but says Fury takes more damage and has more downtime.",
+   "reason": "No graded fact holds Warcraft Tavern’s leveling assessment."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[0], classes[0].specs[2].pvp.overview[0]",
+   "text": "Warcraft Tavern rates all three Warrior specs viable for leveling, but its Protection guide says the spec does poorly when you are not tanking. Protection is built for dungeons and raids; Warcraft Tavern says it does poorly when you are not tanking.",
+   "reason": "No graded fact holds Warcraft Tavern’s view of Protection outside tanking."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[1]",
+   "text": "Queuing Heroic Strike no longer raises your off-hand hit chance in Forever.",
+   "reason": "No reviewed fact holds the change to queued Heroic Strike and off-hand hit."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[2]",
+   "text": "Unbridled Wrath no longer doubles its Rage with two-handed weapons.",
+   "reason": "The 10 November rank text gives a 12% chance per weapon hit and says nothing about two-handed weapons; no reviewed fact holds the change."
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[2].note",
+   "text": "Blizzard's 30 Sep deep dive also had it make Whirlwind hit with both weapons; the snapshot text no longer mentions that.",
+   "reason": "The current talent data does not mention it, and no reviewed fact holds the deep dive’s Whirlwind line."
+  },
+  {
+   "from": "classes[0].specs[1].pvp.overview[0]",
+   "text": "Warcraft Tavern says Fury has no real PvP tools, and that Berserker Stance and Death Wish leave it fragile.",
+   "reason": "No graded fact holds Warcraft Tavern’s PvP assessment of Fury; the PvP chapter keeps the Arms recommendation."
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[2]",
+   "text": "Thunder Clap's threat was lowered to balance its new damage, so pair it with Demoralizing Shout on big pulls.",
+   "reason": "No reviewed fact says Thunder Clap’s threat was lowered; the threat facts give its Attack Power scaling and cooldown only."
   }
  ],
  "tracks": {
@@ -611,9 +651,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Weaponmaster at 5/5 gives +5% crit with axes and polearms, ignores 15% of armor with maces and staves, or gives a 5% chance of an extra attack with swords.",
           "facts": [
            "class-warrior.weaponmaster-at-5-5"
@@ -685,7 +722,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warrior-arms-201-consumables",
@@ -891,7 +928,7 @@
        "theory": [
         "class-warrior.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warrior-arms-301-duels",
@@ -1225,7 +1262,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warrior-fury-201-consumables",
@@ -1401,7 +1438,7 @@
        "theory": [
         "class-warrior.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warrior-fury-301-duels",
@@ -1493,7 +1530,10 @@
           ]
          },
          {
-          "text": "Open the dungeon build below in the talent calculator and check it against your talents in game before you spend points."
+          "text": "Compared with Classic 1.12, the Protection tree has 3 new and 14 changed talents, so read each talent's current text instead of a Classic guide's description.",
+          "facts": [
+           "talents-warrior.protection-summary"
+          ]
          }
         ],
         "mistakes": [
@@ -1721,7 +1761,7 @@
        "section": "gear",
        "title": "Pre-raid and phase gear",
        "theory": [],
-       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and for the first raids, whose unlock date is 9 December 2026."
       },
       {
        "id": "warrior-protection-201-consumables",
@@ -1898,7 +1938,7 @@
        "theory": [
         "class-warrior.launch-raids"
        ],
-       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+       "unavailable": "Raid unlock date: 9 December 2026, for Barrow Deeps, Hyjal Summit and Onyxia's Lair. Boss-by-boss execution is written from the first reviewed logs after that."
       },
       {
        "id": "warrior-protection-301-duels",

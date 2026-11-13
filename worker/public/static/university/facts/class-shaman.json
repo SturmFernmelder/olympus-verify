@@ -27,12 +27,29 @@
    "kind": "theory",
    "grade": "B",
    "label": "Announced by Blizzard",
-   "value": "Windfury and Flametongue Totems are now buffs, not weapon enchants, and can't both be active; a Shaman with the matching imbue gets nothing from the totem. Since 16 Oct, Grace of Air no longer conflicts with them, and Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid.",
+   "value": "Windfury and Flametongue Totems are now buffs, not weapon enchants, and can't both be active. Since 16 Oct, Grace of Air no longer conflicts with them, and Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid.",
    "sources": [
     "g218-61",
     "g218-17"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "Until Blizzard's hotfix of 10 November 2026, a Shaman with the matching weapon imbue got nothing from the totem."
+  },
+  {
+   "id": "class-shaman.imbues-with-totems",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Imbues with totems",
+   "value": "Since Blizzard's hotfix of 10 November 2026, weapon imbues and weapon totems work at the same time, so a Shaman can have Windfury Weapon and Windfury Totem together.",
+   "sources": [
+    "g218-156"
+   ],
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
@@ -111,14 +128,15 @@
    "kind": "theory",
    "grade": "B",
    "label": "Announced by Blizzard",
-   "value": "Stormstrike deals 150% normalized weapon damage on a six-second cooldown, and Maelstrom Weapon triggers twice as often. Riptide is a heal over time with a 12-second cooldown and roughly 40% lower mana cost.",
+   "value": "Since Blizzard's hotfix of 10 November 2026, Stormstrike deals 100% weapon damage on an 8-second cooldown, and each Maelstrom Weapon stack cuts cast time and mana cost by 20% at every rank. Riptide is a heal over time with a 12-second cooldown and roughly 40% lower mana cost.",
    "sources": [
     "g218-150",
+    "g218-156",
     "talents-data"
    ],
    "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
-   "note": "The 10 November talent data lists Stormstrike at 100% weapon damage with an 8 sec cooldown."
+   "note": "Blizzard's 2 November notes had given Stormstrike 150% normalized weapon damage on a six-second cooldown and Maelstrom Weapon twice its trigger chance; the hotfix replaced both."
   },
   {
    "id": "class-shaman.change-8",
@@ -228,7 +246,7 @@
    "kind": "theory",
    "grade": "B",
    "label": "Launch raids",
-   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+   "value": "Raid unlock date: 9 December 2026, for Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
    "sources": [
     "g218-2"
    ],
@@ -508,14 +526,14 @@
    "kind": "theory",
    "grade": "B",
    "label": "Stormstrike",
-   "value": "The strike deals 150% normalized weapon damage and has a six-second cooldown.",
+   "value": "The strike deals 100% weapon damage and has an 8-second cooldown, as Blizzard's hotfix of 10 November 2026 set it.",
    "sources": [
-    "g218-150",
+    "g218-156",
     "talents-data"
    ],
    "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
-   "note": "The 10 November talent data lists 100% weapon damage and an 8 sec cooldown instead."
+   "note": "Blizzard's 2 November notes had given 150% normalized weapon damage and a six-second cooldown."
   },
   {
    "id": "class-shaman.maelstrom-weapon",
@@ -527,13 +545,15 @@
    "kind": "theory",
    "grade": "B",
    "label": "Maelstrom Weapon",
-   "value": "Melee hits build toward a fast Lightning Bolt. Blizzard doubled the chance for Maelstrom Weapon to trigger.",
+   "value": "Melee hits build toward a fast Lightning Bolt. Since Blizzard's hotfix of 10 November 2026, each stack cuts cast time and mana cost by 20% at every rank, and the talent activates about 6, 7, 8, 9 or 10 times per minute by rank.",
    "sources": [
     "g218-61",
-    "g218-150"
+    "g218-156",
+    "talents-data"
    ],
-   "reviewedAt": "2026-11-04",
-   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "Blizzard's 2 November notes had doubled its trigger chance; before the hotfix it activated 20 times per minute at every rank."
   },
   {
    "id": "class-shaman.attack-speed",
@@ -562,14 +582,14 @@
    "kind": "theory",
    "grade": "B",
    "label": "Intellect into power",
-   "value": "Mental Dexterity converts 50%, 100% or 150% of Intellect into Attack Power.",
+   "value": "Mental Dexterity converts 33%, 66% or 100% of Intellect into Attack Power, as Blizzard's hotfix of 10 November 2026 set it.",
    "sources": [
-    "g218-150",
+    "g218-156",
     "talents-data"
    ],
    "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
-   "note": "The 10 November talent data lists 33%, 66% and 100%."
+   "note": "Blizzard's 2 November notes had given 50%, 100% or 150%."
   },
   {
    "id": "class-shaman.elemental-devastation",
@@ -615,12 +635,12 @@
    "kind": "theory",
    "grade": "B",
    "label": "Windfury and Flametongue Totems",
-   "value": "Buffs that can't both be active, raid-wide since 16 Oct; a Shaman with the matching imbue gets nothing from the totem.",
+   "value": "Buffs that can't both be active, raid-wide since 16 Oct.",
    "sources": [
     "g218-61",
     "g218-17"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {
