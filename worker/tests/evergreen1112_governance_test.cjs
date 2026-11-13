@@ -364,6 +364,15 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
     && overview.includes('councilReferences("justiciar")') && !overview.includes('councilReferences("justice")'));
   check('CL2-039', 'the page refuses a model whose second reporting authority is unknown, itself or its own parent',
     /n\.alsoReportsTo !== undefined && \(!Array\.isArray\(n\.alsoReportsTo\) \|\| n\.alsoReportsTo\.some\(\(id\) => !ids\.has\(id\) \|\| id === n\.id \|\| id === n\.parent\)\)/.test(app));
+  // Review of f443043 (13 Nov 2026), LOW 1: the shared executive node took the Vice Guild Master and the Deputy into the
+  // top tier with it. Only the Co-Guild Master moves; the other two keep their place below the Guild Master.
+  const vice = nodeOf('vice-guild-master'), termsOn = id => model.terms.filter(t => t.nodeId === id).map(t => t.officeKey).join(',');
+  check('CL2-039', 'only the Co-Guild Master is in the top tier: the Vice Guild Master and the Deputy stay below the Guild Master, the Chief of Staff keeps its line to the Co-GM',
+    termsOn('executive') === 'office_19' && model.officeMandates.filter(o => o.nodeId === 'executive').map(o => o.title).join('|') === 'Co-Guild Master'
+    && vice.parent === 'founder' && vice.relation === 'coordination' && termsOn('vice-guild-master') === 'office_29,office_92'
+    && model.officeMandates.filter(o => o.nodeId === 'vice-guild-master').map(o => o.title).join('|') === 'Vice Guild Master'
+    && exec.title === 'Co-Guild Master and Vice Guild Master' && nodeOf('staff').parent === 'executive' && model.nodes.filter(n => n.parent === null && n.relation !== 'classification').map(n => n.id).join(',') === 'founder,executive',
+    JSON.stringify({ executive: termsOn('executive'), vice: vice.parent || null, viceTerms: termsOn('vice-guild-master') }));
   // Review HIGH: the dated record is an exact finite delta. Undoing it gives back the b631136 model byte for byte (the book
   // pin aside, which follows the book), so the historical graph, term and mandate inverses of governance_test.cjs can run
   // on the earlier edition. Every way of breaking the record or the model must refuse or change the result.
@@ -378,11 +387,11 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
     const cases = {
       'changed after (an added node differs)': m => { find(m, 'justiciar').alsoReportsTo = ['council']; },
       'current value differs from the recorded after': m => { m.terms.find(t => t.officeKey === 'office_101').nodeId = 'justice'; },
-      'a declaration removed': m => { m.reportingLines1113.changes = m.reportingLines1113.changes.filter(c => c.term !== 'office_101'); },
+      'a declaration removed': m => { m.reportingLines1113.changes = m.reportingLines1113.changes.filter(c => c.term !== 'office_92'); },
       'a declaration duplicated': m => { m.reportingLines1113.changes.push(structuredClone(m.reportingLines1113.changes[0])); },
       'an undeclared change to another node': m => { find(m, 'staff').parent = 'founder'; },
       'an unknown kind of change': m => { m.reportingLines1113.changes.push({ guide: 'x', field: 'nodeId', before: 'a', after: 'b' }); },
-      'a leftover reference to a removed node': m => { find(m, 'tactical').coordinates.push('justiciar'); },
+      'a leftover reference to a removed node': m => { find(m, 'tactical').coordinates.push('vice-guild-master'); },
       'the record missing': m => { delete m.reportingLines1113; },
     };
     const outcomes = Object.fromEntries(Object.entries(cases).map(([name, fn]) => [name, mutate(fn)]));
@@ -599,14 +608,15 @@ async function browserChecks(BASE, CDP_PORT) {
 async function round5Checks({ open, ev, show, bcheck }) {
   // CL2-039: the inspector and the List (the chart's text alternative) say the same placement at all six widths.
   const SEATS = { justiciar: 'Lord High Justiciar · Minister of Justice & The Privy Court', executive: 'Hand of the Sovereign · Co-Guild Master', justice: 'Council of Justice', founder: 'Founder and Patron', 'vice-guild-master': 'Vice Guild Master', staff: 'Chief of Staff' };
-  // Review of f443043, LOW 3: the top tier is named as the overview and the book name it; the Chief of Staff keeps its
-  // line to the Co-GM card, as on b631136.
+  // Review of f443043, LOW 3: the top tier is named as the overview and the book name it; LOW 1: the Vice Guild Master
+  // stays below the Guild Master and the Chief of Staff keeps its line to the Co-GM card, both as on b631136.
   const GM = 'the Guild Master (Founder and Patron)', CO = 'the Co-Guild Master';
   const EXPECT = {
     justiciar: { inspector: `Accountable to the top tier: ${GM} and ${CO}.`, list: `accountability: ${GM} and ${CO}` },
     executive: { inspector: `Top tier, beside ${GM}; no reporting parent in this model.`, list: `Top tier, beside ${GM}` },
     founder: { inspector: `Top tier, beside ${CO}; no reporting parent in this model.`, list: `Top tier, beside ${CO}` },
     justice: { inspector: `Independent review remit connected to: ${SEATS.justiciar}.`, list: `independence: ${SEATS.justiciar}` },
+    'vice-guild-master': { inspector: `Coordinates through: ${SEATS.founder}.`, list: `coordination: ${SEATS.founder}` },
     staff: { inspector: `Coordinates through: ${SEATS.executive}.`, list: `coordination: ${SEATS.executive}` },
   };
   const READ = `const m=document.querySelector('.org-relationship-map205');if(m)m.open=true;await new Promise(r=>setTimeout(r,700));
@@ -631,10 +641,10 @@ async function round5Checks({ open, ev, show, bcheck }) {
     const left=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b&&!b.hidden?parseFloat(b.style.left):null};
     const top=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b?parseFloat(b.style.top):null};
     const edges=[...document.querySelectorAll('path.org-edge')].filter(p=>p.style.display!=='none').map(p=>p.getAttribute('data-from')+'>'+p.getAttribute('data-to')+':'+[...p.classList].find(c=>c.startsWith('org-edge-')&&c!=='org-edge-active'));
-    return {left:Object.fromEntries(['founder','executive','council','treasury','justiciar','justice'].map(id=>[id,left(id)])),top:{founder:top('founder'),executive:top('executive')},edges:edges.filter(e=>/justic|executive>|>executive/.test(e))}`);
+    return {left:Object.fromEntries(['founder','executive','vice-guild-master','council','treasury','justiciar','justice'].map(id=>[id,left(id)])),top:{founder:top('founder'),executive:top('executive')},edges:edges.filter(e=>/justic|executive>|>executive/.test(e))}`);
   const L = map.left;
   bcheck('CL2-039', 'full map: Guild Master and Co-GM in the top column, the Justiciar in the Cabinet column, the Court beyond it, lines to both top-tier offices',
-    L.founder !== null && L.founder === L.executive && map.top.executive > map.top.founder && L.justiciar === L.treasury && L.council < L.justiciar && L.justice > L.justiciar
+    L.founder !== null && L.founder === L.executive && L['vice-guild-master'] > L.founder && map.top.executive > map.top.founder && L.justiciar === L.treasury && L.council < L.justiciar && L.justice > L.justiciar
     && ['justiciar>founder:org-edge-accountability', 'justiciar>executive:org-edge-accountability', 'justice>justiciar:org-edge-independence', 'executive>founder:org-edge-coordination'].every(e => map.edges.includes(e)), show(map));
   // The Justiciar's branch shows both authorities it reports to (wide: one column; phone: stacked above it) and the Court.
   const branches = {};
