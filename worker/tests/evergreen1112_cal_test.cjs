@@ -25,7 +25,10 @@ const check = (id, label, ok, detail = '') => {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------------------------------------------------------------- the real Worker in process
-const ts = require(path.join(ROOT, 'node_modules', 'typescript'));
+// --source may be an extracted tree without node_modules (a fail-before copy): TypeScript then comes from this test's own tree.
+const TS_PATH = fs.existsSync(path.join(ROOT, 'node_modules', 'typescript')) ? path.join(ROOT, 'node_modules', 'typescript') : path.join(__dirname, '..', 'node_modules', 'typescript');
+process.env.PRIVACY129_TYPESCRIPT = process.env.PRIVACY129_TYPESCRIPT || TS_PATH;
+const ts = require(TS_PATH);
 const entry = require(path.join(ROOT, 'tests', 'helpers', 'privacy129_fixture.cjs'));
 const { DatabaseSync } = require('node:sqlite');
 let T = Date.parse('2026-11-13T12:00:00Z') / 1000;
@@ -67,6 +70,9 @@ const failing = new Set(); // accounts whose member read fails at the provider (
 let memberReads = 0;
 const member = uid => ({ user: users.get(uid), nick: null, avatar: null, joined_at: '2024-01-15T12:00:00.000Z', roles: [...(byId.get(uid)?.roles || [])], pending: false });
 const posted = [];
+// Round 5 follow-up: the bot's message effects (POST, PATCH, DELETE) and every bot call, for the delivery checks.
+const effects = [], messages = new Map();
+let botCalls = 0;
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(url), p = u.pathname.replace(/^\/api\/v10/, ''), m = init.method || 'GET';
   const auth = new Headers(init.headers).get('Authorization') || '';
@@ -79,12 +85,21 @@ globalThis.fetch = async (url, init = {}) => {
     return res(404, {});
   }
   let x;
+  if (auth.startsWith('Bot ')) botCalls++;
+  if (auth.startsWith('Bot ') && (x = p.match(new RegExp(`^/channels/${RAID_CHANNEL}/messages/(\\d+)$`)))) {
+    if (m !== 'GET') effects.push({ method: m, path: p });
+    const msg = messages.get(x[1]);
+    if (m === 'GET') return msg ? res(200, msg) : res(404, { code: 10008 });
+    if (m === 'DELETE') { if (!msg) return res(404, { code: 10008 }); messages.delete(x[1]); return new Response(null, { status: 204 }); }
+    if (m === 'PATCH' && msg) { const b = JSON.parse(init.body); Object.assign(msg, { content: b.content, components: b.components }); return res(200, msg); }
+    return res(404, { code: 10008 });
+  }
   if ((x = p.match(/^\/guilds\/(\d+)\/members\/(\d+)$/)) && m === 'GET') { memberReads++; if (failing.has(x[2])) return res(500, { message: 'synthetic outage' }); return users.has(x[2]) ? res(200, member(x[2])) : res(404, { code: 10007 }); }
   if (auth.startsWith('Bot ') && m === 'GET' && p === '/users/@me') return res(200, { id: APP_ID, username: 'olympus', bot: true });
   if (auth.startsWith('Bot ') && m === 'GET' && p === `/channels/${RAID_CHANNEL}`) return res(200, { id: RAID_CHANNEL, guild_id: GUILD, type: 0 });
   if (auth.startsWith('Bot ') && m === 'POST' && p === `/channels/${RAID_CHANNEL}/messages`) {
     const b = JSON.parse(init.body), msg = { id: String(1570000000000000000n + BigInt(posted.length + 1)), channel_id: RAID_CHANNEL, author: { id: APP_ID, bot: true }, content: b.content, components: b.components, embeds: [], attachments: [], type: 0, nonce: b.nonce, mention_everyone: false, mention_roles: [], mentions: [] };
-    posted.push(msg); return res(200, msg);
+    posted.push(msg); effects.push({ method: m, path: p }); messages.set(msg.id, msg); return res(200, msg);
   }
   return res(404, { code: 0 });
 };
@@ -93,8 +108,8 @@ const db = new DatabaseSync(':memory:');
 db.exec('PRAGMA foreign_keys = ON');
 db.function('strftime', (format, value) => { if (format !== '%s' || value !== 'now') throw Error('unexpected clock input'); return String(T); });
 entry.installCurrentEntryEpoch(db, { now: T });
-let statements = 0, beforeRead = null;
-const port = entry.originalNativePort(db, { statement: (sql, params) => { statements++; if (beforeRead) beforeRead(sql, params); } });
+let statements = 0, beforeRead = null, maxBinds = 0;
+const port = entry.originalNativePort(db, { statement: (sql, params) => { statements++; maxBinds = Math.max(maxBinds, (params || []).length); if (beforeRead) beforeRead(sql, params); } });
 const canonical = load('./canonical-ranks233');
 const POLICY = JSON.stringify({ version: 1, enabled: true, profile: canonical.CANONICAL_PROFILE233, guildId: canonical.CANONICAL_GUILD233, ranks: canonical.CANONICAL_RANKS233.map(r => ({ ...r, permissions: '0' })) });
 const rawEnv = () => entry.currentEntryEnvironment({
@@ -121,10 +136,11 @@ async function call(method, pathname, { who, body } = {}) {
   if (method !== 'GET') { h.set('X-Olympus', '2'); h.set('Origin', 'https://guild.example'); }
   if (body !== undefined) h.set('Content-Type', 'application/json');
   const reads0 = memberReads, statements0 = statements;
+  maxBinds = 0;
   const res = await index.fetch(new Request('https://guild.example' + pathname, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }), rawEnv(), wctx);
   await settle();
   let data = null; try { data = await res.clone().json(); } catch { /* not JSON */ }
-  return { status: res.status, data, cost: { provider: memberReads - reads0, statements: statements - statements0 } };
+  return { status: res.status, data, cost: { provider: memberReads - reads0, statements: statements - statements0, maxBinds } };
 }
 async function signIn(uid) {
   const start = await index.fetch(new Request('https://guild.example/auth/login'), rawEnv(), wctx);
@@ -209,6 +225,7 @@ async function part1() {
     if (owner !== 'admin') await reassign(eid, owner === null ? null : ACC[owner].id);
     return eid;
   };
+  if (args.only !== 'delivery') { // --only delivery: the announcement sections alone (the matrix takes minutes)
   const plan = {}; // plan[who][scope] = { f: future event id, a: attendance event id, ref: {f, a} }
   const creates = {};
   for (const who of KEYS) {
@@ -360,6 +377,7 @@ async function part1() {
     beforeRead = null;
     check('cal', 'an appointment withdrawn between the proof and the write is refused by the statement itself (403), unchanged', r5.status === 403 && snapshot(e4) === b5 && ev(e4).title === 'Withdrawn at the write', { status: r5.status, data: r5.data, fired });
   }
+  } // end of the sections skipped by --only delivery
 
   console.log('== the announcement follows the same rule ==');
   {
@@ -380,6 +398,161 @@ async function part1() {
     check('cal', 'announcement: a Raid Leader publishes its own event', r.status === 200 && posted.length === n + 1, r.status);
     n = posted.length; r = await publish('officeralt', eOwn);
     check('cal', 'announcement: an Officer Alt cannot', r.status === 403 && posted.length === n, r.status);
+  }
+
+  // Round 5 follow-up (13 Nov 2026), Codex Root's finding on 3158b82: the delivery module reduced a War Head's captured
+  // appointment proof to a flag, so an appointment withdrawn after the capture still admitted the claim, the final guard
+  // and the settlement. Each case below withdraws the publication (office_94) inside the statement hook, just before the
+  // named statement runs: after the module captured the proof, before that statement decides.
+  console.log('== the announcement: a War Head\'s appointment withdrawn mid-request ==');
+  {
+    const appointAll = async () => {
+      const appointed = Object.fromEntries(Object.values(ACC).filter(a => a.office).map(a => [a.office, `<@${a.id}>`]));
+      const r = await call('PUT', '/api/admin/settings', { who: ACC.admin.id, body: { appointed, appointedCharactersConfirmed: true, namesConfirmed: true } });
+      if (r.status !== 200) throw Error('appointments not published: ' + JSON.stringify(r));
+    };
+    // The withdrawal models another request's admitted write on its own connection. Inside a write statement the
+    // admission slot is already open; before a read statement (the final guard) it is opened for this one write and
+    // restored exactly, and a matching-nothing UPDATE resets this connection's changes(), which the admission compares.
+    const withdraw = () => {
+      const slot = db.prepare('SELECT active,nonce,purpose,entry_changes,logical_changes FROM privacy_write_admission WHERE singleton=1').get();
+      if (slot.active !== 1) db.prepare("UPDATE privacy_write_admission SET active=1,nonce=?,purpose='writer' WHERE singleton=1").run(crypto.randomBytes(16).toString('hex'));
+      db.prepare("UPDATE site_settings SET value = json_remove(value, '$.office_94') WHERE key='appointed'").run();
+      if (slot.active !== 1) db.prepare('UPDATE privacy_write_admission SET active=?,nonce=?,purpose=?,entry_changes=?,logical_changes=? WHERE singleton=1').run(slot.active, slot.nonce, slot.purpose, slot.entry_changes, slot.logical_changes);
+      db.prepare('UPDATE site_settings SET value = value WHERE 0').run();
+    };
+    const delivery = eid => db.prepare('SELECT state,message_id,event_revision,cleanup_requested,result_code,claim_nonce,op_id,actor FROM community_event_deliveries WHERE event_id=?').get(eid) || null;
+    const STATEMENTS = {
+      claim: /^\s*INSERT INTO community_event_deliveries/,
+      guard: /AS ok FROM community_event_deliveries d/,
+      removalClaim: /^\s*UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1/,
+      settle: /^\s*UPDATE community_event_deliveries SET message_id=CASE/,
+    };
+    /** Runs `run` with the withdrawal armed at the first statement matching `at` that names `eid`; says whether it fired. */
+    const racing = async (at, eid, run) => {
+      let fired = false;
+      beforeRead = (sql, params) => { if (!fired && STATEMENTS[at].test(sql) && [].concat(params || []).flat().includes(eid)) { fired = true; withdraw(); } };
+      try { return { r: await run(), fired }; } finally { beforeRead = null; }
+    };
+    const preview = (who, eid) => call('GET', `/api/community/events/discord?eventId=${eid}`, { who: ACC[who].id });
+    const publishFrom = (who, eid, p) => call('POST', '/api/community/events/discord/publish', { who: ACC[who].id, body: { eventId: eid, revision: p.data.revision, opId: opId(), payloadHash: p.data.payloadHash } });
+    const removeAs = (who, eid) => call('POST', '/api/community/events/discord/remove', { who: ACC[who].id, body: { eventId: eid, opId: opId() } });
+    const OTHERS = /belongs to another organizer\. Only that organizer, the High Council, the War Heads or a site administrator can change its announcement\./;
+    const saysOthers = r => r.status === 403 && r.data?.error === 'not_event_organizer' && OTHERS.test(r.data?.message || '') && !/Cal |cal\./.test(r.data?.message || '');
+    const effectsSince = n => effects.slice(n).map(e => e.method);
+
+    await appointAll();
+    // Positive controls: the War Head's fence binds and admits while the appointment stands.
+    const eOk = await setupEvent('creator', 'War Head control', T + 4 * 3600);
+    let n = effects.length, b0 = botCalls, p = await preview('wh94', eOk);
+    const previewBot = botCalls - b0;
+    b0 = botCalls;
+    let r = p.status === 200 ? await publishFrom('wh94', eOk, p) : p;
+    check('cal', 'delivery control: a War Head publishes another officer\'s event (one POST, row posted)', r.status === 200 && r.data?.delivery?.state === 'posted' && effectsSince(n).join() === 'POST' && delivery(eOk)?.state === 'posted', { status: r.status, data: r.data, effects: effectsSince(n) });
+    // Per-request cost of one announcement publish as a War Head (statements, Discord member reads, all bot calls).
+    counts['announcement preview as War Head'] = { status: p.status, ...p.cost, botCalls: previewBot };
+    counts['announcement publish as War Head'] = { status: r.status, ...r.cost, botCalls: botCalls - b0 };
+    await call('POST', '/api/community/events/update', { who: ACC.admin.id, body: { eventId: eOk, revision: ev(eOk).revision, title: 'War Head control two' } });
+    n = effects.length; p = await preview('wh94', eOk); r = p.status === 200 ? await publishFrom('wh94', eOk, p) : p;
+    check('cal', 'delivery control: the War Head updates that announcement after an edit (one PATCH)', r.status === 200 && r.data?.delivery?.state === 'posted' && effectsSince(n).join() === 'PATCH', { status: r.status, data: r.data, effects: effectsSince(n) });
+    n = effects.length; r = await removeAs('wh94', eOk);
+    check('cal', 'delivery control: the War Head removes it (one DELETE, row removed)', r.status === 200 && delivery(eOk)?.state === 'removed' && effectsSince(n).join() === 'DELETE', { status: r.status, data: r.data, effects: effectsSince(n) });
+
+    // 1. Publish, withdrawn just before the claim.
+    await appointAll();
+    const e1 = await setupEvent('creator', 'Withdrawn at the claim', T + 4 * 3600);
+    p = await preview('wh94', e1); n = effects.length;
+    let x = await racing('claim', e1, () => publishFrom('wh94', e1, p));
+    check('cal', 'publish, withdrawn before the claim: no POST/PATCH/DELETE, no delivery row claimed, refusal says the event is another\'s', x.fired && effectsSince(n).length === 0 && delivery(e1) === null && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), row: delivery(e1), status: x.r.status, data: x.r.data });
+
+    // 2. Publish, withdrawn just before the final guard (after the claim, before the POST).
+    await appointAll();
+    const e2 = await setupEvent('creator', 'Withdrawn at the guard', T + 4 * 3600);
+    p = await preview('wh94', e2); n = effects.length;
+    x = await racing('guard', e2, () => publishFrom('wh94', e2, p));
+    let row = delivery(e2);
+    check('cal', 'publish, withdrawn before the final guard: no POST, the claim is settled refused (admission_changed), never posted, refusal says the event is another\'s', x.fired && effectsSince(n).length === 0 && row?.state === 'refused' && row.result_code === 'admission_changed' && row.message_id === null && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), row, status: x.r.status, data: x.r.data });
+
+    // 3. Update of a published announcement (PATCH), withdrawn before its claim and before its guard.
+    await appointAll();
+    const e3 = await setupEvent('creator', 'Withdrawn on update', T + 4 * 3600);
+    p = await preview('wh94', e3); r = await publishFrom('wh94', e3, p);
+    const firstMessage = delivery(e3)?.message_id;
+    if (r.status !== 200 || !firstMessage) throw Error('setup publish failed: ' + JSON.stringify(r));
+    await call('POST', '/api/community/events/update', { who: ACC.admin.id, body: { eventId: e3, revision: ev(e3).revision, title: 'Withdrawn on update, edited' } });
+    let before = delivery(e3);
+    p = await preview('wh94', e3); n = effects.length;
+    x = await racing('claim', e3, () => publishFrom('wh94', e3, p));
+    check('cal', 'update, withdrawn before the claim: no PATCH, the posted row is unchanged, refusal says the event is another\'s', x.fired && effectsSince(n).length === 0 && JSON.stringify(delivery(e3)) === JSON.stringify(before) && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), before, row: delivery(e3), status: x.r.status, data: x.r.data });
+    await appointAll();
+    p = await preview('wh94', e3); n = effects.length;
+    x = await racing('guard', e3, () => publishFrom('wh94', e3, p));
+    row = delivery(e3);
+    check('cal', 'update, withdrawn before the final guard: no PATCH, the message keeps its old text, the row is not posted at the new revision', x.fired && effectsSince(n).length === 0 && row?.message_id === firstMessage && !(row.state === 'posted' && row.event_revision === ev(e3).revision) && messages.get(firstMessage)?.content.startsWith('**Withdrawn on update**') && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), row, status: x.r.status, data: x.r.data });
+
+    // 4. Removal, withdrawn before its claim and before its guard.
+    await appointAll();
+    const e4 = await setupEvent('creator', 'Withdrawn at removal', T + 4 * 3600);
+    p = await preview('wh94', e4); r = await publishFrom('wh94', e4, p);
+    if (r.status !== 200) throw Error('setup publish failed: ' + JSON.stringify(r));
+    before = delivery(e4); n = effects.length;
+    x = await racing('removalClaim', e4, () => removeAs('wh94', e4));
+    check('cal', 'remove, withdrawn before the removal claim: no DELETE, the posted row is unchanged (not claimed), refusal says the event is another\'s', x.fired && effectsSince(n).length === 0 && JSON.stringify(delivery(e4)) === JSON.stringify(before) && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), before, row: delivery(e4), status: x.r.status, data: x.r.data });
+    await appointAll(); n = effects.length;
+    x = await racing('guard', e4, () => removeAs('wh94', e4));
+    row = delivery(e4);
+    check('cal', 'remove, withdrawn before the final guard: no DELETE, the message still exists and the row is not settled removed (its pointer kept)', x.fired && effectsSince(n).length === 0 && messages.has(before.message_id) && row?.state !== 'removed' && row?.message_id === before.message_id && saysOthers(x.r), { fired: x.fired, effects: effectsSince(n), row, status: x.r.status, data: x.r.data });
+
+    // 5. Settlement: the POST was acknowledged, then the appointment was withdrawn before it was recorded.
+    await appointAll();
+    const e5 = await setupEvent('creator', 'Withdrawn at settlement', T + 4 * 3600);
+    p = await preview('wh94', e5); n = effects.length;
+    x = await racing('settle', e5, () => publishFrom('wh94', e5, p));
+    row = delivery(e5);
+    const sent = posted.at(-1);
+    check('cal', 'settle, withdrawn after Discord acknowledged the POST: the message id is still recorded (bookkeeping completes)', x.fired && effectsSince(n).join() === 'POST' && row?.message_id === sent?.id, { fired: x.fired, effects: effectsSince(n), row });
+    check('cal', '  but the send is not settled as current: held unknown with its removal requested, never posted', row?.state === 'unknown' && row.cleanup_requested === 1 && row.result_code === 'published', row);
+
+    // 6. High Council: the role cannot be in SQL; the fresh provider read before the guard refuses a removed role.
+    await appointAll();
+    const e6 = await setupEvent('creator', 'Council role removed', T + 4 * 3600);
+    p = await preview('hc', e6); n = effects.length;
+    const savedHc = ACC.hc.roles;
+    let firedHc = false;
+    beforeRead = (sql, params) => { if (!firedHc && STATEMENTS.claim.test(sql) && [].concat(params || []).flat().includes(e6)) { firedHc = true; ACC.hc.roles = [MEMBER_ROLE]; } };
+    try { r = await publishFrom('hc', e6, p); } finally { beforeRead = null; ACC.hc.roles = savedHc; }
+    row = delivery(e6);
+    check('cal', 'High Council role removed after the claim: the fresh Discord read before the guard refuses, no POST, the claim settled refused', firedHc && effectsSince(n).length === 0 && row?.state === 'refused' && row.result_code === 'admission_changed' && r.status >= 400, { effects: effectsSince(n), row, status: r.status, data: r.data });
+    n = effects.length; p = await preview('hc', e6); r = await publishFrom('hc', e6, p);
+    check('cal', 'High Council control: with the role it publishes (one POST)', r.status === 200 && effectsSince(n).join() === 'POST', { status: r.status, data: r.data });
+    n = effects.length; r = await removeAs('hc', e6);
+    check('cal', 'High Council control: and removes (one DELETE)', r.status === 200 && effectsSince(n).join() === 'DELETE', { status: r.status, data: r.data });
+
+    // 7. An officer on another officer's announcement learns whose it is (no effect).
+    const e7 = await setupEvent('creator', 'Officer on another', T + 4 * 3600);
+    n = effects.length; p = await preview('officer', e7);
+    check('cal', 'an officer\'s preview of another officer\'s announcement says the event is another\'s (no effect)', saysOthers(p) && effectsSince(n).length === 0, { status: p.status, data: p.data });
+    const eErased = await setupEvent(null, 'Erased announcement', T + 4 * 3600);
+    p = await preview('officer', eErased);
+    check('cal', '  and for an erased creator says the organizer is no longer on record', p.status === 403 && /no longer on record\. Only the High Council, the War Heads or a site administrator can change its announcement\./.test(p.data?.message || ''), { status: p.status, data: p.data });
+
+    // 8. The same eye on community-events.ts: the attendance list (a read that discloses sign-ups) carried a War Head's
+    // proof across its read; the appointment is now read in the same batch as the list.
+    await appointAll();
+    const e8 = await setupEvent('creator', 'Attendance withdrawn', T + 600);
+    await call('PUT', '/api/community/events/rsvp', { who: ACC.signer2.id, body: { eventId: e8, status: 'yes', revision: 0 } });
+    T += 1200;
+    try {
+      const ok = await call('GET', `/api/community/event/attendance?id=${e8}`, { who: ACC.wh94.id });
+      check('cal', 'attendance list control: a War Head reads another officer\'s list while appointed', ok.status === 200 && (ok.data?.attendance || []).length === 1, { status: ok.status, error: ok.data?.error });
+      const at = /FROM community_events e WHERE e\.id = \?1/;
+      let firedList = false;
+      beforeRead = (sql, params) => { if (!firedList && at.test(sql) && [].concat(params || []).flat().includes(e8)) { firedList = true; withdraw(); } };
+      let list;
+      try { list = await call('GET', `/api/community/event/attendance?id=${e8}`, { who: ACC.wh94.id }); } finally { beforeRead = null; }
+      check('cal', 'attendance list, withdrawn after the proof and before the read: refused (403) without the list', firedList && list.status === 403 && !('attendance' in (list.data || {})), { firedList, status: list.status, data: list.data && { error: list.data.error, attendance: list.data.attendance } });
+    } finally { T -= 1200; }
+    await appointAll();
   }
 
   console.log('== limits apply to officers unchanged ==');
@@ -415,8 +588,9 @@ async function part1() {
     await measure('edit another\'s as High Council', () => call('POST', '/api/community/events/update', { who: ACC.hc.id, body: { eventId: e, revision: ev(e).revision, title: 'Counted 2' } }));
     await measure('edit another\'s as War Head', () => call('POST', '/api/community/events/update', { who: ACC.wh94.id, body: { eventId: e, revision: ev(e).revision, title: 'Counted 3' } }));
     await measure('edit another\'s as admin', () => call('POST', '/api/community/events/update', { who: ACC.admin.id, body: { eventId: e, revision: ev(e).revision, title: 'Counted 4' } }));
-    for (const [k, v] of Object.entries(counts)) if (k !== 'base') console.log(`  ${k}: HTTP ${v.status}, ${v.statements} statements, ${v.provider} Discord read(s)`);
+    for (const [k, v] of Object.entries(counts)) if (k !== 'base') console.log(`  ${k}: HTTP ${v.status}, ${v.statements} statements, ${v.provider} Discord read(s), at most ${v.maxBinds} binds in one statement${v.botCalls !== undefined ? `, ${v.botCalls} bot call(s)` : ""}`);
     check('cal', 'budgets: a member\'s list makes no Discord read; no request above makes more than one', counts['list as member'].provider === 0 && Object.entries(counts).every(([k, v]) => k === 'base' || v.provider <= 1), counts);
+    check('cal', 'budgets: no statement of any measured request binds 100 or more values', Object.entries(counts).every(([k, v]) => k === 'base' || v.maxBinds < 100), counts);
     if (args.counts) fs.writeFileSync(args.counts, JSON.stringify(counts, null, 2) + '\n');
   }
 }

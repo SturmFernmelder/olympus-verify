@@ -97,22 +97,29 @@ export async function eventWarHeadNow(env: Env, ctx: CommunityContext): Promise<
 }
 /** The announcement's manager: a site admin or listed organizer, or (CL2-016) a current officer, held per request so
  * one request reads Discord once for its checks; beforeSend reads it again just before the Discord effect. Round 5:
- * `senior` (a site admin, a High Council role holder or a War Head) manages the announcement of any event. */
-type DeliveryAuthority = Readonly<{ manages: boolean; senior: boolean }>;
+ * a senior manager (a site admin, a High Council role holder or a War Head) manages the announcement of any event.
+ *   `senior`  the part of seniority SQL cannot re-prove, bound as the statements' flag: a site admin (configuration, as
+ *             before this round) or a High Council role holder (a fresh Discord role read; a role is not in the database).
+ *   `warHead` a War Head's captured appointment proof. Its condition is repeated inside every statement that admits the
+ *             War Head on an event that is not its own (round 5 follow-up, 13 Nov 2026, Codex Root's finding on 3158b82:
+ *             the proof used to be reduced to the flag, so a withdrawal after the capture was not seen at the write). */
+type DeliveryAuthority = Readonly<{ manages: boolean; senior: boolean; warHead: WarHeadProof | null }>;
 const managers = new WeakMap<CommunityContext, Promise<DeliveryAuthority>>();
 const organizerOwn = new WeakMap<CommunityContext, Map<string, Promise<boolean>>>();
 async function authorityNow(env: Env, ctx: CommunityContext): Promise<DeliveryAuthority> {
-  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true };
-  if (await eventWarHeadNow(env, ctx)) return { manages: true, senior: true };
+  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true, warHead: null };
+  const warHead = await eventWarHeadNow(env, ctx);
+  if (warHead) return { manages: true, senior: false, warHead };
   const roles = await eventRolesNow(env, ctx);
-  return { manages: organizer(env, ctx) || roles.officer || roles.council, senior: roles.council };
+  return { manages: organizer(env, ctx) || roles.officer || roles.council, senior: roles.council, warHead: null };
 }
 /** A listed organizer manages its own announcements without a provider call, as before; whether it may also act on
- * another officer's event is proved only when the event is not its own (one creator read, then the full proof). */
+ * another officer's event is proved only when the event is not its own (one creator read, then the full proof).
+ * A fresh proof replaces the held one, so the statements after beforeSend (settle, the answer) use the newest proof. */
 async function deliveryAuthority(env: Env, ctx: CommunityContext, eventId: string | null, fresh = false): Promise<DeliveryAuthority> {
-  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true };
+  if (ctx.subject && isSiteAdmin(env, ctx.subject.discordId)) return { manages: true, senior: true, warHead: null };
   if (organizer(env, ctx)) {
-    if (eventId === null) return { manages: true, senior: false };
+    if (eventId === null) return { manages: true, senior: false, warHead: null };
     let byEvent = organizerOwn.get(ctx);
     if (!byEvent) { byEvent = new Map(); organizerOwn.set(ctx, byEvent); }
     let own = byEvent.get(eventId);
@@ -120,17 +127,32 @@ async function deliveryAuthority(env: Env, ctx: CommunityContext, eventId: strin
       own = env.DB.prepare("SELECT created_by FROM community_events WHERE id=?1").bind(eventId).first<{ created_by: string | null }>().then((row) => !!row && row.created_by !== null && row.created_by === ctx.subject!.discordId);
       byEvent.set(eventId, own);
     }
-    if (await own) return { manages: true, senior: false }; // the statements still fence created_by = me
+    if (await own) return { manages: true, senior: false, warHead: null }; // the statements still fence created_by = me
   }
-  if (fresh) return authorityNow(env, ctx);
-  let held = managers.get(ctx);
+  let held = fresh ? undefined : managers.get(ctx);
   if (!held) { held = authorityNow(env, ctx); managers.set(ctx, held); }
   return held;
 }
 async function manages(env: Env, ctx: CommunityContext, fresh = false, eventId: string | null = null): Promise<boolean> {
   return (await deliveryAuthority(env, ctx, eventId, fresh)).manages;
 }
-const seniorFlag = async (env: Env, ctx: CommunityContext, eventId: string, fresh = false) => ((await deliveryAuthority(env, ctx, eventId, fresh)).senior ? 1 : 0);
+/** The senior half of a statement's `created_by = me OR …` fence: `?flag = 1` (admin or High Council role), OR the War
+ * Head's own published-appointment condition at parameters `first`, `first + 1` and `first + 2`, bound with its values
+ * (as community-events.ts does with v.warHead and site-treasury-access.ts with its seats). Without a War Head proof the
+ * condition is absent and no parameter is added. */
+function seniorFence(a: DeliveryAuthority, flagParameter: number, first: number): { sql: string; flag: 0 | 1; values: readonly string[] } {
+  const flag = a.senior ? 1 : 0;
+  if (!a.warHead) return { sql: `?${flagParameter}=1`, flag, values: [] };
+  const c = a.warHead.condition(first);
+  return { sql: `(?${flagParameter}=1 OR (${c.sql}))`, flag, values: c.values };
+}
+// Refusals say whose event it is and who can change it, by role and without names (round 5, as community-events.ts).
+const MANAGERS = "the High Council, the War Heads or a site administrator";
+const notYours = (erased: boolean) => apiJson({ error: "not_event_organizer", message: erased
+  ? `The organizer of this event is no longer on record. Only ${MANAGERS} can change its announcement.`
+  : `This event belongs to another organizer. Only that organizer, ${MANAGERS} can change its announcement.` }, 403);
+type NotYours = { notYours: true; erased: boolean };
+const isNotYours = (v: unknown): v is NotYours => record(v) && v.notYours === true;
 async function gate(request: Request, env: Env, ctx: CommunityContext, write = false): Promise<Response | null> {
   if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return refusal(env, request, "confirmedGuildData");
   if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer", message: "Event announcements are managed by the event's organizer, the High Council, the War Heads and site administrators." }, 403);
@@ -188,24 +210,33 @@ function summary(row: Delivery | null, e: EventRow) {
     messageUrl: row.message_id ? `https://discord.com/channels/${row.guild_id}/${row.channel_id}/${row.message_id}` : null,
     retainUntil: secondsToIso(row.retain_until), result: safeResult(row.result_code) } : null;
 }
-/** One admitted read, with event-management authority inside the payload SQL as well as the original session probe. */
-async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{ event: EventRow; delivery: Delivery | null } | typeof FENCE_REFUSED | null> {
+/** One admitted read, with event-management authority inside the payload SQL as well as the original session probe.
+ * Round 5: a senior manager reads any event's announcement; a War Head's appointment condition is in both statements.
+ * An event that exists but is not the caller's to manage (or no longer is) answers whose it is (one more statement,
+ * on that path only). */
+async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{ event: EventRow; delivery: Delivery | null } | typeof FENCE_REFUSED | NotYours | null> {
   const me = ctx.subject!.discordId;
-  if (!(await manages(env, ctx, false, eventId))) return FENCE_REFUSED;
-  const staff = await seniorFlag(env, ctx, eventId); // round 5: a senior manager reads any event's announcement
-  const managed = `(created_by = ?2 OR ?3 = 1) AND retain_until > ${DB_NOW}`;
-  const out = await admittedRead(env, ctx, "confirmedGuildData", [
-    env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, staff),
-    env.DB.prepare(`SELECT * FROM community_event_deliveries WHERE event_id=?1 AND purpose='publication' AND retain_until>${DB_NOW}
-      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND ${managed})`).bind(eventId, me, staff),
-  ]);
-  if (out === FENCE_REFUSED) return out;
-  const event = out[0]!.results[0] as unknown as EventRow | undefined;
-  return event ? { event, delivery: (out[1]!.results[0] as unknown as Delivery | undefined) ?? null } : null;
+  const authority = await deliveryAuthority(env, ctx, eventId);
+  if (authority.manages) {
+    const f = seniorFence(authority, 3, 4);
+    const managed = `(created_by = ?2 OR ${f.sql}) AND retain_until > ${DB_NOW}`;
+    const out = await admittedRead(env, ctx, "confirmedGuildData", [
+      env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, f.flag, ...f.values),
+      env.DB.prepare(`SELECT * FROM community_event_deliveries WHERE event_id=?1 AND purpose='publication' AND retain_until>${DB_NOW}
+        AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND ${managed})`).bind(eventId, me, f.flag, ...f.values),
+    ]);
+    if (out === FENCE_REFUSED) return out;
+    const event = out[0]!.results[0] as unknown as EventRow | undefined;
+    if (event) return { event, delivery: (out[1]!.results[0] as unknown as Delivery | undefined) ?? null };
+  }
+  const row = await env.DB.prepare(`SELECT created_by FROM community_events WHERE id=?1 AND retain_until>${DB_NOW}`).bind(eventId).first<{ created_by: string | null }>();
+  if (row && row.created_by !== me) return { notYours: true, erased: row.created_by === null };
+  return authority.manages ? null : FENCE_REFUSED;
 }
 async function answer(request: Request, env: Env, ctx: CommunityContext, eventId: string, extra: Record<string, unknown> = {}, status = 200, outcome = false): Promise<Response> {
   const out = await read(env, ctx, eventId);
   if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+  if (isNotYours(out)) return notYours(out.erased);
   if (!out) return apiJson({ error: "event_not_found" }, 404);
   const held = outcome && out.delivery && ["claimed", "unknown", "refused"].includes(out.delivery.state);
   return apiJson({ eventId, revision: out.event.revision, delivery: summary(out.delivery, out.event), ...extra,
@@ -219,12 +250,14 @@ export async function eventDeliveryPreview(request: Request, env: Env, ctx: Comm
     const eventId = id(new URL(request.url).searchParams.get("eventId"));
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (isNotYours(out)) return notYours(out.erased);
     if (!out) return apiJson({ error: "event_not_found" }, 404);
     const d = destination(env), payload = d ? payloadOf(out.event, d) : null;
     const payloadHash = payload ? await hashOf(payload) : null;
     // Hashing yields: a final original-session read refuses revocation or an intervening event revision.
     const current = await read(env, ctx, eventId);
     if (current === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (isNotYours(current)) return notYours(current.erased);
     if (!current) return apiJson({ error: "event_not_found" }, 404);
     if (current.event.revision !== out.event.revision || (d ? !sameDestination(d, destination(env)) : destination(env) !== null)) return apiJson({ error: "stale_revision" }, 409);
     return apiJson({ eventId, revision: current.event.revision, enabled: enabled(env), payload,
@@ -301,11 +334,17 @@ export function eventAdoptedCustody(db: D1Database, purpose: "event_publication"
       AND state IN('claimed','unknown','known') AND (message_id IS NULL OR message_id=?4 OR message_id IS ?7)`)
     .bind(`${purpose}:${p.eventId}:${p.opId}:${p.nonce}`, purpose, result, pointer, p.channel, p.retainUntil, p.pointer);
 }
-/** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced. */
+/** Response-only custody uses the native database; admission, dispatch and response disclosure stay fenced.
+ * Bookkeeping (round 5 follow-up): neither statement is fenced by the caller's authority in its WHERE. The first is
+ * keyed by this request's own claim (nonce, operation, destination, revision) and always records what Discord
+ * acknowledged (the message id, a refusal, a removal); the caller's current authority, the War Head's appointment
+ * condition included (at ?17..?19), only decides whether a send counts as `posted` or is held as `unknown` with its
+ * removal requested. The second (eventAdoptedCustody) is keyed by the operation alone. So an acknowledged effect is
+ * always recorded, and a send whose sender stopped qualifying before it was recorded is held, never shown as current. */
 async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, result: "posted" | "refused" | "unknown" | "removed", code: string, pointer: string | null = null) {
-  const me = ctx.subject!.discordId, staff = await seniorFlag(env, ctx, p.eventId), db = privacyProviderCustodyDatabase(env);
+  const me = ctx.subject!.discordId, senior = seniorFence(await deliveryAuthority(env, ctx, p.eventId), 9, 17), db = privacyProviderCustodyDatabase(env);
   const stillCurrent = `actor=?5 AND ${privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',ctx.subject!.accountIncarnation)} AND session_version=?6 AND session_expires=?7 AND cleanup_requested=0
-    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ?9=1))
+    AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND publication_closed=0 AND revision=?8 AND starts_at=?15 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?5 OR ${senior.sql}))
     AND ${fenceSql("confirmedGuildData", 5, 6, 7,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`;
   await db.batch([
     db.prepare(`UPDATE community_event_deliveries SET message_id=CASE WHEN ?3='removed' THEN NULL ELSE COALESCE(?10,message_id) END,
@@ -315,20 +354,28 @@ async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, res
       updated_at=${DB_NOW}, result_code=?4
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?2 AND op_id=?11 AND guild_id=?12 AND channel_id=?13
         AND event_revision=?8 AND starts_at=?15 AND retain_until<=?16 AND (message_id IS ?14 OR message_id=?10) AND state IN('claimed','unknown')`)
-      .bind(p.eventId, p.nonce, result, code, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, p.revision, staff, pointer,
-        p.opId, p.guild, p.channel, p.pointer, p.startsAt, p.retainUntil),
+      .bind(p.eventId, p.nonce, result, code, me, ctx.subject!.sessionVersion, ctx.subject!.expiresAt, p.revision, senior.flag, pointer,
+        p.opId, p.guild, p.channel, p.pointer, p.startsAt, p.retainUntil, ...senior.values),
     eventAdoptedCustody(db, "event_publication", p, result, pointer),
   ]);
 }
+/** The final guard, after the claim and immediately before the Discord effect. The authority is proved again here
+ * (round 5) and the new proof replaces the held one for the rest of the request:
+ *   - a War Head's appointment is captured again and its condition is repeated inside this statement (?10..?12), so a
+ *     withdrawal at any moment up to this statement refuses here and no POST, PATCH or DELETE follows;
+ *   - a High Council member's role is a Discord role, which no SQL statement can re-read. The strongest available proof
+ *     is the fresh provider read made here, after the claim, with only this one database read between it and the
+ *     effect; a provider failure refuses. The statement binds the outcome of that read as its flag (?7).
+ *   - a site admin is configuration and keeps the flag, as before this round. */
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
-  const authority = await deliveryAuthority(env, ctx, e.id, true); // round 5: the senior fact is read again with the officer fact
+  const authority = await deliveryAuthority(env, ctx, e.id, true);
   if (!authority.manages || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
-  const s = ctx.subject!, staff = authority.senior ? 1 : 0;
+  const s = ctx.subject!, senior = seniorFence(authority, 7, 10);
   const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
   const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}) AS ok FROM community_event_deliveries d
     WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?6 AND state='claimed' AND actor=?2 AND ${privacyAccountIncarnationLiteralFenceSql('d.actor_account_incarnation',s.accountIncarnation)} AND session_version=?3 AND session_expires=?4 AND retain_until>${DB_NOW}
-    AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?7=1) AND retain_until>${DB_NOW} ${active})`)
-    .bind(e.id, s.discordId, s.sessionVersion, s.expiresAt, e.revision, nonce, staff, d.guild, d.channel).first<{ ok: number }>();
+    AND guild_id=?8 AND channel_id=?9 AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW} ${active})`)
+    .bind(e.id, s.discordId, s.sessionVersion, s.expiresAt, e.revision, nonce, senior.flag, d.guild, d.channel, ...senior.values).first<{ ok: number }>();
   return proof?.ok === 1;
 }
 
@@ -342,6 +389,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     if (typeof body.payloadHash !== "string" || !/^[0-9a-f]{64}$/.test(body.payloadHash)) throw new Bad("invalid_payload_hash");
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (isNotYours(out)) return notYours(out.erased);
     if (!out) return apiJson({ error: "event_not_found" }, 404);
     const e = out.event, old = out.delivery, payload = payloadOf(e, d), content = payload.content, hash = await hashOf(payload);
     if (e.publication_closed !== 0) return answer(request, env, ctx, eventId, { error: "publication_closed" }, 409);
@@ -361,7 +409,7 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
       const message = await discord(env, "GET", `/channels/${d.channel}/messages/${old.message_id}`);
       if (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== old.message_id) return answer(request, env, ctx, eventId, { error: "delivery_custody_unqualified" }, 409);
     }
-    const s = ctx.subject!, nonce = randomToken(), staff = await seniorFlag(env, ctx, eventId);
+    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await deliveryAuthority(env, ctx, eventId), 7, 18); // ?18..?20: a War Head's appointment
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: e.revision, startsAt: e.starts_at, opId: op, nonce,
       guild: d.guild, channel: d.channel, pointer: old?.state === "removed" ? null : old?.message_id ?? null,
@@ -369,13 +417,13 @@ export async function eventDeliveryPublish(request: Request, env: Env, ctx: Comm
     const claimed = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO community_event_deliveries
       (event_id,purpose,event_revision,starts_at,guild_id,channel_id,message_id,frozen_content,payload_hash,op_id,claim_nonce,state,cleanup_requested,actor,actor_account_incarnation,session_version,session_expires,created_at,updated_at,retain_until,result_code)
       SELECT id,'publication',revision,starts_at,?8,?9,?10,?11,?12,?13,?14,'claimed',0,?2,'${s.accountIncarnation}',?3,?4,${DB_NOW},${DB_NOW},retain_until,NULL FROM community_events
-      WHERE id=?1 AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ?7=1)
+      WHERE id=?1 AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S} AND retain_until>${DB_NOW} AND (created_by=?2 OR ${senior.sql})
       AND title=?15 AND starts_at=?16 AND duration_min=?17 AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}
       ON CONFLICT(event_id,purpose) DO UPDATE SET event_revision=excluded.event_revision,starts_at=excluded.starts_at,guild_id=excluded.guild_id,channel_id=excluded.channel_id,
         message_id=excluded.message_id,frozen_content=excluded.frozen_content,payload_hash=excluded.payload_hash,op_id=excluded.op_id,claim_nonce=excluded.claim_nonce,state='claimed',
         actor=excluded.actor,actor_account_incarnation=excluded.actor_account_incarnation,session_version=excluded.session_version,session_expires=excluded.session_expires,updated_at=excluded.updated_at,retain_until=MIN(community_event_deliveries.retain_until,excluded.retain_until),result_code=NULL
       WHERE community_event_deliveries.claim_nonce=?6 AND community_event_deliveries.state IN('posted','refused','removed') AND community_event_deliveries.cleanup_requested=0`)
-      .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, rev, old?.claim_nonce ?? "", staff, d.guild, d.channel, old?.state === "removed" ? null : old?.message_id ?? null, content, hash, op, nonce, e.title, e.starts_at, e.duration_min)]);
+      .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, rev, old?.claim_nonce ?? "", senior.flag, d.guild, d.channel, old?.state === "removed" ? null : old?.message_id ?? null, content, hash, op, nonce, e.title, e.starts_at, e.duration_min, ...senior.values)]);
     if (claimed === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, e, nonce, d))) {
       await settle(env, ctx, custody, "refused", "admission_changed");
@@ -406,6 +454,7 @@ export async function eventDeliveryReconcile(request: Request, env: Env, ctx: Co
     if (typeof body.messageId !== "string" || !SNOWFLAKE.test(body.messageId)) throw new Bad("invalid_message_id");
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (isNotYours(out)) return notYours(out.erased);
     if (!out) return apiJson({ error: "event_not_found" }, 404);
     const row = out.delivery;
     if (!row || row.op_id !== op || !["claimed", "unknown"].includes(row.state)) return answer(request, env, ctx, eventId, { error: "delivery_not_held" }, 409);
@@ -442,6 +491,7 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     const body = await bodyOf(request, ["eventId", "opId"]), eventId = id(body.eventId), op = id(body.opId, "invalid_op_id");
     const out = await read(env, ctx, eventId);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData");
+    if (isNotYours(out)) return notYours(out.erased);
     if (!out) return apiJson({ error: "event_not_found" }, 404);
     const row = out.delivery;
     if (!row || row.state === "removed") return answer(request, env, ctx, eventId, { replay: true });
@@ -452,14 +502,14 @@ export async function eventDeliveryRemove(request: Request, env: Env, ctx: Commu
     if (!(await memberPresent(env, ctx, d.guild))) throw new Bad("membership_unconfirmed", 409);
     const message = await discord(env, "GET", `/channels/${d.channel}/messages/${row.message_id}`);
     if (message.status !== 404 && (message.status !== 200 || !ownMessage(message.value, d, bot) || message.value.id !== row.message_id)) throw new Bad("delivery_custody_unqualified", 409);
-    const s = ctx.subject!, nonce = randomToken(), staff = await seniorFlag(env, ctx, eventId);
+    const s = ctx.subject!, nonce = randomToken(), senior = seniorFence(await deliveryAuthority(env, ctx, eventId), 9, 10); // ?10..?12: a War Head's appointment
     privacyAccountIncarnationLiteralFenceSql('actor_account_incarnation',s.accountIncarnation);
     const custody: EventCustodyProof = { eventId, revision: row.event_revision, startsAt: row.starts_at, opId: op,
       nonce, guild: row.guild_id, channel: row.channel_id, pointer: row.message_id, retainUntil: row.retain_until };
     const claim = await admitted(env, ctx, [env.DB.prepare(`UPDATE community_event_deliveries SET state='claimed',cleanup_requested=1,claim_nonce=?5,op_id=?6,actor=?2,actor_account_incarnation='${s.accountIncarnation}',session_version=?3,session_expires=?4,updated_at=${DB_NOW}
       WHERE event_id=?1 AND purpose='publication' AND claim_nonce=?7 AND message_id=?8 AND state IN('posted','refused','unknown') AND retain_until>${DB_NOW}
-      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ?9=1) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
-      .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, nonce, op, row.claim_nonce, row.message_id, staff)]);
+      AND EXISTS(SELECT 1 FROM community_events WHERE id=?1 AND (created_by=?2 OR ${senior.sql}) AND retain_until>${DB_NOW}) AND ${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}`)
+      .bind(eventId, s.discordId, s.sessionVersion, s.expiresAt, nonce, op, row.claim_nonce, row.message_id, senior.flag, ...senior.values)]);
     if (claim === FENCE_REFUSED) return answer(request, env, ctx, eventId, { error: "delivery_not_claimed" }, 409);
     if (!(await beforeSend(env, ctx, out.event, nonce, d, true))) {
       await settle(env, ctx, custody, "unknown", "admission_changed", row.message_id);

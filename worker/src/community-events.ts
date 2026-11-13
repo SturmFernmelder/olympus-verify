@@ -826,8 +826,11 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
     const viewer = await authorityFor(env, ctx, pre.created_by, "attendance");
     if (!mayManage(viewer, pre.created_by, "attendance")) return notYours(viewer, pre.created_by);
     const limit = scanLimit(env);
+    // Round 5 follow-up (13 Nov 2026): a War Head's appointment condition is read in the same batch as the list it
+    // discloses (?2..?4), so an appointment withdrawn after the proof and before this read withholds the list.
+    const war = warSql(viewer, 2);
     const out = await admittedRead(env, ctx, "confirmedGuildData", [
-      env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR} FROM community_events e WHERE e.id = ?1`).bind(id),
+      env.DB.prepare(`SELECT ${EVENT_COLUMNS}, ${QUAL_CREATOR}, (${war.sql}) AS war_ok FROM community_events e WHERE e.id = ?1`).bind(id, ...war.values),
       env.DB.prepare(`SELECT s.status, s.raid_role, COUNT(*) AS n FROM community_event_signups s WHERE s.event_id = ?1 AND ${eventParticipantSql226(env,"s.discord_id")} GROUP BY s.status, s.raid_role`).bind(id),
       env.DB.prepare(`${unionSql226(env)} LIMIT ?2`).bind(id, limit + 1),
       env.DB.prepare(`${MINE_SELECT} WHERE s.event_id = ?1 AND s.discord_id = ?2`).bind(id, viewer.id),
@@ -835,9 +838,10 @@ export async function attendanceList(request: Request, env: Env, ctx: CommunityC
     ]);
     if (out === FENCE_REFUSED) return refusal(env, request, "confirmedGuildData"); // .67
     const [ev, counts, union, mine, own] = out;
-    const e = (ev!.results as (EventRow & { creator_ok: number })[])[0];
+    const e = (ev!.results as (EventRow & { creator_ok: number; war_ok: number })[])[0];
     if (!e) return apiJson({ error: "event_not_found" }, 404);
-    if (!mayManage(viewer, e.created_by, "attendance")) return notYours(viewer, e.created_by); // CL2-016, round 5: another officer's event is for the senior managers
+    const proved = viewer.warHead && e.war_ok !== 1 ? { ...viewer, senior: viewer.roleSenior, warHead: null } : viewer;
+    if (!mayManage(proved, e.created_by, "attendance")) return notYours(proved, e.created_by); // CL2-016, round 5: another officer's event is for the senior managers
     if (after && (after.signups !== e.signup_generation || after.attendance !== e.attendance_generation)) return apiJson({ error: "cursor_stale" }, 409);
     const rows = union!.results as UnionRow[];
     if (rows.length > limit) return apiJson({ error: "events_too_large" }, 503);
