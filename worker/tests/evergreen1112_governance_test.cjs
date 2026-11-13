@@ -490,6 +490,17 @@ async function round4Checks({ open, ev, show, bcheck }) {
   const small = Object.entries(touch).flatMap(([page, groups]) => Object.entries(groups).filter(([k, v]) => k === 'over' ? v > 0 : !v.n || v.min < 44).map(([k, v]) => page + ' ' + k + ' ' + show(v)));
   bcheck('R4-GOV-3', 'Council reference, lane and independent-review family, inspector title, Rosetta and chooser links are at least 44 px tall at 390, 375 and 320 px, with no page overflow',
     small.length === 0, small.length ? small.slice(0, 8).join(' | ') : show(touch));
+
+  // R4-GOV-4: /#/admin/appointments has no heading that skips a level (the catalogue group labels were h4 under the h2).
+  const outline = {};
+  for (const width of [1280, 375]) {
+    await open('admin', width, 'admin/appointments');
+    outline[width] = await ev(`const hs=[...document.querySelectorAll('main :is(h1,h2,h3,h4,h5,h6)')].filter(e=>e.getClientRects().length);const lv=hs.map(e=>Number(e.tagName[1]));
+      const jumps=hs.filter((e,i)=>i>0&&lv[i]>lv[i-1]+1).map(e=>e.tagName+' '+e.textContent.trim().slice(0,40)+' after '+hs[hs.indexOf(e)-1].tagName);
+      return {headings:hs.length,groups:document.querySelectorAll('main [data-catalog-group] > .group-label').length,groupTags:[...new Set([...document.querySelectorAll('main [data-catalog-group] > .group-label')].map(e=>e.tagName))],jumps}`);
+  }
+  bcheck('R4-GOV-4', '/#/admin/appointments: the six catalogue group labels are headings one level under the page section, and no heading skips a level (1280 and 375 px)',
+    Object.values(outline).every(o => o.groups === 6 && o.jumps.length === 0), show(outline));
 }
 
 // ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views

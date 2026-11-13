@@ -5194,7 +5194,7 @@
         h("div",{class:"appointed-grid"},rows.map(appointedRow))) : null;
     };
     const appointmentControls203 = appointmentDirectory203 ? (appointmentCatalogue1112
-      ? appointmentCatalogue1112.map(group => h("section", {"data-catalog-group":group.key}, h("h4", {class:"group-label",text:group.label}), group.families.map(appointmentFamily203)))
+      ? appointmentCatalogue1112.map(group => h("section", {"data-catalog-group":group.key}, h("h3", {class:"group-label",text:group.label}), group.families.map(appointmentFamily203)))
       : [...appointmentDirectory203.families].sort(compareCouncilFamilies228(councilFamilyOrder228(appointmentDirectory203))).map(appointmentFamily203)) : [h("p",{class:"muted small",text:"Family grouping is unavailable. The original scoped controls below remain unchanged."}),
       h("div",{class:"group-label",text:"Leadership"}),appointedGrid("leadership"),h("div",{class:"group-label",text:"Class leads"}),appointedGrid("class"),
       h("details",{class:"mt"},h("summary",{text:"Ten native rank display assignments"}),appointedGrid("native")),
