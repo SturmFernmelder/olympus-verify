@@ -300,10 +300,12 @@
           h("details", null, h("summary", { text: `${familyRows.length} role families · ${rows.length} office keys` }), h("ul", null, familyRows.map(([key, own]) => {
             const family = directory?.families.find(item => item.key === key);
             const label = family?.label || own[0].applicationLabel || own[0].label;
-            const others = [...new Set(own.filter(row => row.group !== "native").map(row => row.applicationLabel || row.label))].filter(text => text !== label);
-            return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("span", { text: label }),
-              others.length ? h("span", { class: "small muted", text: " — " + others.join(" · ") }) : null, " · ",
-              h("a", { href: "#/organization/" + encodeURIComponent(own[0].key), text: "Chart" }));
+            // RC-199 (round 3, 12 Nov 2026): one family heading per rank, and under it every stored key keeps its own labelled
+            // register link with its department and reporting line, as the live build listed them per key (Codex's narrowing).
+            return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("strong", { text: label }),
+              h("ul", null, own.map(row => { const reporting = roleReporting218(row, family, {includeMinistry:false});
+                return h("li", { "data-rosetta-key1112": row.key }, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }),
+                  " · ", row.ministry || row.department, reporting ? " · " + reporting : ""); })));
           }))),
           h("p", { class: "rosetta-access1112" }, role ? h("strong", { text: role.roleName }) : h("span", { class: "muted", text: "Discord role unavailable" }),
             role?.granted === "verified_alt" ? " · given from the verified-alt record, not from the in-game rank." : role ? " · follows this rank on the verified roster." : "",
