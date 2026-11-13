@@ -63,7 +63,8 @@ import { ensureSchema } from "./schema";
 import { recordRelay, relayReportFromQuery, relayStatus, ticketsReady } from "./relays";
 import { handleIntros, INTROS, INTROS_COMMAND, parseChannels } from "./intros";
 import { handleSite } from "./site";
-import { rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import { apiJson, rateLimited, siteAdmins, siteHost, siteLegacyHosts, securityHeaders } from "./site-core";
+import {botResponse280} from "./bot-response280";
 import { handleLookup, isAsmongoldLookup, LOOKUP_COMMAND } from "./lookup";
 import { recordNames, refreshNames, verifiedOnRoster } from "./names";
 import {captureSiteOAuthOrigin,type SiteOAuthOrigin} from './privacy-serving-site-oauth';
@@ -228,7 +229,7 @@ export default {
     let globalEntry:ReturnType<typeof captureGlobalServingEntry>;try{globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request);}catch{return json({error:'original_serving_held'},503); }env=globalEntry.env;request=globalEntry.request!;
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
-    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return json({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return apiJson({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
     let namesOrigin:HandlerServingOrigin|undefined;
     if(host==="bot"&&request.method==="POST"&&path==="/interactions"){try{namesOrigin=captureHandlerServingOrigin(request,env,ctx);}catch{}}
     let siteOAuthOrigin:SiteOAuthOrigin|undefined;
@@ -301,7 +302,7 @@ export default {
         // A refused registration is audited, then propagates exactly as .160's did: the legacy sweep rides on this deferral.
         else { const parent = callBudget(env); try { deferOriginalServing(ctx,'queue_member_roles',()=>queueFreshRoles(env,lane,parent,roleDispatch)); } catch (e) { await freshRegistrationRefused(env,'watcher'); throw e; } }
       }
-      return res;
+      return botResponse280(res);
     } catch (e) {
       if(e instanceof RecoveryFloorHeld)throw e;
       if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
