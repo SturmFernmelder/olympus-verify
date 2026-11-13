@@ -16,11 +16,13 @@ const selected=args.includes('--only')?args[args.indexOf('--only')+1].split(',')
    if(kind.startsWith('capacity'))check(kind+' all18 roles with all4 supported codes fit',r.known.length===18&&content.length<=1950&&['50001','50013','10007','10011'].every(x=>content.includes(x)),{length:content.length});
    if(kind==='capacity-access')check('known refusals alone retain guarded Fix for fresh current observation',replies[0]?.components?.[0]?.components?.[0]?.label==='Fix current guild access');
    if(kind==='access')check('unknown effects still withhold guarded Fix',!replies[0]?.components?.length);
+   if(kind==='access'||kind==='unban')check(kind+' old ban-v1 stays unmodified and outside known refusal projection',!content.includes('10007')&&r.rolesBefore===r.rolesAfter);
   }
   if(kind==='ban')check('ban reports known refusal with manual next step instead of bare held',/Discord.*refus|provider.*refus/i.test(content)&&/hand|manual/i.test(content),{content});
   if(kind==='ban'){
    const original=JSON.parse(r.rolesBefore),after=JSON.parse(r.rolesAfter),ids=new Set(original.map(x=>x.id)),added=after.filter(x=>!ids.has(x.id));
    check('new ban mandate gets its own complete refused removals, not the old mandate hold',http.filter(x=>x.kind===kind&&x.method==='DELETE').length===2&&added.length===2&&added.every(x=>x.purpose==='canonical_ban_remove_v1'&&x.state==='held'&&x.attempts===1&&JSON.parse(x.reason).status===403&&JSON.parse(x.reason).code===50013));
+   check('actual ban writer stores closed-v2 mandate separately from fresh operation proof',added.every(x=>{const v=JSON.parse(x.reason);return Object.keys(v).length===6&&v.version===2&&v.type==='ban-rank-refusal-v2'&&/^[0-9a-f]{32}$/.test(v.mandate)&&x.proof_id!==v.mandate;})&&new Set(added.map(x=>x.proof_id)).size===1&&new Set(added.map(x=>JSON.parse(x.reason).mandate)).size===1);
    check('ban keeps all historical refusal tuples unchanged',JSON.stringify(after.filter(x=>ids.has(x.id)))===JSON.stringify(original));
   }
   if(kind==='cooldown')check('ban reports recorded wait rather than unread inventory',/wait|cooldown|rate.limit/i.test(content)&&!/role or member data could not be read/.test(content),{content});
