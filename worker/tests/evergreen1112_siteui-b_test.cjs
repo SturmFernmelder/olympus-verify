@@ -470,7 +470,9 @@ async function browserChecks() {
       const t = await ev(`return document.querySelector('.resources169-featured')?.textContent||''`);
       // Round 3 (13 Nov 2026, CL2-071): the card names no version (the earlier "Minimum version: 1.5.7" is withdrawn) and links the project page.
       const card = await ev(`const c=document.querySelector('.resources169-featured');return c?{text:c.textContent,links:[...c.querySelectorAll('a')].map(a=>a.href)}:null`);
-      check('CL2-071', 'the Olympus Guild card shows no version, minimum version or published file, and links the CurseForge project page', !!card && !/Minimum version|Published file|\b\d+\.\d+\.\d+\b/.test(card.text) && card.links.includes('https://www.curseforge.com/wow/addons/olympus-guild') && card.links.every(u => !/olympus-guild\/files/.test(u)), card && { text: card.text.slice(0, 300), links: card.links });
+      // The integration note's dated history ("The earlier 1.3.2 API review ...") names what was reviewed, not a file on offer.
+      const offer = card ? card.text.replace(/The earlier 1\.3\.2 API review[\s\S]*?does not enable website reporting\./, '') : '';
+      check('CL2-071', 'the Olympus Guild card shows no version, minimum version or published file, and links the CurseForge project page', !!card && !/Minimum version|Published file|or later|\b\d+\.\d+\.\d+\b/.test(offer) && card.links.includes('https://www.curseforge.com/wow/addons/olympus-guild') && card.links.every(u => !/olympus-guild\/files/.test(u)), card && { text: card.text.slice(0, 300), links: card.links });
       // INT-SITE-1 (12 Nov 2026): /#/guides is the university hub after the merge; the publisher library moved to /#/guides/library.
       await open('member', 1280, 'guides/library'); await sleep(800);
       const g = await ev(`return [...document.querySelectorAll('main p')].map(p=>p.textContent).find(x=>/Follow-up dated/.test(x))||''`);

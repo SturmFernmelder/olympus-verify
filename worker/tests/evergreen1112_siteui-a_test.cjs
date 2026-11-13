@@ -696,7 +696,7 @@ async function round3Inner(cdp, want) {
       }
       await sleep(1500);
       cdp.onPaused = null; await cdp.send('Fetch.disable');
-      const after = await cdp.eval(`({ same: document.activeElement === window.__planFocus, connected: window.__planFocus.isConnected, active: document.activeElement === document.body ? 'BODY' : document.activeElement.tagName + ' ' + (document.activeElement.textContent || '').trim().slice(0, 30), inMain: document.querySelector('main').contains(document.activeElement), refused: /open to the published Co-Guild Master/.test(document.querySelector('main').textContent) })`);
+      const after = await cdp.eval(`({ same: document.activeElement === window.__planFocus, connected: window.__planFocus.isConnected, active: document.activeElement === document.body ? 'BODY' : document.activeElement.tagName + ' ' + (document.activeElement.textContent || '').trim().slice(0, 30), inMain: document.querySelector('main').contains(document.activeElement), refused: /open to the holders of the published Co-Guild Master/.test(document.querySelector('main').textContent) })`);
       await cdp.eval(`(() => { if (window.__realNow) Date.now = window.__realNow; return true; })()`);
       outcome[mode] = { focused, held: paused.length, during, after };
     }
