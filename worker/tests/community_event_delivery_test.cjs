@@ -169,7 +169,13 @@ async function deleteThroughOriginalRoute(target,actor) {
   check("another organizer cannot preview another owner's event", r.status === 403 && r.body?.error === "not_event_organizer" && /belongs to another organizer/.test(r.body?.message || "") && !("payload" in r.body));
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { Origin: "https://attacker.example" }); check("foreign origin refused", r.status === 403);
   r = await call("POST", "/api/community/events/discord/publish", {}, ORG, {}, { "X-Olympus": "1" }); check("old page refused", r.status === 409);
+  // Review of 142e84f (13 Nov 2026): a write from an old page is refused before the role read, as on live dfca7a2, so a
+  // non-organizer's stale write costs no Discord call either (the accumulated list below proves it made none).
+  r = await call("POST", "/api/community/events/discord/publish", {}, MEMBER, {}, { "X-Olympus": "1" }); check("  a non-organizer's write from an old page is 409 reload", r.status === 409 && r.body?.error === "reload");
   r = await call("POST", "/api/community/events/discord/publish", { eventId: EVENT, revision: 1, opId: OP, payloadHash: p.payloadHash, content: "private" }); check("client content/destination fields are rejected", r.status === 400 && !row());
+  // Review of 142e84f (13 Nov 2026): the reset below must not drop the bound on the refusals above. Since the OFF check they
+  // made exactly the two role reads they need (MEMBER's officer check, OTHER's High Council check) and no effect.
+  check("the refusals above made only the two role reads (MEMBER officer check, OTHER High Council check), no effect", JSON.stringify(requests.map(q => q.method + " " + q.url)) === JSON.stringify([`GET /api/v10/guilds/${GUILD}/members/${MEMBER}`, `GET /api/v10/guilds/${GUILD}/members/${OTHER}`]) && effects().length === 0, JSON.stringify(requests.map(q => q.method + " " + q.url)));
   // Round 5 final (13 Nov 2026): the refusals above now read Discord on purpose (8ddec47, owner rulings of 13 Nov: a member
   // who is not a listed organizer may be an officer, and another organizer may be High Council, both proved by a fresh
   // Discord role read), so the count starts here: this preview and publish, by the event's own organizer, make no call.

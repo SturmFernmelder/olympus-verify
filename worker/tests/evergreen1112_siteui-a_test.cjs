@@ -204,6 +204,11 @@ async function unitChecks() {
   const control = await run({ appointedCharactersConfirmed: true });
   check('REV-SITEA-2', 'control: the same save with the tick passes the pre-check, reads the account and calls Discord (stubbed 503: nothing saved)',
     control.provider >= 1 && control.reads.length > 1 && control.status === 409 && control.error === 'appointed_account_unavailable', JSON.stringify(control));
+  // The reload check is skipped only on a source without the guard (the base): where handleAdmin compares X-Olympus with
+  // PAGE_VERSION but the export cannot be read, that is a failure, not a skip (review of 142e84f, 13 Nov 2026).
+  const guarded = /request\.headers\.get\(\s*['"]X-Olympus['"]\s*\)\s*!==\s*PAGE_VERSION/.test(read('worker/src/site-admin.ts'));
+  if (guarded && pageVersion === undefined)
+    check('REV-SITEA-2', 'handleAdmin requires the page version, so site-core.ts must export a readable PAGE_VERSION for the reload check', false, 'PAGE_VERSION unavailable');
   if (pageVersion !== undefined) {
     const stale = await run({ appointedCharactersConfirmed: true }, false);
     check('REV-SITEA-2', 'a save from a page without the current page version is 409 reload before any read or provider call (51510fe)',

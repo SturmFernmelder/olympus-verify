@@ -169,8 +169,10 @@ type NotYours = { notYours: true; erased: boolean };
 const isNotYours = (v: unknown): v is NotYours => record(v) && v.notYours === true;
 async function gate(request: Request, env: Env, ctx: CommunityContext, write = false): Promise<Response | null> {
   if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return refusal(env, request, "confirmedGuildData");
-  if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer", message: "Event announcements are managed by the event's organizer, the High Council, the War Heads and site administrators." }, 403);
+  // The page-version and origin refusal comes before the role read (review of 142e84f, 13 Nov 2026): since 8ddec47
+  // manages() may read the member from Discord, and a stale or foreign write is refused without that call, as on live.
   if (write && (request.headers.get("X-Olympus") !== PAGE_VERSION || !sameOrigin(request))) return apiJson({ error: "reload" }, 409);
+  if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer", message: "Event announcements are managed by the event's organizer, the High Council, the War Heads and site administrators." }, 403);
   return null;
 }
 async function readJsonBounded(response: Response, limit: number): Promise<unknown> {
