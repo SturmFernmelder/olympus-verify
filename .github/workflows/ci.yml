@@ -46,6 +46,14 @@ jobs:
           npm run check:vectors
           node ../scripts/build-verify-addon.cjs --check
         working-directory: worker
+      # CL2-076 (owner ruling of 13 Nov 2026): members keep app.js and app.css of a BUILD in their browser for a year,
+      # so a change to either file must ship with a new BUILD. Exit 3 (no base to compare) fails the step too.
+      - name: Script and style changes come with a new BUILD
+        env:
+          ASSET_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          node scripts/tests/check-asset-build.test.cjs
+          node scripts/check-asset-build.cjs --base "$ASSET_BASE"
       - name: TypeScript, targeted genuine Workerd D1 behavior, D1 statement ceilings and query plans
         run: npm run qualify -- --target lease --target treasury --target reconciliation --target promotions
         working-directory: worker

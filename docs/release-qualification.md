@@ -124,6 +124,26 @@ npm run check:vectors
 node ../scripts/build-verify-addon.cjs --check
 ```
 
+Script and style files need a new `BUILD`, from the repository root:
+
+```sh
+node scripts/check-asset-build.cjs                 # base: the merge base of HEAD and origin/main
+node scripts/check-asset-build.cjs --base <ref>    # base: the merge base of HEAD and <ref>
+node scripts/tests/check-asset-build.test.cjs      # its own cases
+```
+
+Signed-in members keep `/static/app.js?v=<BUILD>` and `/static/app.css?v=<BUILD>`
+in their browser for a year (CL2-076, owner ruling of 13 November 2026). The URL
+changes only when `BUILD` in `worker/src/index.ts` changes, so a release that
+edits either file under the same `BUILD` would leave members on the old files.
+The check compares the working tree with the base: exit 1 when either file
+differs and `BUILD` does not, exit 0 when neither file differs or `BUILD` changed
+with them, and exit 3, "NOT CHECKED", when no base can be resolved (no
+`origin/main`, an unknown or empty ref, a shallow or unrelated history). Exit 3
+is never a pass. CI runs it in the `worker` job against the pull request's base
+branch, or the previous commit of a push. A lane branch fails it until the
+integrator changes `BUILD` for the release.
+
 From the repository root, with Lupa 2.8 (`addon/tests/requirements-lupa.txt`):
 
 ```sh
@@ -167,7 +187,7 @@ The workflow has three bounded jobs and the existing required `check` collector:
 
 | Job | Scope |
 |---|---|
-| `worker` | Secret scanning; generated-artifact parity (policies, Link core, code vectors, served addon ZIP); TypeScript plus targeted genuine Workerd/D1 verification with the lease, Treasury, reconciliation and promotions targets, D1 statement ceilings and query plans included; the complete Watcher suite with Lupa installed by hash |
+| `worker` | Secret scanning; generated-artifact parity (policies, Link core, code vectors, served addon ZIP); a new `BUILD` for any change to `app.js` or `app.css`; TypeScript plus targeted genuine Workerd/D1 verification with the lease, Treasury, reconciliation and promotions targets, D1 statement ceilings and query plans included; the complete Watcher suite with Lupa installed by hash |
 | `addon` | Every offline Lua suite (`run_lua_suites.py --all-offline`), Lupa installed by hash |
 | `backup` | Genuine valid/corrupt/foreign-key backup-checker cases and a local restore of the tracked schema SQL |
 | `check` | Requires all three jobs to report actual success; missing, skipped, cancelled and failed dependencies fail |
