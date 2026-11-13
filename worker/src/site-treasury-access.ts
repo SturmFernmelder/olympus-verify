@@ -31,11 +31,15 @@ export const TREASURY_ACCESS_PATH = "/api/treasury-plan/access";
  * Final raw-map, account/session and privacy-generation readmission is unchanged. */
 export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86", "co_gm", "treasurer", "rank_treasurer"] as const);
 /** Officer tier on the Directive ladder (DIRECTIVE_RANK_NAMES, owner ladder of 12 Nov 2026, slots 0-4). */
-const OFFICER_RANKS: ReadonlySet<string> = new Set(["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+// Private, frozen lists: nothing outside this module can reach or change them (Codex Root's review of 98dc690, 13 Nov
+// 2026: a Set handed out through currentLadder stayed mutable, whatever its TypeScript type said).
+const OFFICER_RANKS: readonly string[] = Object.freeze(["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
 /** Officer tier on the ORIGINAL v1 ladder (NATIVE_NAMES233), exactly the names dfca7a2 admitted there: its seven-name set
  * intersected with that ladder. "Treasurer" is not on NATIVE_NAMES233, so dfca7a2 could never match it and it is left
  * out. "Stewart" exists only on this ladder (slot 1) and is never offered to the Directive ladder (round 5, 13 Nov 2026). */
-const ORIGINAL_OFFICER_RANKS233: ReadonlySet<string> = new Set(["Guild Master", "Stewart", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+const ORIGINAL_OFFICER_RANKS233: readonly string[] = Object.freeze(["Guild Master", "Stewart", "High Council", "Officer", "Officer Alt", "Raid Leader"]);
+export type TreasuryLadderPolicy = "original233" | "directive";
+const officersOf = (policy: TreasuryLadderPolicy): readonly string[] => policy === "original233" ? ORIGINAL_OFFICER_RANKS233 : policy === "directive" ? OFFICER_RANKS : [];
 const HEADER_NAMES = ["Cookie", "Origin", "Sec-Fetch-Site", "X-Olympus"];
 const DISCORD_KEYS = ["SITE_GUILD_ID", "GUILD_ID", "DISCORD_BOT_TOKEN", "ROLE_GUILD_MASTER", "ROLE_GUILD_LEADER", "ROLE_OFFICER", "ROLE_RAID_LEADER", "CANONICAL_RANKS233"] as const;
 const ROSTER_KEYS = ["QR_NATIVE_ROLE_MAP", "LINKS_NOT_BEFORE", "LINKS_NOT_BEFORE_CLOCK_GATED", "CANONICAL_RANKS233", "VERIFY_MEMBERSHIP_ONLY", "VERIFY_NATIVE_SCOPE", "GUILD_ID"] as const;
@@ -60,10 +64,10 @@ export const TREASURY_DISCORD_READS_PER_MINUTE = 20;
 const ID = /^\d{17,20}$/;
 
 /** An officer-tier rank name at exactly its index in the given ladder, judged by THAT ladder's officer set (no fallback
- * ladder). The default set is the Directive one; currentLadder hands each ladder its own set, so a name/index pair from
- * one ladder is never read under the other. */
-export function officerRank(rank: unknown, index: unknown, names: readonly string[], officers: ReadonlySet<string> = OFFICER_RANKS): boolean {
-  return typeof rank === "string" && Number.isInteger(index) && officers.has(rank) && names[index as number] === rank;
+ * ladder). The policy names the ladder (default: Directive); the officer names for it stay inside this module, so a
+ * name/index pair from one ladder is never read under the other and no caller can alter either list. */
+export function officerRank(rank: unknown, index: unknown, names: readonly string[], policy: TreasuryLadderPolicy = "directive"): boolean {
+  return typeof rank === "string" && Number.isInteger(index) && officersOf(policy).includes(rank) && names[index as number] === rank;
 }
 
 /** The original .233 policy, by the parser's own closed pair (version 1 with CANONICAL_PROFILE233, never "not version 2")
@@ -74,7 +78,7 @@ function originalCanonicalPolicy233(policy: CanonicalRankPolicy233 | null): poli
     && canonicalNativeRole233(policy, 1, NATIVE_NAMES233[1]) !== null;
 }
 
-export type TreasuryLadder = Readonly<{ policy: "original233" | "directive"; names: readonly string[]; officers: ReadonlySet<string>; cutoff: number; source: string }>;
+export type TreasuryLadder = Readonly<{ policy: TreasuryLadderPolicy; names: readonly string[]; cutoff: number; source: string }>;
 
 /** Two closed cases, nothing else (round 5, 13 Nov 2026; owner ruling of 31 Oct, "Either source"):
  * - the current Directive policy (version 2): DIRECTIVE_RANK_NAMES on the exact qualified native-v2 source;
@@ -83,16 +87,17 @@ export type TreasuryLadder = Readonly<{ policy: "original233" | "directive"; nam
  *   keep that route at rollout.
  * Both need the same fences dfca7a2 required: enabled and current configuration, the policy's guild, members-only launch
  * verification on the flagship scope, and an opened launch cut. Absent, disabled, held, other profiles and unknown
- * versions give null. Neither case falls through to the other, and each carries its own officer set. */
+ * versions give null. Neither case falls through to the other; the returned object names its policy and carries no
+ * permission list. */
 export function currentLadder(env: Env): TreasuryLadder | null {
   const canonical=captureCanonicalRankConfig233(env),cutoff=linksNotBefore(env);
   const launch=captureLaunchVerification(env),policy=canonical.policy;
   if(!policy||canonical.mode!=='enabled'||!canonical.current()||env.GUILD_ID!==policy.guildId
     ||launch.mode!=='members-only'||!launch.scope||!launch.current()||canonicalOlympusGuildName(launch.scope.guild)!==FLAGSHIP_GUILD_NAME||!Number.isSafeInteger(cutoff)||cutoff<=0)return null;
   if(currentDirectiveCanonicalPolicy233(policy))
-    return Object.freeze({policy:'directive',names:DIRECTIVE_RANK_NAMES,officers:OFFICER_RANKS,cutoff,source:qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)});
+    return Object.freeze({policy:'directive',names:DIRECTIVE_RANK_NAMES,cutoff,source:qualifiedNativeSnapshotSource(launch.scope.guild,launch.scope.realm)});
   if(originalCanonicalPolicy233(policy))
-    return Object.freeze({policy:'original233',names:NATIVE_NAMES233,officers:ORIGINAL_OFFICER_RANKS233,cutoff,source:launch.scope.provenance});
+    return Object.freeze({policy:'original233',names:NATIVE_NAMES233,cutoff,source:launch.scope.provenance});
   return null;
 }
 
@@ -119,7 +124,7 @@ const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index FROM roste
 /** Any independently valid officer character admits its account. Filter before limiting: lower-rank alts and a second
  * valid officer do not disqualify the first, while every candidate still has its own unique exported and bound GUID. */
 function rosterOfficerStatement(env: Env, discordId: string, ladder: TreasuryLadder): D1PreparedStatement {
-  const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.officers) ? [{ rank, index }] : []);
+  const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.policy) ? [{ rank, index }] : []);
   const pairs = officers.map((_, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2})`).join(" OR ") || "0";
   const values=[discordId,ladder.cutoff,ROSTER_CURRENT_FOR,...officers.flatMap(({rank,index})=>[rank,index])];
   return env.DB.prepare(`${ROSTER_SQL} AND (${pairs}) AND s.source=?${values.length+1} LIMIT 1`)
@@ -127,7 +132,7 @@ function rosterOfficerStatement(env: Env, discordId: string, ladder: TreasuryLad
 }
 function rosterOfficerResult(out: D1Result | undefined, ladder: TreasuryLadder): boolean {
   const rows = out?.results ?? [];
-  return rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, ladder.names, ladder.officers);
+  return rows.length === 1 && officerRank((rows[0] as { rank?: unknown }).rank, (rows[0] as { rank_index?: unknown }).rank_index, ladder.names, ladder.policy);
 }
 
 /** The Discord roles whose holders the Discord path admits under this configuration, or null when that path admits
@@ -162,7 +167,7 @@ export function treasuryGateDescription(env: Env): string {
   const ladder = currentLadder(env);
   if (ladder) {
     const labels = ladder.policy === "original233" ? ORIGINAL_ROSTER_LABELS233 : ROSTER_LABELS;
-    const ranks = [...new Set(ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.officers) && labels[rank] ? [labels[rank]!] : []))];
+    const ranks = [...new Set(ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.policy) && labels[rank] ? [labels[rank]!] : []))];
     if (ranks.length) clauses.push(`${listOf(ranks)} rank on the latest verified roster`);
   }
   const discord = treasuryDiscordRoles(env);

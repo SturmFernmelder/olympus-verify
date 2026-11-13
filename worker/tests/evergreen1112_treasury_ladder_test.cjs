@@ -132,6 +132,16 @@ const want = s => section === 'all' || section === s;
     await scenario(kind + ' ladder and description', { policy: kind }, async f => {
       const ladder = f.gate.currentLadder(f.env);
       check(`${kind} policy: currentLadder is the ${kind} ladder on its own exact source`, !!ladder && JSON.stringify([...ladder.names]) === JSON.stringify(NAMES[kind]) && ladder.source === sourceFor(f.load, kind), ladder && { names: ladder.names, source: ladder.source });
+      // Codex Root's review of 98dc690 (13 Nov 2026): the ladder must not hand out a permission list a caller could change.
+      const before = JSON.stringify([ladder && Object.keys(ladder).sort(), ladder && [...ladder.names]]);
+      let threw = 0;
+      for (const attempt of [() => ladder.officers.add('Member'), () => { ladder.officers = new Set(['Member']); if (ladder.officers) throw new Error('assigned'); }, () => ladder.names.push('Member'), () => { ladder.names[NAMES[kind].indexOf('Member')] = 'Officer'; if (ladder.names[NAMES[kind].indexOf('Member')] === 'Officer') throw new Error('rewritten'); }, () => { ladder.policy = kind === 'original' ? 'directive' : 'original233'; if (ladder.policy !== (kind === 'original' ? 'original233' : 'directive')) throw new Error('switched'); }]) {
+        try { attempt(); } catch { threw++; }
+      }
+      check(`${kind} policy: the ladder carries no officer list and nothing reachable from it can be changed`, !!ladder && !('officers' in ladder) && Object.isFrozen(ladder) && Object.isFrozen(ladder.names)
+        && JSON.stringify(Object.keys(ladder).sort()) === JSON.stringify(['cutoff', 'names', 'policy', 'source']) && JSON.stringify([Object.keys(ladder).sort(), [...ladder.names]]) === before
+        && f.gate.officerRank('Member', NAMES[kind].indexOf('Member'), ladder.names, ladder.policy) === false && f.gate.officerRank('Officer', NAMES[kind].indexOf('Officer'), ladder.names, ladder.policy) === true
+        && f.gate.officerRank('Officer', NAMES[kind].indexOf('Officer'), ladder.names, 'no-such-policy') === false, { keys: ladder && Object.keys(ladder), threw });
       const text = f.gate.treasuryGateDescription(f.env);
       check(`${kind} policy: the refusal description names the active ladder's officer ranks in the owner's words`, text.includes('Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster') && !/Stewart|Treasurer rank/.test(text), text);
       await roster(f, { rank: 'Veteran', index: NAMES[kind].indexOf('Veteran'), source: sourceFor(f.load, kind) });
