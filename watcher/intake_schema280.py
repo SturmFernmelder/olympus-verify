@@ -61,7 +61,7 @@ def tithe_mac(secret, body):
     return hmac.new(secret.encode("utf-8"), tithe_message(body).encode("utf-8"), hashlib.sha256).hexdigest()[:32]
 
 
-def financial_error(body, secret, officer=None, at=None):
+def _financial_prefix_error(body, officer=None):
     if not _object(body, _FINANCIAL, _FINANCIAL) or body.get("type") != "donation" or body.get("source") != V2:
         return "legacy_or_unqualified_receipt"
     d, e = body["donation"], body["evidence"]
@@ -80,6 +80,28 @@ def financial_error(body, secret, officer=None, at=None):
     expected = {"trade": "trade_complete_and_money_delta", "mail": "take_money_inbox_depletion_and_money_delta"}.get(d["kind"]) if type(d["kind"]) is str else None
     if expected is None or e["kind"] != expected or e["confirmedLocal"] is not True or e["automaticCredit"] is not False:
         return "receipt_evidence_held"
+    return None
+
+
+def financial_shape_error(body, officer=None):
+    """Closed scalar shape only; no authenticity, freshness or delivery authority."""
+    error = _financial_prefix_error(body, officer)
+    if error is not None:
+        return error
+    if not _integer(body["requestedAt"]):
+        return "receipt_original_clock_held"
+    if type(body["evidence"]["mac"]) is not str or _HEX32.fullmatch(body["evidence"]["mac"]) is None:
+        return "receipt_authentication_held"
+    return None
+
+
+def financial_error(body, secret, officer=None, at=None):
+    # Keep original transport error precedence: shape prefix, original clock,
+    # then authentication. The local scalar classifier cannot grant admission.
+    error = _financial_prefix_error(body, officer)
+    if error is not None:
+        return error
+    d, e = body["donation"], body["evidence"]
     at = int(time.time()) if at is None else at
     if not _integer(body["requestedAt"]) or not at - RETENTION_SECONDS < body["requestedAt"] <= at + 5:
         return "receipt_original_clock_held"

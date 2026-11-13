@@ -6,14 +6,17 @@ import math
 import os
 import re
 import time
+import intake_schema280
 
 FIELD = "localPrivacyDisposition280"
 PURPOSE = "old-captured-correspondence-local-only"
 ADDON_FIELD = "localCorrespondence280"
 ADDON_PURPOSE = "financial-correspondence-local-only-v1"
-LEGACY = {"mail", "trade", "whisper-declaration", "treasury-receipt242"}
+BRIDGED = {"addon-bridge242", "Olympus-pendingRoleUpdates", "OlympusRecordDB-pendingRoleUpdates"}
+LEGACY = {"mail", "trade", "whisper-declaration", "treasury-receipt242"} | BRIDGED
 _BODY = {"id", "type", "source", "character", "guid", "guidSource", "requestedAt", "requestedBy", "status", "clientVersion", "guild", "realm", "observedAt", "donation", "evidence", "attempts", "outcome", "acknowledgedAt", "serverReceipt"}
 _DONATION = {"copper", "outgoingCopper", "items", "note"}
+_BRIDGE_BODY = _BODY | {"bridgeUntrusted", "bridgeSender", "untrustedSources"}
 _ID = re.compile(r"[A-Za-z0-9:._-]{1,128}")
 _RID = re.compile(r"(?:[0-9a-f]{24}|[0-9a-f]{32})")
 _LIMITS = {"tables": 65536, "fields": 262144, "depth": 32, "bytes": 16777216}
@@ -101,47 +104,79 @@ def local_only(row):
 
 
 def prepare(state, at):
-    """Return candidate/status. A failed scoped preflight never partially edits rows."""
+    """Prepare a bounded COW cleanup; unsupported items remain exact and local-only."""
     current = state.d
-    status = dict(available=True, complete=True, held=False, reason="scoped-minimization-complete", blankedNotes=0, localOnlyRows=0)
+    status = dict(available=True, complete=True, held=False, reason="scoped-minimization-complete", blankedNotes=0, localOnlyRows=0, heldRows=0)
     if "intake242" not in current:
         return None, status
     ledger = current["intake242"]
     try:
         if type(ledger) is not dict:
             raise LocalCorrespondenceHeld("local privacy ledger held")
-        status["cost"] = _bounded(ledger)
-        selected = []
-        for eid, row in ledger.items():
-            if type(row) is not dict:
-                # Unknown originals remain untouched, not repaired into eligible rows.
-                raise LocalCorrespondenceHeld("local privacy row held")
-            if FIELD in row and not disposition_valid(row):
-                raise LocalCorrespondenceHeld("local privacy disposition held")
+        whole_bounded = True
+        try:
+            status["cost"] = _bounded(ledger)
+        except LocalCorrespondenceHeld as error:
+            # Existing ordinary history can exceed the cleanup's work budget.
+            # This does not permit increasing a previously bounded candidate past
+            # its limit, nor publishing a cyclic/non-JSON source graph.
+            if str(error) not in {"local privacy depth held", "local privacy bytes held", "local privacy tables held", "local privacy fields held"}:
+                raise
+            whole_bounded = False
+            status.update(complete=False, held=True, reason="scoped-minimization-incomplete")
+        selected = {}
+        work = dict(tables=1, fields=0, bytes=0)
+        def held():
+            status.update(complete=False, held=True, reason="scoped-minimization-incomplete")
+            status["heldRows"] += 1
+        for index, (eid, row) in enumerate(ledger.items()):
+            if index >= _LIMITS["fields"]:
+                status.update(complete=False, held=True, reason="scoped-minimization-incomplete")
+                break
+            if type(row) is not dict or FIELD in row and not disposition_valid(row):
+                held()
+                continue
             if local_only(row):
                 status["localOnlyRows"] += 1
             body = row.get("body")
             if not legacy(body):
+                if financial(body):
+                    semantic = {k: v for k, v in body.items() if k not in {"status", "acknowledgedAt", "outcome", "attempts", "serverReceipt"}}
+                    if intake_schema280.financial_shape_error(semantic) is not None:
+                        held()
                 continue
             donation = body.get("donation")
+            allowed = _BRIDGE_BODY if body["source"] in BRIDGED else _BODY
             if (type(eid) is not str or _ID.fullmatch(eid) is None or body.get("id") != eid
-                    or not set(body) <= _BODY or type(donation) is not dict or not set(donation) <= _DONATION
+                    or not set(body) <= allowed or type(donation) is not dict or not set(donation) <= _DONATION
                     or "note" in donation and type(donation["note"]) is not str):
-                raise LocalCorrespondenceHeld("local privacy original held")
+                held()
+                continue
             if donation.get("note"):
-                selected.append(eid)
+                if type(at) is not int or not 0 < at <= 253402300799:
+                    raise LocalCorrespondenceHeld("local privacy clock held")
+                try:
+                    _bounded(row)
+                    replacement = copy.deepcopy(row)
+                    replacement["body"]["donation"]["note"] = ""
+                    if FIELD not in replacement:
+                        replacement[FIELD] = dict(version=1, purpose=PURPOSE, reason="owner-requested-text-blanked", removedAt=at, relayEligible=False)
+                    cost = _bounded({eid: replacement})
+                    combined = {key: work[key] + cost[key] - (1 if key == "tables" else 0) for key in work}
+                    if any(combined[key] > _LIMITS[key] for key in combined):
+                        raise LocalCorrespondenceHeld("local privacy selected work held")
+                    selected[eid] = replacement
+                    work = combined
+                except (LocalCorrespondenceHeld, UnicodeError, ValueError, TypeError, OverflowError, RecursionError):
+                    held()
         if not selected:
             return None, status
-        if type(at) is not int or not 0 < at <= 253402300799:
-            raise LocalCorrespondenceHeld("local privacy clock held")
-        replacement = copy.deepcopy(ledger)
-        for eid in selected:
-            row = replacement[eid]
-            row["body"]["donation"]["note"] = ""
-            if FIELD not in row:
-                row[FIELD] = dict(version=1, purpose=PURPOSE, reason="owner-requested-text-blanked", removedAt=at, relayEligible=False)
-        # Generated protective metadata must fit the same complete-scope limits.
-        status["cost"] = _bounded(replacement)
+        replacement = dict(ledger)
+        replacement.update(selected)
+        # A previously bounded ledger cannot be pushed out of bounds by newly
+        # generated metadata. Already oversized unrelated history stays exact;
+        # only the bounded selected work is copied and incomplete is reported.
+        status["cost"] = _bounded(replacement) if whole_bounded else work
         candidate = dict(current); candidate["intake242"] = replacement
         status["blankedNotes"] = len(selected)
         return candidate, status
@@ -154,12 +189,12 @@ def initialize(state):
     # atomic_local_text uses this exact fixed staging name. It is never ours to adopt.
     tmp = state.path.with_suffix(".tmp")
     if os.path.lexists(tmp):
-        raise LocalCorrespondenceHeld("retained staged state; local privacy stopped")
+        return dict(available=True, complete=False, held=True, reason="local-privacy-staging-present", blankedNotes=0, localOnlyRows=0, heldRows=0)
     original = state.d
     candidate, status = prepare(state, int(time.time()))
     if candidate is not None:
         if os.path.lexists(tmp):
-            raise LocalCorrespondenceHeld("retained staged state; local privacy stopped")
+            return dict(status, complete=False, held=True, reason="local-privacy-staging-present", blankedNotes=0)
         state.d = candidate
         try:
             state.save()
