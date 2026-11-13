@@ -61,6 +61,35 @@
     'discord-entitlement-unknown': 'Discord roles not checked yet',
     'same-intent-continuation-held': 'The next step of an earlier plan could not be confirmed',
   });
+  // Round 3 (13 Nov 2026): the two invite evidence sources the backend projects (worker/src/officer-invites233.ts
+  // OFFICER_INVITE_SOURCE233 and OFFICER_INVITE_SOURCE242, readOfficerInvites233). Each row has the same ten keys;
+  // each source is checked against its own entry, and any other source holds the whole page.
+  const INVITE_SOURCES = Object.freeze({
+    // Addon .233: the character was a game unit next to the officer (target, mouse-over, party or raid) and a /who reply showed no guild.
+    'native-who-unit-v233': {keys: 'expiresAt,fullName,guid,name,observedAt,proofId,queueId,reason,scopeHash,source', witness: 'Seen in game by the officer, and a /who reply showed no guild'},
+    // Addon .242: the character's verification whisper gave the character ID, and a fresh /who reply showed no guild.
+    'native-who-whisper-v242': {keys: 'expiresAt,fullName,guid,name,observedAt,proofId,queueId,reason,scopeHash,source', witness: 'Identified by their verification whisper, and a fresh /who reply showed no guild'},
+  });
+  /** One invite row of a first page `d`, exactly as the backend projects it for its source. */
+  function inviteShape(r, d) {
+    const source = plain(r) && typeof r.source === 'string' && Object.hasOwn(INVITE_SOURCES, r.source) ? INVITE_SOURCES[r.source] : null;
+    if (!source || !plain(d) || Object.keys(r).sort().join(',') !== source.keys) return false;
+    return Number.isSafeInteger(r.queueId) && r.queueId >= 1 && typeof r.proofId === 'string' && /^[a-f0-9]{32}$/.test(r.proofId)
+      && text(r.name, 100) && text(r.fullName, 100) && typeof r.guid === 'string' && GUID.test(r.guid) && typeof r.scopeHash === 'string' && r.scopeHash === d.scopeHash
+      && Number.isSafeInteger(r.observedAt) && Number.isSafeInteger(r.expiresAt) && r.expiresAt > r.observedAt && r.expiresAt <= r.observedAt + 60
+      && Number.isSafeInteger(d.fetchedAt) && r.observedAt <= d.fetchedAt + 5 && r.reason === 'knight-unguilded';
+  }
+  /** How the invite evidence was witnessed, in plain words, for an admitted row. */
+  const inviteWitness = r => INVITE_SOURCES[r.source].witness;
+  const INVITE_COLUMNS = Object.freeze(['Character', 'How it was seen', 'Evidence expires', 'Status']);
+  /** The invite queue: `rows` are {r, current} for admitted rows; explicit roles keep the table when narrow screens restack it (app.css). */
+  function inviteTable(rows, fmtDateTime, ui) {
+    const cell = (i, text) => ui.h('td', {role: 'cell', 'data-label': INVITE_COLUMNS[i], text});
+    return ui.h('div', {class: 'table-wrap launch234-invites'}, ui.h('table', {role: 'table'},
+      ui.h('thead', {role: 'rowgroup'}, ui.h('tr', {role: 'row'}, INVITE_COLUMNS.map(label => ui.h('th', {scope: 'col', role: 'columnheader', text: label})))),
+      ui.h('tbody', {role: 'rowgroup'}, rows.map(({r, current}) => ui.h('tr', {role: 'row', 'data-launch-invite233': r.proofId, 'data-launch234-invite-source': r.source},
+        cell(0, r.fullName), cell(1, inviteWitness(r)), cell(2, fmtDateTime(r.expiresAt)), cell(3, current ? 'Recheck and invite in-game' : 'Stale advisory · fresh native proof required'))))));
+  }
   const holdText = code => Object.hasOwn(HOLDS, code) ? HOLDS[code] : 'Held for a reason this page does not recognise (code ' + String(code).slice(0, 80) + '). Treat it as held and tell the site team.';
   const rowHoldText = code => Object.hasOwn(ROW_HOLDS, code) ? ROW_HOLDS[code] : 'Held (code ' + String(code).slice(0, 80) + ')';
 
@@ -172,5 +201,5 @@
       promotionTable(of('verified-initiate'), eligible, ui),
     ];
   }
-  window.OlympusLaunch234 = Object.freeze({PROTOCOL, PROFILE, DIGEST, NAMES, assess, promotionShape, steps, holdText, rowHoldText, heldNotice, holdList, rankFrame, promotionGroups});
+  window.OlympusLaunch234 = Object.freeze({PROTOCOL, PROFILE, DIGEST, NAMES, INVITE_SOURCES: Object.freeze(Object.keys(INVITE_SOURCES)), assess, promotionShape, inviteShape, inviteWitness, inviteTable, steps, holdText, rowHoldText, heldNotice, holdList, rankFrame, promotionGroups});
 }());

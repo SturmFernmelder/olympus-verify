@@ -1309,3 +1309,11 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .picker .list-tools { min-height: 44px; box-sizing: border-box; }
 .picker .list-tools input[type="checkbox"]:focus-visible { outline: 2px solid rgba(255, 209, 0, 0.75); outline-offset: 2px; }
 @media (forced-colors: active) { .picker .list-tools input[type="checkbox"]:focus-visible { outline-color: Highlight; } }
+/* ui280 round 3: the launch invite queue (v233 and v242 evidence) becomes one card per invite on narrow screens, so no column scrolls sideways. */
+@media (max-width: 640px) {
+  .launch234-invites :is(table, thead, tbody, tr, th, td) { display: block; }
+  .launch234-invites thead tr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .launch234-invites tbody tr { padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+  .launch234-invites tbody td { border-bottom: 0; padding: 4px 10px; }
+  .launch234-invites td[data-label]::before { content: attr(data-label) / ""; display: block; color: var(--gold); font-size: 0.78rem; }
+}

@@ -465,6 +465,40 @@ const runUi280=String.raw`
    v10.state==='unconfirmed'&&v10.text.includes('could not be read back')&&v10.buttons==='Read the stored status'&&v10b.state==='unconfirmed'&&v10b.text.includes('at the latest')&&v10b.buttons==='Read the stored status'&&v10b.stored==='{"broken":'&&v10c.state==='not-recorded'&&v10c.buttons==='Count the notes|Read the stored status'&&v10c.stored===null&&applies()===0,JSON.stringify([v10,v10b,v10c]));
   fresh();
  } else for(const name of ['H1','H2','H3','H4','H5','H6','H7','H8','H9','H10'])check(name+' (module unavailable)',false);
+
+ // ---------------------------------------------------------------- Round 3, item 3: invite evidence sources
+ console.log('\n== Part I: launch invite rows from both evidence sources the backend projects (round 3) ==');
+ {
+  // The row shape is OfficerInvite233 as readOfficerInvites233 projects it (worker/src/officer-invites233.ts:24,191),
+  // the same ten keys for both sources; only the source differs (OFFICER_INVITE_SOURCE233 / OFFICER_INVITE_SOURCE242).
+  const L3=page.window.OlympusLaunch234;
+  const freshPage=make=>{const d=ready(),t=Math.floor(Date.now()/1000);d.fetchedAt=t;d.expiresAt=t+60;d.snapshotAt=t;d.scan={id:'b'.repeat(32),startedAt:t,expiresAt:t+600};d.invites=make?make(t,d):[];return d;};
+  const invite=(t,d,source,extra={})=>wire({queueId:7,proofId:'c'.repeat(32),name:'Synthetic Knight',guid:'Player-1-0010',fullName:'Synthetic Knight',scopeHash:d.scopeHash,observedAt:t,expiresAt:t+60,reason:'knight-unguilded',source,...extra});
+  const d0=freshPage(),t0=d0.fetchedAt;
+  const good=['native-who-unit-v233','native-who-whisper-v242'].map(s=>invite(t0,d0,s));
+  const badRows=[['unit v242',invite(t0,d0,'native-who-unit-v242')],['whisper v233',invite(t0,d0,'native-who-whisper-v233')],['membership absence',invite(t0,d0,'membership-absence')],['trailing space',invite(t0,d0,'native-who-whisper-v242 ')],['no source',invite(t0,d0,undefined)],
+   ['extra version field',invite(t0,d0,'native-who-whisper-v242',{version:242})],['no name',(()=>{const r=invite(t0,d0,'native-who-whisper-v242');delete r.name;return r;})()],['other scope',invite(t0,d0,'native-who-whisper-v242',{scopeHash:'0'.repeat(16)})],
+   ['61 s evidence',invite(t0,d0,'native-who-unit-v233',{expiresAt:t0+61})],['other reason',invite(t0,d0,'native-who-whisper-v242',{reason:'membership'})],['bad character id',invite(t0,d0,'native-who-unit-v233',{guid:'Not a GUID'})],['queue id 0',invite(t0,d0,'native-who-whisper-v242',{queueId:0})]];
+  const shapeOk=!!L3&&typeof L3.inviteShape==='function';
+  check('I1 the view module admits exactly the two sources the backend can emit, each by its own exact row shape, and nothing else',shapeOk&&good.every(r=>L3.inviteShape(r,d0))&&badRows.every(([,r])=>!L3.inviteShape(r,d0))&&JSON.stringify(L3.INVITE_SOURCES)==='["native-who-unit-v233","native-who-whisper-v242"]',shapeOk?JSON.stringify(badRows.filter(([,r])=>L3.inviteShape(r,d0)).map(([n])=>n)):'no inviteShape');
+  let next=null;page.intercept((url)=>url.startsWith('/api/admin/launch-operations')?new Response(JSON.stringify(next()),{status:200}):null);
+  const openLaunch=async make=>{next=()=>freshPage(make);await page.go('#/');await page.go('#/admin/launch-operations');await waitFor(()=>!!page.app.querySelector('#launch-motd229')||page.app.textContent.includes('could not be confirmed')||!!page.app.querySelector('[data-launch234-held]'),'launch page with invites',8000);for(let i=0;i<3;i++)await settle();};
+  await openLaunch((t,d)=>[invite(t,d,'native-who-unit-v233'),invite(t,d,'native-who-whisper-v242',{queueId:8,proofId:'d'.repeat(32),name:'Synthetic Whisperer',guid:'Player-1-0011',fullName:'Synthetic Whisperer'})]);
+  const inv=page.app.querySelectorAll('[data-launch-invite233]').map(tr=>({source:tr.getAttribute('data-launch234-invite-source'),cells:tr.querySelectorAll('td').map(td=>td.textContent)}));
+  const invHead=(()=>{const tr=page.app.querySelector('[data-launch-invite233]');const table=tr&&tr.closest('table');return table?table.querySelectorAll('thead th').map(th=>th.textContent).join('|'):'';})();
+  check('I2 a page with a v233 and a v242 invite row is shown: both rows, each saying in plain words how it was seen, both current',!page.app.textContent.includes('could not be confirmed')&&inv.length===2
+   &&inv[0].source==='native-who-unit-v233'&&inv[0].cells[0]==='Synthetic Knight'&&inv[0].cells[1]==='Seen in game by the officer, and a /who reply showed no guild'&&inv[0].cells[3]==='Recheck and invite in-game'
+   &&inv[1].source==='native-who-whisper-v242'&&inv[1].cells[0]==='Synthetic Whisperer'&&inv[1].cells[1]==='Identified by their verification whisper, and a fresh /who reply showed no guild'&&inv[1].cells[3]==='Recheck and invite in-game'
+   &&invHead==='Character|How it was seen|Evidence expires|Status'&&!inv.some(x=>x.cells.join(' ').includes('native-who')),JSON.stringify({inv,invHead,text:page.app.textContent.slice(-300)}));
+  await openLaunch((t,d)=>[invite(t,d,'native-who-whisper-v242')]);
+  const only242=page.app.querySelectorAll('[data-launch-invite233]').length===1&&!!page.app.querySelector('#launch-motd229');
+  await openLaunch((t,d)=>[invite(t,d,'native-who-unit-v242')]);
+  const unknownHeld=page.app.textContent.includes('could not be confirmed')&&!page.app.querySelector('#launch-motd229')&&!page.app.querySelector('[data-launch-invite233]')&&!page.app.querySelector('[data-launch-promotion229]');
+  await openLaunch((t,d)=>[invite(t,d,'native-who-whisper-v242',{version:242})]);
+  const extraHeld=page.app.textContent.includes('could not be confirmed')&&!page.app.querySelector('[data-launch-invite233]');
+  check('I3 a page with only a v242 row is shown; a page with an unknown source or a v242 row carrying an extra field is refused as a whole',only242&&unknownHeld&&extraHeld,JSON.stringify({only242,unknownHeld,extraHeld}));
+  page.intercept(null);
+ }
  console.log('\n'+ok+'/'+n+' ui280 checks passed (launch v234, News activity, receipt-note cleanup, member picker)');process.exit(ok===n?0:1);
 })().catch(e=>{console.error(e);process.exit(1)});`;
 const mUi280=new ModuleUi280(__filename,module);mUi280.filename=__filename;mUi280.paths=module.paths;mUi280._compile(fixtureUi280.slice(0,cutsUi280[0].index)+'\n'+runUi280,__filename);

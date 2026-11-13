@@ -4352,7 +4352,7 @@
       const inviteRows=[...pages.values()].flatMap(p=>p.dto.invites.map(r=>({r,current:p.deadline>clock&&!scanExpired&&nowSec()<r.expiresAt})));
       add(output,frame('Unguilded Knight+ invite queue',h('span',{class:'badge',text:String(inviteRows.filter(x=>x.current).length)}),
         h('p',{text:'An invite requires explicit current native unguilded evidence and the same character identity. Use Next Officer Action in-game; unknown evidence stays held.'}),
-        table(['Character','Evidence expires','Status'],inviteRows.map(({r,current})=>h('tr',{'data-launch-invite233':r.proofId},h('td',{text:r.fullName}),h('td',{text:fmtDateTime(r.expiresAt)}),h('td',{text:current?'Recheck and invite in-game':'Stale advisory · fresh native proof required'}))))));
+        L234.inviteTable(inviteRows,fmtDateTime,ui234)));
       for(const [offset,p] of [...pages].sort((a,b)=>a[0]-b[0])){
         const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor);}});
         add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:eligible?'Role evidence current':'Stale advisory'}),
@@ -4392,7 +4392,8 @@
             ||!e||!Number.isInteger(e.offset)||e.offset<0||e.offset>=1000||e.offset%20!==0||!Number.isInteger(e.scanned)||e.scanned<0||e.scanned>20||!Number.isInteger(e.total)||e.total<0||e.total>1000||typeof d.pageCursor!=='string'||d.pageCursor.length>2048)throw Error('launch_page_unconfirmed');
           for(const r of d.promotions)if(!window.OlympusLaunch234.promotionShape(r))throw Error('launch_target_unconfirmed');
           const inviteIds=new Set(),inviteProofs=new Set();
-          for(const r of d.invites){if(e.offset!==0||!Number.isSafeInteger(r.queueId)||r.queueId<1||inviteIds.has(r.queueId)||typeof r.proofId!=='string'||!/^[a-f0-9]{32}$/.test(r.proofId)||inviteProofs.has(r.proofId)||typeof r.fullName!=='string'||!r.fullName||r.fullName.length>100||/[\x00-\x1f\x7f]/.test(r.fullName)||!/^Player-\d{1,6}-[0-9A-Fa-f]{4,16}$/.test(r.guid)||r.scopeHash!==d.scopeHash||!Number.isSafeInteger(r.observedAt)||!Number.isSafeInteger(r.expiresAt)||r.expiresAt<=r.observedAt||r.expiresAt>r.observedAt+60||r.observedAt>d.fetchedAt+5||r.reason!=='knight-unguilded'||r.source!=='native-who-unit-v233')throw Error('launch_invite_unconfirmed');inviteIds.add(r.queueId);inviteProofs.add(r.proofId);}
+          // Round 3 (13 Nov 2026): the module admits exactly the two evidence sources the backend projects, each by its own shape.
+          for(const r of d.invites){if(e.offset!==0||!window.OlympusLaunch234.inviteShape(r,d)||inviteIds.has(r.queueId)||inviteProofs.has(r.proofId))throw Error('launch_invite_unconfirmed');inviteIds.add(r.queueId);inviteProofs.add(r.proofId);}
           const others=new Set([...pages].filter(([offset])=>offset!==e.offset).flatMap(([,p])=>[...p.dto.promotions,...p.dto.riskBuffer,...p.dto.held].map(r=>r.guid))),seen=new Set();
           for(const r of [...d.promotions,...d.riskBuffer,...d.held]){if(others.has(r.guid)||seen.has(r.guid))throw Error('launch_duplicate_identity');seen.add(r.guid);}
           const remaining=Math.max(0,Math.min(60000,(d.expiresAt-d.fetchedAt)*1000)-(monotonic()-started)-1000);

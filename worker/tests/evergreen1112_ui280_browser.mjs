@@ -27,7 +27,9 @@ const at = () => Math.floor(Date.now() / 1000);
 const R = (name, guid, slot, verification = 'verified') => ({ name, guid, currentSlot: slot, rank: NAMES[slot], verification, level: 40, lastOnlineSeconds: 3600 });
 const rows = [R('Synthetic Leader', 'Player-1-0001', 0), R('Synthetic Far Knight', 'Player-1-0002', 9), R('Synthetic Near Knight', 'Player-1-0003', 6), R('Synthetic Initiate', 'Player-1-0004', 9), R('Synthetic Alt', 'Player-1-0005', 8), R('Synthetic Newcomer', 'Player-1-0006', 9, 'unverified')];
 const knights = new Map([['Player-1-0002', 'knight'], ['Player-1-0003', 'knight'], ['Player-1-0004', 'non-knight'], ['Player-1-0005', 'non-knight']]);
-const ready = () => { const t = at(), d = JSON.parse(JSON.stringify(ops.projectLaunchOperations229({ snapshotId: 7, snapshotAt: t, memberCount: rows.length, guild: 'OLYMPUS PRIME', realm: 'Fixture Realm', scopeHash: 'a'.repeat(16), nativeRankTable: { version: 1, names: [...NAMES] } }, rows, knights, t, t + 60))); d.scan = { id: 'b'.repeat(32), startedAt: t, expiresAt: t + 600 }; d.pageCursor = 'synthetic-page0'; return d; };
+const ready = () => { const t = at(), d = JSON.parse(JSON.stringify(ops.projectLaunchOperations229({ snapshotId: 7, snapshotAt: t, memberCount: rows.length, guild: 'OLYMPUS PRIME', realm: 'Fixture Realm', scopeHash: 'a'.repeat(16), nativeRankTable: { version: 1, names: [...NAMES] } }, rows, knights, t, t + 60))); d.scan = { id: 'b'.repeat(32), startedAt: t, expiresAt: t + 600 }; d.pageCursor = 'synthetic-page0'; d.invites = [invite(t, 'native-who-unit-v233', 7, 'Synthetic Knight'), invite(t, 'native-who-whisper-v242', 8, 'Synthetic Whisperer')]; return d; };
+// Round 3 (13 Nov 2026): one invite row per evidence source the backend projects (officer-invites233.ts:24,191).
+function invite(t, source, queueId, name) { return { queueId, proofId: String(queueId % 10).repeat(32), name, guid: 'Player-1-00' + queueId + '0', fullName: name, scopeHash: 'a'.repeat(16), observedAt: t, expiresAt: t + 60, reason: 'knight-unguilded', source }; }
 const legacy = () => { const d = ready(); d.protocol = 'officer-operations-v233'; delete d.rankProfile; delete d.rankSchemeDigest; delete d.rankNames; for (const r of d.promotions) r.targetSlot = r.reason === 'knight-veteran' ? 6 : 8; return d; };
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -77,15 +79,18 @@ try {
       const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
       const controls = [...view.querySelectorAll('button, summary, a[href], textarea, [tabindex]')].filter(visible);
       const small = controls.filter(el => el.tagName !== 'TEXTAREA').map(el => { const r = el.getBoundingClientRect(); return { t: el.tagName, text: el.textContent.trim().slice(0, 30), w: Math.round(r.width), h: Math.round(r.height) }; }).filter(x => x.h < 44 || x.w < 44);
-      const wraps = [...view.querySelectorAll('.table-wrap')].map(el => ({ cls: el.className, inner: el.scrollWidth - el.clientWidth }));
+      const wraps = [...view.querySelectorAll('.table-wrap')].map(el => ({ cls: el.className, inner: el.scrollWidth - el.clientWidth, invites: !!el.querySelector('[data-launch-invite233]') }));
+      const invites = [...view.querySelectorAll('[data-launch-invite233]')].map(tr => ({ source: tr.dataset.launch234InviteSource, cells: [...tr.children].map(c => c.innerText.replace(/\\s+/g, ' ').trim()) }));
       const outside = [...view.querySelectorAll('*')].filter(el => !el.closest('.table-wrap') && visible(el) && el.getBoundingClientRect().right > vw + 1).map(el => el.tagName + '.' + el.className).slice(0, 8);
-      return { docOverflowPx: document.documentElement.scrollWidth - window.innerWidth, small, wraps, outside, headings: [...document.querySelectorAll('main h1, main h2, main h3')].map(h => h.tagName + ':' + h.textContent.trim()).filter(t => !/^H[23]:(Admin section|Applications & Roster)/.test(t)) };
+      return { docOverflowPx: document.documentElement.scrollWidth - window.innerWidth, small, wraps, invites, outside, headings: [...document.querySelectorAll('main h1, main h2, main h3')].map(h => h.tagName + ':' + h.textContent.trim()).filter(t => !/^H[23]:(Admin section|Applications & Roster)/.test(t)) };
     })()`);
     layout.push({ width: w, ...m });
     if (w === 390 || w === 1440 || w === 320) await screenshot(cdp, path.join(OUT, `ready-${w}.png`), true);
   }
   check('no horizontal page overflow and nothing outside the viewport at 1440, 1280, 768, 390, 375 and 320 px', layout.every(x => x.docOverflowPx <= 0 && x.outside.length === 0), layout.map(x => ({ w: x.width, overflow: x.docOverflowPx, outside: x.outside })));
   check('the rank table and every promotion step stay visible without sideways scrolling inside the tables at all six widths', layout.every(x => x.wraps.filter(w => /launch234-(promotions|ranks)/.test(w.cls)).every(w => w.inner <= 0)), layout.map(x => ({ w: x.width, wraps: x.wraps })));
+  const witness = { 'native-who-unit-v233': 'Seen in game by the officer, and a /who reply showed no guild', 'native-who-whisper-v242': 'Identified by their verification whisper, and a fresh /who reply showed no guild' };
+  check('round 3: the invite queue shows the v233 and the v242 row, each with how it was seen in plain words, with no sideways scrolling inside its table at all six widths', layout.every(x => x.invites.length === 2 && x.invites.map(r => r.source).join('|') === 'native-who-unit-v233|native-who-whisper-v242' && x.invites.every(r => r.cells[1] === witness[r.source] && r.cells[3] === 'Recheck and invite in-game') && x.wraps.filter(w => w.invites).every(w => w.inner <= 0)), layout.map(x => ({ w: x.width, invites: x.invites, wraps: x.wraps.filter(w => w.invites) })));
   check('every control in the view is at least 44 px in both directions at all six widths', layout.every(x => x.small.length === 0), layout.map(x => ({ w: x.width, small: x.small })));
   // The admin section navigation above the view is another lane's (admin navigation and headings); check the view's own outline.
   const heads = layout[1].headings.slice(layout[1].headings.indexOf('H1:Launch operations & MOTD'));
@@ -142,6 +147,11 @@ try {
   await heldCase('a ready page with a null profile is held', () => Object.assign(ready(), { rankProfile: null }), 'malformed-rank-table');
   await heldCase('an unknown digest is held', () => Object.assign(ready(), { rankSchemeDigest: 'e'.repeat(64) }), 'unknown-digest');
   await heldCase('an unknown status is held', () => Object.assign(ready(), { status: 'paused' }), 'unknown-status');
+  // Round 3: an invite row with a source the backend cannot emit refuses the whole page.
+  mode = { kind: 'page', make: () => { const d = ready(); d.invites[1].source = 'native-who-unit-v242'; return d; } };
+  await go('#/admin/launch-operations', SETTLED);
+  const unknownSource = await cdp.eval(`({ text: document.querySelector('[data-launch234] [role=status]')?.textContent || '', motd: !!document.querySelector('#launch-motd229'), invites: document.querySelectorAll('[data-launch-invite233]').length, rows: document.querySelectorAll('[data-launch-promotion229]').length })`);
+  check('round 3: a page with an invite row of an unknown source is refused as a whole and read once', /could not be confirmed/.test(unknownSource.text) && !unknownSource.motd && unknownSource.invites === 0 && unknownSource.rows === 0 && launchReads === 1, { unknownSource, launchReads });
   await viewport(cdp, 320, 900); await heldCase('the held notice also fits at 320 px', legacy, 'legacy-protocol');
   const heldFit = await cdp.eval(`document.documentElement.scrollWidth - innerWidth`);
   check('the held notice has no horizontal overflow at 320 px', heldFit <= 0, heldFit);
