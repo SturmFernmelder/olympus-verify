@@ -48,9 +48,36 @@ export function destination(env: Env): Destination | null {
 const enabled = (env: Env) => env.EVENT_DISCORD_DELIVERY === "on" && communityFeatures(env).has("events");
 const sameDestination = (a: Destination, b: Destination | null) => !!b && a.guild === b.guild && a.channel === b.channel && a.host === b.host;
 const organizer = (env: Env, ctx: CommunityContext) => !!ctx.subject && (isSiteAdmin(env, ctx.subject.discordId) || organizerIds(env).has(ctx.subject.discordId));
+/**
+ * CL2-016 (owner ruling, 13 Nov 2026, "Officers: own events"): an officer can edit, take attendance for and cancel the
+ * events they created; admins keep control of every event. "Officer" is the predicate the calendar's Discord side
+ * already uses (guild-command-authority219.ts guildOrganizerMemberNow219: a fresh Discord member read for the officer,
+ * leadership, council and raid-leader roles or a site admin), never a new definition. It is a role fact only: the
+ * caller still needs a roster-confirmed account, and every statement that changes an event keeps `created_by = me`
+ * unless the caller is a site admin, so another officer's event stays admin-only. A provider failure refuses.
+ * Dynamic import: the authority module imports this one.
+ */
+export async function eventOfficerNow(env: Env, ctx: CommunityContext): Promise<boolean> {
+  const d = destination(env);
+  if (!ctx.subject || !ctx.capabilities.confirmedGuildData || !d) return false;
+  try {
+    const { guildOrganizerMemberNow219 } = await import("./guild-command-authority219");
+    return await guildOrganizerMemberNow219(env, ctx.subject.discordId, d.guild);
+  } catch { return false; }
+}
+/** The announcement's manager: a site admin or listed organizer, or (CL2-016) a current officer, held per request so
+ * one request reads Discord once for its checks; beforeSend reads it again just before the Discord effect. */
+const managers = new WeakMap<CommunityContext, Promise<boolean>>();
+async function manages(env: Env, ctx: CommunityContext, fresh = false): Promise<boolean> {
+  if (organizer(env, ctx)) return true;
+  if (fresh) return eventOfficerNow(env, ctx);
+  let held = managers.get(ctx);
+  if (!held) { held = eventOfficerNow(env, ctx); managers.set(ctx, held); }
+  return held;
+}
 async function gate(request: Request, env: Env, ctx: CommunityContext, write = false): Promise<Response | null> {
   if (!ctx.subject || !ctx.capabilities.confirmedGuildData) return refusal(env, request, "confirmedGuildData");
-  if (!organizer(env, ctx)) return apiJson({ error: "not_organizer" }, 403);
+  if (!(await manages(env, ctx))) return apiJson({ error: "not_organizer" }, 403);
   if (write && (request.headers.get("X-Olympus") !== PAGE_VERSION || !sameOrigin(request))) return apiJson({ error: "reload" }, 409);
   return null;
 }
@@ -108,7 +135,7 @@ function summary(row: Delivery | null, e: EventRow) {
 /** One admitted read, with event-management authority inside the payload SQL as well as the original session probe. */
 async function read(env: Env, ctx: CommunityContext, eventId: string): Promise<{ event: EventRow; delivery: Delivery | null } | typeof FENCE_REFUSED | null> {
   const me = ctx.subject!.discordId, staff = isSiteAdmin(env, me) ? 1 : 0;
-  if (!organizer(env, ctx)) return FENCE_REFUSED;
+  if (!(await manages(env, ctx))) return FENCE_REFUSED;
   const managed = `(created_by = ?2 OR ?3 = 1) AND retain_until > ${DB_NOW}`;
   const out = await admittedRead(env, ctx, "confirmedGuildData", [
     env.DB.prepare(`SELECT id,title,starts_at,duration_min,status,revision,created_at,retain_until,publication_closed FROM community_events WHERE id=?1 AND ${managed}`).bind(eventId, me, staff),
@@ -237,7 +264,7 @@ async function settle(env: Env, ctx: CommunityContext, p: EventCustodyProof, res
   ]);
 }
 async function beforeSend(env: Env, ctx: CommunityContext, e: EventRow, nonce: string, d: Destination, remove = false): Promise<boolean> {
-  if (!organizer(env, ctx) || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
+  if (!(await manages(env, ctx, true)) || (!remove && (!enabled(env) || !sameDestination(d, destination(env))))) return false;
   const s = ctx.subject!, staff = isSiteAdmin(env, s.discordId) ? 1 : 0;
   const active = remove ? "" : `AND publication_closed=0 AND revision=?5 AND status='scheduled' AND starts_at>${DB_NOW} AND starts_at<=created_at+${START_HORIZON_S}`;
   const proof = await env.DB.prepare(`SELECT (${fenceSql("confirmedGuildData", 2, 3, 4,ctx.subject!.privacyGeneration,ctx.subject!.accountIncarnation)}) AS ok FROM community_event_deliveries d

@@ -23,6 +23,11 @@ import { canonicalOlympusGuildName, FLAGSHIP_GUILD_NAME } from './guild-affiliat
 /** The planning programme's renderer, financial model, content and stylesheet. Royal Writs stay member-readable. */
 export const TREASURY_PLAN_ASSETS = Object.freeze(["/static/treasury-plan207.js", "/static/treasury-plan-model207.js", "/static/treasury-plan-content207.js", "/static/treasury-plan207.css"]);
 export const TREASURY_ACCESS_PATH = "/api/treasury-plan/access";
+/** CL2-091 (owner ruling, 13 Nov 2026, "Co-GM and Treasurer"): the appointment route reads the published Council seats,
+ * office_19 (Hand of the Sovereign · Co-Guild Master) and office_86 (Lord High Treasurer · Minister of the Imperial
+ * Exchequer), the primary keys of the role directory's co_gm and treasurer families. They replace the legacy display
+ * keys co_gm and treasurer (aliases of those seats); no other seat is added. Proof and currentness are unchanged. */
+export const TREASURY_APPOINTMENT_SEATS = Object.freeze(["office_19", "office_86"] as const);
 const OFFICER_RANKS = new Set(["Guild Master", "Stewart", "High Council", "Treasurer", "Officer", "Officer Alt", "Raid Leader"]);
 const HEADER_NAMES = ["Cookie", "Origin", "Sec-Fetch-Site", "X-Olympus"];
 const DISCORD_KEYS = ["SITE_GUILD_ID", "GUILD_ID", "DISCORD_BOT_TOKEN", "ROLE_GUILD_MASTER", "ROLE_GUILD_LEADER", "ROLE_OFFICER", "ROLE_RAID_LEADER", "CANONICAL_RANKS233"] as const;
@@ -146,7 +151,7 @@ export function treasuryGateDescription(env: Env): string {
     const roles = [...new Set([...named, ...extra])];
     if (roles.length) clauses.push(`the Discord ${listOf(roles)} role${roles.length > 1 ? "s" : ""}`);
   }
-  clauses.push("the published Co-Guild Master and Treasurer appointments", "site administrators");
+  clauses.push("the holders of the published Co-Guild Master and Lord High Treasurer seats", "site administrators");
   // Round 3 (12 Nov 2026): with only the two configuration-independent paths left, the sentence is a plain pair, not a list.
   if (clauses.length === 2) return `The treasury programme and financial model are open to ${clauses[0]} and to ${clauses[1]}.`;
   return `The treasury programme and financial model are open to: ${clauses.slice(0, -1).join("; ")}; and ${clauses[clauses.length - 1]}.`;
@@ -208,7 +213,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     return !proof || proof.allows(out[1]) ? null : refusal("officer_only", 403, OFFICER_ONLY);
   };
   if (isSiteAdmin(env, subject.discordId)) return { canRead: true, source: "admin", check, readmit };
-  const authority = await capturePublishedOfficeAuthority(env, subject.discordId, ["co_gm", "treasurer"]);
+  const authority = await capturePublishedOfficeAuthority(env, subject.discordId, TREASURY_APPOINTMENT_SEATS);
   check();
   if (authority) {
     const condition = publishedOfficeAuthorityCondition(authority, 1);
@@ -239,7 +244,7 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
   return { canRead: false, source: null, check, readmit };
 }
 
-const OFFICER_ONLY = "The treasury programme is for officers and above: Guild Master, High Council, Officers, Officer Alts, Raid Leaders, the Treasurer and the Co-Guild Master.";
+const OFFICER_ONLY = "The treasury programme is for officers and above: Guild Master, High Council, Officers, Officer Alts, Raid Leaders, the Lord High Treasurer and the Co-Guild Master.";
 const methodRefused = () => privateSiteAsset(apiJson({ error: "method_not_allowed" }, 405, { Allow: "GET, HEAD" }));
 const bodyless = (request: Request, response: Response) => request.method === "HEAD" ? new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers }) : response;
 
