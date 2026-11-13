@@ -57,6 +57,17 @@ SUITES = {
     "selected_promotion273": (TESTS, Path("test_selected_promotion273.lua")),
     "selected_batch276": (TESTS, Path("test_selected_batch276.lua")),
     "promotion_steps": (TESTS, Path("test_promotion_steps.lua")),
+    "directive_rank_transition": (TESTS, Path("test_directive_rank_transition.lua")),
+    "tithe280": (TESTS, Path("test_tithe280.lua")),
+    "tithe_slash280": (TESTS, Path("test_tithe_slash280.lua")),
+    "live_safety280": (TESTS, Path("test_live_safety280.lua")),
+    "tithe_successor280": (TESTS, Path("test_tithe_successor280.lua")),
+}
+PYTHON_RUNNERS = {
+    "tithe280": ("run_tithe280.py", False),
+    "tithe_slash280": ("run_tithe_slash280.py", False),
+    "live_safety280": ("run_live_safety280.py", True),
+    "tithe_successor280": ("run_tithe_successor280.py", True),
 }
 TARGETED_ONLY = {"dan155_census", "bridge_status267", "roster268", "guild_status268", "roster_details", "roster_model", "roster_controls", "launch_projection_diagnostics", "loaded_scan_status", "selected_promotion273", "selected_batch276", "promotion_steps"}
 
@@ -68,6 +79,7 @@ def input_hashes() -> dict[str, str]:
     ]
     paths.extend([TESTS / "wow_mock.lua", Path(__file__).resolve()])
     paths.extend(cwd / script for cwd, script in SUITES.values())
+    paths.extend(TESTS / name for name, _ in PYTHON_RUNNERS.values())
     return {str(path.relative_to(ADDON)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths if path.is_file()}
 
 
@@ -82,6 +94,16 @@ def main() -> int:
     if args.suite == "dan155_census" and args.dan_archive is None:
         parser.error("--suite dan155_census requires --dan-archive")
     if args.suite:
+        if args.suite in PYTHON_RUNNERS:
+            import contextlib
+            import tempfile
+            runner, needs_evidence = PYTHON_RUNNERS[args.suite]
+            destination = contextlib.nullcontext(str(args.logdir)) if args.logdir else tempfile.TemporaryDirectory(prefix="olympus-lua-")
+            with destination as logdir:
+                command = [sys.executable, str(TESTS / runner)]
+                if needs_evidence:
+                    command.extend(["--evidence", logdir])
+                return subprocess.run(command).returncode
         import os
         import lupa
         import lupa.luajit21 as runtime
@@ -116,8 +138,11 @@ def main() -> int:
             row = {"suite": name, "exit_code": 1, "error": "missing_suite"}
             output = f"Required suite file is missing: {name} ({script.as_posix()}).\n"
         else:
+            command = [sys.executable, str(Path(__file__).resolve()), "--suite", name]
+            if args.logdir and name in PYTHON_RUNNERS:
+                command.extend(["--logdir", str(args.logdir / name)])
             result = subprocess.run(
-                [sys.executable, str(Path(__file__).resolve()), "--suite", name],
+                command,
                 text=True, encoding="utf-8", errors="replace", capture_output=True,
             )
             row = {"suite": name, "exit_code": result.returncode}

@@ -14,11 +14,10 @@ for _,mode in ipairs({'ready','nil'}) do
   if mode=='nil' then f.e.SlashCmdList={};f.fire('PLAYER_LOGIN') end
   local e=f.e
   check(mode..' actual registry installs /olvtithe under a valid key',type(e.SlashCmdList.OLYMPUSTITHEREFERENCE)=='function' and e.SLASH_OLYMPUSTITHEREFERENCE1=='/olvtithe')
-  local received={}
-  e.OlympusVerifyTreasury.SetTradeReference280=function(value) received[#received+1]=value;return true end
+  local before=#e.PRINTS
   local handler=e.SlashCmdList.OLYMPUSTITHEREFERENCE
   if handler then handler('TITHE-ABCD-EFGH') end
-  check(mode..' typed slash invokes the reference setter exactly once',#received==1 and received[1]=='TITHE-ABCD-EFGH' and f.effects==0)
+  check(mode..' typed slash dispatches once and holds without an open trade',#e.PRINTS==before+1 and e.PRINTS[#e.PRINTS]:find('Open the intended trade',1,true) and f.effects==0)
 end
 local f=fixture('ready',false)
 local foreign=function() return 'foreign' end

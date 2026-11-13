@@ -101,7 +101,7 @@ f:Fire("CHAT_MSG_WHISPER", "hello there", "Someone-Whitemane")
 assert(#calls.whispers == 2, "two replies, got " .. #calls.whispers)
 assert(calls.whispers[1].target == "Thrall-Whitemane" and calls.whispers[1].text:find("confirmed"), "valid reply")
 assert(calls.whispers[2].target == "Impostor-Whitemane" and calls.whispers[2].text:find("invalid or expired",1,true)
-  and calls.whispers[2].text:find("/oly -> Verify / QR Code tab",1,true), "invalid reply retains refusal and actionable QR instructions")
+  and calls.whispers[2].text:find("Get my code",1,true), "invalid reply retains refusal and actionable fresh-code instructions")
 assert(#OlympusVerifyDB.queue == 2 and OlympusVerifyDB.queue[2].target == "Thrall-Whitemane", "whisper queued with realm-qualified target")
 
 f:Fire("MAIL_SHOW"); f:Fire("MAIL_INBOX_UPDATE"); f:Fire("MAIL_INBOX_UPDATE"); f:Fire("MAIL_CLOSED")

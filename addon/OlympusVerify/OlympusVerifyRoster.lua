@@ -472,8 +472,10 @@ function W.Refresh()
   end
   local sync=OlympusVerifyAutoSync and OlympusVerifyAutoSync.Status and OlympusVerifyAutoSync.Status()
   snapshotText:SetText(GREY.."Local Sync request: "..Stamp(sync and sync.lastRequestedAt).." | Loaded server query: "..Stamp(loadedAt).." ("..Age(loadedAt)..") | Server roster: "..Stamp(snapshotAt).." ("..Age(snapshotAt)..")|r")
-  footer:SetText(GREY..string.format("Showing %d of %d members%s. Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file.",shown,info.total or 0,
-    #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "").."|r")
+  local namesHint=info.hasNames and "Refresh view rereads the native roster and loaded evidence; it cannot fetch a changed disk file."
+    or "No current Discord names loaded. Use Sync & reload, then inspect the Watcher result."
+  footer:SetText(GREY..string.format("Showing %d of %d members%s. ",shown,info.total or 0,
+    #list>ROWS and string.format(" | rows %d-%d, scroll",offset+1,math.min(#list,offset+ROWS)) or "")..namesHint.."|r")
   SetButtonText(statusBtn,STATUS_FILTERS[view.status][2].." v")
   SetButtonText(rankBtn,(CurrentRank() or "All ranks").." v")
   SetButtonText(classBtn,(CurrentClass() and className(CurrentClass()) or "All classes").." v")

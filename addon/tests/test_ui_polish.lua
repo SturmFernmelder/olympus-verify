@@ -276,7 +276,7 @@ UI.Refresh()
 check("strict captured proof offers the supported hardware exchange", contains(UI.summary:GetText(), "proof waiting: Sync & reload"), true)
 state.verificationExchange = "sync-requested"
 UI.Refresh()
-check("requested exchange directs the officer to the actual Watcher outcome", contains(UI.summary:GetText(), "check Watcher result"), true)
+check("requested exchange directs the officer to the actual Watcher outcome", contains(UI.summary:GetText(), "local request recorded; server result separate"), true)
 check("exchange notices never perform a protected or reload action", actions, 0)
 print(string.format("\n%d/%d passed", total - failures, total))
 os.exit(failures == 0 and 0 or 1)

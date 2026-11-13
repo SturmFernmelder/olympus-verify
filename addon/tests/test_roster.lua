@@ -147,11 +147,13 @@ for _, q in ipairs(OlympusVerifyDB.queue) do if q.name == "Late Comer" then late
 check("a row taken over in place follows its new Discord owner", lateOwner, "22")
 
 print("\n== the roster's data ==")
+OlympusQueue.verified.members[2].guid = "Player-1-B" -- An exact loaded GUID supports the positive case; no name-only adoption.
+do local loaded={};for key,value in pairs(OlympusQueue.verified) do loaded[key]=value end;OlympusQueue.verified=loaded end
 local list, info = API.Roster.Members()
 local m = {}
 for _, x in ipairs(list) do m[x.name] = x end
 check("every roster member is listed", #list, 6)
-check("linked by name: verified with Discord names", m["Grace Hope"].status == "verified" and m["Grace Hope"].discord == "grace_new", true)
+check("matching native GUID: verified with Discord names", m["Grace Hope"].status == "verified" and m["Grace Hope"].discord == "grace_new", true)
 check("  an empty display name reads as none", m["Grace Hope"].display, nil)
 check("linked by GUID: a renamed character keeps its Discord", m["Renamed Rita"].status == "verified" and m["Renamed Rita"].discord == "rita" and m["Renamed Rita"].display == "Rita the Red", true)
 check("a code out: verifying", m["Pending Pat"].status, "pending")
@@ -181,6 +183,8 @@ check("sort by status: verified, verifying, not verified, not in list", names(AP
 check("sort by last seen: online first, then the most recent", names(API.Roster.Sort(API.Roster.Filter(list, {}), "seen")), "Fern Melder,Newbie Nell,Renamed Rita,Grace Hope,Pending Pat,Plain Paul")
 
 print("\n== the window ==")
+OlympusQueue.verified.members[2].guid = "" -- The UI must withhold a name-only account again.
+do local loaded={};for key,value in pairs(OlympusQueue.verified) do loaded[key]=value end;OlympusQueue.verified=loaded end
 SlashCmdList.OLYMPUSVERIFY("members grace")
 local W = OlympusVerifyRoster
 check("/olv members opens the window with the search filled in", W.frame and W.frame:IsShown() and W.view.text == "grace", true)
@@ -209,7 +213,7 @@ OlympusQueue.verified = nil
 list, info = API.Roster.Members()
 check("no Discord names, and the window says so", info.hasNames, false)
 W.Show()
-check("  footer explains where names come from", plain(W.frame and select(1, (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("No Discord names yet", 1, true) then return true end end return false end)())), "true")
+check("  footer explains where names come from", plain(W.frame and select(1, (function() for _, fs in ipairs(FONTS) do if fs._parent == W.frame and plain(fs._text):find("No current Discord names loaded", 1, true) then return true end end return false end)())), "true")
 
 print("\n== strict read-only roster display ==")
 OlympusVerifyConfig.membershipOnly = true
