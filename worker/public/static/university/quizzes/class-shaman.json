@@ -219,7 +219,8 @@
    "answer": 0,
    "explanation": "Blizzard made Rage of the Farseer a personal cooldown on purpose rather than a party or raid effect. No raid-wide Bloodlust or Heroism has been announced.",
    "facts": [
-    "class-shaman.personal-burst"
+    "class-shaman.personal-burst",
+    "class-shaman.no-bloodlust"
    ]
   },
   {
@@ -461,7 +462,8 @@
    "explanation": "Maelstrom Weapon reduces the cast time and mana cost of your next Lightning Bolt. Chain Lightning and Earth Shock benefit from Stormstrike's bonus instead.",
    "facts": [
     "talents-shaman.enhancement-maelstrom-weapon.r5",
-    "talents-shaman.enhancement-stormstrike.r1"
+    "talents-shaman.enhancement-stormstrike.r1",
+    "class-shaman.stormstrike"
    ]
   },
   {
@@ -480,6 +482,7 @@
    "explanation": "Stormstrike's 20% bonus lasts 12 sec. Maelstrom Weapon stacks last 30 sec, and Rage of the Farseer lasts 25 sec.",
    "facts": [
     "talents-shaman.enhancement-stormstrike.r1",
+    "class-shaman.stormstrike",
     "talents-shaman.enhancement-maelstrom-weapon.r5",
     "talents-shaman.enhancement-rage-of-the-farseer.r1"
    ]
@@ -540,7 +543,8 @@
    "explanation": "Mental Dexterity turns Intellect into Attack Power. Mental Quickness turns it into spell damage and healing, and Ancestral Knowledge raises Intellect itself.",
    "facts": [
     "talents-shaman.enhancement-mental-dexterity",
-    "talents-shaman.enhancement-mental-dexterity.r3"
+    "talents-shaman.enhancement-mental-dexterity.r3",
+    "class-shaman.intellect-into-power"
    ],
    "distractorFacts": [
     "talents-shaman.enhancement-mental-quickness",

@@ -46,6 +46,74 @@
    ],
    "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (Blizzard announcements to 29 Oct 2026)"
+  },
+  {
+   "id": "race-skyborne.read-leyline",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "skyborne-ability",
+   "kind": "theory",
+   "grade": "B",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 and 26 Oct 2026)",
+   "label": "Read Leyline",
+   "value": "Read Leyline raises your Mana and Health regeneration by 50% for 15 sec. It can be cast while moving, but not while Innervate is active.",
+   "note": "The 26 Oct notes cut the bonus from 100% to 50%; the 16 Oct notes made it castable while moving.",
+   "sources": [
+    "g218-50",
+    "g218-49"
+   ]
+  },
+  {
+   "id": "race-skyborne.attuned",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "skyborne-ability",
+   "kind": "theory",
+   "grade": "B",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 and 26 Oct 2026)",
+   "label": "Attuned",
+   "value": "Using Read Leyline at a Ley Line also grants Attuned for 1 hour, which raises Read Leyline's bonus to 100% regeneration. Attuned persists through death; entering a raid removes it.",
+   "sources": [
+    "g218-50"
+   ]
+  },
+  {
+   "id": "race-skyborne.skysight",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "skyborne-ability",
+   "kind": "theory",
+   "grade": "B",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 and 26 Oct 2026)",
+   "label": "Skysight",
+   "value": "Skysight raises your movement speed by 15% for 15 sec and can be cast while moving.",
+   "note": "The 26 Oct notes raised the bonus from 10% to 15%.",
+   "sources": [
+    "g218-50",
+    "g218-49"
+   ]
+  },
+  {
+   "id": "race-skyborne.charged",
+   "scope": {
+    "race": "skyborne"
+   },
+   "topic": "skyborne-ability",
+   "kind": "theory",
+   "grade": "B",
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 and 26 Oct 2026)",
+   "label": "Charged",
+   "value": "Using Skysight at an elemental convergence also grants Charged for 1 hour, which raises Skysight's bonus to 30% movement speed. Charged persists through death; entering a raid removes it.",
+   "sources": [
+    "g218-50"
+   ]
   }
  ]
 }

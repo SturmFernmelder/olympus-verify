@@ -86,7 +86,7 @@
   {
    "from": "classes[3].specs[0].pvp.matchups[1], classes[3].specs[2].pvp.matchups[1]",
    "text": "Entrapment can root you on a Frost Trap's first hit. Wyvern Sting is gone",
-   "reason": "Entrapment now follows the 10 November talent text; the Wyvern Sting removal sits in a Hunter fact that still awaits its re-check."
+   "reason": "Entrapment now follows the 10 November talent text. The Wyvern Sting removal is a Hunter fact (class-hunter.change-8) that this course does not load."
   },
   {
    "from": "classes[3].specs[1].beginner.summary[2]",

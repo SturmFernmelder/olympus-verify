@@ -38,6 +38,22 @@
    "gameBuild": "WoW: Forever (Blizzard notes of 26 Oct 2026)"
   },
   {
+   "id": "common.racial-gnome-eureka-shield",
+   "scope": {
+    "race": "gnome"
+   },
+   "topic": "racial-rule",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Gnome racial: Eureka! and Power Word: Shield",
+   "value": "Since the 16 Oct notes, Eureka! also benefits Power Word: Shield.",
+   "sources": [
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (Blizzard notes of 16 Oct 2026)"
+  },
+  {
    "id": "common.racial-human-ruthless",
    "scope": {
     "race": "human"

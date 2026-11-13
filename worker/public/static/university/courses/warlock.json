@@ -173,6 +173,11 @@
    "from": "classes[7].specs[2].pvp.overview[2]",
    "text": "Darkspear Islands is a new 15v15 battleground for levels 30-60; Alliance players earn Theramore Expeditionary Force reputation there.",
    "reason": "No reviewed fact holds it."
+  },
+  {
+   "from": "classes[7].specs[1].beginner.leveling[0]",
+   "text": "Warcraft Tavern says Demonology gets comfortable once you have Demonic Brand.",
+   "reason": "No reviewed fact holds Warcraft Tavern's view; the row comes from the talent data."
   }
  ],
  "tracks": {
@@ -826,9 +831,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Suppression at 5/5 gives 5% hit and 20% less threat.",
           "facts": [
            "talents-warlock.affliction-suppression.r5"
@@ -1197,7 +1199,7 @@
        "praxis": {
         "steps": [
          {
-          "text": "Warcraft Tavern says Demonology gets comfortable once you have Demonic Brand, which sits on row 4.",
+          "text": "Demonic Brand sits on row 4 of the Demonology tree.",
           "facts": [
            "talents-warlock.demonology-demonic-brand"
           ]
@@ -1398,9 +1400,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Demonic Pact keeps your Demonic Sacrifice effect when you summon a different demon; resummoning the sacrificed one still cancels it.",
           "facts": [
@@ -1957,9 +1956,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Bane at 5/5 cuts Shadow Bolt, Immolate and Incinerate casts by 0.5 sec and Soul Fire by 2 sec.",
           "facts": [

@@ -22,9 +22,6 @@
   "lead": "Engineers build explosives, gadgets and devices. Forever adds explosives that anyone can use, satchel bombs for the thrown slot and belts for every armor type.",
   "points": [
    {
-    "text": "Mining supplies most of the materials."
-   },
-   {
     "text": "The Gnome racial no longer adds Engineering skill; it now makes devices fail and backfire less often.",
     "facts": [
      "profession-engineering.gnome-racial"

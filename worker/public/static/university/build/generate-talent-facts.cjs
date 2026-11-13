@@ -15,6 +15,16 @@ const data = JSON.parse(fs.readFileSync(path.join(STATIC, "talents", "data.json"
 const QUIZ_CLASSES = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior"];
 const REVIEWED = "2026-11-12", BUILD = data.source.clientBuilds.join(", ") + " (talent data " + data.revision + ", " + data.source.upstreamGenerated + ")";
 const chapterFor = (cls, tree, tier) => cls + "-" + tree + "-" + tier + "-talents";
+// Talents whose 10 Nov rank text is older than Blizzard's 2 Nov notes (g218-150, post 9, 3 Nov 2026), found in review on
+// 12 Nov 2026. Their facts stay as the talent data reads, carry a note and name the grade-B fact that supersedes them
+// (validate.js then requires that fact beside them wherever they are cited), and no value question is written for them.
+// "facts" lists which generated facts the notes contradict: the tree fact (cooldown, cost) and/or the rank facts.
+const SUPERSEDED = {
+  "shaman-enhancement-mental-dexterity": { by: "class-shaman.intellect-into-power", facts: ["ranks"],
+    note: "Talent data, superseded by Blizzard's 2 Nov notes: they give 50%, 100% or 150% of your Intellect. Check the tooltip in game." },
+  "shaman-enhancement-stormstrike": { by: "class-shaman.stormstrike", facts: ["tree", "ranks"],
+    note: "Talent data, superseded by Blizzard's 2 Nov notes: they give 150% normalized weapon damage and a 6 sec cooldown. Check the tooltip in game." },
+};
 const check = process.argv.includes("--check");
 let stale = 0;
 // One fact or question per line keeps the files small and their diffs readable.
@@ -42,12 +52,13 @@ for (const cls of data.classes) {
       tree: cls.id + "-" + tree.id });
     for (const t of tree.talents) {
       const sid = file + "." + tree.id + "-" + shortId(cls.id, tree.id, t.id), req = t.requires && byId.get(t.requires);
+      const sup = SUPERSEDED[t.id], mark = part => sup && sup.facts.includes(part) ? { note: sup.note, supersededBy: sup.by } : {};
       facts.push({ id: sid, scope: { class: cls.id, spec: tree.id }, topic: "tree:" + cls.id + "-" + tree.id,
         label: t.name + " (" + tree.name + ")",
         value: t.name + " has " + plural(t.maxRank, "rank") + " and sits on row " + t.row + ", column " + t.column + " of the " + tree.name + " tree." + (req ? " It requires " + req.name + "." : "") + (!t.passive && t.cost ? " In use: " + t.cost.split(" | ").join(", ") + "." : ""),
-        talent: t.id });
+        talent: t.id, ...mark("tree") });
       t.descriptions.forEach((text, i) => facts.push({ id: sid + ".r" + (i + 1), scope: { class: cls.id, spec: tree.id }, topic: "talent:" + t.id,
-        label: t.name + " rank " + (i + 1) + " of " + t.maxRank, value: text.replace(/\s+/g, " ").trim(), talent: t.id }));
+        label: t.name + " rank " + (i + 1) + " of " + t.maxRank, value: text.replace(/\s+/g, " ").trim(), talent: t.id, ...mark("ranks") }));
     }
     if (!QUIZ_CLASSES.includes(cls.id)) continue;
     const scope = "spec:" + cls.id + "-" + tree.id, shape = t => file + "." + tree.id + "-" + shortId(cls.id, tree.id, t.id);
@@ -80,11 +91,14 @@ for (const cls of data.classes) {
         const tokens = t.descriptions.map(d => d.match(VALUE) || []);
         const len = tokens[0].length, same = tokens.every(x => x.length === len);
         const diff = same ? [...Array(len).keys()].filter(i => new Set(tokens.map(x => x[i])).size > 1) : [];
-        if (diff.length === 1 && new Set(tokens.map(x => x[diff[0]])).size === t.maxRank) {
+        if (diff.length === 1 && new Set(tokens.map(x => x[diff[0]])).size === t.maxRank && !(SUPERSEDED[t.id] && SUPERSEDED[t.id].facts.includes("ranks"))) {
           const at = diff[0], last = t.maxRank - 1, text = t.descriptions[last].replace(/\s+/g, " ").trim();
           let n = -1;
           const blanked = text.replace(VALUE, m => (++n === at ? "___" : m));
           const values = tokens.map(x => x[at]), wrongRanks = [...values.keys()].filter(i => i !== last).slice(-3);
+          // A stem that still shows the answer elsewhere in the quoted text gives it away (Spirit Tap: "a ___ chance to
+          // increase your Spirit by 100%"), so such a talent gets no value question (review, 12 Nov 2026).
+          if ((blanked.match(VALUE) || []).includes(values[last])) continue;
           q("value", { tier: 201, chapter: chapterFor(cls.id, tree.id, 201), type: "scenario",
             stem: "You have " + t.name + " at " + t.maxRank + "/" + t.maxRank + ". Its text reads: “" + blanked + "” What goes in the blank?",
             choices: [values[last], ...wrongRanks.map(i => values[i])], answer: 0,

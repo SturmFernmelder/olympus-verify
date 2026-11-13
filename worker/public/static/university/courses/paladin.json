@@ -773,9 +773,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Holy Power at rank 5 of 5 raises the critical strike healing bonus of your Holy spells by 50%.",
           "facts": [
            "talents-paladin.holy-holy-power.r5"
@@ -1354,9 +1351,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Shieldsworn takes 4 sec off Holy Strike's cooldown and makes it strike with your shield, triggering Holy Shield and Shield Specialization without spending their charges, and lets you block spells for 6 sec.",
           "facts": [
            "talents-paladin.protection-shieldsworn.r1"
@@ -1926,9 +1920,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Unsealed Wrath sits on row 7 and requires Repentance, which is on row 5.",
           "facts": [
            "talents-paladin.retribution-unsealed-wrath",
@@ -2114,7 +2105,7 @@
         "mistakes": [
          {
           "mistake": "Using the 16 October figure of 10/20/30% for Champion of the Light.",
-          "fix": "The 10 November talent data gives it five ranks, up to 60% of your Intellect at rank 5.",
+          "fix": "Blizzard's 2 Nov notes and the 10 November talent data give it five ranks, up to 60% of your Intellect at rank 5.",
           "facts": [
            "class-paladin.champion-of-the-light",
            "talents-paladin.retribution-champion-of-the-light.r5"

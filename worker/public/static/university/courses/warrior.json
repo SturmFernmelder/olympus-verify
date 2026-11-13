@@ -76,6 +76,11 @@
    "from": "classes[0].specs[0].pvp.matchups[0]",
    "text": "by 2% ... on a 30-second cooldown",
    "reason": "Kept, citing the Hunter guide's Blizzard facts."
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[0]",
+   "text": "Dual-wield auto attacks miss more often than special attacks.",
+   "reason": "Ungraded line: no reviewed fact holds the Forever dual-wield miss chance, and no Classic 1.12 reference fact has been added for it."
   }
  ],
  "tracks": {
@@ -819,13 +824,16 @@
          {
           "text": "Against Hunters: Wyvern Sting is gone, Scorpid Sting now lowers your hit chance by 2%, and all traps share one 30-second cooldown and can be laid in combat. Auto Shot needs a brief stand-still, so keep the pressure on.",
           "facts": [
+           "class-hunter.change-8",
            "class-hunter.change-4",
-           "class-hunter.change-2"
+           "class-hunter.change-2",
+           "class-hunter.change-3"
           ]
          },
          {
           "text": "Against Rogues: Sap no longer breaks a Rogue's Stealth, and Distract now warns you that a Rogue is near. Improved Berserker Rage can clear movement-impairing effects.",
           "facts": [
+           "class-hunter.vs-rogue-sap-distract",
            "talents-warrior.fury-improved-berserker-rage.r2"
           ]
          }
@@ -1063,7 +1071,7 @@
        "praxis": {
         "steps": [
          {
-          "text": "Dual-wield auto attacks miss more often than special attacks. Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
+          "text": "Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
           "facts": [
            "class-warrior.main-hand-hit-from-talents"
           ]
@@ -1134,9 +1142,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Flurry has 3 ranks and needs no Death Wish.",
           "facts": [
@@ -1643,9 +1648,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Defiance at rank 3 of 3 adds 20% threat in Defensive Stance while a shield is equipped.",
           "facts": [
            "talents-warrior.protection-defiance.r3"
@@ -1700,7 +1702,7 @@
           ]
          },
          {
-          "text": "Treat hit and expertise caps as unknown: Blizzard has published no numbers yet."
+          "text": "Treat the hit cap as unknown: Blizzard has published no numbers yet."
          }
         ],
         "mistakes": [

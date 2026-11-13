@@ -850,14 +850,15 @@
    "kind": "theory",
    "grade": "B",
    "label": "Champion of the Light",
-   "value": "Turns Intellect into spell damage; the 16 Oct notes cut it to 10/20/30% across its ranks.",
-   "note": "Superseded: the 10 November talent data gives Champion of the Light five ranks, up to 60% of your Intellect at rank 5.",
+   "value": "Turns 12%, 24%, 36%, 48% or 60% of your Intellect into spell damage over five ranks and cuts Hammer of Wrath's cast by up to 1.0 sec (2 Nov notes, 10 Nov data).",
+   "note": "Older figure: the 16 Oct notes gave 10/20/30%.",
    "sources": [
+    "g218-150",
     "talents-data",
     "g218-17",
     "g218-16"
    ],
-   "reviewedAt": "2026-11-04",
+   "reviewedAt": "2026-11-12",
    "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
   },
   {

@@ -15,7 +15,7 @@
   "race-gnome"
  ],
  "overview": {
-  "lead": "Gnomes are one of the five Alliance races the Olympus guides name. Their racial Eureka! is an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger, and Gnome Priest is new for the Alliance in Forever.",
+  "lead": "The Gnome racial Eureka! is an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger, and Gnome Priest is new for the Alliance in Forever.",
   "points": [
    {
     "text": "The class guides name Gnomes for Rogue, Priest, Mage and Warlock. Gnome Priests are new for the Alliance in Forever.",
@@ -44,7 +44,7 @@
   {
    "from": "classes[4].specs[0].beginner.tips[3]",
    "text": "Gnome Eureka! now also boosts Power Word: Shield, and Human Divine Grace is an instant heal on an ally under 50% health that clears Weakened Soul (5 min cooldown).",
-   "reason": "Discipline tip with no grade or source; no reviewed fact says Eureka! covers Power Word: Shield."
+   "reason": "Discipline tip with no grade or source. The Eureka! half is now carried as common.racial-gnome-eureka-shield (16 Oct notes); no reviewed fact holds the Divine Grace details."
   },
   {
    "from": "classes[4].specs[0].pvp.overview[1]",
@@ -168,7 +168,8 @@
      "theory": [
       "common.alliance-new-race-class-combos",
       "class-priest.quest-racial-priest-spells",
-      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+      "common.racial-gnome-eureka-shield"
      ],
      "praxis": {
       "steps": [
@@ -188,6 +189,12 @@
         "text": "Fear Ward and Devouring Plague need no quest: every Priest race learns both at 20.",
         "facts": [
          "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       },
+       {
+        "text": "Eureka! also benefits Power Word: Shield, so a Gnome Priest's shields gain from it too.",
+        "facts": [
+         "common.racial-gnome-eureka-shield"
         ]
        }
       ],

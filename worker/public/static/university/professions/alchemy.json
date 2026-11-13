@@ -22,13 +22,10 @@
   "lead": "Alchemists brew elixirs, potions and flasks, and in Forever they also make the dyes other crafters need. The classic healing potions are now First Aid crafts.",
   "points": [
    {
-    "text": "Raiders will want flasks and the new 30-minute elixirs. Herbalism supplies the herbs, and engineers use alchemy materials too.",
+    "text": "Raiders will want flasks and the new 30-minute elixirs.",
     "facts": [
      "profession-alchemy.30-minute-elixirs"
     ]
-   },
-   {
-    "text": "Profession details on this page come from Blizzard posts, the beta and Forever guides."
    }
   ],
   "facts": [
@@ -221,7 +218,7 @@
       "mistakes": [
        {
         "mistake": "Planning a trip to Scholomance to make flasks.",
-        "fix": "The placeable Alchemy Laboratory camp object (Alchemy 300) removes the need.",
+        "fix": "Once you have the Alchemy Laboratory camp object (Alchemy 300) you can brew flasks without Scholomance; where its blueprint drops is not known yet.",
         "facts": [
          "profession-alchemy.flasks"
         ]

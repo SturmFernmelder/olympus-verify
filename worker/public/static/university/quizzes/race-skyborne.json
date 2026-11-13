@@ -101,6 +101,45 @@
    "facts": [
     "class-hunter.racials"
    ]
+  },
+  {
+   "id": "race-skyborne.attuned-bonus",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-other-racials",
+   "type": "mcq",
+   "stem": "You cast Read Leyline while Attuned. How much does it raise your Mana and Health regeneration?",
+   "choices": [
+    "100%",
+    "50%",
+    "30%"
+   ],
+   "answer": 0,
+   "explanation": "Attuned raises Read Leyline's bonus from 50% to 100% regeneration. 30% is Skysight's movement speed while Charged.",
+   "facts": [
+    "race-skyborne.attuned",
+    "race-skyborne.read-leyline"
+   ],
+   "distractorFacts": [
+    "race-skyborne.charged"
+   ]
+  },
+  {
+   "id": "race-skyborne.charged-ends",
+   "scope": "race:skyborne",
+   "tier": 101,
+   "chapter": "skyborne-101-other-racials",
+   "type": "mcq",
+   "stem": "Your Skyborne has Charged from an elemental convergence. What removes it before its hour is up?",
+   "choices": [
+    "Entering a raid",
+    "Death"
+   ],
+   "answer": 0,
+   "explanation": "Charged persists through death; entering a raid removes it. Attuned works the same way.",
+   "facts": [
+    "race-skyborne.charged"
+   ]
   }
  ]
 }

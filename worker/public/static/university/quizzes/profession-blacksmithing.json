@@ -141,7 +141,9 @@
    "answer": 0,
    "explanation": "Warcraft Tavern is the only source for the Windfury Totem claim. Blizzard has confirmed that stones work alongside poisons and Shaman weapon imbues.",
    "facts": [
-    "profession-blacksmithing.weapon-stones"
+    "profession-blacksmithing.weapon-stones",
+    "profession-blacksmithing.stones-with-poisons",
+    "profession-blacksmithing.stones-with-imbues"
    ],
    "distractorFacts": [
     "profession-blacksmithing.sharpening-wheel-buff"

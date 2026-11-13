@@ -102,7 +102,7 @@
   {
    "from": "classes[4].specs[0].beginner.tips[3]",
    "text": "Gnome Eureka! now also boosts Power Word: Shield, and Human Divine Grace is an instant heal on an ally under 50% health that clears Weakened Soul (5 min cooldown).",
-   "reason": "No reviewed fact holds either detail; the race chapter gives Eureka!'s general effect and names Divine Grace."
+   "reason": "The Eureka! half is now carried as common.racial-gnome-eureka-shield (16 Oct notes); no reviewed fact holds the Divine Grace details."
   },
   {
    "from": "classes[4].specs[0].pvp.overview[1]",
@@ -355,9 +355,10 @@
         ]
        },
        {
-        "text": "A Gnome Priest gets Eureka!, an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger.",
+        "text": "A Gnome Priest gets Eureka!, an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger and also benefits Power Word: Shield.",
         "facts": [
-         "common.racial-gnome-eureka"
+         "common.racial-gnome-eureka",
+         "common.racial-gnome-eureka-shield"
         ]
        },
        {

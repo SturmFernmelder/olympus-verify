@@ -21,9 +21,6 @@
   "lead": "Leatherworkers make gear for leather and mail wearers plus armor kits, and Forever adds kits that give stats as well as armor.",
   "points": [
    {
-    "text": "Skinning supplies the leather."
-   },
-   {
     "text": "Blizzard says the more advanced recipes need a Tanning Rack, so the skill-140 camp object matters early.",
     "facts": [
      "profession-leatherworking.tanning-rack",

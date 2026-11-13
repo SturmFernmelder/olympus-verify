@@ -21,9 +21,6 @@
   "lead": "Enchanters add stats to gear, and in Forever they can also craft wands, staves and relics.",
   "points": [
    {
-    "text": "Tailoring is the usual partner for cloth casters."
-   },
-   {
     "text": "Recipes for the new necklace and two-hand enchants cost Merchant's Favor.",
     "facts": [
      "profession-enchanting.favor-recipes"

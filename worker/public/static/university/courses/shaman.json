@@ -783,9 +783,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Lightning Overload at rank 3 of 3 gives a 30% chance to cast a second, similar spell for half damage at no cost. Elemental Fury requires it.",
           "facts": [
            "talents-shaman.elemental-lightning-overload.r3",
@@ -1180,6 +1177,7 @@
         "talents-shaman.enhancement-summary",
         "talents-shaman.enhancement-thundering-strikes.r5",
         "talents-shaman.enhancement-mental-dexterity.r3",
+        "class-shaman.intellect-into-power",
         "talents-shaman.enhancement-flurry",
         "talents-shaman.enhancement-ancestral-knowledge.r5",
         "class-shaman.change-8"
@@ -1195,9 +1193,10 @@
           ]
          },
          {
-          "text": "Mental Dexterity turns 33%, 66% or 100% of your Intellect into Attack Power, and Flurry requires it.",
+          "text": "Blizzard's 2 Nov notes give Mental Dexterity 50%, 100% or 150% of your Intellect as Attack Power; the 10 Nov talent data still shows 33%, 66% and 100%, so check the tooltip in game. Flurry requires it.",
           "facts": [
            "talents-shaman.enhancement-mental-dexterity.r1",
+           "class-shaman.intellect-into-power",
            "talents-shaman.enhancement-mental-dexterity.r2",
            "talents-shaman.enhancement-mental-dexterity.r3",
            "talents-shaman.enhancement-flurry"
@@ -1215,13 +1214,15 @@
           "facts": [
            "talents-shaman.enhancement-ancestral-knowledge.r1",
            "talents-shaman.enhancement-ancestral-knowledge.r5",
-           "talents-shaman.enhancement-mental-dexterity.r3"
+           "talents-shaman.enhancement-mental-dexterity.r3",
+           "class-shaman.intellect-into-power"
           ]
          },
          {
           "text": "Stormstrike sits on row 4 of the Enhancement tree.",
           "facts": [
-           "talents-shaman.enhancement-stormstrike"
+           "talents-shaman.enhancement-stormstrike",
+           "class-shaman.stormstrike"
           ]
          }
         ],
@@ -1272,7 +1273,8 @@
          {
           "text": "Use Stormstrike on cooldown, then cast Lightning Bolt, Chain Lightning or Earth Shock within 12 sec for 20% more damage.",
           "facts": [
-           "talents-shaman.enhancement-stormstrike.r1"
+           "talents-shaman.enhancement-stormstrike.r1",
+           "class-shaman.stormstrike"
           ]
          },
          {
@@ -1301,7 +1303,8 @@
           "mistake": "Following Stormstrike with more melee attacks only.",
           "fix": "Its 20% bonus applies to your next Lightning Bolt, Chain Lightning or Earth Shock within 12 sec.",
           "facts": [
-           "talents-shaman.enhancement-stormstrike.r1"
+           "talents-shaman.enhancement-stormstrike.r1",
+           "class-shaman.stormstrike"
           ]
          }
         ]
@@ -1399,9 +1402,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Rage of the Farseer (row 7) requires Mental Quickness, which adds up to 30% of your Intellect to your spell damage and healing.",
           "facts": [
            "talents-shaman.enhancement-rage-of-the-farseer",
@@ -1458,7 +1458,7 @@
           ]
          },
          {
-          "text": "Value Intellect: Mental Dexterity turns it into Attack Power (100% at rank 3 of 3 in the talent data; Blizzard's notes said 150%), and Mental Quickness adds up to 30% of it to spell damage and healing.",
+          "text": "Value Intellect: Mental Dexterity turns it into Attack Power (150% at rank 3 in Blizzard's 2 Nov notes; the talent data still shows 100%), and Mental Quickness adds up to 30% of it to spell damage and healing.",
           "facts": [
            "class-shaman.intellect-into-power",
            "talents-shaman.enhancement-mental-dexterity.r3",
@@ -1482,6 +1482,7 @@
           "fix": "Mental Dexterity turns Intellect into Attack Power, and Mental Quickness turns part of it into spell damage and healing.",
           "facts": [
            "talents-shaman.enhancement-mental-dexterity.r3",
+           "class-shaman.intellect-into-power",
            "talents-shaman.enhancement-mental-quickness.r2"
           ]
          }
@@ -2006,9 +2007,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Riptide sits on row 7 and requires Healing Way.",
           "facts": [

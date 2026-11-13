@@ -818,9 +818,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Vengeance requires Improved Moonfire. At rank 5 it adds 100% to the crit damage bonus of your Arcane and Nature spells.",
           "facts": [
            "talents-druid.balance-vengeance",
@@ -1420,9 +1417,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Bear: Leader of the Pack, on row 5, leads to Primal Bite on row 7.",
           "facts": [
            "talents-druid.feral-combat-leader-of-the-pack",
@@ -2013,9 +2007,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Wild Growth, on row 7, requires Living Spirit. It costs 550 Mana, has a 3 sec cast and a 6 sec cooldown.",
           "facts": [

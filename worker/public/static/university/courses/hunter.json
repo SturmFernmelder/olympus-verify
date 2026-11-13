@@ -873,9 +873,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Ferocity raises the crit chance of your pets and hawks by 2% per rank, 10% at 5 of 5.",
           "facts": [
            "talents-hunter.beast-mastery-ferocity.r1",
@@ -1532,9 +1529,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Lone Wolf gives 20% more damage with all attacks while you have no active pet.",
           "facts": [
            "talents-hunter.marksmanship-lone-wolf.r1"
@@ -2174,9 +2168,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open the build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Predator's Edge at 5 of 5 adds 30% to your melee ability crit damage and 50% to your off-hand weapon damage.",
           "facts": [

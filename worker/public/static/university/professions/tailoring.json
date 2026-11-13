@@ -21,9 +21,6 @@
   "lead": "Tailors make cloth armor and bags. Forever adds reagent bags for the new reagent-only bag slot and makes several bags bigger.",
   "points": [
    {
-    "text": "Enchanting is the usual partner."
-   },
-   {
     "text": "The Runecloth Bag now needs dyes that alchemists make.",
     "facts": [
      "profession-tailoring.dyes-in-recipes"
