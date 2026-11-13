@@ -926,22 +926,34 @@ if newstate=="combat" then
 end
 ]]
 Q.combatWindows={}
+-- Out of combat only: the secure state handler that hides `frame` on [combat]; nil when the client lacks the
+-- mechanism or the handler could not be registered.
+local function SecureCombatHider(frame)
+  if type(RegisterStateDriver)~="function" or type(CreateFrame)~="function" or Read(InCombatLockdown)~=false then return nil end
+  local registered
+  local ok=pcall(function()
+    local handler=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
+    if type(SecureHandlerSetFrameRef)=="function" then SecureHandlerSetFrameRef(handler,"window",frame)
+    else handler:SetFrameRef("window",frame) end
+    handler:SetAttribute("_onstate-olympuscombat",COMBAT_CLOSE_SNIPPET)
+    RegisterStateDriver(handler,"olympuscombat","[combat] combat; nocombat")
+    registered=handler
+  end)
+  return ok and registered or nil
+end
+-- Round 5 item 2 (13 Nov 2026): the Guild tab's promotion column uses the same secure hider, without the window
+-- notices or the deferred Close path (the Guild tab repaints its own layout after combat).
+function Q.SecureCombatHide(frame)
+  if type(frame)~="table" or type(frame.IsShown)~="function" then return false end
+  return SecureCombatHider(frame)~=nil
+end
 function Q.CloseInCombat(frame,close)
   if type(frame)~="table" or type(frame.IsShown)~="function" or Read(InCombatLockdown)~=false then return false end
   for _,entry in ipairs(Q.combatWindows) do if entry.frame==frame then return true end end
   local entry={frame=frame,close=type(close)=="function" and close or function() frame:Hide() end}
   Q.combatWindows[#Q.combatWindows+1]=entry
-  if type(RegisterStateDriver)=="function" and type(CreateFrame)=="function" then
-    local ok=pcall(function()
-      local handler=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
-      if type(SecureHandlerSetFrameRef)=="function" then SecureHandlerSetFrameRef(handler,"window",frame)
-      else handler:SetFrameRef("window",frame) end
-      handler:SetAttribute("_onstate-olympuscombat",COMBAT_CLOSE_SNIPPET)
-      RegisterStateDriver(handler,"olympuscombat","[combat] combat; nocombat")
-      entry.handler=handler
-    end)
-    entry.secure=ok and entry.handler~=nil
-  end
+  entry.handler=SecureCombatHider(frame)
+  entry.secure=entry.handler~=nil
   return true
 end
 -- Round 5 item 1 (13 Nov 2026): without the secure handler (the client lacks RegisterStateDriver, or the handler

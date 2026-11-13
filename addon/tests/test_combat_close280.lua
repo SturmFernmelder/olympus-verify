@@ -400,5 +400,84 @@ do
     and countPrinted(f, "they close when combat ends") == 0, why)
 end
 
+-- 10. Round 5 item 2 (13 Nov 2026): the Guild tab's promotion column parents secure promote buttons. With the
+-- secure mechanism it is hidden on [combat] even when lockdown comes first; without it nothing shows, hides,
+-- re-anchors, resizes or re-parents the column or its buttons during lockdown, and the skipped layout is applied
+-- at PLAYER_REGEN_ENABLED without waiting for the next repaint tick.
+local LAYOUT = { "Show", "Hide", "SetShown", "SetPoint", "ClearAllPoints", "SetAllPoints", "SetSize", "SetWidth", "SetHeight",
+  "SetParent", "SetFrameStrata", "SetFrameLevel", "SetEnabled", "SetAttribute" }
+local function guildFixture(secure)
+  local f = fixture(); local e = f.e
+  if not secure then e.RegisterStateDriver = nil end
+  setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyGuild.lua")), e)("OlympusVerify", {})
+  f.guildFrame = e.FRAMES[#e.FRAMES]
+  e.UIParent:Show(); e.UIParent.GetRight = function() return 1920 end
+  local host = e.CreateFrame("Frame", nil, e.UIParent); host:Show(); host:SetSize(900, 700)
+  host.GetRight = function() return 1100 end; host.GetAlpha = function() return 1 end; host.GuildMemberDetailFrame = false
+  local list = e.CreateFrame("Frame", nil, host); list:Show(); list.expandedDisplay = true; list.GetSelectedClubId = function() return 77 end
+  e.C_Club = { GetGuildClubId = function() return 77 end }; host.MemberList = list; e.CommunitiesFrame = host
+  f.host, f.nativeRows = host, {}
+  for i, r in ipairs(e.ROSTER) do
+    local row = e.CreateFrame("Button", nil, list); row:Show(); row:SetSize(600, 20)
+    row.member = { name = r.name .. "-Forever", guid = r.guid }; row.GetMemberInfo = function(self) return self.member end; f.nativeRows[i] = row
+  end
+  list.ScrollBox = { ForEachFrame = function(_, fn) for _, r in ipairs(f.nativeRows) do fn(r) end end }
+  function f.tick() f.guildFrame:GetScript("OnUpdate")(f.guildFrame, 0.3) end
+  e.MockFireEvent("ADDON_LOADED", "Blizzard_Communities"); f.tick()
+  function f.column() for _, v in ipairs(e.FRAMES) do if v._parent == e.UIParent and v._w == 436 then return v end end end
+  function f.rowButtons() local out = {}; for _, v in ipairs(e.FRAMES) do if v.nativeRow and v.promote then out[#out + 1] = v end end; return out end
+  function f.shownRows() local n = 0; for _, b in ipairs(f.rowButtons()) do if b:IsShown() then n = n + 1 end end; return n end
+  function f.watchLayout()
+    local watched = { [f.column()] = true }
+    for _, b in ipairs(f.rowButtons()) do watched[b] = true; watched[b.promote] = true end
+    local mt, record = getmetatable(e.UIParent), { calls = {} }
+    for _, method in ipairs(LAYOUT) do
+      local original = mt[method]
+      mt[method] = function(self, ...)
+        if watched[self] and e.InCombatLockdown() and e.MOCK_SECURE == 0 then record.calls[#record.calls + 1] = method end
+        return original(self, ...)
+      end
+    end
+    return record
+  end
+  return f
+end
+for _, secure in ipairs({ true, false }) do
+  for _, lockdownFirst in ipairs({ true, false }) do
+    local label = (secure and "secure handler" or "no secure handler") .. ", " .. (lockdownFirst and "lockdown first" or "event first")
+    local g = guildFixture(secure); local e = g.e
+    check("Guild column is painted with a secure promote button per native row (" .. label .. ")",
+      g.column() and g.column():IsShown() and #g.rowButtons() == 2 and g.shownRows() == 2 and g.rowButtons()[1].promote:IsProtected())
+    local before = promotionState(g); local layout = g.watchLayout()
+    e.MockCombatStart(lockdownFirst)
+    if secure or not lockdownFirst then
+      check("Guild column is hidden at combat start (" .. label .. ")", not g.column():IsShown())
+    else
+      check("Guild column stays as it was: lockdown began first and there is no secure handler (" .. label .. ")", g.column():IsShown())
+    end
+    -- Combat: repaint ticks, a roster update, a native row scrolled away, then the Guild window closed.
+    g.tick(); e.MockFireEvent("GUILD_ROSTER_UPDATE"); g.tick(); g.nativeRows[2]:Hide(); g.tick()
+    local ok, why = g.blocked()
+    check("in combat the Guild column and its buttons get no layout call (" .. label .. ")", #layout.calls == 0 and ok, table.concat(layout.calls, ",") .. " " .. why)
+    e.MockCombatEnd()
+    check("at combat end the skipped layout is applied at once (" .. label .. ")", g.column():IsShown() and g.shownRows() == 1)
+    -- A second fight in which the Guild window itself closes.
+    e.MockCombatStart(lockdownFirst); layout = g.watchLayout()
+    g.host:Hide(); g.tick(); ok, why = g.blocked()
+    check("closing the Guild window in combat makes no layout call on the column (" .. label .. ")", #layout.calls == 0 and ok, table.concat(layout.calls, ",") .. " " .. why)
+    e.MockCombatEnd()
+    check("after that fight the column follows the closed Guild window at once (" .. label .. ")", not g.column():IsShown())
+    g.host:Show(); g.nativeRows[2]:Show(); g.tick()
+    check("reopening the Guild window paints both rows again (" .. label .. ")", g.column():IsShown() and g.shownRows() == 2)
+    check("no promotion command and no state change across both fights (" .. label .. ")", g.clicks == 0 and g.direct == 0 and not g.armed() and promotionState(g) == before)
+  end
+end
+do
+  -- Negative control: the layout watch and the lockdown model see an insecure re-anchor of the column.
+  local g = guildFixture(false); g.e.MockCombatStart(true); local layout = g.watchLayout()
+  g.column():ClearAllPoints(); g.rowButtons()[1].promote:Hide()
+  check("mock control: an insecure layout call on the column in lockdown is seen and refused", #layout.calls == 2 and not g.blocked())
+end
+
 print(string.format("combat_close280: %d passed, %d failed", passed, failed))
 if failed > 0 then error(string.format("%d combat-close check(s) failed", failed)) end
