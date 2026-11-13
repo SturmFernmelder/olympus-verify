@@ -778,6 +778,32 @@
    "why": "The heading lost its decimal point and commas in conversion.",
    "before": "## Bylaw B10   Adoption and implementation",
    "after": "## Bylaw B10 — Adoption and implementation"
+  },
+  {
+   "key": "title-iii-8-2-b-duel-escrow-suspended-proposal",
+   "issues": [
+    "CL2-282"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 31 October 2026: wagering is an inactive proposal and must be clearly marked so. The clause already ends by saying the schedule is suspended under Section III.9.2(b); the marker now opens it, and no fee, stake or condition changes.",
+   "before": "(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow** request has a **25g filing fee + 10% Treasury rake** on the agreed settled escrow. Before anyone takes custody, every willing party agrees the lawful game-only subject, independent custodian, exact stake, percentage base, outcome evidence, settlement, cancellation and dispute route. Declining a duel is not misconduct. No real-money stake, coerced combat, gambling prohibited by the applicable platform, automatic custody or claimed escrow without a separately accepted custodian is permitted. Free safety reporting and ordinary appeals remain available. A private civil bargain cannot override Title II's fair process or require a reviewer to decide their own financial interest. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy.",
+   "after": "(b) **[Suspended proposal — not active]** A **Privy Court Civil Suit / Mak'gora Duel Escrow** request would have a **25g filing fee + 10% Treasury rake** on the agreed settled escrow. Before anyone takes custody, every willing party agrees the lawful game-only subject, independent custodian, exact stake, percentage base, outcome evidence, settlement, cancellation and dispute route. Declining a duel is not misconduct. No real-money stake, coerced combat, gambling prohibited by the applicable platform, automatic custody or claimed escrow without a separately accepted custodian is permitted. Free safety reporting and ordinary appeals remain available. A private civil bargain cannot override Title II's fair process or require a reviewer to decide their own financial interest. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy."
+  },
+  {
+   "key": "title-v-8-1-b-duel-escrow-suspended-proposal",
+   "issues": [
+    "CL2-282"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 31 October 2026: wagering is an inactive proposal and must be clearly marked so. The clause already ends by saying the schedule is suspended under Section III.9.2(b); the marker now opens it, and no fee, stake or condition changes.",
+   "before": "(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy.",
+   "after": "(b) **[Suspended proposal — not active]** A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy."
   }
  ]
 }
