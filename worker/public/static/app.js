@@ -6917,10 +6917,19 @@
   const communitySection = key => COMMUNITY_SECTIONS.find(section => section.key === key);
   // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
   function communityTabs(sub) {
-    return h("div", { class: "community-tabs" },
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
+      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
+    // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
+    // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+    requestAnimationFrame(() => {
+      const current = nav.isConnected && nav.scrollWidth > nav.clientWidth ? nav.querySelector('[aria-current="page"]') : null;
+      if (!current) return;
+      const row = nav.getBoundingClientRect(), link = current.getBoundingClientRect(), pad = 4;
+      if (link.left < row.left + pad) nav.scrollLeft -= row.left + pad - link.left;
+      else if (link.right > row.right - pad) nav.scrollLeft += link.right - (row.right - pad);
+    });
+    return h("div", { class: "community-tabs" }, nav,
       // The scroll hint is for sighted phone users only; it is not tied to the nav, so it is never announced where it is hidden.
-      h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
-        h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false }))),
       h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
   }
   const sourceStrip = (source, freshness) => h("div", { class: "source-strip", "data-source-strip": true },
