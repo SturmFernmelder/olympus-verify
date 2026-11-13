@@ -1,4 +1,4 @@
-import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
+import {consumeRateLimitPair280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Ephemeral preview of unsigned observations. No storage, membership inference or provider work. */
 import type { Env } from "./env";
 import { apiJson, PAGE_VERSION, rateLimited, sameOrigin } from "./site-core";
@@ -159,11 +159,9 @@ export async function censusPreview(request: Request, env: Env, ctx: CommunityCo
     if (beforeBody === FENCE_REFUSED) return apiJson({ error: "guild_access_changed" }, 403);
     // Share the existing twelve-preview isolate ceiling: one account may use
     // at most half of it, so it cannot consume every other member's allowance.
-    // Rejected account attempts do not spend aggregate capacity or read a body.
-    const rateLimitAt162280=consumeRateLimit280("census:preview:account:" + capture.subject.discordId,6,60);
-    if (rateLimitAt162280.limited) return apiJson({ error: "slow_down" }, 429, rateLimitHeaders280(rateLimitAt162280));
-    const rateLimitAt163280=consumeRateLimit280("census:preview",12,60);
-    if (rateLimitAt163280.limited) return apiJson({ error: "slow_down" }, 429, rateLimitHeaders280(rateLimitAt163280));
+    // Either refusal leaves the other allowance untouched and reads no body.
+    const previewLimit=consumeRateLimitPair280("census:preview:account:" + capture.subject.discordId,6,"census:preview",12,60);
+    if (previewLimit.limited) return apiJson({ error: "slow_down" }, 429, rateLimitHeaders280(previewLimit));
 
     check();
     const raw = await readRaw(request, check);

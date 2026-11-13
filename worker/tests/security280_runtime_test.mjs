@@ -39,6 +39,10 @@ async function run(request,bindings){
  const image=async()=>JSON.stringify({audit:(await raw.prepare('SELECT * FROM audit ORDER BY id').all()).results,friends:(await raw.prepare('SELECT * FROM site_friends ORDER BY owner_id,friend_key').all()).results});
  let before=await image(),r=await call('POST','/api/admin/users/'+ghost+'/mentions',{cookie:owner,headers:{'X-Olympus':'1'},body:{}});
  check('outdated admin page is refused before any write',r.status===409&&before===await image(),{status:r.status,error:(await r.clone().json().catch(()=>({}))).error});
+ for(const method of ['PUT','PATCH','DELETE']){
+  const unchanged=await image(),stale=await call(method,'/api/admin/users/'+ghost+'/mentions',{cookie:owner,headers:{'X-Olympus':'1'},body:{}});
+  check('outdated admin '+method+' is refused before route selection or mutation',stale.status===409&&unchanged===await image(),{status:stale.status});
+ }
  r=await call('POST','/api/admin/users/'+ghost+'/mentions',{cookie:owner,body:{}});check('current owner page can still perform its deliberate authorized write',r.status===200&&(await raw.prepare('SELECT COUNT(*) n FROM site_friends WHERE friend_key=?1').bind(ghost).first()).n===0,{status:r.status});
  before=await image();r=await call('POST','/api/admin/users/'+ghost+'/mentions',{cookie:owner,headers:{Origin:'https://other.invalid'},body:{}});
  check('foreign Origin still cannot mutate admin data',r.status===403&&before===await image(),{status:r.status});
@@ -96,8 +100,16 @@ async function run(request,bindings){
  check('one census account has its own six-preview allowance',first.slice(0,6).every(x=>x===200)&&first.slice(6).every(x=>x===429),{statuses:first});
  const second=[];for(let i=0;i<6;i++)second.push((await census(member)).status);
  check('one account cannot consume the second account census allowance',second.every(x=>x===200),{statuses:second});
+ // Advance real wall time: replacing Date.now would violate the actual entry's
+ // request-clock custody and test that guard instead of limiter fairness.
+ await new Promise(resolve=>setTimeout(resolve,40000));
  const third=await census(censusCookie);
  check('census keeps the unchanged total twelve-preview safety cap',third.status===429&&Number(third.headers.get('Retry-After'))>0,{status:third.status,retryAfter:third.headers.get('Retry-After')});
+ const blocked=[];for(let i=0;i<6;i++)blocked.push((await census(censusCookie)).status);
+ check('globally full census refuses all previews for a waiting third account',blocked.every(status=>status===429),{statuses:blocked});
+ await new Promise(resolve=>setTimeout(resolve,21000));
+ const recovered=[];for(let i=0;i<6;i++)recovered.push((await census(censusCookie)).status);
+ check('global-only census refusals do not spend the waiting account allowance',recovered.every(status=>status===200),{statuses:recovered});
  check('census previews never write their source payload or provider work',censusImage===await image());
  check('Native control remains closed in the exact original epoch',(await raw.prepare("SELECT COUNT(*) n FROM privacy_write_admission WHERE active=0 AND nonce='' AND purpose='' AND epoch=?1").bind(EPOCH).first()).n===1);
  return Response.json({schema:'security280-real-index-v1',actualLocalWorkerdD1:true,actualIndexOAuth:true,layout,ok:cases.every(x=>x.pass),checks:cases.length,cases});
