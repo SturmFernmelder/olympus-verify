@@ -50,7 +50,7 @@ check('CL2-032', 'beta-reset paragraph appears once in the member-facing article
   'found ' + count(articles, RESET));
 check('CL2-032', 'S12a, ORD 15, S13 and ORD 18 point to the full text', /\| Erasure and safety marker \| Stated in full in \[Article S12\]\(#\/governance\/the-guild-statute-of-olympus\/article-s12\)/.test(book)
   && count(chapter('Book of Ordinances'), '](#/governance/the-guild-statute-of-olympus/article-s12)') >= 1
-  && count(chapter('The Guild Statute of Olympus') + chapter('Book of Ordinances'), '[Charter section 1.8](#/governance/1-guild-charter-of-olympus)') === 2);
+  && count(chapter('The Guild Statute of Olympus') + chapter('Book of Ordinances'), '[Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption)') === 2);
 check('CL2-032', 'no long sentence (60+ characters) is repeated four or more times in the articles', (() => {
   const occ = new Map();
   for (const line of articles.split('\n')) for (const s of line.split(/(?<=[.;])\s+/)) if (s.trim().length >= 60) occ.set(s.trim(), (occ.get(s.trim()) || 0) + 1);
@@ -65,6 +65,64 @@ check('CL2-038', 'Charter 1.5, Statute S5, O3 and RC2 state the current composit
   ['## 1.5 Departments and guild autonomy', '## Article S5 — Departments and shared services', '## O3 The High Council and its offices', '## RC2 The core Council and portfolio service']
     .every(h => { const s = sections.find(x => '## ' + x.heading === h); return s && /II\.8\.1|current Cabinet register/.test(s.text); }));
 check('CL2-038', 'the thirteenth seat is named where the composition is stated', count(articles, 'with Systems & Heraldry as the thirteenth seat') >= 2);
+// REV-GOV-4 (CL2-038): O15 is labelled as the dated 13 October 2026 record; its holder text is byte-identical to 1e51050.
+const o15 = sections.find(s => /^O15 /.test(s.heading)) || { heading: '', text: '' };
+check('REV-GOV-4', 'O15 is headed as a Historical record dated 13 October 2026 and points to Section II.8.1', /^O15 Historical: .*13 October 2026$/.test(o15.heading)
+  && /dated record: the current High Council seats and their duties are set out in Title II, Section II\.8\.1\./.test(o15.text), o15.heading);
+const o15Holders = (() => { const i = book.indexOf('\n## O15 '), j = book.indexOf('\n# ', i); const s = i < 0 ? '' : book.slice(i, j); return s.slice(s.indexOf('\n### ')); })();
+check('REV-GOV-4', 'the O15 holder text (four portfolios and shared rules) is unchanged', sha256(o15Holders) === 'bafe40b3e088047f639364d04901488046a65c69047927087e5f368be3dc6b13', sha256(o15Holders).slice(0, 12));
+const charterO15 = read('worker/public/static/governance/operational-charter.md').split('\n').find(l => /^## O15 /.test(l)) || '';
+check('REV-GOV-4', 'the standalone operational charter carries the same O15 heading', charterO15 === '## ' + o15.heading, charterO15);
+
+// ---------------------------------------------------------------- REV-GOV-2 a dated record of the 12 November reconciliation
+const readingGuide = chapter('Reading and Adopting This Book');
+const reconciled = (/On 12 November 2026 the text was editorially reconciled[^\n]*?restored exactly\./.exec(readingGuide) || [''])[0];
+check('REV-GOV-2', 'the reading guide records the 12 November 2026 reconciliation in one dated sentence', !!reconciled && !/\.\s+[A-Z]/.test(reconciled.slice(0, -1)));
+check('REV-GOV-2', 'the sentence names every kind of change and what did not change',
+  ['cross-references', 'Council compositions', 'build numbers', 'headings', 'duel-escrow clauses', 'suspended proposal', 'tithe tiers',
+    'no rule, amount, eligibility condition, decision or named holder changed', 'editorial manifest'].every(x => reconciled.includes(x)), reconciled.slice(0, 80));
+
+// ---------------------------------------------------------------- REV-GOV-3 every in-book section link lands on a generated id
+// The ids exactly as app.js parseGovernanceBook and governanceBlocks generate them.
+const slug = text => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const anchors = new Map();
+{ const usedChapters = new Set(); let keys = null;
+  for (const line of book.split('\n')) {
+    const top = /^# (.+)$/.exec(line);
+    if (top) { const stem = slug(top[1]); let id = stem, n = 2; while (usedChapters.has(id)) id = stem + '-' + n++; usedChapters.add(id); anchors.set(id, keys = new Set()); continue; }
+    const hd = keys && /^(#{2,6}) (.+)$/.exec(line);
+    if (!hd) continue;
+    const article = /^Article ([IVXS0-9.a-z]+)(?= )/.exec(hd[2]);
+    let key = article ? 'article-' + article[1].toLowerCase().replaceAll('.', '-') : (hd[1].length < 4 ? 'section-' + slug(hd[2]).slice(0, 60) : '');
+    if (key && keys.has(key)) { let n = 2; while (keys.has(key + '-' + n)) n++; key += '-' + n; }
+    if (key) keys.add(key);
+  } }
+const bookLinks = [...book.matchAll(/\]\(#\/governance\/([^)\s/]+)(?:\/([^)\s]+))?\)/g)].map(m => ({ chapter: m[1], key: m[2] || '' }));
+const dangling = bookLinks.filter(l => !anchors.has(l.chapter) || (l.key && !anchors.get(l.chapter).has(l.key)));
+check('REV-GOV-3', 'every governance link in the book names an existing chapter and, when it names one, an existing section id', bookLinks.length > 0 && dangling.length === 0, JSON.stringify(dangling.slice(0, 3)));
+const charter18 = bookLinks.filter(l => l.chapter === '1-guild-charter-of-olympus' && book.includes('[Charter section 1.8](#/governance/' + l.chapter + (l.key ? '/' + l.key : '') + ')'));
+check('REV-GOV-3', 'both "Charter section 1.8" links (S13, ORD 18) name the generated 1.8 section id, not the chapter top',
+  charter18.length === 2 && charter18.every(l => l.key === 'section-1-8-continuity-amendment-and-adoption') && anchors.get('1-guild-charter-of-olympus').has('section-1-8-continuity-amendment-and-adoption'), JSON.stringify(charter18));
+
+// ---------------------------------------------------------------- CONTENT-07 three colour roles and two ceremonial titles
+// The tiers as worker/src/treasury-cosmetic.ts defines them: the book must group them the same way.
+const tierSource = read('worker/src/treasury-cosmetic.ts');
+const tiers = [...tierSource.matchAll(/\{ key: '([a-zA-Z]+)', label: '([^']+)', copper: (\d+), ceremonial: (true|false) \}/g)].map(m => ({ key: m[1], label: m[2], gold: Number(m[3]) / 10000, ceremonial: m[4] === 'true' }));
+const capKey = (/tierInfo\?\.ceremonial \? '([a-zA-Z]+)'/.exec(tierSource) || [])[1];
+const capTier = tiers.find(t => t.key === capKey);
+const sectionText = (from, to) => { const i = book.indexOf(from), j = book.indexOf(to, i); return i < 0 || j < 0 ? '' : book.slice(i, j); };
+const s41 = sectionText('### Section III.4.1 ', '### Section III.4.2 '), s42 = sectionText('### Section III.4.2 ', '## Article III.5 ');
+const tierList = list => list.map(t => `**${t.label} — ${t.gold.toLocaleString('en-GB')} gold**`);
+const colour = tiers.filter(t => !t.ceremonial), ceremonial = tiers.filter(t => t.ceremonial);
+const colourSentence = (/Three tiers are Discord colour roles: ([^.]+)\./.exec(s41) || [])[1] || '';
+const ceremonialSentence = (/Two tiers are attended ceremonial titles with no Discord role of their own: ([^.]+?)(?:, the capped Patron tier)?\./.exec(s41) || [])[1] || '';
+check('CONTENT-07', 'the code still defines three colour-role tiers and two ceremonial tiers capped at one colour', colour.length === 3 && ceremonial.length === 2 && !!capTier && !capTier.ceremonial, JSON.stringify(tiers.map(t => t.key + ':' + t.ceremonial)));
+check('CONTENT-07', 'III.4.1 lists exactly the colour-role tiers as Discord colour roles, with their thresholds', tierList(colour).every(x => colourSentence.includes(x)) && !tierList(ceremonial).some(x => colourSentence.includes(x)), colourSentence.slice(0, 120));
+check('CONTENT-07', 'III.4.1 lists exactly the ceremonial tiers as attended ceremonial titles, with their thresholds', tierList(ceremonial).every(x => ceremonialSentence.includes(x)) && !tierList(colour).some(x => ceremonialSentence.includes(x)), ceremonialSentence.slice(0, 120));
+check('CONTENT-07', 'III.4.1 caps a ceremonial title at the colour the code caps it at', !!capTier && s41.includes('A member who qualifies for a ceremonial title is shown at most the ' + capTier.label + ' colour.'));
+check('CONTENT-07', 'III.4 no longer calls every tier a Cosmetic Tithe Role or all recognition colour only', !s41.includes('Cosmetic Tithe Roles recognise') && !/colour only/.test(s41 + s42));
+check('CONTENT-07', 'expiry, consent, zero authority and the dispatch-off gate are still stated', s41.includes("An award expires at that season's end") && s42.includes('A member may decline public recognition without losing credit or standing.')
+  && s42.includes('it gives no channels, native rank, Council seat or vote, bank right') && s42.includes('All cosmetic-dispatch controls remain absent or off until separately authorized and configured.'));
 
 // ---------------------------------------------------------------- CL2-033 no build numbers or environment flags as authority
 const builds = (articles.match(/(?:Build )?(?<![\d.])\.(?:1\d\d|2\d\d)(?![\d])/g) || []);
@@ -255,6 +313,15 @@ async function browserChecks(BASE, CDP_PORT) {
     const jump = await (async () => { await open('member', 1280, 'governance/1-guild-charter-of-olympus');
       return ev(`const g=document.querySelector('#chapter-1-guild-charter-of-olympus [role=group].page-jump-list1112');if(!g)return null;const b=g.querySelector('button');b.focus();b.click();await new Promise(r=>setTimeout(r,400));return {label:g.getAttribute('aria-label'),focused:document.activeElement.textContent===b.textContent&&document.activeElement!==b}`); })();
     bcheck('INT-GOV-1', 'a chapter group button still moves focus to its section', !!jump && jump.focused && /^Sections of /.test(jump.label), show(jump));
+
+    // REV-GOV-3: following "Charter section 1.8" from S13 and from ORD 18 lands on the 1.8 heading itself, at 1280 and 375 px.
+    const landings = {};
+    for (const width of [1280, 375]) for (const [from, route] of [['S13', 'governance/the-guild-statute-of-olympus/article-s13'], ['ORD18', 'governance/book-of-ordinances']]) {
+      await open('member', width, route);
+      landings[from + '@' + width] = await ev(`const a=[...document.querySelectorAll('main a')].find(x=>x.textContent==='Charter section 1.8'&&x.closest('${from === 'S13' ? '#chapter-the-guild-statute-of-olympus' : '#chapter-book-of-ordinances'}'));if(!a)return null;a.click();await new Promise(r=>setTimeout(r,2500));const f=document.activeElement,r=f.getBoundingClientRect();return {hash:location.hash,focused:f.id||f.tagName,text:(f.textContent||'').slice(0,48),top:Math.round(r.top),inView:r.top>=0&&r.bottom<=innerHeight}`);
+    }
+    bcheck('REV-GOV-3', 'from S13 and ORD 18 the "Charter section 1.8" link focuses the 1.8 heading in view (1280 and 375 px)',
+      Object.values(landings).every(l => l && l.focused === 'governance-1-guild-charter-of-olympus-section-1-8-continuity-amendment-and-adoption' && l.inView), show(landings));
 
     // REV-GOV-5: class leads follow Class Head on the vote board; Vice Guild Master sits after Co-GM in the register.
     await open('member', 1280, 'vote');

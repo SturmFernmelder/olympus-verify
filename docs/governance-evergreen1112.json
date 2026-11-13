@@ -32,26 +32,28 @@
    "key": "s13-beta-reset-cross-reference",
    "issues": [
     "CL2-032",
-    "CL2-193"
+    "CL2-193",
+    "REV-GOV-3"
    ],
    "scope": [
     "book"
    ],
    "why": "Article S13 repeated Charter section 1.8 word for word; the Charter is the higher instrument and keeps the full text.",
    "before": "## Article S13   Beta transition  resignation and amendments\n\nThe beta reset removes only the fixed beta membership and native-rank Discord roles. Manual leadership and Council roles, developer, bot and server-moderator roles, all website appointments and the leadership directory are preserved. This includes the existing website appointments of richwcampbell. as Co-Guild Master and Fernmelder as Treasurer, without issuing either governance warrant or filling another vacancy. The selected cutoff is 22 October 2026 at 17:00 UTC / noon CDT. The cutoff alone does not arm or activate removal. Old beta grants close at the fixed cutoff even while reset removal remains OFF. A removal run needs its separately authorized policy, exact target preview, current permissions and source/runtime qualification; no date, count, elapsed quiet period or observation of absence proves old-source drain. The reset changes no native game rank, website appointment, directory entry, application, vote or private record. It does not clear verification links or the invite queue as a blanket website reset. Launch identity controls and residual-date retention use their separately qualified paths, preserving original dates rather than silently restarting waiting periods. Reset preservation is distinct from an account owner's authenticated erasure request.",
-   "after": "## Article S13 — Beta transition, resignation and amendments\n\nThe beta reset, its cutoff of 22 October 2026 at 17:00 UTC and the roles and appointments it preserves are stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus)."
+   "after": "## Article S13 — Beta transition, resignation and amendments\n\nThe beta reset, its cutoff of 22 October 2026 at 17:00 UTC and the roles and appointments it preserves are stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption)."
   },
   {
    "key": "ord18-beta-reset-cross-reference",
    "issues": [
-    "CL2-032"
+    "CL2-032",
+    "REV-GOV-3"
    ],
    "scope": [
     "book"
    ],
    "why": "ORD 18 repeated Charter section 1.8 word for word.",
    "before": "Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The beta reset removes only the fixed beta membership and native-rank Discord roles. Manual leadership and Council roles, developer, bot and server-moderator roles, all website appointments and the leadership directory are preserved. This includes the existing website appointments of richwcampbell. as Co-Guild Master and Fernmelder as Treasurer, without issuing either governance warrant or filling another vacancy. The selected cutoff is 22 October 2026 at 17:00 UTC / noon CDT. The cutoff alone does not arm or activate removal. Old beta grants close at the fixed cutoff even while reset removal remains OFF. A removal run needs its separately authorized policy, exact target preview, current permissions and source/runtime qualification; no date, count, elapsed quiet period or observation of absence proves old-source drain. The reset changes no native game rank, website appointment, directory entry, application, vote or private record. It does not clear verification links or the invite queue as a blanket website reset. Launch identity controls and residual-date retention use their separately qualified paths, preserving original dates rather than silently restarting waiting periods. Reset preservation is distinct from an account owner's authenticated erasure request. Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority.",
-   "after": "Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The reset itself is stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus). Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority."
+   "after": "Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The reset itself is stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption). Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority."
   },
   {
    "key": "charter-1-5-current-composition",
@@ -804,6 +806,72 @@
    "why": "Owner ruling of 31 October 2026: wagering is an inactive proposal and must be clearly marked so. The clause already ends by saying the schedule is suspended under Section III.9.2(b); the marker now opens it, and no fee, stake or condition changes.",
    "before": "(b) A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy.",
    "after": "(b) **[Suspended proposal — not active]** A **Privy Court Civil Suit / Mak'gora Duel Escrow**, **25g filing + 10% Treasury rake**, follows Section III.8.2 before a willing independent custodian accepts any game gold. The Herald publishes only the safe agreed spectacle, not private evidence, a forced accusation or an unwilling player's location. The result requires the agreed actual observations; a disconnected client, absent player or unverifiable outcome is unresolved rather than a convenient forfeiture. A participant can decline a duel without losing membership, the right to appeal or access to free safety reporting. No addon becomes a betting system or a paid gate by hosting this reference. The duel-stake and Treasury-rake parts of this historical schedule are suspended under Section III.9.2(b); a civil filing activates neither. While suspended, the whole historical programme, including its 25g civil filing, remains inactive. The suspended reference remains subject to Blizzard policy."
+  },
+  {
+   "key": "operative-clarification-reconciliation-record",
+   "issues": [
+    "REV-GOV-2"
+   ],
+   "scope": [
+    "book"
+   ],
+   "why": "The 12 November 2026 editorial reconciliation had no dated record a reader can see.",
+   "before": "**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee.",
+   "after": "**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee. On 12 November 2026 the text was editorially reconciled: duplicate passages were replaced by cross-references, superseded Council compositions and build numbers were replaced by current text and dates or labelled as dated, damaged headings were repaired, the two duel-escrow clauses were marked as a suspended proposal, and the tithe tiers were described as the three colour roles and two ceremonial titles the Treasury already defines; no rule, amount, eligibility condition, decision or named holder changed, and the earlier wording is kept in the editorial manifest and can be restored exactly."
+  },
+  {
+   "key": "o15-dated-heading",
+   "issues": [
+    "CL2-038",
+    "REV-GOV-4"
+   ],
+   "scope": [
+    "book",
+    "charter"
+   ],
+   "why": "O15 presented the four 13 October 2026 responsibility portfolios as current beside the twelve-portfolio Council of Section II.8.1.",
+   "before": "## O15 Published Council responsibility portfolios",
+   "after": "## O15 Historical: Council responsibility portfolios published 13 October 2026"
+  },
+  {
+   "key": "o15-dated-intro",
+   "issues": [
+    "CL2-038",
+    "REV-GOV-4"
+   ],
+   "scope": [
+    "book",
+    "charter"
+   ],
+   "why": "The O15 introduction did not say that the current Council seats are set out elsewhere.",
+   "before": "The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.",
+   "after": "The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They are kept as a dated record: the current High Council seats and their duties are set out in Title II, Section II.8.1. The portfolios describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status."
+  },
+  {
+   "key": "title-iii-4-1-a-colour-roles-and-ceremonial-titles",
+   "issues": [
+    "CONTENT-07"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.4.1 called all five tiers Cosmetic Tithe Roles; the Treasury defines three Discord colour roles (25, 100 and 500 gold) and two attended ceremonial titles (1,000 and 2,500 gold) capped at the Benefactor colour. Every threshold is unchanged.",
+   "before": "(a) Cosmetic Tithe Roles recognise additional, voluntary in-game gold within each published ninety-day season: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold**, **Benefactor of Olympus — 500 gold**, **Arch-Financier of Olympus — 1,000 gold**, and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.",
+   "after": "(a) Seasonal tithe recognition marks additional, voluntary in-game gold within each published ninety-day season. Three tiers are Discord colour roles: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold** and **Benefactor of Olympus — 500 gold**. Two tiers are attended ceremonial titles with no Discord role of their own: **Arch-Financier of Olympus — 1,000 gold** and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. A member who qualifies for a ceremonial title is shown at most the Benefactor of Olympus colour. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof."
+  },
+  {
+   "key": "title-iii-4-2-a-recognition-kinds",
+   "issues": [
+    "CONTENT-07"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Section III.4.2 said recognition is colour only, which the two ceremonial titles are not.",
+   "before": "(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic colour only: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available.",
+   "after": "(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic only, a colour role or a ceremonial title: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available."
   }
  ]
 }

@@ -4,7 +4,7 @@ Edition R7 · adopted 13 October 2026 by the authorized guild administration. Th
 
 The book joins the Guild and ceremonial Royal Charters, office descriptions, operational charter, Guild Statute, Bylaws, Ordinances and practical records. Members can read their rights and obligations in the Statute. Volunteers can follow the operational charter to see the work an office owes to members. The organization chart connects the offices and explains the difference between accountability, liaison and independent review.
 
-**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee.
+**Operative clarification · 18 October 2026.** The owner authorized the reset and privacy clauses below to match the current member/rank-only reset scope and live Native serving-account erasure. The original R7 adoption remains dated 13 October 2026. Earlier decisions retained in the source register are marked historical where superseded; this clarification fabricates no named signature, appointment, permission change or all-copy deletion guarantee. On 12 November 2026 the text was editorially reconciled: duplicate passages were replaced by cross-references, superseded Council compositions and build numbers were replaced by current text and dates or labelled as dated, damaged headings were repaired, the two duel-escrow clauses were marked as a suspended proposal, and the tithe tiers were described as the three colour roles and two ceremonial titles the Treasury already defines; no rule, amount, eligibility condition, decision or named holder changed, and the earlier wording is kept in the editorial manifest and can be restored exactly.
 
 Current owner direction of 25 October 2026: the exact ten-rank ladder is Leader (Guild Master), High Council, Officer, Officer Alt, Raid Leader, Veteran, Raider, Member, Alt and Initiate. Display ranks are 1–10; zero-based native slots are 0–9. High Council is Rank 2 / Slot 1; Officer Rank 3 / Slot 2; Officer Alt Rank 4 / Slot 3. Co-Guild Master and Treasurer are appointments within the Leader / High Council tier, not additional native ranks. The [Olympus Role & Rank Rosetta Stone](#/roles/rosetta-stone) joins the current guide and all 103 stable offices / 139 assignable keys. Current ordinary choices are Member, Raider and Artisan; Leader, High Council and Officer Corps seats are reserved appointments. Six retained payload categories do not mean six open application tracks. Royal Writs and new Patron applications are paused while their separate Admin switch is off. Historical beta-five game observations and older ladder proposals are dated technical history, not competing current recommendations. This book records no executed game promotion; accepted Council seat, eligible vote, character rank and actual permission remain separate.
 
@@ -425,9 +425,9 @@ The first service cycle reviews these arrangements after six to eight weeks. The
 
 Historical instruments, archived announcements and old software releases remain labelled by their own date and status. The current adopted text is the governing reference. Templates have empty fields because an actual appointment must be made by actual people. No preprinted seal, generated signature or polished chart substitutes for that act.
 
-## O15 Published Council responsibility portfolios
+## O15 Historical: Council responsibility portfolios published 13 October 2026
 
-The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.
+The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They are kept as a dated record: the current High Council seats and their duties are set out in Title II, Section II.8.1. The portfolios describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.
 
 ### Fernmelder — Treasury and guild operations
 
@@ -611,7 +611,7 @@ Technical staff protect credentials, preserve recovery data and maintain attribu
 
 ## Article S13 — Beta transition, resignation and amendments
 
-The beta reset, its cutoff of 22 October 2026 at 17:00 UTC and the roles and appointments it preserves are stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus).
+The beta reset, its cutoff of 22 October 2026 at 17:00 UTC and the roles and appointments it preserves are stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption).
 
 Resigning members may request correction or appropriate removal of their data and settle outstanding resource custody through a documented handover. Amendments apply prospectively unless necessary to correct an identified error. Existing conduct is judged under the rule applicable when it occurred; later drafting cannot manufacture earlier consent.
 
@@ -754,7 +754,7 @@ Guild Masters provide a weekly summary of capacity, current appointments, upcomi
 
 ## ORD 18 Beta closure and release appointments
 
-Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The reset itself is stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus). Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority.
+Beta assignments are provisional; the current owner-selected scope is a member/rank reset, not removal of every leadership or Council appointment. The reset itself is stated in full in [Charter section 1.8](#/governance/1-guild-charter-of-olympus/section-1-8-continuity-amendment-and-adoption). Authorized Guild Masters handle any separately approved game-rank changes. No midnight, authoring date or assumed shutdown hour runs the reset; a fresh-source epoch and any role reuse require separate qualified source and custody authority.
 
 ## ORD 19 Launch identity safeguards
 
@@ -1076,13 +1076,13 @@ Module names identify the intended divisions of work in the wider Olympus addon 
 
 ### Section III.4.1 — Voluntary recognition and exact thresholds
 
-(a) Cosmetic Tithe Roles recognise additional, voluntary in-game gold within each published ninety-day season: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold**, **Benefactor of Olympus — 500 gold**, **Arch-Financier of Olympus — 1,000 gold**, and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
+(a) Seasonal tithe recognition marks additional, voluntary in-game gold within each published ninety-day season. Three tiers are Discord colour roles: **Tithe Payer — 25 gold**, **Patron of the Treasury — 100 gold** and **Benefactor of Olympus — 500 gold**. Two tiers are attended ceremonial titles with no Discord role of their own: **Arch-Financier of Olympus — 1,000 gold** and **Hand of the Imperial Treasury — 2,500 gold**, the capped Patron tier. A member who qualifies for a ceremonial title is shown at most the Benefactor of Olympus colour. At most the highest currently qualified tier is displayed. Contributions are mailed to Fern Melder with a TITHE reference and verified against the actual receipt by the admitted Treasurer or an independently authorized reviewer. The reference alone is not payment proof.
 
 (b) Ordinary weekly dues, a waived obligation and an unclassified historical receipt do not automatically become cosmetic credit. Publish the season's exact start and end before an award; no invented season is inferred from a deployment date. An award expires at that season's end and a new season requires its own eligible receipts. No lifetime donor balance, permanent rank, real-money payment, token purchase, outside-game consideration or automatic debit is part of this schedule.
 
 ### Section III.4.2 — Consent, zero privilege and implementation gates
 
-(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic colour only: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available.
+(a) A member may decline public recognition without losing credit or standing. Publish only the consented tier, never the exact amount, receipt, private ledger, hardship status or payment correspondence. Recognition is cosmetic only, a colour role or a ceremonial title: it gives no channels, native rank, Council seat or vote, bank right, raid or loot priority, admission preference, rule exemption or confidential access. A contribution cannot guarantee a hearing outcome or relief from discipline. An eligible bail petition under Article II.7 remains a separate, independently reviewed request, with an ordinary free appeal available.
 
 (b) Actual cosmetic Discord dispatch requires its separately qualified writer, configured zero-permission role below the bot, admitted operator and original-operation checks. All cosmetic-dispatch controls remain absent or off until separately authorized and configured. Publication of these thresholds creates no role or grant. Pending or uncertain awards remain labelled; a correction reconciles only the affected cosmetic recognition and never removes guild membership as punishment. Staff do not retain a private receipt beyond its proper policy merely to keep an expired colour visible.
 
