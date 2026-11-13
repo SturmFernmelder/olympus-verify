@@ -893,6 +893,61 @@ function Q.BindPromotionButton(button,resolver,afterClick)
   button:HookScript("OnHide",function(self) ClearPromotionButton(self) end)
   return true
 end
+-- CL2-003 (Stage 1 MAJOR, 13 Nov 2026): a window that parents a secure promotion
+-- button is itself protected, so once combat lockdown starts neither addon code
+-- nor the Escape list may hide it, and it covered the screen for the whole fight.
+-- Two closers, neither of which makes a call the client forbids in combat:
+-- 1. PLAYER_REGEN_DISABLED, while InCombatLockdown() is still false (the Guild
+--    column already relies on this): the window's own Close/Cancel path runs.
+--    If lockdown has already begun, this handler touches no window.
+-- 2. A secure state handler, registered out of combat when the window is built,
+--    hides the window from secure code on [combat]; it covers a late event and
+--    needs no addon call during lockdown.
+-- Closing equals an explicit Close/Cancel: no attempt is reserved, released or
+-- retried, and nothing reopens by itself after combat.
+local COMBAT_CLOSE_SNIPPET=[[
+if newstate=="combat" then
+  local window=self:GetFrameRef("window")
+  if window and window:IsShown() then window:Hide() end
+end
+]]
+Q.combatWindows={}
+function Q.CloseInCombat(frame,close)
+  if type(frame)~="table" or type(frame.IsShown)~="function" or Read(InCombatLockdown)~=false then return false end
+  for _,entry in ipairs(Q.combatWindows) do if entry.frame==frame then return true end end
+  local entry={frame=frame,close=type(close)=="function" and close or function() frame:Hide() end}
+  Q.combatWindows[#Q.combatWindows+1]=entry
+  if type(RegisterStateDriver)=="function" and type(CreateFrame)=="function" then
+    local ok=pcall(function()
+      local handler=CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
+      if type(SecureHandlerSetFrameRef)=="function" then SecureHandlerSetFrameRef(handler,"window",frame)
+      else handler:SetFrameRef("window",frame) end
+      handler:SetAttribute("_onstate-olympuscombat",COMBAT_CLOSE_SNIPPET)
+      RegisterStateDriver(handler,"olympuscombat","[combat] combat; nocombat")
+      entry.handler=handler
+    end)
+    entry.secure=ok and entry.handler~=nil
+  end
+  return true
+end
+function Q.CloseCombatWindows()
+  local shown=0
+  for _,entry in ipairs(Q.combatWindows) do if entry.frame:IsShown() then shown=shown+1 end end
+  if shown==0 then return 0 end
+  if Read(InCombatLockdown)~=false then
+    local unguarded=false
+    for _,entry in ipairs(Q.combatWindows) do if entry.frame:IsShown() and not entry.secure then unguarded=true end end
+    if unguarded then Say("Combat lockdown began before the officer windows could close. The game allows closing them only after combat; nothing was sent.") end
+    return 0
+  end
+  local closed=0
+  for _,entry in ipairs(Q.combatWindows) do
+    if entry.frame:IsShown() then pcall(entry.close) end
+    if not entry.frame:IsShown() then closed=closed+1 end
+  end
+  if closed>0 then Say("Combat started, so the officer windows were closed. Closing them sent nothing and changed no promotion record; reopen them after combat.") end
+  return closed
+end
 function Q.HardwarePromote(target)
   local prepared=PreparePromotion(target)
   if not prepared then return false end
@@ -911,7 +966,8 @@ function Q.HardwarePromote(target)
     local function close() if Read(InCombatLockdown)==false then frame:Hide() end end
     cancel:SetScript("OnClick",close)
     if type(frame.CloseButton)=="table" and type(frame.CloseButton.SetScript)=="function" then frame.CloseButton:SetScript("OnClick",close) end
-    Q.promotionConfirm,Q.promotionConfirmInfo,Q.promotionConfirmButton=frame,info,promote
+    Q.CloseInCombat(frame,close) -- CL2-003: combat cancels exactly as the Cancel button does.
+    Q.promotionConfirm,Q.promotionConfirmInfo,Q.promotionConfirmButton,Q.promotionConfirmCancel=frame,info,promote,cancel
   end
   Q.confirmGuid=prepared.row.guid
   Q.promotionConfirmInfo:SetText(prepared.native.name.."\n"..tostring(prepared.native.slot).." > "..tostring(prepared.native.slot-1).." (target "..prepared.row.targetName..")")
@@ -1178,7 +1234,8 @@ function Q.Show()
     button("Scan + reload",18,-134,125,function() Q.Control("scan") end)
     button("Stop + reload",150,-134,125,function() Q.Control("stop") end)
     button("Sync & reload",282,-134,125,function() if OlympusVerify_Sync then OlympusVerify_Sync() elseif OlympusVerifyAPI then OlympusVerifyAPI.Sync() end end)
-    button("Close",414,-134,125,function() frame:Hide() end)
+    Q.windowClose=button("Close",414,-134,125,function() frame:Hide() end)
+    Q.CloseInCombat(frame,function() frame:Hide() end) -- CL2-003: the same close as the Close button.
     for i=1,8 do local index=i
       local rowButton=CreateFrame("Button",nil,frame,"SecureActionButtonTemplate,UIPanelButtonTemplate")
       rowButton:SetSize(400,24);rowButton:SetPoint("TOPLEFT",18,-171-(i-1)*28)
@@ -1250,8 +1307,10 @@ events:RegisterEvent("PLAYER_LEAVING_WORLD")
 events:RegisterEvent("PLAYER_LOGOUT")
 events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 events:RegisterEvent("ADDON_ACTION_BLOCKED")
+events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:SetScript("OnEvent", function(_, event, addon, functionName)
   if event == "GUILD_ROSTER_UPDATE" then Q.generation = Q.generation + 1; Q.rosterAt = time(); ReconcilePromotions()
+  elseif event == "PLAYER_REGEN_DISABLED" then Q.CloseCombatWindows() -- CL2-003; display only, no action state.
   elseif event == "PLAYER_GUILD_UPDATE" and addon == "player" then
     Q.rosterAt=nil
     local raw=RawIdentity();local baseline=Q.loadedIdentity or Q.identityBaseline

@@ -775,6 +775,12 @@ local function Build()
   W.initiateButton, W.readyButton, W.nextButton = initiateBtn, readyBtn, nextBtn
   W.statusButton, W.rankButton, W.classButton, W.onlineButton, W.clearButton = statusBtn, rankBtn, classBtn, onlineBtn, clear
   W.actionFilterButton=actionFilterBtn
+  -- CL2-003 (13 Nov 2026): this frame parents secure promotion buttons, so it
+  -- cannot be hidden by addon code once combat lockdown starts. The launch
+  -- module closes it with W.Hide at PLAYER_REGEN_DISABLED and registers the
+  -- secure combat backstop; without that module the event fallback below runs.
+  local launch=OlympusLaunch229
+  W.combatGuarded=type(launch)=="table" and type(launch.CloseInCombat)=="function" and launch.CloseInCombat(frame,W.Hide)==true
 end
 
 -- ---------------------------------------------------------------- public
@@ -808,7 +814,10 @@ end
 local watcher = CreateFrame("Frame")
 local lastRead = 0
 watcher:RegisterEvent("GUILD_ROSTER_UPDATE")
-watcher:SetScript("OnEvent", function()
+watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+watcher:SetScript("OnEvent", function(_, event)
+  -- W.Hide refuses once lockdown has begun, so this makes no forbidden call.
+  if event == "PLAYER_REGEN_DISABLED" then if frame and frame:IsShown() and not W.combatGuarded then W.Hide() end return end
   if not frame or not frame:IsShown() then return end
   local t = time()
   if t - lastRead < 5 then return end

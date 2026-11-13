@@ -62,6 +62,7 @@ SUITES = {
     "tithe_slash280": (TESTS, Path("test_tithe_slash280.lua")),
     "live_safety280": (TESTS, Path("test_live_safety280.lua")),
     "tithe_successor280": (TESTS, Path("test_tithe_successor280.lua")),
+    "combat_close280": (TESTS, Path("test_combat_close280.lua")),
 }
 PYTHON_RUNNERS = {
     "tithe280": ("run_tithe280.py", False),
