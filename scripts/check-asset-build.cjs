@@ -8,14 +8,15 @@
 //   The base is the merge base of HEAD and --base (default origin/main); for a ref that is already an ancestor of
 //   HEAD, such as the previous commit of a push, that is the ref itself. The files are compared as they are in the
 //   working tree, so uncommitted edits count.
-// Exit 0: passed (neither file changed, or BUILD changed too). Exit 1: failed (a file changed, BUILD did not, or the
-// current BUILD cannot be read). Exit 3: NOT CHECKED (no base could be resolved); never reported as a pass.
+// Exit 0: passed (neither file changed, or BUILD changed too). Exit 1: failed (a file changed and BUILD did not, or
+// worker/src/index.ts does not have exactly one BUILD line in the working tree or at the base). Exit 3: NOT CHECKED
+// (no base could be resolved); never reported as a pass. Every result names the base commit and its BUILD.
 // Exit 2: a usage error.
 const path = require('node:path'), fs = require('node:fs'), { spawnSync } = require('node:child_process');
 
 const FILES = ['worker/public/static/app.js', 'worker/public/static/app.css'];
 const INDEX = 'worker/src/index.ts';
-const BUILD_LINE = /^const BUILD = "([^"\r\n]*)";/m;
+const BUILD_LINES = /^const BUILD = "([^"\r\n]*)";/gm;
 const PASSED = 0, FAILED = 1, USAGE = 2, NOT_CHECKED = 3;
 
 function git(repo, args) {
@@ -35,18 +36,30 @@ function check({ repo, base = 'origin/main' }) {
   const mb = git(repo, ['merge-base', head.out, ref.out]);
   if (!mb.ok || !/^[0-9a-f]{40,64}$/.test(mb.out)) return done(NOT_CHECKED, `NOT CHECKED: HEAD and "${base}" have no merge base (a shallow or unrelated history).`);
   const from = mb.out;
-  lines.push(`base: ${from.slice(0, 12)} (merge base of HEAD and ${base})`);
   const diff = git(repo, ['diff', '--name-only', from, '--', ...FILES]);
   if (!diff.ok) return done(NOT_CHECKED, `NOT CHECKED: git diff against ${from.slice(0, 12)} failed: ${diff.err}`);
   const changed = diff.out ? diff.out.split(/\r?\n/).filter(Boolean) : [];
-  if (!changed.length) return done(PASSED, 'PASS: app.js and app.css are unchanged since the base.');
-  let current = null;
-  try { current = (BUILD_LINE.exec(fs.readFileSync(path.join(repo, INDEX), 'utf8')) || [])[1] ?? null; } catch { current = null; }
-  if (current === null) return done(FAILED, `FAIL: ${changed.join(', ')} changed, and no BUILD constant could be read from ${INDEX}.`);
-  const old = git(repo, ['show', `${from}:${INDEX}`]), before = old.ok ? (BUILD_LINE.exec(old.out) || [])[1] ?? null : null;
-  if (before === null) return done(NOT_CHECKED, `NOT CHECKED: ${changed.join(', ')} changed, and the base has no readable BUILD in ${INDEX}.`);
-  if (before === current) return done(FAILED, `FAIL: ${changed.join(', ')} changed since the base, but BUILD is still "${current}". Members keep these files for a year under the BUILD in their URL; change BUILD in ${INDEX} in the same release.`);
-  return done(PASSED, `PASS: ${changed.join(', ')} changed and BUILD changed with them ("${before}" -> "${current}").`);
+  // Exactly one BUILD line on each side. A second line that looks like it (in a comment or a template string) could
+  // otherwise be read instead of the real constant and turn a failure into a pass (second review, 13 Nov 2026).
+  let text = null;
+  try { text = fs.readFileSync(path.join(repo, INDEX), 'utf8'); } catch { text = null; }
+  const old = git(repo, ['show', `${from}:${INDEX}`]);
+  const current = buildOf(text), before = buildOf(old.ok ? old.out : null);
+  // The base is printed with every result: a stale local origin/main is used as it is (fetch it first).
+  const at = `[base ${from.slice(0, 12)}, the merge base of HEAD and ${base}; BUILD at the base: ${before.value === null ? 'unreadable' : `"${before.value}"`}]`;
+  lines.push(`base: ${from.slice(0, 12)} (merge base of HEAD and ${base}), BUILD at the base: ${before.value === null ? `unreadable (${before.count} matching lines)` : `"${before.value}"`}`);
+  if (current.value === null) return done(FAILED, `FAIL: ${INDEX} in the working tree has ${current.count} lines of the form const BUILD = "..."; exactly one is required, so BUILD cannot be read. ${at}`);
+  if (before.value === null) return done(FAILED, `FAIL: ${INDEX} at the base has ${before.count} lines of the form const BUILD = "..."; exactly one is required, so the base BUILD cannot be read. ${at}`);
+  if (!changed.length) return done(PASSED, `PASS: app.js and app.css are unchanged since the base. ${at}`);
+  if (before.value === current.value) return done(FAILED, `FAIL: ${changed.join(', ')} changed since the base, but BUILD is still "${current.value}". Members keep these files for a year under the BUILD in their URL; change BUILD in ${INDEX} in the same release. ${at}`);
+  return done(PASSED, `PASS: ${changed.join(', ')} changed and BUILD changed with them ("${before.value}" -> "${current.value}"). ${at}`);
+}
+
+// The BUILD value when exactly one line matches; otherwise value is null and count says how many matched.
+function buildOf(text) {
+  if (typeof text !== 'string') return { value: null, count: 0 };
+  const found = [...text.matchAll(BUILD_LINES)];
+  return { value: found.length === 1 ? found[0][1] : null, count: found.length };
 }
 
 module.exports = { check, FILES, PASSED, FAILED, USAGE, NOT_CHECKED };

@@ -132,12 +132,15 @@ node scripts/check-asset-build.cjs --base <ref>    # base: the merge base of HEA
 node scripts/tests/check-asset-build.test.cjs      # its own cases
 ```
 
+Run `git fetch origin main` before a local run: the check uses the local `origin/main` however old it is, and prints the base commit and its `BUILD` beside the result.
+
 Signed-in members keep `/static/app.js?v=<BUILD>` and `/static/app.css?v=<BUILD>`
 in their browser for a year (CL2-076, owner ruling of 13 November 2026). The URL
 changes only when `BUILD` in `worker/src/index.ts` changes, so a release that
 edits either file under the same `BUILD` would leave members on the old files.
 The check compares the working tree with the base: exit 1 when either file
-differs and `BUILD` does not, exit 0 when neither file differs or `BUILD` changed
+differs and `BUILD` does not, or when `worker/src/index.ts` does not have exactly
+one `const BUILD = "...";` line in the working tree or at the base, exit 0 when neither file differs or `BUILD` changed
 with them, and exit 3, "NOT CHECKED", when no base can be resolved (no
 `origin/main`, an unknown or empty ref, a shallow or unrelated history). Exit 3
 is never a pass. CI runs it in the `worker` job against the pull request's base

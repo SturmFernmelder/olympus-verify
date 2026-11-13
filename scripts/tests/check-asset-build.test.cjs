@@ -1,7 +1,8 @@
 'use strict';
 // Cases for scripts/check-asset-build.cjs (review of CL2-076, 13 Nov 2026): app.js or app.css changed under an
 // unchanged BUILD fails; changed together with BUILD passes; nothing changed passes; no resolvable base is "not
-// checked", never a pass. Each case runs the script's own command line against a throwaway git repository.
+// checked", never a pass; anything but exactly one BUILD line in the tree or at the base fails; every result names the
+// base commit and its BUILD. Each case runs the script's own command line against a throwaway git repository.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), { spawnSync } = require('node:child_process');
 const SCRIPT = path.resolve(__dirname, '..', 'check-asset-build.cjs');
 let passed = 0, total = 0;
@@ -86,7 +87,41 @@ try {
   dir = repo();
   write(dir, 'worker/public/static/app.js', 'console.log("changed");\n'); write(dir, 'worker/src/index.ts', '// BUILD removed\n'); commit(dir, 'no build');
   r = run(dir);
-  check('a changed file with no readable current BUILD fails (exit 1)', r.code === 1 && /no BUILD constant/.test(r.out), r);
+  check('a changed file with no readable current BUILD fails (exit 1)', r.code === 1 && /working tree has 0 lines/.test(r.out), r);
+
+  // Second review (13 Nov 2026): exactly one BUILD line on each side. Each decoy sits before the real constant and
+  // carries a new value, so reading the first match would have passed a release that left BUILD unchanged.
+  const real = 'const BUILD = "2026-11-12.279 Base";\n';
+  for (const [label, decoy] of [['in a block comment', '/*\nconst BUILD = "2026-11-13.280 Decoy";\n*/\n'], ['in a template string', 'const NOTE = `\nconst BUILD = "2026-11-13.280 Decoy";\n`;\n']]) {
+    dir = repo();
+    write(dir, 'worker/public/static/app.js', 'console.log("changed");\n'); write(dir, 'worker/src/index.ts', '// fixture\n' + decoy + real + 'export default {};\n'); commit(dir, 'decoy ' + label);
+    r = run(dir);
+    check(`a decoy BUILD line ${label} with the real BUILD unchanged fails (exit 1), not a pass`, r.code === 1 && /^FAIL: worker\/src\/index\.ts in the working tree has 2 lines/m.test(r.out) && !/^PASS/m.test(r.out), r);
+  }
+  dir = repo();
+  write(dir, 'worker/src/index.ts', '// fixture\n' + real + real + 'export default {};\n'); commit(dir, 'two builds');
+  r = run(dir);
+  check('two BUILD lines fail even when app.js and app.css are unchanged (exit 1)', r.code === 1 && /has 2 lines/.test(r.out), r);
+
+  dir = repo({ origin: false });
+  write(dir, 'worker/src/index.ts', '// fixture\n/*\nconst BUILD = "old decoy";\n*/\n' + real + 'export default {};\n'); commit(dir, 'base with a decoy');
+  const decoyBase = git(dir, 'rev-parse', 'HEAD');
+  git(dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  write(dir, 'worker/public/static/app.js', 'console.log("changed");\n'); write(dir, 'worker/src/index.ts', build('2026-11-13.280 Next')); commit(dir, 'script and build');
+  r = run(dir);
+  check('a base with two BUILD lines fails (exit 1) with a message naming the base', r.code === 1 && /^FAIL: worker\/src\/index\.ts at the base has 2 lines/m.test(r.out) && r.out.includes(decoyBase.slice(0, 12)), r);
+
+  // Second review, finding 3: the base commit and its BUILD are printed beside the result, so a stale origin/main shows.
+  dir = repo();
+  const shown = git(dir, 'rev-parse', 'HEAD');
+  write(dir, 'worker/public/static/app.js', 'console.log("changed");\n'); write(dir, 'worker/src/index.ts', build('2026-11-13.280 Next')); commit(dir, 'script and build');
+  r = run(dir);
+  const result = r.out.split(/\r?\n/).find(l => /^(PASS|FAIL|NOT CHECKED)/.test(l)) || '';
+  check('the result line names the base commit and the BUILD at the base', r.code === 0 && result.includes(`[base ${shown.slice(0, 12)},`) && result.includes('BUILD at the base: "2026-11-12.279 Base"'), r);
+  dir = repo();
+  write(dir, 'worker/public/static/app.js', 'console.log("changed");\n'); commit(dir, 'script only');
+  r = run(dir);
+  check('a failing result names the base commit and the BUILD at the base too', r.code === 1 && /^FAIL: .*\[base [0-9a-f]{12}, .*BUILD at the base: "2026-11-12\.279 Base"\]$/m.test(r.out), r);
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
 }
