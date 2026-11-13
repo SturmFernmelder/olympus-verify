@@ -305,7 +305,8 @@
             return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("strong", { text: label }),
               h("ul", null, own.map(row => { const reporting = roleReporting218(row, family, {includeMinistry:false});
                 return h("li", { "data-rosetta-key1112": row.key }, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: row.applicationLabel || row.label }),
-                  " · ", row.ministry || row.department, reporting ? " · " + reporting : ""); })));
+                  // Round 4 (13 Nov 2026): the scope is its own span so phones can put it under the 44 px link.
+                  h("span", { class: "rosetta-key-scope1112" }, h("span", { class: "rosetta-sep1112", "aria-hidden": "true", text: " · " }), row.ministry || row.department, reporting ? " · " + reporting : "")); })));
           }))),
           h("p", { class: "rosetta-access1112" }, role ? h("strong", { text: role.roleName }) : h("span", { class: "muted", text: "Discord role unavailable" }),
             role?.granted === "verified_alt" ? " · given from the verified-alt record, not from the in-game rank." : role ? " · follows this rank on the verified roster." : "",
@@ -2238,8 +2239,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "799f92fd402ce87129c89e802a5d14a9463dbb0dfcc191ea08e47c011a471c01";
-  const GOVERNANCE_BYTES = 267458;
+  const GOVERNANCE_SHA256 = "794ce6b3304eac706681eee016cbd7eef1a97152778c491d3b5e7aa28263ff31";
+  const GOVERNANCE_BYTES = 267459;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -5193,7 +5194,7 @@
         h("div",{class:"appointed-grid"},rows.map(appointedRow))) : null;
     };
     const appointmentControls203 = appointmentDirectory203 ? (appointmentCatalogue1112
-      ? appointmentCatalogue1112.map(group => h("section", {"data-catalog-group":group.key}, h("h4", {class:"group-label",text:group.label}), group.families.map(appointmentFamily203)))
+      ? appointmentCatalogue1112.map(group => h("section", {"data-catalog-group":group.key}, h("h3", {class:"group-label",text:group.label}), group.families.map(appointmentFamily203)))
       : [...appointmentDirectory203.families].sort(compareCouncilFamilies228(councilFamilyOrder228(appointmentDirectory203))).map(appointmentFamily203)) : [h("p",{class:"muted small",text:"Family grouping is unavailable. The original scoped controls below remain unchanged."}),
       h("div",{class:"group-label",text:"Leadership"}),appointedGrid("leadership"),h("div",{class:"group-label",text:"Class leads"}),appointedGrid("class"),
       h("details",{class:"mt"},h("summary",{text:"Ten native rank display assignments"}),appointedGrid("native")),
