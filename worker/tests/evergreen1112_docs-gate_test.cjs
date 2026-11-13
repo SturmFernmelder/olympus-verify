@@ -118,12 +118,36 @@ async function budget() {
   check('a PARTIAL automatic-index target that cannot be resolved to a table is reported, so the gate fails closed', closedPartial.unresolved.length === 1 && closedPartial.scans.length === 0);
   db.close();
   const runtime = read('worker/tests/launch_roster_pacing271_runtime.mjs'), target = read('worker/tests/launch_roster_pacing271_workerd_test.cjs');
+  // Round 5 gate (13 Nov 2026). The pins were the route versions of 12 Nov (officer-operations-v233, launch-membership-v1);
+  // the Worker now serves the page at officer-operations-v234 and takes the native roster at native-roster-v2, and Codex's
+  // runtime follows it. The versions are read from the router in src/index.ts, so the check follows the routes the Worker
+  // actually serves instead of a remembered string, and it now also pins the strict display call and the drained
+  // deferred work (Codex counts waitUntil continuations since 805e968).
+  const router = read('worker/src/index.ts'), served = re => (router.match(re) || [])[1];
+  const pageVersion = served(/path==='\/queue\/launch-operations'&&versions\.length===1&&versions\[0\]==='([a-z0-9-]+)'/);
+  const ingestVersion = served(/path==='\/ingest\/roster'&&versions\.length===1&&versions\[0\]==='([a-z0-9-]+)'/);
+  const displayVersion = (read('worker/src/unverified.ts').match(/export const STRICT_ROSTER_DISPLAY_PROTOCOL_V2 = "([a-z0-9-]+)"/) || [])[1];
   check('the promotions target measures the page, the strict display and a 1,000-member ingest through worker.fetch',
-    runtime.includes("call('GET', '/queue/launch-operations?keyVersion=officer-operations-v233')") && runtime.includes("call('POST', '/ingest/roster?keyVersion=launch-membership-v1'")
-    && runtime.includes('page.statements < DIRECTIVE_STATEMENT_LIMIT') && runtime.includes('ingest.statements <= ROSTER_INGEST_STATEMENTS'));
+    !!pageVersion && !!ingestVersion && !!displayVersion && runtime.includes('response = await worker.fetch(request, env, measuredContext)')
+    && runtime.includes("call('GET', '/queue/launch-operations?keyVersion=" + pageVersion + "')") && runtime.includes("call('GET', '/queue/unverified?keyVersion=" + displayVersion + "')")
+    && runtime.includes("call('POST', '/ingest/roster?keyVersion=" + ingestVersion + "'")
+    && runtime.includes('page.statements < DIRECTIVE_STATEMENT_LIMIT') && runtime.includes('display.statements < DIRECTIVE_STATEMENT_LIMIT')
+    && runtime.includes('ingest.statements <= ROSTER_INGEST_STATEMENTS && ingest.allDeferredDrained'));
+  // Round 5 gate: the first half of this check (every table explained, no unresolved alias, the reads planned before the
+  // ingest writes) is still guaranteed and checked here in its current form. The second half ("pins each known scan
+  // exactly", KNOWN_REQUEST_SCANS with 'privacy_subjects: SCAN ps': 40) was removed from the runtime in the 13 Nov merge
+  // 0984102 ("do not pin the old dfca plan strings"): the promotions target now records scans but fails on none. That is
+  // a lost guarantee of the gate, reported to Codex; it is the separate check below and stays red until a current
+  // allow-list is enforced again (or the documents stop claiming one).
   check('the promotions target explains every table and pins each known scan exactly',
-    runtime.includes('await fullScans(genuine, log)') && runtime.includes('KNOWN_REQUEST_SCANS') && runtime.includes("'privacy_subjects: SCAN ps': 40")
-    && runtime.includes('result.unresolved.length === 0') && runtime.indexOf("await timed('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
+    runtime.includes('await fullScans(genuine, log)') && runtime.includes('result.explained === log.length && result.explained > 0 && result.unresolved.length === 0')
+    && ['page', 'display', 'ingest'].every(name => runtime.includes("await explain('" + name + "', " + name + '.log)'))
+    && runtime.indexOf("await explain('display'") < runtime.indexOf("call('POST', '/ingest/roster") && runtime.indexOf("timedOriginal('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
+  const qualifyHelp = read('worker/scripts/qualify.cjs');
+  const claimsAllowList = /every full scan of any table must match the recorded allow-list/.test(qualifyHelp) || /remove\s+the entry from the allow-list/.test(read('docs/release-qualification.md'));
+  const enforcesAllowList = /KNOWN_[A-Z_]*SCANS/.test(runtime) && /JSON\.stringify\(scanCounts\([^)]*\)\)\s*===\s*JSON\.stringify\(/.test(runtime);
+  check('LOST GUARANTEE (reported to Codex, round 5): a full scan outside the documented allow-list fails the promotions target, as qualify --help and release-qualification.md say',
+    enforcesAllowList || !claimsAllowList);
   // 12 Nov review (REV-GATE-2): the ingest's members scan comes from BOUND_AND_NOTE_SELECT's UNION ALL arm, not from
   // BOUND_SELECT (characters LEFT JOIN privacy_subjects). Proven on the schema, then the two descriptions are checked.
   const roster = read('worker/src/roster.ts'), schemaDb = new DatabaseSync(':memory:');
@@ -134,9 +158,13 @@ async function budget() {
     planOf(boundSql).includes('SCAN c') && !planOf(boundSql).includes('SCAN m') && planOf(boundSql + noteArm).includes('SCAN m'));
   schemaDb.close();
   const rqDoc = read('docs/release-qualification.md'), memberRow = rqDoc.split('\n').find(line => line.startsWith('   |') && line.includes('`SCAN m`')) ?? '';
+  // Round 5 gate: the runtime comment this check also read sat on the KNOWN_REQUEST_SCANS entry 'members: SCAN m': 1,
+  // removed with the allow-list (see the lost-guarantee check above). Where the runtime still names the members scan it
+  // must attribute it the same way; the documented row is checked as before, against the plan proven above.
+  const runtimeNames = /SCAN m\b/.test(runtime);
   check('the known-scans table and the runtime comment attribute the members scan to BOUND_AND_NOTE_SELECT',
     memberRow.includes('BOUND_AND_NOTE_SELECT') && /UNION ALL[^|]*banned=0/.test(memberRow)
-    && /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime));
+    && (!runtimeNames || /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime)));
   check('the promotions target fails unless all sixteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===16'));
 }
 
