@@ -294,6 +294,16 @@ check('when local blanking is claimed it keeps the stated facts and covers both 
   return says(/In both places the sender, amount, time, status, item names and counts, and the record IDs stay, and a blanked record is never uploaded\./) === true
     && says(/the local copies keep theirs as long as they keep the record/) === true || 'local blanking facts incomplete';
 });
+// Round 5 review (13 Nov 2026), finding 4: Codex's components do not blank without exception. The addon helper
+// leaves "Unknown/malformed/cyclic or oversized financial graphs ... unchanged" (local-correspondence-prototype280
+// REPORT.md), and the Watcher persists no partial ledger when a scoped preflight fails and keeps unsupported or
+// malformed originals "individually held" (watcher-local-correspondence-prototype280 CONTRACT-01.json). A claim of
+// local blanking must say so, and must not promise that every record is blanked.
+check('when local blanking is claimed it states the exception for damaged or oversized saved data, held and not uploaded', () => {
+  if (!/it blanks the old text in its saved file/.test(section)) return true;
+  return says(/If the saved data is damaged or too large to process safely, the addon or the Watcher leaves the old text in it as it is; those records stay held and are never uploaded\./) === true
+    && !/(?:always|every record|without exception)[^.]*blank|blank[^.]*(?:always|every record|without exception)/i.test(section) || 'local blanking exception missing or overclaimed';
+});
 
 Promise.all(results).then(done => {
   for (const { name, pass, detail } of done) console.log((pass ? 'PASS ' : 'FAIL ') + name + (pass ? '' : '\n     ' + detail.slice(0, 600)));

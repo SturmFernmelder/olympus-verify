@@ -254,7 +254,8 @@ names and counts, and the record IDs stay.</p>
 text in its saved file, including where the text was part of an internal lookup key; the game writes the change to disk
 when the officer next reloads or logs out. The next time the Watcher starts, it blanks the old text in its own local
 copy. In both places the sender, amount, time, status, item names and counts, and the record IDs stay, and a blanked
-record is never uploaded.</p>
+record is never uploaded. If the saved data is damaged or too large to process safely, the addon or the Watcher
+leaves the old text in it as it is; those records stay held and are never uploaded.</p>
 <p><strong>The kept checksum.</strong> The server's receipts, the addon's file and the Watcher's copy each keep a
 checksum made from the original record, including the old text. A checksum cannot be turned back into the text. Once
 the text is blanked, the checksum no longer matches the record, so it proves nothing about what the text said. Someone
