@@ -11,12 +11,14 @@ const args = process.argv.slice(2), at = args.indexOf('--root');
 const repo = path.resolve(at >= 0 ? args[at + 1] : path.join(__dirname, '..', '..')), worker = path.join(repo, 'worker');
 const read = rel => fs.readFileSync(path.join(repo, rel), 'utf8');
 const results = [];
+// A check may be synchronous or async; results are reported in declaration order at the end.
 function check(name, fn) {
-  let pass = false, detail = '';
-  try { const r = fn(); pass = r === true; if (!pass) detail = typeof r === 'string' ? r : JSON.stringify(r); }
-  catch (error) { detail = String(error && error.stack || error).split('\n').slice(0, 3).join(' | '); }
-  results.push({ name, pass });
-  console.log((pass ? 'PASS ' : 'FAIL ') + name + (pass ? '' : '\n     ' + detail.slice(0, 600)));
+  results.push((async () => {
+    let pass = false, detail = '';
+    try { const r = await fn(); pass = r === true; if (!pass) detail = typeof r === 'string' ? r : JSON.stringify(r); }
+    catch (error) { detail = String(error && error.stack || error).split('\n').slice(0, 3).join(' | '); }
+    return { name, pass, detail };
+  })());
 }
 
 const html = read('policies/privacy.html');
@@ -160,8 +162,57 @@ check('policy: the separate privacy-connection copy contains no gold receipts; i
 });
 check('policy: how to ask for mail receipts names a role and a channel, never a person', () => {
   const para = /Gold receipts in your data download\.([^]*?)(?:After an account erasure\.)/.exec(section);
-  return !!para && /ask an Olympus officer in Asmongold's Discord server and name your character\. The officer looks up that character's receipts by hand and shares them with you\./.test(para[1])
+  return !!para && /ask an Olympus officer in Asmongold's Discord server and name your character\./.test(para[1])
     && !/Rich Campbell|richwcampbell|Fernmelder/.test(section) || 'ask route missing or names a person';
+});
+// Round 5 review (13 Nov 2026), findings 1 and 2. A mail receipt carries only a name, and a name can later belong
+// to another player, so the ruling "Officer looks them up" ("an officer checks the character by hand and shares
+// them") needs the ownership check written into the procedure. The staff receipt ledger is a site-admin page, so
+// the text may not say that any officer looks the receipts up. Not covered by the ruling, so not written: a time
+// limit (only receipts from while the character was yours) and which officer answers.
+let lookupMod = null;
+try {
+  const { buildSync } = require(require.resolve('esbuild', { paths: [worker] }));
+  const entry = "export {ownerOfCharacter} from './src/lookup.ts';\nexport {communityFacts,capabilitiesOf} from './src/community-context.ts';";
+  const out = buildSync({ stdin: { contents: entry, resolveDir: worker, loader: 'ts' }, bundle: true, write: false, format: 'cjs', platform: 'node', target: 'es2022', logLevel: 'silent' });
+  const m = { exports: {} };
+  new Function('module', 'exports', 'require', out.outputFiles[0].text)(m, m.exports, require);
+  lookupMod = m.exports;
+} catch (error) { console.log('lookup bundle failed: ' + String(error).slice(0, 300)); }
+check('policy: the officer first checks that the named character is linked to the asker\'s Discord account; the officer lookup tells linked, someone else\'s and only-reserved apart (behaviour, node:sqlite)', async () => {
+  if (!lookupMod) return 'bundle unavailable';
+  const db = database();
+  db.exec("CREATE TABLE site_reserved(id INTEGER PRIMARY KEY AUTOINCREMENT,owner_id TEXT NOT NULL,name TEXT NOT NULL,name_key TEXT NOT NULL,status TEXT NOT NULL)");
+  const t = now(), ins = db.prepare('INSERT INTO characters(name_key,name,discord_id,status,bound_at,verified_at,guid)VALUES(?,?,?,?,?,?,?)');
+  ins.run('syntheticmine', 'Syntheticmine', ME, 'member', t, t, MY_GUID);
+  ins.run('syntheticother', 'Syntheticother', OTHER, 'member', t, t, SHARED_GUID);
+  db.prepare("INSERT INTO site_reserved(owner_id,name,name_key,status)VALUES(?,?,?,'reserved')").run(ME, 'Syntheticwish', 'syntheticwish');
+  // A D1-shaped env whose .first() is answered by node:sqlite.
+  const env = { DB: { prepare(sql) { return { bind(...a) { return { first: async () => db.prepare(sql.replace(/\?\d+/g, '?')).get(...a) ?? null }; } }; } } };
+  const got = await Promise.all(['Syntheticmine', 'Syntheticother', 'Syntheticwish', 'Syntheticnobody'].map(n => lookupMod.ownerOfCharacter(env, n)));
+  const para = /Gold receipts in your data download\.([^]*?)(?:After an account erasure\.)/.exec(section);
+  const [mine, other, wish, nobody] = got;
+  return !!para && /The officer first checks that the character is linked to your Discord account, and shares nothing if it is not\./.test(para[1])
+    && /and the officer shares only those with you\./.test(para[1]) && !/The officer looks up that character's receipts/.test(para[1])
+    && mine && mine.id === ME && /is linked to this account/.test(mine.how)
+    && other && other.id === OTHER && /is linked to this account/.test(other.how)
+    && wish && wish.id === ME && /is not linked to anyone yet/.test(wish.how) && nobody === null
+    || { para: para && para[1].slice(-400), got };
+});
+check('policy: a site administrator looks the mail receipts up; the receipt ledger is a site-admin page and a Discord officer who is not a site admin cannot open it (behaviour)', async () => {
+  if (!lookupMod) return 'bundle unavailable';
+  const para = /Gold receipts in your data download\.([^]*?)(?:After an account erasure\.)/.exec(section);
+  const api = read('worker/src/site-api.ts'), admin = read('worker/src/site-admin.ts'), ledger = read('worker/src/intake242.ts');
+  const gate = /if \(path\.startsWith\("\/api\/admin\/"\)\) \{\s*if \(!admin\) return apiJson\(\{ error: "forbidden" \}, 403\);/.test(api) && /const admin = isSiteAdmin\(env, user\.discord_id\);/.test(api);
+  const route = /parts\[0\] === 'treasury' && parts\[1\] === 'ledger' && m === 'GET'\) return treasuryLedger242\(/.test(admin);
+  const staffOnly = /export async function treasuryLedger242[\s\S]{0,400}if\(!ctx\.capabilities\.communityStaff\)return apiJson\(\{error:'forbidden'\},403\);/.test(ledger);
+  // The staff capability comes from SITE_ADMINS alone: a roster-confirmed member who is not listed does not get it.
+  const env = () => ({ SITE_ADMINS: '300000000000000009', DB: { prepare() { return { bind() { return { first: async () => ({ n: 1, banned: 0 }) }; } }; } } });
+  const user = id => ({ discord_id: id, denied: 0, in_server: 1 });
+  const officer = lookupMod.capabilitiesOf(await lookupMod.communityFacts(env(), user(ME))).communityStaff;
+  const siteAdmin = lookupMod.capabilitiesOf(await lookupMod.communityFacts(env(), user('300000000000000009'))).communityStaff;
+  return !!para && /A site administrator then looks up that character's mail receipts by hand/.test(para[1])
+    && gate && route && staffOnly && officer === false && siteAdmin === true || { gate, route, staffOnly, officer, siteAdmin };
 });
 
 // ---------- 4. erasure ----------
@@ -244,6 +295,9 @@ check('when local blanking is claimed it keeps the stated facts and covers both 
     && says(/the local copies keep theirs as long as they keep the record/) === true || 'local blanking facts incomplete';
 });
 
-const passed = results.filter(r => r.pass).length;
-console.log(passed + '/' + results.length + ' privacy text checks (root ' + repo + ')');
-if (passed !== results.length) process.exitCode = 1;
+Promise.all(results).then(done => {
+  for (const { name, pass, detail } of done) console.log((pass ? 'PASS ' : 'FAIL ') + name + (pass ? '' : '\n     ' + detail.slice(0, 600)));
+  const passed = done.filter(r => r.pass).length;
+  console.log(passed + '/' + done.length + ' privacy text checks (root ' + repo + ')');
+  if (passed !== done.length) process.exitCode = 1;
+});
