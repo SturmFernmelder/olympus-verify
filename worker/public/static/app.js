@@ -930,6 +930,7 @@
   // This page's version, sent with every call. The Worker refuses saves from a page older than itself (a page opened
   // before an update would send an old shape), so it must match PAGE_VERSION in src/site-core.ts.
   const PAGE_VERSION = "2";
+  const WRITE_ANSWER_LOST = "The answer did not arrive, so it is not known whether this was saved. Reload the page and check before you repeat it.";
   let boardSummaryRead = null; // Session-memory counts only, never candidate records or write authority.
   const SESSION_ENDED_ENTRY = "/?entry=session-ended";
   let endingSiteSession = false;
@@ -957,7 +958,10 @@
     try {
       res = await fetch(path, init);
     } catch {
-      throw new ApiError(0, { message: "The site could not be reached. Check your connection and try again." });
+      // Round 4 item 1 (13 Nov 2026): a failed fetch can be an answer lost after the Worker acted, so only a read invites a
+      // retry. For a write the message wins over every caller's fallback in explain() and err.message, so none can undo it.
+      if (method === "GET" || method === "HEAD") throw new ApiError(0, { message: "The site could not be reached. Check your connection and try again." });
+      throw new ApiError(0, { message: WRITE_ANSWER_LOST });
     }
     let data = null;
     const raw = await res.text().catch(() => null);

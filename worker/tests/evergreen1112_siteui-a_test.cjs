@@ -747,6 +747,59 @@ async function round3Inner(cdp, want) {
   }
 }
 
+/** Stage 2 round 4 (13 Nov 2026): a write whose answer is lost after the Worker processed it. */
+async function round4Checks(cdp) {
+  const want = id => !only || only.has(id);
+  // Each flow: the request reaches the Worker, the Worker answers, and the answer is dropped (ConnectionReset) before the page
+  // reads it. The page must say the outcome is unknown and must not invite a retry or blame the connection.
+  const lostAfterProcessing = async (pattern, act, readout) => {
+    const seen = [];
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: pattern, requestStage: 'Response' }] });
+    cdp.onPaused = p => { seen.push({ method: p.request.method, status: p.responseStatusCode }); return cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' }); };
+    try {
+      await cdp.eval(act);
+      for (let i = 0; i < 60 && !seen.length; i++) await sleep(100);
+      await sleep(900);
+    } finally { cdp.onPaused = null; await cdp.send('Fetch.disable'); }
+    return { seen, said: await cdp.eval(readout) };
+  };
+  const unknownWords = s => /not known whether/.test(s) && /[Rr]eload|[Cc]heck/.test(s) && !/try again|check your connection|could not be reached/i.test(s);
+  const toasts = `[...document.querySelectorAll('.toast.bad span')].map(s => s.textContent).join(' | ')`;
+  if (want('R4-1')) {
+    await open(cdp, 'member', 'verify', 'document.querySelector("main form input")');
+    const v = await lostAfterProcessing('*/api/me/verification',
+      `(() => { const i = document.querySelector('main form input'); i.value = 'Fern Melder'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('main form button[type="submit"]').click(); return true; })()`,
+      `document.querySelector('main form [role=status] p.err')?.textContent || ''`);
+    check('R4-1', '/#/verify: the verification answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', v.seen.length === 1 && v.seen[0].method === 'POST' && v.seen[0].status === 200 && unknownWords(v.said), JSON.stringify(v));
+
+    await open(cdp, 'member', 'vote', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save nominations" && !b.disabled)');
+    const n = await lostAfterProcessing('*/api/votes',
+      `(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); const b = [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save nominations' && !x.disabled); if (!b) return false; b.click(); return true; })()`, toasts);
+    check('R4-1', '/#/vote: Save nominations with its answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', n.seen.length === 1 && n.seen[0].method === 'PUT' && n.seen[0].status === 200 && unknownWords(n.said), JSON.stringify(n));
+
+    await open(cdp, 'member', '', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save friends")');
+    const f = await lostAfterProcessing('*/api/friends',
+      `(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save friends').click(); return true; })()`, toasts);
+    check('R4-1', 'Home: Save friends with its answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', f.seen.length === 1 && f.seen[0].method === 'PUT' && f.seen[0].status === 200 && unknownWords(f.said), JSON.stringify(f));
+
+    // Control: a lost READ still invites a retry, and a refusal the Worker did answer keeps its own words.
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/news', requestStage: 'Request' }] });
+    cdp.onPaused = p => cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' });
+    await open(cdp, 'member', 'news', 'document.querySelector("main .notice-box")');
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const readSaid = await cdp.eval(`document.querySelector('main .notice-box')?.textContent || ''`);
+    check('R4-1', 'control: a lost read (the news list) still says the site could not be reached and offers Try again', /could not be reached/.test(readSaid) && /Try again/.test(readSaid), readSaid.slice(0, 200));
+    await open(cdp, 'member', '', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save friends")');
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/friends', requestStage: 'Request' }] });
+    cdp.onPaused = p => cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 400, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify({ error: 'invalid', message: 'Synthetic refusal from the Worker.' })).toString('base64') });
+    await cdp.eval(`(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save friends').click(); return true; })()`);
+    await sleep(1200);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const refusal = await cdp.eval(toasts);
+    check('R4-1', 'control: a refusal the Worker answered with a message still shows that message', refusal === 'Synthetic refusal from the Worker.', refusal);
+  }
+}
+
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
 async function layoutChecks(cdp) {
   for (const [route, ready] of [['admin/appointments', 'document.querySelector("[data-appointed-holder]")'], ['admin', 'document.querySelector(".admin-section-group228")']]) {
@@ -776,6 +829,15 @@ async function layoutChecks(cdp) {
   // --followup-only runs just the follow-up browser checks (UX-LOAD-001, BROWSER-03); the full run includes them.
   // --round3-only runs just the round 3 browser checks (RC-097, RC-017, ROUND3-9, ROUND3-10) and the unit checks.
   const round3Only = process.argv.includes('--round3-only');
+  // --round4-only runs just the round 4 browser checks (R4-1 and the items added after it).
+  if (process.argv.includes('--round4-only')) {
+    const cdp = await launchEdge(CDP_PORT, args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-')));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
+    try { await round4Checks(cdp); } finally { await cdp.close(); }
+    console.log(`RESULT ${results.length - failures}/${results.length} passed`);
+    process.exitCode = failures ? 1 : 0;
+    return;
+  }
   if (round3Only) {
     await unitChecks();
     const cdp = await launchEdge(CDP_PORT, args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-')));
@@ -793,7 +855,7 @@ async function layoutChecks(cdp) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!followupOnly) await round3Checks(cdp); if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
+    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!followupOnly) { await round3Checks(cdp); await round4Checks(cdp); } if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));
