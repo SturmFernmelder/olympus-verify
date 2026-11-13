@@ -140,7 +140,7 @@ const recordTool169 = (page, namespace, calls) => {
   const eligible175 = { id: OTHER, label: "Eligible officeholder", shown: "Eligible officeholder", onSite: true, appointmentStatus: "eligible", linked: false };
   let searches175 = 0;
   appointmentPage.before(pathname => { if (pathname.startsWith("/api/search?purpose=appointment")) searches175++; return false; });
-  appointmentPage.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { results: [
+  appointmentPage.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { siteProfilesVisible: true, results: [
     { id: absent175, label: "Discord-only officeholder", onSite: false, appointmentStatus: "eligible" },
     { id: DENIED, label: "Unavailable officeholder", onSite: true, appointmentStatus: "unavailable" }, eligible175,
   ] } : null);
