@@ -1,10 +1,11 @@
 """Blizzard's Discord guild-chat bridge (patch 12.1 code, present in the Forever client) relays Discord users' text into
 guild chat, and so into WoWChatLog.txt. Nothing a Discord user types may be read as a guild system line, a whisper,
 or a trusted join token. Run from the watcher folder:  python tests/test_discord_relay.py"""
-import importlib.util, pathlib, sys
-here = pathlib.Path(__file__).resolve().parent.parent
-sys.argv = ["watcher.py"]
-spec = importlib.util.spec_from_file_location("w", here / "watcher.py"); w = importlib.util.module_from_spec(spec); spec.loader.exec_module(w)
+import pathlib
+import sys
+import unittest
+sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent.parent))
+import watcher as w
 
 def parse(line):
     hits = []
@@ -39,12 +40,15 @@ relayed = [
     "|TInterface\\Discord:14|t Tater Toe whispers: !verify ABC123",
     "|Kq12|k whispers: !verify ABC123",                   # a Battle.net whisper is not a character whisper
 ]
-fails = 0
-for line, want in genuine.items():
-    got = parse(line); fails += got != want
-    print(("PASS" if got == want else "FAIL"), "genuine", got)
-for text in relayed:
-    got = parse(S + text); fails += bool(got)
-    print(("PASS" if not got else "FAIL"), "relayed ->", got or "ignored", "::", text[:60])
-print(f"{len(genuine) + len(relayed) - fails}/{len(genuine) + len(relayed)} passed")
-sys.exit(1 if fails else 0)
+class DiscordRelayTests(unittest.TestCase):
+    def test_genuine_sources_and_relay_text_are_distinct(self):
+        for line,want in genuine.items():
+            with self.subTest(source="genuine",line=line):
+                self.assertEqual(parse(line),want)
+        for text in relayed:
+            with self.subTest(source="relay",text=text):
+                self.assertEqual(parse(S+text),[])
+
+
+if __name__ == "__main__":
+    unittest.main()
