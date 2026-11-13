@@ -2218,8 +2218,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "8911aa306fd96b8e5c94a36bcddf58eca4764a19aad72d05df667d106e534c1f";
-  const GOVERNANCE_BYTES = 267589;
+  const GOVERNANCE_SHA256 = "799f92fd402ce87129c89e802a5d14a9463dbb0dfcc191ea08e47c011a471c01";
+  const GOVERNANCE_BYTES = 267458;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
