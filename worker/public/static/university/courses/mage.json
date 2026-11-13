@@ -835,9 +835,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Arcane Mind at 5/5 raises your Intellect by 10% and the crit damage bonus of your Arcane spells by 100%.",
           "facts": [
            "talents-mage.arcane-arcane-mind.r5"
@@ -1485,9 +1482,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Ignite at 5/5 burns the target for 40% of a Fire crit's damage over 4 sec.",
           "facts": [
            "talents-mage.fire-ignite.r5"
@@ -2121,9 +2115,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Ice Shards at 5/5 adds 100% to the crit damage bonus of your Frost spells.",
           "facts": [

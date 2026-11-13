@@ -611,9 +611,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Weaponmaster at 5/5 gives +5% crit with axes and polearms, ignores 15% of armor with maces and staves, or gives a 5% chance of an extra attack with swords.",
           "facts": [
            "class-warrior.weaponmaster-at-5-5"
@@ -1493,7 +1490,10 @@
           ]
          },
          {
-          "text": "Open the dungeon build below in the talent calculator and check it against your talents in game before you spend points."
+          "text": "Compared with Classic 1.12, the Protection tree has 3 new and 14 changed talents, so read each talent's current text instead of a Classic guide's description.",
+          "facts": [
+           "talents-warrior.protection-summary"
+          ]
          }
         ],
         "mistakes": [

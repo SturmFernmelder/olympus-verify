@@ -521,9 +521,15 @@ check('review: the Gnome guide teaches Eureka! on Power Word: Shield from the 16
 check('renderer: a track states each omission reason once, preset chapters carry no duplicate "check in game" step, and race leads open with their facts', async () => {
   const human = await open(['race', 'human', '201']), arms = await open(['class', 'warrior', 'arms', '301']);
   const counts = p => { const s = p.container.querySelectorAll('section').find(x => /Intermediate|Advanced/.test(text(x.querySelector('h2')))); const seen = new Map(); for (const li of s.querySelectorAll('li')) { const t = text(li).replace(/^[^:]*: /, ''); seen.set(t, (seen.get(t) || 0) + 1); } return [...seen.values()].every(n => n === 1); };
-  const dup = guideFiles().flatMap(chaptersOf).filter(c => c.presets && c.praxis && c.praxis.steps.some(s => /^Open the build in the talent calculator/.test(s.text))).map(c => c.id);
+  // REV-UNI-3 (12 Nov 2026): the preset block already says to check a build in game, so a preset chapter's own steps must
+  // not repeat it in any wording (check, compare or verify a build or talents in game, or open it in the calculator first).
+  const ownCheck = t => /\b(?:check|compare|verify|confirm)\b[^.]*\b(?:builds?|talents?|points)\b[^.]*\bin[- ]game\b/i.test(t) || /\bin[- ]game\b[^.]*\bbefore you (?:spend|use|attach|commit)/i.test(t)
+    || /\b(?:open|load)\b[^.]*\btalent calculator\b/i.test(t);
+  const dup = guideFiles().flatMap(chaptersOf).filter(c => c.presets && c.praxis && c.praxis.steps.some(s => ownCheck(s.text))).map(c => c.id);
+  const shown = ['Check a build against your talents in game before you use it or attach it to an application.', 'Open a build in the talent calculator and check it against your talents in game before you spend points.',
+    'Open the dungeon build below in the talent calculator and check it against your talents in game before you spend points.', 'Compare the build with your talents in-game first.'].every(ownCheck);
   const leads = guideFiles().filter(g => g.kind === 'race').filter(g => /one of the five Alliance races/.test(g.overview.lead)).map(g => g.id);
-  return counts(human) && counts(arms) && dup.length === 0 && leads.length === 0 || JSON.stringify({ dup, leads });
+  return counts(human) && counts(arms) && shown && dup.length === 0 && leads.length === 0 || JSON.stringify({ dup, leads, shown });
 });
 check('renderer: the hub says how many chapters are written and waiting, computed from the index, and claims no more', async () => {
   const ix = json(uni, 'index.json'), p = await open([]);

@@ -853,9 +853,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Divine Aegis at rank 3 of 3 makes each shield worth 15% of the critical heal, up to 1,200 damage.",
           "facts": [
            "talents-priest.discipline-divine-aegis.r3"
@@ -1421,9 +1418,6 @@
        "praxis": {
         "steps": [
          {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
-         {
           "text": "Spiritual Guidance at rank 5 adds spell healing equal to up to 25% of your total Spirit, and spell damage up to 8%.",
           "facts": [
            "talents-priest.holy-spiritual-guidance.r5"
@@ -1976,9 +1970,6 @@
        ],
        "praxis": {
         "steps": [
-         {
-          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
-         },
          {
           "text": "Darkness adds 10% Shadow damage at rank 5 of 5.",
           "facts": [
