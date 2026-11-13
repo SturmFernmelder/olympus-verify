@@ -15,6 +15,8 @@
 //          [--personas member,officer,owner,treasurer] [--widths 390,375,320] [--routes home,apply]
 //        node tests/evergreen1112_touch_browser.mjs --report <before.json> <after.json>   (markdown tables to stdout)
 //        node tests/evergreen1112_touch_browser.mjs --assert <after.json> [--before <before.json>]   (exit code = failures)
+//        --except-policy-pages leaves out the script-free policy pages (/legal/privacy, /legal/terms and #/data, which opens
+//        /privacy/account): their stylesheet, policies.css, is pinned by digest outside this area (handoff to Root).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -140,10 +142,18 @@ function group(sweepResult) {
   return [...m.values()].sort((a, b) => a.route.localeCompare(b.route) || a.selector.localeCompare(b.selector));
 }
 const cell = s => String(s).replace(/\|/g, '\\|');
+// The report folds controls that differ only in their text into one row per (route, selector), with examples and a count.
 function table(rows) {
-  const out = ['| Route | Selector | Text | Size (min w x h) | Personas | Widths |', '|---|---|---|---|---|---|'];
-  for (const g of rows) out.push(`| ${cell(g.route)} | \`${cell(g.selector)}\` | ${cell(g.text)} | ${g.minW} x ${g.minH} | ${[...g.personas].join(', ')} | ${[...g.widths].join(', ')} |`);
-  return out.join('\n');
+  const m = new Map();
+  for (const g of rows) {
+    const k = g.route + '|' + g.selector;
+    const t = m.get(k) || { route: g.route, selector: g.selector, texts: new Set(), personas: new Set(), widths: new Set(), minW: Infinity, minH: Infinity };
+    t.texts.add(g.text); for (const p of g.personas) t.personas.add(p); for (const w of g.widths) t.widths.add(w);
+    t.minW = Math.min(t.minW, g.minW); t.minH = Math.min(t.minH, g.minH); m.set(k, t);
+  }
+  const out = ['| Route | Selector | Controls (examples) | Size (min w x h) | Personas | Widths |', '|---|---|---|---|---|---|'];
+  for (const g of m.values()) out.push(`| ${cell(g.route)} | \`${cell(g.selector)}\` | ${g.texts.size}: ${cell([...g.texts].slice(0, 2).map(t => '"' + t + '"').join(', '))} | ${g.minW} x ${g.minH} | ${[...g.personas].join(', ')} | ${[...g.widths].join(', ')} |`);
+  return { rows: m.size, text: out.join('\n') };
 }
 function overflowRows(sweepResult) { return sweepResult.pages.filter(p => p.overflow > 0).map(p => `| ${p.persona} | ${p.width} | ${cell(p.route)} | ${p.overflow} | ${cell((p.wide || []).join('; '))} |`); }
 function report(beforeFile, afterFile) {
@@ -151,7 +161,8 @@ function report(beforeFile, afterFile) {
   const out = [];
   for (const [name, r] of [['Before', b], ['After', a]]) {
     const g = group(r);
-    out.push(`## ${name}: ${r.base} (${r.at}), ${r.pages.length} page measurements, ${g.length} distinct controls under ${MIN} px`, '', g.length ? table(g) : '(none)', '');
+    const t = table(g);
+    out.push(`## ${name}: ${r.base} (${r.at}), ${r.pages.length} page measurements, ${g.length} distinct controls under ${MIN} px in ${t.rows} (route, selector) rows`, '', g.length ? t.text : '(none)', '');
     const o = overflowRows(r);
     out.push(`### ${name}: horizontal overflow (${o.length} page measurements over 0 px)`, '', o.length ? ['| Persona | Width | Route | Overflow px | Widest elements |', '|---|---|---|---|---|', ...o].join('\n') : '(none at any of the six widths)', '');
   }
@@ -176,12 +187,12 @@ function assert(afterFile, beforeFile) {
   const a = load(afterFile), b = beforeFile ? load(beforeFile) : null;
   let fails = 0;
   const check = (name, ok, detail) => { if (!ok) fails++; console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail === undefined ? '' : ' :: ' + JSON.stringify(detail).slice(0, 1500)}`); };
-  const allowed = (process.env.TOUCH_ALLOW || '').split(';').filter(Boolean).map(s => new RegExp(s));
-  const g = group(a).filter(x => !allowed.some(re => re.test(`${x.route} ${x.selector}`)));
+  const policyPages = new Set(['/legal/privacy', '/legal/terms', 'data']);
+  const g = group(a).filter(x => !(argv.includes('--except-policy-pages') && policyPages.has(x.route)));
   const routes = new Set(a.pages.map(p => p.route)), phones = new Set(a.pages.filter(p => p.small).map(p => p.width));
   check('the sweep covered at least 30 routes at 390, 375 and 320 px for member, officer and owner', routes.size >= 30 && [390, 375, 320].every(w => phones.has(w)) && ['member', 'officer', 'owner'].every(p => a.personas.includes(p)), { routes: routes.size, phones: [...phones] });
   check('the sweep finished without page errors', a.errors.length === 0, a.errors.slice(0, 3));
-  check(`no standalone control under ${MIN} px at 390, 375 and 320 px`, g.length === 0, g.slice(0, 12).map(x => `${x.route} ${x.selector} "${x.text}" ${x.minW}x${x.minH}`));
+  check(`no standalone control under ${MIN} px at 390, 375 and 320 px${argv.includes('--except-policy-pages') ? ' (script-free policy pages excepted)' : ''}`, g.length === 0, g.slice(0, 12).map(x => `${x.route} ${x.selector} "${x.text}" ${x.minW}x${x.minH}`));
   const over = a.pages.filter(p => p.overflow > 0);
   check('no horizontal page overflow on any measured route at 1440, 1280, 768, 390, 375 and 320 px', over.length === 0, over.slice(0, 8).map(p => `${p.persona}@${p.width} ${p.route} +${p.overflow} ${(p.wide || []).join(';')}`));
   if (b) {
