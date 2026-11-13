@@ -23,7 +23,9 @@ const XP=[['ban-delete',BAN,0,BAN_PROFILE],['routine-put','canonical_routine233'
 const XP_CASES=XP.flatMap(([key,purpose,desired,profile])=>[['older','e'.repeat(32)],['current',null]].map(([gen,generation])=>({kind:'xp-'+key+'-'+gen,purpose,desired,profile,generation})));
 const ORIGINAL_KINDS=['bot-veteran','member-manual','officer-manual','retired-manual','stack','none','not-member','delete-404','delete-403','delete-429','unknown','unban-reban','race-reban','race-inflight','hierarchy','budget','sweep-cost','ack-loss','ack-loss-unread','lost-unban','erasure-debt','long-card','slice','progress','receipt-lost','receipt-lost-interrupted'];
 const SUCCESSOR_KINDS=['late-delete','known-ack','known-migrate','known-nd','known-404','malformed-retired','malformed-variant','inserted-ack-control','effect-not-confirmed','confirm-unknown','lanes','lanes-walk',...XP_CASES.map(c=>c.kind)];
-const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS];
+// Repair round (13 Nov 2026, independent review of the successor at 4951e61).
+const REPAIR_KINDS=['oldlane-retired','oldlane-veteran','oldlane-getonly','legacy-removed','legacy-absent','lane-failed','lane-held','watcher-nolane','deferred-429'];
+const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS];
 const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},held:[],member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 let mf,checks=[];
 const check=(name,value,detail)=>{checks.push({name,passed:value===true,...(value===true&&!process.env.BAN1112_DETAIL?{}:{detail})});console.log((value===true?'PASS ':'FAIL ')+name);};
@@ -31,7 +33,8 @@ const call=async(route,body={})=>{const r=await mf.dispatchFetch('http://fixture
 const deletes=(k,from=0)=>state.get(k).http.slice(from).filter(h=>h.method==='DELETE');
 const writes=k=>state.get(k).http.filter(h=>!['GET'].includes(h.method)&&!h.path.startsWith('/webhooks/'));
 const present=(k,s=SUBJECT)=>[...state.get(k).present.get(s)];
-const lastReply=k=>state.get(k).patches.at(-1)??'';
+ const lastReply=k=>state.get(k).patches.at(-1)??'';
+const unbanReply=y=>String(y?.initial?.data?.content??'');
 const putsTo=(k,role)=>state.get(k).http.filter(h=>h.method==='PUT'&&h.path.endsWith('/roles/'+role)).length;
 const writesTo=(k,role,from=0)=>state.get(k).http.slice(from).filter(h=>(h.method==='PUT'||h.method==='DELETE')&&h.path.endsWith('/roles/'+role)).length;
 const same=(a,b)=>!!a&&!!b&&JSON.stringify(a)===JSON.stringify(b);
@@ -117,7 +120,9 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  check('late-delete-absence: the claim window passes by the test clock only (created_at and expires_at 400 s back, every other field unchanged)',sameExcept(ldWindow,ldRow,['created_at','expires_at'])&&ldWindow.created_at===ldRow.created_at-400&&ldWindow.expires_at===ldRow.expires_at-400,{before:ldRow,after:ldWindow});
  let ldFrom=state.get('late-delete').http.length;x=await sweep('late-delete');costs.sweepObserveUnresolved=x.statements;
  check('late-delete-absence: the banned visit reads the role absent, counts it as an observation only and leaves the row byte-identical',same(banRows(x).find(r=>r.id===ldRow?.id),ldWindow)&&x.result?.observed===1&&writesTo('late-delete',VETERAN,ldFrom)===0&&state.get('late-delete').http.slice(ldFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT),{result:x.result,rows:banRows(x),http:state.get('late-delete').http.slice(ldFrom)});
- await unban('late-delete');await call('refresh/late-delete');ldFrom=state.get('late-delete').http.length;
+ const ldUnban=await unban('late-delete');
+ check('late-delete-absence: the unban reply says the Veteran role stays blocked for this member by the unconfirmed ban removal',unbanReply(ldUnban).startsWith('<@'+SUBJECT+'> can verify again. One Olympus rank role stays blocked for them: <@&'+VETERAN+'>.')&&unbanReply(ldUnban).includes('until an attended resolution exists'),unbanReply(ldUnban));
+ await call('refresh/late-delete');ldFrom=state.get('late-delete').http.length;
  const ldVerify=await freshVerify('late-delete');
  // The writers are reached and stop at their own physical barrier (the same sequence grants in known-positive below).
  check('late-delete-absence: after the unban, fresh verification evidence binds the member but the shared-membership writer holds its intent and sends no PUT for the fenced role',putsTo('late-delete',VETERAN)===0&&!present('late-delete').includes(VETERAN)&&verifyFenced(ldVerify),{verify:ldVerify.verify,http:state.get('late-delete').http.slice(ldFrom)});
@@ -136,7 +141,9 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  // known: after an unban each lets a fresh grant through. The same sequence as S1, so S1's zero PUTs are not vacuous.
  await setup('known-ack',{present:[VETERAN,ADDON],rank:6});x=await ban('known-ack');
  check('known-positive: setup, the ban DELETE is acknowledged and confirmed',banRows(x)[0]?.state==='settled'&&banRows(x)[0].reason==='ban_rank1112_delete_acknowledged_and_confirmed'&&!present('known-ack').includes(VETERAN),x.rows);
- await unban('known-ack');await call('refresh/known-ack');x=await freshVerify('known-ack');
+ x=await unban('known-ack');
+ check('known-positive: after an acknowledged and confirmed DELETE the unban reply names no blocked role',unbanReply(x)==='<@'+SUBJECT+'> can verify again.',unbanReply(x));
+ await call('refresh/known-ack');x=await freshVerify('known-ack');
  check('known-positive: after an acknowledged and confirmed DELETE and an unban, fresh verification grants the rank again (one PUT)',putsTo('known-ack',VETERAN)===1&&present('known-ack').includes(VETERAN),{verify:x.verify});
  await setup('known-migrate',{present:[VETERAN,ADDON],rank:6});await ban('known-migrate');await unban('known-migrate');x=await call('migrate/known-migrate',{target:VETERAN,currentRoles:[]});
  check('known-positive: after an acknowledged and confirmed DELETE and an unban, the migration writer grants the rank (one PUT)',putsTo('known-migrate',VETERAN)===1&&present('known-migrate').includes(VETERAN)&&x.result?.state==='settled',{result:x.result});
@@ -191,7 +198,7 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  await setup('lanes',{present:[ADDON]});await ban('lanes');state.get('lanes').present.get(SUBJECT).add(MEMBER);
  await call('sweepstate/lanes',{details:{a:7,c:OTHER,b:'0',checked:0}});
  let laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes');
- check('a canonical role sweep without a lane holds before any read or request and is audited as failed',x.result===null&&String(x.failedAudit).includes('role_sweep_lane_required')&&state.get('lanes').http.length===laneFrom&&sweepAudit(x)?.b==='0',{result:x.result,failedAudit:x.failedAudit});
+ check('a canonical role sweep without a lane holds before any lane-specific read or Discord request and is audited as failed',x.result===null&&String(x.failedAudit).includes('role_sweep_lane_required')&&state.get('lanes').http.length===laneFrom&&sweepAudit(x)?.b==='0',{result:x.result,failedAudit:x.failedAudit});
  x=await rolesweep('lanes','ordinary');costs.ordinaryLaneBannedOnly=x.statements;const ordinaryAudit=sweepAudit(x);
  check('the ordinary lane never visits a banned account\'s removal: no request for the banned member and the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes').http.slice(laneFrom).every(h=>!h.path.includes('/members/'+SUBJECT))&&present('lanes').includes(MEMBER)&&ordinaryAudit?.b==='0',{result:x.result,audit:ordinaryAudit,http:state.get('lanes').http.slice(laneFrom)});
  laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes','ban');costs.banLaneOneRole=x.statements;const banAudit=sweepAudit(x);
@@ -204,6 +211,57 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  check('an empty ban lane does nothing else: no request, no ordinary walk, the ordinary cursors unchanged',x.result?.lane==='ban'&&x.result.checked===0&&state.get('lanes-walk').http.length===laneFrom&&sweepAudit(x)?.a===0&&sweepAudit(x)?.c===''&&sweepAudit(x)?.lane==='ban',{result:x.result,audit:sweepAudit(x)});
  const emptyBanCursor=sweepAudit(x)?.b;laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ordinary');costs.ordinaryLaneOneMember=x.statements;
  check('the ordinary lane walks the bound member and never runs the banned rotation; the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes-walk').http.slice(laneFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT)&&sweepAudit(x)?.b===emptyBanCursor,{result:x.result,audit:sweepAudit(x),http:state.get('lanes-walk').http.slice(laneFrom)});
+
+ // ---- Repair round (13 Nov 2026, independent review of the successor at 4951e61).
+ // R-A. Closed pre-.233 acknowledged receipts are known to the ban writer's own barrier. Owner ruling (12 Nov 2026): a ban
+ // removes the rank role "whether the bot or a staff member granted it, as bans did before .233". An old-lane grant with a
+ // confirmed receipt and a legacy 'removed' removal no longer fence the role; a GET-only legacy close still does.
+ const oldRow=async(k,o)=>{const now=(await call('clock/'+k)).now,n=(++rowSeq).toString(16);return {id:n.padStart(32,'a'),subject:SUBJECT,purpose:o.purpose,proof_id:null,guild_id:G,role_id:o.role,desired:o.desired,state:'settled',reason:o.reason,attempts:1,claim_nonce:n.padStart(32,'c'),subject_generation:null,request_digest:n.padStart(64,'d'),native_profile:o.profile??null,created_at:now-90000,expires_at:now-89700,checked_at:now-89690};};
+ const unchanged=(y,row)=>same(y.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(y.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]])));
+ for(const [k,role,label] of [['oldlane-retired',RETIRED,'a retired rank ID'],['oldlane-veteran',VETERAN,'Veteran']]){
+  await setup(k,{present:[role,ADDON],rank:6});const row=await oldRow(k,{purpose:'fresh_roster_rank',role,desired:1,reason:'effect_and_current_server_confirmed',profile:'ten-rank'});await call('insert/'+k,{rows:[row]});
+  x=await ban(k);
+  check('legacy known: '+label+' granted by the old fresh lane with a confirmed receipt is removed by the ban command (one DELETE) and reported removed, never unconfirmed',writesTo(k,role)===1&&!present(k).includes(role)&&present(k).includes(ADDON)&&lastReply(k).includes('Rank roles removed (confirmed absent): <@&'+role+'>')&&!lastReply(k).includes('unconfirmed'),{reply:lastReply(k),http:state.get(k).http});
+  state.get(k).present.get(SUBJECT).add(role);const from=state.get(k).http.length;x=await sweep(k);
+  check('legacy known: '+label+' given back by hand during the standing ban is removed by the sweep visit',deletes(k,from).length===1&&deletes(k,from)[0].path.endsWith('/roles/'+role)&&!present(k).includes(role)&&present(k).includes(ADDON),{result:x.result,http:state.get(k).http.slice(from)});
+  check('legacy known: the old-lane row on '+label+' is never changed',unchanged(x,row),{row:x.rows.find(r=>r.id===row.id)});
+ }
+ // An old-lane row whose reason is not an acknowledgement (a presence-only close) stays unresolved for the ban writer.
+ await setup('oldlane-getonly',{present:[VETERAN,MEMBER,ADDON],rank:6});
+ const ogRow=await oldRow('oldlane-getonly',{purpose:'fresh_roster_rank',role:VETERAN,desired:1,reason:'fresh_server_confirmed',profile:'ten-rank'});await call('insert/oldlane-getonly',{rows:[ogRow]});x=await ban('oldlane-getonly');
+ check('legacy unresolved: an old-lane row closed by a read only (fresh_server_confirmed) still holds Veteran: no DELETE, Member removed',writesTo('oldlane-getonly',VETERAN)===0&&present('oldlane-getonly').includes(VETERAN)&&!present('oldlane-getonly').includes(MEMBER)&&unchanged(x,ogRow),{reply:lastReply('oldlane-getonly'),http:state.get('oldlane-getonly').http});
+ for(const [k,purpose,reason,known] of [['legacy-removed','ban','removed',true],['legacy-absent','guild_departure','absent',false]]){
+  await setup(k,{present:[MEMBER,VETERAN,ADDON],rank:6});const row=await oldRow(k,{purpose,role:MEMBER,desired:0,reason});await call('insert/'+k,{rows:[row]});x=await ban(k);
+  if(known)check('legacy known: a legacy ban removal acknowledged and confirmed (ban, removed) does not fence Member: the ban removes Member and Veteran',writesTo(k,MEMBER)===1&&!present(k).includes(MEMBER)&&!present(k).includes(VETERAN)&&present(k).includes(ADDON)&&!lastReply(k).includes('unconfirmed')&&unchanged(x,row),{reply:lastReply(k),http:state.get(k).http});
+  else{
+   check('legacy unresolved: a GET-only legacy close (guild_departure, absent) still holds Member: no DELETE, Veteran removed, and the reply says Member is still on the member and must be removed by hand',writesTo(k,MEMBER)===0&&present(k).includes(MEMBER)&&!present(k).includes(VETERAN)&&lastReply(k).includes('Rank roles still on the member: <@&'+MEMBER+'> (an earlier change to this role has an unconfirmed result). No removal is sent for these roles: remove them in Discord by hand for the ban to take full effect.')&&!lastReply(k).includes('Rank roles with an unconfirmed result')&&unchanged(x,row),{reply:lastReply(k),http:state.get(k).http});
+   const from=state.get(k).http.length;x=await sweep(k);
+   check('legacy unresolved: the sweep visit still sends nothing for Member over the GET-only legacy close',writesTo(k,MEMBER,from)===0&&present(k).includes(MEMBER)&&unchanged(x,row),{result:x.result,http:state.get(k).http.slice(from)});
+  }
+ }
+
+ // R-B. A ban lane whose one banned visit fails (the member read answers 500) or is held by its request budget never
+ // falls through to the ordinary walk (the independent reviewer's R2 and R3 cases, 13 Nov 2026).
+ await setup('lane-failed',{present:[ADDON]});await ban('lane-failed');state.get('lane-failed').present.get(SUBJECT).add(MEMBER);
+ await call('sweepstate/lane-failed',{details:{a:7,c:OTHER,b:'0',checked:0}});
+ const lf=state.get('lane-failed');lf.memberGetFail=1;const lfFrom=lf.http.length;x=await rolesweep('lane-failed','ban');const lfAudit=sweepAudit(x);
+ check('a failed ban-lane visit sends no DELETE, does not run the ordinary walk (only the four reads of the one banned visit) and copies a and c exactly',x.result?.lane==='ban'&&deletes('lane-failed',lfFrom).length===0&&lf.http.slice(lfFrom).length===4&&lf.http.slice(lfFrom).every(h=>h.method==='GET')&&!lf.http.slice(lfFrom).some(h=>h.path.includes('/members/'+OTHER))&&lfAudit?.a===7&&lfAudit?.c===OTHER&&lfAudit?.lane==='ban'&&present('lane-failed').includes(MEMBER),{result:x.result,audit:lfAudit,http:lf.http.slice(lfFrom)});
+ x=await rolesweep('lane-failed','ordinary');
+ check('the next ordinary visit leaves the banned member alone and keeps the ban lane\'s cursor',x.result?.lane==='ordinary'&&sweepAudit(x)?.b===lfAudit?.b&&present('lane-failed').includes(MEMBER),{audit:sweepAudit(x)});
+ await setup('lane-held',{present:[ADDON],budget:5});await ban('lane-held');state.get('lane-held').present.get(SUBJECT).add(MEMBER);
+ await call('sweepstate/lane-held',{details:{a:9,c:OTHER,b:'0',checked:0}});
+ const lh=state.get('lane-held'),lhFrom=lh.http.length;x=await rolesweep('lane-held','ban');const lhAudit=sweepAudit(x);
+ check('a ban lane held by its budget (ROLE_CALL_BUDGET=5, under the visit\'s 6-request minimum) makes no request, does not run the ordinary walk and keeps a, c and b',x.result?.lane==='ban'&&lh.http.length===lhFrom&&lhAudit?.a===9&&lhAudit?.c===OTHER&&lhAudit?.b==='0'&&lhAudit?.lane==='ban'&&present('lane-held').includes(MEMBER),{result:x.result,audit:lhAudit,http:lh.http.slice(lhFrom)});
+
+ // R-C. A Watcher call without a lane (its schedule capture held) is throttled before the lane check: three polls inside the
+ // throttle window (the second in the same isolate, the third as a fresh isolate) write one role.sweep_failed row in all.
+ await setup('watcher-nolane',{present:[ADDON]});const wnFrom=state.get('watcher-nolane').http.length;
+ const wn1=await call('watchersweep/watcher-nolane',{forget:true}),wn2=await call('watchersweep/watcher-nolane'),wn3=await call('watchersweep/watcher-nolane',{forget:true});
+ check('a Watcher call without a lane holds, and the throttle keeps it to one role.sweep_failed row per window with no Discord request',wn1.result===null&&String(wn1.failedAudit).includes('role_sweep_lane_required')&&wn1.failedCount===1&&wn2.failedCount===1&&wn3.failedCount===1&&state.get('watcher-nolane').http.length===wnFrom,{counts:[wn1.failedCount,wn2.failedCount,wn3.failedCount],failedAudit:wn1.failedAudit});
+
+ // R-D. The deferred line names what actually stopped the command: here Discord's 429 on the first role.
+ await setup('deferred-429',{present:[VETERAN,MEMBER]});state.get('deferred-429').del[VETERAN]=429;x=await ban('deferred-429');
+ check('the deferred line names the actual cause: a 429 that stopped the command, not the budget or an unconfirmed result',deletes('deferred-429').length===1&&present('deferred-429').includes(MEMBER)&&lastReply('deferred-429').includes('left for the role sweep: <@&'+MEMBER+'>. Discord asked the command to wait (rate limit), so it stopped. The role sweep is only a safety net')&&!/ran out of Discord requests|no confirmed answer/.test(lastReply('deferred-429')),lastReply('deferred-429'));
 
  // 2-4. Hand-granted Member (shared membership role), an officer rank and a retired rank ID.
  for(const [k,role,label] of [['member-manual',MEMBER,'Member'],['officer-manual',OFFICER,'Officer'],['retired-manual',RETIRED,'retired rank ID']]){
@@ -230,6 +288,7 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
   await setup(k,{present:[MEMBER]});state.get(k).del[MEMBER]=status;x=await ban(k);
   check('DELETE '+status+': one DELETE, recorded as held with no effect',deletes(k).length===1&&banRows(x).length===1&&banRows(x)[0].state==='held'&&banRows(x)[0].reason===reason&&banRows(x)[0].attempts===1,x.rows);
   check('DELETE '+status+': the officer is told the role was not removed and why',lastReply(k).includes('Rank roles not removed: <@&'+MEMBER+'>')&&lastReply(k).includes('('+status+')')===(status!==429),lastReply(k));
+  if(status===429)check('DELETE 429: the reply makes no per-member "every 30 minutes" promise; the sweep tries again when its banned rotation reaches this account',lastReply(k).includes('the role sweep can try again when its banned rotation reaches this account')&&!lastReply(k).includes('every 30 minutes'),lastReply(k));
  }
  x=await sweep('delete-429');costs.sweep429=x.statements;
  check('after a 429 the banned sweep continues with a new DELETE that removes the role',deletes('delete-429').length===2&&!present('delete-429').includes(MEMBER)&&banRows(x).length===2&&banRows(x)[1].state==='settled'&&banRows(x)[0].reason==='ban_rank1112_rate_limited_429',x.rows);
@@ -238,6 +297,7 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  await setup('unknown',{present:[VETERAN,MEMBER]});state.get('unknown').del[VETERAN]='throw';x=await ban('unknown');
  const unknownRow=banRows(x).find(r=>r.role_id===VETERAN);
  check('lost DELETE answer: recorded unknown, reported unconfirmed, the independent role waits',unknownRow?.state==='unknown'&&unknownRow.reason==='ban_rank1112_delete_outcome_unknown'&&lastReply('unknown').includes('unconfirmed result: <@&'+VETERAN+'>')&&lastReply('unknown').includes('left for the role sweep: <@&'+MEMBER+'>'),{reply:lastReply('unknown'),rows:x.rows});
+ check('repair round: the deferred line names the actual cause, the unconfirmed result that stopped the command, not the budget or a rate limit',lastReply('unknown').includes('left for the role sweep: <@&'+MEMBER+'>. The command stopped after a removal got no confirmed answer. The role sweep is only a safety net')&&!/ran out of Discord requests|rate limit/.test(lastReply('unknown')),lastReply('unknown'));
  const before=deletes('unknown').length;x=await sweep('unknown');
  check('the sweep never replays the unknown DELETE but continues with the independent role',deletes('unknown').slice(before).every(h=>!h.path.endsWith('/'+VETERAN))&&deletes('unknown').length===before+1&&!present('unknown').includes(MEMBER),state.get('unknown').http.slice(-6));
  check('follow-up REV-BAN-1: a visit that removes a role while another role stays unconfirmed is still reported as failed',x.result?.failed.includes(SUBJECT)===true&&x.result.revoked.includes(SUBJECT),x.result);
@@ -277,7 +337,8 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  await setup('budget',{present:ALL.slice(),budget:10});x=await ban('budget');
  check('ROLE_CALL_BUDGET=10: 5 DELETEs and a confirming read, the other 13 reported as left for the sweep',deletes('budget').length===5&&present('budget').length===13&&lastReply('budget').includes('left for the role sweep'),{reply:lastReply('budget'),left:present('budget').length});
  // Successor (12 Nov 2026): the reply says plainly that the sweep is only a safety net and how slow it is.
- check('ROLE_CALL_BUDGET=10: the reply says the sweep is a safety net, one role per run about every 30 minutes, so the 13 roles can take about 6.5 hours',lastReply('budget').includes('The role sweep is only a safety net: it removes one rank role per run and runs about every 30 minutes, so these 13 roles can take about 6.5 hours or longer.'),lastReply('budget'));
+ // Repair round (13 Nov 2026): the cause is the budget, and the estimate is for this account alone in a shared rotation.
+ check('ROLE_CALL_BUDGET=10: the reply names the budget as the cause, says the sweep is a safety net that visits one banned account per run in a shared rotation, and gives about 6.5 hours for this account alone',lastReply('budget').includes('The command ran out of Discord requests before it reached them. The role sweep is only a safety net: each run, about every 30 minutes, visits one banned account and removes at most one rank role, and other banned accounts share that rotation. For this account alone these 13 roles take about 6.5 hours; it takes longer while other banned accounts wait ahead of it.')&&!/no confirmed answer|rate limit/.test(lastReply('budget')),lastReply('budget'));
  x=await sweep('budget');costs.sweepBudgetVisit=x.statements;
  check('one sweep visit removes exactly one more role within its own request budget',deletes('budget').length===6&&present('budget').length===12&&x.attempts<=10,{attempts:x.attempts});
  check('a standing ban that still has roles to remove stays at the head of the banned rotation',x.result?.cursor==='',x.result);

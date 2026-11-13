@@ -69,6 +69,10 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
   // ('ordinary' or 'ban'); body.lane is passed through unchanged, so a missing lane is exercised too.
   if(action==='rolesweep'){forgetLocalThrottle();const budget=callBudget(env),result=await sweepMemberRoles(env,'cron',budget,undefined,body.lane);
    const failedAudit=await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 1").first();return finish({result,attempts:budget.attempts,failedAudit:failedAudit?.details??null});}
+  // Repair round (13 Nov 2026): the Watcher's call, with its in-memory throttle kept unless body.forget (a fresh isolate).
+  if(action==='watchersweep'){if(body.forget)forgetLocalThrottle();const result=await sweepMemberRoles(env,'watcher',callBudget(env),undefined,body.lane);
+   const failedAudit=await db.prepare("SELECT details FROM audit WHERE action='role.sweep_failed' ORDER BY id DESC LIMIT 1").first(),count=await db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action='role.sweep_failed'").first();
+   return finish({result,failedAudit:failedAudit?.details??null,failedCount:Number(count?.n??0)});}
   // A role.sweep receipt with chosen cursors, written through the same admitted audit writer the sweep uses.
   if(action==='sweepstate'){await audit(env,'system','role.sweep','cron',body.details);return finish({});}
   // Synthetic earlier role_settlements rows (cross-purpose, cross-generation and malformed-reason controls). Test data only.
