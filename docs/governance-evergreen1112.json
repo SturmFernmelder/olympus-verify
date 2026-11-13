@@ -897,6 +897,32 @@
    "why": "Owner ruling of 13 November 2026 on the organization chart: the Co-Guild Master sits in the top tier beside the Guild Master, and the Lord High Justiciar sits in the High Council Cabinet, reports directly to both and oversees the Court branch. Placement and reporting lines only.",
    "before": "The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Chief of Staff coordinates daily work. Justice handles cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants.",
    "after": "The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Guild Master, as Sovereign, and the Co-Guild Master form the top tier. The Chief of Staff coordinates daily work. The Lord High Justiciar sits in the High Council Cabinet, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals. Hearing panels decide cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants."
+  },
+  {
+   "key": "title-iii-9-1-a-paused-bifrost-and-attunement",
+   "issues": [
+    "CL2-291"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026: the Bifrost passes and attunement charters carry the status Paused / Inactive Statutory Proposal (Not Active in Current Build); neither can be bought or requested.",
+   "before": "(a) The Bifrost Writ proposes twenty-five gold per week or seventy-five gold per month for an attended portal and summoning network. Before any pilot, its steward must confirm lawful locations, staffed hours, available reagents, provider consent, cancellation and refund terms. A proposal for unlimited use is not a promise of unlimited capacity. A permitted attunement or dungeon-service charter may propose a disclosed fifteen-percent coordination margin, counted only after providers, refunds and obligations are paid. It never licenses GDKP: Blizzard’s [official Forever developer Q&A](https://www.youtube.com/watch?v=Y5zzSMSVhRo&t=4548s) rejects gold-bid loot runs. GDKP is excluded from guild offers, charter licensing and every revenue forecast. Both service proposals remain subject to Blizzard policy.",
+   "after": "(a) **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** The **Bifrost Writ** proposes twenty-five gold per week or seventy-five gold per month for an attended portal and summoning network. Before any pilot, its steward must confirm lawful locations, staffed hours, available reagents, provider consent, cancellation and refund terms. A proposal for unlimited use is not a promise of unlimited capacity. **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** A permitted **attunement or dungeon-service charter** may propose a disclosed fifteen-percent coordination margin, counted only after providers, refunds and obligations are paid. It never licenses GDKP: Blizzard’s [official Forever developer Q&A](https://www.youtube.com/watch?v=Y5zzSMSVhRo&t=4548s) rejects gold-bid loot runs. GDKP is excluded from guild offers, charter licensing and every revenue forecast. Neither can be bought or requested. Both service proposals remain subject to Blizzard policy."
+  },
+  {
+   "key": "title-iii-9-1-b-paused-trial-memorial",
+   "issues": [
+    "CL2-291"
+   ],
+   "scope": [
+    "book",
+    "titles"
+   ],
+   "why": "Owner ruling of 13 November 2026: the trial review and memorial writs carry the same status; the Trade Factor warrant beside them keeps its wording, as the ruling does not cover it.",
+   "before": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent, subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free.",
+   "after": "(b) A Royal Trade Factor warrant proposes one hundred fifty to five hundred gold per season for a transparently labelled supplier listing and agreed requisition service. It buys no exclusive control of a market, collusive price, bank access or forced purchase from guildmates. The proposal is subject to Blizzard policy. **[Paused / Inactive Statutory Proposal (Not Active in Current Build)]** **Priority trial reviews, consented heraldic inscriptions and Hall of Fame memorials** may be proposed at fifty to five hundred gold only with disclosed delivery criteria and the recipient’s consent. None of them can be bought or requested; any activation would be subject to Blizzard policy. These are distinct from the existing Featured Crafter Pin at fifty to one hundred fifty gold per season and the one hundred fifty gold Writ of Expedited Assize. No price guarantees a raid seat or trial result, and no price buys loot priority, a governing office or a favourable judgment. Ordinary applications, safety reports, appeals and account privacy controls remain free."
   }
  ]
 }

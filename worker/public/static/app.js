@@ -223,9 +223,12 @@
     if (!royalWritsVisible200()) return null;
     const policy = M().royalWritPolicy || {}, rows = (M().royalWrits || []).filter(row => keys ? keys.includes(row.key) : ["roles", "governance", "community/workshop", "vote", "news", "admin"].includes(page) || (row.pages || []).includes(page));
     const ordinary = rows.filter(row => !row.activation), proposals = rows.filter(row => row.activation);
+    // CL2-291 (owner ruling, 13 Nov 2026): a paused statutory proposal shows its status verbatim and only a proposed price.
+    const price = row => row.goldMin === 0 && row.goldMax === 0 ? (row.status ? "No price set" : "In-game gold quote required") : (row.status ? "Proposed price: " : "") + `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g`;
     const card = row => h("article", { class: "card writ199", "data-writ-key": row.key, ...(row.activation ? {"data-writ-activation": row.activation} : {}) },
-      h("h3", { text: row.label }), row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
-      h("p", null, h("strong", { text: row.goldMin === 0 && row.goldMax === 0 ? "In-game gold quote required" : `${row.goldMin}${row.goldMax === row.goldMin ? "" : "–" + row.goldMax}g` }), " · ", row.term),
+      // The status is a wrapping line, not a one-line badge, so the long label fits a 320 px card.
+      h("h3", { text: row.label }), row.status ? h("p", { class: "small" }, "Status: ", h("strong", { "data-writ-status": "paused", text: row.status })) : row.activation ? h("span", {class:"badge",text:"Proposal · not active"}) : null,
+      h("p", null, h("strong", { text: price(row) }), " · ", row.term),
       h("p", { text: row.outcome }), h("p", { class: "muted small", text: row.limits }));
     return h("section", { class: "royal-writs199", "data-royal-writ-page": page }, goldBanner199(),
       h("details", { class: "card", open: checklist }, h("summary", { text: checklist ? "Stockades Appeals & Royal Pardons — operator reference" : "Schedule of Royal Writs, Indulgences & Guild Services" }),
@@ -2253,8 +2256,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "c643bd48f834fc46ca8b6de7ec747efb33364daf789900ca13a483efe1d9db4b";
-  const GOVERNANCE_BYTES = 267752;
+  const GOVERNANCE_SHA256 = "140a569464c0c0422711d4282bcc76eecedf7f7d566c004129e9997f27ae634f";
+  const GOVERNANCE_BYTES = 268084;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });

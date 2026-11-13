@@ -366,6 +366,57 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
     /n\.alsoReportsTo !== undefined && \(!Array\.isArray\(n\.alsoReportsTo\) \|\| n\.alsoReportsTo\.some\(\(id\) => !ids\.has\(id\) \|\| id === n\.id \|\| id === n\.parent\)\)/.test(app));
 }
 
+// ---------------------------------------------------------------- CL2-291 three paused services carry one exact status
+const PAUSED1113 = 'Paused / Inactive Statutory Proposal (Not Active in Current Build)';
+const PAUSED_KEYS1113 = ['bifrost_writ', 'attunement_charter', 'trial_memorial_writ'];
+// A mention of one of the three by any of the names the surfaces use.
+const PAUSED_NAMES1113 = [/Bifrost|summoning pass/i, /attunement (?:&|or|and) dungeon|dungeon[- ]service charter/i, /Hall of Fame|trial\/memorial|Priority (?:trial )?reviews?\b/i];
+const PAUSED_NAME1113 = new RegExp(PAUSED_NAMES1113.map(r => r.source).join('|'), 'i');
+// One unit of text (a paragraph, a table row, a card) that names k of the three carries the label exactly k times; a unit
+// that names none of them carries no label.
+function pausedUnits1113(units) {
+  const bad = [];
+  for (const u of units) { const named = PAUSED_NAMES1113.filter(r => r.test(u)).length; if (count(u, PAUSED1113) !== named) bad.push(named + '/' + count(u, PAUSED1113) + ' ' + u.slice(0, 70)); }
+  return { bad, labelled: units.filter(u => u.includes(PAUSED1113)).length, mentioned: units.filter(u => PAUSED_NAME1113.test(u)).length };
+}
+{
+  const writs = load('royal-writs199');
+  const rows = writs.ROYAL_WRITS || [];
+  const withStatus = rows.filter(r => r.status !== undefined).map(r => r.key);
+  check('CL2-291', 'exactly the Bifrost pass, the attunement charter and the trial memorial writ carry the status, character for character',
+    JSON.stringify(withStatus) === JSON.stringify(PAUSED_KEYS1113) && PAUSED_KEYS1113.every(k => rows.find(r => r.key === k).status === PAUSED1113), withStatus.join(','));
+  check('CL2-291', 'the label appears on no other writ, the policy, the categories or the checklist',
+    rows.filter(r => !PAUSED_KEYS1113.includes(r.key)).every(r => !JSON.stringify(r).includes(PAUSED1113))
+    && ![writs.ROYAL_WRIT_POLICY, writs.ROYAL_WRIT_CATEGORIES, writs.STOCKADES_CHECKLIST].some(v => JSON.stringify(v).includes(PAUSED1113)));
+  const three = PAUSED_KEYS1113.map(k => rows.find(r => r.key === k) || {});
+  check('CL2-291', 'none of the three reads as something to buy, request or that is running',
+    three.every(r => !/— proposal$/.test(r.label || '') && /^Nothing can be bought or requested/.test(r.limits || '') && !/quote required|published refund terms|need separate approval/i.test(JSON.stringify(r))
+      && r.enabled === false && r.forecastGold === 0 && r.activation === 'unqualified-proposal'), JSON.stringify(three.map(r => r.limits && r.limits.slice(0, 40))));
+  // Not covered (wagering, lottery and "subject to Blizzard policy" services): byte-identical to b631136.
+  check('CL2-291', 'the wagering, lottery and other service entries and the policy texts are unchanged',
+    sha256(JSON.stringify(rows.filter(r => !PAUSED_KEYS1113.includes(r.key)))) === '58fe3baace7f921e11234fb9d7a8b95402a95809c57ba4b3eba977f1c8c447e8'
+    && sha256(JSON.stringify([writs.ROYAL_WRIT_POLICY, writs.ROYAL_WRIT_CATEGORIES, writs.STOCKADES_CHECKLIST])) === 'b229559dca0701625fef2c5c6b02e9c9e1eb7ec8542c3e47b6fd90e8edd7ceb4');
+  // The book and the titles document: every paragraph that mentions one of the three carries the label before it.
+  const bookUnits = book.split('\n\n').filter(p => !p.startsWith('#'));
+  const titlesUnits = read('docs/master199-governance-titles.md').split('\n\n').filter(p => !p.startsWith('#'));
+  const b = pausedUnits1113(bookUnits), t = pausedUnits1113(titlesUnits);
+  check('CL2-291', 'governance book: each paragraph naming one of the three carries the label once per service named, and no other paragraph carries it', b.bad.length === 0 && b.labelled === 2 && b.mentioned === 2, JSON.stringify(b));
+  check('CL2-291', 'titles document: the same', t.bad.length === 0 && t.labelled === 2 && t.mentioned === 2, JSON.stringify(t));
+  check('CL2-291', 'the book and the titles document carry the label three times each (Bifrost, attunement, trial memorial)', count(book, PAUSED1113) === 3 && count(read('docs/master199-governance-titles.md'), PAUSED1113) === 3);
+}
+async function treasuryPlanChecks1113() {
+  const os = require('node:os'), { pathToFileURL } = require('node:url');
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plan1113-')), 'plan.mjs');
+  fs.writeFileSync(tmp, read('worker/public/static/treasury-plan-content207.js'));
+  const { TREASURY_PLAN207 } = await import(pathToFileURL(tmp).href);
+  // Every string the renderer shows: chapter intros, headings, paragraphs, list items and each table row joined.
+  const units = [];
+  const walk = v => { if (typeof v === 'string') units.push(v); else if (Array.isArray(v)) { if (v.every(x => typeof x === 'string') && v.length > 1 && v.length <= 4 && v.some(x => PAUSED_NAME1113.test(x) || x.includes(PAUSED1113))) units.push(v.join(' | ')); else v.forEach(walk); } else if (v && typeof v === 'object') Object.values(v).forEach(walk); };
+  walk(TREASURY_PLAN207.chapters);
+  const r = pausedUnits1113(units);
+  check('CL2-291', 'treasury plan content: every row or paragraph that mentions the three carries the label, and the label marks nothing else', r.bad.length === 0 && r.labelled === 4 && r.mentioned === 4, JSON.stringify(r));
+}
+
 // ================================================================ browser checks (only with --base and --cdp)
 // The follow-up items of 12 Nov 2026, measured in headless Edge through the audit CDP helper against a harness serving
 // the tree under test. Numbers are printed with every check.
@@ -387,7 +438,7 @@ async function browserChecks(BASE, CDP_PORT) {
   // Browser checks print their measurement on PASS too, so the receipts carry numbers.
   const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
   try {
-    // Round 5 (13 Nov 2026): --round5 runs only the round 5 browser checks.
+    // Round 5 (13 Nov 2026): --round5 runs only the CL2-039 and CL2-291 browser checks.
     await round5Checks({ open, ev, show, bcheck });
     if (argv.includes('--round5')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     await round4Checks({ open, ev, show, bcheck, cdp, H });
@@ -539,6 +590,33 @@ async function round5Checks({ open, ev, show, bcheck }) {
   bcheck('CL2-039', 'the alliance overview says the same: the Justiciar reports to the Guild Master and the Co-GM, its seat is listed under Justice, and the chair and Co-GM are the top tier',
     !!independent && independent.text.includes('reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch') && independent.seat
     && JSON.stringify(independent.chair) === JSON.stringify(['Council chair · top tier · Rank 1 Leader', 'Co-Guild Master · top tier · Rank 2 High Council']), show(independent));
+
+  // CL2-291: with the schedule switched on, every rendered card, table row or paragraph that names one of the three carries
+  // the status exactly once per service named, and nothing else carries it.
+  const setWrits = on => ev(`const r=await fetch('/api/admin/settings',{method:'PUT',credentials:'same-origin',headers:{'X-Olympus':'2','Content-Type':'application/json'},body:JSON.stringify({royalWritsOn:${on}})});return r.status`);
+  await open('owner', 1280, 'admin');
+  const switched = await setWrits(true);
+  const UNITS = `${JSON.stringify(PAUSED_NAMES1113.map(r => r.source))}`;
+  const pages = {};
+  try {
+    for (const width of [1440, 1280, 768, 390, 375, 320]) for (const route of ['roles', 'governance', 'vote', 'news', 'admin/treasury', 'treasury-plan', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger']) {
+      // Every width for the three surfaces that carry the most text; the other writs panels at 1280 and 375 px.
+      if (![1280, 375].includes(width) && !['roles', 'treasury-plan', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger'].includes(route)) continue;
+      await open('owner', width, route, 900);
+      pages[route + '@' + width] = await ev(`for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,600));
+        const L=${JSON.stringify(PAUSED1113)},names=${UNITS}.map(s=>new RegExp(s,'i')),n=(t,s)=>t.split(s).length-1;
+        const units=[...document.querySelectorAll('main article.writ199, main tr, main p, main li, main h2, main h3, main h4, main summary')].filter(e=>e.matches('article.writ199, tr')||!e.parentElement.closest('article.writ199, tr')&&!e.querySelector('article.writ199, tr, p, li'));
+        const bad=[];let labelled=0,named=0;for(const u of units){const t=u.textContent,k=names.filter(r=>r.test(t)).length,c=n(t,L);if(k)named++;if(c)labelled++;if(k!==c)bad.push(k+'/'+c+' '+t.slice(0,60))}
+        const cards=[...document.querySelectorAll('main [data-writ-key]')].map(a=>[a.dataset.writKey,a.querySelector('[data-writ-status]')?.textContent||a.querySelector('.badge')?.textContent||null]);
+        const all=n(document.querySelector('main').textContent,L);
+        return {named,labelled,bad,all,cards:cards.filter(([k])=>${JSON.stringify(PAUSED_KEYS1113)}.includes(k)),otherBadges:[...new Set(cards.filter(([k])=>!${JSON.stringify(PAUSED_KEYS1113)}.includes(k)).map(c=>c[1]))],over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+    }
+  } finally { await open('owner', 1280, 'admin'); await setWrits(false); }
+  const wrongPages = Object.entries(pages).filter(([, v]) => !v || v.bad.length || v.over > 0 || v.cards.some(([, b]) => b !== PAUSED1113) || v.otherBadges.includes(PAUSED1113)).map(([k, v]) => k + ' ' + show(v && { bad: v.bad.slice(0, 2), cards: v.cards, over: v.over }));
+  const surfaces = ['roles@1280', 'governance@1280', 'admin/treasury@1280', 'treasury-plan@1280', 'governance/title-iii-the-imperial-treasury-guild-bank-tithe-ledger@1280'];
+  bcheck('CL2-291', 'writs panels (Roles, Governance, Vote, News, Admin Treasury), the Treasury plan and Title III: each of the three shows the exact status, nothing else does (Roles, the plan and Title III at 1440 to 320 px, the others at 1280 and 375 px; no overflow)',
+    switched === 200 && wrongPages.length === 0 && surfaces.every(k => pages[k] && pages[k].named > 0) && ['roles@1280', 'admin/treasury@1280'].every(k => pages[k].cards.length === 3),
+    wrongPages.length ? wrongPages.slice(0, 3).join(' | ') : show({ switched, counts: Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, [v.named, v.labelled, v.all]])) }));
 }
 
 // ================================================================ round 4 browser checks (13 Nov 2026)
@@ -645,6 +723,7 @@ async function overviewChecks() {
 
 (async () => {
   await overviewChecks();
+  await treasuryPlanChecks1113();
   const BASE = flag('--base'), CDP_PORT = Number(flag('--cdp'));
   if (BASE && CDP_PORT) await browserChecks(BASE, CDP_PORT);
   console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
