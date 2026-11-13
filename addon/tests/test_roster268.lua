@@ -1,5 +1,10 @@
 -- Real roster window, core display and launch hardware dispatcher; only the native client APIs are synthetic.
 -- Run with the focused Lupa runner as roster268. Never loads Config.lua or client SavedVariables.
+-- Fixture moved to officer-operations-v234 (Stage 2 addon280, 13 Nov 2026):
+-- the 12 November ranks (Member 7, Alt 8, Initiate 9; Veteran 5), a signed v234
+-- discovery page that stays advisory, and f.selectInitiates/f.publish for the
+-- sealed selected Directive reads that alone make a row ready to promote.
+local D = assert(loadfile("directive_fixture280.lua"))()
 local passed, failed = 0, 0
 local function check(label, yes)
   if yes then passed = passed + 1; print("PASS " .. label)
@@ -18,7 +23,6 @@ local function fixture(size)
   e.CanGuildPromote = function() return f.permission ~= false end
   e.InCombatLockdown = function() return f.combat == true end
   e.issecretvalue = function() return false end
-  e.GuildControlGetRankName = function(order) return order == 9 and "Member" or order == 7 and "Veteran" or "Other" end
   e.ROSTER = {
     { name = "Officer", guid = "Player-1-0000AAAA", rank = "High Council", rankIndex = 1, level = 60, online = true },
     { name = "Zulu", guid = "Player-1-0000B001", rank = "Initiate", rankIndex = 9, level = 10, away = 3 },
@@ -26,12 +30,12 @@ local function fixture(size)
     { name = "NameOnly", guid = "Player-1-0000B003", rank = "Initiate", rankIndex = 9, level = 1, away = 10 },
     { name = "Pending", guid = "Player-1-0000B004", rank = "Initiate", rankIndex = 9, level = 12, online = true },
     { name = "Unlinked", guid = "Player-1-0000B005", rank = "Initiate", rankIndex = 9, level = 8, away = 1 },
-    { name = "Member", guid = "Player-1-0000B006", rank = "Member", rankIndex = 8, level = 40, online = true },
-    { name = "Knight", guid = "Player-1-0000B007", rank = "Knight", rankIndex = 7, level = 50, away = 2 },
+    { name = "Member", guid = "Player-1-0000B006", rank = "Member", rankIndex = 7, level = 40, online = true },
+    { name = "Knight", guid = "Player-1-0000B007", rank = "Member", rankIndex = 7, level = 50, away = 2 },
   }
   for i = #e.ROSTER + 1, size or #e.ROSTER do
     e.ROSTER[i] = { name = string.format("Synthetic%04d", i), guid = string.format("Player-1-%08X", i),
-      rank = "Member", rankIndex = 8, level = 60, online = false, away = 2 }
+      rank = "Member", rankIndex = 7, level = 60, online = false, away = 2 }
   end
   local native = e.GetGuildRosterInfo
   e.GetGuildRosterInfo = function(i) f.reads = f.reads + 1; return native(i) end
@@ -49,7 +53,7 @@ local function fixture(size)
     local order=found.rankIndex
     f.promotions[#f.promotions + 1] = { guid = found.guid, order = order, nativeName = name }
     if f.unknown then error("synthetic unknown native outcome") end
-    if not f.noAck then found.rankIndex,found.rank=order-1,e.GuildControlGetRankName(order) end
+    if not f.noAck then found.rankIndex=order-1 end -- the client label follows the slot (D.ranks)
   end
   e.C_GuildInfo.Invite = function() f.invites = f.invites + 1 end
   e.C_GuildInfo.Uninvite = function() f.removals = f.removals + 1 end
@@ -72,19 +76,22 @@ local function fixture(size)
     local chunk=override and assert(loadstring(override)) or assert(loadfile("../OlympusVerify/"..name))
     setfenv(chunk,e)("OlympusVerify",{})
   end
-  load("Libs/OlympusHmac.lua"); load("OlympusVerify.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua")
+  load("Libs/OlympusHmac.lua"); f.names = D.ranks(e); load("OlympusVerify.lua"); load("OlympusVerifyGuild.lua"); load("OlympusVerifyRosterModel.lua"); load("OlympusVerifyRoster.lua")
   local h = e.OlympusHmac
-  f.page = { protocol = "officer-operations-v233", status = "ready", fetchedAt = e.NOW, expiresAt = e.NOW + 60,
+  f.actor, f.scope = "Player-1-0000AAAA", D.scope(e, "OLYMPUS PRIME", "Native Realm")
+  f.page = D.stamp(e, { status = "ready", fetchedAt = e.NOW, expiresAt = e.NOW + 60,
     snapshotAt = e.NOW - 10, snapshotId = 12, guild = "OLYMPUS PRIME", realm = "Native Realm", canonicalGuild = "OLYMPUS PRIME",
-    scopeHash = h.sha256hex("native-scope|1|OLYMPUS PRIME|Native Realm"):sub(1, 16),
+    scopeHash = f.scope,
     scan = { id = string.rep("a", 32), startedAt = e.NOW, expiresAt = e.NOW + 590 },
     entitlements = { offset = 0, total = 3 }, invites = {}, riskBuffer = {}, held = {},
     promotions = {
-      { name = "Zulu", guid = "Player-1-0000B001", currentSlot = 9, targetSlot = 8, targetName = "Member", reason = "verified-initiate" },
-      { name = "Alpha", guid = "Player-1-0000B002", currentSlot = 9, targetSlot = 8, targetName = "Member", reason = "verified-initiate" },
-      { name = "Knight", guid = "Player-1-0000B007", currentSlot = 7, targetSlot = 6, targetName = "Veteran", reason = "knight-veteran" },
-    }, actions = { automatic = false, roleGrants = false, removals = false, requiresNativeRecheck = true } }
-  e.OlympusLaunchQueue = { version = 2, controlId = "loaded", scanComplete = true, pages = { f.page } }
+      { name = "Zulu", guid = "Player-1-0000B001", currentSlot = 9, targetSlot = 7, targetName = "Member", reason = "verified-initiate" },
+      { name = "Alpha", guid = "Player-1-0000B002", currentSlot = 9, targetSlot = 7, targetName = "Member", reason = "verified-initiate" },
+      { name = "Knight", guid = "Player-1-0000B007", currentSlot = 7, targetSlot = 5, targetName = "Veteran", reason = "knight-veteran" },
+    }, actions = { automatic = false, roleGrants = false, removals = false, requiresNativeRecheck = true } })
+  e.OlympusLaunchQueue = { version = 3, scanComplete = true, pages = { f.page } }
+  e.OlympusVerifyDB = e.OlympusVerifyDB or {}
+  f.discovery = D.signDiscovery(e, e.OlympusLaunchQueue, f.actor, f.scope)
   load("OlympusVerifyLaunch229.lua")
   f.q, f.w = e.OlympusLaunch229, e.OlympusVerifyRoster
   local event = e.OlympusVerifyFrame:GetScript("OnEvent")
@@ -119,6 +126,24 @@ local function fixture(size)
     for _,item in ipairs(f.w.menu.items) do if item.option and item.option.value==value then item:Click();return end end
     error("missing actual dropdown option: "..tostring(value))
   end
+  -- A completed selected Directive read. o.control is the v4 control the
+  -- window's own Check wrote (Q.Select); otherwise one is signed here exactly as
+  -- Q.SelectMany would for those GUIDs. o.specs are the sealed promotion rows.
+  f.publish = function(o)
+    local data, page = D.publish(e, { guild = "OLYMPUS PRIME", realm = "Native Realm", actor = f.actor, scopeHash = f.scope, control = o.control,
+      specs = o.specs, held = o.held, snapshotId = o.snapshotId or 12, snapshotAt = o.snapshotAt or e.NOW - 10, ttl = o.ttl,
+      total = o.total or #e.ROSTER, context = o.context })
+    f.sel, f.sp = data, page
+    return data, page
+  end
+  -- The two verified Initiates with a supported recommendation, checked as the
+  -- batch button's SelectMany would; the Knight needs its own selected read.
+  f.selectInitiates = function()
+    local data, page = f.publish({ specs = { { guid = "Player-1-0000B001", name = "Zulu", start = 9, final = 7 },
+      { guid = "Player-1-0000B002", name = "Alpha", start = 9, final = 7 } } })
+    f.w.Refresh()
+    return data, page
+  end
   f.sort = function(key)
     for _, hdr in ipairs(f.w.headers) do if hdr.col.key == key then hdr:Click(); return end end
     error("missing actual sort heading")
@@ -127,9 +152,10 @@ local function fixture(size)
 end
 
 if rawget(_G,"ROSTER_FIXTURE_ONLY") then return fixture end
+local function ready(size) local f = fixture(size); f.selectInitiates(); return f end
 
 do
-  local f = fixture()
+  local f = ready()
   check("opening roster is read-only", #f.promotions == 0 and f.invites == 0 and f.removals == 0 and f.reloads == 0)
   f.search("ALPHA_DISCORD"); check("search uses current Discord username without case sensitivity", f.names() == "Alpha")
   f.search("Zulu display"); check("search includes display name", f.names() == "Zulu")
@@ -149,35 +175,43 @@ do
   f.sort("seen"); check("last online sorts online first then offline age", f.names() == "Alpha,Member,Officer,Pending,Unlinked,Knight,Zulu,NameOnly")
   f.sort("name"); check("name sort returns deterministic alphabetic order", f.names() == "Alpha,Knight,Member,NameOnly,Officer,Pending,Unlinked,Zulu")
   f.choose(f.w.actionFilterButton, 2)
-  check("Ready intersects supported Member and Veteran recommendations, not all verified labels", f.names() == "Alpha,Knight,Zulu")
+  -- v233 made every discovery row ready; v234 readiness needs the selected read,
+  -- and one read is either an Initiate check or one exact GUID (the Knight below).
+  check("Ready intersects the selected Initiate check with supported recommendations, not all verified labels", f.names() == "Alpha,Zulu")
   check("ready view and filtering have made no promotion", #f.promotions == 0 and f.attempts == 0)
   f.w.nextButton:Click()
   check("next click makes exactly one secure native GUID promotion in visible sort order", #f.promotions == 1 and f.attempts == 1 and f.directCalls==0
     and f.promotions[1].guid == "Player-1-0000B002" and f.promotions[1].order == 9)
-  check("refresh removes natively confirmed Member from Ready view", f.names() == "Knight,Zulu")
+  check("refresh removes the clicked Alpha step from Ready view", f.names() == "Zulu")
   f.w.rows[1].promote:Click()
-  check("row click makes exactly one Knight Veteran request", #f.promotions == 2 and f.attempts == 2 and f.promotions[2].guid == "Player-1-0000B007" and f.promotions[2].order==7)
+  check("another separate row click requests the remaining Initiate",#f.promotions==2 and f.attempts==2 and f.promotions[2].guid=="Player-1-0000B001")
+  f.w.clearButton:Click()
+  for _, row in ipairs(f.w.rows) do if row.member and row.member.name == "Knight" then row:GetScript("OnMouseUp")(row, "LeftButton") end end
+  f.w.Refresh(); f.w.selectButton:Click()
+  f.publish({ control = f.e.OlympusVerifyDB.launchControl, snapshotId = 13, specs = { { guid = "Player-1-0000B007", name = "Knight", start = 7, final = 5 } } })
+  f.w.Refresh(); f.choose(f.w.actionFilterButton, 2)
+  check("a separate selected Knight read makes only the Knight ready", f.names() == "Knight" and f.reloads == 1 and #f.promotions == 2)
   f.w.rows[1].promote:Click()
-  check("another separate row click requests the remaining Initiate",#f.promotions==3 and f.attempts==3 and f.promotions[3].guid=="Player-1-0000B001")
+  check("row click makes exactly one Knight Veteran request", #f.promotions == 3 and f.attempts == 3 and f.promotions[3].guid == "Player-1-0000B007" and f.promotions[3].order==7)
   check("completion disables next rather than starting unattended work", not f.w.nextButton:IsEnabled() and f.names() == "")
 end
 
 do
-  local f = fixture(); f.choose(f.w.actionFilterButton, 2); f.search("zulu"); f.w.nextButton:Click()
+  local f = ready(); f.choose(f.w.actionFilterButton, 2); f.search("zulu"); f.w.nextButton:Click()
   check("next respects the current search instead of the first global candidate", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
-  f = fixture(); f.choose(f.w.actionFilterButton, 2); f.sort("name"); f.w.nextButton:Click()
+  f = ready(); f.choose(f.w.actionFilterButton, 2); f.sort("name"); f.w.nextButton:Click()
   check("next respects reversed visible name order", #f.promotions == 1 and f.promotions[1].guid == "Player-1-0000B001")
 end
 
 for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "name reuse", "duplicate GUID", "native rank" }) do
-  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
+  local f = ready(); f.choose(f.w.actionFilterButton, 2)
   f.choose(f.w.rankButton,"Initiate") -- These mutations target the two native Initiate rows.
   local old = f.w.rows[1].promote
-  if kind == "expiry" then f.e.NOW = f.page.expiresAt
-  elseif kind == "scan expiry" then f.e.NOW = f.page.scan.expiresAt
+  if kind == "expiry" then f.e.NOW = f.sp.expiresAt
+  elseif kind == "scan expiry" then f.e.NOW = f.sp.scan.expiresAt
   elseif kind == "stop" then f.e.OlympusVerifyDB.launchControl = { action = "stop", id = "loaded" }
   elseif kind == "preview" then f.e.OlympusVerifyUI = { preview = {} }
-  elseif kind == "scope" then f.page.realm = "Wrong Realm"
+  elseif kind == "scope" then f.sp.realm = "Wrong Realm"
   elseif kind == "name reuse" then f.e.ROSTER[2].guid, f.e.ROSTER[3].guid = "Player-1-0000C001", "Player-1-0000C002"; f.w.Show()
   elseif kind == "duplicate GUID" then f.e.ROSTER[2].guid = f.e.ROSTER[3].guid; f.w.Show()
   elseif kind == "native rank" then f.e.ROSTER[2].rankIndex, f.e.ROSTER[3].rankIndex = 8, 8; f.w.Show() end
@@ -186,7 +220,7 @@ for _, kind in ipairs({ "expiry", "scan expiry", "stop", "preview", "scope", "na
 end
 
 for _, kind in ipairs({ "permission", "combat", "native roster age", "unknown outcome", "unconfirmed outcome" }) do
-  local f = fixture(); f.choose(f.w.actionFilterButton, 2)
+  local f = ready(); f.choose(f.w.actionFilterButton, 2)
   if kind == "permission" then f.permission = false
   elseif kind == "combat" then f.combat = true
   elseif kind == "native roster age" then f.e.NOW = f.e.NOW + 16

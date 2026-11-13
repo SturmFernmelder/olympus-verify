@@ -51,7 +51,12 @@ do
   check("actual supported recommendations remain hidden during a wait",f.w.diagnostics.recommendations==3 and f.w.diagnostics.ready==0 and not f.w.nextButton:IsEnabled())
   check("original dispatcher independently refuses a wait without native mutation",not f.q.HardwarePromote("Player-1-0000B002") and #f.promotions==0 and f.page.expiresAt==original)
   f.e.OlympusLaunchQueue.stoppedReason=nil;f.w.Refresh()
-  check("only an actually changed returned source can leave the wait state",f.w.diagnostics.ready==3 and not f.q.Current().actionHeld)
+  check("only an actually changed returned source can leave the wait state",f.w.diagnostics.recommendations==3 and not f.q.Current().actionHeld)
+  -- v233 made the cleared discovery rows ready; v234 discovery is advisory and
+  -- only the selected Directive read admits a promotion.
+  local advisory=f.w.diagnostics.ready==0 and f.w.diagnostics.byGuid["Player-1-0000B002"].label=="Check selected GUID"
+  f.selectInitiates()
+  check("cleared discovery stays advisory until a selected read makes its rows ready",advisory and f.w.diagnostics.ready==2 and #f.promotions==0)
 end
 do
   local f=partial("rate-limited-wait",true);f.e.OlympusVerifyDB.launchControl={action="stop",id="new-control"};f.w.Refresh()

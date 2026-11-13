@@ -1,5 +1,8 @@
 -- Actual Current decoder, synthetic source/native APIs only. No Config.lua,
 -- installed files, network transport or native actions are used.
+-- Moved to officer-operations-v234 (Stage 2 addon280, 13 Nov 2026): container 3,
+-- the 12 November rank profile and table, Member at native slot 7.
+local D = assert(loadfile("directive_fixture280.lua"))()
 local passed, failed = 0, 0
 local function check(label, value)
   if value then passed=passed+1;print("PASS "..label) else failed=failed+1;print("FAIL "..label) end
@@ -19,14 +22,15 @@ local function fixture()
   e.C_GuildInfo={SetGuildRankOrder=action,GuildRoster=action}
   e.OlympusVerifyAPI={Sync=action}
   setfenv(assert(loadfile("../OlympusVerify/Libs/OlympusHmac.lua")),e)("OlympusVerify")
-  f.row={name="Synthetic Candidate",guid="Player-1-0000BBBB",currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}
-  f.page={protocol="officer-operations-v233",status="ready",fetchedAt=e.NOW,expiresAt=e.NOW+60,
+  D.ranks(e)
+  f.row={name="Synthetic Candidate",guid="Player-1-0000BBBB",currentSlot=9,targetSlot=7,targetName="Member",reason="verified-initiate"}
+  f.page=D.stamp(e,{status="ready",fetchedAt=e.NOW,expiresAt=e.NOW+60,
     snapshotId=1,snapshotAt=e.NOW-10,guild="OLYMPUS PRIME",realm="Synthetic Realm",canonicalGuild="OLYMPUS PRIME",
     scopeHash=e.OlympusHmac.sha256hex("native-scope|1|OLYMPUS PRIME|Synthetic Realm"):sub(1,16),
     scan={id=string.rep("a",32),startedAt=e.NOW,expiresAt=e.NOW+590},entitlements={offset=0,total=20},
     invites={},promotions={f.row},riskBuffer={},held={},
-    actions={automatic=false,roleGrants=false,removals=false,requiresNativeRecheck=true}}
-  f.data={version=2,controlId="original",scanComplete=true,pages={f.page}}
+    actions={automatic=false,roleGrants=false,removals=false,requiresNativeRecheck=true}})
+  f.data={version=3,controlId="original",scanComplete=true,pages={f.page}}
   e.OlympusLaunchQueue=f.data;e.OlympusVerifyDB={}
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")),e)("OlympusVerify")
   f.q=e.OlympusLaunch229
@@ -65,6 +69,9 @@ refusal("text promotion target does not throw or leak",function(f) f.row.targetS
 refusal("NaN promotion target is refused",function(f) f.row.targetSlot=0/0 end,"unsupported_promotion_target")
 refusal("infinite promotion target is refused",function(f) f.row.targetSlot=math.huge end,"unsupported_promotion_target")
 refusal("wrong supported target name stays refused",function(f) f.row.targetName="PRIVATE_CANARY" end,"unsupported_promotion_target")
+refusal("retired v233 Member slot8 target stays refused",function(f) f.row.targetSlot=8 end,"unsupported_promotion_target")
+refusal("page from another rank profile holds rank-dependent actions",function(f) f.page.rankProfile="PRIVATE_CANARY" end,"rank_scheme")
+refusal("page rank table that differs from the Directive table is refused",function(f) f.page.rankNames[8]="PRIVATE_CANARY" end,"rank_scheme")
 refusal("later page protocol is independently diagnosed",function(f)
   local p={};for k,v in pairs(f.page) do p[k]=v end
   p.protocol="launch-operations-v1";p.entitlements={offset=20,total=20};p.promotions={};f.data.pages[2]=p

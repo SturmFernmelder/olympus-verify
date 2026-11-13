@@ -2,6 +2,10 @@
 LAUNCH_FIXTURE_ONLY=true
 local fixture=assert(loadfile("test_launch_operations229.lua"))()
 LAUNCH_FIXTURE_ONLY=nil
+-- v234 (Stage 2 addon280, 13 Nov 2026): SelectMany writes a signed v4
+-- select-directive control and the result is promotion-selection-directive-v1
+-- with one sealed intent per GUID; Member is native slot 7 (Initiate 9 > Alt 8 > Member 7).
+local D=assert(loadfile("directive_fixture280.lua"))()
 local passed,failed=0,0
 local function check(name,yes) if yes then passed=passed+1;print("PASS "..name) else failed=failed+1;print("FAIL "..name) end end
 local function copy(value) if type(value)~="table" then return value end local result={};for k,v in pairs(value) do result[k]=copy(v) end;return result end
@@ -12,35 +16,25 @@ local function cohort()
     local id=string.format("Player-1-%08X",i);ids[#ids+1]=id
     e.ROSTER[#e.ROSTER+1]={name="Initiate "..i,rank="Initiate",rankIndex=9,level=20,online=false,guid=id}
   end
-  for i=#e.ROSTER+1,1000 do e.ROSTER[i]={name="Other "..i,rank="Member",rankIndex=8,level=20,online=false,guid=string.format("Player-2-%08X",i)} end
+  for i=#e.ROSTER+1,1000 do e.ROSTER[i]={name="Other "..i,rank="Member",rankIndex=7,level=20,online=false,guid=string.format("Player-2-%08X",i)} end
   f.emit("GUILD_ROSTER_UPDATE")
   return f,ids
 end
 local function result(f,ids)
   check("explicit cohort control is admitted from the complete native roster",f.q.SelectMany(ids))
   local e,c=f.env,f.env.OlympusVerifyDB.launchControl
-  local encoded={};for i,id in ipairs(c.targetGuids) do encoded[i]='"'..id..'"' end
-  local page=copy(f.page)
-  page.snapshotId,page.snapshotAt,page.fetchedAt,page.expiresAt=18,e.NOW,e.NOW,e.NOW+600
-  page.scan={id=string.rep("d",32),startedAt=c.observedAt,expiresAt=c.observedAt+600}
-  page.memberCount=1000;page.status="partial"
-  page.entitlements={offset=0,pageSize=20,scanned=#ids,total=1000,unscanned=1000-#ids}
-  page.promotions={};page.held={};page.invites={};page.riskBuffer={}
+  local specs={}
   for _,id in ipairs(c.targetGuids) do
     local name;for _,row in ipairs(e.ROSTER) do if row.guid==id then name=row.name end end
-    page.promotions[#page.promotions+1]={guid=id,name=name,currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}
+    specs[#specs+1]={guid=id,name=name,start=9,final=7}
   end
-  local data={version=1,protocol="promotion-selection-v276",coverageKind="selected-guids",controlId=c.id,
-    actorGuid=c.guid,targetGuids=copy(c.targetGuids),targetsDigest=e.OlympusHmac.sha256hex("["..table.concat(encoded,",").."]"),
-    scopeHash=c.scopeHash,observedAt=c.observedAt,snapshotId=18,snapshotAt=e.NOW,startedAt=c.observedAt,
-    expiresAt=c.observedAt+600,running=false,completed=true,attempts=1,coveredGuids=copy(c.targetGuids),page=page}
-  e.OlympusLaunchSelected=data
+  local data=D.publish(e,{guild=f.guild,realm=f.realm,control=c,specs=specs,snapshotId=18,snapshotAt=e.NOW,ttl=600,total=1000,context=string.rep("d",32)})
   return data,c
 end
 do
   local f,ids=cohort();local data,c=result(f,ids)
-  local message=table.concat({"launch-selected-read","3","select-many",c.id,tostring(c.observedAt),c.scopeHash,c.guid,table.concat(c.targetGuids,",")},"|")
-  check("control signs a sorted exact GUID set in a separate v3 domain",c.version==3 and c.action=="select-many" and #c.targetGuids==17 and c.targetGuids[1]<c.targetGuids[17] and c.mac==f.env.OlympusHmac.hmacSha256hex(f.env.OlympusVerifyConfig.secret,message):sub(1,32))
+  local message=table.concat({"launch-selected-read","4","select-directive",c.id,tostring(c.observedAt),c.scopeHash,c.guid,table.concat(c.targetGuids,","),c.confirmations},"|")
+  check("control signs a sorted exact GUID set in the v4 select-directive domain",c.version==4 and c.action=="select-directive" and c.confirmations=="[]" and #c.targetGuids==17 and c.targetGuids[1]<c.targetGuids[17] and c.mac==f.env.OlympusHmac.hmacSha256hex(f.env.OlympusVerifyConfig.secret,message):sub(1,32))
   local current=f.q.Current()
   check("all seventeen scattered GUIDs get their own fresh selected authority",current and current.selection.completed and #current.promotions==17 and current.freshness[candidate].kind=="selected" and current.freshness[candidate].expiresAt==data.expiresAt)
   check("batch read controls have no promotion side effects",f.promote==0 and f.legacy==0 and f.restricted==0 and f.syncs==1)
@@ -49,7 +43,7 @@ do
   if not ordinary then print("DIAG Member request",tostring(requested),f.promote,tostring(f.lastName),f.env.ROSTER[2].rankIndex,f.restricted) end
   check("ordinary verified Initiate uses one supported separate promotion click",ordinary)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed native Member cannot be promoted again by the same batch",not f.click(candidate) and f.promote==1)
+  check("confirmed Alt step cannot be promoted again by the same batch",not f.click(candidate) and f.promote==1)
 end
 do
   local f,ids=cohort();result(f,ids);f.env.OlympusLaunchSelected=nil
@@ -84,13 +78,21 @@ for _,kind in ipairs({"duplicate","too-many","missing","not-initiate","self","na
   elseif kind=="not-initiate" then f.env.ROSTER[2].rankIndex=8
   elseif kind=="self" then ids[1]=f.env.ROSTER[1].guid
   elseif kind=="native-stale" then f.env.NOW=f.env.NOW+16 end
-  check(kind.." cannot create or export a partial batch control",not f.q.SelectMany(ids) and f.env.OlympusVerifyDB.launchControl==nil and not f.syncs)
+  -- The v234 fixture loads its signed discovery control first; it must stay the only control.
+  check(kind.." cannot create or export a partial batch control",not f.q.SelectMany(ids) and f.env.OlympusVerifyDB.launchControl==f.discovery and not f.syncs)
 end
 do
-  local f,ids=cohort();local data,c=result(f,ids)
-  local original={scopeHash=c.scopeHash,actorGuid=c.guid,targetGuid=candidate,target=8,snapshotId=7,contextId=string.rep("e",32),attemptedAt=f.env.NOW-30,state="unknown"}
+  -- The prior unknown is saved before this session reads the ledger. The v234
+  -- SelectMany refuses a batch over it, so the batch result below is signed as
+  -- SelectMany would for these GUIDs (the result a reload of an older request returns).
+  local f,ids=cohort()
+  local original={scopeHash=f.scope,actorGuid=f.actor,targetGuid=candidate,target=8,snapshotId=7,contextId=string.rep("e",32),attemptedAt=f.env.NOW-30,state="unknown"}
   f.env.OlympusVerifyDB.launchPromotionAttempts={[candidate]=original}
-  check("fresh batch never clears or retries a pre-existing unknown attempt",not f.click(candidate) and f.env.OlympusVerifyDB.launchPromotionAttempts[candidate]==original and f.promote==0)
+  check("a batch check refuses a target with prior attempt history",not f.q.SelectMany(ids) and f.env.OlympusVerifyDB.launchControl==f.discovery and not f.syncs)
+  local specs={};for _,id in ipairs(ids) do local name;for _,row in ipairs(f.env.ROSTER) do if row.guid==id then name=row.name end end;specs[#specs+1]={guid=id,name=name,start=9,final=7} end
+  local data,_,c=D.publish(f.env,{guild=f.guild,realm=f.realm,actor=f.actor,scopeHash=f.scope,specs=specs,snapshotId=18,snapshotAt=f.env.NOW,ttl=600,total=1000,context=string.rep("d",32)})
+  check("fresh batch never clears or retries a pre-existing unknown attempt",not f.click(candidate) and f.env.OlympusVerifyDB.launchPromotionAttempts[candidate]==original and f.promote==0
+    and f.env.OlympusVerifyDB.launchPromotionCustodyConflict==nil)
   f.env.NOW=f.env.NOW+601;f.emit("GUILD_ROSTER_UPDATE")
   check("batch original clocks expire without extending source or action authority",not f.click(ids[2]) and data.expiresAt==c.observedAt+600 and f.promote==0)
 end
