@@ -348,12 +348,14 @@ export async function revokeForBan(env: Env, userId: string, role: string, sourc
  * excluded from every future sweep and kept the role. And the ban is read AGAIN after the awaited member GET: an unban
  * that completes during that read must not be followed by a removal of a role the account may now hold.
  */
-export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean; remaining: number }> {
+export async function reconcileBanned(env: Env, after: string, limit: number, budget?: CallBudget,originalDispatch?:BetaRoleDispatch): Promise<{ checked: string[]; revoked: string[]; held: string[]; failed: string[]; cursor: string; rank: boolean; remaining: number; observed: number }> {
   const dispatch=originalDispatch??captureBetaRoleDispatch(env),removalDispatch=dispatch.capture;
   const captureGeneration=membershipTransitionEnabled(env)||durableServingRoles(env);
   const role = env.ROLE_GUILD_MEMBER;
   // remaining: rank roles a standing ban still has to lose after this run's visit (one per run; REV-BAN-1, 12 Nov 2026).
-  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false, remaining: 0 };
+  // observed (successor, 12 Nov 2026): unresolved ban rank-role rows whose role a visit's read showed absent. Observation
+  // data for the sweep audit only; no row is changed and nothing reads it as authority.
+  const out = { checked: [] as string[], revoked: [] as string[], held: [] as string[], failed: [] as string[], cursor: after, rank: false, remaining: 0, observed: 0 };
   if (!role) return out;
   // .114: accounts under a reapply hold (a rename Blizzard required) join the same rotation: a removal that failed at the
   // decision, or a grant that landed after it, is undone here (Codex, log 18:47 UTC)
@@ -363,7 +365,8 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
   const canonicalBan=captureCanonicalRankConfig233(env).present;
   const central=canonicalBan?await import('./role-settlements'):null;
   // Repair round, 12 Nov 2026: an account with an expired unresolved ban rank-role row joins the rotation after an unban,
-  // for a GET-only visit (observeBanRankDebt1112), so a lost Discord answer does not fence that role for good.
+  // for a GET-only visit (observeBanRankDebt1112). Successor, 12 Nov 2026: that visit only observes. The row stays
+  // unresolved and keeps fencing its role for that member until an attended resolution exists.
   const debt=central?` UNION SELECT s.subject FROM role_settlements s WHERE s.purpose='${central.BAN_RANK_PURPOSE1112}' AND s.desired=0 AND s.attempts=1 AND s.state IN('dispatching','unknown') AND s.expires_at<=CAST(strftime('%s','now') AS INTEGER)`:'';
   const rows = await env.DB.prepare(
     captureGeneration?`SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
@@ -379,7 +382,7 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
       if(!budget||budget.limit-budget.attempts<central.BAN_RANK1112_MIN_REQUESTS){if(budget)await budgetExhausted(env,budget,"sweep:banned");stopped=true;break;}
       const before=out.cursor;out.cursor=r.discord_id;
       const banned=await central.removeBanRankRoles1112(env,r.discord_id,{kind:'sweep'},generation,budget,dispatch);
-      out.checked.push(r.discord_id);out.rank=true;
+      out.checked.push(r.discord_id);out.rank=true;out.observed+=banned.observed;
       if(banned.removed.length)out.revoked.push(r.discord_id);
       // Follow-up REV-BAN-1, 12 Nov 2026: a visit that removed a role and only left the rest for later runs is progress,
       // not a failure ("revoke failed" in the sweep audit). Any held or unconfirmed role, or a visit that removed
@@ -396,7 +399,7 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
       // Not banned (any more) and no rename hold: only an expired unresolved ban rank-role row brought it here.
       const before=out.cursor;out.cursor=r.discord_id;
       const seen=await central.observeBanRankDebt1112(env,r.discord_id,generation,budget);
-      out.checked.push(r.discord_id);if(seen.state==='held'&&seen.reason==='role_request_budget'){out.cursor=before;stopped=true;break;}
+      out.checked.push(r.discord_id);out.observed+=seen.observed;if(seen.state==='held'&&seen.reason==='role_request_budget'){out.cursor=before;stopped=true;break;}
       continue;
     }
     // .90: a look and possibly a removal: stop before an account the run's budget cannot finish, the cursor at the last one done
