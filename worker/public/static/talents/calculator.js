@@ -855,5 +855,5 @@
       reusableArtwork = null; updateArtworkNotice();
     }
   }
-  return { validateData, validateArt, pointsAtLevel, emptyBuild, validateBuild, allocate, serializeBuild, parseBuild, comparisonBadges, changeTags, classicDiff, classicPlacements, treeChangeSummary, CLASS_SOURCES, COMPARE_EASING, mount };
+  return { REVIEWED, ARCHIVES, validateData, validateArt, pointsAtLevel, emptyBuild, validateBuild, allocate, serializeBuild, parseBuild, comparisonBadges, changeTags, classicDiff, classicPlacements, treeChangeSummary, CLASS_SOURCES, COMPARE_EASING, mount };
 });
