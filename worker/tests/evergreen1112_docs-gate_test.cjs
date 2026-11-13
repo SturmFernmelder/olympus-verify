@@ -147,6 +147,16 @@ function docs() {
   const preamble = scheduleTest.slice(0, scheduleTest.indexOf('\nconst '));
   check('the scheduled budget test preamble states the source schedule qualifier as the source sets it (' + qualified + ')',
     qualified === 'true' && !/qualifier stays false/.test(preamble) && /EPOCH2_SCHEDULE_QUALIFIED has been true since \.161/.test(preamble));
+  // MNT-BRANCH-001 (Codex): the download document describes the package the builder makes now, and keeps 0.6.21 historical.
+  const pack = require(path.join(root, 'scripts/build-verify-addon.cjs'));
+  const download = read('docs/verify-addon-download.md'), split = download.indexOf('\n## Historical');
+  const current = split < 0 ? download : download.slice(0, split), past = split < 0 ? '' : download.slice(split);
+  const excluded = JSON.parse(read(pack.MANIFEST)).localFilesExcluded;
+  check('the addon download document describes the current package (' + pack.VERSION + ', ' + pack.FILES.length + ' files) and every private-file exclusion',
+    current.includes('olympus-verify-' + pack.VERSION + '.zip') && current.includes('allow-list of ' + pack.FILES.length + ' public files')
+    && excluded.every(name => current.includes('`' + name + '`')) && current.includes('--check'));
+  check('the 0.6.21 package, its 17 source files and the retired pin model appear only as history',
+    !/0\.6\.21|\b17 (?:listed )?source files|pins the three/.test(current) && /0\.6\.21/.test(past) && /17 listed source files/.test(past));
   const rq = read('docs/release-qualification.md');
   check('release qualification documents the offline Lua run, the Watcher suite and the D1 assertions', rq.includes('--all-offline') && rq.includes('unittest discover -s watcher/tests') && rq.includes('ROSTER_INGEST_STATEMENTS') && rq.includes('role_settlements'));
   check('release qualification states the current D1 catalogue', rq.includes('444 live') && rq.includes('443 portable'));
