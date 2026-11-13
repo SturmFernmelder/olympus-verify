@@ -321,6 +321,9 @@ export function renderOrganization(main, data, ui) {
     const family = termFamily218(t), seat = seatKeys1112.indexOf(t.officeKey), own = family?.primaryKey === t.officeKey ? 0 : 1;
     if (family?.key === "leader") return own * 1e3 + t.ordinal;
     if (family?.group === "council" && seat >= 0) return 1e4 + seat;
+    // REV-GOV-5 (12 Nov 2026): a retained alias of a seat (Vice Guild Master, Co-GM family) sits right after its seat.
+    const familySeat = family?.group === "council" ? seatKeys1112.indexOf(family.primaryKey) : -1;
+    if (familySeat >= 0) return 1e4 + familySeat + 0.1 + t.ordinal / 1e4;
     return 1e5 + (familyIndex1112.get(family?.key) ?? 999) * 1e3 + own * 500 + t.ordinal;
   };
   const registerGroups1112 = catalog1112 ? catalog1112.map(group => ({ key: group.key, title: group.label, terms: data.terms.filter(t => termFamily218(t)?.group === group.key).sort((a, b) => termSort1112(a) - termSort1112(b)) }))

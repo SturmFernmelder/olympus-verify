@@ -4103,16 +4103,22 @@
       return a;
     };
     // Evergreen 12 Nov 2026 (CL2-034): the board lists its ballots under the same six catalogue groups, in the same family
-    // order, as Roles and Organization; class leads close the Raid group alphabetically.
+    // order, as Roles and Organization; class leads are listed alphabetically.
     const ballotGroups = (() => {
       const directory = roleDirectory203(), catalogue = catalogGroups1112(directory);
       const lead = meta.ballots.filter((b) => b.group === "leadership"), classes = meta.ballots.filter((b) => b.group === "class").sort(byDisplayLabel);
       if (!catalogue) return [{ label: "Leadership", ballots: lead }, { label: "Class leads", ballots: classes }];
       const familyIndex = new Map(directory.families.map((family, index) => [family.key, index]));
       const familyFor = (b) => directory.families.find((family) => family.key === directory.keyToFamily[b.key]);
-      const placed = catalogue.map((group) => ({ label: group.label, ballots: [
-        ...lead.filter((b) => familyFor(b)?.group === group.key).sort((a, b) => familyIndex.get(familyFor(a).key) - familyIndex.get(familyFor(b).key)),
-        ...classes.filter((b) => (familyFor(b)?.group || "raid") === group.key)] }));
+      // REV-GOV-5 (12 Nov 2026): the nine class leads follow their family's general ballot (Class Head, Class Leadership)
+      // instead of closing the group; with no such ballot in the group they still close it.
+      const placed = catalogue.map((group) => {
+        const ballots = lead.filter((b) => familyFor(b)?.group === group.key).sort((a, b) => familyIndex.get(familyFor(a).key) - familyIndex.get(familyFor(b).key));
+        const mine = classes.filter((b) => (familyFor(b)?.group || "raid") === group.key), home = mine.length ? familyFor(mine[0])?.key : null;
+        const after = home ? ballots.map((b) => familyFor(b)?.key).lastIndexOf(home) : -1;
+        ballots.splice(after < 0 ? ballots.length : after + 1, 0, ...mine);
+        return { label: group.label, ballots };
+      });
       const rest = lead.filter((b) => !familyFor(b));
       return [...placed, ...(rest.length ? [{ label: "Other roles", ballots: rest }] : [])].filter((group) => group.ballots.length);
     })();

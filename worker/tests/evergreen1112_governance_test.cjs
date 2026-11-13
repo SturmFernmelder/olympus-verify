@@ -211,5 +211,14 @@ check('INT-GOV-1', 'each governance chapter\'s "On this page" list is a labelled
 check('INT-GOV-1', '/#/organization keeps one resources nav; its card link rows are labelled groups', count(orgView, 'h("nav"') === 1 && count(overview, 'h("nav"') === 0
   && orgView.includes('role: "group", "aria-label": "Ordinary applications"') && overview.includes('role: "group", "aria-label": "Continue exploring the Alliance"'));
 
+// ---------------------------------------------------------------- REV-GOV-5 ordering (source shape; the browser order is in the receipt)
+// Behaviour precondition from the served directory: the class leads and Class Head share the Class Leadership family,
+// and the Vice Guild Master is a Co-GM family source whose family primary is a Council seat.
+check('REV-GOV-5', 'the nine class leads and the Class Head share the Class Leadership family', dir.keyToFamily['office_17'] === 'class_leadership'
+  && Object.keys(dir.keyToFamily).filter(k => k.startsWith('class_lead:')).length === 9 && Object.keys(dir.keyToFamily).filter(k => k.startsWith('class_lead:')).every(k => dir.keyToFamily[k] === 'class_leadership'));
+check('REV-GOV-5', 'the vote board inserts the class leads right after their family\'s last general ballot', /ballots\.map\(\(b\) => familyFor\(b\)\?\.key\)\.lastIndexOf\(home\)/.test(app) && /ballots\.splice\(after < 0 \? ballots\.length : after \+ 1, 0, \.\.\.mine\)/.test(app));
+check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s seat (Vice Guild Master after Co-GM)', dir.keyToFamily['office_92'] === 'co_gm' && fam('co_gm').primaryKey === 'office_19'
+  && /const familySeat = family\?\.group === "council" \? seatKeys1112\.indexOf\(family\.primaryKey\) : -1;/.test(orgView) && /return 1e4 \+ familySeat \+ 0\.1 \+ t\.ordinal \/ 1e4;/.test(orgView));
+
 console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
 process.exit(failed ? 1 : 0);
