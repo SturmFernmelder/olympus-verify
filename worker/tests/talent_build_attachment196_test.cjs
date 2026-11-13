@@ -36,7 +36,8 @@ function sameAcceptance(build) {
 }
 check('generated contract reproduces exact source and known input hashes', () => {
   assert.equal(generator.buildContract(repo), fs.readFileSync(path.join(worker, 'src/talent-build-contract.ts'), 'utf8'));
-  assert.equal(contract.TALENT_SNAPSHOT_DATA_SHA256, '8b174d764836675b2b759050f441e2dfe12c7bad6a5b279ef39b05d8b1288a0c');
+  // CL2-087 (our 2848069, owner ruling of 12 Nov 2026): the calculator moved to the 10 November export (revision 02e1e101d1a5).
+  assert.equal(contract.TALENT_SNAPSHOT_DATA_SHA256, 'd8b516b2e29c10dead48e5f96edcea7c3f87c3af90a586dfc85f2595ecbf5e0e');
   assert.equal(contract.TALENT_SNAPSHOT_DATA_SHA256, crypto.createHash('sha256').update(bytes).digest('hex'));
   assert.equal(contract.TALENT_SNAPSHOT_UPSTREAM_SHA256, data.source.rawSHA256);
   assert.equal(contract.TALENT_SERIALIZER_SOURCE_SHA256, crypto.createHash('sha256').update(fs.readFileSync(path.join(folder, 'calculator.js'))).digest('hex'));
@@ -80,8 +81,10 @@ for (const cls of data.classes) check(cls.name + ': every level10–60 and deter
 const guideContext = {};
 vm.runInNewContext(fs.readFileSync(path.join(folder, 'guide-builds179.js'), 'utf8'), guideContext, { filename: 'guide-builds179.js', timeout: 1000 });
 const guides = guideContext.OlympusTalentGuides.records;
-check('all fourteen real guide allocations retain the exact calculator serialization', () => {
-  assert.equal(guides.length, 14);
+// CL2-087 (our b4065db): on the 10 November data the three Method allocations that are still legal stay unchanged and
+// the eleven that use removed talents, new caps or broken tiers are omitted.
+check('all three remaining real guide allocations retain the exact calculator serialization', () => {
+  assert.equal(JSON.stringify(Array.from(guides, record => record.id)), JSON.stringify(['warlock-method-1', 'warlock-method-2', 'warlock-method-3']));
   for (const record of guides) {
     const parsed = calculator.parseBuild(data, record.code); assert.ok(parsed.ok, record.id);
     assert.equal(calculator.serializeBuild(data, parsed.build), record.code);
@@ -96,7 +99,10 @@ check('level boundaries and point budgets match the actual calculator', () => {
   for (const level of [0, 9, 10, 11, 30, 60, 61, 69]) {
     const build = { ...valid, level }; sameAcceptance(build);
   }
-  const full = guides.map(g => calculator.parseBuild(data, g.code)).find(p => p.ok && p.points === 51);
+  // CL2-087 (our b4065db, 2848069): no remaining guide allocation spends all 51 points, so the rewritten level-60
+  // presets in guides218.json (the same source the calculator lists) also supply candidates for the full build.
+  const presetCodes = fs.readFileSync(path.join(worker, 'public/static/guides218.json'), 'utf8').match(/ot1\.[0-9a-f]{12}\.[a-z]+\.60\.[0-9]+/g) || [];
+  const full = [...guides.map(g => g.code), ...presetCodes].map(code => calculator.parseBuild(data, code)).find(p => p.ok && p.points === 51);
   assert.ok(full); sameAcceptance({ ...full.build, level: 30 }); assert.equal(attachment(wire({ ...full.build, level: 30 })), null);
 });
 check('earlier-row threshold is exact and same-row or other-tree points cannot fund it', () => {
