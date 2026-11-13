@@ -102,6 +102,23 @@ for (const s of sources.sources || []) {
       errors.push("fact " + e.to + ": guides218.json " + e.from + " dates its check up to " + until[1] + " and cites " + official.join(", ") + "; the university copy must say the same date and cite them");
   }
 }
+// (4) Round 4 review (13 Nov 2026): source 15 and talents-data are the 10 November export, so a text that cites them must
+// not present the October snapshot as the data it reports (a comparison with October, such as "lower than in the October
+// beta", is history and stays allowed).
+{
+  const OCTOBER_AS_DATA = /\b(?:the|pinned) October (?:snapshot|beta build)\b|\b16 Oct(?:ober)?(?: 2026)? snapshot\b/i;
+  const words = o => ["text", "label", "value", "note"].map(k => typeof o[k] === "string" ? o[k] : "").join(" ");
+  const walk = (v, where) => {
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, where + "[" + i + "]")); return; }
+    if (!v || typeof v !== "object") return;
+    if (Array.isArray(v.sources) && v.sources.includes(15) && OCTOBER_AS_DATA.test(words(v)))
+      errors.push("guides218.json " + where + ": cites source 15 (the 10 November export) but describes the October data: " + words(v).trim().slice(0, 160));
+    for (const k of Object.keys(v)) if (k !== "sources") walk(v[k], where + "." + k);
+  };
+  for (const k of ["classes", "presets", "professions", "tools", "classSummary"]) walk(g218[k], k);
+  for (const doc of factFiles) for (const f of doc.facts || []) if ((f.sources || []).some(id => id === "g218-15" || id === "talents-data") && OCTOBER_AS_DATA.test(words(f)))
+    errors.push("fact " + f.id + ": cites the 10 November export but describes the October data: " + words(f).trim().slice(0, 160));
+}
 
 // Generated files are current.
 const gen = cp.spawnSync(process.execPath, [path.join(__dirname, "generate-talent-facts.cjs"), "--check"], { encoding: "utf8" });
