@@ -57,7 +57,8 @@ export function buildAllianceOverview205(data, directory) {
 export function renderAllianceOverview205(data, ui, onSelectNode) {
   const { h, posIcon } = ui;
   const nativeRankDisplayName = (slot, name) => slot === 0 ? "Leader (Guild Master)" : name;
-  const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
+  // REV-GOV-6 (12 Nov 2026): the groups start closed below 1024 px (tablets too), not only on phones.
+  const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 1023px)").matches;
   const guildDisplayName229 = name => typeof name === 'string' && /^Olympus(?: I| PRIME)?$/i.test(name) ? 'OLYMPUS PRIME' : name;
   const root = h("section", { class: "org-alliance frame", id: "alliance-overview", "aria-label": "Olympus Alliance organization overview" });
   let model;
@@ -193,7 +194,7 @@ export function renderAllianceOverview205(data, ui, onSelectNode) {
     groupSection("members", "org-alliance-members", "Members, raiders, mentors and voluntary activities share the guild without officer powers. " + (ui.standingIntro218 || "")),
     groupSection("royal", "org-alliance-sovereign", "Founder, emeritus and courtesy recognition, and the paused Treasury cosmetic tiers. These are honours, not offices."), empty,
     h("details", { class: "org-alliance-history" }, h("summary", { text: "From the early Olympus organization design" }), h("p", { text: "The earlier poster supplies useful context for the departments and their working relationships. Its named holders, shorter membership ladder and older scope do not establish today's appointments or native configuration." }), ORGANIZATION_HISTORY205.map(row => h("section", null, h("h3", { text: row.title }), h("p", { text: row.text })))),
-    h("nav", { class: "governance-quicklinks", "aria-label": "Continue exploring the Alliance" }, h("a", { class: "btn small", href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }), h("a", { class: "btn small", href: "#/governance/operational-charter-the-work-of-olympus", text: "Complete operational charter" })));
+    h("div", { class: "governance-quicklinks", role: "group", "aria-label": "Continue exploring the Alliance" }, h("a", { class: "btn small", href: "#/roles/rosetta-stone", text: "Role & Rank Rosetta Stone" }), h("a", { class: "btn small", href: "#/governance/operational-charter-the-work-of-olympus", text: "Complete operational charter" })));
   describeBranch(); filter();
   return root;
 }

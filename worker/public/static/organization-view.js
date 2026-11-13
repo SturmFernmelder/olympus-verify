@@ -124,6 +124,14 @@ export function renderOrganization(main, data, ui) {
     const parent = n.parent && fullPosition.has(n.parent) ? byId.get(n.parent) : null;
     const related = bySeat1112(visible.filter(o => o.id !== selected && o.id !== parent?.id && (o.parent === selected || n.coordinates.includes(o.id) || o.coordinates.includes(selected))));
     // Only presentation changes: relationship direction, kind and mandate text still come from the unchanged model.
+    // REV-GOV-6 (12 Nov 2026): a chart viewport narrower than 600 px (phones, and the 768 px column beside the details)
+    // showed one card at the readable scale. There the branch stacks in one column: parent, the selected office, then its
+    // children, with every line on the right-hand side, so the office and its first children share the first screen.
+    if (stacked1112()) {
+      const pitch = cardHeight() + 26, column = [...(parent ? [parent] : []), n, ...related];
+      position.clear(); column.forEach((o, i) => position.set(o.id, { x: 120, y: 12 + i * pitch }));
+      drawLayout(new Set(position.keys()), 274, column.length * pitch + 12); return { width: 274, height: column.length * pitch + 12, stacked: true };
+    }
     const pitch = cardHeight() + 42, chartWidth = parent ? 1020 : 680;
     const count = Math.max(1, related.length), chartHeight = count * pitch + 60;
     // CL2-042: a tall branch (the Council has thirteen children) starts at the top, so the first paint shows the office,
@@ -135,6 +143,7 @@ export function renderOrganization(main, data, ui) {
     related.forEach((o, i) => position.set(o.id, { x: selectedX + 340, y: 30 + i * pitch }));
     drawLayout(new Set(position.keys()), chartWidth, chartHeight); return { width: chartWidth, height: chartHeight };
   }
+  function stacked1112() { const w = viewport.clientWidth; return w > 0 && w < 600; }
   function transform() { stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`; zoomStatus.textContent = Math.round(scale * 100) + "%"; }
   function zoom(next, cx = viewport.clientWidth / 2, cy = viewport.clientHeight / 2, chartX = (cx - x) / scale, chartY = (cy - y) / scale) {
     scale = Math.max(.05, Math.min(2, next)); x = cx - chartX * scale; y = cy - chartY * scale; transform();
@@ -143,7 +152,7 @@ export function renderOrganization(main, data, ui) {
     const size = branchLayout(); if (!size) { overview(); status.textContent = "Rank and membership groupings have no command arrows. Their full descriptions are available in List. " + chartSummary(); return; }
     branchMode = true; const w = viewport.clientWidth || 850, ht = viewport.clientHeight || 620;
     // A large branch can pan instead of reducing office labels to unreadable thumbnails.
-    scale = Math.max(.85, Math.min(1, (w - 32) / size.width, (ht - 32) / size.height)); x = (w - size.width * scale) / 2; y = Math.min(16, ht / 2 - ((position.get(selected)?.y || 0) + cardHeight()/2) * scale);
+    scale = Math.max(.85, Math.min(1, (w - 32) / size.width, (ht - 32) / size.height)); x = (w - size.width * scale) / 2; y = size.stacked ? 4 : Math.min(16, ht / 2 - ((position.get(selected)?.y || 0) + cardHeight()/2) * scale);
     overviewButton.setAttribute("aria-pressed", "false"); branchButton.setAttribute("aria-pressed", "true"); status.textContent = chartSummary(); transform();
   }
   function overview() {
@@ -321,6 +330,9 @@ export function renderOrganization(main, data, ui) {
     const family = termFamily218(t), seat = seatKeys1112.indexOf(t.officeKey), own = family?.primaryKey === t.officeKey ? 0 : 1;
     if (family?.key === "leader") return own * 1e3 + t.ordinal;
     if (family?.group === "council" && seat >= 0) return 1e4 + seat;
+    // REV-GOV-5 (12 Nov 2026): a retained alias of a seat (Vice Guild Master, Co-GM family) sits right after its seat.
+    const familySeat = family?.group === "council" ? seatKeys1112.indexOf(family.primaryKey) : -1;
+    if (familySeat >= 0) return 1e4 + familySeat + 0.1 + t.ordinal / 1e4;
     return 1e5 + (familyIndex1112.get(family?.key) ?? 999) * 1e3 + own * 500 + t.ordinal;
   };
   const registerGroups1112 = catalog1112 ? catalog1112.map(group => ({ key: group.key, title: group.label, terms: data.terms.filter(t => termFamily218(t)?.group === group.key).sort((a, b) => termSort1112(a) - termSort1112(b)) }))
@@ -371,6 +383,9 @@ export function renderOrganization(main, data, ui) {
   });
   // CL2-043: on a phone the map starts closed (one tap opens it) and the alliance groups start collapsed.
   const narrow1112 = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
+  // REV-GOV-6 (12 Nov 2026): the long directory disclosures also start closed on tablets (below 1024 px), where the open
+  // page ran to about 15,000 px at 768 px. The chart itself stays open from 761 px up.
+  const collapse1112 = typeof matchMedia === "function" && matchMedia("(max-width: 1023px)").matches;
   relationshipMap205 = h("details", { class: "org-relationship-map205 frame", open: !narrow1112 },
     h("summary", { text: "Organization chart · reporting & coordination lines" }));
   relationshipMap205.open = !narrow1112;
@@ -403,11 +418,11 @@ export function renderOrganization(main, data, ui) {
     chartLocation, chartDialog,
     h("details", { class: "frame org-profile-notes" }, h("summary", { text: "Technical & Historical Profile Notes" }), h("p", { text: data.roleRank199.historicalProfileNote }), h("p", { text: "Older drafts that gave Treasurer a separate native slot are superseded. The historical beta-five client observation and the addon’s second-rank Captain assumption remain evidence to review before real native adoption; this page performs no in-game rank write or key-profile activation. Officer Alt is now the fourth native rank, while the Treasurer key is an appointment alias. No title alone grants bank withdrawal, invitations, key signing or confidential access." })),
     // CL2-043: the ten directory places are a disclosure, closed on phones.
-    h("details", { class: "frame org-alliance-group1112", open: !narrow1112 }, h("summary", null, h("h2", { text: "OLYMPUS PRIME / Olympus II–X · affiliation and succession" })), h("p", { text: "These are directory places for affiliated guilds, not assertions that ten guilds are formed or that their Guild Masters have been appointed. A local Guild Master retains local command while accepting the common charter. Each guild names five correspondents: PvP, Raiding, Finance, Artisanry and Heraldry." }), h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map(g => h("li", null, h("strong", { text: guildDisplayName229(g.name) }), h("small", { text: g.state }))))),
+    h("details", { class: "frame org-alliance-group1112", open: !collapse1112 }, h("summary", null, h("h2", { text: "OLYMPUS PRIME / Olympus II–X · affiliation and succession" })), h("p", { text: "These are directory places for affiliated guilds, not assertions that ten guilds are formed or that their Guild Masters have been appointed. A local Guild Master retains local command while accepting the common charter. Each guild names five correspondents: PvP, Raiding, Finance, Artisanry and Heraldry." }), h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map(g => h("li", null, h("strong", { text: guildDisplayName229(g.name) }), h("small", { text: g.state }))))),
     h("section", { class: "frame" }, h("h2", { text: "Role guides and office register" }),
       h("p", { text: "The Roles directory brings alternate titles and regional or class duties into their complete family guides. Use the chart here for lines of responsibility." }),
       h("a", { class: "btn small", href: "#/roles", text: "Explore the role directory" }),
-      applicationLinks.length ? h("nav", { class: "btn-row", "aria-label": "Ordinary applications" }, applicationLinks) : null,
+      applicationLinks.length ? h("div", { class: "btn-row", role: "group", "aria-label": "Ordinary applications" }, applicationLinks) /* INT-GOV-1: a link row, not a landmark */ : null,
       registerDetails1112)]);
   // Show the interactive map before its longer rank, Council and reading references.
   const mapReadingSections221 = [...main.children].filter(node => node.classList?.contains("org-rank-guide") || node.classList?.contains("org-council-overview") || node.classList?.contains("org-guide"));

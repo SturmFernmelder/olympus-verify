@@ -124,9 +124,9 @@ The first service cycle reviews these arrangements after six to eight weeks. The
 
 Historical instruments, archived announcements and old software releases remain labelled by their own date and status. The current adopted text is the governing reference. Templates have empty fields because an actual appointment must be made by actual people. No preprinted seal, generated signature or polished chart substitutes for that act.
 
-## O15 Published Council responsibility portfolios
+## O15 Historical: Council responsibility portfolios published 13 October 2026
 
-The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.
+The authorized guild administration directed publication of these responsibility portfolios on 13 October 2026. They are kept as a dated record: the current High Council seats and their duties are set out in Title II, Section II.8.1. The portfolios describe the work to coordinate; they do not represent a signed appointment instrument, a new native rank or a permission grant. Existing appointments and the local chains of command keep their separate status.
 
 ### Fernmelder — Treasury and guild operations
 

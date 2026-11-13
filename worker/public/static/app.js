@@ -195,10 +195,12 @@
   }
   function targetSize1112(el) { el.style.display = "inline-flex"; el.style.alignItems = "center"; el.style.minHeight = "44px"; return el; }
   // A short in-page jump list. Buttons scroll without changing the route, so the hash router is not re-entered.
-  function jumpList1112(items) {
+  // INT-GOV-1 (CL2-100, 12 Nov 2026): a page's one contents list is a nav landmark; a list repeated per chapter or card
+  // passes groupLabel and becomes a labelled group, so screen readers keep one landmark per page.
+  function jumpList1112(items, groupLabel) {
     const shown = items.filter(item => item && item.target);
     if (shown.length < 3) return null;
-    return h("nav", { class: "governance-quicklinks page-jump-list1112", "aria-label": "On this page" }, h("span", { class: "small muted", text: "On this page:" }),
+    return h(groupLabel ? "div" : "nav", { class: "governance-quicklinks page-jump-list1112", ...(groupLabel ? { role: "group" } : {}), "aria-label": groupLabel || "On this page" }, h("span", { class: "small muted", text: "On this page:" }),
       ...shown.map(item => targetSize1112(h("button", { type: "button", class: "btn small", text: item.label, onclick: () => {
         for (let node = item.target; node; node = node.parentElement) if (node.tagName === "DETAILS") node.open = true;
         if (!item.target.hasAttribute("tabindex")) item.target.setAttribute("tabindex", "-1");
@@ -2195,8 +2197,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "cabceefe764ba94b95dda4949554f4e8a3d5f686582692738ece5563793b107e";
-  const GOVERNANCE_BYTES = 266422;
+  const GOVERNANCE_SHA256 = "67eb1cddf7172e9b0e2d2f6d06304896a14bc0fbd60969ab128f0b2359b6a4f6";
+  const GOVERNANCE_BYTES = 267517;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -2388,7 +2390,7 @@
             h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: family.label }))))) : null);
       // CL2-063: chapters with four or more sections open with an "On this page" list.
       const sectionHeadings = blocks.filter(node => node.tagName === "H3" && node.id && node.getAttribute("data-heading-level") === "2");
-      const jump = sectionHeadings.length >= 4 ? jumpList1112(sectionHeadings.map(node => ({ label: node.textContent, target: node }))) : null;
+      const jump = sectionHeadings.length >= 4 ? jumpList1112(sectionHeadings.map(node => ({ label: node.textContent, target: node })), "Sections of " + chapter.title) : null;
       const content = h("div", { class: "governance-prose" }, references, jump, executionFields, blocks);
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
       // Search rendered book text, including phrases spanning strong/code, without
@@ -4101,16 +4103,22 @@
       return a;
     };
     // Evergreen 12 Nov 2026 (CL2-034): the board lists its ballots under the same six catalogue groups, in the same family
-    // order, as Roles and Organization; class leads close the Raid group alphabetically.
+    // order, as Roles and Organization; class leads are listed alphabetically.
     const ballotGroups = (() => {
       const directory = roleDirectory203(), catalogue = catalogGroups1112(directory);
       const lead = meta.ballots.filter((b) => b.group === "leadership"), classes = meta.ballots.filter((b) => b.group === "class").sort(byDisplayLabel);
       if (!catalogue) return [{ label: "Leadership", ballots: lead }, { label: "Class leads", ballots: classes }];
       const familyIndex = new Map(directory.families.map((family, index) => [family.key, index]));
       const familyFor = (b) => directory.families.find((family) => family.key === directory.keyToFamily[b.key]);
-      const placed = catalogue.map((group) => ({ label: group.label, ballots: [
-        ...lead.filter((b) => familyFor(b)?.group === group.key).sort((a, b) => familyIndex.get(familyFor(a).key) - familyIndex.get(familyFor(b).key)),
-        ...classes.filter((b) => (familyFor(b)?.group || "raid") === group.key)] }));
+      // REV-GOV-5 (12 Nov 2026): the nine class leads follow their family's general ballot (Class Head, Class Leadership)
+      // instead of closing the group; with no such ballot in the group they still close it.
+      const placed = catalogue.map((group) => {
+        const ballots = lead.filter((b) => familyFor(b)?.group === group.key).sort((a, b) => familyIndex.get(familyFor(a).key) - familyIndex.get(familyFor(b).key));
+        const mine = classes.filter((b) => (familyFor(b)?.group || "raid") === group.key), home = mine.length ? familyFor(mine[0])?.key : null;
+        const after = home ? ballots.map((b) => familyFor(b)?.key).lastIndexOf(home) : -1;
+        ballots.splice(after < 0 ? ballots.length : after + 1, 0, ...mine);
+        return { label: group.label, ballots };
+      });
       const rest = lead.filter((b) => !familyFor(b));
       return [...placed, ...(rest.length ? [{ label: "Other roles", ballots: rest }] : [])].filter((group) => group.ballots.length);
     })();
