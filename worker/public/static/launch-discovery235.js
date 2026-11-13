@@ -218,6 +218,11 @@
       ui.h('p', {'data-launch235-rank-held': reason, text: RANK_HELD[reason]}),
       // F4 of the review: with the settings held, the server does not report whether the export's ranks also match.
       reason === 'directive-rank-policy-held' ? ui.h('p', {'data-launch235-rank-also': '', text: 'The roster export’s ranks are checked only once the settings are fixed, so a second rank hold may appear then.'}) : null,
+      // 13 Nov 2026: under the settings production runs (the original rank policy) verification, promotion and demotion
+      // keep granting and removing rank roles; only this page's ranks and recommendations wait for the 12 November ladder.
+      // Said for this reason only: with the 12 November settings in force and an export that does not match, role
+      // changes are held as well.
+      reason === 'directive-rank-policy-held' ? ui.h('p', {'data-launch235-rank-roles': '', text: 'This hold is about the ranks and the promotion recommendations on this page. Rank roles in Discord are not held by it: they keep following the site’s current rank settings.'}) : null,
       ui.h('p', {text: 'Promotion recommendations are held until ranks are confirmed. This does not mean that nobody is due for a promotion. Roster discovery, the invite queue and the message of the day work as usual.'}),
       ui.h('p', {class: 'muted small', text: 'The Initiate space buffer needs ranks, so it stays empty while ranks are held.'}));
   }
