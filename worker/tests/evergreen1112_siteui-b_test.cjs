@@ -236,6 +236,38 @@ async function browserChecks() {
       const r = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');const b=n.getBoundingClientRect();const tops=new Set([...n.querySelectorAll('a')].map(a=>Math.round(a.getBoundingClientRect().top)));return {rows:tops.size,height:Math.round(b.height),links:n.querySelectorAll('a').length,over:document.documentElement.scrollWidth-innerWidth}`);
       check('CL2-272', 'at 390 px the Community sections are one scrolling row with no page overflow', r.rows === 1 && r.over <= 0, r);
     }
+    if (want('RC-272')) {
+      // RC-272 (round 3, 12 Nov 2026): in the scrolling row the current section's link must be fully visible on every
+      // Community section, without the page itself scrolling. Sections whose page shows no Community row (Town Crier) are
+      // listed and skipped.
+      const seen = {};
+      for (const [who, w] of [['admin', 390], ['admin', 320]]) {
+        await open(who, w, 'community'); await sleep(400);
+        const hrefs = await ev(`return [...document.querySelectorAll('nav[aria-label="Community sections"] a')].map(a=>a.getAttribute('href'))`);
+        for (const href of hrefs) {
+          await open(who, w, href.slice(2)); await sleep(600);
+          seen[`${href}@${w}`] = await ev(`const n=document.querySelector('nav[aria-label="Community sections"]');if(!n)return {tabs:false};const c=n.querySelector('[aria-current="page"]');if(!c)return {tabs:true,current:null};const a=n.getBoundingClientRect(),b=c.getBoundingClientRect();return {tabs:true,current:c.textContent,visible:b.left>=a.left-0.5&&b.right<=a.right+0.5&&b.left>=-0.5&&b.right<=innerWidth+0.5,scrolled:Math.round(n.scrollLeft),pageY:Math.round(scrollY),pageX:Math.round(scrollX),links:n.querySelectorAll('a').length}`);
+        }
+      }
+      const rows = Object.entries(seen).filter(([, x]) => x.tabs);
+      const offscreenStart = rows.filter(([, x]) => x.scrolled > 0).length;
+      check('RC-272', 'at 390 and 320 px the current section link is fully visible on every Community section, with no page scroll', rows.length >= 16 && rows.every(([, x]) => x.current && x.visible && x.pageY === 0 && x.pageX === 0) && offscreenStart > 0,
+        { sections: rows.length, rowScrolledFor: offscreenStart, failing: rows.filter(([, x]) => !(x.current && x.visible && x.pageY === 0 && x.pageX === 0)).map(([k, x]) => k + ' ' + JSON.stringify(x)).slice(0, 6), noRow: Object.keys(seen).filter(k => !seen[k].tabs) });
+    }
+    if (want('RC-280')) {
+      // RC-280 (round 3, 12 Nov 2026): the real toast() and dropToast() from app.js, run in the page on a private stack, with
+      // four messages in each mix. An error toast is never evicted before its timer; the oldest non-error goes first.
+      const app = src('worker/public/static/app.js');
+      const fn = name => (new RegExp(`\\n  function ${name}\\([^]*?\\n  }\\n`).exec(app) || [''])[0];
+      const code = fn('toast') + fn('dropToast');
+      const r = await ev(`const toastBox=document.createElement('div'),app=document.createElement('div');let lastFocus=null;
+        const h=(tag,attrs,...kids)=>{const e=document.createElement(tag);for(const [k,v] of Object.entries(attrs||{})){if(v===false||v==null)continue;if(k==='text')e.textContent=v;else if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v);}for(const c of kids.flat())if(c)e.append(c);return e;};
+        ${code}
+        const run=kinds=>{toastBox.replaceChildren();kinds.forEach((k,i)=>toast('m'+i,k));const out=[...toastBox.children].map(t=>t.dataset.message+(t.dataset.kind==='bad'?':bad':''));for(const t of toastBox.children)clearTimeout(Number(t.dataset.timer));return out.join(',');};
+        return {extracted:${JSON.stringify(code.length)},allInfo:run(['','','','']),errorFirst:run(['bad','','','']),mixed:run(['','bad','','bad']),allErrors:run(['bad','bad','bad','bad']),errorsThenInfo:run(['bad','bad','bad',''])}`);
+      check('RC-280', 'four infos keep the newest three; an error is kept over older infos; four errors all stay; three errors and an info all stay',
+        r.extracted > 200 && r.allInfo === 'm1,m2,m3' && r.errorFirst === 'm0:bad,m2,m3' && r.mixed === 'm1:bad,m2,m3:bad' && r.allErrors === 'm0:bad,m1:bad,m2:bad,m3:bad' && r.errorsThenInfo === 'm0:bad,m1:bad,m2:bad,m3', r);
+    }
     if (want('CL2-277')) {
       await open('member', 390, 'roles');
       const r = await ev(`const a=[...document.querySelectorAll('main a')].filter(a=>/^(Rank \\d|Title [IVX]+$)/.test(a.textContent.trim())&&a.getClientRects().length);return {count:a.length,min:Math.min(...a.map(x=>Math.round(x.getBoundingClientRect().height)))}`);
@@ -250,14 +282,23 @@ async function browserChecks() {
       // REV-SITEB-2 (12 Nov 2026): both kinds of "Role guide" link (application badges; the See-also strip on Vote) share one
       // 44 px target from the stylesheet. The inline CSSOM size on See-also links is removed before measuring, so the check
       // reads the stylesheet's rule, not the script's.
-      const sizes = {};
+      // Round 3 item 10 (12 Nov 2026): the inline sizes are removed from EVERY link of the row, not just the measured one, so
+      // a sibling's inline 44 px cannot stretch the row and carry the measured link. The control then switches the stylesheet
+      // rule off on the same links (inline CSSOM, which the CSP allows): the Vote link must drop below 44 px, which shows
+      // the check can fail.
+      const sizes = {}, control = {};
       for (const [who, route] of [['member', 'vote'], ['applicant', 'apply'], ['admin', 'admin/applications']]) {
         for (const w of [1280, 390]) {
           await open(who, w, route); await sleep(600);
-          sizes[`${route}@${w}`] = await ev(`return [...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length).map(a=>{a.style.removeProperty('min-height');a.style.removeProperty('display');return Math.round(a.getBoundingClientRect().height)})`);
+          const r = await ev(`const guides=[...document.querySelectorAll('main a')].filter(a=>a.textContent.trim()==='Role guide'&&a.getClientRects().length);const links=[...new Set(guides.flatMap(g=>[...g.parentElement.querySelectorAll(':scope > a')]))];const orig=new Map(links.map(a=>[a,a.style.cssText]));const size=()=>guides.map(a=>Math.round(a.getBoundingClientRect().height));
+            for(const g of guides){g.style.removeProperty('display');g.style.setProperty('min-height','0px','important');}const oldMethodRuleOff=size();for(const a of links)a.style.cssText=orig.get(a);
+            for(const a of links){a.style.removeProperty('min-height');a.style.removeProperty('display');}const ruled=size();
+            for(const a of links){a.style.setProperty('min-height','0px','important');a.style.setProperty('display','inline','important');}const off=size();for(const a of links)a.style.cssText=orig.get(a);return {ruled,off,oldMethodRuleOff}`);
+          sizes[`${route}@${w}`] = r.ruled; control[`${route}@${w}`] = { off: r.off, oldMethodRuleOff: r.oldMethodRuleOff };
         }
       }
       check('REV-SITEB-2', 'every "Role guide" link on Vote, Apply and Admin applications is at least 44 px tall at 1280 and 390 px, from the stylesheet', Object.values(sizes).every(x => x.length > 0 && Math.min(...x) >= 44), sizes);
+      check('REV-SITEB-2', 'control: with the rule switched off on the whole row, the Vote "Role guide" link is under 44 px (the measurement can fail)', ['vote@1280', 'vote@390'].every(k => control[k].off.length > 0 && Math.max(...control[k].off) < 44), control);
     }
     if (want('CL2-321')) {
       await open('admin', 390, '');
@@ -273,8 +314,30 @@ async function browserChecks() {
         await open('admin', 160, route, 400); await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false }); await cdp.send('Page.reload', {}); await idle(st); await sleep(600);
         const r = await ev(`const over=document.documentElement.scrollWidth-document.documentElement.clientWidth;const brand=document.querySelector('.topbar .brand').getBoundingClientRect();const slots=[...document.querySelectorAll('.badge-slot')].filter(s=>s.getClientRects().length).map(s=>Math.round(s.getBoundingClientRect().right));return {over,brandRight:Math.round(brand.right),slotMax:slots.length?Math.max(...slots):null,vw:document.documentElement.clientWidth}`);
         if (want('CL2-323')) check('CL2-323', `at 160 CSS px (/#/${route}) the header brand fits and the page has no overflow`, r.over <= 0 && r.brandRight <= r.vw, r);
-        if (want('CL2-281') && route === '') check('CL2-281', 'at 160 CSS px the reserved-name badge slots stay inside the viewport', r.slotMax === null || r.slotMax <= r.vw, r);
       }
+    }
+    if (want('CL2-281')) {
+      // Round 3 item 9 (12 Nov 2026): name entry is closed (CL2-175), so Home shows no badge slots and the old check passed
+      // without measuring. Three recorded names, two of them 30 characters long, are injected into the member's boot
+      // document, and their rows (name, status badge, Remove) are measured at 160 CSS px with a 2x device pixel ratio.
+      const names = [{ name: 'Aaaaaaaaaaaaaaa Bbbbbbbbbbbbbb', status: 'saved' }, { name: 'Cccccccccccccc Ddddddddddddddd', status: 'ended' }, { name: 'Eeeeeeeeee Ffffffff', status: 'queued' }];
+      await open('member', 160, '', 400);
+      let injected = 0;
+      cdp.on('Fetch.requestPaused', async p => {
+        try {
+          const body = p.responseStatusCode === 200 ? await cdp.send('Fetch.getResponseBody', { requestId: p.requestId }) : null;
+          const html = body ? (body.base64Encoded ? Buffer.from(body.body, 'base64').toString('utf8') : body.body) : '';
+          if (!html.includes('"reserved":[]')) return void await cdp.send('Fetch.continueRequest', { requestId: p.requestId });
+          injected++;
+          await cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: (p.responseHeaders || []).filter(x => !/^content-(length|encoding)$/i.test(x.name)), body: Buffer.from(html.replace('"reserved":[]', '"reserved":' + JSON.stringify(names))).toString('base64') });
+        } catch { cdp.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {}); }
+      });
+      await cdp.send('Fetch.enable', { patterns: [{ urlPattern: BASE + '/*', resourceType: 'Document', requestStage: 'Response' }] });
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width: 160, height: 400, deviceScaleFactor: 2, mobile: false }); await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await cdp.send('Page.reload', {}); await idle(st); await sleep(900);
+      await cdp.send('Fetch.disable');
+      const r = await ev(`const vw=document.documentElement.clientWidth;const rows=[...document.querySelectorAll('#names .person')].map(row=>({text:row.textContent.slice(0,40),right:Math.max(...[row,...row.querySelectorAll('*')].map(e=>Math.round(e.getBoundingClientRect().right))),width:Math.round(row.getBoundingClientRect().width)}));return {vw,rows,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+      check('CL2-281', 'at 160 CSS px the three recorded-name rows (name, badge, Remove) stay inside the viewport with no page overflow', injected >= 1 && r.rows.length === 3 && r.rows.every(x => x.right <= r.vw) && r.over <= 0, { injected, ...r });
     }
     if (want('SHIELD')) {
       await open('admin', 320, '');

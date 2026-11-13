@@ -222,7 +222,9 @@ async function unitChecks() {
   check('REV-SITEA-3', 'canonical rank roles enabled: the sentence names the Discord roles of the five officer ranks the gate reads', said.enabled.discord && /the Discord Guild Master, High Council, Officer, Officer Alt and Raid Leader roles/.test(said.enabled.text), said.enabled.text);
   check('REV-SITEA-3', 'canonical rank roles present but not enabled: the gate admits no Discord role and the sentence names none', said.presentNotEnabled.discord === null && !/Discord/.test(said.presentNotEnabled.text), said.presentNotEnabled.text);
   check('REV-SITEA-3', 'no canonical configuration: only the configured legacy roles (Guild Master, Officer, Raid Leader) are named', said.absent.discord && /the Discord Guild Master, Officer and Raid Leader roles/.test(said.absent.text) && !/High Council role|Officer Alt role/.test(said.absent.text), said.absent.text);
-  check('REV-SITEA-3', 'no bot token: no Discord clause; appointments and site administrators are always named', said.noToken.discord === null && !/Discord/.test(said.noToken.text) && Object.values(said).every(x => /the published Co-Guild Master and Treasurer appointments; and site administrators\.$/.test(x.text)), said.noToken.text);
+  check('REV-SITEA-3', 'no bot token: no Discord clause; appointments and site administrators are always named', said.noToken.discord === null && !/Discord/.test(said.noToken.text) && Object.values(said).every(x => /the published Co-Guild Master and Treasurer appointments(?:; and| and to) site administrators\.$/.test(x.text)), said.noToken.text);
+  // Round 3 item 10 (12 Nov 2026): with only the two configuration-independent paths, the sentence is a plain pair.
+  check('ROUND3-10', 'two paths read "open to A and to B." (no colon, no "; and"); three or more keep the list form', ['presentNotEnabled', 'noToken'].every(k => said[k].text === 'The treasury programme and financial model are open to the published Co-Guild Master and Treasurer appointments and to site administrators.') && /^The treasury programme and financial model are open to: [^;]+; [^;]+; and site administrators\.$/.test(said.enabled.text), JSON.stringify({ two: said.noToken.text, three: said.enabled.text }));
   check('REV-SITEA-3', 'only a configuration that opens the roster path names the roster ranks', /^The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord /.test(said.tenRank.text) && ['enabled', 'presentNotEnabled', 'absent', 'noToken'].every(k => !/verified roster/.test(said[k].text)), said.tenRank.text);
   check('REV-SITEA-3', 'the sentence never uses a rank name outside the owner\'s ladder (no Stewart, no Treasurer rank)', Object.values(said).every(x => !/Stewart|Treasurer rank/.test(x.text)));
 }
@@ -481,9 +483,11 @@ async function followupChecks(cdp) {
   const want = id => !only || only.has(id);
   // A paused request that is never answered: the shape of a script that fires neither load nor error.
   const held = [];
+  // Round 3 item 10 (12 Nov 2026): only the first address is stalled; a retry at a fresh address (?retry=) is let through
+  // while the stalled request stays held, so a passing retry shows that the fresh address is what gets the script loaded.
   const holdScripts = async (pattern) => {
     await cdp.send('Fetch.enable', { patterns: [{ urlPattern: pattern, requestStage: 'Request' }] });
-    cdp.onPaused = p => { held.push(p.requestId); };
+    cdp.onPaused = p => { if (/[?&]retry=/.test(p.request.url)) return cdp.send('Fetch.continueRequest', { requestId: p.requestId }); held.push(p.requestId); };
   };
   const releaseHeld = async () => { cdp.onPaused = null; for (const id of held.splice(0)) await cdp.send('Fetch.failRequest', { requestId: id, errorReason: 'Aborted' }).catch(() => {}); await cdp.send('Fetch.disable'); };
   const scriptRequests = (re) => cdp.requests.filter(r => re.test(r.url)).map(r => r.url.replace(URL0, ''));
@@ -497,15 +501,17 @@ async function followupChecks(cdp) {
     const waited = Date.now() - t0;
     const first = await cdp.eval(`(() => ({ note: document.querySelector('main .talents-module-note')?.textContent || '', analysis: !!window.OlympusTalentAnalysis, stalled: [...document.querySelectorAll('script[src*="analysis.js"]')].length, opening: /Opening tool/.test(document.querySelector('main')?.textContent || '') }))()`);
     check('UX-LOAD-001', 'an optional script that never loads or fails no longer holds the calculator: it opens and names the module unavailable', mounted && waited < 15000 && /Build comparison could not be loaded\. Reopen the calculator to try again\./.test(first.note) && !first.analysis && first.stalled === 0 && !first.opening, JSON.stringify({ mounted, waited, ...first }));
-    // 2. Reopening the calculator really asks again (a fresh address, so the stalled request is not joined) and the module mounts.
-    await releaseHeld();
+    // 2. Reopening the calculator really asks again (a fresh address, so the stalled request is not joined) and the module
+    // mounts while the first request is still stalled; it is released only after the measurement.
     const before = scriptRequests(/analysis\.js/).length;
     await cdp.eval(`location.hash = '#/roles'`); await sleep(1200);
     await cdp.eval(`location.hash = '#/talents'`);
     const retried = await waitFor(cdp, 'document.querySelector("main .talents-analysis-host") && window.OlympusTalentAnalysis', 15000);
     const again = scriptRequests(/analysis\.js/).slice(before);
     const note2 = await cdp.eval(`document.querySelector('main .talents-module-note')?.textContent || ''`);
-    check('UX-LOAD-001', 'reopening the calculator requests analysis.js again at a fresh address and the comparison mounts', retried && again.some(u => /analysis\.js\?retry=1$/.test(u)) && !note2, JSON.stringify({ retried, again, note2 }));
+    const stillHeld = held.length;
+    await releaseHeld();
+    check('UX-LOAD-001', 'with the first request still stalled, reopening the calculator requests analysis.js at a fresh address and the comparison mounts', stillHeld >= 1 && retried && again.some(u => /analysis\.js\?retry=1$/.test(u)) && !note2, JSON.stringify({ stillHeld, retried, again, note2 }));
 
     // 3. The level-60 sheet's script never answers: its section says so instead of "Opening…" for good; reopening retries.
     await holdScripts('*/static/talents/stats60.js*');
@@ -513,13 +519,14 @@ async function followupChecks(cdp) {
     await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = true; return true; })()`);
     const statsFailed = await waitFor(cdp, `/could not be loaded/.test(document.querySelector('main .talents-stats60-body [role="alert"]')?.textContent || '')`, 15000);
     const statsText = await cdp.eval(`document.querySelector('main .talents-stats60-body')?.textContent || ''`);
-    await releaseHeld();
     const beforeStats = scriptRequests(/stats60\.js/).length;
     await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = false; return true; })()`); await sleep(300);
     await cdp.eval(`(() => { const d = document.querySelector('main .talents-stats60-host'); d.open = true; return true; })()`);
     const statsMounted = await waitFor(cdp, `window.OlympusTalentStats60 && !document.querySelector('main .talents-stats60-body [role="alert"]') && !/Opening the level-60 sheet/.test(document.querySelector('main .talents-stats60-body')?.textContent || '')`, 15000);
     const statsAgain = scriptRequests(/stats60\.js/).slice(beforeStats);
-    check('UX-LOAD-001', 'a stalled level-60 sheet script ends in "could not be loaded" and closing and reopening the section loads it at a fresh address', statsFailed && statsMounted && statsAgain.some(u => /stats60\.js\?retry=1$/.test(u)), JSON.stringify({ statsFailed, statsText: statsText.slice(0, 120), statsMounted, statsAgain }));
+    const statsHeld = held.length;
+    await releaseHeld();
+    check('UX-LOAD-001', 'a stalled level-60 sheet script ends in "could not be loaded" and, with that request still stalled, closing and reopening the section loads it at a fresh address', statsHeld >= 1 && statsFailed && statsMounted && statsAgain.some(u => /stats60\.js\?retry=1$/.test(u)), JSON.stringify({ statsHeld, statsFailed, statsText: statsText.slice(0, 120), statsMounted, statsAgain }));
 
     // 4. Route disposal: leaving while an optional script is stalled mounts nothing on the next page when the deadline passes.
     await cdp.send('Page.reload', {}); await sleep(1500); // a fresh page script: the modules loaded above are forgotten
@@ -652,6 +659,94 @@ async function followupChecks(cdp) {
   }
 }
 
+/** Answer a paused (Response stage) HTML document with edit(html) applied. */
+async function rewriteText(cdp, p, edit) {
+  if (p.responseStatusCode !== 200) return cdp.send('Fetch.continueRequest', { requestId: p.requestId });
+  const got = await cdp.send('Fetch.getResponseBody', { requestId: p.requestId });
+  const raw = got.base64Encoded ? Buffer.from(got.body, 'base64').toString('utf8') : got.body;
+  return cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: (p.responseHeaders || []).filter(h => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(edit(raw)).toString('base64') });
+}
+
+/** Stage 2 round 3 (12 Nov 2026): items RC-097, RC-017, the name-entry leftovers and the Treasury refusal badge. */
+async function round3Checks(cdp) {
+  const want = id => !only || only.has(id);
+  // Focus events fire in a headless page only with focus emulation; the focus memory (CL2-097) listens to focusin.
+  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  try { await round3Inner(cdp, want); } finally { await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: false }); }
+}
+async function round3Inner(cdp, want) {
+  if (want('RC-097')) {
+    // The Treasury plan's suspend-and-reverify: at expiry the plan is detached while access is read again. The access read is
+    // held, so the waiting state can be measured; then it is answered and the plan's own restore must put focus back.
+    const outcome = {};
+    for (const mode of ['admit', 'refuse']) {
+      await open(cdp, 'admin', 'treasury-plan', '[...document.querySelectorAll("main h1, main h2")].some(h => /Treasury/.test(h.textContent))');
+      await sleep(1500);
+      const focused = await cdp.eval(`(() => { const el = [...document.querySelectorAll('main a[href], main button, main summary')].find(e => e.getClientRects().length && !e.disabled); if (!el) return null; window.__planFocus = el; el.focus(); return document.activeElement === el ? el.tagName + ' ' + el.textContent.trim().slice(0, 40) : null; })()`);
+      const paused = [];
+      await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/treasury-plan/access*', requestStage: 'Response' }] });
+      cdp.onPaused = p => { paused.push(p); };
+      await cdp.eval(`(() => { if (!window.__realNow) window.__realNow = Date.now.bind(Date); Date.now = () => window.__realNow() + 61000; document.dispatchEvent(new Event('visibilitychange')); return true; })()`);
+      for (let i = 0; i < 50 && !paused.length; i++) await sleep(100);
+      await sleep(300);
+      const during = await cdp.eval(`({ active: document.activeElement === document.body ? 'BODY' : document.activeElement.tagName + (document.activeElement.id ? '#' + document.activeElement.id : ''), waiting: /Opening the treasury programme/.test(document.querySelector('main').textContent), detached: !window.__planFocus.isConnected })`);
+      for (const p of paused) {
+        if (mode === 'admit') await cdp.send('Fetch.continueRequest', { requestId: p.requestId });
+        else await rewriteJson(cdp, p, json => { json.canRead = false; json.admits = 'The treasury programme and financial model are open to the published Co-Guild Master and Treasurer appointments and to site administrators.'; });
+      }
+      await sleep(1500);
+      cdp.onPaused = null; await cdp.send('Fetch.disable');
+      const after = await cdp.eval(`({ same: document.activeElement === window.__planFocus, connected: window.__planFocus.isConnected, active: document.activeElement === document.body ? 'BODY' : document.activeElement.tagName + ' ' + (document.activeElement.textContent || '').trim().slice(0, 30), inMain: document.querySelector('main').contains(document.activeElement), refused: /open to the published Co-Guild Master/.test(document.querySelector('main').textContent) })`);
+      await cdp.eval(`(() => { if (window.__realNow) Date.now = window.__realNow; return true; })()`);
+      outcome[mode] = { focused, held: paused.length, during, after };
+    }
+    const a = outcome.admit, r = outcome.refuse;
+    check('RC-097', 'Treasury plan re-verification: while the access read is held the global restore leaves focus alone, and afterwards the plan\'s own restore returns focus to the same control',
+      !!a.focused && a.held >= 1 && a.during.waiting && a.during.detached && a.during.active === 'BODY' && a.after.connected && a.after.same, JSON.stringify(a));
+    check('RC-097', 'when the re-verification refuses, the released control does not leave focus on the body: it lands in the refusal page', !!r.focused && r.held >= 1 && r.after.refused && !r.after.connected && r.after.active !== 'BODY' && r.after.inMain, JSON.stringify(r));
+  }
+
+  if (want('RC-017')) {
+    // A bare 500 on POST /api/me/verification (the outcome is unknown: a code may have been issued) must not invite a retry.
+    let posts = 0;
+    await open(cdp, 'member', 'verify', 'document.querySelector("main form input")');
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/me/verification', requestStage: 'Request' }] });
+    cdp.onPaused = p => { posts++; return bare500(cdp, p); };
+    await cdp.eval(`(() => { const i = document.querySelector('main form input'); i.value = 'Fern Melder'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('main form button[type="submit"]').click(); return true; })()`);
+    // The result line is the p.err inside the form's status region (the field's own error span is also .err).
+    await waitFor(cdp, 'document.querySelector("main form [role=status] p.err")', 6000);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const said = await cdp.eval(`document.querySelector('main form [role=status] p.err')?.textContent || ''`);
+    check('RC-017', 'a bare 500 on the verification request says the outcome is unknown and asks for a status check, with no "Try again"', posts === 1 && /not known whether a code was issued/.test(said) && /before asking again/.test(said) && !/try again/i.test(said), `posts=${posts} :: ${said}`);
+  }
+
+  if (want('ROUND3-9')) {
+    // The signed-out Home (the boot rewritten to signed out) and the "Your seat" card no longer offer to record names.
+    await open(cdp, 'member', '', 'document.querySelector("main")');
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: URL0 + '/*', resourceType: 'Document', requestStage: 'Response' }] });
+    let rewritten = 0;
+    cdp.onPaused = p => rewriteText(cdp, p, html => { if (html.includes('"signedIn":true')) rewritten++; return html.replace('"signedIn":true', '"signedIn":false'); });
+    await cdp.send('Page.reload', {}); await waitFor(cdp, '[...document.querySelectorAll("main h3")].some(h => h.textContent === "Your seat")', 8000); await sleep(500);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const out = await cdp.eval(`(() => { const lead = document.querySelector('main .hero .lead')?.textContent || ''; const seat = [...document.querySelectorAll('main .card')].find(c => c.querySelector('h3')?.textContent === 'Your seat'); return { lead, seat: seat ? seat.querySelector('p').textContent : null }; })()`);
+    check('ROUND3-9', 'signed-out Home: the hero and the "Your seat" card no longer say members can record or add the names they reserved', rewritten >= 1 && !!out.lead && !/names you have reserved|record the names/.test(out.lead) && out.seat === 'Add the friends joining with you.', JSON.stringify({ rewritten, ...out }));
+    // A member with no recorded names: the Reserved names card.
+    await open(cdp, 'member', '', 'document.querySelector("#names-count")');
+    const card = await cdp.eval(`(() => { const c = document.querySelector('#names-count'); return c ? { big: c.textContent, small: c.nextElementSibling ? c.nextElementSibling.textContent : null } : null; })()`);
+    check('ROUND3-9', 'a member with no recorded names sees "No names recorded.", not "0 names saved" or "View the names you saved."', !!card && card.small === 'No names recorded.' && !/0 names saved/.test(card.big) && card.big === 'None', JSON.stringify(card));
+  }
+
+  if (want('ROUND3-10')) {
+    // The refusal's badge must not claim officers when the gate description admits appointments and administrators only.
+    await open(cdp, 'member', 'treasury-plan', '[...document.querySelectorAll("main h1, main h2")].some(h => /Treasury programme/.test(h.textContent))');
+    await sleep(800);
+    const ans = await http('member', 'GET', '/api/treasury-plan/access');
+    const page = await cdp.eval(`(() => { const f = [...document.querySelectorAll('main section.frame')].find(s => /Treasury programme/.test(s.textContent)); return f ? { badge: f.querySelector('.badge')?.textContent || '', text: f.textContent } : null; })()`);
+    const twoPaths = ans.data && typeof ans.data.admits === 'string' && !/\brank\b|\bDiscord\b/.test(ans.data.admits);
+    check('ROUND3-10', 'the refusal shows the two-path sentence without "open to: A; and B." and its badge does not say "Officers and above"', !!page && twoPaths && page.text.includes(ans.data.admits) && !/open to: [^.]*; and/.test(ans.data.admits) && page.badge !== 'Officers and above', JSON.stringify({ admits: ans.data && ans.data.admits, badge: page && page.badge }));
+  }
+}
+
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
 async function layoutChecks(cdp) {
   for (const [route, ready] of [['admin/appointments', 'document.querySelector("[data-appointed-holder]")'], ['admin', 'document.querySelector(".admin-section-group228")']]) {
@@ -679,6 +774,17 @@ async function layoutChecks(cdp) {
 (async () => {
   console.log(`evergreen1112 siteui-a against ${URL0}; static source ${SOURCE}`);
   // --followup-only runs just the follow-up browser checks (UX-LOAD-001, BROWSER-03); the full run includes them.
+  // --round3-only runs just the round 3 browser checks (RC-097, RC-017, ROUND3-9, ROUND3-10) and the unit checks.
+  const round3Only = process.argv.includes('--round3-only');
+  if (round3Only) {
+    await unitChecks();
+    const cdp = await launchEdge(CDP_PORT, args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-')));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    try { await round3Checks(cdp); } finally { await cdp.close(); }
+    console.log(`RESULT ${results.length - failures}/${results.length} passed`);
+    process.exitCode = failures ? 1 : 0;
+    return;
+  }
   const followupOnly = process.argv.includes('--followup-only');
   if (!followupOnly) await unitChecks();
   if (process.argv.includes('--unit-only')) { console.log(`RESULT ${results.length - failures}/${results.length} passed`); process.exitCode = failures ? 1 : 0; return; }
@@ -687,7 +793,7 @@ async function layoutChecks(cdp) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
+    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!followupOnly) await round3Checks(cdp); if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));
