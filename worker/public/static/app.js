@@ -211,7 +211,7 @@
     const role = o?.key || { member: "member", raider: "raider", artisan: "artisan", officer: "officer", high_council: "high_council", patron: "tithe" }[t.id];
     return h("div", { class: "role-tags application-intent199", "data-application-track": t.id }, h("span", { class: "badge blue", text: t.label }), o ? h("span", { class: "badge", "data-target-office": o.key, text: o.applicationLabel || o.label }) : null,
       o?.councilSeat ? h("span", {class:"small muted application-reporting218", text:o.ministry + " · Council portfolio: " + o.councilSeat}) : null,
-      role ? h("a", { href: "#/roles/" + encodeURIComponent(role), text: "Role guide" }) : null);
+      role ? h("a", { class: "role-guide-link1112", href: "#/roles/" + encodeURIComponent(role), text: "Role guide" }) : null);
   }
   function goldBanner199() {
     const policy = M().royalWritPolicy || {};
@@ -2604,7 +2604,7 @@
       if (show) add(main, treasurySignedOutNotice218());
     };
     const waiting = () => add(main, h("p", { role: "status", text: "Opening the treasury programme…" }));
-    const refuse = () => { finished = true; clear(main); add(main, treasuryRefusal218()); };
+    const refuse = () => { finished = true; clear(main); add(main, treasuryRefusal218(treasuryAnswer218 && treasuryAnswer218.user === S.user && !treasuryAnswer218.canRead ? treasuryAnswer218.admits : null)); };
     const verifyAccess = () => refreshTreasuryAccess218({ fresh: true, live: current });
     const arm = () => {
       clearTimeout(timer);
@@ -2751,13 +2751,14 @@
     }
     return [];
   }
-  function treasuryRefusal218() {
+  function treasuryRefusal218(admits) {
     return frame("Treasury programme", h("span", { class: "badge", text: "Officers and above" }),
       // CL2-286/287 (Evergreen 12 Nov 2026): the owner's gate (31 Oct 2026, "either source"), stated once; the Royal Writs
       // sentence follows the royalWritsOn switch instead of promising a schedule the switch hides.
-      // The Discord list follows site-treasury-access.ts discordOfficerRole: Guild Master (ROLE_GUILD_LEADER is the same ID),
-      // Officer and Raid Leader, plus the Discord roles of the first five ranks when the canonical rank roles are switched on.
-      h("p", { text: "The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord Guild Master, Officer and Raid Leader roles, and the Discord roles of those five ranks when rank roles are switched on; the published Co-Guild Master and Treasurer appointments; and site administrators." }),
+      // REV-SITEA-3 (12 Nov 2026): the sentence is the Worker's own description of the gate under its current configuration
+      // (site-treasury-access.ts treasuryGateDescription), so it never names a Discord role the gate does not admit. An
+      // answer without it (an older Worker) gets the general rule only.
+      h("p", { text: admits || "The treasury programme and financial model are open to officers and above, the published Co-Guild Master and Treasurer appointments, and site administrators." }),
       h("p", { class: "muted", text: royalWritsVisible200() ? "Royal Writs and Patron tiers stay public on Roles and Governance." : "The Royal Writs schedule and new Patron applications are paused." }),
       h("div", { class: "btn-row" }, h("a", { class: "btn", href: "#/roles", text: "Roles" }), h("a", { class: "btn", href: "#/governance", text: "Governance" })));
   }
@@ -2788,7 +2789,9 @@
         check.promise = api("GET", "/api/treasury-plan/access", undefined, { live: () => current() && [...check.readers].some(read => read()) })
           .then(data => {
             if (!data || data.format !== "olympus-treasury-access-v1" || typeof data.canRead !== "boolean") throw new ApiError(200, { error: "unreadable_answer" });
-            return { user, id, revision, generation, canRead: data.canRead, at };
+            // REV-SITEA-3: a refusal carries the gate's own description (site-treasury-access.ts treasuryGateDescription).
+            const admits = !data.canRead && typeof data.admits === "string" && data.admits.length <= 600 ? data.admits : null;
+            return { user, id, revision, generation, canRead: data.canRead, admits, at };
           })
           .finally(() => { if (treasuryCheck218 === check) treasuryCheck218 = null; });
         treasuryCheck218 = check;

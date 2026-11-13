@@ -198,6 +198,29 @@ async function unitChecks() {
   const control = await run({ appointedCharactersConfirmed: true });
   check('REV-SITEA-2', 'control: the same save with the tick passes the pre-check, reads the account and calls Discord (stubbed 503: nothing saved)',
     control.provider >= 1 && control.reads.length > 1 && control.status === 409 && control.error === 'appointed_account_unavailable', JSON.stringify(control));
+
+  // REV-SITEA-3 (12 Nov 2026): the Treasury refusal sentence is treasuryGateDescription, built from the gate's own reads.
+  const treasury = loadTs('worker/src/site-treasury-access.ts');
+  const wrangler = read('worker/wrangler.toml');
+  const tomlValue = key => { const m = new RegExp(`^${key} = (?:'([^']*)'|"([^"]*)")`, 'm').exec(wrangler); return m ? (m[1] ?? m[2]) : undefined; };
+  const configured = Object.fromEntries(['GUILD_ID', 'SITE_GUILD_ID', 'ROLE_GUILD_MASTER', 'ROLE_GUILD_LEADER', 'ROLE_OFFICER', 'ROLE_RAID_LEADER', 'CANONICAL_RANKS233', 'QR_NATIVE_ROLE_MAP'].map(k => [k, tomlValue(k)]));
+  const policy = JSON.parse(configured.CANONICAL_RANKS233);
+  const base = { ...configured, DISCORD_BOT_TOKEN: 'unit-test' };
+  const configs = {
+    enabled: base,
+    presentNotEnabled: { ...base, CANONICAL_RANKS233: JSON.stringify({ ...policy, enabled: false }) },
+    absent: (({ CANONICAL_RANKS233, ...rest }) => rest)(base),
+    noToken: (({ DISCORD_BOT_TOKEN, ...rest }) => rest)(base),
+    // A ten-rank native map after the launch cut opens the roster path (no canonical configuration in this case).
+    tenRank: (({ CANONICAL_RANKS233, ...rest }) => ({ ...rest, LINKS_NOT_BEFORE: '1793833200', QR_NATIVE_ROLE_MAP: JSON.stringify({ profile: 'ten-rank', roles: Array.from({ length: 10 }, (_, i) => '4000000000000001' + String(i).padStart(2, '0')) }) }))(base),
+  };
+  const said = Object.fromEntries(Object.entries(configs).map(([k, env]) => [k, { text: treasury.treasuryGateDescription(env), discord: treasury.treasuryDiscordRoles(env) }]));
+  check('REV-SITEA-3', 'canonical rank roles enabled: the sentence names the Discord roles of the five officer ranks the gate reads', said.enabled.discord && /the Discord Guild Master, High Council, Officer, Officer Alt and Raid Leader roles/.test(said.enabled.text), said.enabled.text);
+  check('REV-SITEA-3', 'canonical rank roles present but not enabled: the gate admits no Discord role and the sentence names none', said.presentNotEnabled.discord === null && !/Discord/.test(said.presentNotEnabled.text), said.presentNotEnabled.text);
+  check('REV-SITEA-3', 'no canonical configuration: only the configured legacy roles (Guild Master, Officer, Raid Leader) are named', said.absent.discord && /the Discord Guild Master, Officer and Raid Leader roles/.test(said.absent.text) && !/High Council role|Officer Alt role/.test(said.absent.text), said.absent.text);
+  check('REV-SITEA-3', 'no bot token: no Discord clause; appointments and site administrators are always named', said.noToken.discord === null && !/Discord/.test(said.noToken.text) && Object.values(said).every(x => /the published Co-Guild Master and Treasurer appointments; and site administrators\.$/.test(x.text)), said.noToken.text);
+  check('REV-SITEA-3', 'only a configuration that opens the roster path names the roster ranks', /^The treasury programme and financial model are open to: Leader, High Council, Officer, Officer Alt and Raid Leader rank on the latest verified roster; the Discord /.test(said.tenRank.text) && ['enabled', 'presentNotEnabled', 'absent', 'noToken'].every(k => !/verified roster/.test(said[k].text)), said.tenRank.text);
+  check('REV-SITEA-3', 'the sentence never uses a rank name outside the owner\'s ladder (no Stewart, no Treasurer rank)', Object.values(said).every(x => !/Stewart|Treasurer rank/.test(x.text)));
 }
 
 // ---------------------------------------------------------------- static copy checks (file text; used where no page shows it to a harness persona)
@@ -291,8 +314,12 @@ async function pageChecks(cdp) {
   // CL2-286 / CL2-287: the refusal states the gate once and follows the Royal Writs switch (off on the harness).
   await open(cdp, 'member', 'treasury-plan', '[...document.querySelectorAll("main h2")].some(h => /Treasury programme/.test(h.textContent))');
   const refusal = await text(cdp);
-  check('CL2-286', 'the refusal names High Council rank, not "the Council"', !/the Guild Master, the Council, Officers/.test(refusal) && /High Council/.test(refusal), refusal.slice(0, 300));
-  check('CL2-286', 'the refusal names every Discord role the gate admits (Guild Master, Officer, Raid Leader)', /the Discord Guild Master, Officer and Raid Leader roles/.test(refusal), refusal.slice(0, 400));
+  // REV-SITEA-3 (12 Nov 2026): the sentence is the gate's own description (unit checks above cover each configuration,
+  // including High Council rank on the roster path); here the page must show exactly what the Worker says it admits.
+  const answer = await http('member', 'GET', '/api/treasury-plan/access');
+  const admits = answer.data && typeof answer.data.admits === 'string' ? answer.data.admits : null;
+  check('CL2-286', 'the refusal does not say "the Council"', !/the Guild Master, the Council, Officers/.test(refusal), refusal.slice(0, 300));
+  check('REV-SITEA-3', 'the refusal shows the gate\'s own description from the access answer, and names no Discord role that answer does not', !!admits && refusal.includes(admits) && (/Discord/.test(admits) || !/Discord/.test(refusal)), `${admits} :: ${refusal.slice(0, 400)}`);
   check('CL2-287', 'with the switch off the refusal says the Royal Writs schedule is paused', !/Royal Writs and Patron tiers stay public/.test(refusal) && /Royal Writs schedule and new Patron applications are paused/.test(refusal));
 
   // CL2-290: an account with no dues week sees "nothing owed", not "ledger open" with a pay-now line.
