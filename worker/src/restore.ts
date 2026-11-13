@@ -177,7 +177,7 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
   }
   if (!state || typeof state.a !== "number") {
     // First sweep: start with the last day's promotions (the audit_ts index makes this cheap).
-    const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1").bind(t - 86400).first<{ id: number | null }>();
+    const first = await env.DB.prepare("SELECT MIN(id) AS id FROM audit WHERE ts >= ?1 AND action<>'treasury.erased_replay280'").bind(t - 86400).first<{ id: number | null }>();
     state = { a: Math.max(0, (first?.id ?? 1) - 1), c: "" };
   }
   const budget = Math.min(SCHEDULED_CAPS.roleSweepAccounts, Math.max(1, intVar(env.ROLE_SWEEP_PER_RUN, SWEEP_DEFAULT))); // .115: the scheduled D1 budget's cap (scheduled-budget.ts)

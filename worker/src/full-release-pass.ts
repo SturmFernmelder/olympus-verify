@@ -103,7 +103,7 @@ export const FRESH_DEPARTURE_EVENTS_SELECT=`WITH ev AS (SELECT id,subject_id FRO
  sel AS (SELECT w.id,w.subject_id FROM w WHERE typeof(w.subject_id)='text' AND ${L.departureOwedSql('w.subject_id','?4')} ORDER BY w.id LIMIT ?2)
 SELECT sel.id,sel.subject_id,bounds.window_end,bounds.window_size FROM bounds LEFT JOIN sel ON 1=1 ORDER BY sel.id`;
 /** The first watermark: just before the audits of the last FRESH_DEPARTURE_EVENTS_LOOKBACK_SECONDS. Binds: ?1 since. */
-export const FRESH_DEPARTURE_EVENTS_START='SELECT COALESCE((SELECT MIN(id) FROM audit WHERE ts>=?1),(SELECT MAX(id) FROM audit)+1,1)-1 AS id';
+export const FRESH_DEPARTURE_EVENTS_START="SELECT COALESCE((SELECT MIN(id) FROM audit WHERE ts>=?1 AND action<>'treasury.erased_replay280'),(SELECT MAX(id) FROM audit)+1,1)-1 AS id";
 /** How many spent lane rows the reader would read (LANE_SPENT_ROWS' filter, bounded). Binds: ?1 subject ?2 guild. */
 export const FRESH_SPENT_COUNT=`SELECT COUNT(*) AS n FROM (SELECT 1 FROM role_settlements WHERE subject=?1 AND guild_id=?2 AND attempts=1 AND state IN('dispatching','unknown')
  AND expires_at<=${DB_NOW} AND (purpose IN(${quoted(L.LANE_PURPOSES)}) OR (purpose='grant_compensation' AND EXISTS(SELECT 1 FROM role_settlements pp
