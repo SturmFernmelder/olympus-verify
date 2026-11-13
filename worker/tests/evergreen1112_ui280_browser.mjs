@@ -73,7 +73,7 @@ try {
     await go('#/admin/launch-operations', `!!document.querySelector('[data-launch-promotion229]')`);
     await sleep(300);
     const m = await cdp.eval(`(() => {
-      const view = document.querySelector('[data-launch234]'), vw = document.documentElement.clientWidth;
+      const view = (document.querySelector('[data-launch234]') || document.createElement('div')), vw = document.documentElement.clientWidth;
       const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
       const controls = [...view.querySelectorAll('button, summary, a[href], textarea, [tabindex]')].filter(visible);
       const small = controls.filter(el => el.tagName !== 'TEXTAREA').map(el => { const r = el.getBoundingClientRect(); return { t: el.tagName, text: el.textContent.trim().slice(0, 30), w: Math.round(r.width), h: Math.round(r.height) }; }).filter(x => x.h < 44 || x.w < 44);
@@ -117,15 +117,15 @@ try {
   }
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: String.fromCharCode(13) });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }); await sleep(200);
-  const opened = await cdp.eval(`(() => { const d = document.querySelector('.launch234-digest'), c = d.querySelector('[data-launch234-digest]'); return { open: d.open, visible: c.getBoundingClientRect().height > 0 }; })()`);
+  const opened = await cdp.eval(`(() => { const d = document.querySelector('.launch234-digest'), c = d && d.querySelector('[data-launch234-digest]'); if (!c) return { open: false, visible: false }; return { open: d.open, visible: c.getBoundingClientRect().height > 0 }; })()`);
   check('keyboard: Tab reaches the full-digest disclosure, its focus ring is visible, Enter opens it', !!reached && reached.outline !== 'none 0px' && !reached.outline.startsWith('none') && opened.open && opened.visible, { reached, opened, path: path_ });
   check('keyboard: Tab order reaches the page controls before the disclosure and no promotion control exists', ['Refresh first page', 'Scan entire roster', 'Copy MOTD'].every(t => path_.some(p => p.endsWith(':' + t))) && !path_.some(p => /Promote|Select|Invite/.test(p)), path_);
 
   // 5. Forced colours.
   await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }, { name: 'prefers-color-scheme', value: 'dark' }] });
   await sleep(300);
-  await cdp.eval(`document.querySelector('.launch234-digest > summary').focus(); true`);
-  const fc = await cdp.eval(`(() => { const s = document.querySelector('.launch234-digest > summary'), st = getComputedStyle(s), td = getComputedStyle(document.querySelector('[data-launch234-ranks="current"] td'));
+  await cdp.eval(`document.querySelector('.launch234-digest > summary')?.focus(); true`);
+  const fc = await cdp.eval(`(() => { const s = document.querySelector('.launch234-digest > summary'), cell = document.querySelector('[data-launch234-ranks="current"] td'); if (!s || !cell) return { active: matchMedia('(forced-colors: active)').matches, outline: 'none (view absent)', cellBorder: 'none', overflow: 0 }; const st = getComputedStyle(s), td = getComputedStyle(cell);
     return { active: matchMedia('(forced-colors: active)').matches, outline: st.outlineStyle + ' ' + st.outlineWidth, cellBorder: td.borderBottomStyle + ' ' + td.borderBottomWidth, overflow: document.documentElement.scrollWidth - innerWidth }; })()`);
   await screenshot(cdp, path.join(OUT, 'forced-colors-1280.png'), true);
   check('forced colours: the focus ring and table rules stay drawn', fc.active && !fc.outline.startsWith('none') && fc.cellBorder.startsWith('solid') && fc.overflow <= 0, fc);
@@ -135,7 +135,7 @@ try {
   const heldCase = async (label, make, code) => {
     mode = { kind: 'page', make };
     await go('#/admin/launch-operations', SETTLED);
-    const s = await cdp.eval(`({ code: document.querySelector('[data-launch234-held]')?.dataset.launch234Held || null, motd: !!document.querySelector('#launch-motd229'), rows: document.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229]').length, buttons: [...document.querySelector('[data-launch234]').querySelectorAll('button')].map(b => b.textContent).sort(), status: document.querySelector('[data-launch234] [role=status]')?.textContent })`);
+    const s = await cdp.eval(`({ code: document.querySelector('[data-launch234-held]')?.dataset.launch234Held || null, motd: !!document.querySelector('#launch-motd229'), rows: document.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229]').length, buttons: [...(document.querySelector('[data-launch234]') || document.createElement('div')).querySelectorAll('button')].map(b => b.textContent).sort(), status: document.querySelector('[data-launch234] [role=status]')?.textContent })`);
     check(label, s.code === code && !s.motd && s.rows === 0 && JSON.stringify(s.buttons) === JSON.stringify(['Load next 20 role checks', 'Refresh first page', 'Scan entire roster', 'Stop scan']) && launchReads === 1, s);
   };
   await heldCase('a legacy v233 page is held with a plain notice and no control that acts', legacy, 'legacy-protocol');
