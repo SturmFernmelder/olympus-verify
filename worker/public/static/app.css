@@ -161,7 +161,7 @@ a.card:hover { filter: brightness(1.2); }
   text-shadow: none;
 }
 .parchment h3, .parchment h4 { font-family: var(--title); color: #1d0f05; text-shadow: none; margin: 0 0 0.4em; font-weight: 400; }
-.parchment h4 { font-family: var(--font); font-size: 0.78rem; line-height: 1.35; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; margin-top: 1em; }
+.parchment :is(h4, h3.role-subhead) { font-family: var(--font); font-size: 0.78rem; line-height: 1.35; letter-spacing: 0.06em; text-transform: uppercase; color: #4a1204; margin-top: 1em; }
 .parchment b, .parchment strong { color: #000; }
 .parchment a { color: #5a1a08; }
 .parchment .muted { color: #3b2816; }
@@ -1119,7 +1119,7 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 .application-chooser200 .application-expectations200 .role-info { padding: 10px; }
 .application-chooser200 .application-expectations200 .role-facts { grid-template-columns: minmax(0, 1fr); }
 .application-chooser200 .application-expectations200 .role-facts dd { margin-bottom: 6px; }
-.application-chooser200 .application-expectations200 .role-info h4 { margin-top: 10px; }
+.application-chooser200 .application-expectations200 .role-info :is(h4, h3.role-subhead) { margin-top: 10px; }
 .application-chooser200 .application-expectations200 .role-info ul { padding-left: 18px; }
 .application-chooser200 .application-track-quick200 { margin-top: 20px; }
 .application-chooser200 .application-office-picker200 { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); min-width: 0; }
@@ -1301,3 +1301,17 @@ main.shell:focus-visible { outline: none; }
 .governance-hero > div { min-width: 0; flex: 1 1 14rem; }
 /* CL2-105: notes about an address that was not understood sit above the page. */
 .address-notice { margin: 16px 0 0; }
+/* CL2-102 follow-up: at 1000 px and below the brand and the actions share the first row and the menu takes the full row
+   under them; app.js puts the actions before the menu in the DOM at the same width, so focus follows what is seen. */
+@media (max-width: 1000px) {
+  .topbar-in { flex-wrap: wrap; }
+  .topbar-in > .nav { flex-basis: 100%; }
+  .topbar-actions { margin-left: auto; }
+}
+/* Touch targets: header buttons and menu labels are 44 px tall on touch screens and phones (the rows above stay two). */
+@media (pointer: coarse), (max-width: 720px) {
+  .topbar .btn.small, .topbar .nav-group > summary.btn { min-height: 44px; display: inline-flex; align-items: center; }
+  .topbar .nav { padding-bottom: 0; }
+}
+/* Community overview cards are H2s under the page H1, sized as card titles. */
+.card-head h2.card-title { margin: 0; font-size: 1.2rem; min-width: 0; overflow-wrap: anywhere; }

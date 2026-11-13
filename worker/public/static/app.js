@@ -325,8 +325,9 @@
     if (notesOnly) return h("div", {class:"role-scope-notes218"}, ...notes);
     return h("div", {class:"parchment role-info role-guide201"},
       includeDefinition ? h("p", {class:"about",text:guide.definition}) : null,
-      h("h4", {text:"Responsibilities"}), list(guide.responsibilities),
-      h("h4", {text:"Expectations"}), list(guide.expectations),
+      // A role guide sits under its role's H2 (Vote, Roles, dialogs), so its parts are H3s styled as small caps.
+      h("h3", {class:"role-subhead",text:"Responsibilities"}), list(guide.responsibilities),
+      h("h3", {class:"role-subhead",text:"Expectations"}), list(guide.expectations),
       h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:guide.commitment}),
         h("dt", {text:"Works with"}), h("dd", {text:guide.worksWith})),
       ...notes);
@@ -788,8 +789,8 @@
         h("dt", { text: "Time" }), h("dd", { text: info.time }),
         info.works ? [h("dt", { text: "Works with" }), h("dd", { text: info.works })] : null,
         info.game ? [h("dt", { text: "In game" }), h("dd", { text: info.game })] : null),
-      h("h4", { text: "Responsibilities" }), list(info.duties),
-      h("h4", { text: "Expectations" }), list(info.expect));
+      h("h3", { class: "role-subhead", text: "Responsibilities" }), list(info.duties),
+      h("h3", { class: "role-subhead", text: "Expectations" }), list(info.expect));
   }
   /** A role's description in a dialog; with onChoose it also offers to make the role the first choice. */
   function roleDialog(p, { onChoose = null, current = false } = {}) {
@@ -1058,12 +1059,25 @@
   // already showing is renewed instead of repeated, and at most three stay.
   function toast(msg, kind = "") {
     const text = String(msg);
-    for (const old of [...toastBox.children]) if (old.dataset.message === text && old.dataset.kind === kind) { clearTimeout(Number(old.dataset.timer)); old.remove(); }
+    for (const old of [...toastBox.children]) if (old.dataset.message === text && old.dataset.kind === kind) dropToast(old);
     const t = h("div", { class: "toast " + kind, "data-message": text, "data-kind": kind }, h("span", { text }),
-      h("button", { class: "toast-x", type: "button", "aria-label": "Dismiss message", title: "Dismiss", onclick: () => t.remove() }));
+      h("button", { class: "toast-x", type: "button", "aria-label": "Dismiss message", title: "Dismiss", onclick: () => dropToast(t) }));
     toastBox.appendChild(t);
-    while (toastBox.children.length > 3) toastBox.firstElementChild.remove();
-    t.dataset.timer = String(setTimeout(() => t.remove(), kind === "bad" ? 9000 : 4500));
+    for (const old of [...toastBox.children].slice(0, -3)) dropToast(old);
+    t.dataset.timer = String(setTimeout(() => dropToast(t), kind === "bad" ? 9000 : 4500));
+  }
+  // CL2-280 / CL2-097 follow-up (12 Nov 2026): toasts live outside #app, so the focus memory does not see them. A toast
+  // that holds focus when it is dismissed or times out hands focus back to the last control in the page (or to main).
+  function dropToast(t) {
+    if (!t) return;
+    clearTimeout(Number(t.dataset.timer));
+    const hadFocus = t.contains(document.activeElement);
+    t.remove();
+    if (!hadFocus) return;
+    const back = lastFocus && lastFocus.isConnected ? lastFocus : app.querySelector("main");
+    if (!back) return;
+    if (back.tagName === "MAIN" && !back.hasAttribute("tabindex")) back.setAttribute("tabindex", "-1");
+    back.focus({ preventScroll: true });
   }
   // CL2-097 (12 Nov 2026): keyboard focus survives re-renders. When the focused control is replaced (a save re-renders
   // its panel, a dialog closes over a page that changed), focus moves to the control's re-rendered twin, else to the
@@ -1624,8 +1638,23 @@
           h("span", { class: "name", text: discordIdentity(S.user), title: discordIdentity(S.user) }),
           h("button", { class: "btn small", type: "button", text: "Sign out", onclick: signOut }))
       : h("div", { class: "who" }, signInButton(false));
-    return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), nav, h("div", { class: "topbar-actions" }, shield, who)));
+    const actions = h("div", { class: "topbar-actions" }, shield, who);
+    return h("header", { class: "topbar" }, h("div", { class: "topbar-in" }, brand(), ...(stackedHeader() ? [actions, nav] : [nav, actions])));
   }
+  // CL2-102 follow-up (12 Nov 2026): at 1000 px and below the actions share the brand's row and the menu takes the row
+  // under them (app.css), so the actions also come before the menu in the DOM. Wider, the menu sits between them. Moving
+  // the node keeps the tab order equal to what is seen without a CSS order, and keeps the phone header at two rows.
+  const stackedHeaderQuery = typeof matchMedia === "function" ? matchMedia("(max-width: 1000px)") : null;
+  const stackedHeader = () => !!(stackedHeaderQuery && stackedHeaderQuery.matches);
+  function placeTopbarActions() {
+    for (const bar of document.querySelectorAll(".topbar-in")) {
+      const nav = bar.querySelector(":scope > .nav"), actions = bar.querySelector(":scope > .topbar-actions");
+      if (!nav || !actions) continue;
+      if (stackedHeader()) { if (actions.nextElementSibling !== nav) bar.insertBefore(actions, nav); }
+      else if (nav.nextElementSibling !== actions) bar.insertBefore(nav, actions);
+    }
+  }
+  if (stackedHeaderQuery && typeof stackedHeaderQuery.addEventListener === "function") stackedHeaderQuery.addEventListener("change", placeTopbarActions);
   function footer() {
     const cursor = h("button", { class: "btn small", type: "button", text: "Game cursor", "aria-pressed": String(gameCursor), title: "Use the World of Warcraft cursor with a mouse" });
     cursor.addEventListener("click", () => {
@@ -3525,7 +3554,8 @@
     const fallback = h("input", { type: "checkbox", checked: a ? a.fallback : true });
     const ack = h("input", { type: "checkbox", checked: false });
     const submit = h("button", { class: "btn big", type: "submit", text: a ? "Save changes" : "Submit application" });
-    const recovery = h("section", { class: "card", hidden: true, "aria-labelledby": "application-recovery-heading" });
+    // The card is named by its heading only once the heading exists (a hidden card has none to point at).
+    const recovery = h("section", { class: "card", hidden: true });
     function showApplicationConflict() {
       const message = h("p", { role: "status", text: "Your draft is still in this form. Check the saved application before trying to save again." });
       const review = h("button", { class: "btn small", type: "button", text: "Check the saved application", onclick: async () => {
@@ -3576,6 +3606,7 @@
       const current = h("div");
       clear(recovery);
       add(recovery, [h("h3", { id: "application-recovery-heading", text: "Your saved application changed" }), message, review, current]);
+      recovery.setAttribute("aria-labelledby", "application-recovery-heading");
       recovery.hidden = false;
       touch();
       jumpToSection(recovery);
@@ -6500,7 +6531,8 @@
   // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
   function communityTabs(sub) {
     return h("div", { class: "community-tabs" },
-      h("nav", { class: "btn-row", "aria-label": "Community sections", "aria-describedby": "community-scroll-hint" }, visibleCommunitySections().map(({ key, href, label }) =>
+      // The scroll hint is for sighted phone users only; it is not tied to the nav, so it is never announced where it is hidden.
+      h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
         h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false }))),
       h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
   }
@@ -6640,7 +6672,8 @@
   async function communityOverview(body) {
     const cards = visibleCommunitySections().filter(section => section.icon).map(({ href, label, icon: cardIcon, description }) =>
       h("a", { class: "card", href },
-        h("div", { class: "card-head" }, icon(cardIcon), h("h3", { text: label })),
+        // The overview cards sit directly under the Community H1, so they are H2s styled as card titles.
+        h("div", { class: "card-head" }, icon(cardIcon), h("h2", { class: "card-title", text: label })),
         h("p", { class: "muted small", text: typeof description === "function" ? description() : description })));
     add(body, [communityReader() ? null : standingNotice(), h("section", { class: "grid three" }, cards)]);
   }
