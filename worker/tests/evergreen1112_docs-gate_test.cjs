@@ -98,6 +98,19 @@ async function budget() {
   check('the promotions target explains every table and pins each known scan exactly',
     runtime.includes('await fullScans(genuine, log)') && runtime.includes('KNOWN_REQUEST_SCANS') && runtime.includes("'privacy_subjects: SCAN ps': 40")
     && runtime.includes('result.unresolved.length === 0') && runtime.indexOf("await timed('display'") < runtime.indexOf("call('POST', '/ingest/roster"));
+  // 12 Nov review (REV-GATE-2): the ingest's members scan comes from BOUND_AND_NOTE_SELECT's UNION ALL arm, not from
+  // BOUND_SELECT (characters LEFT JOIN privacy_subjects). Proven on the schema, then the two descriptions are checked.
+  const roster = read('worker/src/roster.ts'), schemaDb = new DatabaseSync(':memory:');
+  schemaDb.exec(read('worker/schema.sql'));
+  const boundSql = roster.match(/const BOUND_SELECT=`([^`]*)`/)[1], noteArm = roster.match(/const BOUND_AND_NOTE_SELECT=BOUND_SELECT\+`([^`]*)`/)[1];
+  const planOf = sql => schemaDb.prepare('EXPLAIN QUERY PLAN ' + sql).all().map(r => r.detail);
+  check('BOUND_SELECT alone scans characters only; BOUND_AND_NOTE_SELECT adds the members scan',
+    planOf(boundSql).includes('SCAN c') && !planOf(boundSql).includes('SCAN m') && planOf(boundSql + noteArm).includes('SCAN m'));
+  schemaDb.close();
+  const rqDoc = read('docs/release-qualification.md'), memberRow = rqDoc.split('\n').find(line => line.startsWith('   |') && line.includes('`SCAN m`')) ?? '';
+  check('the known-scans table and the runtime comment attribute the members scan to BOUND_AND_NOTE_SELECT',
+    memberRow.includes('BOUND_AND_NOTE_SELECT') && /UNION ALL[^|]*banned=0/.test(memberRow)
+    && /BOUND_AND_NOTE_SELECT[\s\S]{0,240}UNION ALL arm reads every member with banned=0 \(SCAN m\)[\s\S]{0,40}'members: SCAN m': 1/.test(runtime));
   check('the promotions target fails unless all sixteen budget checks pass', target.includes("fixtureCall('budget')") && target.includes('budget.checks.length===16'));
 }
 

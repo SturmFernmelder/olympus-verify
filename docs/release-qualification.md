@@ -71,7 +71,7 @@ says what runs today and where it still falls short of the directive's wording.
    | `site-launch229.ts` `linked_guids` CTE (`GROUP BY guid` over all characters) | page (two launch reads) | `SCAN characters` | 2 |
    | `unverified.ts` `linked_guids` CTE | display | `SCAN characters` | 1 |
    | `roster.ts` member insert (about lines 728-733): `EXISTS(... privacy_subjects ps ... instr(note, ps.subject_id))` for the public and the officer note of every row; no index can serve `instr()` | ingest (20 statements of 50 rows) | `SCAN ps` (privacy_subjects) | 40, so about 2,000 whole-table probes for 1,000 members |
-   | `roster.ts` `BOUND_SELECT` (every bound character joined to members) | ingest | `SCAN c` (characters), `SCAN m` (members) | 1 each |
+   | `roster.ts` `BOUND_AND_NOTE_SELECT` (about line 155), one statement: its `BOUND_SELECT` arm reads every bound character (`characters LEFT JOIN privacy_subjects`), its `UNION ALL` arm every member with `banned=0` | ingest | `SCAN c` (characters, `BOUND_SELECT` arm), `SCAN m` (members, `UNION ALL` arm) | 1 each |
    | `roster.ts` latest-snapshot status read (about line 1211) | ingest | `SCAN s`, `SCAN a` (roster_snapshots); `SCAN d`, `SCAN u` (roster_effect_runs) | 1 each |
    | `full-release-roles.ts` `CANONICAL233_SWEEP249_SELECT` | canonical sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN r USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord`, `SCAN roster_snapshots` | 1 each |
    | `full-release-roles.ts` `NATIVE232_SWEEP249_SELECT` | Native sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord` | 1 each |

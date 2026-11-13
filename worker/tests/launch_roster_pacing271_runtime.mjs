@@ -204,7 +204,8 @@ const KNOWN_REQUEST_SCANS = Object.freeze({
     // roster.ts:728-733: per member row, EXISTS(... privacy_subjects ps ... instr(note, ps.subject_id)) for the public and
     // the officer note; no index can serve instr(), so each 50-row statement scans privacy_subjects twice per row.
     'privacy_subjects: SCAN ps': 40,
-    // roster.ts:153 BOUND_SELECT: every bound character, joined to members, read in full.
+    // roster.ts:155 BOUND_AND_NOTE_SELECT, one statement: its BOUND_SELECT arm (characters LEFT JOIN privacy_subjects)
+    // reads every bound character (SCAN c), and its UNION ALL arm reads every member with banned=0 (SCAN m).
     'characters: SCAN c': 1, 'members: SCAN m': 1,
     // roster.ts:1211: the latest-snapshot status read walks roster_snapshots and roster_effect_runs.
     'roster_snapshots: SCAN s': 1, 'roster_snapshots: SCAN a': 1, 'roster_effect_runs: SCAN d': 1, 'roster_effect_runs: SCAN u': 1},
