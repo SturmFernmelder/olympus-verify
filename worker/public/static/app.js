@@ -4785,7 +4785,7 @@
     const refresh = h('button', {type:'button', class:'btn', text:'Refresh first page', onclick:() => {scanning=false; load(null);}});
     const scan = h('button', {type:'button',class:'btn',text:'Scan entire roster',onclick:() => {scanning=true; load(null);}});
     const stop = h('button', {type:'button',class:'btn',text:'Stop scan',disabled:true,onclick:() => {scanning=false;stop.disabled=true;status.textContent=busy?'Stopping after the current bounded page; no further page will be read.':'Scan stopped. Unscanned and stale evidence stays held.';}});
-    const more = h('button', {type:'button', class:'btn', text:'Load next 20 role checks', hidden:true, onclick:() => nextCursor && load(nextCursor)});
+    const more = h('button', {type:'button', class:'btn', text:'Load next 20 role checks', hidden:true, onclick:() => nextCursor && load(nextCursor,lastOffset+20)});
     const dispose = () => {if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;sequence++;scanning=false;model=null;pages.clear();clear(output);if(disposeTool===dispose)disposeTool=null;};
     disposeTool = dispose;
     body.setAttribute('data-launch234',''); // v234 rank view (owner ladder 12 Nov 2026): /static/launch-operations234.js
@@ -4815,8 +4815,8 @@
       const examined=[...pages.values()].reduce((sum,p)=>sum+p.dto.entitlements.scanned,0),total=d.entitlements.total,complete=pages.size>0&&examined===total&&!nextCursor;
       let fresh=0,stale=0;for(const p of pages.values()){if(p.deadline>clock&&!scanExpired)fresh+=p.dto.promotions.length;else stale+=p.dto.promotions.length;}
       add(output,frame('Discovery and current eligibility',null,
-        h('p',{text:d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.'}),
-        h('p',{role:'status','data-launch-progress229':'',text:(complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.'}),
+        h('p',{text:L234.scopeLine?.(d)||(d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.')}),
+        h('p',{role:'status','data-launch-progress229':'',text:L234.progressLine?.(d,{complete,examined,total})||((complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.')}),
         h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.':'No confirmed native scan.'}),
         L234.holdList(d.heldReasons||[],ui234,d)));
       add(output,L234.rankFrame(d,ui234));
@@ -4826,7 +4826,7 @@
         h('p',{text:'An invite requires explicit current native unguilded evidence and the same character identity. Use Next Officer Action in-game; unknown evidence stays held.'}),
         L234.inviteTable(inviteRows,fmtDateTime,ui234)));
       for(const [offset,p] of [...pages].sort((a,b)=>a[0]-b[0])){
-        const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor);}});
+        const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor,offset);}});
         add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:eligible?'Role evidence current':'Stale advisory'}),
           h('p',{text:'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
           L234.promotionGroups(p.dto,eligible,ui234)));
@@ -4840,7 +4840,7 @@
       if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent='A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
       if(focused){const field=document.getElementById(focused);if(field)field.focus({preventScroll:true});}
     }
-    async function load(cursor) {
+    async function load(cursor,expectedOffset=0) { // round 5 build: where the link points (v235 checks each page starts there)
       if(!live()||busy)return;
       if(nowSec()<retryAt){scanning=false;status.textContent='Discord asked for a pause. Retry after '+fmtDateTime(retryAt)+'. No read was sent.';return;}
       busy=true;refresh.disabled=true;scan.disabled=true;more.disabled=true;stop.disabled=!scanning;
@@ -4855,7 +4855,7 @@
         const view=launchView235(d);
         // A continued page must keep the family of the page it continues (a v234 scan never continues as v235, or back).
         if(cursor&&model&&(model.protocol===DISCOVERY235)!==(d?.protocol===DISCOVERY235))throw Error('launch_family_changed');
-        const verdict234=view.assess(d,cursor&&model?model:null);
+        const verdict234=view.assess(d,cursor&&model?model:null,expectedOffset);
         if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
         // Round 5 item 2: a next-page link gets the continuation link's shape check (its family's bound) before any request is built from it.
         if(d.nextCursor!==null&&!view.pageCursorShape(d.nextCursor))throw Error('launch_next_cursor_unconfirmed');
@@ -4880,9 +4880,13 @@
         }
         model=d;retryAt=d.entitlements.retryAfterSeconds?nowSec()+d.entitlements.retryAfterSeconds:0;if(retryAt)scanning=false;
         draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':'Read complete. Discovery and current action eligibility are shown separately.';
-      } catch(error){if(current()){model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';}}
+      } catch(error){if(current()){const family=model?model.protocol:DISCOVERY235;model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';
+        // Round 5 build (13 Nov 2026, codex-reviews-r5/discovery235.md section 5): on the v235 route a page link the server
+        // no longer accepts means "start again from the first page", said plainly. A v234 scan keeps its message.
+        if(family===DISCOVERY235&&(error?.status===400||error?.status===409)&&/^[a-z_]{1,64}$/.test(codeOf(error))){try{await loadMemberScript('OlympusDiscovery235','/static/launch-discovery235.js');}catch{}
+          const restart=current()&&window.OlympusDiscovery235?window.OlympusDiscovery235.restartCode(error):null;if(restart){add(output,window.OlympusDiscovery235.restartNotice(restart,{h,frame}));status.textContent=window.OlympusDiscovery235.restartText(restart);}}}}
       finally{if(current()){busy=false;refresh.disabled=false;scan.disabled=false;more.disabled=false;stop.disabled=!scanning;for(const button of output.querySelectorAll('button[id]'))if(button.id.startsWith('launch-recheck229-'))button.disabled=!!model?.scan?.expiresAt&&nowSec()>=model.scan.expiresAt;const field=focused&&document.getElementById(focused);if(field&&!field.disabled)field.focus({preventScroll:true});}}
-      if(current()&&scanning&&nextCursor&&pages.size<50)await load(nextCursor);
+      if(current()&&scanning&&nextCursor&&pages.size<50)await load(nextCursor,lastOffset+20);
       else if(current()){scanning=false;stop.disabled=true;}
     }
     await load(null);

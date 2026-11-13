@@ -108,9 +108,16 @@ const runUi280=String.raw`
  const page=await openPage(STAFF);await page.go('#/admin/launch-operations');
  const asked=MODULE_SRC!==null&&await supply(page);
  check('B1 the admin route loads the v234 view module as a member script',asked);
- await waitFor(()=>!!page.app.querySelector('#launch-motd229')||page.app.textContent.includes('could not be confirmed'),'real launch read settlement',8000);
+ // Round 5 build (13 Nov 2026): the real admin route answers only officer-operations-v235 now
+ // (site-launch229.ts handleDiscoveryOperations235), so the page also asks for the v235 reader; the fixture serves it.
+ const D_SRC_B=fs.readFileSync(path.join(process.env.UI280_STATIC_DIR||path.join(root,'public','static'),'launch-discovery235.js'),'utf8'),D_SEL_B='script[src="/static/launch-discovery235.js"]';
+ const supply235=pg=>{const u=pg.document.head.querySelector(D_SEL_B);if(u&&!pg.window.OlympusDiscovery235){vm.runInNewContext(D_SRC_B,{window:pg.window,Object,Array,JSON,String,Number,RegExp,Map,Set,Error},{filename:'launch-discovery235.js'});u.dispatchEvent(new Event('load'));}};
+ await waitFor(()=>{supply235(page);return !!page.app.querySelector('#launch-motd229')||page.app.textContent.includes('could not be confirmed')||!!page.app.querySelector('[data-launch234-held]');},'real launch read settlement',8000);
  const view=()=>page.app.querySelector('[data-launch234]');
- check('B2 the real Worker page (v234, held) renders: copy-only MOTD, plain holds, rank table not confirmed, no promotion',!!page.app.querySelector('#launch-motd229')&&!!view()&&!!page.app.querySelector('[data-launch234-hold="flagship-native-scope-unconfirmed"]')&&page.app.textContent.includes('The site is not set up to read the OLYMPUS PRIME roster.')&&!!page.app.querySelector('[data-launch234-ranks="unconfirmed"]')&&!page.app.querySelector('[data-launch-promotion229]'),page.app.textContent.slice(-900));
+ const realB2=await (await indexMod.default.fetch(new Request('https://guild.example/api/admin/launch-operations',{headers:{Origin:'https://guild.example','X-Olympus':'2',Cookie:await cookieFor(STAFF)}}),env({ASSETS:governanceAssets}),ctx)).json();
+ check('B2 the real Worker page (v235, held) renders through the v235 reader: copy-only MOTD, each hold once in plain words, rank table not confirmed, no promotion, no refusal',realB2.protocol==='officer-operations-v235'&&realB2.status==='held'&&!!page.document.head.querySelector(D_SEL_B)&&!!page.app.querySelector('#launch-motd229')&&!!view()&&!page.app.querySelector('[data-launch234-held]')&&!!page.app.querySelector('[data-launch234-hold="flagship-native-scope-unconfirmed"]')&&page.app.textContent.includes('The site is not set up to read the OLYMPUS PRIME roster.')
+  &&JSON.stringify(page.app.querySelectorAll('[data-launch234-hold]').map(li=>li.getAttribute('data-launch234-hold')))===JSON.stringify([...new Set(realB2.heldReasons)])&&page.app.querySelectorAll('[data-launch234-hold]').every(li=>!li.textContent.includes(li.getAttribute('data-launch234-hold'))&&!li.textContent.startsWith('Held for a reason'))
+  &&!!page.app.querySelector('[data-launch234-ranks="unconfirmed"]')&&!page.app.querySelector('[data-launch-promotion229]'),JSON.stringify({protocol:realB2.protocol,status:realB2.status,heldReasons:realB2.heldReasons}),page.app.textContent.slice(-900));
  let reads=[],dto=ready();page.intercept((url,init)=>{if(url.startsWith('/api/admin/launch-operations')){reads.push((init.method||'GET')+' '+url);return new Response(JSON.stringify(dto),{status:200});}return null;});
  await page.go('#/');await page.go('#/admin/launch-operations');
  await waitFor(()=>!!page.app.querySelector('[data-launch-promotion229]')||page.app.textContent.includes('could not be confirmed')||!!page.app.querySelector('[data-launch234-held]'),'ready page settlement',8000);
@@ -126,6 +133,10 @@ const runUi280=String.raw`
  check('B8 an unknown digest is held',await shown('unknown digest',Object.assign(ready(),{rankSchemeDigest:'d'.repeat(64)}),'unknown-digest'));
  check('B9 an unknown status is held',await shown('unknown status',Object.assign(ready(),{status:'paused'}),'unknown-status'));
  check('B10 a promotion row with an extra field is held',await shown('extra field',(()=>{const x=ready();x.promotions[0].intentToken='t.'+'0'.repeat(64);return x;})(),'unknown-row-shape'));
+ // Round 5 build: the v235 reader is loaded on this page now (B2), yet a v234 reply is still read by the strict reader
+ // alone: a v234 page in the rank-held shape (partial, no rank table) is refused, as it always was.
+ const rankHeld234=Object.assign(ready(),{status:'partial',rankProfile:null,rankSchemeDigest:null,rankNames:null,promotions:[],riskBuffer:[],heldReasons:['native-rank-scheme-unconfirmed'],held:[{guid:'Player-1-0001',name:'Synthetic Leader',reason:'native-rank-scheme-unconfirmed'}]});
+ check('B14 with the v235 reader loaded, a v234 reply is read only by the strict v234 reader: a v234 page in the rank-held shape is refused as before',!!page.window.OlympusDiscovery235&&await shown('v234 rank-held shape',rankHeld234,'malformed-rank-table')&&page.app.querySelector('[data-launch234-held]')?.textContent===page.window.OlympusLaunch234.assess(rankHeld234,null).text&&!page.app.querySelector('[data-launch235-rank-held]'),page.app.textContent.slice(-500));
  reads=[];page.intercept((url,init)=>{if(url.startsWith('/api/admin/launch-operations')){reads.push(url);return Promise.reject(new TypeError('the network dropped the answer'));}return null;});
  await page.go('#/');await page.go('#/admin/launch-operations');await waitFor(()=>page.app.textContent.includes('could not be confirmed'),'lost reply',8000);await new Promise(r=>setTimeout(r,1200));
  check('B11 a lost reply is shown as unconfirmed and is never resent on its own',page.app.textContent.includes('could not be confirmed')&&reads.length===1&&!page.app.querySelector('[data-launch-promotion229]'),String(reads.length));
