@@ -2022,12 +2022,31 @@
     }));
     await toolScripts.get(namespace);
   }
+  const toolStyles = new Map(); // namespace -> a promise that settles once that tool's stylesheet loaded or failed
+  function memberToolStyle(namespace, stylesheet) {
+    if (toolStyles.has(namespace)) return toolStyles.get(namespace);
+    let link = document.querySelector(`link[data-olympus-tool="${namespace}"]`);
+    if (link && link.sheet) return Promise.resolve();
+    if (!link) link = h("link", { rel: "stylesheet", href: stylesheet, "data-olympus-tool": namespace });
+    const fresh = !link.parentNode;
+    const ready = !("sheet" in link) ? Promise.resolve() : new Promise(resolve => { // a document without CSSOM cannot wait
+      const done = () => { clearTimeout(timer); resolve(); };
+      const timer = setTimeout(done, 4000);
+      link.addEventListener("load", done);
+      // A failed stylesheet is removed, so the next visit asks for it again; the tool still opens unstyled now.
+      link.addEventListener("error", () => { toolStyles.delete(namespace); link.remove(); done(); });
+    });
+    if (fresh) document.head.appendChild(link);
+    toolStyles.set(namespace, ready);
+    return ready;
+  }
   async function memberTool(main, namespace, file, stylesheet, options) {
     const live = () => main.parentNode === app;
     const box = h("div", { class: "member-tool" }, h("p", { role: "status", class: "muted", text: "Opening tool…" }));
     add(main, box);
-    if (!document.querySelector(`link[data-olympus-tool="${namespace}"]`)) document.head.appendChild(h("link", { rel: "stylesheet", href: stylesheet, "data-olympus-tool": namespace }));
-    await loadMemberScript(namespace, file);
+    // Evergreen 12 Nov 2026 (CL2-075): the tool mounts only after its stylesheet has loaded (or failed, or 4 s passed),
+    // so its first render is already in its final layout; the script loads at the same time.
+    await Promise.all([memberToolStyle(namespace, stylesheet), loadMemberScript(namespace, file)]);
     if (!live()) return;
     const settings = typeof options === "function" ? await options() : options;
     if (!live()) return;
@@ -2634,7 +2653,9 @@
           arm();
           return;
         }
-        const { renderTreasuryPlan207 } = await import("/static/treasury-plan207.js");
+        const { renderTreasuryPlan207, treasuryPlanStyle207 } = await import("/static/treasury-plan207.js");
+        // Evergreen 12 Nov 2026 (CL2-075): first paint waits for the plan's stylesheet (never rejects, at most 4 s).
+        if (typeof treasuryPlanStyle207 === "function") await treasuryPlanStyle207();
         if (!current()) return;
         // A held module import can outlive the grant that started it.
         if (!treasuryPlanAllowed218() && !await verifyAccess()) { if (current()) refuse(); return; }

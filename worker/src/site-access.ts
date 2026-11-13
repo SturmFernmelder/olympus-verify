@@ -1,7 +1,7 @@
 /** Member-site delivery boundary (.154). No application source or guild payload is sent before Discord sign-in. */
 import type { Env } from './env';
-import { currentUser, originalUserSession, securityHeaders } from './site-core';
-import { stillMember } from './site-api';
+import { currentUser, originalUserSession, rememberGateUser, securityHeaders } from './site-core';
+import { membershipRecheckDue, stillMember } from './site-api';
 import { privacyBoundSiteEnv } from './privacy-serving-authority';
 import { loginHeaders, policyShell } from './policy-render';
 import { errorRef } from './log';
@@ -73,8 +73,11 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   if (user && request.method === 'GET' && (path === '/api/me' || path === '/api/application' || path === '/api/community/context')) return null;
   if (user && user.in_server === 1 && !user.denied) {
     try {
+      // Evergreen 12 Nov 2026 (CL2-073): when no Discord check is due nothing rewrites the row, so the page may reuse it.
+      const unchanged = !membershipRecheckDue(user);
       const held = await stillMember(privacyBoundSiteEnv(env, originalUserSession(user)), user);
       if (held) return request.method === 'HEAD' ? new Response(null, { status: held.status, headers: held.headers }) : held;
+      if (unchanged) rememberGateUser(request, user);
       return null;
     } catch (e) {
       console.error('site access unavailable', 'membership', errorRef(e));
