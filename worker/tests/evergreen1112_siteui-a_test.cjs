@@ -747,6 +747,107 @@ async function round3Inner(cdp, want) {
   }
 }
 
+/** Stage 2 round 4 (13 Nov 2026): a write whose answer is lost after the Worker processed it. */
+async function round4Checks(cdp) {
+  const want = id => !only || only.has(id);
+  // Each flow: the request reaches the Worker, the Worker answers, and the answer is dropped (ConnectionReset) before the page
+  // reads it. The page must say the outcome is unknown and must not invite a retry or blame the connection.
+  const lostAfterProcessing = async (pattern, act, readout) => {
+    const seen = [];
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: pattern, requestStage: 'Response' }] });
+    cdp.onPaused = p => { seen.push({ method: p.request.method, status: p.responseStatusCode }); return cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' }); };
+    try {
+      await cdp.eval(act);
+      for (let i = 0; i < 60 && !seen.length; i++) await sleep(100);
+      await sleep(900);
+    } finally { cdp.onPaused = null; await cdp.send('Fetch.disable'); }
+    return { seen, said: await cdp.eval(readout) };
+  };
+  const unknownWords = s => /not known whether/.test(s) && /[Rr]eload|[Cc]heck/.test(s) && !/try again|check your connection|could not be reached/i.test(s);
+  const toasts = `[...document.querySelectorAll('.toast.bad span')].map(s => s.textContent).join(' | ')`;
+  if (want('R4-1')) {
+    await open(cdp, 'member', 'verify', 'document.querySelector("main form input")');
+    const v = await lostAfterProcessing('*/api/me/verification',
+      `(() => { const i = document.querySelector('main form input'); i.value = 'Fern Melder'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('main form button[type="submit"]').click(); return true; })()`,
+      `document.querySelector('main form [role=status] p.err')?.textContent || ''`);
+    check('R4-1', '/#/verify: the verification answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', v.seen.length === 1 && v.seen[0].method === 'POST' && v.seen[0].status === 200 && unknownWords(v.said), JSON.stringify(v));
+
+    await open(cdp, 'member', 'vote', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save nominations" && !b.disabled)');
+    const n = await lostAfterProcessing('*/api/votes',
+      `(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); const b = [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save nominations' && !x.disabled); if (!b) return false; b.click(); return true; })()`, toasts);
+    check('R4-1', '/#/vote: Save nominations with its answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', n.seen.length === 1 && n.seen[0].method === 'PUT' && n.seen[0].status === 200 && unknownWords(n.said), JSON.stringify(n));
+    // Review of round 4 (13 Nov 2026): the generic sentence also serves withdrawals, sign-out and status calls, so its verb is neutral.
+    check('R4-1', 'the generic lost-write sentence uses a neutral verb ("took effect"), not "saved", since it also serves withdrawals and sign-out', /not known whether this took effect/.test(n.said) && !/was saved/.test(n.said), n.said);
+
+    await open(cdp, 'member', '', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save friends")');
+    const f = await lostAfterProcessing('*/api/friends',
+      `(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save friends').click(); return true; })()`, toasts);
+    check('R4-1', 'Home: Save friends with its answer lost after the Worker answered says the outcome is unknown, with no retry or connection advice', f.seen.length === 1 && f.seen[0].method === 'PUT' && f.seen[0].status === 200 && unknownWords(f.said), JSON.stringify(f));
+
+    // Control: a lost READ still invites a retry, and a refusal the Worker did answer keeps its own words.
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/news', requestStage: 'Request' }] });
+    cdp.onPaused = p => cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' });
+    await open(cdp, 'member', 'news', 'document.querySelector("main .notice-box")');
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const readSaid = await cdp.eval(`document.querySelector('main .notice-box')?.textContent || ''`);
+    check('R4-1', 'control: a lost read (the news list) still says the site could not be reached and offers Try again', /could not be reached/.test(readSaid) && /Try again/.test(readSaid), readSaid.slice(0, 200));
+    await open(cdp, 'member', '', '[...document.querySelectorAll("main button")].some(b => b.textContent === "Save friends")');
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/friends', requestStage: 'Request' }] });
+    cdp.onPaused = p => cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 400, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify({ error: 'invalid', message: 'Synthetic refusal from the Worker.' })).toString('base64') });
+    await cdp.eval(`(() => { document.querySelectorAll('.toast').forEach(t => t.remove()); [...document.querySelectorAll('main button')].find(x => x.textContent === 'Save friends').click(); return true; })()`);
+    await sleep(1200);
+    cdp.onPaused = null; await cdp.send('Fetch.disable');
+    const refusal = await cdp.eval(toasts);
+    check('R4-1', 'control: a refusal the Worker answered with a message still shows that message', refusal === 'Synthetic refusal from the Worker.', refusal);
+  }
+  if (want('R4-2')) {
+    // The Apply section H2s share one size, smaller than the page H1, at desktop and phone widths.
+    const sizes = {};
+    for (const width of [1280, 375]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 768 });
+      await open(cdp, 'member', 'apply', 'document.querySelector("section.field[data-field=talentBuilds] > h2")');
+      sizes[width] = await cdp.eval(`(() => { const px = el => parseFloat(getComputedStyle(el).fontSize); const h1 = document.querySelector('main h1'); const talent = document.querySelector('section.field[data-field=talentBuilds] > h2'); const siblings = [...document.querySelectorAll('main .section-title h2')].map(px); return { h1: h1 && px(h1), talent: talent && px(talent), siblings: [...new Set(siblings)] }; })()`);
+    }
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
+    check('R4-2', '/#/apply at 1280 and 375 px: "Character talent builds (optional)" has the section-title size of its sibling H2s, below the H1', Object.values(sizes).every(s => s.talent && s.siblings.length === 1 && s.talent === s.siblings[0] && s.talent < s.h1), JSON.stringify(sizes));
+  }
+  if (want('R4-4')) {
+    // The verification request's failure line says what happened: a refusal the Worker answered without a message is not
+    // "the answer did not arrive", and each unknown-outcome case keeps the status-check advice.
+    const reply = (status, body, type = 'application/json') => p => cdp.send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: status, responseHeaders: [{ name: 'Content-Type', value: type }], body: Buffer.from(body).toString('base64') });
+    const cases = {
+      bare403: reply(403, '', 'text/plain'),
+      bare400: reply(400, '{}'),
+      bare500: reply(500, 'synthetic failure', 'text/plain'),
+      worded400: reply(400, JSON.stringify({ error: 'invalid', message: 'Synthetic worded refusal.' })),
+      // The Worker's real answers (review of round 4, 13 Nov 2026): its unhandled-error 500 and its serving-held 503 both carry
+      // a code; the name check's 400 carries its reason in `content`; the held-account 403 carries only a code.
+      internal500: reply(500, JSON.stringify({ error: 'internal', requestId: 'x' })),
+      held503: reply(503, JSON.stringify({ error: 'original_serving_held' })),
+      nameRequired400: reply(400, JSON.stringify({ error: 'full_character_name_required', content: 'Enter your full in-game name as First Last.' })),
+      accountHeld403: reply(403, JSON.stringify({ error: 'account_held' })),
+      lost: p => cdp.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'ConnectionReset' }),
+    };
+    const said = {};
+    for (const [name, answer] of Object.entries(cases)) {
+      await open(cdp, 'member', 'verify', 'document.querySelector("main form input")');
+      await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/me/verification', requestStage: 'Request' }] });
+      cdp.onPaused = answer;
+      await cdp.eval(`(() => { const i = document.querySelector('main form input'); i.value = 'Fern Melder'; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('main form button[type="submit"]').click(); return true; })()`);
+      await waitFor(cdp, 'document.querySelector("main form [role=status] p.err")', 6000);
+      cdp.onPaused = null; await cdp.send('Fetch.disable');
+      said[name] = await cdp.eval(`document.querySelector('main form [role=status] p.err')?.textContent || ''`);
+    }
+    const advice = /Check My status or \/verify-status in Discord before asking again/;
+    check('R4-4', 'a refusal answered without a message (bare 403, empty 400) says the site refused it, not that the answer did not arrive', ['bare403', 'bare400'].every(k => /refused the request without giving a reason/.test(said[k]) && !/did not arrive|not known whether/.test(said[k]) && advice.test(said[k])), JSON.stringify(said));
+    check('R4-4', 'a bare 500 says the site had a problem answering and that it is not known whether a code was issued', /had a problem answering/.test(said.bare500) && /not known whether a code was issued/.test(said.bare500) && !/did not arrive/.test(said.bare500) && advice.test(said.bare500), said.bare500);
+    check('R4-4', 'a lost answer says it did not arrive and that it is not known whether a code was issued', /did not arrive/.test(said.lost) && /not known whether a code was issued/.test(said.lost) && advice.test(said.lost) && !/try again/i.test(said.lost), said.lost);
+    check('R4-4', 'control: a refusal with a message still shows the Worker\'s own words', said.worded400 === 'Synthetic worded refusal.', said.worded400);
+    check('R4-4', 'the Worker\'s own 500 {error:"internal"} and 503 {error:"original_serving_held"} say the outcome is unknown, never that the site refused', ['internal500', 'held503'].every(k => /had a problem answering/.test(said[k]) && /not known whether a code was issued/.test(said[k]) && !/refused/.test(said[k]) && advice.test(said[k]) && !/try again/i.test(said[k])), JSON.stringify({ internal500: said.internal500, held503: said.held503 }));
+    check('R4-4', 'a 4xx refusal that carries a reason shows it: the name check\'s `content`, and a sentence of its own for a held account', said.nameRequired400 === 'Enter your full in-game name as First Last.' && /cannot request a code right now, so none was issued/.test(said.accountHeld403) && !/without giving a reason|not known whether/.test(said.accountHeld403), JSON.stringify({ nameRequired400: said.nameRequired400, accountHeld403: said.accountHeld403 }));
+  }
+}
+
 /** Mobile-first layout of the changed staff pages: no sideways page scroll, 44 px targets for the new holder buttons. */
 async function layoutChecks(cdp) {
   for (const [route, ready] of [['admin/appointments', 'document.querySelector("[data-appointed-holder]")'], ['admin', 'document.querySelector(".admin-section-group228")']]) {
@@ -776,6 +877,15 @@ async function layoutChecks(cdp) {
   // --followup-only runs just the follow-up browser checks (UX-LOAD-001, BROWSER-03); the full run includes them.
   // --round3-only runs just the round 3 browser checks (RC-097, RC-017, ROUND3-9, ROUND3-10) and the unit checks.
   const round3Only = process.argv.includes('--round3-only');
+  // --round4-only runs just the round 4 browser checks (R4-1 and the items added after it).
+  if (process.argv.includes('--round4-only')) {
+    const cdp = await launchEdge(CDP_PORT, args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-')));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false });
+    try { await round4Checks(cdp); } finally { await cdp.close(); }
+    console.log(`RESULT ${results.length - failures}/${results.length} passed`);
+    process.exitCode = failures ? 1 : 0;
+    return;
+  }
   if (round3Only) {
     await unitChecks();
     const cdp = await launchEdge(CDP_PORT, args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-')));
@@ -793,7 +903,7 @@ async function layoutChecks(cdp) {
     const profile = args.profile || fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-siteui-a-'));
     const cdp = await launchEdge(CDP_PORT, profile);
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!followupOnly) await round3Checks(cdp); if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
+    try { if (!followupOnly) { await pageChecks(cdp); await reviewChecks(cdp); } await followupChecks(cdp); if (!followupOnly) { await round3Checks(cdp); await round4Checks(cdp); } if (!args['no-layout'] && !followupOnly) await layoutChecks(cdp); } finally { await cdp.close(); }
   }
   console.log(`RESULT ${results.length - failures}/${results.length} passed`);
   if (args.json) fs.writeFileSync(args.json, JSON.stringify(results, null, 1));

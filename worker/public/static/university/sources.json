@@ -124,11 +124,11 @@
   },
   {
    "id": "g218-15",
-   "label": "Talent data, beta build 1.60.1.70425 (16 Oct 2026 snapshot)",
+   "label": "Talent data: Talents Forever export of 10 November 2026, client 1.60.1.70755 with server hotfixes",
    "publisher": "Talents Forever",
    "kind": "licensed-data",
    "url": "https://talentsforever.com/",
-   "checkedAt": "2026-10-31"
+   "checkedAt": "2026-11-12"
   },
   {
    "id": "g218-16",
@@ -1260,7 +1260,7 @@
   },
   {
    "id": "talents-data",
-   "label": "Talent calculator data: Talents Forever export of 10 Nov 2026 with server hotfixes",
+   "label": "Talent calculator data: Talents Forever export of 10 Nov 2026, client 1.60.1.70755 with server hotfixes",
    "publisher": "Talents Forever",
    "kind": "licensed-data",
    "url": "https://talentsforever.com/",

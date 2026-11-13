@@ -127,9 +127,10 @@
    "kind": "theory",
    "grade": "C",
    "label": "Healthstones: not confirmed by Blizzard",
-   "value": "Improved Healthstone is no longer a talent, and talentsforever's 30 Oct datamine shows Healthstones healing as if fully talented (Major Healthstone: 1,440). No Blizzard note confirms the healing yet.",
+   "value": "Improved Healthstone is no longer a talent, and talentsforever's 30 Oct datamine shows Healthstones healing as if fully talented (Major Healthstone: 1,440). Blizzard's hotfix notes up to 11 November 2026 do not mention it.",
    "sources": [
     "g218-77",
+    "g218-156",
     "talents-data"
    ],
    "reviewedAt": "2026-11-12",

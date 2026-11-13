@@ -25,7 +25,9 @@ const ORIGINAL_KINDS=['bot-veteran','member-manual','officer-manual','retired-ma
 const SUCCESSOR_KINDS=['late-delete','known-ack','known-migrate','known-nd','known-404','malformed-retired','malformed-variant','inserted-ack-control','effect-not-confirmed','confirm-unknown','lanes','lanes-walk',...XP_CASES.map(c=>c.kind)];
 // Repair round (13 Nov 2026, independent review of the successor at 4951e61).
 const REPAIR_KINDS=['oldlane-retired','oldlane-veteran','oldlane-getonly','legacy-removed','legacy-absent','lane-failed','lane-held','watcher-nolane','deferred-429'];
-const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS];
+// Round 4 item 8 (13 Nov 2026): the unban reply for a removal in flight and for rows of other purposes.
+const ROUND4_KINDS=['unban-inflight','unban-other-inflight','unban-mixed'];
+const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS,...ROUND4_KINDS];
 const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},held:[],member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 let mf,checks=[];
 const check=(name,value,detail)=>{checks.push({name,passed:value===true,...(value===true&&!process.env.BAN1112_DETAIL?{}:{detail})});console.log((value===true?'PASS ':'FAIL ')+name);};
@@ -180,7 +182,10 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
   x=await ban(k);
   check(k+': a new ban dispatch holds Veteran (no DELETE), removes Member under its own authority and leaves the non-rank roles',writesTo(k,VETERAN)===0&&present(k).includes(VETERAN)&&!present(k).includes(MEMBER)&&present(k).includes(ADDON)&&present(k).includes(HIGH)&&lastReply(k).includes('<@&'+VETERAN+'> (an earlier change to this role has an unconfirmed result)'),{reply:lastReply(k),http:state.get(k).http});
   // Unbanned, the role gone by hand: a sweep visit (GET-only for a ban-purpose row) sees it absent; that releases nothing.
-  await unban(k);state.get(k).present.get(SUBJECT).delete(VETERAN);await sweep(k);await call('refresh/'+k);
+  const xpUnban=unbanReply(await unban(k));
+  // Round 4 item 8 (13 Nov 2026): the unban reply names Veteran whatever the purpose of the unresolved row that holds it.
+  check(k+': the unban reply names Veteran as blocked by an unconfirmed '+(xp.purpose===BAN?'ban removal':'change outside the ban'),xpUnban.startsWith('<@'+SUBJECT+'> can verify again. One Olympus rank role stays blocked for them: <@&'+VETERAN+'>.')&&xpUnban.includes(xp.purpose===BAN?'An earlier ban removal of this role got no confirmed answer':'An earlier change to this role outside the ban got no confirmed answer')&&xpUnban.includes('until an attended resolution exists')&&!/in flight/.test(xpUnban),xpUnban);
+  state.get(k).present.get(SUBJECT).delete(VETERAN);await sweep(k);await call('refresh/'+k);
   const v=await freshVerify(k),m=await call('migrate/'+k,{target:VETERAN,currentRoles:[]}),t=await call('routine/'+k);x=await call('rows/'+k);
   check(k+': after a sweep visit saw Veteran absent, shared membership, migration and the routine stop at their barriers with no PUT or DELETE for Veteran, and the unresolved row is never changed',writesTo(k,VETERAN)===0&&!present(k).includes(VETERAN)&&verifyFenced(v)&&migrateFenced(m)&&routineFenced(t)&&same(x.rows.find(r=>r.id===row.id),Object.fromEntries(Object.keys(x.rows.find(r=>r.id===row.id)??{}).map(n=>[n,row[n]]))),{verify:v.verify,migrate:m.result,routine:t.result,row:x.rows.find(r=>r.id===row.id)});
  }
@@ -419,6 +424,29 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  const riRow=banRows(x).find(r=>r.role_id===VETERAN),riReply=lastReply('receipt-lost-interrupted');
  check('follow-up REV-BAN-2: interrupted after the ACK, confirmed absent, receipt lost: unknown with receipt_unknown, never interrupted_after_ack',deletes('receipt-lost-interrupted').length===1&&!present('receipt-lost-interrupted').includes(VETERAN)&&riRow?.state==='unknown'&&riRow.reason==='ban_rank1112_receipt_unknown'&&!banRows(x).some(r=>r.role_id===MEMBER),{rows:x.rows});
  check('follow-up REV-BAN-2: the officer reads "the result could not be recorded", not "stopped before confirming it", and the unsent Member role is named',riReply.includes('unconfirmed result: <@&'+VETERAN+'> (the result could not be recorded)')&&!riReply.includes('stopped before confirming it')&&riReply.includes('<@&'+MEMBER+'> (the command stopped before this removal was sent)')&&!riReply.includes('No rank role was removed'),riReply);
+
+ // Round 4 item 8 (13 Nov 2026). (a) The real unban command runs while the ban's DELETE is in flight: the reply calls the
+ // removal in flight, not unconfirmed, and the removal still completes and is confirmed.
+ await setup('unban-inflight',{present:[VETERAN]});let inflightUnban=null;state.get('unban-inflight').onDelete=async()=>{inflightUnban=await unban('unban-inflight');};x=await ban('unban-inflight');
+ const ifReply=unbanReply(inflightUnban),ifRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('round 4: an unban while the ban removal is in flight says the removal is in flight and may still take effect, not that it is unconfirmed',ifReply.startsWith('<@'+SUBJECT+'> can verify again. One Olympus rank role stays blocked for them: <@&'+VETERAN+'>.')&&ifReply.includes("The ban's removal of this role was still in flight when the ban was lifted and may still take effect")&&!/no confirmed answer|unconfirmed|attended resolution/.test(ifReply)&&!!inflightUnban?.rows?.some(r=>r.purpose===BAN&&r.role_id===VETERAN&&r.state==='dispatching'),{reply:ifReply,rowsAtUnban:inflightUnban?.rows?.filter(r=>r.role_id===VETERAN)});
+ check('round 4: the in-flight removal still completes: the row is settled and the role is gone, with no PUT back',ifRow?.state==='settled'&&!present('unban-inflight').includes(VETERAN)&&!state.get('unban-inflight').http.some(h=>h.method==='PUT'),{row:ifRow,reply:lastReply('unban-inflight')});
+ // (b) A live claim of another purpose (a canonical routine grant) on Veteran, with no ban row at all.
+ await setup('unban-other-inflight',{present:[VETERAN]});
+ {const now=(await call('clock/unban-other-inflight')).now;const row={...(await synthetic('unban-other-inflight',{purpose:'canonical_routine233',desired:1,state:'dispatching',reason:'synthetic_in_flight',profile:CANONICAL_PROFILE})),created_at:now-10,expires_at:now+290,checked_at:null};await call('insert/unban-other-inflight',{rows:[row]});}
+ x=await unban('unban-other-inflight');const oiReply=unbanReply(x);
+ check('round 4: a live claim of another purpose on a rank role is named in the unban reply as in flight',oiReply.startsWith('<@'+SUBJECT+'> can verify again. One Olympus rank role stays blocked for them: <@&'+VETERAN+'>.')&&oiReply.includes('Another change to this role was still in flight at the unban')&&!/no confirmed answer|attended resolution/.test(oiReply),oiReply);
+ // (c) Three causes at once: a lost ban removal (Veteran), a lost change of another purpose whose claim window has passed
+ // (Officer: an expired claim counts as lost, not in flight) and a live claim of another purpose (Raider).
+ await setup('unban-mixed',{present:[VETERAN,OFFICER,RAIDER]});
+ {const now=(await call('clock/unban-mixed')).now;
+  const rows=[await synthetic('unban-mixed',{purpose:BAN,desired:0,state:'unknown',reason:'ban_rank1112_delete_outcome_unknown',profile:BAN_PROFILE,role:VETERAN}),
+   await synthetic('unban-mixed',{purpose:'canonical_migration233',desired:1,state:'dispatching',reason:'synthetic_expired_claim',profile:MIGRATION_PROFILE,role:OFFICER}),
+   {...(await synthetic('unban-mixed',{purpose:'canonical_consumed233',desired:1,state:'dispatching',reason:'synthetic_in_flight',profile:CANONICAL_PROFILE,role:RAIDER})),created_at:now-5,expires_at:now+295,checked_at:null}];
+  await call('insert/unban-mixed',{rows});}
+ x=await unban('unban-mixed');const mxReply=unbanReply(x),mxList=(mxReply.split('blocked for them: ')[1]||'').split('.')[0];
+ check('round 4: with three causes the reply names all three rank roles, each under its own cause, and an expired claim is unconfirmed',mxReply.includes('3 Olympus rank roles stay blocked for them:')&&[VETERAN,OFFICER,RAIDER].every(r=>mxList.includes('<@&'+r+'>'))
+  &&mxReply.includes('An earlier ban removal of <@&'+VETERAN+'> got no confirmed answer')&&mxReply.includes('An earlier change to <@&'+OFFICER+'> outside the ban got no confirmed answer')&&mxReply.includes('Another change to <@&'+RAIDER+'> was still in flight at the unban')&&mxReply.length<=2000,mxReply);
 
  check('a non-banned member holding a rank role is never read or changed in any case',otherUntouched(),kinds.map(k=>state.get(k).http.filter(h=>h.path.includes(OTHER))));
  check('no PUT is ever sent by the ban path',ORIGINAL_KINDS.filter(k=>!['bot-veteran','ack-loss-unread','slice'].includes(k)).every(k=>!state.get(k).http.some(h=>h.method==='PUT')),null);

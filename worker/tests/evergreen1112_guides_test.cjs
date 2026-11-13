@@ -553,6 +553,70 @@ check('round 3: the Warlock Improved Drains line agrees with the talent data and
     && untilDate === '11 November 2026' && /November 11, 2026/.test(hotfix.label) && x.status === 'pending'
     || JSON.stringify({ text: x.text, sources: x.sources, dataSays, untilDate });
 });
+// Round 4 item 7 (13 Nov 2026): guides218.json source 15 and its university copy g218-15 still said "16 Oct 2026 snapshot"
+// while grade A is the 10 November export, and the university copy of the Warlock line (change-8) said "No Blizzard note
+// confirms the healing yet." with no date or hotfix source. This checkout's build check (scripts/university/validate.cjs,
+// run over the tested checkout's static folder) now refuses both, and a copy with either drift put back is refused.
+const ownValidator = path.join(__dirname, '../../scripts/university/validate.cjs');
+const runValidator = staticDir => cp.spawnSync(process.execPath, [ownValidator, '--quiet'], { encoding: 'utf8', timeout: 60000, env: { ...process.env, UNIVERSITY_STATIC: staticDir } });
+check('round 4: source 15 and g218-15 name the 10 November export that grade A names, and the Warlock Healthstone copies agree on the date and the hotfix source', () => {
+  const g = json(stat, 'guides218.json'), s = json(uni, 'sources.json').sources, f = json(uni, 'facts', 'class-warlock.json').facts.find(x => x.id === 'class-warlock.change-8');
+  const copy = s.find(x => x.id === 'g218-15'), r = runValidator(stat);
+  const ok = /10 November 2026 export, client 1\.60\.1\.70755/.test(g.grades.A) && /10 November 2026, client 1\.60\.1\.70755/.test(g.sources[15].label) && !/16 Oct|70425/.test(g.sources[15].label)
+    && copy && copy.label === g.sources[15].label && copy.checkedAt === g.sources[15].checkedAt
+    && /up to 11 November 2026/.test(g.classes[7].changes[7].text) && f && /up to 11 November 2026/.test(f.value) && !/\byet\b/.test(f.value) && f.sources.includes('g218-156')
+    && r.status === 0;
+  return ok || JSON.stringify({ label15: g.sources[15].label, copy: copy && copy.label, change8: f && f.value, sources: f && f.sources, validator: (r.stdout + r.stderr).slice(-400) });
+});
+check('round 4: the build check refuses the 16 October label on the pinned talent data and an undated Warlock Healthstone copy', () => {
+  const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-r4-uni-'));
+  try {
+    fs.cpSync(uni, path.join(tmp, 'university'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'talents'));
+    fs.copyFileSync(path.join(stat, 'talents', 'data.json'), path.join(tmp, 'talents', 'data.json'));
+    fs.copyFileSync(path.join(stat, 'guides218.json'), path.join(tmp, 'guides218.json'));
+    const edit = (rel, fn) => { const p = path.join(tmp, rel), j = JSON.parse(fs.readFileSync(p, 'utf8')); fn(j); fs.writeFileSync(p, JSON.stringify(j)); };
+    const control = runValidator(tmp);
+    edit('guides218.json', j => { j.sources[15].label = 'Talent data, beta build 1.60.1.70425 (16 Oct 2026 snapshot)'; });
+    edit('university/sources.json', j => { j.sources.find(x => x.id === 'g218-15').label = 'Talent data, beta build 1.60.1.70425 (16 Oct 2026 snapshot)'; });
+    edit('university/facts/class-warlock.json', j => { const f = j.facts.find(x => x.id === 'class-warlock.change-8'); f.value = f.value.replace(/Blizzard's hotfix notes up to 11 November 2026 do not mention it\./, 'No Blizzard note confirms the healing yet.'); f.sources = f.sources.filter(x => x !== 'g218-156'); });
+    const mutated = runValidator(tmp), out = mutated.stdout + mutated.stderr;
+    return control.status === 0 && mutated.status === 1 && /g218-15: the pinned talent data must be labelled with the export grade A names/.test(out) && /fact class-warlock\.change-8: .*up to 11 November 2026/.test(out)
+      || JSON.stringify({ control: control.status, controlOut: (control.stdout + control.stderr).slice(-300), mutated: mutated.status, out: out.slice(-500) });
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+// Review of round 4 (13 Nov 2026): once source 15 is the 10 November export, the texts that cite it must report that data.
+check('round 4 review: the Priest, Shaman and Feral texts that cite source 15 report the 10 November data and agree with their university copies', () => {
+  const g = json(stat, 'guides218.json'), fact = (file, id) => json(uni, 'facts', file + '.json').facts.find(x => x.id === id);
+  const priest = g.classes[4].changes[0], shaman = g.classes[5].changes[7], feral = g.classes[8].specs[1].pro.raid[2];
+  const enh = fact('class-shaman', 'class-shaman.change-8'), resto = fact('class-shaman', 'class-shaman.change-9'), swipe = fact('class-druid', 'class-druid.swipe-in-the-beta-snapshot');
+  const nov = n => n.trees.flatMap(t => t.talents.map(x => x.name)), cls = id => json(stat, 'talents', 'data.json').classes.find(c => c.id === id);
+  const priestNow = nov(cls('priest')), shamanNow = nov(cls('shaman'));
+  const october = /October|beta snapshot|beta build/;
+  const ok = [priest.text, shaman.text, feral.label, feral.value].every(t => !october.test(t))
+    && /10 November talent data/.test(priest.text) && ['Penance', 'Divine Aegis', 'Soul Warding', 'Prayer of Mending', 'Holy Binding', 'Improved Mind Flay', 'Dark Inspiration'].every(n => priest.text.includes(n) && priestNow.includes(n))
+    && ['Lightwell', 'Force of Will', 'Shadow Affinity'].every(n => !priestNow.includes(n)) && !priest.text.includes('Binding Heal')
+    && !/no Call of Thunder/.test(shaman.text) && shamanNow.includes('Call of Thunder')
+    && ['Shield Specialization', 'Enhancing Totems', 'Two-Handed Axes and Maces', 'Improved Weapon Totems', 'Weapon Mastery', "Nature's Guidance", 'Totemic Mastery'].every(n => shaman.text.includes(n) && !shamanNow.includes(n) && (enh.value + resto.value).includes(n))
+    && feral.label === swipe.label && feral.value === swipe.value && feral.grade === 'A' && /10%, 20% or 30%/.test(feral.value);
+  return ok || JSON.stringify({ priest: priest.text, shaman: shaman.text, feral, swipe: swipe && swipe.value });
+});
+check('round 4 review: the build check refuses a text that cites source 15 but describes the October snapshot', () => {
+  const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'evg1112-r4r-uni-'));
+  try {
+    fs.cpSync(uni, path.join(tmp, 'university'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'talents'));
+    fs.copyFileSync(path.join(stat, 'talents', 'data.json'), path.join(tmp, 'talents', 'data.json'));
+    const g = json(stat, 'guides218.json');
+    fs.writeFileSync(path.join(tmp, 'guides218.json'), JSON.stringify(g));
+    const control = runValidator(tmp);
+    g.classes[8].specs[1].pro.raid[2].value = 'In the pinned October beta build, Feral Instinct added 10% Swipe damage at rank 1.';
+    fs.writeFileSync(path.join(tmp, 'guides218.json'), JSON.stringify(g));
+    const mutated = runValidator(tmp), out = mutated.stdout + mutated.stderr;
+    return control.status === 0 && mutated.status === 1 && /classes\[8\]\.specs\[1\]\.pro\.raid\[2\]: cites source 15 \(the 10 November export\) but describes the October data/.test(out)
+      || JSON.stringify({ control: control.status, controlOut: (control.stdout + control.stderr).slice(-300), mutated: mutated.status, out: out.slice(-500) });
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
 check('review: the validator refuses a question that cites a superseded fact without the fact that supersedes it', refused(({ bundle, quiz }) => {
   const q = quiz.questions.find(x => x.facts.some(id => id.startsWith('talents-warrior.')));
   const f = bundle.factFiles.find(d => d.file === 'talents-warrior').facts.find(x => q.facts.includes(x.id));

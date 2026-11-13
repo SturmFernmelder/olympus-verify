@@ -650,6 +650,55 @@ function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): st
   return `\nRank roles: ${r.removed.length} removed (confirmed absent), ${r.held.length} not removed, ${r.unknown.length} with an unconfirmed result, ${r.deferred.length} left for the role sweep (one banned account and at most one role per run, about every 30 minutes${r.deferred.length ? `; for this account alone ${sweepPace1112(r.deferred.length)}, longer while other banned accounts wait` : ""}).${earlierCount ? ` ${earlierCount} of the unconfirmed roles are still on the member and get no removal: remove them in Discord by hand for the ban to take full effect.` : ""}${r.unknown.length ? " The bot will not add or remove the unconfirmed roles for this member, even after an unban, until an attended resolution exists." : ""} Check the member's roles in Discord for the details.`;
 }
 
+/** Round 4 item 8 (13 Nov 2026): why a rank role stays blocked after an unban. "inflight": the change's claim window is
+ * still open, so it may yet land; "unconfirmed": its answer was lost. `ban` is true when the change is the ban's own
+ * removal (canonical_ban_remove_v1, desired 0); false for any other purpose (a grant, a migration, another removal). */
+type UnbanBlock1112 = Readonly<{ role: string; kind: "inflight" | "unconfirmed"; ban: boolean }>;
+/**
+ * Round 4 item 8 (13 Nov 2026): the rank roles that stay blocked for this member after an unban. A row of any purpose
+ * and any generation counts while it is dispatching or unknown, or while an unattempted claim on it is live: the rows
+ * that fence every role writer for that member and role. The unban reply used to read only the ban purpose's rows, so a
+ * role held back by another purpose's row got no mention. Read only, one statement; null when the read fails.
+ */
+async function unbanBlockedRanks1112(env: Env, subject: string): Promise<readonly UnbanBlock1112[] | null> {
+  if (!/^\d{17,20}$/.test(subject)) return [];
+  try {
+    const { BAN_RANK_ROLE_IDS1112, BAN_RANK_PURPOSE1112 } = await import("./role-settlements");
+    const { CANONICAL_GUILD233 } = await import("./canonical-ranks233");
+    const rows = (await env.DB.prepare(
+      `SELECT role_id, purpose, desired, state, (typeof(expires_at)='integer' AND expires_at>CAST(strftime('%s','now') AS INTEGER)) AS live
+       FROM role_settlements WHERE subject=?1 AND guild_id=?2 AND role_id IN (SELECT value FROM json_each(?3))
+       AND (state IN ('dispatching','unknown') OR (attempts=0 AND state='pending' AND typeof(expires_at)='integer' AND expires_at>CAST(strftime('%s','now') AS INTEGER)))`,
+    ).bind(subject, CANONICAL_GUILD233, JSON.stringify(BAN_RANK_ROLE_IDS1112)).all<{ role_id: string; purpose: string; desired: number; state: string; live: number }>()).results;
+    const out: UnbanBlock1112[] = [];
+    for (const role of BAN_RANK_ROLE_IDS1112) {
+      const mine = rows.filter((r) => r.role_id === role);
+      if (!mine.length) continue;
+      // A lost answer outweighs a change still in flight on the same role; the ban's own removal is named first.
+      const lost = mine.filter((r) => !(r.live === 1 && (r.state === "dispatching" || r.state === "pending")));
+      const pick = lost.length ? lost : mine;
+      out.push(Object.freeze({ role, kind: lost.length ? "unconfirmed" : "inflight", ban: pick.some((r) => r.purpose === BAN_RANK_PURPOSE1112 && Number(r.desired) === 0) }));
+    }
+    return Object.freeze(out);
+  } catch { return null; }
+}
+/** Round 4 item 8 (13 Nov 2026): the unban reply's blocked-role text, one sentence per cause. */
+function unbanBlockedText1112(target: string, blocked: readonly UnbanBlock1112[]): string {
+  const list = (xs: readonly UnbanBlock1112[]) => xs.map((x) => `<@&${x.role}>`).join(", ");
+  const these = (xs: readonly UnbanBlock1112[]) => xs.length === 1 ? "this role" : "these roles";
+  const them = (xs: readonly UnbanBlock1112[]) => xs.length === 1 ? "it" : "them";
+  const group = (kind: UnbanBlock1112["kind"], ban: boolean) => blocked.filter((x) => x.kind === kind && x.ban === ban);
+  const parts: string[] = [`<@${target}> can verify again. ${blocked.length === 1 ? "One Olympus rank role stays" : `${blocked.length} Olympus rank roles stay`} blocked for them: ${list(blocked)}.`];
+  const banLost = group("unconfirmed", true), otherLost = group("unconfirmed", false), banLive = group("inflight", true), otherLive = group("inflight", false);
+  const many = [banLost, otherLost, banLive, otherLive].filter((g) => g.length).length > 1;
+  const named = (xs: readonly UnbanBlock1112[]) => many ? list(xs) : these(xs);
+  if (banLost.length) parts.push(`An earlier ban removal of ${named(banLost)} got no confirmed answer, so the bot will not add or remove ${them(banLost)} for this member until an attended resolution exists.`);
+  if (otherLost.length) parts.push(`An earlier change to ${named(otherLost)} outside the ban got no confirmed answer, so the bot will not add or remove ${them(otherLost)} for this member until an attended resolution exists.`);
+  if (banLive.length) parts.push(`The ban's removal of ${named(banLive)} was still in flight when the ban was lifted and may still take effect; the bot will not add or remove ${them(banLive)} for this member until ${banLive.length === 1 ? "its" : "their"} outcome is known. Check the member's roles in Discord afterwards.`);
+  if (otherLive.length) parts.push(`Another change to ${named(otherLive)} was still in flight at the unban; the bot will not add or remove ${them(otherLive)} for this member until ${otherLive.length === 1 ? "its" : "their"} outcome is known.`);
+  return parts.join(" ");
+}
+
 async function runAdminBan(env: Env, actor: string, target: string, reason: string, lane: LaneCapture | undefined, defer: Defer | undefined, roleDispatch: BetaRoleDispatch, removalDispatch: BetaRoleDispatch['capture'], targetCapture: Awaited<ReturnType<typeof readPrivacySubject>> | undefined): Promise<Response> {
   await env.DB.prepare(
     "INSERT INTO members (discord_id, banned, ban_reason) VALUES (?1, 1, ?2) ON CONFLICT(discord_id) DO UPDATE SET banned = 1, ban_reason = ?2",
@@ -886,10 +935,12 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       await audit(env, actor, "admin.unban", target);
       // Repair round (13 Nov 2026): a rank role whose ban removal got no confirmed answer stays blocked for this member
       // after the unban (the same unresolved rows that fence every writer); the reply says which, instead of implying none.
-      const blocked = await (await import("./role-settlements")).banRankBlockedRoles1112(env, target);
+      // Round 4 item 8 (13 Nov 2026): every rank role an unresolved row of ANY purpose holds back is named, and a change
+      // still in flight at this moment is called in flight, not unconfirmed.
+      const blocked = await unbanBlockedRanks1112(env, target);
       if (blocked === null) return reply(`<@${target}> can verify again. The bot could not read whether any Olympus rank role stays blocked for them; check before granting one by hand.`);
       if (!blocked.length) return reply(`<@${target}> can verify again.`);
-      return reply(`<@${target}> can verify again. ${blocked.length === 1 ? "One Olympus rank role stays" : `${blocked.length} Olympus rank roles stay`} blocked for them: ${blocked.map((id) => `<@&${id}>`).join(", ")}. An earlier ban removal of ${blocked.length === 1 ? "this role" : "these roles"} got no confirmed answer, so the bot will not add or remove ${blocked.length === 1 ? "it" : "them"} for this member until an attended resolution exists.`);
+      return reply(unbanBlockedText1112(target, blocked));
     }
     case "queue": {
       const q = await env.DB.prepare(

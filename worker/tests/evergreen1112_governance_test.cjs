@@ -77,14 +77,24 @@ check('REV-GOV-4', 'the standalone operational charter carries the same O15 head
 // ---------------------------------------------------------------- REV-GOV-2 a dated record of the 12 November reconciliation
 const readingGuide = chapter('Reading and Adopting This Book');
 const reconciled = (/On 12 November 2026 the text was editorially reconciled[^\n]*?restored exactly\./.exec(readingGuide) || [''])[0];
-// Round 3 item 6c: the paragraph bridge refuses an inserted paragraph that keeps the 18 October text inside it, so the
-// record stays in that paragraph, shortened from about 95 words in one sentence to two plain sentences.
+// Round 3 item 6c shortened the record to plain sentences inside the 18 October paragraph; round 4 item 5 makes it its own
+// paragraph through a manifest pair that spans the 18 October paragraph and the next one whole.
 const reconciledWords = reconciled.split(/\s+/).filter(Boolean).length, reconciledSentences = reconciled.split(/(?<=\.)\s+(?=[A-Z])/).length;
 check('REV-GOV-2', 'the reading guide records the 12 November 2026 reconciliation in two or three dated sentences of at most 70 words', !!reconciled && reconciledSentences >= 2 && reconciledSentences <= 3 && reconciledWords <= 70,
   reconciledWords + ' words, ' + reconciledSentences + ' sentence(s)');
 check('REV-GOV-2', 'the record names every kind of change and what did not change',
   ['cross-references', 'Council compositions', 'build numbers', 'headings', 'duel-escrow clauses', 'suspended proposal', 'tithe tiers',
     'No rule, amount, eligibility condition, decision or named holder changed', 'editorial manifest'].every(x => reconciled.includes(x)), reconciled.slice(0, 80));
+// R4-GOV-5: the 18 October paragraph carries only its own clarification; the 12 November record is the next paragraph,
+// and it is the whole of that paragraph.
+{
+  const paras = readingGuide.split('\n\n').map(p => p.trim());
+  const at = paras.findIndex(p => p.startsWith('**Operative clarification · 18 October 2026.**'));
+  const own = paras[at] || '', following = paras[at + 1] || '';
+  check('R4-GOV-5', 'the 12 November 2026 record is its own paragraph right after the 18 October clarification, which no longer contains it',
+    at >= 0 && !own.includes('12 November') && following === reconciled && following.startsWith('On 12 November 2026 '),
+    JSON.stringify({ octoberHas12Nov: own.includes('12 November'), next: following.slice(0, 60) }));
+}
 
 // ---------------------------------------------------------------- REV-GOV-3 every in-book section link lands on a generated id
 // The ids exactly as app.js parseGovernanceBook and governanceBlocks generate them.
@@ -330,6 +340,8 @@ async function browserChecks(BASE, CDP_PORT) {
   // Browser checks print their measurement on PASS too, so the receipts carry numbers.
   const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
   try {
+    await round4Checks({ open, ev, show, bcheck, cdp, H });
+    if (argv.includes('--round4')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     // INT-GOV-1 (CL2-100): navigation landmarks are the site menu and one page-contents list; per-chapter rows are groups.
     const navs = {};
     for (const width of [1280, 375]) for (const route of ['governance', 'roles', 'organization']) {
@@ -422,6 +434,83 @@ async function browserChecks(BASE, CDP_PORT) {
       Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
+}
+
+// ================================================================ round 4 browser checks (13 Nov 2026)
+// Composite contrast: the text colour against the element's own background stack, layer by layer up to the first opaque
+// layer (a parchment layer counts as its tinted base colour, rgb(236,218,176); the page base is black). The body's dark
+// gradient is ignored, which only makes the backdrop lighter, so gold text is measured on the less favourable side.
+const CONTRAST_JS = `const L=v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4};const lum=([r,g,b])=>0.2126*L(r)+0.7152*L(g)+0.0722*L(b);
+const ratio=(a,b)=>{const x=lum(a),y=lum(b);return Math.round((Math.max(x,y)+0.05)/(Math.min(x,y)+0.05)*100)/100};
+const parse=s=>{const m=(s.match(/[\\d.]+/g)||[]).map(Number);return [m[0]||0,m[1]||0,m[2]||0,m.length>3?m[3]:1]};
+const backdrop=e=>{const layers=[];for(let n=e;n&&n.nodeType===1;n=n.parentElement){const c=getComputedStyle(n);if(/parchment\\.jpg/.test(c.backgroundImage)){layers.push([236,218,176,1]);break}const l=parse(c.backgroundColor);if(l[3]>0)layers.push(l);if(l[3]>=1)break}
+let col=[0,0,0];for(let i=layers.length-1;i>=0;i--){const [r,g,b,a]=layers[i];col=[r*a+col[0]*(1-a),g*a+col[1]*(1-a),b*a+col[2]*(1-a)]}return col.map(Math.round)};
+const contrastOf=e=>ratio(parse(getComputedStyle(e).color),backdrop(e));`;
+// A word is broken when its own text range covers more than one line box.
+const WORDS_JS = `const lines=r=>new Set([...r.getClientRects()].filter(x=>x.width>0).map(x=>Math.round(x.top))).size;
+const brokenWords=root=>{const out=[];const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);for(let t;(t=w.nextNode());){const re=/\\S+/g;for(let m;(m=re.exec(t.data));){const r=document.createRange();r.setStart(t,m.index);r.setEnd(t,m.index+m[0].length);if(lines(r)>1)out.push(m[0])}}
+// A label of two words ("Slot 0") must stay on one line too.
+for(const s of root.querySelectorAll('.role-rank-slot1112')){const r=document.createRange();r.selectNodeContents(s);if(lines(r)>1)out.push(s.textContent)}return out};`;
+async function round4Checks({ open, ev, show, bcheck }) {
+  // R4-GOV-1: every role-guide subhead is readable (at least 4.5:1) wherever a guide renders: family cards and their
+  // drawers (/#/roles, /#/roles/<key>, /#/roles/rosetta-stone), the vote board and the role dialog on the application form.
+  const subheads = {};
+  for (const [who, width] of [['member', 1280], ['member', 375], ['officer', 320], ['admin', 1440]]) {
+    for (const route of ['roles', 'roles/raider', 'roles/rosetta-stone', 'vote']) {
+      await open(who, width, route);
+      subheads[`${who}/${route}@${width}`] = await ev(`${CONTRAST_JS}for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,300));
+        const hs=[...document.querySelectorAll('main h3.role-subhead, main .role-info > h4')].filter(e=>e.getClientRects().length);const rs=hs.map(contrastOf);
+        return {n:hs.length,min:rs.length?Math.min(...rs):null,colours:[...new Set(hs.map(e=>getComputedStyle(e).color))]}`);
+    }
+  }
+  await open('member', 375, 'apply');
+  subheads['member/apply dialog@375'] = await ev(`${CONTRAST_JS}const b=document.querySelector('button.more');if(!b)return {n:0,min:null,missing:'no Details button'};b.click();await new Promise(r=>setTimeout(r,400));
+    const d=document.querySelector('dialog[open]');const hs=d?[...d.querySelectorAll('h3.role-subhead, .role-info > h4')].filter(e=>e.getClientRects().length):[];const rs=hs.map(contrastOf);
+    const out={n:hs.length,min:rs.length?Math.min(...rs):null,colours:[...new Set(hs.map(e=>getComputedStyle(e).color))]};d?.close();return out`);
+  const low = Object.entries(subheads).filter(([, v]) => !v || !v.n || v.min < 4.5).map(([k, v]) => k + ' ' + show(v));
+  bcheck('R4-GOV-1', 'role-guide subheads ("Responsibilities", "Expectations") reach at least 4.5:1 on /#/roles, /#/roles/raider, the Rosetta Stone, /#/vote and the role dialog (member, officer, admin; 320 to 1440 px)',
+    low.length === 0, low.length ? low.slice(0, 4).join(' | ') : show(subheads));
+
+  // R4-GOV-2: the rank ladder keeps every word and the "Slot N" label whole, with no page overflow, at 320 to 1440 px.
+  const ladders = {};
+  for (const width of [1440, 1280, 1024, 768, 390, 375, 360, 320]) for (const route of ['roles', 'roles/raider', 'roles/rosetta-stone']) {
+    if (width > 400 && width !== 1280 && route !== 'roles') continue;
+    await open('member', width, route);
+    ladders[`${route}@${width}`] = await ev(`${WORDS_JS}const ol=document.querySelector('main ol.role-ranks203');if(!ol)return null;const links=[...ol.querySelectorAll(':scope > li > a')];
+      const cell=links.filter(a=>a.scrollWidth>a.parentElement.clientWidth+1).map(a=>a.textContent);
+      return {links:links.length,broken:brokenWords(ol),cellOverflow:cell,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`);
+  }
+  const bad = Object.entries(ladders).filter(([, v]) => !v || v.links !== 10 || v.broken.length || v.cellOverflow.length || v.over > 0).map(([k, v]) => k + ' ' + show(v));
+  bcheck('R4-GOV-2', 'the Roles rank ladder breaks no rank name or "Slot N" label inside a word and does not overflow (320, 360, 375, 390, 768, 1024, 1280, 1440 px)',
+    bad.length === 0, bad.length ? bad.slice(0, 4).join(' | ') : show({ checked: Object.keys(ladders).length, sample: ladders['roles@320'] }));
+
+  // R4-GOV-3: the cross-links this work put on /#/organization and /#/roles are 44 px touch targets on phones. Every group
+  // must be present (a missing group fails), and the page must not overflow.
+  const GROUPS3 = {
+    organization: { composition: '.org-composition-links > a', lanes: '[data-alliance-context1112] a', inspectorTitles: '.org-inspector h3 + ul > li > a' },
+    roles: { chooserRosetta: '.application-directory201 > .plaque > a:not(.btn)', rosettaFamily: 'li[data-rosetta-family1112] > a', rosettaKey: 'li[data-rosetta-key1112] > a', rosettaApply: 'tr[data-rank-crosswalk] > td:last-child a' },
+  };
+  const touch = {};
+  for (const width of [390, 375, 320]) for (const [route, groups] of Object.entries(GROUPS3)) {
+    await open('member', width, route);
+    touch[`${route}@${width}`] = await ev(`for(const d of document.querySelectorAll('main details'))d.open=true;await new Promise(r=>setTimeout(r,500));const out={};
+      for(const [k,sel] of Object.entries(${JSON.stringify(groups)})){const hs=[...document.querySelectorAll(sel)].filter(a=>a.getClientRects().length).map(a=>Math.round(a.getBoundingClientRect().height*10)/10);out[k]=hs.length?{n:hs.length,min:Math.min(...hs)}:{n:0,min:0}}
+      out.over=document.documentElement.scrollWidth-document.documentElement.clientWidth;return out`);
+  }
+  const small = Object.entries(touch).flatMap(([page, groups]) => Object.entries(groups).filter(([k, v]) => k === 'over' ? v > 0 : !v.n || v.min < 44).map(([k, v]) => page + ' ' + k + ' ' + show(v)));
+  bcheck('R4-GOV-3', 'Council reference, lane and independent-review family, inspector title, Rosetta and chooser links are at least 44 px tall at 390, 375 and 320 px, with no page overflow',
+    small.length === 0, small.length ? small.slice(0, 8).join(' | ') : show(touch));
+
+  // R4-GOV-4: /#/admin/appointments has no heading that skips a level (the catalogue group labels were h4 under the h2).
+  const outline = {};
+  for (const width of [1280, 375]) {
+    await open('admin', width, 'admin/appointments');
+    outline[width] = await ev(`const hs=[...document.querySelectorAll('main :is(h1,h2,h3,h4,h5,h6)')].filter(e=>e.getClientRects().length);const lv=hs.map(e=>Number(e.tagName[1]));
+      const jumps=hs.filter((e,i)=>i>0&&lv[i]>lv[i-1]+1).map(e=>e.tagName+' '+e.textContent.trim().slice(0,40)+' after '+hs[hs.indexOf(e)-1].tagName);
+      return {headings:hs.length,groups:document.querySelectorAll('main [data-catalog-group] > .group-label').length,groupTags:[...new Set([...document.querySelectorAll('main [data-catalog-group] > .group-label')].map(e=>e.tagName))],jumps}`);
+  }
+  bcheck('R4-GOV-4', '/#/admin/appointments: the six catalogue group labels are headings one level under the page section, and no heading skips a level (1280 and 375 px)',
+    Object.values(outline).every(o => o.groups === 6 && o.jumps.length === 0), show(outline));
 }
 
 // ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views

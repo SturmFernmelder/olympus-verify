@@ -11,7 +11,9 @@
 "use strict";
 const fs = require("node:fs"), path = require("node:path"), cp = require("node:child_process"), zlib = require("node:zlib"), vm = require("node:vm");
 // INT-UNI-3 (12 Nov 2026): the build tools live in scripts/university/, outside the published static folder.
-const UNI = path.resolve(__dirname, "../../worker/public/static/university"), STATIC = path.resolve(UNI, "..");
+// Round 4 item 7 (13 Nov 2026): UNIVERSITY_STATIC=<static folder> checks another copy (the lane test's fail-before and
+// mutation runs); the generated-files check below always compares this checkout's generator with this checkout.
+const STATIC = path.resolve(process.env.UNIVERSITY_STATIC || path.join(__dirname, "../../worker/public/static")), UNI = path.join(STATIC, "university");
 // worker/package.json makes .js files ES modules, so the shared rules file is run in a sandbox with a CommonJS module.
 const rules = (() => { const module = { exports: {} }; vm.runInNewContext(fs.readFileSync(path.join(UNI, "validate.js"), "utf8"), { module }, { filename: "validate.js" }); return module.exports; })();
 const quiet = process.argv.includes("--quiet");
@@ -56,6 +58,66 @@ for (const c of g218.classes) {
   if (!exists(rel)) { errors.push(rel + ": missing (run scripts/university/migrate-guides218.cjs --presets)"); continue; }
   const doc = read(rel), want = g218.presets.filter(p => p.classId === c.id);
   if (JSON.stringify(doc.presets) !== JSON.stringify(want) || doc.talentRevision !== g218.talentRevision) errors.push(rel + ": differs from guides218.json (run scripts/university/migrate-guides218.cjs --presets)");
+}
+
+// Round 4 item 7 (13 Nov 2026): the sources and the migrated class changes must agree with guides218.json.
+// (1) g218-<n> is a copy of guides218.json source n, field for field.
+for (const s of sources.sources || []) {
+  const m = /^g218-(\d+)$/.exec(s.id);
+  if (!m) continue;
+  const o = g218.sources[Number(m[1])];
+  if (!o) { errors.push("sources.json " + s.id + ": guides218.json has no source " + m[1]); continue; }
+  for (const k of ["label", "publisher", "kind", "url", "checkedAt"]) if (o[k] !== s[k]) errors.push("sources.json " + s.id + ": " + k + " differs from guides218.json source " + m[1]);
+}
+// (2) The pinned talent data (the publisher's root address, licensed data) is labelled with the export grade A names:
+// grade A is "Exact client data from the pinned talent snapshot (<date> export, client <build> ...)".
+{
+  const gradeA = /\((\d{1,2}) (January|February|March|April|May|June|July|August|September|October|November|December) (\d{4}) export, client (\d+(?:\.\d+)+)/.exec((g218.grades || {}).A || "");
+  if (!gradeA) errors.push("guides218.json: grade A does not name its talent export date and client build");
+  else {
+    const [, day, month, year, build] = gradeA;
+    const dated = new RegExp("\\b" + day + " (?:" + month + "|" + month.slice(0, 3) + ") " + year + "\\b");
+    if (build !== g218.talentClientBuild) errors.push("guides218.json: grade A names client " + build + ", talentClientBuild is " + g218.talentClientBuild);
+    for (const s of sources.sources || []) if (s.kind === "licensed-data" && s.url === "https://talentsforever.com/" && (!dated.test(s.label) || !s.label.includes(build)))
+      errors.push("sources.json " + s.id + ": the pinned talent data must be labelled with the export grade A names (" + day + " " + month + " " + year + ", client " + build + "): " + s.label);
+  }
+}
+// (3) A class change whose guides218.json text dates a check ("up to <date>") keeps that date and its official sources in
+// the university copy, so the two never disagree about when Blizzard's notes were read.
+{
+  const mapFile = path.join(__dirname, "migration-map.json");
+  const map = fs.existsSync(mapFile) ? JSON.parse(fs.readFileSync(mapFile, "utf8")) : {};
+  const facts = new Map();
+  for (const doc of factFiles) for (const f of doc.facts || []) facts.set(f.id, f);
+  for (const e of Array.isArray(map.entries) ? map.entries : []) {
+    const m = /^classes\[(\d+)\]\.changes\[(\d+)\]$/.exec(e.from || "");
+    if (!m) continue;
+    const o = ((g218.classes[Number(m[1])] || {}).changes || [])[Number(m[2])];
+    const until = o && /\bup to (\d{1,2} \w+ \d{4})\b/.exec(o.text);
+    if (!until) continue;
+    const f = facts.get(e.to);
+    const official = o.sources.filter(n => (g218.sources[n] || {}).kind === "official").map(n => "g218-" + n);
+    if (!f) errors.push("migration " + e.from + ": fact " + e.to + " is missing");
+    else if (!f.value.includes("up to " + until[1]) || official.some(id => !f.sources.includes(id)))
+      errors.push("fact " + e.to + ": guides218.json " + e.from + " dates its check up to " + until[1] + " and cites " + official.join(", ") + "; the university copy must say the same date and cite them");
+  }
+}
+// (4) Round 4 review (13 Nov 2026): source 15 and talents-data are the 10 November export, so a text that cites them must
+// not present the October snapshot as the data it reports (a comparison with October, such as "lower than in the October
+// beta", is history and stays allowed).
+{
+  const OCTOBER_AS_DATA = /\b(?:the|pinned) October (?:snapshot|beta build)\b|\b16 Oct(?:ober)?(?: 2026)? snapshot\b/i;
+  const words = o => ["text", "label", "value", "note"].map(k => typeof o[k] === "string" ? o[k] : "").join(" ");
+  const walk = (v, where) => {
+    if (Array.isArray(v)) { v.forEach((x, i) => walk(x, where + "[" + i + "]")); return; }
+    if (!v || typeof v !== "object") return;
+    if (Array.isArray(v.sources) && v.sources.includes(15) && OCTOBER_AS_DATA.test(words(v)))
+      errors.push("guides218.json " + where + ": cites source 15 (the 10 November export) but describes the October data: " + words(v).trim().slice(0, 160));
+    for (const k of Object.keys(v)) if (k !== "sources") walk(v[k], where + "." + k);
+  };
+  for (const k of ["classes", "presets", "professions", "tools", "classSummary"]) walk(g218[k], k);
+  for (const doc of factFiles) for (const f of doc.facts || []) if ((f.sources || []).some(id => id === "g218-15" || id === "talents-data") && OCTOBER_AS_DATA.test(words(f)))
+    errors.push("fact " + f.id + ": cites the 10 November export but describes the October data: " + words(f).trim().slice(0, 160));
 }
 
 // Generated files are current.
