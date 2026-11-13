@@ -166,10 +166,6 @@ export const forgetLocalThrottle = () => {
 async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudget|undefined,roleDispatch:BetaRoleDispatch,lane:RoleSweepLane1112|undefined): Promise<SweepResult | null> {
   const role = env.ROLE_GUILD_MEMBER;
   if (!role) return null;
-  // Ban lane successor (12 Nov 2026): the lane is checked before any read. The installed role slice is 120 statements and
-  // the ordinary walk alone reaches 117/118, so a banned visit of up to 50 cannot follow it in the same run.
-  const canonicalLanes = captureCanonicalRankConfig233(env).present;
-  if (canonicalLanes && lane !== "ordinary" && lane !== "ban") throw Error("role_sweep_lane_required");
   const t = now();
   if (trigger === "watcher" && t - lastLocal < THROTTLE_SECONDS) return null;
   // A failed sweep counts too. Otherwise one that keeps failing before it writes its row is retried on every
@@ -181,6 +177,12 @@ async function sweepInner(env: Env, trigger: "cron" | "watcher", parent:CallBudg
     return null;
   }
   lastLocal = t;
+  // Ban lane successor (12 Nov 2026): the lane is checked before any lane-specific read and before any Discord request.
+  // The installed role slice is 120 statements and the ordinary walk alone reaches 117/118, so a banned visit of up to
+  // 50 cannot follow it in the same run. Repair round (13 Nov 2026): after the Watcher's throttle, so a Watcher call
+  // without a lane writes at most one role.sweep_failed row per throttle window instead of one per poll.
+  const canonicalLanes = captureCanonicalRankConfig233(env).present;
+  if (canonicalLanes && lane !== "ordinary" && lane !== "ban") throw Error("role_sweep_lane_required");
   const last = await env.DB.prepare("SELECT details,(SELECT generation FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_generation,(SELECT state FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_state,(SELECT revision FROM privacy_subjects WHERE subject_id=json_extract(details,'$.c')) AS cursor_revision FROM audit WHERE action = 'role.sweep' ORDER BY id DESC LIMIT 1")
     .first<{ details: string | null;cursor_generation:string|null;cursor_state:string|null;cursor_revision:number|null }>();
 
