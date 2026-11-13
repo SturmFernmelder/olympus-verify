@@ -55,20 +55,20 @@ export function erasedReceiptMarkerStatements280(env:Env,subject:string,ownRecei
  const targets=`(SELECT id,ts,actor,action,subject,details FROM audit WHERE (${ownReceiptSql}))`,tuple=originalTuple('r'),key=field('r','sourceId'),expiry=field('r','retainUntil');
  const live=all([tuple,`${expiry}>${NOW}`]);
  const blocking=erasedReceiptBlocksSql280('m',key);
+ const blockedKeys=`(SELECT m.subject AS replay_key FROM audit m WHERE ${erasedReceiptBlocksSql280('m','m.subject')} GROUP BY m.subject)`;
  const insert=env.DB.prepare(`INSERT INTO audit(ts,actor,action,subject,details)
  SELECT ${expiry},'system','${TITHE_ERASED_REPLAY_ACTION280}',${key},NULL
- FROM ${targets} r WHERE ${live} AND NOT EXISTS(SELECT 1 FROM audit m WHERE ${blocking}) ORDER BY r.id LIMIT 1001`).bind(subject);
- const exact=all([erasedReceiptMarkerSql280('m'),`m.subject=${key}`,`m.ts=${expiry}`]);
+ FROM ${targets} r LEFT JOIN ${blockedKeys} blocked ON blocked.replay_key=${key} WHERE ${live} AND blocked.replay_key IS NULL ORDER BY r.id LIMIT 1001`).bind(subject);
+ const originalCounts=`(SELECT subject AS original_subject,COUNT(*) AS original_count FROM audit WHERE action='treasury.receipt242' GROUP BY subject)`;
+ const markerCounts=`(SELECT m.subject AS replay_key,COUNT(*) AS replay_count,MAX(CASE WHEN ${erasedReceiptMarkerSql280('m')} THEN m.ts END) AS replay_expiry FROM audit m WHERE ${erasedReceiptBlocksSql280('m','m.subject')} GROUP BY m.subject)`;
  const assertions=all([
   // Never destroy attributable malformed replay custody and then claim full
   // erasure: no exemption/normalization is granted; this original batch holds.
   `NOT EXISTS(SELECT 1 FROM audit m WHERE m.action='${TITHE_ERASED_REPLAY_ACTION280}' AND NOT(${erasedReceiptMarkerSql280('m')}) AND ${accountAuditAttributionSql280('m')})`,
   `NOT EXISTS(SELECT 1 FROM ${targets} r WHERE ${modern('r')} AND NOT(${tuple}))`,
   `(SELECT COUNT(*) FROM(SELECT 1 FROM ${targets} r WHERE ${live} LIMIT 1001))<=1000`,
-  `NOT EXISTS(SELECT 1 FROM ${targets} r WHERE ${live} AND (
-   (SELECT COUNT(*) FROM audit original WHERE original.action='treasury.receipt242' AND original.subject=r.subject)<>1
-   OR (SELECT COUNT(*) FROM audit m WHERE ${blocking})<>1
-   OR NOT EXISTS(SELECT 1 FROM audit m WHERE ${exact})))`,
+  `NOT EXISTS(SELECT 1 FROM ${targets} r LEFT JOIN ${originalCounts} original ON original.original_subject=r.subject LEFT JOIN ${markerCounts} m ON m.replay_key=${key} WHERE ${live} AND (
+   COALESCE(original.original_count,0)<>1 OR COALESCE(m.replay_count,0)<>1 OR m.replay_expiry IS NOT (${expiry})))`,
  ]);
  const complete=env.DB.prepare(`SELECT CASE WHEN ${assertions} THEN 1 ELSE json_extract('erased_receipt_replay_scope_held','$') END AS retained`).bind(subject);
  return [insert,complete];
