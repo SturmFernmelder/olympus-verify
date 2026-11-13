@@ -987,7 +987,7 @@ class IndependentSweep264Tests(unittest.TestCase):
                         officer_character='Fern Melder', membership_only=True, state_file=str(self.root / 'state.json'))
         self.w = watcher.Watcher(self.cfg)
         self.health = dict(ok=True, build='2026-11-10.264 Independent bounded sweep wake',
-                           verification=dict(mode='members-only', nativeScopePinned=True, nativeMembershipProofVersion=1))
+                           verification=dict(mode='members-only', nativeScopePinned=True, nativeMembershipProofVersion=1, nativeRosterProtocolVersion=2))
         self.cache = dict(presenceOnly=True, entries=[], setGuildNote=False, verificationResults=[], independentRoleWake264=True)
         self.requests = []
         self.wake_responses = []
