@@ -18,6 +18,7 @@ class Event {
 class Node {
   constructor() { this.childNodes = []; this.parentNode = null; this.listeners = {}; }
   appendChild(c) { if (c.parentNode) c.parentNode.removeChild(c); c.parentNode = this; this.childNodes.push(c); return c; }
+  append(...nodes) { for (const c of nodes) this.appendChild(typeof c === "string" ? new Text(c) : c); } // ParentNode.append, as a browser has it (our 4c7b542 uses it)
   insertBefore(c, ref) { if (!ref) return this.appendChild(c); if (c.parentNode) c.parentNode.removeChild(c); const i = this.childNodes.indexOf(ref); c.parentNode = this; this.childNodes.splice(i < 0 ? this.childNodes.length : i, 0, c); return c; }
   removeChild(c) { const i = this.childNodes.indexOf(c); if (i >= 0) this.childNodes.splice(i, 1); c.parentNode = null; return c; }
   replaceWith(n) { if (!this.parentNode) return; this.parentNode.insertBefore(n, this); this.parentNode.removeChild(this); }
@@ -279,6 +280,10 @@ async function openPage(who, over = {}, { clockNow, bootTransform } = {}) {
     },
   };
   sandbox.globalThis = sandbox; sandbox.self = sandbox;
+  // RC-272 (our 925a505, 12 Nov 2026): the Community section row now schedules its sideways scroll with
+  // requestAnimationFrame, which every browser has; the minimal window gets it as one later frame.
+  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);
+  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);
   vm.runInNewContext(APP_JS, sandbox, { filename: "app.js" });
   await settle();
   return { ...w, response: res, cookie, boot, html, go: async (hash) => { w.location.hash = hash; await settle(); await settle(); }, drop: (fn) => { sandbox.__drop = fn; }, delay: (fn) => { sandbox.__delay = fn; }, garble: (fn) => { sandbox.__garble = fn; }, answer: (fn) => { sandbox.__answer = fn; }, before: (fn) => { sandbox.__before = fn; }, intercept: (fn) => { sandbox.__intercept = fn; }, hold: (fn) => { sandbox.__hold = fn; }, clock: clockNow === undefined ? null : (value) => { if (!Number.isSafeInteger(value)) throw new Error("invalid page fixture clock"); pageClockNow = value; } };
@@ -568,7 +573,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 150));
     check(".177 profile filter is a native tabbable checkbox and moving focus into it retains the popup", checkbox.getAttribute("tabindex") === null && !picker.querySelector(".list").hidden && input.getAttribute("aria-expanded") === "true");
     checkbox.checked = true; fire(checkbox, "change");
-    check(".177 native checkbox change filters existing results without replacing focus or issuing a save", picker.querySelectorAll('[role="option"]').length === 1 && picker.textContent.includes("On site") && !picker.textContent.includes("Discord only") && staff.document.activeElement === checkbox && !staff.app.querySelector("#appointed-names-ok").checked);
+    check(".177 native checkbox change filters existing results without replacing focus or issuing a save", picker.querySelectorAll('[role="option"]').length === 1 && picker.textContent.includes("On site") && !picker.textContent.includes("Discord only") && staff.document.activeElement === checkbox && !staff.app.querySelector("#lead-names-ok").checked); // CL2-014: appointed roles have their own page; Settings keeps the leadership lists and their tick
     checkbox.dispatchEvent(new Event("keydown", { key: "Escape", bubbles: true }));
     check(".177 Escape closes the keyboard filter popup and returns to its search", picker.querySelector(".list").hidden && staff.document.activeElement === input && input.getAttribute("aria-expanded") === "false");
     input.dispatchEvent(new Event("keydown", { key: "ArrowDown", bubbles: true }));
@@ -717,14 +722,16 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   await waitFor(() => !!byText(page.app, "h2", "Discord member list"), "the overview");
   check("the overview keeps directory, profile and member badge, without a footer link row or old Your-data card", !!byText(page.app, "h2", "Discord member list") && !!byText(page.app, "h2", "My profile") && !byText(page.app, "h2", "Your data") && page.app.textContent.includes("confirmed guild member") && !page.app.querySelector(".footer-links"));
   await page.go("#/community/directory");
-  check(".196 default member directory leaves optional guild profiles and crafting closed until requested", !!byText(page.app, "h2", "Discord member list") && !!byText(page.app, "button", "Show Member profiles and crafting offers") && !byText(page.app, "h2", "Crafting offers"));
-  byText(page.app, "button", "Show Member profiles and crafting offers").click();
+  // CL2-134 (our a6f591d/1e8baa4, 12 Nov 2026): crafting offers live in the Workshop only, so the directory's button names Member profiles alone.
+  check(".196 default member directory leaves optional guild profiles closed until requested, and has no crafting panel", !!byText(page.app, "h2", "Discord member list") && !!byText(page.app, "button", "Show Member profiles") && !byText(page.app, "button", "Show Member profiles and crafting offers") && !byText(page.app, "h2", "Crafting offers"));
+  byText(page.app, "button", "Show Member profiles").click();
   await waitFor(() => page.app.textContent.includes("No profiles are listed yet"), "the empty directory");
   check("Member profiles identifies the separate opt-in list and invites the member to list themselves", !!byText(page.app, "h2", "Member profiles") && page.app.textContent.includes("No profiles are listed yet"));
   await page.go("#/community/profile");
   await waitFor(() => !!byText(page.app, "button", "Save"), "the profile form");
   let form = byText(page.app, "button", "Save").closest("form");
-  check("the profile form: the consent box unticked, the who-sees-this notice, the limits in the labels", !form.querySelector('input[type="checkbox"]').checked && form.textContent.includes("Who sees this") && form.textContent.includes("up to 4") && form.textContent.includes("up to 10") && form.textContent.includes("up to 50"));
+  // CL2-138 (our d84a780 and a6f591d): professions follow Classic 1.12 (two primary plus three secondary, skill 0 to 300), so the label states that rule instead of "up to 4".
+  check("the profile form: the consent box unticked, the who-sees-this notice, the limits in the labels", !form.querySelector('input[type="checkbox"]').checked && form.textContent.includes("Who sees this") && form.textContent.includes("two primary plus Cooking, Fishing and First Aid; skill up to 300") && form.textContent.includes("up to 10") && form.textContent.includes("up to 50"));
   form.querySelector('input[type="checkbox"]').checked = true; fire(form.querySelector('input[type="checkbox"]'), "change");
   const mainInput = form.querySelector('input[placeholder="First Last"]');
   mainInput.value = "Mia One"; fire(mainInput, "input");
@@ -744,15 +751,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the form is redrawn from the saved profile: listed badge, the main marked confirmed", !!byText(page.app, "span", "Shown in Member profiles") && !!byText(page.app, "span", "confirmed"));
   const other = await openPage(OTHER);
   await other.go("#/community/directory");
-  byText(other.app, "button", "Show Member profiles and crafting offers").click();
+  byText(other.app, "button", "Show Member profiles").click();
   await waitFor(() => !!byText(other.app, "h3", "Mia"), "the listed member");
   const card = byText(other.app, "h3", "Mia").closest(".card");
   check("another confirmed member sees the listed profile: display name, the main with the confirmed badge, the alt as claimed, the profession with its skill, the offer; never a Discord id", !!card && card.textContent.includes("Mia One") && !!byText(card, "span", "confirmed") && card.textContent.includes("Mia Three") && !!byText(card, "span", "claimed") && card.textContent.includes("Alchemy") && card.textContent.includes("300") && card.textContent.includes("Flask of the Titans") && !other.app.textContent.includes(MEMBER));
+  // CL2-134: the opened directory links to the Workshop instead of embedding a second crafting search; the search is the Workshop's.
+  const workshopLink134 = byText(other.app, "a", "Open the Crafters & Artisans Workshop");
+  check("CL2-134 the opened directory has no Crafting offers panel and points to the Crafters & Artisans Workshop", !byText(other.app, "h2", "Crafting offers") && !other.app.querySelector('input[type="search"][aria-label="Recipe"]') && !!workshopLink134 && workshopLink134.getAttribute("href") === "#/community/workshop" && !!byText(other.app, "h2", "Member profiles"));
+  await other.go("#/community/workshop");
+  await waitFor(() => !!byText(other.app, "h2", "Crafting offers"), "the Workshop crafting search");
   const craft = byText(other.app, "h2", "Crafting offers").closest("section");
   craft.querySelector('input[type="search"]').value = "flask";
   byText(craft, "button", "Search").click();
-  await waitFor(() => craft.textContent.includes("offered by Mia"), "the search result");
-  check("the crafting search finds the offer by recipe text, naming the crafter by display name", craft.textContent.includes("Flask of the Titans") && craft.textContent.includes("offered by Mia"));
+  await waitFor(() => !!byText(craft, "h3", "Flask of the Titans") && craft.textContent.includes("Mia · Alchemy"), "the search result");
+  check("the crafting search finds the offer by recipe text, naming the crafter by display name", !!byText(craft, "h3", "Flask of the Titans") && craft.querySelectorAll(".card.craft").length === 1 && craft.textContent.includes("Mia · Alchemy · self-reported skill 300"));
 
   console.log("\n== slice 2 (.96): the calendar with answers and attendance, the own trial, the own dues ==");
   const apiAs = async (who, method, pathname, body, over = {}) => {
@@ -1174,8 +1186,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("attendance for an event that has not started: the notice, the controls disabled", org.app.textContent.includes("once the event has started") && !!org.app.querySelector("tbody select") && org.app.querySelector("tbody select").disabled === true);
   const notOrg = await openPage(MEMBER);
   await notOrg.go("#/community/calendar/new");
-  await settle(); await settle();
-  check("a member who is not an organizer gets the organizer notice on the scheduling page", notOrg.app.textContent.includes("Only guild organizers"));
+  // Owner ruling of 13 Nov 2026 (our 9fe27b8): the create page asks the calendar list for canCreate before it refuses, and the refusal names who may schedule.
+  await waitFor(() => !!byText(notOrg.app, "h2", "Schedule an event"), "the scheduling page's answer");
+  check("a member who is not an organizer gets the organizer notice on the scheduling page", notOrg.app.textContent.includes("Scheduling events is for officers (the Leader, the High Council, Officers and Raid Leaders), guild organizers and site administrators.") && !notOrg.app.querySelector("form") && !byText(notOrg.app, "button", "Schedule"));
 
   // the staff pages (STAFF is SITE_ADMINS; no character, so a staff member, not an organizer)
   const adm = await openPage(STAFF);
@@ -1302,7 +1315,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   pf.before((pathname) => { if (pathname === "/api/community/directory" || pathname === "/api/community/context") accessRefreshRequests.push(pathname); return false; });
   (await fixtureRun("UPDATE site_users SET denied = 1 WHERE discord_id = ?",MEMBER));
   await pf.go("#/community/directory");
-  byText(pf.app, "button", "Show Member profiles and crafting offers").click();
+  byText(pf.app, "button", "Show Member profiles").click(); // CL2-134: the button names Member profiles only
   await waitFor(() => pf.app.textContent.includes("no longer have access"), "the fresh shell");
   check("F5: a 403 re-reads the context once and the shell follows it: the Community tab gone, the page says the access ended", pf.app.textContent.includes("no longer have access") && !texts(pf.app, "nav.nav a").includes("Community") && accessRefreshRequests.filter((pathname) => pathname === "/api/community/directory").length === 1 && accessRefreshRequests.filter((pathname) => pathname === "/api/community/context").length === 1);
   pf.before(null);
@@ -1415,15 +1428,16 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("the original tuple and message id still replay exactly once after a failed foreign attempt", boundReplay.response.status === 200 && one("SELECT COUNT(*) AS k FROM community_privacy_messages WHERE case_id = ?", pc.caseId).k === before3 + 1);
 
   // F100-3: a late crafting reply under a new query
+  // CL2-134 (our a6f591d, 12 Nov 2026): the only crafting search is the Workshop's, which opens with a recipe browse and sends browse=1&mode=recipes with every search.
   const cr = await openPage(MEMBER);
-  await cr.go("#/community/directory");
-  byText(cr.app, "button", "Show Member profiles and crafting offers").click();
+  await cr.go("#/community/workshop");
   await waitFor(() => !!byText(cr.app, "h2", "Crafting offers"), "the crafting panel");
   const craft3 = byText(cr.app, "h2", "Crafting offers").closest("section");
   const craftingMore104 = byText(craft3, "button", "Show more");
+  await waitFor(() => !craftingMore104.disabled && craft3.textContent.includes("Member opt-ins only"), "the Workshop's opening browse");
   let slow3 = false, completedCrafting104 = 0;
-  cr.delay((p) => { if (!slow3 && p.includes("/api/community/crafting?q=flask")) { slow3 = true; return 150; } return 0; });
-  cr.hold((p) => { if (p === "/api/community/crafting?q=flask" || p === "/api/community/crafting?q=zzzz") completedCrafting104++; return 0; });
+  cr.delay((p) => { if (!slow3 && p === "/api/community/crafting?browse=1&mode=recipes&q=flask") { slow3 = true; return 150; } return 0; });
+  cr.hold((p) => { if (p === "/api/community/crafting?browse=1&mode=recipes&q=flask" || p === "/api/community/crafting?browse=1&mode=recipes&q=zzzz") completedCrafting104++; return 0; });
   try {
     craft3.querySelector('input[type="search"]').value = "flask";
     byText(craft3, "button", "Search").click();
@@ -1575,20 +1589,24 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   check("  the real retry is answered with the original case (one row)", one("SELECT COUNT(*) AS k FROM community_restriction_cases WHERE discord_id = ?", DENIED).k === 1);
   check("  the event creation and the staff case update validate their identity too (the event's id is the form's operation; the status applied is the one asked for)", APP_JS.includes("out.event.id !== payload.opId") && APP_JS.includes("out.status !== payload.status"));
   // group 5: the crafting generation advances before the empty-query return
+  // CL2-134 (our a6f591d, 12 Nov 2026): the directory's crafting panel is gone; the Workshop is the only crafting search, and there an
+  // empty recipe box browses every listing (browse=1&mode=recipes) instead of asking what to type. The guarded property stays: a slow
+  // earlier search's late reply writes nothing under the newer one, so no listing appears twice.
   const cr7 = await openPage(OTHER);
-  await cr7.go("#/community/directory");
-  byText(cr7.app, "button", "Show Member profiles and crafting offers").click();
-  await waitFor(() => !!byText(cr7.app, "h2", "Crafting offers"), "the directory");
+  await cr7.go("#/community/workshop");
+  await waitFor(() => !!byText(cr7.app, "h2", "Crafting offers"), "the Workshop");
   const craft7 = byText(cr7.app, "h2", "Crafting offers").closest("section");
+  await waitFor(() => !byText(craft7, "button", "Show more").disabled && craft7.textContent.includes("Member opt-ins only"), "the Workshop's opening browse");
   let slow7 = false;
-  cr7.delay((p) => { if (!slow7 && p.includes("/api/community/crafting?q=flask")) { slow7 = true; return 150; } return 0; });
+  cr7.delay((p) => { if (!slow7 && p === "/api/community/crafting?browse=1&mode=recipes&q=flask") { slow7 = true; return 150; } return 0; });
   craft7.querySelector('input[type="search"]').value = "flask";
   byText(craft7, "button", "Search").click(); // slow…
   await settle();
   craft7.querySelector('input[type="search"]').value = "";
   byText(craft7, "button", "Search").click(); // …then an empty query before it answers
   await new Promise((r) => setTimeout(r, 400));
-  check("(5) an empty query after a slow search: the late reply writes no card, the status says what to type, Show more hidden", !craft7.querySelector(".card.craft") && craft7.textContent.includes("Type a recipe name or choose a profession") && byText(craft7, "button", "Show more").hidden === true);
+  const cards7 = craft7.querySelectorAll(".card.craft").map((card) => card.textContent);
+  check("(5) an empty query after a slow search: the late reply writes no card, the empty box browses every listing once, Show more hidden", slow7 && cards7.length > 0 && cards7.some((t) => t.includes("Flask of the Titans")) && new Set(cards7).size === cards7.length && craft7.textContent.includes("Member opt-ins only. Listings are not a live recipe scan.") && !craft7.textContent.includes("Type a recipe name or choose a profession") && byText(craft7, "button", "Show more").hidden === true, JSON.stringify(texts(craft7, ".card.craft h3")));
   cr7.delay(null);
 
   console.log("\n== .108: Codex's .105 handoff as refined at 12:11 (six items) and the receipt siblings ==");
@@ -1922,16 +1940,21 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const adm = await openPage(STAFF);
     await adm.go("#/admin/settings");
     await waitFor(() => !!adm.app.querySelector("#lead-gm-0") && !!byText(adm.app, "button", "Refresh reset status"), "the .114 settings blocks");
+    // CL2-014 (our a6f591d, 12 Nov 2026): Appointed roles have their own page (#/admin/appointments) with its own Save and
+    // consent boxes; Settings keeps the no-vote controls and the leadership directory. The same checks now read both pages.
+    const admAp = await openPage(STAFF);
+    await admAp.go("#/admin/appointments");
+    await waitFor(() => !!admAp.app.querySelector("#appointed-names-ok") && !!admAp.app.querySelector(".appointed-row"), "Admin → Appointed roles");
     const sortedClassKeys = ["druid", "hunter", "mage", "paladin", "priest", "rogue", "shaman", "warlock", "warrior"];
-    const appointmentClassKeys = adm.app.querySelectorAll(".appointed-row").map(row => row.getAttribute("data-appointment-field203")).filter(key => key.startsWith("class_lead:")).map(key => key.slice("class_lead:".length));
+    const appointmentClassKeys = admAp.app.querySelectorAll(".appointed-row").map(row => row.getAttribute("data-appointment-field203")).filter(key => key.startsWith("class_lead:")).map(key => key.slice("class_lead:".length));
     const quietClassLabels = adm.app.querySelectorAll(".quiet-row input").map(input => input.getAttribute("aria-label")).filter(label => label.includes(" Class Lead:")).map(label => label.split(" ")[0].toLowerCase());
     check("admin class appointments and no-vote controls keep all nine keys in alphabetical display order", JSON.stringify(appointmentClassKeys) === JSON.stringify(sortedClassKeys) && JSON.stringify(quietClassLabels) === JSON.stringify(sortedClassKeys));
     const dormantBnet = await indexMod.default.fetch(new Request("https://guild.example/api/admin/bnet-switch", {headers:{Cookie:adm.cookie}}), env(), ctx), dormantBnetState = await dormantBnet.json();
     check(".196 dormant Battle.net collection is actually OFF and exposes no enable control in Admin", dormantBnet.status === 200 && dormantBnetState.effective === false && !adm.app.querySelector("#bnet-switch") && !adm.app.textContent.includes("Request future enablement") && !byText(adm.app, "h2", "Battle.net sign-in"));
-    const namesOk = adm.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
-    check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false &&
-      adm.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Guild members and site administrators can read the directory.") &&
-      adm.app.textContent.includes("type Name withheld to keep an anonymous appointment marker, or clear the display record. Reserved applications remain closed in either case.") && adm.app.textContent.includes("Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed."));
+    const namesOk = admAp.app.querySelector("#appointed-names-ok"), leadOk = adm.app.querySelector("#lead-names-ok");
+    check("(.115) both name editors carry an unticked consent box and say how to remove a name on request", !!namesOk && namesOk.checked === false && !!leadOk && leadOk.checked === false && !adm.app.querySelector("#appointed-names-ok") && !!byText(adm.app, "a", "Admin → Appointed roles") &&
+      admAp.app.textContent.includes("Each person I name has agreed to be named on the signed-in guild site and in account settings. A valid existing account session can still view settings after leaving the server or being denied.") && !admAp.app.textContent.includes("Appointed names are public on the open web") && !adm.app.textContent.includes("Appointed names are public on the open web") && adm.app.textContent.includes("Each person listed here agreed to be listed. Guild members and site administrators can read the directory.") &&
+      admAp.app.textContent.includes("type Name withheld to keep an anonymous appointment marker, or clear the display record. Reserved applications remain closed in either case.") && admAp.app.textContent.includes("Clearing the holder can restore historical board visibility, but Leader, High Council and Officer Corps applications remain closed."));
     adm.app.querySelector("#lead-gm-0").value = "Fern Melder";
     adm.app.querySelector("#lead-off-0").value = "Ana\nBo";
     byText(adm.app, "button", "Save the directory").click();
@@ -2069,19 +2092,22 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     check("  ticking it and saving stores newsOn '1'; the log records the switch", JSON.parse(one("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id DESC LIMIT 1").details).newsOn === "1");
     // ---- C: a typed name needs the consent tick (review of 3 Oct 2026: the page's refusal and the box cleared after a save)
     const appointedNow = () => (one("SELECT value FROM site_settings WHERE key = 'appointed'") || {}).value || "";
+    // CL2-014 (our a6f591d, 12 Nov 2026): typed appointed names are saved on Admin → Appointed roles with "Save appointed roles".
+    await adm6.go("#/admin/appointments");
+    await waitFor(() => !!adm6.app.querySelector("#appointed-names-ok") && !!byText(adm6.app, "button", "Save appointed roles"), "Admin → Appointed roles");
     const apInput = adm6.app.querySelectorAll('input[placeholder="Open"]')[0];
     const apBefore = appointedNow();
     apInput.value = "Tess Appointee";
-    byText(adm6.app, "button", "Save settings").click();
+    byText(adm6.app, "button", "Save appointed roles").click();
     await waitFor(() => adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named."), "the confirm_names refusal");
     check("(.115) an appointed name saved without the consent tick: the Worker's 400 confirm_names is shown in words and nothing is stored", adm6.document.body.textContent.includes("Confirm that each person you name agreed to be named. Appointed names appear on the signed-in guild site and in signed-in account settings; an existing valid account session can still read those settings after server departure or denial.") && !adm6.document.body.textContent.includes("Appointed names are public on the open web") && appointedNow() === apBefore && !appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false);
     adm6.app.querySelector("#appointed-names-ok").checked = true;
-    byText(adm6.app, "button", "Save settings").click();
+    byText(adm6.app, "button", "Save appointed roles").click();
     await waitFor(() => appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false, "the saved name and the cleared box");
     const apAudit = JSON.parse(one("SELECT details FROM audit WHERE action = 'site.settings' ORDER BY id DESC LIMIT 1").details);
     check("  with the tick it saves, the box is unticked again for the next save, and the log keeps a count and the tick, never the name", appointedNow().includes("Tess Appointee") && adm6.app.querySelector("#appointed-names-ok").checked === false && apAudit.appointedNames >= 1 && apAudit.namesConfirmed === true && !JSON.stringify(apAudit).includes("Tess"));
     apInput.value = "";
-    byText(adm6.app, "button", "Save settings").click();
+    byText(adm6.app, "button", "Save appointed roles").click();
     await waitFor(() => !appointedNow().includes("Tess Appointee"), "the name cleared again");
     check("  clearing the name again needs no tick", !appointedNow().includes("Tess Appointee"));
     const unc = await openPage(NEWBIE);
@@ -2399,7 +2425,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   for(const [key,familyKey,nodeKey] of fullBoundarySeal218.placements){
     const specific=roles5.boot.meta.roleGuides201[key]?.boundaries.replaceAll(commonBoundary218,'').trim();
     const card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),own=card?.querySelector('[data-role-key201="'+nodeKey+'"]') || card?.querySelector('.role-primary203');
-    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && own.textContent.includes(specific));
+    // CL2-037 (our 4c7b542, 12 Nov 2026): a family card states each boundary once, on the first record that carries it, so a
+    // later record of the same card (guild_master after office_43 in the Leader card) relies on that one statement.
+    const cardText218 = card?.textContent || '', ownAt218 = own ? cardText218.indexOf(own.textContent) : -1;
+    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && cardText218.split(specific).length === 2 && (own.textContent.includes(specific) || (ownAt218 >= 0 && cardText218.indexOf(specific) < ownAt218)));
   }
 
     const allFacts201=guideKeys201.every(key=>{
@@ -2407,7 +2436,9 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       const specificBoundary=guide?.boundaries.replaceAll(commonBoundary218,'').trim();
       return !!card&&!!guide&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&(!['co_gm','officer','treasurer'].includes(key)||!!specificBoundary)&&(!specificBoundary||card.textContent.includes(specificBoundary))&&guide.boundaries.includes('A title or application changes no game rank');
     });
-    check(".201 Roles retains the exact ten-rank bridge and no native grant across its detailed individual guides",allFacts201&&roles5.app.querySelectorAll('.role-scope218').length===1&&roles5.app.querySelector('.role-scope218').textContent===commonBoundary218&&roles5.boot.meta.appointments.find(row=>row.key==='officer').nativeSlot===2&&roles5.app.querySelector('[data-role-family203="officer"]').textContent.includes('Rank 3 Officer')&&roles5.boot.meta.appointments.find(row=>row.key==='treasurer').nativeSlot===1&&roles5.app.textContent.includes("Co-Guild Master and Treasurer are appointments, not extra native ranks")&&roles5.app.textContent.includes("Technical & Historical Profile Notes")&&roles5.app.querySelectorAll('[data-native-slot]').length===10);
+    // CL2-045 (our 7d62b9c): /#/roles states the no-access rule once, in one box, in these words; the guides' shared sentence is not repeated.
+    const scopeRule1112 = "A title, listing or application grants no access, promotion or appointment and changes no game rank, Discord role, bank limit, signing authority or addon permission. Each of those has its own authorized process.";
+    check(".201 Roles retains the exact ten-rank bridge and no native grant across its detailed individual guides",allFacts201&&roles5.app.querySelectorAll('.role-scope218').length===1&&roles5.app.querySelector('.role-scope218').textContent===scopeRule1112&&!roles5.app.textContent.includes(commonBoundary218)&&roles5.boot.meta.appointments.find(row=>row.key==='officer').nativeSlot===2&&roles5.app.querySelector('[data-role-family203="officer"]').textContent.includes('Rank 3 Officer')&&roles5.boot.meta.appointments.find(row=>row.key==='treasurer').nativeSlot===1&&roles5.app.textContent.includes("Co-Guild Master and Treasurer are appointments, not extra native ranks")&&roles5.app.textContent.includes("Technical & Historical Profile Notes")&&roles5.app.querySelectorAll('[data-native-slot]').length===10);
 
     (await fixtureRun("DELETE FROM invite_queue WHERE id = ?",queueRow));
     (await fixtureRun("DELETE FROM roster_snapshots WHERE id = ?",snap));
@@ -2801,7 +2832,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     const quicklinkDeclarations209 = new Map((quicklinkRules209[0]?.[1] || "").split(";").map(declaration => declaration.trim()).filter(Boolean).map(declaration => declaration.split(/:\s*/, 2)));
     check(".209 governance quick-link buttons shrink and wrap complete labels within the reading column", quicklinkRules209.length === 1 && quicklinkDeclarations209.size === 4 && quicklinkDeclarations209.get("max-width") === "100%" && quicklinkDeclarations209.get("min-width") === "0" && quicklinkDeclarations209.get("white-space") === "normal" && quicklinkDeclarations209.get("overflow-wrap") === "anywhere");
     check(".209 the trading-link fix remains scoped and preserves the ordinary button layout", /\.btn\s*\{[^}]*white-space:\s*nowrap\s*;/.test(APP_CSS) && /\*\s*\{\s*box-sizing:\s*border-box\s*;\s*\}/.test(APP_CSS));
-    check(".198 member can read all20 R7 chapters including five statutory/RP Titles and Royal Codex with original adoption and no issued appointments", chapters.length === 20 && chapters.some(c => c.querySelector("summary").textContent.includes("Royal Codex")) && ["title-i-the-sovereign-royal-decrees", "title-ii-the-high-council-co-guild-master-privy-court", "title-iii-the-imperial-treasury-guild-bank-tithe-ledger", "title-iv-the-grand-alliance-concordat", "title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord"].every(id => chapters.some(c => c.getAttribute("data-chapter") === id && c.textContent.includes("Section ")) && p.app.querySelector(`a[href="#/governance/${id}"]`)) && p.app.textContent.includes("R7 • Guild rules adopted 13 October 2026") && p.app.textContent.includes("Adoption issues no individual appointment or named signature") && p.app.textContent.includes("changes no native rank, bank limit or platform permission"), p.app.textContent.slice(0, 1600));
+    check(".198 member can read all20 R7 chapters including five statutory/RP Titles and Royal Codex with original adoption and no issued appointments", chapters.length === 20 && chapters.some(c => c.querySelector("summary").textContent.includes("Royal Codex")) && ["title-i-the-sovereign-royal-decrees", "title-ii-the-high-council-co-guild-master-privy-court", "title-iii-the-imperial-treasury-guild-bank-tithe-ledger", "title-iv-the-grand-alliance-concordat", "title-v-the-guild-workshop-artisans-charter-and-the-heralds-accord"].every(id => chapters.some(c => c.getAttribute("data-chapter") === id && c.textContent.includes("Section ")) && p.app.querySelector(`a[href="#/governance/${id}"]`)) && p.app.textContent.includes("Edition R7 • adopted 13 October 2026, with later owner decisions") && p.app.textContent.includes("Adoption issues no individual appointment or named signature") && p.app.textContent.includes("changes no native rank, bank limit or platform permission"), p.app.textContent.slice(0, 1600));
     check(".154 reading, adoption, appointment and operational entry links point at real chapters", ["reading-and-adopting-this-book", "adoption-and-office-registers", "3-letters-patent-and-warrants", "operational-charter-the-work-of-olympus"].every((id) => chapters.some((c) => c.getAttribute("data-chapter") === id) && p.app.querySelector(`a[href="#/governance/${id}"]`)));
     check(".222 current R7 source remains available while the historical download panel is retired", (()=>{const link=byText(p.app,'a','Download current R7 source');return link?.getAttribute('href')==='/static/governance/reconciled-book.md'&&link.getAttribute('download')==='Olympus Governance R7.md'&&!p.app.querySelector('.governance-archive')&&!p.app.querySelector('a[href="/static/governance/olympus-governance-r6.pdf"]');})());
     for (const [assetPath, contentType] of [["/static/governance/olympus-governance-r6.pdf", "application/pdf"], ["/static/governance/olympus-governance-r6.zip", "application/zip"], ...["olympus-guide-r6", "olympus-adoption-checklist-r6", "olympus-templates-r6", "olympus-release-preparation"].map((name) => ["/static/governance/" + name + ".pdf", "application/pdf"])]) {
@@ -2849,7 +2880,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       if (APP_JS.split(start).length !== 2) return false;
       const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
       if (last <= first) return false;
-      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      // CL2-042/CL2-043 (our 4c7b542): the route reads the model together with its stylesheet, so the first paint has the wide shell.
+      const route = APP_JS.slice(first, last), model = 'const [data] = await Promise.all([governanceModel(), styled]);\n    if (!current()) return;';
       const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
       return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
         && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
@@ -2864,15 +2896,17 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
       if (APP_JS.split(start).length !== 2) return false;
       const first = APP_JS.indexOf(start), last = APP_JS.indexOf(end, first);
       if (last <= first) return false;
-      const route = APP_JS.slice(first, last), model = 'const data = await governanceModel();\n    if (!current()) return;';
+      // CL2-042/CL2-043 (our 4c7b542): the route reads the model together with its stylesheet, so the first paint has the wide shell.
+      const route = APP_JS.slice(first, last), model = 'const [data] = await Promise.all([governanceModel(), styled]);\n    if (!current()) return;';
       const modules = 'const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([\n      import("/static/organization-view.js"),\n      import("/static/organization-overview205.js")\n    ]);';
       return route.split(model).length === 2 && route.split(modules).length === 2 && route.indexOf(model) < route.indexOf(modules)
         && route.split('import("/static/organization-view.js")').length === 2 && route.split('import("/static/organization-overview205.js")').length === 2
         && route.includes('const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;')
         && route.split('if (!current()) return;').length === 3 && route.includes(modules + '\n    if (!current()) return;\n    const currentData201 =')
         && route.includes('allianceOverview205:renderAllianceOverview205') && route.includes('roleGuides201:M().roleGuides201')
-        && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('Explore exact reporting & coordination lines');
+        && organizationSource.includes('ui.allianceOverview205?.(data, ui, id =>') && organizationSource.includes('h("summary", { text: "Organization chart · reporting & coordination lines" })') && !organizationSource.includes('Explore exact reporting & coordination lines'); // our 4c7b542 (CL2-041): the chart's drawer is named once
     })());
+    const currentModel1113 = model;
     check(".208 actual private R7-bound model preserves original38/95 arrays and retains Trading and adds five separate Council portfolio records", (() => {
       const assert=require('node:assert/strict'), historicalScope218='Historical application and ballot compatibility only; current institutional display and reserved-seat admission are separate.';
 function originalTerms218(terms) {
@@ -2894,6 +2928,13 @@ function originalTerms218(terms) {
   delete term.historicalApplicationProfile;delete term.applicationMetadataScope;return term;
  });
 }
+      // CL2-039 (our 6162226/80db07c/44a743a, owner ruling of 13 Nov 2026): the model records its reporting-line delta in
+      // reportingLines1113; restoreReportingLines1113 undoes it exactly and refuses any other value, so the earlier seals below
+      // still pin every other byte of the nodes, terms and mandates. The book pin follows our reconciled R7 text (5a8103c and later).
+      let model;
+      try { model = require("../../scripts/build-governance-titles.cjs").restoreReportingLines1113(currentModel1113); } catch { return false; }
+      const nodes = new Map(model.nodes.map((node) => [node.id, node]));
+      const digestBytes1113 = bytes => require("node:crypto").createHash("sha256").update(bytes).digest("hex");
       const digest = value => require("node:crypto").createHash("sha256").update(JSON.stringify(value)).digest("hex"), trading = model.terms[95];
       const readerNodes = require("./governance_reader_nodes228_fixture.cjs").originalReaderNodes228(model.nodes);
       if (!readerNodes) return false;
@@ -2902,7 +2943,8 @@ function originalTerms218(terms) {
         && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(readerNodes,"nodes").filter(node => !["trading","security","concordat","propaganda","systems-heraldry"].includes(node.id)).map(node=>node.id==="intake"?{...node,parent:"heraldry"}:node.id==="systems"?JSON.parse(fs.readFileSync(path.join(root,"../docs/governance-nodes222.json"),"utf8")).systemsBefore:node)) === "62fd12faf62b8529a8679a80a1ee278e2422048502c01738ac2fe7286c677ddf"
         && digest(require("../../scripts/governance-cabinet224-inverse.cjs").restoreCabinet224(model.officeMandates,"officeMandates").filter(office => !["trading","security","concordat","propaganda","systems-heraldry"].includes(office.nodeId))) === "ae968c007def93478c0bfac5e51169f9a3f4bd62d7abddaaa624210aa267ae2c"
         && digest(originalTerms218(model.terms.slice(0, 95))) === "74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b"
-        && model.book.bytes === 273507 && model.book.sha256 === "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac"
+        && model.book.bytes === 268133 && model.book.sha256 === "dc11c64f222d8a0c09b7446852d713bf981610e28836a0c7ed7422b0d74c83da"
+        && fs.statSync(path.join(root, "public/static/governance/reconciled-book.md")).size === model.book.bytes && digestBytes1113(fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md"))) === model.book.sha256
         && model.appointments.length === 139 && new Set(model.appointments.map(row => row.key)).size === 139 && model.councilComposition.currentSeats.length === 14
         && nodes.get("systems-heraldry").parent === "council" && model.appointments.some(office => office.key === "office_103" && office.nativeSlot === 1 && office.applicationEligible === false && office.mappingApplies === false)
         && trading.officeKey === "office_96" && trading.ordinal === 96 && trading.label === "Lord High Factor · Minister of Trading & Markets" && trading.tier === "high_council" && trading.nativeSlot === 1 && trading.applicationEligible === false && trading.mappingApplies === false;
@@ -2921,7 +2963,9 @@ function originalTerms218(terms) {
 
     const malformed = await openPage(MEMBER);
     malformed.answer((pathname) => pathname === "/static/governance/organization.json" ? { schema: "bad" } : null);
-    await malformed.go("#/organization"); await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
+    await malformed.go("#/organization");
+    malformed.document.getElementById("organization-view-style")?.dispatchEvent(new Event("load")); // our 4c7b542: the model is read together with the stylesheet
+    await waitFor(() => malformed.app.textContent.includes("unexpected shape"), ".128 bad model refusal");
     check(".154 invalid model refuses before the dynamic SVG import or any organization rendering", !malformed.app.querySelector(".org-workspace") && malformed.app.textContent.includes("unexpected shape"));
     check(".154 organization source uses text DOM nodes for model titles and no HTML injection sink", organizationSource.includes('h("h2", { text: nodeTitle218(n) })') && organizationSource.includes('h("strong", { text: nodeTitle218(node) })') && !/innerHTML|outerHTML|insertAdjacentHTML/.test(organizationSource));
     const alteredBytes = fs.readFileSync(path.join(root, "public/static/governance/reconciled-book.md")); alteredBytes[0] = 33;
@@ -2933,7 +2977,8 @@ function originalTerms218(terms) {
     check(".128 failed public fetch is visible without a partial book or false acceptance", missing.app.textContent.includes("Something went wrong") && !missing.app.querySelector(".governance-chapter"));
     const slow = await openPage(MEMBER); slow.delay((pathname) => pathname === "/static/governance/reconciled-book.md" ? 60 : 0);
     await slow.go("#/governance"); await slow.go("#/roles"); await new Promise((r) => setTimeout(r, 100));
-    check(".128 delayed public reply cannot append its book to a newer route", !slow.app.querySelector(".governance-chapter") && slow.app.textContent.includes("The exact 10-rank Olympus In-Game Hierarchy"));
+    // CL2-197/CL2-310 (our 4c7b542): the Roles page shows the ten-rank ladder once, with this sentence, instead of the older heading.
+    check(".128 delayed public reply cannot append its book to a newer route", !slow.app.querySelector(".governance-chapter") && slow.document.title === "Roles — Olympus" && slow.app.querySelectorAll("[data-native-slot]").length === 10 && slow.app.textContent.includes("Slots are the game's zero-based rank positions; the in-game name for slot 0 is Guild Master."));
   }
   console.log("\n== .130 organizer announcements: real Worker/SQLite, synthetic Discord only ==");
   {
@@ -2975,7 +3020,9 @@ function originalTerms218(terms) {
       const member = await openPage(MEMBER, over); let forbiddenReads = 0;
       member.before((pathname) => { if (pathname.startsWith("/api/community/events/discord")) forbiddenReads++; return false; });
       await member.go(route(id));
-      check(".130 a member opening the organizer route receives no announcement data or controls", member.app.textContent.includes("Only the event organizer") && forbiddenReads === 0 && !byText(member.app, "button", "Publish announcement"));
+      // Owner ruling of 13 Nov 2026 (our 9fe27b8, CL2-016): the page first asks the event read whether this viewer manages it, and the refusal names who may.
+      await waitFor(() => member.app.textContent.includes("can manage its announcement"), "the member's announcement refusal");
+      check(".130 a member opening the organizer route receives no announcement data or controls", member.app.textContent.includes("Only the event's organizer, the High Council, the War Heads or a site administrator can manage its announcement.") && forbiddenReads === 0 && !byText(member.app, "button", "Publish announcement") && !byText(member.app, "button", "Remove announcement"));
       await p.go(route(id)); await loaded(p);
       check(".130 preview renders safe title text without script markup or private event details", p.app.querySelector("pre").textContent.includes("script") && !p.app.querySelector("script") && !p.app.querySelector("pre").textContent.includes("PRIVATE_SIGNUP_DETAILS") && !byText(p.app, "button", "Publish announcement").disabled);
       const readable = p.app.querySelector("[data-announcement-preview]");
@@ -3092,7 +3139,8 @@ function originalTerms218(terms) {
       const rem = await openPage(ORG,reminderOver);await rem.go(route(reminderId));await reminderLoaded(rem);
       check(".134 reminder starts unticked and disabled until separate consent", !rem.app.querySelector("#event-reminder-consent").checked && byText(rem.app,"button","Enable one reminder").disabled && !one("SELECT 1 FROM community_event_reminders WHERE event_id=?",reminderId));
       const remPanel = rem.app.querySelector("[data-event-reminder]");
-      check(".134 reminder explains approximate scheduler delivery and displays safe exact public content",remPanel.textContent.includes("half-hour scheduler") && remPanel.querySelector("pre").textContent.includes("script") && !remPanel.querySelector("script") && !remPanel.textContent.includes("PRIVATE_SIGNUP_DETAILS"));
+      // our a6f591d (Evergreen 12 Nov 2026 copy): the scheduler runs every 15 minutes, and the reminder says so.
+      check(".134 reminder explains approximate scheduler delivery and displays safe exact public content",remPanel.textContent.includes("the 15-minute scheduler sends it at its next run") && !remPanel.textContent.includes("half-hour scheduler") && remPanel.querySelector("pre").textContent.includes("script") && !remPanel.querySelector("script") && !remPanel.textContent.includes("PRIVATE_SIGNUP_DETAILS"));
       const beforeReminderPost = posts();rem.drop((pathname,init)=>pathname==="/api/community/events/reminder" && init.method==="POST");
       rem.app.querySelector("#event-reminder-consent").checked=true;fire(rem.app.querySelector("#event-reminder-consent"),"change");byText(rem.app,"button","Enable one reminder").click();
       await waitFor(()=>rem.app.textContent.includes("One reminder is armed"),"lost consent browser response");
