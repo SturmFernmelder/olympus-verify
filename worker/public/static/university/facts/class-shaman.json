@@ -1,0 +1,1011 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-shaman",
+ "facts": [
+  {
+   "id": "class-shaman.change-1",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Totems: global cooldown 1.0 s (was 1.5 s), persistent buff totems last 5 minutes (was 2), a tracker lets you right-click a totem to dismiss it, Resistance Totems cover the whole raid group, Tranquil Air Totem is gone, and Fire Nova Totem became a Fire Nova spell that erupts at your Fire totem.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-2",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Windfury and Flametongue Totems are now buffs, not weapon enchants, and can't both be active; a Shaman with the matching imbue gets nothing from the totem. Since 16 Oct, Grace of Air no longer conflicts with them, and Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid.",
+   "sources": [
+    "g218-61",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-3",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Call of the Elements drops a saved set of totems. Call of the Spirits and Call of the Ancestors add more sets. Totemic Recall refunds 25% of totem mana. Totemic Call, formerly Totemic Projection, moves totems to your own position every 30 seconds.",
+   "sources": [
+    "g218-61",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-4",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Weapon imbues last 60 minutes and stack with weapon enhancements. Chain Lightning casts in 2.5 seconds and its primary target takes about 145% of comparable Lightning Bolt base damage for about 225% of the mana cost. Higher ranks of Lightning Bolt hit harder, and shock damage returns to Classic Era values.",
+   "sources": [
+    "g218-61",
+    "g218-17",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-5",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Call of Thunder replaces Lava Burst and adds 5% crit to Lightning Bolt and Chain Lightning. Elemental Mastery is now Lightning Mastery, and Lightning Overload has a 10%, 20% or 30% trigger chance.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-6",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Tanking: Blizzard only says Enhancement can be a temporary tank in small groups, through Spirit Weapons and Improved Stormstrike. No raid-tank role has been announced.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.change-7",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Stormstrike deals 150% normalized weapon damage on a six-second cooldown, and Maelstrom Weapon triggers twice as often. Riptide is a heal over time with a 12-second cooldown and roughly 40% lower mana cost.",
+   "sources": [
+    "g218-150",
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists Stormstrike at 100% weapon damage with an 8 sec cooldown."
+  },
+  {
+   "id": "class-shaman.change-8",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Compared with Classic, the Enhancement tree no longer has Shield Specialization, Enhancing Totems, Two-Handed Axes and Maces, Improved Weapon Totems or Weapon Mastery.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "shaman-enhancement"
+  },
+  {
+   "id": "class-shaman.change-9",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Compared with Classic, the Restoration tree no longer has Nature's Guidance or Totemic Mastery.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "shaman-restoration"
+  },
+  {
+   "id": "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Earth totem quest (Teo Hammerstorm, Anvilmar) (4)",
+   "value": "Starts in Anvilmar, Dun Morogh. Rewards Earth Totem and Stoneskin Totem (Warcraft Tavern).",
+   "sources": [
+    "g218-64"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Fire totem quest (Bruegs Kindleborn, Braldir Ashmantle) (10)",
+   "value": "Runs from Dun Morogh to Loch Modan. Rewards Fire Totem and Searing Totem (Warcraft Tavern).",
+   "sources": [
+    "g218-64"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Water totem quest (Norric Lochthane, Loch Modan) (20)",
+   "value": "The longest chain, about 2 hours through Wetlands, Redridge, Ashenvale and Westfall. Rewards Water Totem and Healing Stream Totem (Warcraft Tavern).",
+   "sources": [
+    "g218-64"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.quest-air-totem-quest-veyric-arathi-highlands",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Air totem quest (Veyric, Arathi Highlands) (30)",
+   "value": "A short trip to Arathi Highlands that rewards Air Totem (Warcraft Tavern). The Classic totem quests used the same levels: 4, 10, 20 and 30.",
+   "sources": [
+    "g218-64",
+    "g218-66"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.launch-raids",
+   "scope": {
+    "class": "shaman"
+   },
+   "topic": "shaman-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (raid overview of 20 Oct 2026)"
+  },
+  {
+   "id": "class-shaman.call-of-thunder",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Call of Thunder",
+   "value": "Replaces Lava Burst and adds 5% critical strike chance to Lightning Bolt and Chain Lightning.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.lightning-mastery",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Lightning Mastery",
+   "value": "Blizzard renamed Elemental Mastery to Lightning Mastery. The October build used the capstone for lightning casts, but Lava Burst was removed in November.",
+   "sources": [
+    "g218-17",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.crit-damage",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Crit damage",
+   "value": "Elemental Fury raises the critical strike damage bonus of your Searing and Magma Totems and your Fire, Frost and Nature spells: 20% with one point, up to 100% with all five. It requires Lightning Overload.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-elemental-elemental-fury"
+  },
+  {
+   "id": "class-shaman.chain-lightning",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Chain Lightning",
+   "value": "A 2.5-second cast with about 145% of comparable Lightning Bolt base damage to the primary target and about 225% of its mana cost.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.mana",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Mana",
+   "value": "Water Shield (Restoration) returns mana when you are hit or, since 16 Oct, when your spells crit.",
+   "sources": [
+    "g218-61",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.spell-hit-classic-baseline-for-the-cap",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Spell hit (Classic baseline for the cap)",
+   "value": "Tidal Focus (Restoration) adds hit (1% at rank 1) and the Dwarf racial Artisan's Precision adds 1%. Classic casters needed 16% against raid bosses three levels higher; Forever's cap is not known yet.",
+   "sources": [
+    "g218-15",
+    "g218-17",
+    "g218-68",
+    "g218-67"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.raid-wide-buff-totems",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Raid-wide buff totems",
+   "value": "Grace of Air, Strength of Earth, Windfury and Flametongue Totems are raid-wide since the 16 Oct notes.",
+   "sources": [
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.raid-wide-totem-range",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Raid-wide totem range",
+   "value": null,
+   "note": "Blizzard has not said how far raid-wide totems reach; only Paladin resistance auras state 30 yards.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.no-bloodlust",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "No Bloodlust",
+   "value": "No raid-wide Bloodlust or Heroism has been announced, and Warcraft Tavern says Shamans don't get Bloodlust in Forever.",
+   "sources": [
+    "g218-61",
+    "g218-63"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.resistance-totems",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Resistance totems",
+   "value": "Resistance Totems cover the whole raid group, which helps on Onyxia, where Blizzard asks raids to build fire resistance.",
+   "sources": [
+    "g218-61",
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.world-buffs",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs",
+   "value": "Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance', and warcraft.wiki.gg says world buffs are removed in dungeons and raids.",
+   "sources": [
+    "g218-12",
+    "g218-24"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.classic-caster-kit",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic caster kit",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Major Mana Potion, Mageblood Potion, wizard oils, Demonic and Dark Runes, Runn Tum Tuber Surprise, Nightfin Soup and Sagefish Delight.",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.imbues-with-oils",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Imbues with oils",
+   "value": "Weapon imbues last 60 minutes and stack with temporary enchants such as wizard oil.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.new-forever-elixirs",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New Forever elixirs",
+   "value": "Warcraft Tavern reports Minor Arcane Elixir and Elixir of Cunning (Agility plus Intellect), with flasks brewed at a portable Alchemy Laboratory camp object.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.flasks",
+   "scope": {
+    "class": "shaman",
+    "spec": "elemental"
+   },
+   "topic": "elemental-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Flasks",
+   "value": "In Classic only one flask is active at a time, and it persists through death.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.stormstrike",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Stormstrike",
+   "value": "The strike deals 150% normalized weapon damage and has a six-second cooldown.",
+   "sources": [
+    "g218-150",
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists 100% weapon damage and an 8 sec cooldown instead."
+  },
+  {
+   "id": "class-shaman.maelstrom-weapon",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Maelstrom Weapon",
+   "value": "Melee hits build toward a fast Lightning Bolt. Blizzard doubled the chance for Maelstrom Weapon to trigger.",
+   "sources": [
+    "g218-61",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.attack-speed",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Attack speed",
+   "value": "Flurry now gives 6%, 12%, 18%, 24% or 30% attack speed after a melee crit.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.intellect-into-power",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Intellect into power",
+   "value": "Mental Dexterity converts 50%, 100% or 150% of Intellect into Attack Power.",
+   "sources": [
+    "g218-150",
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)",
+   "note": "The 10 November talent data lists 33%, 66% and 100%."
+  },
+  {
+   "id": "class-shaman.elemental-devastation",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Elemental Devastation",
+   "value": "Elemental Devastation: critical strikes with direct damage spells raise your melee crit chance by 3%, 6% or 9% for 10 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-elemental-elemental-devastation"
+  },
+  {
+   "id": "class-shaman.melee-hit-cap-vs-raid-bosses",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Melee hit cap vs raid bosses",
+   "value": null,
+   "note": "No Forever value has been published. Tidal Focus (Restoration) and the Dwarf racial Artisan's Precision add hit.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.windfury-and-flametongue-totems",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Windfury and Flametongue Totems",
+   "value": "Buffs that can't both be active, raid-wide since 16 Oct; a Shaman with the matching imbue gets nothing from the totem.",
+   "sources": [
+    "g218-61",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.threat",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Threat",
+   "value": "Spirit Weapons reduces the threat from your attacks by 30% while Rockbiter Weapon is not active and increases it by 30% while Rockbiter Weapon is active.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-enhancement-spirit-weapons"
+  },
+  {
+   "id": "class-shaman.temporary-tank",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Temporary tank",
+   "value": "Blizzard only says Enhancement can tank small groups for a while through Spirit Weapons and Improved Stormstrike; Warcraft Tavern doubts current talents are enough for endgame tanking.",
+   "sources": [
+    "g218-61",
+    "g218-63"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.personal-burst",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Personal burst",
+   "value": "Blizzard made Rage of the Farseer a personal cooldown on purpose rather than a party or raid effect.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.classic-melee-kit",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic melee kit",
+   "value": "Elixir of the Giants, Elixir of the Mongoose, Juju Might, Juju Power, Winterfall Firewater, R.O.I.D.S., Free Action Potion, Grilled Squid and Elemental Sharpening Stone (from a Classic melee guide).",
+   "sources": [
+    "g218-13"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.stones-with-imbues",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Stones with imbues",
+   "value": "Shaman weapon imbues stack with sharpening stones and weightstones.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.new-forever-elixir",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "New Forever elixir",
+   "value": "Warcraft Tavern reports a new Elixir of the Grizzly (Strength plus crit).",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.camp-buffs",
+   "scope": {
+    "class": "shaman",
+    "spec": "enhancement"
+   },
+   "topic": "enhancement-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Warcraft Tavern: profession camp objects give slightly weaker copies of class buffs that don't stack with the real ones; sit at the camp for at least 1 minute.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.riptide",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Riptide",
+   "value": "A heal over time with no initial heal. The cooldown is 12 seconds and its mana cost is roughly 40% lower than in the October beta.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.healing-wave",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Healing Wave",
+   "value": "Improved Healing Wave shortens Healing Wave's cast by 0.1 sec per rank, up to 0.5 sec at rank 5.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-improved-healing-wave"
+  },
+  {
+   "id": "class-shaman.water-shield",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Water Shield",
+   "value": "11-point talent: returns mana when you are hit or, since 16 Oct, when one of your spells crits.",
+   "sources": [
+    "g218-61",
+    "g218-17"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.regen-while-casting",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Regen while casting",
+   "value": "Mindfulness lets 17%, 33% or 50% of your mana regeneration continue while casting.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-mindfulness"
+  },
+  {
+   "id": "class-shaman.crit",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Crit",
+   "value": "Tidal Mastery raises the critical effect chance of your healing spells by 1% per rank, up to 5%.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-tidal-mastery",
+   "note": "A healing crit also triggers Water Shield and Ancestral Healing."
+  },
+  {
+   "id": "class-shaman.totemic-call",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Totemic Call",
+   "value": "Moves your totems to your current position on a 30-second cooldown. Elemental Reach no longer reduces that cooldown.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.mana-tide-totem",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Mana Tide Totem",
+   "value": "16-point talent with ranks at 25, 38, 48 and 58.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.alliance-shamans",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Alliance Shamans",
+   "value": "Dwarf Shaman is one of Forever's new race and class combinations, so Alliance raids can bring Shaman totems and Mana Tide.",
+   "sources": [
+    "g218-62"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.sturdy-healer",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Sturdy healer",
+   "value": "Blizzard calls Shamans among the sturdiest classes, with mail armor and a shield.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.raid-wide-buff-totems-2",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Raid-wide buff totems",
+   "value": "Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid since 16 Oct; Windfury and Flametongue can't both be active.",
+   "sources": [
+    "g218-17",
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.reincarnation",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Reincarnation",
+   "value": "Improved Reincarnation cuts Reincarnation's cooldown by 10 or 20 min, raises your maximum health by 2% or 4%, and adds 10% or 20% to the health and mana you come back with.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "shaman-restoration-improved-reincarnation"
+  },
+  {
+   "id": "class-shaman.classic-baseline",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-raid",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic baseline",
+   "value": "Shamans were Horde-only in Classic, so Alliance raids never had Shaman totems.",
+   "sources": [
+    "g218-27"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.classic-healer-kit",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic healer kit",
+   "value": "Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion, Mageblood Potion, Demonic and Dark Runes, Nightfin Soup, Sagefish Delight and wizard oils (from a Classic healer guide).",
+   "sources": [
+    "g218-29"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-shaman.forever-alchemy",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-shaman.imbues-with-oils-2",
+   "scope": {
+    "class": "shaman",
+    "spec": "restoration"
+   },
+   "topic": "restoration-consumable",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Imbues with oils",
+   "value": "Weapon imbues last 60 minutes and stack with wizard oil.",
+   "sources": [
+    "g218-61"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

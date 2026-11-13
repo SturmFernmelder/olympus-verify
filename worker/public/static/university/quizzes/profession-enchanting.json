@@ -1,0 +1,114 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-enchanting",
+ "questions": [
+  {
+   "id": "profession-enchanting.forge-skill",
+   "scope": "profession:enchanting",
+   "tier": 101,
+   "chapter": "enchanting-101-changes",
+   "type": "mcq",
+   "stem": "At what Enchanting skill can you place the Arcane Forge camp object?",
+   "choices": [
+    "300",
+    "140",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "The Enchanted Lute comes at skill 20, the Arcane Salvager at 140 and the Arcane Forge at 300.",
+   "facts": [
+    "profession-enchanting.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-enchanting.campsite-max",
+   "scope": "profession:enchanting",
+   "tier": 101,
+   "chapter": "enchanting-101-changes",
+   "type": "mcq",
+   "stem": "Cooking upgrades raise a campsite's limit of camp features. What is the highest limit?",
+   "choices": [
+    "10",
+    "5",
+    "3"
+   ],
+   "answer": 0,
+   "explanation": "A basic campsite holds 3 camp features, and Cooking upgrades raise that to 5 or 10.",
+   "facts": [
+    "profession-enchanting.campsite-size"
+   ]
+  },
+  {
+   "id": "profession-enchanting.artisan-training",
+   "scope": "profession:enchanting",
+   "tier": 101,
+   "chapter": "enchanting-101-leveling",
+   "type": "mcq",
+   "stem": "What does Artisan Enchanting training need?",
+   "choices": [
+    "skill 200, level 35",
+    "skill 50, level 10",
+    "skill 125, level 20"
+   ],
+   "answer": 0,
+   "explanation": "Journeyman needs skill 50 and level 10, Expert skill 125 and level 20, and Artisan skill 200 and level 35.",
+   "facts": [
+    "profession-enchanting.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-enchanting.dedicated-study",
+   "scope": "profession:enchanting",
+   "tier": 101,
+   "chapter": "enchanting-101-leveling",
+   "type": "mcq",
+   "stem": "What does the Legacy perk Dedicated Study give an enchanter once all their skills are 300?",
+   "choices": [
+    "Elemental Essences",
+    "a daily skill-up"
+   ],
+   "answer": 0,
+   "explanation": "Dedicated Study gives a daily skill-up until all your skills are 300, and Elemental Essences after that.",
+   "facts": [
+    "profession-enchanting.legacy"
+   ]
+  },
+  {
+   "id": "profession-enchanting.two-hand",
+   "scope": "profession:enchanting",
+   "tier": 201,
+   "chapter": "enchanting-201-gear",
+   "type": "mcq",
+   "stem": "Which of these is one of the new enchants for two-hand weapons?",
+   "choices": [
+    "Spellblasting",
+    "Deflection"
+   ],
+   "answer": 0,
+   "explanation": "Mighty Spell Power, Mighty Healing Power and Spellblasting are the new two-hand enchants. Deflection is one of the new necklace enchants.",
+   "facts": [
+    "profession-enchanting.two-hand-caster-enchants"
+   ],
+   "distractorFacts": [
+    "profession-enchanting.necklace-enchants"
+   ]
+  },
+  {
+   "id": "profession-enchanting.necklace-favor",
+   "scope": "profession:enchanting",
+   "tier": 201,
+   "chapter": "enchanting-201-market",
+   "type": "mcq",
+   "stem": "How much Merchant's Favor do the necklace enchant recipes cost?",
+   "choices": [
+    "120",
+    "240"
+   ],
+   "answer": 0,
+   "explanation": "Necklace enchants need Enchanting 210, Friendly and 120 Favor. The two-hand caster enchants need 300, Honored and 240 Favor.",
+   "facts": [
+    "profession-enchanting.favor-recipes"
+   ]
+  }
+ ]
+}

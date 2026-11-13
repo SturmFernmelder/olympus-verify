@@ -1,0 +1,153 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-tailoring",
+ "questions": [
+  {
+   "id": "profession-tailoring.linen-reagent",
+   "scope": "profession:tailoring",
+   "tier": 101,
+   "chapter": "tailoring-101-changes",
+   "type": "mcq",
+   "stem": "How many slots does the Linen Reagent Bag have?",
+   "choices": [
+    "6",
+    "8",
+    "12"
+   ],
+   "answer": 0,
+   "explanation": "The Linen Reagent Bag has 6 slots. The Red Linen Bag is now 8 and the Mageweave Bag stays at 12.",
+   "facts": [
+    "profession-tailoring.reagent-bags"
+   ],
+   "distractorFacts": [
+    "profession-tailoring.bigger-bags"
+   ]
+  },
+  {
+   "id": "profession-tailoring.mooncloth",
+   "scope": "profession:tailoring",
+   "tier": 101,
+   "chapter": "tailoring-101-changes",
+   "type": "mcq",
+   "stem": "How many slots is the Mooncloth Bag in Forever?",
+   "choices": [
+    "18",
+    "20",
+    "14"
+   ],
+   "answer": 0,
+   "explanation": "The Mooncloth Bag is now 18 slots. The Bottomless Bag is 20 and the unchanged Runecloth Bag 14.",
+   "facts": [
+    "profession-tailoring.bigger-bags"
+   ]
+  },
+  {
+   "id": "profession-tailoring.loom-skill",
+   "scope": "profession:tailoring",
+   "tier": 101,
+   "chapter": "tailoring-101-changes",
+   "type": "mcq",
+   "stem": "At what Tailoring skill can you place the Loom?",
+   "choices": [
+    "300",
+    "140",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "The Faction Banner comes at skill 20, the Spinning Wheel at 140 and the Loom at 300.",
+   "facts": [
+    "profession-tailoring.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-tailoring.expert-training",
+   "scope": "profession:tailoring",
+   "tier": 101,
+   "chapter": "tailoring-101-leveling",
+   "type": "mcq",
+   "stem": "What does Expert Tailoring training need?",
+   "choices": [
+    "skill 125, level 20",
+    "skill 50, level 10",
+    "skill 200, level 35"
+   ],
+   "answer": 0,
+   "explanation": "Journeyman needs skill 50 and level 10, Expert skill 125 and level 20, and Artisan skill 200 and level 35.",
+   "facts": [
+    "profession-tailoring.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-tailoring.journeyman-cap",
+   "scope": "profession:tailoring",
+   "tier": 101,
+   "chapter": "tailoring-101-leveling",
+   "type": "mcq",
+   "stem": "Up to what skill does Journeyman Tailoring go?",
+   "choices": [
+    "150",
+    "75",
+    "225"
+   ],
+   "answer": 0,
+   "explanation": "Apprentice goes up to 75, Journeyman up to 150, Expert up to 225 and Artisan up to 300.",
+   "facts": [
+    "profession-tailoring.skill-ranks"
+   ]
+  },
+  {
+   "id": "profession-tailoring.bop-example",
+   "scope": "profession:tailoring",
+   "tier": 201,
+   "chapter": "tailoring-201-gear",
+   "type": "mcq",
+   "stem": "Which item does the Forever guide name as a craft that is Bind on Pickup for the tailor?",
+   "choices": [
+    "Filigreed Flame Circlet",
+    "Mooncloth Bag",
+    "Bottomless Bag"
+   ],
+   "answer": 0,
+   "explanation": "The guide's examples are Novice Ardent's Sash and Filigreed Flame Circlet. The Mooncloth and Bottomless Bags are bags that grew in Forever.",
+   "facts": [
+    "profession-tailoring.gear-only-you-can-make",
+    "profession-tailoring.bigger-bags"
+   ]
+  },
+  {
+   "id": "profession-tailoring.runecloth-dye",
+   "scope": "profession:tailoring",
+   "tier": 201,
+   "chapter": "tailoring-201-market",
+   "type": "mcq",
+   "stem": "How many Cerulean Dye does a Runecloth Bag now need?",
+   "choices": [
+    "2",
+    "4"
+   ],
+   "answer": 0,
+   "explanation": "The Runecloth Bag now needs 4 Magenta Dye and 2 Cerulean Dye.",
+   "facts": [
+    "profession-tailoring.dyes-in-recipes"
+   ]
+  },
+  {
+   "id": "profession-tailoring.runecloth-size",
+   "scope": "profession:tailoring",
+   "tier": 201,
+   "chapter": "tailoring-201-market",
+   "type": "mcq",
+   "stem": "How many slots does the Runecloth Bag have in Forever?",
+   "choices": [
+    "14",
+    "12",
+    "18"
+   ],
+   "answer": 0,
+   "explanation": "The Runecloth Bag is unchanged at 14 slots. The Mageweave Bag is 12 and the Mooncloth Bag is now 18.",
+   "facts": [
+    "profession-tailoring.bigger-bags"
+   ]
+  }
+ ]
+}

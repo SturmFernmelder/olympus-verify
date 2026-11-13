@@ -1,0 +1,179 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "race-dwarf",
+ "questions": [
+  {
+   "id": "race-dwarf.artisans-precision",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-racials",
+   "type": "mcq",
+   "stem": "What does the Dwarf racial Artisan's Precision give in Forever?",
+   "choices": [
+    "+1% hit with spells and attacks",
+    "+1% crit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Artisan's Precision gives +1% hit with spells and attacks. +1% crit is Human Ruthless and +2% haste is Skyborne Wind-Blessed.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "race-dwarf.new-combos",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-classes",
+   "type": "mcq",
+   "stem": "Which new Alliance race and class combination lets Alliance raids plan around Shaman totems?",
+   "choices": [
+    "Dwarf Shaman",
+    "Human Hunter",
+    "Gnome Priest"
+   ],
+   "answer": 0,
+   "explanation": "Dwarf Shaman brings Shaman totems to Alliance raids. Human Hunter and Gnome Priest are the other new Alliance combinations, but neither brings totems.",
+   "facts": [
+    "common.alliance-new-race-class-combos"
+   ]
+  },
+  {
+   "id": "race-dwarf.fear-ward",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-classes",
+   "type": "scenario",
+   "stem": "Your raid leader wants a Dwarf Priest because the raid needs Fear Ward. At what level does every Priest, of any race, learn Fear Ward in Forever?",
+   "choices": [
+    "20",
+    "30",
+    "32"
+   ],
+   "answer": 0,
+   "explanation": "Every Priest learns Fear Ward and Devouring Plague at 20, so any Priest can cover Fear Ward. Level 30 is Divine Spirit and level 32 is Shadow Word: Death.",
+   "facts": [
+    "class-priest.change-2"
+   ]
+  },
+  {
+   "id": "race-dwarf.priest-spells",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-class-quests",
+   "type": "mcq",
+   "stem": "Which racial spells does a Dwarf Priest unlock through class quests?",
+   "choices": [
+    "Desperate Prayer, Chastise",
+    "Divine Grace, Feedback",
+    "Starshards, Elune's Grace"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Desperate Prayer and Chastise for Dwarves. Divine Grace and Feedback are Human, Starshards and Elune's Grace Night Elf.",
+   "facts": [
+    "class-priest.quest-racial-priest-spells"
+   ]
+  },
+  {
+   "id": "race-dwarf.earth-totem",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-shaman-totem-quests",
+   "type": "mcq",
+   "stem": "Where does the Dwarf Shaman's level 4 Earth totem quest start?",
+   "choices": [
+    "Anvilmar, Dun Morogh",
+    "Loch Modan",
+    "Arathi Highlands"
+   ],
+   "answer": 0,
+   "explanation": "Teo Hammerstorm's Earth totem quest starts in Anvilmar, Dun Morogh. The Water totem chain starts in Loch Modan and the Air totem quest takes you to Arathi Highlands.",
+   "facts": [
+    "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+   ],
+   "distractorFacts": [
+    "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan",
+    "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+   ]
+  },
+  {
+   "id": "race-dwarf.water-totem",
+   "scope": "race:dwarf",
+   "tier": 101,
+   "chapter": "dwarf-101-shaman-totem-quests",
+   "type": "mcq",
+   "stem": "Which Dwarf Shaman totem quest is the longest chain, at about 2 hours?",
+   "choices": [
+    "Water totem quest",
+    "Fire totem quest",
+    "Air totem quest",
+    "Earth totem quest"
+   ],
+   "answer": 0,
+   "explanation": "Norric Lochthane's level 20 Water totem chain runs about 2 hours through Wetlands, Redridge, Ashenvale and Westfall. The Air totem quest is a short trip to Arathi Highlands.",
+   "facts": [
+    "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+   ],
+   "distractorFacts": [
+    "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+    "class-shaman.quest-air-totem-quest-veyric-arathi-highlands",
+    "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+   ]
+  },
+  {
+   "id": "race-dwarf.warrior-main-hand-hit",
+   "scope": "race:dwarf",
+   "tier": 201,
+   "chapter": "dwarf-201-hit",
+   "type": "mcq",
+   "stem": "Where does a Dwarf Warrior's main-hand hit come from in Forever?",
+   "choices": [
+    "gear or the Dwarf racial",
+    "Furious Precision"
+   ],
+   "answer": 0,
+   "explanation": "Furious Precision is the only Warrior talent that adds hit, and it covers off-hand attacks only. Main-hand hit comes from gear or Artisan's Precision.",
+   "facts": [
+    "class-warrior.main-hand-hit-from-talents"
+   ]
+  },
+  {
+   "id": "race-dwarf.classic-spell-hit",
+   "scope": "race:dwarf",
+   "tier": 201,
+   "chapter": "dwarf-201-hit",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much spell hit did casters need against raid bosses three levels higher?",
+   "choices": [
+    "16%",
+    "1%"
+   ],
+   "answer": 0,
+   "explanation": "Classic casters needed 16% against raid bosses three levels higher. 1% is what Artisan's Precision adds. Forever's cap is not known yet.",
+   "facts": [
+    "class-shaman.spell-hit-classic-baseline-for-the-cap"
+   ]
+  },
+  {
+   "id": "race-dwarf.flametongue",
+   "scope": "race:dwarf",
+   "tier": 201,
+   "chapter": "dwarf-201-shaman-raid",
+   "type": "mcq",
+   "stem": "Which totem can't be active at the same time as Windfury Totem?",
+   "choices": [
+    "Flametongue",
+    "Grace of Air"
+   ],
+   "answer": 0,
+   "explanation": "Windfury and Flametongue Totems can't both be active. Grace of Air no longer conflicts with either since 16 October.",
+   "facts": [
+    "class-shaman.change-2"
+   ]
+  }
+ ]
+}

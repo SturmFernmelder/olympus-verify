@@ -1,0 +1,151 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "hunter-beast-mastery-raid-60",
+   "classId": "hunter",
+   "specId": "beast-mastery",
+   "label": "raid (pet and hawks)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.hunter.60.53200015051012510052552001000000000000000000000000",
+   "points": 51,
+   "treePoints": [
+    31,
+    20,
+    0
+   ],
+   "why": [
+    "Unleashed Fury, Ferocity, Frenzy and Bestial Wrath build pet damage, crit and attack speed, and Unleashed Fury and Ferocity also boost your hawks.",
+    "Summon Hawk adds burst, Focused Fire raises your and your pet's damage, Deadly Aspects can speed up Auto Shot under Aspect of the Hawk, Endurance Training keeps the pet alive, and Bestial Discipline helps pet Focus and your mana.",
+    "In Marksmanship, Lethal Attacks, Careful Aim and Efficiency add crit, Attack Power and mana savings, Improved Stings and Rapid Killing add Serpent Sting damage and a shorter Rapid Fire, and Trueshot Aura buffs the raid."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "hunter-beast-mastery-leveling-30",
+   "classId": "hunter",
+   "specId": "beast-mastery",
+   "label": "leveling to 30",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.hunter.30.15202205021100000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Endurance Training keeps your tanking pet alive, while Unleashed Fury and Ferocity raise its damage and crit.",
+    "Focused Fire adds damage for you and the pet, Improved Revive Pet shortens downtime after a bad pull, and Pathfinding, now on row 3, speeds up Aspect of the Cheetah.",
+    "Summon Hawk adds burst, and the first point of Spirit Bond regenerates health for you and the pet. One point of Deadly Aspects makes up the ten points that row 3 now needs."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "hunter-marksmanship-raid-60",
+   "classId": "hunter",
+   "specId": "marksmanship",
+   "label": "raid (Lone Wolf)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.hunter.60.30000000000000000053552511523051500000000000000000",
+   "points": 51,
+   "treePoints": [
+    3,
+    43,
+    5
+   ],
+   "why": [
+    "Built around Lone Wolf (+20% damage with no active pet), Mortal Shots, Barrage and Ranged Weapon Specialization, with Sniper Shot at the bottom.",
+    "Careful Aim turns Intellect into Attack Power, Efficiency and Rapid Recuperation look after your mana, and Rapid Killing shortens Rapid Fire's cooldown.",
+    "Trueshot Aura buffs the raid, Improved Tracking adds damage against the creature type you track, and Deadly Aspects can speed up Auto Shot while Aspect of the Hawk is up."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "hunter-marksmanship-leveling-30",
+   "classId": "hunter",
+   "specId": "marksmanship",
+   "label": "leveling to 30 (with pet)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.hunter.30.00000000000000000053252301000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Keeps your pet out to tank while you level, so this build skips Lone Wolf, which adds 20% damage only while you have no active pet.",
+    "Lethal Attacks and Careful Aim add crit and Attack Power, Improved Stings strengthens Serpent Sting, and Efficiency trims mana costs.",
+    "Rapid Killing shortens Rapid Fire and rewards kills, Improved Arcane Shot shortens Arcane Shot's cooldown, and Trueshot Aura helps your group."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "hunter-survival-raid-60",
+   "classId": "hunter",
+   "specId": "survival",
+   "label": "raid (melee)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.hunter.60.00000000000000000052552001000000500240031050220151",
+   "points": 51,
+   "treePoints": [
+    0,
+    20,
+    31
+   ],
+   "why": [
+    "Savage Strikes, Predator's Edge, Expose Prey and Lacerating Strikes form the melee core around Mongoose Bite, and Lightning Reflexes adds Agility.",
+    "Improved Tracking adds damage against your tracked creature type, Surefooted adds hit, and Resourcefulness cuts melee and trap mana costs and can keep mana regeneration going after crits.",
+    "In Marksmanship, Lethal Attacks, Careful Aim, Efficiency and Rapid Killing add crit, Attack Power, mana savings and more Rapid Fire, and Trueshot Aura buffs the raid."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "hunter-survival-pvp-60",
+   "classId": "hunter",
+   "specId": "survival",
+   "label": "battlegrounds",
+   "context": "pvp",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.hunter.60.00000000000000000550052201000100053023231201002150",
+   "points": 51,
+   "treePoints": [
+    0,
+    21,
+    30
+   ],
+   "why": [
+    "Deterrence, Counterattack, Improved Wing Clip and Entrapment help you survive melee and pin enemies down, and Survivalist's Discipline brings traps and Deterrence back sooner.",
+    "Clever Traps lengthens Freezing and Frost trap effects, Survival Tactics helps traps and Feign Death land, Surefooted shortens slows, and Strider Kick gives a burst of speed.",
+    "From Marksmanship, Scatter Shot and Improved Concussive Shot add a disorient and a stun chance, with Lethal Attacks, Careful Aim and Rapid Killing for damage."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

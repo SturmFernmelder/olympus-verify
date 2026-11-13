@@ -1,0 +1,847 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-warlock",
+ "questions": [
+  {
+   "id": "class-warlock.curse-of-shadows",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Warlock curse is gone in Forever?",
+   "choices": [
+    "Curse of Shadows",
+    "Curse of the Elements",
+    "Curse of Agony"
+   ],
+   "answer": 0,
+   "explanation": "Curse of Shadows is gone because Curse of the Elements now covers every magic school. Curse of Agony is still there, as a Bane.",
+   "facts": [
+    "class-warlock.change-2"
+   ]
+  },
+  {
+   "id": "class-warlock.firestone",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Warlock weapon imbue adds Fire damage and spell crit?",
+   "choices": [
+    "Firestone",
+    "Spellstone"
+   ],
+   "answer": 0,
+   "explanation": "Firestone adds Fire damage and spell crit; Spellstone adds Shadow damage and spell haste. Both stack with Wizard Oil.",
+   "facts": [
+    "class-warlock.change-3"
+   ]
+  },
+  {
+   "id": "class-warlock.life-tap-spirit",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-forever-changes",
+   "type": "mcq",
+   "stem": "What does Life Tap scale with in Forever?",
+   "choices": [
+    "Spirit",
+    "spell healing"
+   ],
+   "answer": 0,
+   "explanation": "Life Tap scales with Spirit. Spell healing is what Voidwalker Sacrifice scales with (10% of it).",
+   "facts": [
+    "class-warlock.change-4"
+   ],
+   "distractorFacts": [
+    "class-warlock.change-5"
+   ]
+  },
+  {
+   "id": "class-warlock.improved-healthstone",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which of these Classic Demonology talents is no longer in the tree?",
+   "choices": [
+    "Improved Healthstone",
+    "Improved Voidwalker",
+    "Improved Sayaad"
+   ],
+   "answer": 0,
+   "explanation": "Improved Healthstone is gone. Improved Voidwalker and Improved Sayaad are the only Warlock talents left unchanged from Classic 1.12.",
+   "facts": [
+    "class-warlock.change-9"
+   ]
+  },
+  {
+   "id": "class-warlock.incinerate-new",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Destruction talent is new in Forever?",
+   "choices": [
+    "Incinerate",
+    "Devastation",
+    "Emberstorm"
+   ],
+   "answer": 0,
+   "explanation": "Incinerate is one of five new Destruction talents. Devastation and Emberstorm are Classic talents that are gone.",
+   "facts": [
+    "class-warlock.change-10"
+   ]
+  },
+  {
+   "id": "class-warlock.what-is-love",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-class-quests",
+   "type": "mcq",
+   "stem": "Which demon does the quest 'What Is Love?' in Stormwind give you?",
+   "choices": [
+    "Incubus",
+    "Succubus",
+    "Felhunter"
+   ],
+   "answer": 0,
+   "explanation": "'What Is Love?' is the Incubus quest. The Succubus comes from 'Devourer of Souls' and the Felhunter from 'Seeking Strahad'.",
+   "facts": [
+    "class-warlock.quest-demon-quests-imp-voidwalker-succubus-incubus-felhunter"
+   ]
+  },
+  {
+   "id": "class-warlock.summoning-helpers",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-class-quests",
+   "type": "mcq",
+   "stem": "Who does Ritual of Summoning need?",
+   "choices": [
+    "you plus two helpers",
+    "you plus four party members"
+   ],
+   "answer": 0,
+   "explanation": "Ritual of Summoning needs you plus two helpers. Four party members is the Classic 1.12 requirement for Ritual of Doom.",
+   "facts": [
+    "class-warlock.quest-ritual-of-summoning-and-create-soulstone"
+   ],
+   "distractorFacts": [
+    "class-warlock.quest-ritual-of-doom-doomguard"
+   ]
+  },
+  {
+   "id": "class-warlock.niby",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-unconfirmed",
+   "type": "mcq",
+   "stem": "In Classic 1.12, who gives the level-50 Infernal quest?",
+   "choices": [
+    "Niby the Almighty",
+    "Strahad Farsan"
+   ],
+   "answer": 0,
+   "explanation": "In Classic, Niby the Almighty in Felwood gives the Infernal quest; Strahad Farsan in Ratchet gives the Felsteed quest. Neither is confirmed for Forever yet.",
+   "facts": [
+    "class-warlock.quest-inferno-infernal"
+   ],
+   "distractorFacts": [
+    "class-warlock.quest-felsteed-and-dreadsteed"
+   ]
+  },
+  {
+   "id": "class-warlock.ritual-of-doom",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-unconfirmed",
+   "type": "mcq",
+   "stem": "In Classic 1.12, who does Ritual of Doom need?",
+   "choices": [
+    "you plus four party members",
+    "you plus two helpers"
+   ],
+   "answer": 0,
+   "explanation": "In Classic, Ritual of Doom uses a Demonic Figurine and needs you plus four party members. Two helpers is Ritual of Summoning. How Forever unlocks it is unverified.",
+   "facts": [
+    "class-warlock.quest-ritual-of-doom-doomguard"
+   ],
+   "distractorFacts": [
+    "class-warlock.quest-ritual-of-summoning-and-create-soulstone"
+   ]
+  },
+  {
+   "id": "class-warlock.human-spirit",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-race",
+   "type": "mcq",
+   "stem": "What does the Human racial give in the 26 Oct notes?",
+   "choices": [
+    "+10% Spirit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Humans get +10% Spirit, which feeds Life Tap. +1% hit is the Dwarf's Artisan's Precision and +2% haste the Skyborne's Wind-Blessed.",
+   "facts": [
+    "common.racial-human-spirit"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-warlock.eureka",
+   "scope": "class:warlock",
+   "tier": 101,
+   "chapter": "warlock-101-race",
+   "type": "mcq",
+   "stem": "Which racial makes non-periodic abilities 10% cheaper and stronger for 8 sec?",
+   "choices": [
+    "Eureka!",
+    "Ruthless",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "That is the Gnome's Eureka!. Ruthless is the Human crit racial and Wind-Blessed the Skyborne haste racial.",
+   "facts": [
+    "common.racial-gnome-eureka"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-warlock.healthstones",
+   "scope": "class:warlock",
+   "tier": 201,
+   "chapter": "warlock-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which Warlock tool heals outside the potion cooldown?",
+   "choices": [
+    "Healthstones",
+    "Soulstone"
+   ],
+   "answer": 0,
+   "explanation": "Healthstones heal outside the potion cooldown. The Soulstone gives a combat resurrection.",
+   "facts": [
+    "class-warlock.healthstones-and-soulstone"
+   ]
+  },
+  {
+   "id": "class-warlock.onyxia-size",
+   "scope": "class:warlock",
+   "tier": 201,
+   "chapter": "warlock-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which launch raid is the 40-player raid?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps is for 10 players, Hyjal Summit for 20 and Onyxia's Lair for 40; all three open on 9 December 2026.",
+   "facts": [
+    "class-warlock.launch-raids"
+   ]
+  },
+  {
+   "id": "class-warlock.improved-drains-spells",
+   "scope": "spec:warlock-affliction",
+   "tier": 101,
+   "chapter": "warlock-affliction-101-talents",
+   "type": "mcq",
+   "stem": "In the current talent data, which spells does Improved Drains strengthen?",
+   "choices": [
+    "Drain Life, Drain Soul, and Drain Mana",
+    "Drain Life, Drain Mana, Drain Soul, and Wrack"
+   ],
+   "answer": 0,
+   "explanation": "Improved Drains covers Drain Life, Drain Soul and Drain Mana. The list with Wrack belongs to Fel Concentration, which protects those spells from pushback.",
+   "facts": [
+    "talents-warlock.affliction-improved-drains.r1",
+    "talents-warlock.affliction-fel-concentration.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.wrack-duration",
+   "scope": "spec:warlock-affliction",
+   "tier": 101,
+   "chapter": "warlock-affliction-101-rotation",
+   "type": "mcq",
+   "stem": "How long does a Wrack channel last?",
+   "choices": [
+    "6 sec",
+    "1 sec"
+   ],
+   "answer": 0,
+   "explanation": "Wrack channels for 6 sec and deals its Shadow damage every 1 sec.",
+   "facts": [
+    "talents-warlock.affliction-wrack.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.wrack-faster",
+   "scope": "spec:warlock-affliction",
+   "tier": 101,
+   "chapter": "warlock-affliction-101-rotation",
+   "type": "mcq",
+   "stem": "While you channel Wrack, how much faster do your Siphon Life, Corruption and Bane of Agony deal their periodic damage?",
+   "choices": [
+    "100%",
+    "10%",
+    "2%"
+   ],
+   "answer": 0,
+   "explanation": "They deal their periodic damage 100% faster while you channel. Older guides said Wrack added 10% to your other DoTs; the current data replaced that. 2% is Improved Corruption's damage bonus per rank.",
+   "facts": [
+    "talents-warlock.affliction-wrack.r1",
+    "talents-warlock.affliction-improved-corruption.r1",
+    "talents-warlock.affliction-improved-corruption.r5"
+   ]
+  },
+  {
+   "id": "class-warlock.nightfall-instant",
+   "scope": "spec:warlock-affliction",
+   "tier": 101,
+   "chapter": "warlock-affliction-101-rotation",
+   "type": "mcq",
+   "stem": "Nightfall's Shadow Trance makes your next cast of which spell instant?",
+   "choices": [
+    "Shadow Bolt",
+    "Corruption",
+    "Drain Life"
+   ],
+   "answer": 0,
+   "explanation": "Corruption, Drain Soul, Drain Life and Wrack can start a Shadow Trance, and the Trance removes the cast time of your next Shadow Bolt.",
+   "facts": [
+    "talents-warlock.affliction-nightfall.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.exhaustion-slow",
+   "scope": "spec:warlock-affliction",
+   "tier": 101,
+   "chapter": "warlock-affliction-101-curses",
+   "type": "mcq",
+   "stem": "Without Amplify Curse, how much does Curse of Exhaustion slow its target?",
+   "choices": [
+    "30%",
+    "20%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Curse of Exhaustion reduces movement speed by 30% for 12 sec. Amplify Curse makes it 20% stronger; its 50% applies to Curse of Weakness and Bane of Agony.",
+   "facts": [
+    "talents-warlock.affliction-curse-of-exhaustion.r1",
+    "talents-warlock.affliction-amplify-curse.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.soul-siphon-cap",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-talents",
+   "type": "scenario",
+   "stem": "You have Soul Siphon at 3/3, and your Corruption, Siphon Life and Bane of Agony are all on the target. What is the most Soul Siphon adds to your Drain Life?",
+   "choices": [
+    "36%",
+    "12%",
+    "24%"
+   ],
+   "answer": 0,
+   "explanation": "At 3/3 Soul Siphon adds 12% per effect, up to a maximum of 36%. 24% is the cap at rank 2.",
+   "facts": [
+    "talents-warlock.affliction-soul-siphon.r3"
+   ],
+   "distractorFacts": [
+    "talents-warlock.affliction-soul-siphon.r2"
+   ]
+  },
+  {
+   "id": "class-warlock.hit-talent",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-priorities",
+   "type": "mcq",
+   "stem": "Which talent is the Warlock's source of spell hit?",
+   "choices": [
+    "Suppression",
+    "Malevolence",
+    "Pandemic"
+   ],
+   "answer": 0,
+   "explanation": "Suppression gives up to 5% hit with all spells. Malevolence adds Shadow crit and Pandemic raises the crit damage bonus of DoTs and drains.",
+   "facts": [
+    "class-warlock.warlock-hit-from-talents",
+    "class-warlock.shadow-crit"
+   ]
+  },
+  {
+   "id": "class-warlock.classic-hit-cap",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much spell hit did you need against bosses three levels higher?",
+   "choices": [
+    "16%",
+    "3%"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 it was 16% against bosses three levels higher and 3% against same-level targets. No Forever value has been published.",
+   "facts": [
+    "class-warlock.classic-1-12-hit-cap-reference-only"
+   ]
+  },
+  {
+   "id": "class-warlock.healing-potions",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-consumables",
+   "type": "mcq",
+   "stem": "Which profession makes healing potions in Forever?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions moved to First Aid. Alchemists still brew flasks, at a portable Alchemy Laboratory camp object.",
+   "facts": [
+    "class-warlock.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-warlock.major-healthstone",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-consumables",
+   "type": "mcq",
+   "stem": "In the datamined files, how much does the Major Healthstone heal?",
+   "choices": [
+    "1,440",
+    "1,200"
+   ],
+   "answer": 0,
+   "explanation": "The files show 1,440, as if fully talented. 1,200 is the untalented Classic value. Blizzard has not confirmed the Forever number.",
+   "facts": [
+    "class-warlock.healthstones"
+   ]
+  },
+  {
+   "id": "class-warlock.sacrifice-shadow",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-raid",
+   "type": "mcq",
+   "stem": "Which demon do you sacrifice with Demonic Sacrifice for more Shadow damage?",
+   "choices": [
+    "Imp",
+    "Succubus or Incubus",
+    "Voidwalker",
+    "Felhunter"
+   ],
+   "answer": 0,
+   "explanation": "The Imp gives 15% more Shadow damage. The Succubus or Incubus gives Fire damage, the Voidwalker mana and the Felhunter health.",
+   "facts": [
+    "class-warlock.demonic-sacrifice-snapshot"
+   ]
+  },
+  {
+   "id": "class-warlock.amplify-exhaustion",
+   "scope": "spec:warlock-affliction",
+   "tier": 201,
+   "chapter": "warlock-affliction-201-pvp",
+   "type": "scenario",
+   "stem": "You cast Amplify Curse, then Curse of Exhaustion on a Rogue. How much stronger does Amplify Curse make the slow?",
+   "choices": [
+    "20%",
+    "50%",
+    "30%"
+   ],
+   "answer": 0,
+   "explanation": "Amplify Curse raises your next Curse of Exhaustion by 20%. The 50% is for Curse of Weakness and Bane of Agony, and 30% is the curse's own slow.",
+   "facts": [
+    "talents-warlock.affliction-amplify-curse.r1",
+    "talents-warlock.affliction-curse-of-exhaustion.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.fel-domination-cast",
+   "scope": "spec:warlock-demonology",
+   "tier": 101,
+   "chapter": "warlock-demonology-101-talents",
+   "type": "mcq",
+   "stem": "How much does Fel Domination cut your next summon's casting time?",
+   "choices": [
+    "5.5 sec",
+    "2 sec",
+    "4 sec"
+   ],
+   "answer": 0,
+   "explanation": "Fel Domination cuts it by 5.5 sec and the mana cost by 50%. 2 sec and 4 sec are Master Summoner at rank 1 and rank 2.",
+   "facts": [
+    "talents-warlock.demonology-fel-domination.r1",
+    "talents-warlock.demonology-master-summoner.r1",
+    "talents-warlock.demonology-master-summoner.r2"
+   ]
+  },
+  {
+   "id": "class-warlock.brand-threat",
+   "scope": "spec:warlock-demonology",
+   "tier": 101,
+   "chapter": "warlock-demonology-101-rotation",
+   "type": "mcq",
+   "stem": "Which kind of Demonic Brand damage carries high threat?",
+   "choices": [
+    "Shadow",
+    "Fire"
+   ],
+   "answer": 0,
+   "explanation": "The brand deals Fire or Shadow damage depending on the pet, and only Shadow damage has high threat.",
+   "facts": [
+    "talents-warlock.demonology-demonic-brand.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.decimation-threshold",
+   "scope": "spec:warlock-demonology",
+   "tier": 101,
+   "chapter": "warlock-demonology-101-rotation",
+   "type": "mcq",
+   "stem": "Below what health must the enemy be for Decimation's Soul Fire bonus?",
+   "choices": [
+    "35%",
+    "45%",
+    "20%"
+   ],
+   "answer": 0,
+   "explanation": "Shadow Bolt or Searing Pain on an enemy below 35% health triggers it. 45% is the Soul Fire cooldown cut and 20% the cast time cut at rank 1.",
+   "facts": [
+    "talents-warlock.demonology-decimation.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.md-fire",
+   "scope": "spec:warlock-demonology",
+   "tier": 101,
+   "chapter": "warlock-demonology-101-tips",
+   "type": "mcq",
+   "stem": "With Master Demonologist, which demon gives you more Fire damage?",
+   "choices": [
+    "Imp",
+    "Succubus/Incubus",
+    "Voidwalker"
+   ],
+   "answer": 0,
+   "explanation": "The Imp gives Fire damage, the Succubus or Incubus Shadow damage and the Voidwalker less Physical damage taken. Demonic Sacrifice pairs the other way round.",
+   "facts": [
+    "talents-warlock.demonology-master-demonologist.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.pact-cancel",
+   "scope": "spec:warlock-demonology",
+   "tier": 201,
+   "chapter": "warlock-demonology-201-talents",
+   "type": "mcq",
+   "stem": "With Demonic Pact, what still cancels your Demonic Sacrifice effect?",
+   "choices": [
+    "Resummoning the sacrificed pet",
+    "Summoning a different Demon pet"
+   ],
+   "answer": 0,
+   "explanation": "Demonic Pact stops a different demon from cancelling the effect; resummoning the pet you sacrificed still cancels it.",
+   "facts": [
+    "talents-warlock.demonology-demonic-pact.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.hit-tree",
+   "scope": "spec:warlock-demonology",
+   "tier": 201,
+   "chapter": "warlock-demonology-201-priorities",
+   "type": "mcq",
+   "stem": "Which tree holds the Warlock's hit talent?",
+   "choices": [
+    "Affliction",
+    "Demonology",
+    "Destruction"
+   ],
+   "answer": 0,
+   "explanation": "Suppression, on Affliction row 1, is the hit talent. Neither Demonology nor Destruction has one.",
+   "facts": [
+    "class-warlock.hit-for-demonology-snapshot",
+    "class-warlock.hit-for-destruction-snapshot"
+   ]
+  },
+  {
+   "id": "class-warlock.firestone-2",
+   "scope": "spec:warlock-demonology",
+   "tier": 201,
+   "chapter": "warlock-demonology-201-consumables",
+   "type": "mcq",
+   "stem": "Which stone adds Fire damage and spell crit?",
+   "choices": [
+    "Firestone",
+    "Spellstone"
+   ],
+   "answer": 0,
+   "explanation": "Firestone adds Fire damage and spell crit, Spellstone Shadow damage and spell haste; both stack with Wizard Oil.",
+   "facts": [
+    "class-warlock.weapon-imbue-2"
+   ]
+  },
+  {
+   "id": "class-warlock.felhunter-utility",
+   "scope": "spec:warlock-demonology",
+   "tier": 201,
+   "chapter": "warlock-demonology-201-raid",
+   "type": "mcq",
+   "stem": "Which demon brings Spell Lock and Devour Magic?",
+   "choices": [
+    "Felhunter",
+    "Imp"
+   ],
+   "answer": 0,
+   "explanation": "The Felhunter has Spell Lock and Devour Magic; the Imp brings Blood Pact and Fire Shield.",
+   "facts": [
+    "class-warlock.pet-utility"
+   ]
+  },
+  {
+   "id": "class-warlock.soul-link-share",
+   "scope": "spec:warlock-demonology",
+   "tier": 201,
+   "chapter": "warlock-demonology-201-pvp",
+   "type": "mcq",
+   "stem": "With Soul Link active, how much of the damage you take goes to your demon?",
+   "choices": [
+    "30%",
+    "3%"
+   ],
+   "answer": 0,
+   "explanation": "30% of the damage you take goes to the demon. The 3% is the extra damage you and the demon both deal.",
+   "facts": [
+    "talents-warlock.demonology-soul-link.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.aftermath-daze",
+   "scope": "spec:warlock-destruction",
+   "tier": 101,
+   "chapter": "warlock-destruction-101-talents",
+   "type": "mcq",
+   "stem": "With one point in Aftermath, what chance does Conflagrate have to Daze the target?",
+   "choices": [
+    "20%",
+    "10%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives a 20% chance to Daze. The 10% is Immolate's extra initial damage, and the Daze slows by 50%.",
+   "facts": [
+    "talents-warlock.destruction-aftermath.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.incinerate-immolate",
+   "scope": "spec:warlock-destruction",
+   "tier": 101,
+   "chapter": "warlock-destruction-101-rotation",
+   "type": "mcq",
+   "stem": "Incinerate deals extra damage to a target afflicted by which of your spells?",
+   "choices": [
+    "Immolate",
+    "Bane of Havoc"
+   ],
+   "answer": 0,
+   "explanation": "Incinerate deals 25% more to a target afflicted by Immolate. Bane of Havoc is the talent Incinerate requires.",
+   "facts": [
+    "talents-warlock.destruction-incinerate.r1",
+    "talents-warlock.destruction-incinerate"
+   ]
+  },
+  {
+   "id": "class-warlock.shadow-and-flame-immolate",
+   "scope": "spec:warlock-destruction",
+   "tier": 101,
+   "chapter": "warlock-destruction-101-rotation",
+   "type": "mcq",
+   "stem": "With Shadow and Flame at 5/5, what chance does Conflagrate have not to consume Immolate?",
+   "choices": [
+    "100% chance",
+    "20% chance"
+   ],
+   "answer": 0,
+   "explanation": "At 5/5 Conflagrate never consumes Immolate. At rank 1 the chance is 20%.",
+   "facts": [
+    "talents-warlock.destruction-shadow-and-flame.r5"
+   ],
+   "distractorFacts": [
+    "talents-warlock.destruction-shadow-and-flame.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.pyroclasm-stun",
+   "scope": "spec:warlock-destruction",
+   "tier": 101,
+   "chapter": "warlock-destruction-101-tips",
+   "type": "mcq",
+   "stem": "At rank 1, what chance does Pyroclasm give Soul Fire to stun the target?",
+   "choices": [
+    "13%",
+    "26%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives 13% and rank 2 26%, for a 3 sec stun.",
+   "facts": [
+    "talents-warlock.destruction-pyroclasm.r1"
+   ],
+   "distractorFacts": [
+    "talents-warlock.destruction-pyroclasm.r2"
+   ]
+  },
+  {
+   "id": "class-warlock.bane-soul-fire",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-talents",
+   "type": "mcq",
+   "stem": "With Bane at 5/5, how much faster is Soul Fire's cast?",
+   "choices": [
+    "2 sec",
+    "0.5 sec",
+    "0.4 sec"
+   ],
+   "answer": 0,
+   "explanation": "Bane at 5/5 cuts Soul Fire by 2 sec and Shadow Bolt, Immolate and Incinerate by 0.5 sec. 0.4 sec is Soul Fire at rank 1.",
+   "facts": [
+    "talents-warlock.destruction-bane.r5"
+   ],
+   "distractorFacts": [
+    "talents-warlock.destruction-bane.r1"
+   ]
+  },
+  {
+   "id": "class-warlock.incinerate-bonus",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-priorities",
+   "type": "mcq",
+   "stem": "How much extra damage does Incinerate deal to a target afflicted by Immolate?",
+   "choices": [
+    "25%",
+    "3%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Incinerate deals 25% more to an Immolated target. 3% and 10% are Agonizing Flames' damage bonus for one point and at 3/3.",
+   "facts": [
+    "class-warlock.incinerate"
+   ],
+   "distractorFacts": [
+    "class-warlock.destruction-damage-snapshot"
+   ]
+  },
+  {
+   "id": "class-warlock.classic-always-miss",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, what share of spells always missed?",
+   "choices": [
+    "1%",
+    "16%"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12, 1% of spells always missed, and casters needed 16% spell hit against bosses three levels higher.",
+   "facts": [
+    "class-warlock.classic-1-12-hit-cap-reference-only-2"
+   ]
+  },
+  {
+   "id": "class-warlock.spellstone-shadow-bolt",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-consumables",
+   "type": "mcq",
+   "stem": "Which stone matches Shadow Bolt?",
+   "choices": [
+    "Spellstone",
+    "Firestone"
+   ],
+   "answer": 0,
+   "explanation": "Spellstone adds Shadow damage and spell haste, which suits Shadow Bolt. Firestone suits Incinerate and Conflagrate.",
+   "facts": [
+    "class-warlock.weapon-imbue-3"
+   ]
+  },
+  {
+   "id": "class-warlock.onyxia-cloak",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much fire resistance does the Onyxia Scale Cloak give?",
+   "choices": [
+    "+16",
+    "+15"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 the Onyxia Scale Cloak gives +16; the Drakefire Amulet, Juju Ember and the cloak enchant give +15 each.",
+   "facts": [
+    "class-warlock.classic-1-12-fire-resistance-sources-reference"
+   ]
+  },
+  {
+   "id": "class-warlock.havoc-share",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-raid",
+   "type": "mcq",
+   "stem": "What share of the damage you deal to other targets does your Bane of Havoc target also take?",
+   "choices": [
+    "15%",
+    "3%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "The Bane of Havoc target takes 15% of the damage you deal to other targets. 3% is Cataclysm's mana saving for one point and 10% its saving at 3/3.",
+   "facts": [
+    "class-warlock.bane-of-havoc"
+   ],
+   "distractorFacts": [
+    "class-warlock.mana-snapshot"
+   ]
+  },
+  {
+   "id": "class-warlock.aftermath-max",
+   "scope": "spec:warlock-destruction",
+   "tier": 201,
+   "chapter": "warlock-destruction-201-pvp",
+   "type": "mcq",
+   "stem": "At Aftermath 5/5, what chance does Conflagrate have to Daze the target?",
+   "choices": [
+    "100%",
+    "20%",
+    "60%"
+   ],
+   "answer": 0,
+   "explanation": "At 5/5 every Conflagrate Dazes the target. Rank 1 gives 20% and rank 3 60%.",
+   "facts": [
+    "talents-warlock.destruction-aftermath.r5"
+   ],
+   "distractorFacts": [
+    "talents-warlock.destruction-aftermath.r1",
+    "talents-warlock.destruction-aftermath.r3"
+   ]
+  }
+ ]
+}

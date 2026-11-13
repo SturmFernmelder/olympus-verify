@@ -1,0 +1,1253 @@
+{
+ "schema": "olympus-university-index-v1",
+ "reviewedAt": "2026-11-12",
+ "scopeNote": "Olympus University cites Blizzard’s notes, the talent calculator’s 10 November data and published Forever guides. Every fact carries a grade and a source, Classic 1.12 numbers are labelled, and anything not known yet says so.",
+ "grades": {
+  "A": "Talent data: the calculator’s 10 November 2026 export, with server hotfixes",
+  "B": "Official Blizzard announcement, notes or developer Q&A for Forever",
+  "C": "Published Forever guide or community source",
+  "D": "Derived estimate from Classic reference — not Forever-verified",
+  "E": "Classic reference — not Forever-verified",
+  "U": "Unavailable"
+ },
+ "guides": [
+  {
+   "kind": "class",
+   "id": "warrior",
+   "name": "Warrior",
+   "file": "courses/warrior.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "arms",
+     "name": "Arms",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "fury",
+     "name": "Fury",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "protection",
+     "name": "Protection",
+     "roles": [
+      "tank"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:warrior",
+     "tier": "101",
+     "questions": 62
+    },
+    {
+     "scope": "class:warrior",
+     "tier": "201",
+     "questions": 52
+    },
+    {
+     "scope": "spec:warrior-arms",
+     "tier": "101",
+     "questions": 26
+    },
+    {
+     "scope": "spec:warrior-arms",
+     "tier": "201",
+     "questions": 18
+    },
+    {
+     "scope": "spec:warrior-fury",
+     "tier": "101",
+     "questions": 24
+    },
+    {
+     "scope": "spec:warrior-fury",
+     "tier": "201",
+     "questions": 17
+    },
+    {
+     "scope": "spec:warrior-protection",
+     "tier": "101",
+     "questions": 24
+    },
+    {
+     "scope": "spec:warrior-protection",
+     "tier": "201",
+     "questions": 19
+    }
+   ],
+   "chapters": {
+    "written": 28,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "paladin",
+   "name": "Paladin",
+   "file": "courses/paladin.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "holy",
+     "name": "Holy",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "protection",
+     "name": "Protection",
+     "roles": [
+      "tank"
+     ]
+    },
+    {
+     "id": "retribution",
+     "name": "Retribution",
+     "roles": [
+      "melee"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:paladin",
+     "tier": "101",
+     "questions": 76
+    },
+    {
+     "scope": "class:paladin",
+     "tier": "201",
+     "questions": 58
+    },
+    {
+     "scope": "spec:paladin-holy",
+     "tier": "101",
+     "questions": 34
+    },
+    {
+     "scope": "spec:paladin-holy",
+     "tier": "201",
+     "questions": 23
+    },
+    {
+     "scope": "spec:paladin-protection",
+     "tier": "101",
+     "questions": 33
+    },
+    {
+     "scope": "spec:paladin-protection",
+     "tier": "201",
+     "questions": 19
+    },
+    {
+     "scope": "spec:paladin-retribution",
+     "tier": "101",
+     "questions": 33
+    },
+    {
+     "scope": "spec:paladin-retribution",
+     "tier": "201",
+     "questions": 22
+    }
+   ],
+   "chapters": {
+    "written": 29,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "hunter",
+   "name": "Hunter",
+   "file": "courses/hunter.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "beast-mastery",
+     "name": "Beast Mastery",
+     "roles": [
+      "ranged"
+     ]
+    },
+    {
+     "id": "marksmanship",
+     "name": "Marksmanship",
+     "roles": [
+      "ranged"
+     ]
+    },
+    {
+     "id": "survival",
+     "name": "Survival",
+     "roles": [
+      "melee",
+      "ranged"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:hunter",
+     "tier": "101",
+     "questions": 69
+    },
+    {
+     "scope": "class:hunter",
+     "tier": "201",
+     "questions": 43
+    },
+    {
+     "scope": "class:hunter",
+     "tier": "301",
+     "questions": 3
+    },
+    {
+     "scope": "spec:hunter-beast-mastery",
+     "tier": "101",
+     "questions": 33
+    },
+    {
+     "scope": "spec:hunter-beast-mastery",
+     "tier": "201",
+     "questions": 15
+    },
+    {
+     "scope": "spec:hunter-beast-mastery",
+     "tier": "301",
+     "questions": 1
+    },
+    {
+     "scope": "spec:hunter-marksmanship",
+     "tier": "101",
+     "questions": 32
+    },
+    {
+     "scope": "spec:hunter-marksmanship",
+     "tier": "201",
+     "questions": 15
+    },
+    {
+     "scope": "spec:hunter-marksmanship",
+     "tier": "301",
+     "questions": 1
+    },
+    {
+     "scope": "spec:hunter-survival",
+     "tier": "101",
+     "questions": 32
+    },
+    {
+     "scope": "spec:hunter-survival",
+     "tier": "201",
+     "questions": 17
+    },
+    {
+     "scope": "spec:hunter-survival",
+     "tier": "301",
+     "questions": 1
+    }
+   ],
+   "chapters": {
+    "written": 33,
+    "waiting": [
+     3,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "rogue",
+   "name": "Rogue",
+   "file": "courses/rogue.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "assassination",
+     "name": "Assassination",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "combat",
+     "name": "Combat",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "subtlety",
+     "name": "Subtlety",
+     "roles": [
+      "melee"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:rogue",
+     "tier": "101",
+     "questions": 68
+    },
+    {
+     "scope": "class:rogue",
+     "tier": "201",
+     "questions": 56
+    },
+    {
+     "scope": "class:rogue",
+     "tier": "301",
+     "questions": 5
+    },
+    {
+     "scope": "spec:rogue-assassination",
+     "tier": "101",
+     "questions": 26
+    },
+    {
+     "scope": "spec:rogue-assassination",
+     "tier": "201",
+     "questions": 21
+    },
+    {
+     "scope": "spec:rogue-assassination",
+     "tier": "301",
+     "questions": 2
+    },
+    {
+     "scope": "spec:rogue-combat",
+     "tier": "101",
+     "questions": 29
+    },
+    {
+     "scope": "spec:rogue-combat",
+     "tier": "201",
+     "questions": 21
+    },
+    {
+     "scope": "spec:rogue-subtlety",
+     "tier": "101",
+     "questions": 27
+    },
+    {
+     "scope": "spec:rogue-subtlety",
+     "tier": "201",
+     "questions": 18
+    },
+    {
+     "scope": "spec:rogue-subtlety",
+     "tier": "301",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 33,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "priest",
+   "name": "Priest",
+   "file": "courses/priest.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "discipline",
+     "name": "Discipline",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "holy",
+     "name": "Holy",
+     "roles": [
+      "healer"
+     ]
+    },
+    {
+     "id": "shadow",
+     "name": "Shadow",
+     "roles": [
+      "caster"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:priest",
+     "tier": "101",
+     "questions": 72
+    },
+    {
+     "scope": "class:priest",
+     "tier": "201",
+     "questions": 51
+    },
+    {
+     "scope": "spec:priest-discipline",
+     "tier": "101",
+     "questions": 33
+    },
+    {
+     "scope": "spec:priest-discipline",
+     "tier": "201",
+     "questions": 19
+    },
+    {
+     "scope": "spec:priest-holy",
+     "tier": "101",
+     "questions": 30
+    },
+    {
+     "scope": "spec:priest-holy",
+     "tier": "201",
+     "questions": 17
+    },
+    {
+     "scope": "spec:priest-shadow",
+     "tier": "101",
+     "questions": 31
+    },
+    {
+     "scope": "spec:priest-shadow",
+     "tier": "201",
+     "questions": 19
+    }
+   ],
+   "chapters": {
+    "written": 30,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "shaman",
+   "name": "Shaman",
+   "file": "courses/shaman.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "elemental",
+     "name": "Elemental",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "enhancement",
+     "name": "Enhancement",
+     "roles": [
+      "melee"
+     ]
+    },
+    {
+     "id": "restoration",
+     "name": "Restoration",
+     "roles": [
+      "healer"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:shaman",
+     "tier": "101",
+     "questions": 67
+    },
+    {
+     "scope": "class:shaman",
+     "tier": "201",
+     "questions": 45
+    },
+    {
+     "scope": "spec:shaman-elemental",
+     "tier": "101",
+     "questions": 29
+    },
+    {
+     "scope": "spec:shaman-elemental",
+     "tier": "201",
+     "questions": 18
+    },
+    {
+     "scope": "spec:shaman-enhancement",
+     "tier": "101",
+     "questions": 31
+    },
+    {
+     "scope": "spec:shaman-enhancement",
+     "tier": "201",
+     "questions": 16
+    },
+    {
+     "scope": "spec:shaman-restoration",
+     "tier": "101",
+     "questions": 27
+    },
+    {
+     "scope": "spec:shaman-restoration",
+     "tier": "201",
+     "questions": 17
+    }
+   ],
+   "chapters": {
+    "written": 29,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "mage",
+   "name": "Mage",
+   "file": "courses/mage.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "arcane",
+     "name": "Arcane",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "fire",
+     "name": "Fire",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "frost",
+     "name": "Frost",
+     "roles": [
+      "caster"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:mage",
+     "tier": "101",
+     "questions": 68
+    },
+    {
+     "scope": "class:mage",
+     "tier": "201",
+     "questions": 46
+    },
+    {
+     "scope": "class:mage",
+     "tier": "301",
+     "questions": 4
+    },
+    {
+     "scope": "spec:mage-arcane",
+     "tier": "101",
+     "questions": 29
+    },
+    {
+     "scope": "spec:mage-arcane",
+     "tier": "201",
+     "questions": 16
+    },
+    {
+     "scope": "spec:mage-arcane",
+     "tier": "301",
+     "questions": 2
+    },
+    {
+     "scope": "spec:mage-fire",
+     "tier": "101",
+     "questions": 27
+    },
+    {
+     "scope": "spec:mage-fire",
+     "tier": "201",
+     "questions": 19
+    },
+    {
+     "scope": "spec:mage-fire",
+     "tier": "301",
+     "questions": 1
+    },
+    {
+     "scope": "spec:mage-frost",
+     "tier": "101",
+     "questions": 28
+    },
+    {
+     "scope": "spec:mage-frost",
+     "tier": "201",
+     "questions": 19
+    },
+    {
+     "scope": "spec:mage-frost",
+     "tier": "301",
+     "questions": 1
+    }
+   ],
+   "chapters": {
+    "written": 32,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "warlock",
+   "name": "Warlock",
+   "file": "courses/warlock.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "affliction",
+     "name": "Affliction",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "demonology",
+     "name": "Demonology",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "destruction",
+     "name": "Destruction",
+     "roles": [
+      "caster"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:warlock",
+     "tier": "101",
+     "questions": 72
+    },
+    {
+     "scope": "class:warlock",
+     "tier": "201",
+     "questions": 42
+    },
+    {
+     "scope": "spec:warlock-affliction",
+     "tier": "101",
+     "questions": 31
+    },
+    {
+     "scope": "spec:warlock-affliction",
+     "tier": "201",
+     "questions": 18
+    },
+    {
+     "scope": "spec:warlock-demonology",
+     "tier": "101",
+     "questions": 33
+    },
+    {
+     "scope": "spec:warlock-demonology",
+     "tier": "201",
+     "questions": 12
+    },
+    {
+     "scope": "spec:warlock-destruction",
+     "tier": "101",
+     "questions": 30
+    },
+    {
+     "scope": "spec:warlock-destruction",
+     "tier": "201",
+     "questions": 16
+    }
+   ],
+   "chapters": {
+    "written": 29,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "class",
+   "id": "druid",
+   "name": "Druid",
+   "file": "courses/druid.json",
+   "status": "complete",
+   "specs": [
+    {
+     "id": "balance",
+     "name": "Balance",
+     "roles": [
+      "caster"
+     ]
+    },
+    {
+     "id": "feral-combat",
+     "name": "Feral Combat",
+     "roles": [
+      "tank",
+      "melee"
+     ]
+    },
+    {
+     "id": "restoration",
+     "name": "Restoration",
+     "roles": [
+      "healer"
+     ]
+    }
+   ],
+   "exams": [
+    {
+     "scope": "class:druid",
+     "tier": "101",
+     "questions": 64
+    },
+    {
+     "scope": "class:druid",
+     "tier": "201",
+     "questions": 39
+    },
+    {
+     "scope": "spec:druid-balance",
+     "tier": "101",
+     "questions": 24
+    },
+    {
+     "scope": "spec:druid-balance",
+     "tier": "201",
+     "questions": 15
+    },
+    {
+     "scope": "spec:druid-feral-combat",
+     "tier": "101",
+     "questions": 29
+    },
+    {
+     "scope": "spec:druid-feral-combat",
+     "tier": "201",
+     "questions": 13
+    },
+    {
+     "scope": "spec:druid-restoration",
+     "tier": "101",
+     "questions": 25
+    },
+    {
+     "scope": "spec:druid-restoration",
+     "tier": "201",
+     "questions": 15
+    }
+   ],
+   "chapters": {
+    "written": 29,
+    "waiting": [
+     1,
+     3,
+     12
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "alchemy",
+   "name": "Alchemy",
+   "type": "primary",
+   "file": "professions/alchemy.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:alchemy",
+     "tier": "101",
+     "questions": 4
+    },
+    {
+     "scope": "profession:alchemy",
+     "tier": "201",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 4,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "blacksmithing",
+   "name": "Blacksmithing",
+   "type": "primary",
+   "file": "professions/blacksmithing.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:blacksmithing",
+     "tier": "101",
+     "questions": 6
+    },
+    {
+     "scope": "profession:blacksmithing",
+     "tier": "201",
+     "questions": 2
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "enchanting",
+   "name": "Enchanting",
+   "type": "primary",
+   "file": "professions/enchanting.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:enchanting",
+     "tier": "101",
+     "questions": 4
+    },
+    {
+     "scope": "profession:enchanting",
+     "tier": "201",
+     "questions": 2
+    }
+   ],
+   "chapters": {
+    "written": 4,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "engineering",
+   "name": "Engineering",
+   "type": "primary",
+   "file": "professions/engineering.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:engineering",
+     "tier": "101",
+     "questions": 4
+    },
+    {
+     "scope": "profession:engineering",
+     "tier": "201",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "herbalism",
+   "name": "Herbalism",
+   "type": "gathering",
+   "file": "professions/herbalism.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:herbalism",
+     "tier": "101",
+     "questions": 6
+    },
+    {
+     "scope": "profession:herbalism",
+     "tier": "201",
+     "questions": 2
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "leatherworking",
+   "name": "Leatherworking",
+   "type": "primary",
+   "file": "professions/leatherworking.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:leatherworking",
+     "tier": "101",
+     "questions": 4
+    },
+    {
+     "scope": "profession:leatherworking",
+     "tier": "201",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "mining",
+   "name": "Mining",
+   "type": "gathering",
+   "file": "professions/mining.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:mining",
+     "tier": "101",
+     "questions": 5
+    },
+    {
+     "scope": "profession:mining",
+     "tier": "201",
+     "questions": 2
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "skinning",
+   "name": "Skinning",
+   "type": "gathering",
+   "file": "professions/skinning.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:skinning",
+     "tier": "101",
+     "questions": 5
+    },
+    {
+     "scope": "profession:skinning",
+     "tier": "201",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "tailoring",
+   "name": "Tailoring",
+   "type": "primary",
+   "file": "professions/tailoring.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:tailoring",
+     "tier": "101",
+     "questions": 5
+    },
+    {
+     "scope": "profession:tailoring",
+     "tier": "201",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 4,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "cooking",
+   "name": "Cooking",
+   "type": "secondary",
+   "file": "professions/cooking.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:cooking",
+     "tier": "101",
+     "questions": 5
+    },
+    {
+     "scope": "profession:cooking",
+     "tier": "201",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "fishing",
+   "name": "Fishing",
+   "type": "secondary",
+   "file": "professions/fishing.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:fishing",
+     "tier": "101",
+     "questions": 3
+    },
+    {
+     "scope": "profession:fishing",
+     "tier": "201",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 4,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "profession",
+   "id": "first-aid",
+   "name": "First Aid",
+   "type": "secondary",
+   "file": "professions/first-aid.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "profession:first-aid",
+     "tier": "101",
+     "questions": 4
+    },
+    {
+     "scope": "profession:first-aid",
+     "tier": "201",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     0,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "race",
+   "id": "dwarf",
+   "name": "Dwarf",
+   "file": "races/dwarf.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "race:dwarf",
+     "tier": "101",
+     "questions": 6
+    },
+    {
+     "scope": "race:dwarf",
+     "tier": "201",
+     "questions": 3
+    }
+   ],
+   "chapters": {
+    "written": 6,
+    "waiting": [
+     1,
+     0,
+     1
+    ]
+   }
+  },
+  {
+   "kind": "race",
+   "id": "gnome",
+   "name": "Gnome",
+   "file": "races/gnome.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "race:gnome",
+     "tier": "101",
+     "questions": 3
+    },
+    {
+     "scope": "race:gnome",
+     "tier": "201",
+     "questions": 1
+    }
+   ],
+   "chapters": {
+    "written": 4,
+    "waiting": [
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "kind": "race",
+   "id": "human",
+   "name": "Human",
+   "file": "races/human.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "race:human",
+     "tier": "101",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 2,
+    "waiting": [
+     1,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "kind": "race",
+   "id": "night-elf",
+   "name": "Night Elf",
+   "file": "races/night-elf.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "race:night-elf",
+     "tier": "101",
+     "questions": 4
+    }
+   ],
+   "chapters": {
+    "written": 2,
+    "waiting": [
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "kind": "race",
+   "id": "skyborne",
+   "name": "Skyborne (High Order)",
+   "file": "races/skyborne.json",
+   "status": "complete",
+   "exams": [
+    {
+     "scope": "race:skyborne",
+     "tier": "101",
+     "questions": 6
+    },
+    {
+     "scope": "race:skyborne",
+     "tier": "201",
+     "questions": 1
+    }
+   ],
+   "chapters": {
+    "written": 5,
+    "waiting": [
+     1,
+     0,
+     0
+    ]
+   }
+  }
+ ]
+}

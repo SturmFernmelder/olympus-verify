@@ -1,0 +1,102 @@
+/* Olympus University (Evergreen Stage 2, 12 Nov 2026). Scoped to .uni; colours follow app.css; no remote images or fonts.
+ * Mobile first: every grid collapses to one column, nothing sets a fixed width, touch targets are at least 44 px. */
+.uni{display:grid;gap:16px;min-width:0;overflow-wrap:anywhere}
+.uni h1{margin:0 0 4px;font-size:clamp(24px,4vw,34px);line-height:1.15}
+.uni h2{margin:0 0 10px;font-size:20px}
+.uni h3{margin:14px 0 6px;font-size:17px}
+.uni h4{margin:12px 0 4px;font-size:15px;color:var(--gold-soft)}
+.uni h5{margin:0 0 4px;font-size:15px}
+.uni :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.uni h3[tabindex="-1"]:focus{outline:none}
+.uni-visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.uni-head{display:flex;gap:14px;align-items:flex-start;min-width:0}
+.uni-head .uni-icon{width:56px;height:56px;flex:0 0 56px;border-radius:6px}
+.uni-lead{margin:0 0 6px;font-size:16px}
+.uni-icon{width:24px;height:24px;vertical-align:middle;border-radius:4px}
+.uni-crumbs{font-size:14px}
+.uni-crumbs a{display:inline-block;min-height:44px;min-width:44px;line-height:44px;text-align:center}
+.uni-section{min-width:0}
+.uni-notice{margin:0;padding:10px 12px;border:1px solid var(--brass);border-radius:8px;background:rgba(0,0,0,.25)}
+.uni-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))}
+.uni-card{border:1px solid rgba(188,154,82,.35);border-radius:8px;padding:10px 12px;min-width:0}
+.uni-card h3{margin:0 0 6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.uni-card a,.uni-list a,.uni-toc a,.uni-related a{display:inline-block;min-height:44px;line-height:44px;min-width:44px}
+.uni-card p{margin:0}
+.uni-complete{color:var(--green-soft)}
+.uni-list{margin:0;padding-left:20px}
+.uni-inline{display:flex;flex-wrap:wrap;gap:0 14px;margin:0;padding:0;list-style:none}
+.uni-list li{margin:2px 0}
+.uni-tracks ul,.uni-specs ul{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.uni-tracks a,.uni-specs a{display:inline-flex;align-items:center;gap:6px;min-height:44px}
+.uni-tracks a[aria-current="page"],.uni-specs a[aria-current="page"]{outline:2px solid var(--brass);outline-offset:1px;color:var(--gold)}
+.uni-toc{margin:0;padding-left:22px}
+.uni-toc>li{margin:4px 0}
+.uni-toc ul{margin:0;padding-left:18px}
+.uni-omitted{margin:4px 0 0;padding-left:22px;color:var(--muted,inherit);font-size:.9em}
+.uni-omitted>li{margin:4px 0;overflow-wrap:anywhere}
+.uni-chapter{padding:4px 0 12px;border-bottom:1px solid rgba(255,255,255,.08);min-width:0}
+.uni-chapter:last-child{border-bottom:0}
+.uni-chapter h3{scroll-margin-top:72px}
+.uni-unavailable{margin:6px 0}
+.uni-facts{margin:0;padding:0;list-style:none}
+.uni-fact{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.uni-fact-label{display:block;font-weight:600}
+.uni-fact[data-grade="D"],.uni-fact[data-grade="E"]{opacity:.92}
+.uni-grade{display:inline-block;min-width:22px;padding:0 6px;border:1px solid currentColor;border-radius:10px;font-size:12px;line-height:18px;text-align:center;text-decoration:none;cursor:help}
+.uni-grade[data-grade="A"],.uni-grade[data-grade="B"]{color:#9fd59f}
+.uni-grade[data-grade="C"]{color:#a9c8ef}
+.uni-grade[data-grade="D"],.uni-grade[data-grade="E"]{color:#e3c27a}
+.uni-grade[data-grade="U"]{color:#d0d0d0}
+.uni-recheck{display:block;font-size:13px;color:#e3c27a}
+.uni-sources,.uni-note{font-size:13px;opacity:.92}
+.uni-steps{margin:0;padding-left:22px}
+.uni-steps li{margin:4px 0}
+.uni-mistakes{margin:0}
+.uni-mistakes dt{font-weight:600;margin-top:8px}
+.uni-mistakes dd{margin:2px 0 0 16px}
+.uni-fix{font-weight:600;color:var(--green-soft)}
+.uni-presets{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.uni-preset{border:1px solid rgba(188,154,82,.35);border-radius:8px;padding:10px 12px;min-width:0}
+.uni .btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.uni .btn{min-height:44px;min-width:44px}
+.uni-quiz{margin-top:10px;padding:10px 12px;border:1px solid rgba(188,154,82,.5);border-radius:8px;min-width:0}
+.uni-question{margin:10px 0;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:8px;min-width:0}
+.uni-question legend{padding:0 4px;font-weight:600;max-width:100%;white-space:normal}
+.uni-choices{display:grid;gap:4px;margin-top:6px}
+.uni-choice{display:flex;align-items:center;gap:10px;min-height:44px}
+.uni-choice input{width:22px;height:22px;flex:0 0 22px;margin:0}
+.uni-choice label{flex:1;min-height:44px;display:flex;align-items:center;cursor:pointer}
+.uni-choice label[data-result="answer"]{color:var(--green-soft);font-weight:600}
+.uni-choice label[data-result="answer"]::after{content:" — correct answer";font-weight:400;font-size:13px}
+.uni-choice label[data-result="wrong"]{color:var(--red-soft);text-decoration:line-through}
+.uni-question[data-correct="true"]{border-color:rgba(126,224,126,.6)}
+.uni-question[data-correct="false"]{border-color:rgba(255,123,110,.6)}
+.uni-feedback p{margin:6px 0}
+.uni-summary{font-weight:600}
+.uni-result:not(:empty){padding:10px 12px;border:1px solid var(--gold);border-radius:8px}
+.uni-result:focus{outline:2px solid var(--gold);outline-offset:2px}
+.uni-best{margin:4px 0;padding-left:20px}
+.uni-export label{display:block;margin-top:8px}
+.uni-export-text{width:100%;max-width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.uni-legend summary{min-height:44px;line-height:44px;cursor:pointer}
+.uni-legend dl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:6px 0 0}
+.uni-legend dd{margin:0}
+/* Hub jump bar, section focus and the exam index (integrator, 12 Nov 2026). */
+.uni-hub-status{margin:0}
+.uni-jump ul{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.uni-section[tabindex="-1"]{scroll-margin-top:72px}
+.uni-section[tabindex="-1"]:focus{outline:none}
+.uni-section[tabindex="-1"]:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.uni-tools li{margin:2px 0}
+.uni-exam-group{padding:6px 0 10px;border-bottom:1px solid rgba(255,255,255,.08);min-width:0}
+.uni-exam-group:last-child{border-bottom:0}
+.uni-exam-group h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+.uni-exam-group h3 a{display:inline-block;min-height:44px;min-width:44px;line-height:44px}
+.uni-group-title{color:var(--gold-soft)}
+.uni-exam-rows{margin:0;padding:0;list-style:none}
+.uni-exam-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:4px 0;min-width:0}
+.uni-exam-label{flex:1 1 180px;min-width:0;font-weight:600}
+.uni-exam-tiers{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.uni-exam-tiers a{display:inline-flex;align-items:center;min-height:44px}
+.uni-exam-meta{font-weight:400}
+@media (max-width:420px){.uni-section{padding-left:12px;padding-right:12px}.uni-head .uni-icon{width:40px;height:40px;flex-basis:40px}}

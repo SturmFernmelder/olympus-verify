@@ -20,6 +20,9 @@ const discordLines219=(parts:readonly unknown[],separator:'\n'|'\n\n',max:number
  parts.map(part=>safeDiscordText219(part,max)).join(separator).slice(0,max);
 const field=(name:string,value:unknown)=>({name:safeDiscordText219(name,150),value:safeDiscordText219(value,1000)||'Unavailable'});
 const NOVEMBER_TALENT_NOTES219='https://us.forums.blizzard.com/en/wow/t/2360696/9';
+// Evergreen Stage 2 (owner ruling, 12 Nov 2026): codes made on the archived 16 October revision open read-only on the
+// website (talents/archive/); the Discord preview reads only the current contract. Keep equal to ARCHIVES in calculator.js.
+const ARCHIVED_TALENT_REVISIONS219:readonly string[]=['260cf99b52db'];
 type Any219=Record<string,any>;
 async function assetJson219(env:Env,a:GuildActor219,path:string):Promise<Any219> {
  if(!['/static/guides218.json','/static/governance/organization.json'].includes(path)||!await currentGuildActor219(env,a))throw Error('The guide could not be confirmed.');
@@ -34,10 +37,13 @@ export async function guideLookup219(env:Env,a:GuildActor219,sub:string,v:Record
  const base='https://'+destination(env)!.host;
  if(sub==='talent'){
   const build=talentBuildAttachment(v.build,destination(env)!.host);
-  if(!build?.code||!build.className||!build.level)throw Error('Paste a valid current Olympus talent code or its exact site share URL. Historical or third-party URLs are not fetched.');
+  if(!build?.code||!build.className||!build.level){
+   const pasted=typeof v.build==='string'?v.build:'',archived=ARCHIVED_TALENT_REVISIONS219.some(revision=>pasted.includes('ot1.'+revision+'.'));
+   throw Error(archived?'That build was made on the 16 October beta data. Open its link on the website, where it is shown read-only, or paste a current code.':'Paste a valid current Olympus talent code or its exact site share URL. Historical or third-party URLs are not fetched.');
+  }
   const ranks=build.code.split('.')[4]!,rows=TALENT_ATTACHMENT_CLASSES[build.className]!,specs=APPLICATION_SPECS_219[build.className]!;
   return {title:'Talent preview · '+build.className,url:base+'/#/talents/'+build.className+'/'+build.code,
-   description:'This preview shows the allocation encoded against the 16 October beta talent snapshot. Check the talents on your character in game before using the build.',
+   description:'This preview shows the allocation encoded against the 10 November talent data. Check the talents on your character in game before using the build.',
    fields:[field('Level / allocated points',build.level+' / '+build.points),...specs.map((spec,index)=>field(spec.label,rows.reduce((n,row,i)=>n+(row[2]===index?Number(ranks[i]):0),0)+' points')),
     field('Blizzard’s 2 November notes',NOVEMBER_TALENT_NOTES219)]};
  }
@@ -52,7 +58,7 @@ export async function guideLookup219(env:Env,a:GuildActor219,sub:string,v:Record
   if(specQuery&&!spec)throw Error('Choose a specialization for that class, or omit spec to see the class guide.');
   const presets=guide.presets.filter((row:Any219)=>row.classId===cls.id&&(!spec||row.specId===spec.id)).slice(0,4);
   const presetFields=presets.map((row:Any219)=>({name:safeDiscordText219(row.label,150),value:'[Open level '+row.level+' talent preset]('+base+'/#/talents/'+cls.id+'/'+row.code+')'}));
-  if(presetFields.length) presetFields.unshift(field('16 October beta builds','Check these builds against your current in-game talents and Blizzard’s 2 November notes: '+NOVEMBER_TALENT_NOTES219));
+  if(presetFields.length) presetFields.unshift(field('Talent builds','These builds use the 10 November talent data. Check them against your talents in game and Blizzard’s 2 November notes: '+NOVEMBER_TALENT_NOTES219));
   return {title:cls.name+(spec?' · '+spec.name:''),url:base+'/#/guides/class/'+cls.id+(spec?'/'+spec.id:''),description:discordLines219((spec?.beginner?.summary??cls.overview??[]).slice(0,2),'\n\n',1700),fields:presetFields,footer:{text:evidence}};
  }
  if(sub==='attunement'){

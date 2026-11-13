@@ -1,0 +1,951 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-priest",
+ "facts": [
+  {
+   "id": "class-priest.change-1",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Discipline tree in the 10 Nov talent data",
+   "value": "Discipline: Power in Light, Twin Disciplines, Holy Precision, Soul Warding, Penance, Renewed Hope and Divine Aegis are new. Unbreakable Will, Improved Power Word: Fortitude, Divine Spirit and Force of Will are gone, and the other 11 talents changed.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-discipline"
+  },
+  {
+   "id": "class-priest.change-2",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Every Priest now learns Fear Ward and Devouring Plague at 20; in Classic they were Dwarf and Undead racials. Divine Spirit is baseline at 30 and Shadow Word: Death at 32.",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-3",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Fade's threat drop is doubled. Prayer of Healing now heals the target's party and their pets instead of yours, and Renews from several Priests stack on one target.",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-4",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Holy Precision gives Holy spells hit so healing Priests can skip hit gear, and Silent Resolve now also shortens Stun, Fear and Silence. Improved Power Word: Fortitude and Divine Spirit became baseline.",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-5",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Shadowform now allows every non-healing spell, halves Shadow spell costs and doubles the crit damage bonus of Shadow spells, but its flat bonus is smaller (10% in the files vs Classic's 15%). Shadow Weaving now boosts only your own Shadow damage, so Shadow Priests no longer amplify Warlocks.",
+   "sources": [
+    "g218-46",
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-6",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Holy tree in the 10 Nov talent data",
+   "value": "Holy: Holy Binding, Litany of Light and Prayer of Mending are new. Improved Prayer of Healing and Lightwell are gone. Improved Renew, Holy Specialization, Spell Warding, Divine Fury and Holy Reach are unchanged from Classic 1.12, and the other 9 talents changed.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-holy"
+  },
+  {
+   "id": "class-priest.change-7",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Penance was retuned on 8 Oct: less damage and healing, with mana costs set so it stays more efficient than Heal and Greater Heal.",
+   "sources": [
+    "g218-48"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-8",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Blizzard replaced Binding Heal with Holy Binding. Flash Heal on an ally also heals you for half the amount without generating threat. Shadow Word: Death costs 30% of maximum health when it hits without killing and deals no backlash on a miss.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.change-9",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Shadow tree in the 10 Nov talent data",
+   "value": "Shadow: Improved Mind Flay, Dark Inspiration, Devouring Contagion and Early Demise are new. Shadow Affinity, Improved Fade and Improved Vampiric Embrace are gone. Blackout, Improved Mind Blast and Improved Shadow Word: Pain only moved, and the other 10 talents changed.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "priest-shadow"
+  },
+  {
+   "id": "class-priest.quest-racial-priest-spells",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Racial Priest spells (levels 10 and 20)",
+   "value": "Warcraft Tavern lists them as class-quest unlocks. Human: Divine Grace, Feedback. Dwarf: Desperate Prayer, Chastise. Night Elf: Starshards, Elune's Grace. Gnome: Confounding Flash, Contingency Plan.",
+   "sources": [
+    "g218-53",
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-baseline-spell",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Baseline at level 20: Fear Ward and Devouring Plague",
+   "value": "Every Priest race learns both now. In the files Fear Ward lasts 3 min on a 3 min cooldown (talentsforever).",
+   "sources": [
+    "g218-46",
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-baseline-spell",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Baseline at levels 30 and 32: Divine Spirit and Shadow Word: Death",
+   "value": "Both are baseline spells now. In the files Divine Spirit lasts 1 hour (was 30 min) and Prayer of Spirit covers the raid (talentsforever).",
+   "sources": [
+    "g218-46",
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.quest-benediction-and-anathema-classic",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Benediction and Anathema (Classic 1.12, level 60)",
+   "value": "Classic needs the Eye of Divinity (Majordomo Executus, Molten Core), the Eye of Shadow (Lord Kazzak or elite demons in the Blasted Lands and Winterspring) and Eris Havenfire's Splinter of Nordrassil quest. Unconfirmed in Forever: Molten Core is not a 9 Dec raid.",
+   "sources": [
+    "g218-59",
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-priest.quest-shadowmourne-is-not-a-priest-item",
+   "scope": {
+    "class": "priest"
+   },
+   "topic": "class-myth",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Shadowmourne is not a Priest item",
+   "value": "Shadowmourne is a legendary two-handed axe from Wrath of the Lich King patch 3.3.0, usable by Paladins, Death Knights and Warriors. It is not a Classic item.",
+   "sources": [
+    "g218-60"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-priest.hit-for-priests",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Hit for Priests",
+   "value": "Holy Precision: up to 18% hit with Holy spells (6% per rank in the files); Blizzard added it so healing Priests can skip hit gear",
+   "sources": [
+    "g218-46",
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.soul-warding-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Soul Warding",
+   "value": "Soul Warding cuts Power Word: Shield's cooldown by 4 sec and its mana cost by 15%. It requires Improved Power Word: Shield.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-soul-warding"
+  },
+  {
+   "id": "class-priest.penance",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Penance",
+   "value": "2 sec channel on a 12 sec cooldown; retuned on 8 Oct to stay more mana-efficient than Heal and Greater Heal",
+   "sources": [
+    "g218-46",
+    "g218-48"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.divine-aegis-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Divine Aegis",
+   "value": "Divine Aegis: your non-periodic critical heals leave a shield on the target worth 5% of the amount healed per rank (15% at rank 3), absorbing up to 1,200 damage for 12 sec.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-divine-aegis"
+  },
+  {
+   "id": "class-priest.intellect",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Intellect",
+   "value": "Mental Strength gives 2-10% Intellect since 16 Oct",
+   "sources": [
+    "g218-46",
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.power-infusion-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Power Infusion",
+   "value": "Power Infusion raises the target's spell damage and healing done by 20% for 15 sec. It requires Penance and has a 3 min cooldown.",
+   "sources": [
+    "talents-data",
+    "g218-52"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "note": "Warcraft Tavern expects it to stay in demand.",
+   "talent": "priest-discipline-power-infusion"
+  },
+  {
+   "id": "class-priest.fear-ward-for-every-priest",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Fear Ward for every Priest",
+   "value": "Every Priest race has Fear Ward at 20, so Alliance raids no longer depend on Dwarf Priests for it",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.raid-buffs-files",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid buffs (files)",
+   "value": "Prayer of Fortitude, Prayer of Spirit and Prayer of Shadow Protection cover all party and raid members; Power Word: Fortitude's top rank is 70 Stamina (Classic: 54)",
+   "note": "talentsforever datamine. A Gamewave report on the 16 Oct beta patch says Fortitude is still cast per group, so check it in game.",
+   "sources": [
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.threat-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Threat: Silent Resolve",
+   "value": "Silent Resolve: your spells generate 10% less threat per rank, up to 30% at rank 3.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-discipline-silent-resolve"
+  },
+  {
+   "id": "class-priest.prayer-of-healing",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Prayer of Healing",
+   "value": "Heals the target's party and their pets, so you can cover a group you are not in",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.launch-raids",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "From 9 Dec 2026: The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40, each raider carries a Drakefire Amulet)",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.onyxia",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia",
+   "value": "Blizzard tells raids to build fire resistance before Onyxia's Lair and gives no target number",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.classic-1-12-healer-kit-reference",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 healer kit (reference)",
+   "value": "Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Runn Tum Tuber Surprise, Sagefish Delight, wizard oils",
+   "sources": [
+    "g218-29"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-priest.forever-alchemy",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Forever alchemy",
+   "value": "Healing potions moved to First Aid, new elixirs include Minor Arcane Elixir, and flasks are brewed at a portable Alchemy Laboratory camp object",
+   "note": "Warcraft Tavern.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.camp-buffs",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Camp buffs",
+   "value": "Profession camp objects give weaker copies of class buffs that do not stack with the real ones; you sit at the camp for at least 1 minute",
+   "note": "Warcraft Tavern. Whether they last into raids is not stated.",
+   "sources": [
+    "g218-25",
+    "g218-26"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.world-buffs-in-raids",
+   "scope": {
+    "class": "priest",
+    "spec": "discipline"
+   },
+   "topic": "discipline-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Rallying Cry of the Dragonslayer is marked 'No effect while in a raid instance' in Forever data",
+   "note": "Wowhead Forever database.",
+   "sources": [
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.spiritual-guidance-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Spiritual Guidance",
+   "value": "Spiritual Guidance raises your spell healing by up to 5% of your total Spirit and your spell damage by up to 1% of it at rank 1, rising to 25% and 8% at rank 5.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-spiritual-guidance"
+  },
+  {
+   "id": "class-priest.human-spirit-racial",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Human Spirit racial",
+   "value": "+10% Spirit in the 26 Oct notes",
+   "sources": [
+    "g218-50"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.spiritual-healing-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Spiritual Healing",
+   "value": "Spiritual Healing has 3 ranks: your spells heal 3% more at the first and 10% more at the third.",
+   "sources": [
+    "talents-data",
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-spiritual-healing"
+  },
+  {
+   "id": "class-priest.improved-healing-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Improved Healing",
+   "value": "Improved Healing makes Lesser Heal, Heal, Greater Heal, Penance and Prayer of Mending cost 5% less per rank, up to 15% at rank 3.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-holy-improved-healing"
+  },
+  {
+   "id": "class-priest.prayer-of-mending",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Prayer of Mending",
+   "value": "10 sec cooldown; heals on the next damage taken or non-periodic heal, then jumps within 20 yards, up to 5 heals and one per target",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.heal-values-files",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-priority",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Heal values (files)",
+   "value": "From level 20 heals start lower than in Classic; the largest Greater Heal is about 6% under Classic for the same mana",
+   "note": "talentsforever datamine.",
+   "sources": [
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.renew-stacking",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Renew stacking",
+   "value": "Renews from several Priests can stack on one target",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.prayer-of-healing-2",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Prayer of Healing",
+   "value": "Heals the target's party and their pets, so you can heal a group you are not in",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.raid-buffs-files-2",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid buffs (files)",
+   "value": "Prayer of Fortitude, Prayer of Spirit and Prayer of Shadow Protection reach every party and raid member",
+   "note": "talentsforever datamine. A Gamewave report on the 16 Oct beta patch says Fortitude is still cast per group, so check it in game.",
+   "sources": [
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.threat",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Threat",
+   "value": "Fade's threat drop is doubled",
+   "sources": [
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.healer-rankings",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Healer rankings",
+   "value": null,
+   "note": "Icy Veins lists raid healer rankings as TBD, and no Forever raid logs exist yet.",
+   "sources": [
+    "g218-55"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.onyxia-2",
+   "scope": {
+    "class": "priest",
+    "spec": "holy"
+   },
+   "topic": "holy-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia",
+   "value": "Every raider carries their own Drakefire Amulet, and Blizzard asks raids to build fire resistance before the fight",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.shadow-hit-from-talents-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Shadow hit from talents",
+   "value": "Shadow Focus adds 1% hit with Shadow spells per rank and has 5 ranks.",
+   "sources": [
+    "talents-data",
+    "g218-46"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "note": "Blizzard moved it to row 1 and switched it from resist reduction to hit.",
+   "talent": "priest-shadow-shadow-focus"
+  },
+  {
+   "id": "class-priest.spell-hit-cap-against-raid-bosses-forever",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Spell hit cap against raid bosses (Forever)",
+   "value": null,
+   "note": "No official Forever value has been published.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.classic-1-12-hit-cap-reference-only",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 hit cap (reference only)",
+   "value": "16% spell hit against bosses three levels higher; 1% of spells always miss",
+   "sources": [
+    "g218-57"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-priest.extra-hit-for-dwarves",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Extra hit for Dwarves",
+   "value": "Artisan's Precision gives 1% hit with spells and attacks (added 26 Oct)",
+   "note": "Warcraft Tavern advises Shadow to cap hit as soon as possible.",
+   "sources": [
+    "g218-50",
+    "g218-52"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.shadowform-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Shadowform",
+   "value": "Shadowform adds 10% Shadow damage, makes Shadow spells cost 50% less, adds 100% to the critical strike damage bonus of Shadow spells and cuts Physical damage taken by 15%. You cannot cast healing spells in it.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-shadowform"
+  },
+  {
+   "id": "class-priest.darkness-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Darkness",
+   "value": "Darkness adds 2% Shadow damage per rank and has 5 ranks.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-darkness"
+  },
+  {
+   "id": "class-priest.shadow-weaving-is-personal",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Shadow Weaving is personal",
+   "value": "It now boosts only your own Shadow damage, so Shadow Priests no longer amplify Warlocks",
+   "note": "In the files: 2% per stack up to 10% with 3 ranks (Classic: raid-wide, 3% per stack up to 15%).",
+   "sources": [
+    "g218-46",
+    "g218-45"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.group-utility",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Group utility",
+   "value": "Vampiric Embrace, Dark Inspiration, Prayer buffs, Psychic Scream, Fear Ward, disease removal, Dispel Magic, Mind Control and Shackle Undead",
+   "note": "Icy Veins Forever.",
+   "sources": [
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.vampiric-embrace",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Vampiric Embrace",
+   "value": "Heals your party for 20% of your Shadow damage for 30 sec; 30 sec cooldown and no longer resistible since 16 Oct",
+   "sources": [
+    "g218-46",
+    "g218-49"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.dark-inspiration-snapshot",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Dark Inspiration",
+   "value": "Dark Inspiration: Mind Blast and a fully channeled Mind Flay raise your and your party's Spirit by 3% for 10 sec at rank 1, up to 15% at rank 5.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "priest-shadow-dark-inspiration"
+  },
+  {
+   "id": "class-priest.dps-rankings",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "DPS rankings",
+   "value": null,
+   "note": "Icy Veins lists raid DPS rankings as TBD, and no Forever raid logs exist yet.",
+   "sources": [
+    "g218-54"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-priest.classic-1-12-caster-kit-reference",
+   "scope": {
+    "class": "priest",
+    "spec": "shadow"
+   },
+   "topic": "shadow-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic 1.12 caster kit (reference)",
+   "value": "Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil, Major Mana Potion, Mageblood Potion, Demonic or Dark Rune, Nightfin Soup, Runn Tum Tuber Surprise",
+   "sources": [
+    "g218-58"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  }
+ ]
+}

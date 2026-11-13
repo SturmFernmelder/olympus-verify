@@ -1,0 +1,1009 @@
+{
+ "schema": "olympus-university-facts-v1",
+ "file": "class-warrior",
+ "facts": [
+  {
+   "id": "class-warrior.change-1",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Rage rework: Rage from your hits is normalized to weapon speed, so weapon damage no longer matters, and basic-attack crits give bonus Rage (100% since 1 Oct). Rage from damage taken now ignores armor and absorbs.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-2",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "New baseline abilities: Tactical Mastery (level 14) keeps 10 Rage on stance swaps, and Victory Rush (level 20) is an instant strike, usable for 20 seconds after you kill a non-trivial enemy, that heals 10% of your maximum health.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-3",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Recklessness, Retaliation and Shield Wall no longer share a cooldown, and Retaliation and Shield Wall are now 15-minute cooldowns.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-4",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Battle Shout's base Attack Power is lower, but the old Improved Battle Shout bonus is built in, and since 16 Oct the shout covers the whole raid.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-5",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Threat tools: Thunder Clap scales with Attack Power, works in Defensive Stance and has a 6-second cooldown. Sunder Armor threat scales with Attack Power, and Demoralizing Shout threatens every target it hits (8 Oct).",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-6",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Arms combines the old weapon specializations into Weaponmaster. The November notes make Improved Tactical Mastery three points and Bloodthrill two points, and shorten Slam to a 15-second base cooldown.",
+   "sources": [
+    "g218-0",
+    "g218-1",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-7",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Announced by Blizzard",
+   "value": "Fury now has Reckless Swings and Improved Whirlwind. Death Wish leads to Bloodthirst. Flurry has three ranks and no longer needs Death Wish.",
+   "sources": [
+    "g218-0",
+    "g218-1",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.change-8",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-change",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Talent data",
+   "value": "Protection: Toughness, Improved Shield Block and Improved Taunt are no longer in the tree. Master of Defense, Vanguard and Focused Rage are new, Improved Shield Bash moved, and every other Protection talent is marked changed.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warrior-protection"
+  },
+  {
+   "id": "class-warrior.quest-defensive-stance-quest",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Defensive Stance quest (Level 10)",
+   "value": "A race-specific quest unlocks Defensive Stance, and Taunt and Sunder Armor are trained after it. The Human version is the Bartleby quest, which rewards Bartleby's Mug.",
+   "sources": [
+    "g218-4"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.quest-race-armor-quests",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Race armor quests (Level 20)",
+   "value": "Forever leveling guides list race-specific armor quests at this level, for the Fire Hardened Hauberk or the Brutal Hauberk.",
+   "sources": [
+    "g218-4"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.quest-the-affray-berserker-stance",
+   "scope": {
+    "class": "warrior"
+   },
+   "topic": "class-quest",
+   "kind": "theory",
+   "grade": "C",
+   "label": "The Affray (Berserker Stance) (Level 30)",
+   "value": "Grants Berserker Stance (Warcraft Tavern says Intercept too) and leads into the Whirlwind Weapon quest chain.",
+   "sources": [
+    "g218-4"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.main-hand-hit-from-talents",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Main-hand hit from talents",
+   "value": "None. Furious Precision (Fury) is the only Warrior talent that adds hit, and it covers off-hand attacks only.",
+   "note": "Hit therefore comes from gear or the Dwarf racial.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-fury-furious-precision"
+  },
+  {
+   "id": "class-warrior.hit-cap-at-level-60",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "Blizzard has published no cap, and community estimates conflict.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.dwarf-and-human-racials",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Dwarf and Human racials",
+   "value": "Dwarf Artisan's Precision: +1% hit with spells and attacks. Human Ruthless: +1% crit (cut from 2% on 26 Oct).",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.weaponmaster-at-5-5",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Weaponmaster at 5/5",
+   "value": "+5% crit with axes and polearms, 15% of armor ignored with maces and staves, or a 5% chance of an extra attack with swords.",
+   "note": "Since 16 Oct, Shield Bash and Shield Slam no longer trigger the sword effect.",
+   "sources": [
+    "talents-data",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "talent": "warrior-arms-weaponmaster"
+  },
+  {
+   "id": "class-warrior.bloodthrill",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bloodthrill",
+   "value": "Main-hand attacks against your Rend target have a 10% or 20% chance to make Overpower available.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.slam",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Slam",
+   "value": "The base cooldown is 15 seconds. Improved Slam cuts it by 2.5 or 5 seconds, shortens the cast and global cooldown, and avoids delaying auto-attacks. The October notes made Slam ignore spell pushback.",
+   "sources": [
+    "g218-0",
+    "g218-1",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.raid-role",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid role",
+   "value": "Warcraft Tavern presents Arms as a battleground spec that is still viable in PvE, and names Fury as the PvE spec.",
+   "sources": [
+    "g218-5",
+    "g218-6"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.armor-reduction",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Armor reduction",
+   "value": "Sunder Armor can be applied even when a stronger Expose Armor is up, so Warriors and Rogues can both contribute.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.battle-shout",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Battle Shout",
+   "value": "Raid-wide since 16 Oct. Base Attack Power is lower, but the old Improved Battle Shout bonus is built in.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.recklessness-talentsforever-data",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Recklessness (talentsforever data)",
+   "value": "+100% crit chance for 15 seconds while you take 20% more damage. It no longer shares a cooldown with Retaliation or Shield Wall.",
+   "sources": [
+    "g218-3",
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.onyxias-lair-entry",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Every raider must carry their own Drakefire Amulet in their bags, and Blizzard tells raids to build fire resistance before the fight.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.launch-raids",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Launch raids",
+   "value": "Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026, all planned to reset weekly.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.world-buffs-in-raids",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Icy Veins' raid overview says world buffs are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'. Plan raid nights without them.",
+   "sources": [
+    "g218-11",
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.classic-melee-consumables",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic melee consumables",
+   "value": "Elixir of the Mongoose, Elixir of the Giants, Juju Power, Juju Might, Winterfall Firewater, R.O.I.D.S. and Elemental Sharpening Stone, plus Smoked Desert Dumplings.",
+   "sources": [
+    "g218-13"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warrior.flask-rule",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Flask rule",
+   "value": "One flask at a time, and it persists through death. Flask of the Titans gives +1200 maximum health for 2 hours.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warrior.elixir-of-the-grizzly",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Elixir of the Grizzly",
+   "value": "New in Forever: +25 Strength and +2% crit for 30 minutes, from a new Alchemy recipe (skill 300).",
+   "sources": [
+    "g218-9",
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.food",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Food",
+   "value": "Smoked Desert Dumplings keep +20 Strength in Forever, and Grilled Squid now gives +1% crit instead of Agility. Icy Veins says both need an Iron Oven camp object (Cooking 300).",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.healing-potions",
+   "scope": {
+    "class": "warrior",
+    "spec": "arms"
+   },
+   "topic": "arms-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Healing potions",
+   "value": "Made with First Aid instead of Alchemy in Forever.",
+   "sources": [
+    "g218-8"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.furious-precision",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Furious Precision",
+   "value": "+4/7/10% hit with off-hand attacks (1 Oct notes).",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.hit-cap-at-level-60-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap at level 60",
+   "value": null,
+   "note": "No Blizzard figure, and community estimates for dual-wield swings conflict.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.crit-and-rage",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Crit and Rage",
+   "value": "Basic-attack crits give 100% bonus Rage since 1 Oct (75% in the deep dive).",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.racials",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Racials",
+   "value": "Human Ruthless +1% crit and Dwarf Artisan's Precision +1% hit with spells and attacks (26 Oct). No racial grants weapon skill.",
+   "sources": [
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.flurry",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Flurry",
+   "value": "A critical strike grants 10%, 20% or 30% faster attacks for the next three swings, with no Death Wish prerequisite.",
+   "sources": [
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.bloodthirst-scaling",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Bloodthirst scaling",
+   "value": "45% of Attack Power plus a flat amount since 1 Oct (35% in the deep dive), with no heal.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.raid-role-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid role",
+   "value": "Warcraft Tavern's PvE pick for Warriors: dual-wield damage with strong Cleave and Whirlwind cleave.",
+   "sources": [
+    "g218-6"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.blizzards-class-view",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Blizzard's class view",
+   "value": "Warriors are uniquely good at sustained damage against several melee targets and bring buffs and debuffs only they provide.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.raging-blows",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "A",
+   "label": "Raging Blows",
+   "value": "Raging Blows, a Fury talent in the 16 Oct data, is not in the 10 Nov data.",
+   "sources": [
+    "talents-data"
+   ],
+   "reviewedAt": "2026-11-12",
+   "gameBuild": "1.60.1.70755 (talent data 02e1e101d1a5, 2026-11-10)",
+   "tree": "warrior-fury"
+  },
+  {
+   "id": "class-warrior.death-wish",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Death Wish",
+   "value": "Now raises all damage taken instead of lowering armor and resistances, so time it away from heavy raid damage.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.battle-shout-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Battle Shout",
+   "value": "Raid-wide since 16 Oct, with the old Improved Battle Shout bonus built in.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.onyxias-lair-entry-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair entry",
+   "value": "Each raider needs their own Drakefire Amulet in their bags, and Blizzard tells raids to build fire resistance first.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.world-buffs-in-raids-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "World buffs in raids",
+   "value": "Icy Veins' raid overview says world buffs are removed inside raids, and Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+   "sources": [
+    "g218-11",
+    "g218-12"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.flask-rule-2",
+   "scope": {
+    "class": "warrior",
+    "spec": "fury"
+   },
+   "topic": "fury-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Flask rule",
+   "value": "One flask at a time, and it persists through death.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warrior.use-a-shield",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Use a shield",
+   "value": "Blizzard lists an 80% threat bonus for Defensive Stance and 7%, 13% or 20% for Defiance. Defiance and Bastion retain their shield requirement.",
+   "sources": [
+    "g218-0",
+    "g218-150"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.threat-tools",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Threat tools",
+   "value": "Thunder Clap (Attack Power scaling, usable in Defensive Stance, 6-second cooldown), Sunder Armor (threat scales with Attack Power) and Demoralizing Shout (threat on every target hit).",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.rage-from-damage-taken",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Rage from damage taken",
+   "value": "Uses the old formula but ignores armor (treated as a flat 50% reduction) and absorbs. An 8 Oct fix corrected the calculation.",
+   "sources": [
+    "g218-0",
+    "g218-1"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.anticipation",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Anticipation",
+   "value": "Blizzard says it now gives double Defense per point.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.improved-revenge",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Improved Revenge",
+   "value": "Adds damage to Revenge instead of a stun.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.hit-and-expertise-caps",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-priority",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Hit cap",
+   "value": null,
+   "note": "No Blizzard numbers yet.",
+   "sources": [],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.raid-tank",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Raid tank",
+   "value": "Shield-based Protection is the intended raid tank. Warcraft Tavern notes that, unlike older Classic versions, Forever tanks should wear a shield.",
+   "sources": [
+    "g218-7",
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.long-cooldowns",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Long cooldowns",
+   "value": "Shield Wall and Retaliation are 15-minute cooldowns and no longer share a timer with Recklessness. Improved Shield Wall shortens Shield Wall further.",
+   "sources": [
+    "g218-0"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.shield-wall-talentsforever-data",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Shield Wall (talentsforever data)",
+   "value": "60% less damage taken for 12 seconds.",
+   "note": "Classic 1.12 Shield Wall was 75% for 10 seconds.",
+   "sources": [
+    "g218-3"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.onyxias-lair",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Onyxia's Lair",
+   "value": "Every raider needs their own Drakefire Amulet. Blizzard warns of powerful fire attacks and repositioning across three phases, and tells raids to build fire resistance.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.fire-resistance-target-for-onyxia",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "U",
+   "label": "Fire resistance target for Onyxia",
+   "value": null,
+   "note": "Blizzard gives no number.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.raid-sizes",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-raid",
+   "kind": "theory",
+   "grade": "B",
+   "label": "Raid sizes",
+   "value": "Barrow Deeps (10), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December, so tanks are needed at all three sizes.",
+   "sources": [
+    "g218-2"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  },
+  {
+   "id": "class-warrior.classic-tank-staples",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic tank staples",
+   "value": "Flask of the Titans, Elixir of the Mongoose, Elixir of Greater Agility, Elixir of the Giants, Greater Stoneshield Potion and Limited Invulnerability Potion.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warrior.classic-tank-buffs-and-food",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "E",
+   "label": "Classic tank buffs and food",
+   "value": "Juju Might, Juju Power, Winterfall Firewater, Grilled Squid, Blessed Sunfruit and Smoked Desert Dumplings.",
+   "sources": [
+    "g218-14"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "Classic 1.12 reference"
+  },
+  {
+   "id": "class-warrior.food-in-forever",
+   "scope": {
+    "class": "warrior",
+    "spec": "protection"
+   },
+   "topic": "protection-consumable",
+   "kind": "theory",
+   "grade": "C",
+   "label": "Food in Forever",
+   "value": "Smoked Desert Dumplings (+20 Strength) and Dirge's Chops (+25 Stamina) keep their stats, while Grilled Squid now gives +1% crit. Icy Veins says these foods need an Iron Oven camp object (Cooking 300).",
+   "sources": [
+    "g218-10"
+   ],
+   "reviewedAt": "2026-11-04",
+   "gameBuild": "WoW: Forever (launch 4 Nov 2026)"
+  }
+ ]
+}

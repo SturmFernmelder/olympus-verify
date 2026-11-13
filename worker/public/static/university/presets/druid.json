@@ -1,0 +1,175 @@
+{
+ "schema": "olympus-university-presets-v1",
+ "note": "Copied from guides218.json presets by build/migrate-guides218.cjs --presets; build/validate.cjs refuses any drift.",
+ "talentRevision": "02e1e101d1a5",
+ "presets": [
+  {
+   "id": "druid-balance-raid-60",
+   "classId": "druid",
+   "specId": "balance",
+   "label": "raid Moonkin (41/0/10)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.druid.60.5532220115501351000000000000000000005050000000000000",
+   "points": 51,
+   "treePoints": [
+    41,
+    0,
+    10
+   ],
+   "why": [
+    "Every Balance talent except the two Roots picks: Genesis (new) and Improved Moonfire for damage over time, Nature's Majesty (new) into Nature's Splendor (new), then Vengeance, Improved Starfire, Nature's Grace, Eclipse (new) and Moonfury.",
+    "Moonkin Form (31 points, changed from Classic) gives the raid spell crit, doubles your Omen of Clarity chance and raises armor from items.",
+    "Ten Restoration points: Nature’s Focus against pushback, and Naturalist for more damage (2% at rank 1). Improved Entangling Roots and Overgrowth are left out because they mostly improve Roots for control."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-balance-leveling-30",
+   "classId": "druid",
+   "specId": "balance",
+   "label": "leveling (level 30)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.druid.30.5232200114001000000000000000000000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    21,
+    0,
+    0
+   ],
+   "why": [
+    "Improved Wrath makes your main filler faster and cheaper, and two points of Genesis (new) start adding to Moonfire and Insect Swarm.",
+    "Moonglow, Improved Moonfire and Nature's Majesty open Nature's Splendor at 11 points and Insect Swarm at 16 (both changed or new in Forever).",
+    "Vengeance (needs Improved Moonfire at 2/2) and Nature's Grace reward crits; Eclipse is the other row-5 choice if you cast a lot of Starfire."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-feral-combat-raid-60",
+   "classId": "druid",
+   "specId": "feral-combat",
+   "label": "raid cat (0/38/13)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.druid.60.0000000000000000552302321230101250010550300000000000",
+   "points": 51,
+   "treePoints": [
+    0,
+    38,
+    13
+   ],
+   "why": [
+    "Cat build to Shifting Power: Ferocity, Savage Fury, Sharpened Claws, Predatory Strikes and Rend and Tear for damage, and Predatory Discipline leads to Shifting Power on row 7.",
+    "Furor, now in Feral, restores Energy when you return to Cat Form. Leader of the Pack raises every type of crit for your group and does not stack with Moonkin Aura, and Feral Instinct helps you Prowl unseen.",
+    "Berserk and Improved Shifting Power were removed. Thirteen Restoration points take Heart of the Wild, which moved there from Feral, with Naturalist and Natural Shapeshifter."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-feral-combat-dungeon-60",
+   "classId": "druid",
+   "specId": "feral-combat",
+   "label": "dungeon bear tank (0/48/3)",
+   "context": "dungeon",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.druid.60.0000000000000000552323321231021255100300000000000000",
+   "points": 51,
+   "treePoints": [
+    0,
+    48,
+    3
+   ],
+   "why": [
+    "Bear build to Primal Bite: Thick Hide, Natural Reaction, Feral Swiftness and Feral Instinct for survival and threat, with Furor, now in Feral, for Rage when you shift.",
+    "Lacerate is a one-point talent on row 4, Blood Frenzy and Natural Reaction add Rage, and Leader of the Pack leads to Primal Bite for threat.",
+    "Berserk was removed and Heart of the Wild moved to Restoration, where three points add Intellect and Bear Form Stamina."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-feral-combat-leveling-30",
+   "classId": "druid",
+   "specId": "feral-combat",
+   "label": "leveling (level 30)",
+   "context": "leveling",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.druid.30.0000000000000000502003021230021000000000000000000000",
+   "points": 21,
+   "treePoints": [
+    0,
+    21,
+    0
+   ],
+   "why": [
+    "Ferocity makes Claw and Rake cheaper, Feral Swiftness speeds up Cat Form between pulls, and Thick Hide adds armor in your forms.",
+    "Savage Fury, Sharpened Claws, Predatory Strikes and Blood Frenzy add damage, crit and Rage; Feral Charge (11 points) closes gaps.",
+    "Leader of the Pack at 21 points adds 3% crit for you and your group."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-restoration-raid-60",
+   "classId": "druid",
+   "specId": "restoration",
+   "label": "raid healer (11/0/40)",
+   "context": "raid",
+   "level": 60,
+   "code": "ot1.02e1e101d1a5.druid.60.0530200100000000000000000000000000005053035123113251",
+   "points": 51,
+   "treePoints": [
+    11,
+    0,
+    40
+   ],
+   "why": [
+    "Sustained raid healing to Wild Growth, with Gift of Nature, Improved Rejuvenation, Improved Regrowth, Swiftmend and Nature’s Swiftness.",
+    "Bloom, which replaced Gift of the Earthmother, heals when your Rejuvenation or Regrowth runs its full duration. Naturalist shortens Wild Growth’s cast.",
+    "Eleven Balance points take Genesis for heal-over-time healing, Moonglow for cheaper spells and Nature’s Majesty into Nature’s Splendor."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  },
+  {
+   "id": "druid-restoration-dungeon-30",
+   "classId": "druid",
+   "specId": "restoration",
+   "label": "dungeon healer (level 30)",
+   "context": "dungeon",
+   "level": 30,
+   "code": "ot1.02e1e101d1a5.druid.30.0000000000000000000000000000000000005053005100110000",
+   "points": 21,
+   "treePoints": [
+    0,
+    0,
+    21
+   ],
+   "why": [
+    "Nature’s Focus protects your heals from pushback, Naturalist shortens Healing Touch, and Reflection keeps part of your mana regeneration while casting.",
+    "Swiftmend needs your Rejuvenation or Regrowth on the target and leaves it in place.",
+    "Bloom, which replaced Gift of the Earthmother, makes up row 3 so Nature’s Swiftness is ready at 21 points."
+   ],
+   "provenance": {
+    "kind": "olympus-editorial",
+    "reviewedAt": "2026-11-12"
+   }
+  }
+ ]
+}

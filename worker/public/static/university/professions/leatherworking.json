@@ -1,0 +1,384 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "profession",
+ "id": "leatherworking",
+ "name": "Leatherworking",
+ "type": "primary",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json professions[5] (2026-11-04), rewritten into a full course on 2026-11-12",
+ "factFiles": [
+  "common",
+  "profession-leatherworking"
+ ],
+ "quizFiles": [
+  "profession-leatherworking"
+ ],
+ "pairsWith": [
+  "skinning"
+ ],
+ "overview": {
+  "lead": "Leatherworkers make gear for leather and mail wearers plus armor kits, and Forever adds kits that give stats as well as armor.",
+  "points": [
+   {
+    "text": "Blizzard says the more advanced recipes need a Tanning Rack, so the skill-140 camp object matters early.",
+    "facts": [
+     "profession-leatherworking.tanning-rack",
+     "profession-leatherworking.camp-objects"
+    ]
+   }
+  ],
+  "facts": [
+   "profession-leatherworking.core-armor-kit",
+   "profession-leatherworking.stat-armor-kits"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "professions[5].overview[1]",
+   "text": "Icy Veins points Druids, Hunters, Rogues and Shamans toward Leatherworking.",
+   "reason": "No graded fact holds the class recommendation."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What Leatherworking makes in Forever, its camp objects and how to level it.",
+   "chapters": [
+    {
+     "id": "leatherworking-101-changes",
+     "section": "overview",
+     "title": "What Forever changes for Leatherworking",
+     "theory": [
+      "profession-leatherworking.tanning-rack",
+      "profession-leatherworking.camp-objects",
+      "profession-leatherworking.camp-rules",
+      "profession-leatherworking.campsite-size",
+      "profession-leatherworking.professions-window"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Open the professions window with K, then search or filter the recipe list and track a recipe in the objectives frame.",
+        "facts": [
+         "profession-leatherworking.professions-window"
+        ]
+       },
+       {
+        "text": "Place a Camp Tent at skill 20, a Tanning Rack at 140 and a Sewing Machine at 300. The Tanning Rack blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
+        "facts": [
+         "profession-leatherworking.camp-objects"
+        ]
+       },
+       {
+        "text": "Get the Tanning Rack blueprint before you need it: Blizzard says the more advanced Leatherworking recipes need a Tanning Rack.",
+        "facts": [
+         "profession-leatherworking.tanning-rack"
+        ]
+       },
+       {
+        "text": "Rest at your Camp Tent while you level: it tops up rested XP to 5% of a level.",
+        "facts": [
+         "profession-leatherworking.camp-objects"
+        ]
+       },
+       {
+        "text": "Sit at the camp for at least 1 minute to get its buff. A basic campsite holds 3 camp features, one per player, so agree in the group who places what.",
+        "facts": [
+         "profession-leatherworking.camp-rules",
+         "profession-leatherworking.campsite-size"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning the advanced recipes without a Tanning Rack.",
+        "fix": "Blizzard says they need one. It is the skill-140 camp object, and its blueprint drops from Razorclaw the Butcher in Shadowfang Keep.",
+        "facts": [
+         "profession-leatherworking.tanning-rack",
+         "profession-leatherworking.camp-objects"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "leatherworking-101-leveling",
+     "section": "overview",
+     "title": "Skill ranks, Favor and Legacy",
+     "theory": [
+      "profession-leatherworking.skill-ranks",
+      "profession-leatherworking.specialization-classic-baseline",
+      "profession-leatherworking.merchants-favor",
+      "profession-leatherworking.earning-favor",
+      "profession-leatherworking.legacy",
+      "profession-leatherworking.profession-title"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Journeyman at skill 50 and level 10, Expert at skill 125 and level 20, and Artisan at skill 200 and level 35. 300 is the cap.",
+        "facts": [
+         "profession-leatherworking.skill-ranks"
+        ]
+       },
+       {
+        "text": "Build Merchant's Favor by filling Waylaid Crates and handing the sealed crates to Marcy Baker at Three Corners in western Redridge. Craftsman's Writs add reputation.",
+        "facts": [
+         "profession-leatherworking.earning-favor"
+        ]
+       },
+       {
+        "text": "Spend Favor at the Azeroth Commerce Authority at Three Corners. The Mystic Rugged kit recipe needs Honored and 90 Favor.",
+        "facts": [
+         "profession-leatherworking.merchants-favor"
+        ]
+       },
+       {
+        "text": "Reaching 150, 225 and 300 for the first time in a craft each earns 1 Legacy point. Working Overtime improves your skill-up chance.",
+        "facts": [
+         "profession-leatherworking.legacy"
+        ]
+       },
+       {
+        "text": "Plan your specialization. Forever guides list the same three as Classic 1.12: Dragonscale, Elemental and Tribal Leatherworking.",
+        "facts": [
+         "profession-leatherworking.specialization-classic-baseline"
+        ]
+       },
+       {
+        "text": "At 300, earn the certification item that unlocks your profession title. Alliance players get it from the Azeroth Commerce Authority.",
+        "facts": [
+         "profession-leatherworking.profession-title"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Waiting at the Journeyman cap of 150 before training Expert.",
+        "fix": "Expert needs skill 125 and level 20, so train it between 125 and 150.",
+        "facts": [
+         "profession-leatherworking.skill-ranks"
+        ]
+       },
+       {
+        "mistake": "Following a Classic 1.12 specialization walkthrough as if it were confirmed for Forever.",
+        "fix": "Forever guides list the same three paths, but the quests themselves have not been checked in Forever yet.",
+        "facts": [
+         "profession-leatherworking.specialization-classic-baseline"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in 201."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in 201."
+    }
+   ]
+  },
+  "201": {
+   "summary": "Gear only you can make, armor kits for the raid, and the market.",
+   "chapters": [
+    {
+     "id": "leatherworking-201-gear",
+     "section": "gear",
+     "title": "Gear only you can make",
+     "theory": [
+      "profession-leatherworking.gear-only-you-can-make"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Make Bind on Pickup pieces such as Wisdom's Leather Boots for yourself.",
+        "facts": [
+         "profession-leatherworking.gear-only-you-can-make"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Promising Wisdom's Leather Boots to a guildmate.",
+        "fix": "They are Bind on Pickup for the leatherworker who makes them.",
+        "facts": [
+         "profession-leatherworking.gear-only-you-can-make"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "leatherworking-201-raid",
+     "section": "consumables",
+     "title": "Armor kits for the raid",
+     "theory": [
+      "profession-leatherworking.core-armor-kit",
+      "profession-leatherworking.stat-armor-kits",
+      "profession-leatherworking.merchants-favor"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Make Core Armor Kits for tanks: they now give +4 defense instead of +3.",
+        "facts": [
+         "profession-leatherworking.core-armor-kit"
+        ]
+       },
+       {
+        "text": "Match the new stat kits to the role: Light for Stamina, Forceful Medium for attack power and Mystic Medium for spell power.",
+        "facts": [
+         "profession-leatherworking.stat-armor-kits"
+        ]
+       },
+       {
+        "text": "Add the Mystic Rugged kit once you are Honored; the recipe costs 90 Favor.",
+        "facts": [
+         "profession-leatherworking.merchants-favor"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling Core Armor Kits as +3 defense.",
+        "fix": "The Core Armor Kit gives +4 defense in Forever.",
+        "facts": [
+         "profession-leatherworking.core-armor-kit"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "leatherworking-201-market",
+     "section": "praxis",
+     "title": "Gold and the Auction House",
+     "theory": [
+      "profession-leatherworking.stat-armor-kits",
+      "profession-leatherworking.core-armor-kit",
+      "profession-leatherworking.vendor-prices"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Armor kits, including the new stat kits, are consumable crafts many roles can use, so test them on the Auction House. Trading is subject to Blizzard policy.",
+        "facts": [
+         "profession-leatherworking.stat-armor-kits",
+         "profession-leatherworking.core-armor-kit"
+        ]
+       },
+       {
+        "text": "Check the Auction House before you sell surplus crafts to a vendor: Blizzard's beta notes say many profession-made items sell to vendors for less.",
+        "facts": [
+         "profession-leatherworking.vendor-prices"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Selling surplus crafts to a vendor out of Classic habit.",
+        "fix": "Many profession-made items sell to vendors for less in Forever, so compare the Auction House first.",
+        "facts": [
+         "profession-leatherworking.vendor-prices"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Skill-by-skill routes, trainer lists and recipe sources need reviewed data the site does not have yet.",
+   "chapters": [
+    {
+     "id": "leatherworking-301-routes",
+     "section": "overview",
+     "title": "Leveling routes and recipe sources",
+     "theory": [
+      "profession-leatherworking.unknown-1",
+      "profession-leatherworking.unknown-2",
+      "profession-leatherworking.unknown-3",
+      "profession-leatherworking.unknown-4"
+     ],
+     "unavailable": "No reviewed skill-by-skill route, trainer list or recipe-source list exists for Forever yet. The site holds rank thresholds, camp objects, a Favor recipe and the armor-kit changes (see 101 and 201), and these questions are open."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Professions have no talent tree."
+    },
+    {
+     "section": "rotation",
+     "reason": "Professions have no rotation."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Professions have no stat caps."
+    },
+    {
+     "section": "gear",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "consumables",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    },
+    {
+     "section": "macros",
+     "reason": "No profession macro has been checked in Forever yet."
+    },
+    {
+     "section": "praxis",
+     "reason": "Nothing beyond 201 has been reviewed yet."
+    }
+   ]
+  }
+ }
+}

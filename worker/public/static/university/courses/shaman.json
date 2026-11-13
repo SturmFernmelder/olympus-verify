@@ -1,0 +1,2344 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "shaman",
+ "name": "Shaman",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[5] (2026-11-04), rewritten by hand against the 10 November talent data",
+ "factFiles": [
+  "common",
+  "class-shaman",
+  "talents-shaman"
+ ],
+ "quizFiles": [
+  "class-shaman",
+  "talents-shaman"
+ ],
+ "overview": {
+  "lead": "Shamans support a group with totems, heals and utility, and play as casters (Elemental), melee (Enhancement) or healers (Restoration). Blizzard counts them among the sturdiest classes, with mail armor and a shield.",
+  "points": [
+   {
+    "text": "Dwarf Shaman is one of Forever's new race and class combinations. Shamans were Horde-only in Classic, so Alliance raids now get Shaman totems and Mana Tide.",
+    "facts": [
+     "class-shaman.alliance-shamans",
+     "class-shaman.classic-baseline"
+    ]
+   },
+   {
+    "text": "No raid-wide Bloodlust or Heroism has been announced, and Blizzard made Rage of the Farseer a personal cooldown on purpose.",
+    "facts": [
+     "class-shaman.no-bloodlust",
+     "class-shaman.personal-burst"
+    ]
+   }
+  ],
+  "facts": [
+   "class-shaman.change-1",
+   "class-shaman.change-2",
+   "class-shaman.sturdy-healer"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[5].overview[0]",
+   "text": "but says their crowd control is weak",
+   "reason": "No reviewed fact holds the crowd-control claim."
+  },
+  {
+   "from": "classes[5].overview[1]",
+   "text": "For Olympus, Dwarf is the only Alliance Shaman race.",
+   "reason": "No reviewed fact says Dwarf is the only Alliance Shaman race; the point now says Dwarf Shaman is a new combination."
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[1]",
+   "text": "(2.5 s cast at rank 4 and up)",
+   "reason": "No reviewed fact holds Lightning Bolt's cast time or the rank."
+  },
+  {
+   "from": "classes[5].specs[0].beginner.tips[3]",
+   "text": "Ghost Wolf runs at 40% speed per Warcraft Tavern",
+   "reason": "No reviewed fact holds Ghost Wolf's speed."
+  },
+  {
+   "from": "classes[5].specs[0].pvp.overview[1], classes[5].specs[1].pvp.overview[1], classes[5].specs[2].pvp.overview[1], classes[5].specs[2].beginner.tips[3]",
+   "text": "You have no hard crowd control (no stun, no Hex), but Tremor Totem counters fear, charm and sleep, and Purge strips enemy buffs (Warcraft Tavern).",
+   "reason": "No reviewed fact holds Tremor Totem, Purge or the crowd-control claim; the PvP chapters keep what the talent data shows."
+  },
+  {
+   "from": "classes[5].specs[0].pvp.matchups[0], classes[5].specs[2].pvp.matchups[0]",
+   "text": "Against Warlock: drop Tremor Totem before their Fear lands; Warlocks have no blink or sprint.",
+   "reason": "No reviewed fact holds Tremor Totem or the Warlock claim."
+  },
+  {
+   "from": "classes[5].specs[1].pvp.matchups[0]",
+   "text": "Against Mage: Blizzard calls Mages fragile in melee; instant Ghost Wolf helps you close the gap.",
+   "reason": "No reviewed fact the Shaman course loads holds the Mage claim, and none gives Ghost Wolf's base cast time."
+  },
+  {
+   "from": "classes[5].specs[2].pvp.matchups[1]",
+   "text": "Against Priest: Forever Priests get Silence without a talent prerequisite.",
+   "reason": "No reviewed fact holds it."
+  },
+  {
+   "from": "classes[5].specs[1].beginner.summary[1]",
+   "text": "Stormstrike is a 16-point talent on a six-second cooldown. Spirit Weapons arrives at 21 points and Rage of the Farseer at 31.",
+   "reason": "No reviewed fact holds the point totals, and the talent data's cooldown differs from Blizzard's notes; the overview now gives both values."
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[0]",
+   "text": "Two-handed axes and maces are baseline, so you can level with a two-hander.",
+   "reason": "The talent data shows the Two-Handed Axes and Maces talent is gone; no reviewed fact says the weapons are baseline."
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[1]",
+   "text": "rank 2 makes it instant",
+   "reason": "The talent data gives a 3.0 sec cut at rank 2; no reviewed fact gives Ghost Wolf's base cast time."
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[2]",
+   "text": "(4% per stack at rank 1, up to 5 stacks)",
+   "reason": "The 10 November data gives 20% per stack at every rank; the step now uses it."
+  },
+  {
+   "from": "classes[5].specs[2].beginner.leveling[2]",
+   "text": "Dual Specialization at level 40 lets you keep Enhancement or Elemental for questing.",
+   "reason": "No reviewed fact holds the level."
+  },
+  {
+   "from": "classes[5].specs[2].beginner.tips[0]",
+   "text": "Call of the Elements, which drops four preset totems after a 3 s cast.",
+   "reason": "No reviewed fact holds the totem count or the cast time."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What every Shaman should know before choosing a spec: the Forever changes, totems, the totem quests and the Dwarf Shaman.",
+   "chapters": [
+    {
+     "id": "shaman-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Shamans",
+     "theory": [
+      "class-shaman.change-4",
+      "class-shaman.change-5",
+      "class-shaman.change-6",
+      "class-shaman.change-7",
+      "class-shaman.change-8",
+      "class-shaman.change-9"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Weapon imbues last 60 minutes and stack with weapon enhancements, so one cast covers a long session.",
+        "facts": [
+         "class-shaman.change-4"
+        ]
+       },
+       {
+        "text": "Higher ranks of Lightning Bolt hit harder, and shock damage is back to Classic Era values.",
+        "facts": [
+         "class-shaman.change-4"
+        ]
+       },
+       {
+        "text": "Call of Thunder replaces Lava Burst and adds 5% crit to Lightning Bolt and Chain Lightning. Elemental Mastery is now called Lightning Mastery.",
+        "facts": [
+         "class-shaman.change-5"
+        ]
+       },
+       {
+        "text": "Riptide is a heal over time with a 12-second cooldown and roughly 40% lower mana cost.",
+        "facts": [
+         "class-shaman.change-7"
+        ]
+       },
+       {
+        "text": "The Enhancement tree no longer has Shield Specialization, Two-Handed Axes and Maces or Weapon Mastery, and the Restoration tree no longer has Nature's Guidance or Totemic Mastery.",
+        "facts": [
+         "class-shaman.change-8",
+         "class-shaman.change-9"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning an Elemental build around Lava Burst.",
+        "fix": "Lava Burst is gone; Call of Thunder takes its place.",
+        "facts": [
+         "class-shaman.change-5"
+        ]
+       },
+       {
+        "mistake": "Signing up an Enhancement Shaman as a raid tank.",
+        "fix": "Blizzard only says Enhancement can be a temporary tank in small groups, through Spirit Weapons and Improved Stormstrike. No raid-tank role has been announced.",
+        "facts": [
+         "class-shaman.change-6"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "shaman-101-totems",
+     "section": "overview",
+     "title": "Totems in Forever",
+     "theory": [
+      "class-shaman.change-1",
+      "class-shaman.change-2",
+      "class-shaman.change-3",
+      "class-shaman.totemic-call"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Totems have a 1.0 s global cooldown (it was 1.5 s), and persistent buff totems last 5 minutes (they lasted 2), so keeping totems up costs less time.",
+        "facts": [
+         "class-shaman.change-1"
+        ]
+       },
+       {
+        "text": "Use the totem tracker: right-click a totem there to dismiss it.",
+        "facts": [
+         "class-shaman.change-1"
+        ]
+       },
+       {
+        "text": "Save a set with Call of the Elements and drop it in one cast. Call of the Spirits and Call of the Ancestors add more sets.",
+        "facts": [
+         "class-shaman.change-3"
+        ]
+       },
+       {
+        "text": "When the group moves, use Totemic Call: it moves your totems to your position on a 30-second cooldown, so you do not recast them.",
+        "facts": [
+         "class-shaman.totemic-call"
+        ]
+       },
+       {
+        "text": "Totemic Recall refunds 25% of your totems' mana.",
+        "facts": [
+         "class-shaman.change-3"
+        ]
+       },
+       {
+        "text": "Windfury and Flametongue Totems are buffs now, not weapon enchants, and the two can't both be active.",
+        "facts": [
+         "class-shaman.change-2"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Looking for Fire Nova Totem.",
+        "fix": "It became a Fire Nova spell that erupts at your Fire totem.",
+        "facts": [
+         "class-shaman.change-1"
+        ]
+       },
+       {
+        "mistake": "Looking for Tranquil Air Totem.",
+        "fix": "Tranquil Air Totem is gone in Forever.",
+        "facts": [
+         "class-shaman.change-1"
+        ]
+       },
+       {
+        "mistake": "Dropping Windfury Totem for your own Windfury-imbued weapon.",
+        "fix": "A Shaman with the matching imbue gets nothing from the totem.",
+        "facts": [
+         "class-shaman.change-2"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "shaman-101-class-quests",
+     "section": "overview",
+     "title": "Totem quests",
+     "theory": [
+      "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar",
+      "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle",
+      "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan",
+      "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "At level 4, the Earth totem quest starts in Anvilmar, Dun Morogh, and rewards Earth Totem and Stoneskin Totem.",
+        "facts": [
+         "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+        ]
+       },
+       {
+        "text": "At level 10, the Fire totem quest runs from Dun Morogh to Loch Modan and rewards Fire Totem and Searing Totem.",
+        "facts": [
+         "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle"
+        ]
+       },
+       {
+        "text": "At level 20, the Water totem quest from Norric Lochthane in Loch Modan is the longest chain, about 2 hours through Wetlands, Redridge, Ashenvale and Westfall. It rewards Water Totem and Healing Stream Totem.",
+        "facts": [
+         "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+        ]
+       },
+       {
+        "text": "At level 30, a short trip to Arathi Highlands rewards Air Totem.",
+        "facts": [
+         "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Putting off the level 20 Water totem quest because it is long.",
+        "fix": "It is the quest that rewards Water Totem and Healing Stream Totem, so set aside about 2 hours for it.",
+        "facts": [
+         "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "shaman-101-race",
+     "section": "overview",
+     "title": "The Dwarf Shaman",
+     "theory": [
+      "class-shaman.alliance-shamans",
+      "common.racial-dwarf-artisans-precision",
+      "common.racial-weapon-skill",
+      "class-shaman.classic-baseline"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Dwarf Shaman is one of Forever's new race and class combinations, which brings Shaman totems and Mana Tide to Alliance raids.",
+        "facts": [
+         "class-shaman.alliance-shamans"
+        ]
+       },
+       {
+        "text": "Count +1% hit with spells and attacks from Artisan's Precision; it covers both, so it serves Elemental and Enhancement alike.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision"
+        ]
+       },
+       {
+        "text": "Leave weapon skill out of your plans: no racial grants it in Forever.",
+        "facts": [
+         "common.racial-weapon-skill"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Reading a Classic Shaman guide as if it covered Alliance raids.",
+        "fix": "Shamans were Horde-only in Classic, so Alliance raids never had Shaman totems; the Dwarf Shaman is new in Forever.",
+        "facts": [
+         "class-shaman.classic-baseline",
+         "class-shaman.alliance-shamans"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "shaman-101-macros",
+     "section": "macros",
+     "title": "Essential macros",
+     "theory": [],
+     "unavailable": "No Shaman macro has been checked in Forever yet. When one is, it will use only /cast, /use, /target and /stopattack with conditionals, because custom scripts stay disabled in the game client."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What a Shaman brings to the raid, whatever the spec.",
+   "chapters": [
+    {
+     "id": "shaman-201-raid-utility",
+     "section": "praxis",
+     "title": "What Shamans bring to a raid",
+     "theory": [
+      "class-shaman.raid-wide-buff-totems",
+      "class-shaman.change-2",
+      "class-shaman.resistance-totems",
+      "class-shaman.no-bloodlust",
+      "class-shaman.personal-burst",
+      "class-shaman.launch-raids"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Grace of Air, Strength of Earth, Windfury and Flametongue Totems reach the whole raid since the 16 Oct notes.",
+        "facts": [
+         "class-shaman.raid-wide-buff-totems"
+        ]
+       },
+       {
+        "text": "Agree with the other Shamans on Windfury or Flametongue Totem, because the two can't both be active.",
+        "facts": [
+         "class-shaman.change-2"
+        ]
+       },
+       {
+        "text": "Resistance Totems cover the whole raid group, which helps on Onyxia, where Blizzard asks raids to build fire resistance.",
+        "facts": [
+         "class-shaman.resistance-totems"
+        ]
+       },
+       {
+        "text": "Plan for three raid sizes: Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40) open on 9 December 2026.",
+        "facts": [
+         "class-shaman.launch-raids"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Promising the raid Bloodlust or Heroism.",
+        "fix": "Neither has been announced for Forever, and Rage of the Farseer is a personal cooldown on purpose.",
+        "facts": [
+         "class-shaman.no-bloodlust",
+         "class-shaman.personal-burst"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "No Shaman macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced chapters live in each spec's 301 track.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "talents",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "rotation",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "gear",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "consumables",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "macros",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "praxis",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "elemental",
+   "name": "Elemental",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Elemental is the Shaman caster: Lightning Bolt, Chain Lightning and shocks. Call of Thunder replaces Lava Burst and adds 5% crit to both lightning spells.",
+    "points": [
+     {
+      "text": "Lightning Mastery, the renamed Elemental Mastery, shortens Lightning Bolt's cast by 0.5 sec and removes Chain Lightning's cooldown for 15 sec, on a 3 min cooldown.",
+      "facts": [
+       "class-shaman.lightning-mastery",
+       "talents-shaman.elemental-lightning-mastery",
+       "talents-shaman.elemental-lightning-mastery.r1"
+      ]
+     },
+     {
+      "text": "Lightning Overload gives both lightning spells a 10%, 20% or 30% chance to cast a second copy for half damage and no threat.",
+      "facts": [
+       "class-shaman.change-5",
+       "talents-shaman.elemental-lightning-overload.r3"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-shaman.elemental-summary",
+     "class-shaman.call-of-thunder"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Elemental, the core rotation and your fire tools.",
+     "chapters": [
+      {
+       "id": "shaman-elemental-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.elemental-summary",
+        "talents-shaman.elemental-convection.r5",
+        "talents-shaman.elemental-concussion.r5",
+        "talents-shaman.elemental-elemental-alacrity.r3",
+        "talents-shaman.elemental-call-of-thunder.r1",
+        "talents-shaman.elemental-earthbound.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Start with Convection and Concussion on row 1: your Shocks, Lightning Bolt and Chain Lightning cost up to 10% less, and Lightning Bolt, Chain Lightning and Earth Shock deal up to 5% more.",
+          "facts": [
+           "talents-shaman.elemental-convection",
+           "talents-shaman.elemental-convection.r5",
+           "talents-shaman.elemental-concussion.r5"
+          ]
+         },
+         {
+          "text": "Elemental Alacrity shortens Lightning Bolt and Chain Lightning casts by 0.17, 0.33 or 0.50 sec, and Lightning Overload requires it.",
+          "facts": [
+           "talents-shaman.elemental-elemental-alacrity.r1",
+           "talents-shaman.elemental-elemental-alacrity.r2",
+           "talents-shaman.elemental-elemental-alacrity.r3",
+           "talents-shaman.elemental-lightning-overload"
+          ]
+         },
+         {
+          "text": "Call of Thunder (row 5) adds 5% crit to Lightning Bolt and Chain Lightning.",
+          "facts": [
+           "talents-shaman.elemental-call-of-thunder",
+           "talents-shaman.elemental-call-of-thunder.r1"
+          ]
+         },
+         {
+          "text": "Earthbound makes Earthbind Totem immobilize nearby targets for 5 sec when you place it, which lets you kite melee mobs.",
+          "facts": [
+           "talents-shaman.elemental-earthbound.r1"
+          ]
+         },
+         {
+          "text": "Eye of the Storm gives Lightning Bolt and Chain Lightning a 23%, 47% or 70% chance not to lose casting time when you take damage.",
+          "facts": [
+           "talents-shaman.elemental-eye-of-the-storm.r1",
+           "talents-shaman.elemental-eye-of-the-storm.r2",
+           "talents-shaman.elemental-eye-of-the-storm.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Earthbind Totem to root without Earthbound.",
+          "fix": "Only Earthbound makes Earthbind Totem immobilize nearby targets, for 5 sec when you place it.",
+          "facts": [
+           "talents-shaman.elemental-earthbound.r1"
+          ]
+         },
+         {
+          "mistake": "Saving points for Lightning Overload without taking Elemental Alacrity.",
+          "fix": "Lightning Overload requires Elemental Alacrity, so take it on the way down.",
+          "facts": [
+           "talents-shaman.elemental-lightning-overload"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-elemental-leveling-30"
+       ]
+      },
+      {
+       "id": "shaman-elemental-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "class-shaman.change-4",
+        "class-shaman.chain-lightning",
+        "talents-shaman.elemental-elemental-focus.r1",
+        "talents-shaman.elemental-lightning-overload.r3",
+        "talents-shaman.elemental-call-of-flame.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Build your damage around Lightning Bolt; its higher ranks hit harder in Forever.",
+          "facts": [
+           "class-shaman.change-4"
+          ]
+         },
+         {
+          "text": "Use Flame Shock on targets that live long enough for its damage over time. Call of Flame adds 3, 6 or 9 sec to its duration.",
+          "facts": [
+           "talents-shaman.elemental-call-of-flame.r1",
+           "talents-shaman.elemental-call-of-flame.r2",
+           "talents-shaman.elemental-call-of-flame.r3"
+          ]
+         },
+         {
+          "text": "Cast Chain Lightning on groups: it casts in 2.5 seconds and costs about 225% of a comparable Lightning Bolt's mana for about 145% of its damage on the primary target.",
+          "facts": [
+           "class-shaman.chain-lightning"
+          ]
+         },
+         {
+          "text": "Elemental Focus gives a 10% chance after any Fire, Frost or Nature damage spell to make your next damage spell cost no mana.",
+          "facts": [
+           "talents-shaman.elemental-elemental-focus.r1"
+          ]
+         },
+         {
+          "text": "Lightning Overload's extra spells come at no additional cost, deal half damage and cause no threat.",
+          "facts": [
+           "talents-shaman.elemental-lightning-overload.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Using Chain Lightning as a single-target filler.",
+          "fix": "It costs about 225% of a comparable Lightning Bolt's mana for about 145% of its damage on the primary target, so keep it for groups.",
+          "facts": [
+           "class-shaman.chain-lightning"
+          ]
+         },
+         {
+          "mistake": "Wasting the Clearcasting state on a cheap spell.",
+          "fix": "When Elemental Focus triggers, your next damage spell costs no mana, so make it a Chain Lightning when several enemies are in range.",
+          "facts": [
+           "talents-shaman.elemental-elemental-focus.r1",
+           "class-shaman.chain-lightning"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-elemental-101-fire",
+       "section": "rotation",
+       "title": "Shocks, fire totems and Fire Nova",
+       "theory": [
+        "talents-shaman.elemental-reverberation.r5",
+        "talents-shaman.elemental-call-of-flame.r3",
+        "talents-shaman.elemental-trial-by-fire.r2",
+        "class-shaman.change-1",
+        "class-shaman.change-4"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Reverberation cuts your Shock cooldowns by 0.2 sec per rank, up to 1.0 sec at 5/5.",
+          "facts": [
+           "talents-shaman.elemental-reverberation.r1",
+           "talents-shaman.elemental-reverberation.r5"
+          ]
+         },
+         {
+          "text": "Call of Flame raises the damage of your Fire Totems, Flame Shock and Fire Nova by 5%, 10% or 15%.",
+          "facts": [
+           "talents-shaman.elemental-call-of-flame.r1",
+           "talents-shaman.elemental-call-of-flame.r2",
+           "talents-shaman.elemental-call-of-flame.r3"
+          ]
+         },
+         {
+          "text": "Fire Nova is now a spell that erupts at your Fire totem, so place a Fire totem first. Trial by Fire adds up to 20% to its damage and cuts its cooldown by up to 4 sec.",
+          "facts": [
+           "class-shaman.change-1",
+           "talents-shaman.elemental-trial-by-fire.r2"
+          ]
+         },
+         {
+          "text": "Trial by Fire also makes Magma Totem last 10 or 20 sec longer.",
+          "facts": [
+           "talents-shaman.elemental-trial-by-fire.r1",
+           "talents-shaman.elemental-trial-by-fire.r2"
+          ]
+         },
+         {
+          "text": "Shock damage is back to Classic Era values in Forever.",
+          "facts": [
+           "class-shaman.change-4"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Looking for Fire Nova Totem on your bars.",
+          "fix": "It became a Fire Nova spell that erupts at your Fire totem.",
+          "facts": [
+           "class-shaman.change-1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-elemental-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-shaman.elemental-lightning-overload.r3",
+        "talents-shaman.elemental-elemental-fury.r5",
+        "talents-shaman.elemental-lightning-mastery.r1",
+        "talents-shaman.elemental-elemental-reach.r2",
+        "class-shaman.crit-damage"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Lightning Overload at rank 3 of 3 gives a 30% chance to cast a second, similar spell for half damage at no cost. Elemental Fury requires it.",
+          "facts": [
+           "talents-shaman.elemental-lightning-overload.r3",
+           "talents-shaman.elemental-elemental-fury"
+          ]
+         },
+         {
+          "text": "Elemental Fury raises the critical strike damage bonus of your Fire, Frost and Nature spells and your Searing and Magma Totems by 100% at rank 5 of 5.",
+          "facts": [
+           "talents-shaman.elemental-elemental-fury.r5"
+          ]
+         },
+         {
+          "text": "Lightning Mastery requires Call of Thunder. For 15 sec it cuts Lightning Bolt's cast by 0.5 sec and removes Chain Lightning's cooldown, on a 3 min cooldown.",
+          "facts": [
+           "talents-shaman.elemental-lightning-mastery",
+           "talents-shaman.elemental-lightning-mastery.r1"
+          ]
+         },
+         {
+          "text": "Elemental Reach adds 3 or 6 yards of range to Lightning Bolt, Chain Lightning and Fire Nova.",
+          "facts": [
+           "talents-shaman.elemental-elemental-reach.r1",
+           "talents-shaman.elemental-elemental-reach.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following an older build that spends points on Lava Burst.",
+          "fix": "Lava Burst was removed in November, and Call of Thunder took its place.",
+          "facts": [
+           "class-shaman.lightning-mastery",
+           "class-shaman.call-of-thunder"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-elemental-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-elemental-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-shaman.call-of-thunder",
+        "class-shaman.crit-damage",
+        "class-shaman.spell-hit-classic-baseline-for-the-cap",
+        "talents-shaman.restoration-tidal-focus.r5",
+        "common.racial-dwarf-artisans-precision",
+        "class-shaman.mana"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Value crit: Call of Thunder adds 5% to your lightning spells, and Elemental Fury raises the crit damage bonus by up to 100%.",
+          "facts": [
+           "class-shaman.call-of-thunder",
+           "class-shaman.crit-damage"
+          ]
+         },
+         {
+          "text": "Spell hit comes from Tidal Focus in the Restoration tree (1% per rank, 5% at rank 5 of 5) and from the Dwarf racial Artisan's Precision (+1%).",
+          "facts": [
+           "talents-shaman.restoration-tidal-focus.r1",
+           "talents-shaman.restoration-tidal-focus.r5",
+           "common.racial-dwarf-artisans-precision"
+          ]
+         },
+         {
+          "text": "Treat the spell hit cap as unknown: Forever's cap has not been published. Classic casters needed 16% against raid bosses three levels higher.",
+          "facts": [
+           "class-shaman.spell-hit-classic-baseline-for-the-cap"
+          ]
+         },
+         {
+          "text": "Water Shield, a Restoration talent, returns mana when you are hit and, since 16 Oct, when your spells crit.",
+          "facts": [
+           "class-shaman.mana"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Gearing for the Classic 16% spell hit cap.",
+          "fix": "That is the Classic figure; Forever's cap is not known yet.",
+          "facts": [
+           "class-shaman.spell-hit-classic-baseline-for-the-cap"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-elemental-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "shaman-elemental-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.imbues-with-oils",
+        "class-shaman.new-forever-elixirs",
+        "class-shaman.world-buffs",
+        "class-shaman.forever-alchemy",
+        "class-shaman.classic-caster-kit",
+        "class-shaman.flasks"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a weapon imbue up and add wizard oil on top: imbues last 60 minutes and stack with temporary enchants.",
+          "facts": [
+           "class-shaman.imbues-with-oils"
+          ]
+         },
+         {
+          "text": "Warcraft Tavern reports two new caster elixirs, Minor Arcane Elixir and Elixir of Cunning (Agility plus Intellect), and flasks brewed at a portable Alchemy Laboratory camp object.",
+          "facts": [
+           "class-shaman.new-forever-elixirs"
+          ]
+         },
+         {
+          "text": "Buy healing potions from First Aid crafters: Warcraft Tavern says they moved from Alchemy to First Aid.",
+          "facts": [
+           "class-shaman.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: warcraft.wiki.gg says they are removed in dungeons and raids.",
+          "facts": [
+           "class-shaman.world-buffs"
+          ]
+         },
+         {
+          "text": "Read the Classic caster list (Flask of Supreme Power, Greater Arcane Elixir, Major Mana Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-shaman.classic-caster-kit"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping wizard oil because your weapon has an imbue.",
+          "fix": "Imbues stack with temporary enchants such as wizard oil.",
+          "facts": [
+           "class-shaman.imbues-with-oils"
+          ]
+         },
+         {
+          "mistake": "Planning to drink two flasks.",
+          "fix": "In the Classic reference only one flask is active at a time, and it persists through death.",
+          "facts": [
+           "class-shaman.flasks"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-elemental-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-shaman.raid-wide-buff-totems",
+        "class-shaman.resistance-totems",
+        "class-shaman.no-bloodlust",
+        "talents-shaman.elemental-lightning-overload.r3",
+        "talents-shaman.elemental-elemental-reach.r2",
+        "class-shaman.launch-raids"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep your buff totems down: Grace of Air, Strength of Earth, Windfury and Flametongue Totems are raid-wide since the 16 Oct notes.",
+          "facts": [
+           "class-shaman.raid-wide-buff-totems"
+          ]
+         },
+         {
+          "text": "Resistance Totems cover the whole raid group, and Blizzard asks raids to build fire resistance for Onyxia.",
+          "facts": [
+           "class-shaman.resistance-totems"
+          ]
+         },
+         {
+          "text": "Lightning Overload's extra spells cause no threat, and Elemental Reach adds up to 6 yards of range for fights where you must stand back.",
+          "facts": [
+           "talents-shaman.elemental-lightning-overload.r3",
+           "talents-shaman.elemental-elemental-reach.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Promising the raid Bloodlust.",
+          "fix": "No raid-wide Bloodlust or Heroism has been announced, and Warcraft Tavern says Shamans don't get Bloodlust in Forever.",
+          "facts": [
+           "class-shaman.no-bloodlust"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-elemental-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-shaman.elemental-earthbound.r1",
+        "talents-shaman.elemental-eye-of-the-storm.r3",
+        "talents-shaman.elemental-elemental-warding.r3",
+        "talents-shaman.enhancement-guardian-totems.r2",
+        "class-shaman.sturdy-healer"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Mail armor and a shield let you take a few hits while you cast; Blizzard counts Shamans among the sturdiest classes.",
+          "facts": [
+           "class-shaman.sturdy-healer"
+          ]
+         },
+         {
+          "text": "When a melee player reaches you, place Earthbind Totem: with Earthbound it immobilizes nearby targets for 5 sec, which buys distance for your casts.",
+          "facts": [
+           "talents-shaman.elemental-earthbound.r1"
+          ]
+         },
+         {
+          "text": "Eye of the Storm at rank 3 of 3 gives Lightning Bolt and Chain Lightning a 70% chance not to lose casting time when you take damage.",
+          "facts": [
+           "talents-shaman.elemental-eye-of-the-storm.r3"
+          ]
+         },
+         {
+          "text": "Elemental Warding cuts Fire, Frost and Nature damage taken by 3%, 7% or 10%.",
+          "facts": [
+           "talents-shaman.elemental-elemental-warding.r1",
+           "talents-shaman.elemental-elemental-warding.r2",
+           "talents-shaman.elemental-elemental-warding.r3"
+          ]
+         },
+         {
+          "text": "Guardian Totems, in the Enhancement tree, shortens Grounding Totem's cooldown by 1 or 2 sec.",
+          "facts": [
+           "talents-shaman.enhancement-guardian-totems.r1",
+           "talents-shaman.enhancement-guardian-totems.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Hard-casting Lightning Bolt while a melee player hits you.",
+          "fix": "Root them with Earthbound first: without Eye of the Storm, the damage you take costs you casting time.",
+          "facts": [
+           "talents-shaman.elemental-earthbound.r1",
+           "talents-shaman.elemental-eye-of-the-storm.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "shaman-elemental-301-coefficients",
+       "section": "rotation",
+       "title": "Spell coefficients and cast timing",
+       "theory": [],
+       "unavailable": "Forever's spell power coefficients for Lightning Bolt, Chain Lightning and the shocks have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "shaman-elemental-301-caps",
+       "section": "stat-caps",
+       "title": "Hit and crit breakpoints",
+       "theory": [
+        "class-shaman.spell-hit-classic-baseline-for-the-cap"
+       ],
+       "unavailable": "Blizzard has published no spell hit cap for Forever, so no breakpoint formula can be given yet. The Classic figure in 201 is a reference only."
+      },
+      {
+       "id": "shaman-elemental-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-shaman.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "shaman-elemental-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "No reviewed matchup fact for Shamans exists yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "enhancement",
+   "name": "Enhancement",
+   "roles": [
+    "melee"
+   ],
+   "overview": {
+    "lead": "Enhancement is the Shaman melee spec: weapon imbues, Stormstrike, and Lightning Bolts sped up by Maelstrom Weapon.",
+    "points": [
+     {
+      "text": "Blizzard's notes give Stormstrike 150% normalized weapon damage on a six-second cooldown, while the talent data lists 100% weapon damage and an 8 sec cooldown. Go by the tooltip in game.",
+      "facts": [
+       "class-shaman.stormstrike",
+       "talents-shaman.enhancement-stormstrike",
+       "talents-shaman.enhancement-stormstrike.r1"
+      ]
+     },
+     {
+      "text": "Rage of the Farseer raises your attack speed by 30% for 25 sec. Blizzard made it a personal cooldown on purpose.",
+      "facts": [
+       "talents-shaman.enhancement-rage-of-the-farseer.r1",
+       "class-shaman.personal-burst"
+      ]
+     },
+     {
+      "text": "Blizzard only calls Enhancement a temporary tank for small groups; no raid-tank role has been announced.",
+      "facts": [
+       "class-shaman.change-6"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-shaman.enhancement-summary",
+     "class-shaman.change-8"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Enhancement, the core rotation, threat and mobility.",
+     "chapters": [
+      {
+       "id": "shaman-enhancement-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.enhancement-summary",
+        "talents-shaman.enhancement-thundering-strikes.r5",
+        "talents-shaman.enhancement-mental-dexterity.r3",
+        "class-shaman.intellect-into-power",
+        "talents-shaman.enhancement-flurry",
+        "talents-shaman.enhancement-ancestral-knowledge.r5",
+        "class-shaman.change-8"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Thundering Strikes adds 1% crit per rank with all spells and attacks, up to 5%, and melee crits are what trigger Flurry.",
+          "facts": [
+           "talents-shaman.enhancement-thundering-strikes.r1",
+           "talents-shaman.enhancement-thundering-strikes.r5",
+           "talents-shaman.enhancement-flurry.r1"
+          ]
+         },
+         {
+          "text": "Blizzard's 2 Nov notes give Mental Dexterity 50%, 100% or 150% of your Intellect as Attack Power; the 10 Nov talent data still shows 33%, 66% and 100%, so check the tooltip in game. Flurry requires it.",
+          "facts": [
+           "talents-shaman.enhancement-mental-dexterity.r1",
+           "class-shaman.intellect-into-power",
+           "talents-shaman.enhancement-mental-dexterity.r2",
+           "talents-shaman.enhancement-mental-dexterity.r3",
+           "talents-shaman.enhancement-flurry"
+          ]
+         },
+         {
+          "text": "Flurry raises your attack speed by 6% to 30% for your next 3 swings after a melee crit.",
+          "facts": [
+           "talents-shaman.enhancement-flurry.r1",
+           "talents-shaman.enhancement-flurry.r5"
+          ]
+         },
+         {
+          "text": "Ancestral Knowledge adds 2% Intellect per rank, up to 10%, which Mental Dexterity turns into more Attack Power.",
+          "facts": [
+           "talents-shaman.enhancement-ancestral-knowledge.r1",
+           "talents-shaman.enhancement-ancestral-knowledge.r5",
+           "talents-shaman.enhancement-mental-dexterity.r3",
+           "class-shaman.intellect-into-power"
+          ]
+         },
+         {
+          "text": "Stormstrike sits on row 4 of the Enhancement tree.",
+          "facts": [
+           "talents-shaman.enhancement-stormstrike",
+           "class-shaman.stormstrike"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Putting points in Thundering Strikes to open Flurry.",
+          "fix": "Flurry requires Mental Dexterity in Forever.",
+          "facts": [
+           "talents-shaman.enhancement-flurry"
+          ]
+         },
+         {
+          "mistake": "Looking for Two-Handed Axes and Maces or Weapon Mastery in the tree.",
+          "fix": "Neither is in the Enhancement tree any more.",
+          "facts": [
+           "class-shaman.change-8"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-enhancement-leveling-30"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-shaman.enhancement-stormstrike.r1",
+        "class-shaman.stormstrike",
+        "talents-shaman.enhancement-maelstrom-weapon.r5",
+        "talents-shaman.enhancement-elemental-weapons.r3",
+        "class-shaman.change-4",
+        "talents-shaman.enhancement-rage-of-the-farseer.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a weapon imbue up; it lasts 60 minutes. Elemental Weapons raises your Windfury Weapon effect by 13%, 27% or 40%.",
+          "facts": [
+           "class-shaman.change-4",
+           "talents-shaman.enhancement-elemental-weapons.r1",
+           "talents-shaman.enhancement-elemental-weapons.r2",
+           "talents-shaman.enhancement-elemental-weapons.r3"
+          ]
+         },
+         {
+          "text": "Use Stormstrike on cooldown, then cast Lightning Bolt, Chain Lightning or Earth Shock within 12 sec for 20% more damage.",
+          "facts": [
+           "talents-shaman.enhancement-stormstrike.r1",
+           "class-shaman.stormstrike"
+          ]
+         },
+         {
+          "text": "Spend Maelstrom Weapon on Lightning Bolt: each stack cuts its cast time and mana cost by 20%, it stacks up to 5 times, and it lasts 30 sec.",
+          "facts": [
+           "talents-shaman.enhancement-maelstrom-weapon.r5"
+          ]
+         },
+         {
+          "text": "Use Rage of the Farseer for burst: 30% attack speed for 25 sec, on a 3 min cooldown.",
+          "facts": [
+           "talents-shaman.enhancement-rage-of-the-farseer",
+           "talents-shaman.enhancement-rage-of-the-farseer.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Letting Maelstrom Weapon stacks run out.",
+          "fix": "They last 30 sec, so cast Lightning Bolt before they expire.",
+          "facts": [
+           "talents-shaman.enhancement-maelstrom-weapon.r5"
+          ]
+         },
+         {
+          "mistake": "Following Stormstrike with more melee attacks only.",
+          "fix": "Its 20% bonus applies to your next Lightning Bolt, Chain Lightning or Earth Shock within 12 sec.",
+          "facts": [
+           "talents-shaman.enhancement-stormstrike.r1",
+           "class-shaman.stormstrike"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-enhancement-101-threat",
+       "section": "rotation",
+       "title": "Threat, shields and mobility",
+       "theory": [
+        "class-shaman.threat",
+        "talents-shaman.enhancement-spirit-weapons.r1",
+        "talents-shaman.enhancement-improved-lightning-shield.r3",
+        "talents-shaman.enhancement-shamanistic-focus.r1",
+        "talents-shaman.enhancement-improved-ghost-wolf.r2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spirit Weapons cuts the threat from your attacks by 30% unless Rockbiter Weapon is active and raises it by 30% with Rockbiter, so use Rockbiter only when you mean to hold threat.",
+          "facts": [
+           "class-shaman.threat"
+          ]
+         },
+         {
+          "text": "Keep Lightning Shield up: Shamanistic Focus cuts its cost and your Shocks' by 45%, and Improved Lightning Shield adds 5%, 10% or 15% to its orbs' damage.",
+          "facts": [
+           "talents-shaman.enhancement-shamanistic-focus.r1",
+           "talents-shaman.enhancement-improved-lightning-shield.r1",
+           "talents-shaman.enhancement-improved-lightning-shield.r2",
+           "talents-shaman.enhancement-improved-lightning-shield.r3"
+          ]
+         },
+         {
+          "text": "Improved Ghost Wolf cuts Ghost Wolf's cast time by 1.0 sec at rank 1 or 3.0 sec at rank 2, and lets you use it indoors.",
+          "facts": [
+           "talents-shaman.enhancement-improved-ghost-wolf.r1",
+           "talents-shaman.enhancement-improved-ghost-wolf.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Keeping Rockbiter Weapon on while someone else tanks.",
+          "fix": "With Spirit Weapons, Rockbiter Weapon raises your threat by 30%, so switch to another imbue.",
+          "facts": [
+           "class-shaman.threat"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-enhancement-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-shaman.enhancement-improved-stormstrike.r2",
+        "talents-shaman.enhancement-mental-quickness.r2",
+        "talents-shaman.enhancement-rage-of-the-farseer",
+        "class-shaman.elemental-devastation",
+        "talents-shaman.enhancement-maelstrom-weapon.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Rage of the Farseer (row 7) requires Mental Quickness, which adds up to 30% of your Intellect to your spell damage and healing.",
+          "facts": [
+           "talents-shaman.enhancement-rage-of-the-farseer",
+           "talents-shaman.enhancement-mental-quickness.r2"
+          ]
+         },
+         {
+          "text": "Improved Stormstrike requires Stormstrike. At rank 2 of 2 every Stormstrike gives 50% mana regeneration while casting for 15 sec, and every dodge or parry resets Stormstrike's cooldown.",
+          "facts": [
+           "talents-shaman.enhancement-improved-stormstrike",
+           "talents-shaman.enhancement-improved-stormstrike.r2"
+          ]
+         },
+         {
+          "text": "Elemental Devastation, in the Elemental tree, raises your melee crit chance by 3%, 6% or 9% for 10 sec after a direct damage spell crits.",
+          "facts": [
+           "class-shaman.elemental-devastation"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping Mental Quickness on the way down.",
+          "fix": "Rage of the Farseer requires Mental Quickness.",
+          "facts": [
+           "talents-shaman.enhancement-rage-of-the-farseer"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-enhancement-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-enhancement-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-shaman.attack-speed",
+        "class-shaman.intellect-into-power",
+        "talents-shaman.enhancement-mental-dexterity.r3",
+        "talents-shaman.enhancement-mental-quickness.r2",
+        "talents-shaman.restoration-tidal-focus.r5",
+        "common.racial-dwarf-artisans-precision",
+        "class-shaman.melee-hit-cap-vs-raid-bosses"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Value melee crit: Flurry gives 6%, 12%, 18%, 24% or 30% attack speed after a melee crit.",
+          "facts": [
+           "class-shaman.attack-speed"
+          ]
+         },
+         {
+          "text": "Value Intellect: Mental Dexterity turns it into Attack Power (150% at rank 3 in Blizzard's 2 Nov notes; the talent data still shows 100%), and Mental Quickness adds up to 30% of it to spell damage and healing.",
+          "facts": [
+           "class-shaman.intellect-into-power",
+           "talents-shaman.enhancement-mental-dexterity.r3",
+           "talents-shaman.enhancement-mental-quickness.r2"
+          ]
+         },
+         {
+          "text": "Hit comes from Tidal Focus in the Restoration tree (up to 5%) and from the Dwarf racial Artisan's Precision (+1%).",
+          "facts": [
+           "talents-shaman.restoration-tidal-focus.r5",
+           "common.racial-dwarf-artisans-precision"
+          ]
+         },
+         {
+          "text": "Treat the melee hit cap as unknown: no Forever value has been published."
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Treating Intellect as a stat Enhancement can ignore.",
+          "fix": "Mental Dexterity turns Intellect into Attack Power, and Mental Quickness turns part of it into spell damage and healing.",
+          "facts": [
+           "talents-shaman.enhancement-mental-dexterity.r3",
+           "class-shaman.intellect-into-power",
+           "talents-shaman.enhancement-mental-quickness.r2"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-enhancement-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "shaman-enhancement-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.stones-with-imbues",
+        "class-shaman.new-forever-elixir",
+        "class-shaman.camp-buffs",
+        "class-shaman.classic-melee-kit",
+        "class-shaman.world-buffs",
+        "class-shaman.forever-alchemy"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Put a sharpening stone or weightstone on top of your imbue: Shaman weapon imbues stack with them.",
+          "facts": [
+           "class-shaman.stones-with-imbues"
+          ]
+         },
+         {
+          "text": "Warcraft Tavern reports a new Elixir of the Grizzly (Strength plus crit).",
+          "facts": [
+           "class-shaman.new-forever-elixir"
+          ]
+         },
+         {
+          "text": "Profession camps give slightly weaker copies of class buffs that don't stack with the real ones; sit at the camp for at least 1 minute.",
+          "facts": [
+           "class-shaman.camp-buffs"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: warcraft.wiki.gg says they are removed in dungeons and raids.",
+          "facts": [
+           "class-shaman.world-buffs"
+          ]
+         },
+         {
+          "text": "Read the Classic melee list (Elixir of the Mongoose, Juju Power and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-shaman.classic-melee-kit"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping a sharpening stone because your weapon has an imbue.",
+          "fix": "Shaman weapon imbues stack with sharpening stones and weightstones.",
+          "facts": [
+           "class-shaman.stones-with-imbues"
+          ]
+         },
+         {
+          "mistake": "Counting on a camp buff on top of the real class buff.",
+          "fix": "Camp copies don't stack with the real buffs.",
+          "facts": [
+           "class-shaman.camp-buffs"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-enhancement-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-shaman.windfury-and-flametongue-totems",
+        "class-shaman.threat",
+        "class-shaman.temporary-tank",
+        "class-shaman.personal-burst",
+        "class-shaman.change-6"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Windfury and Flametongue Totems are raid-wide buffs since 16 Oct, and the two can't both be active.",
+          "facts": [
+           "class-shaman.windfury-and-flametongue-totems"
+          ]
+         },
+         {
+          "text": "A Shaman with the matching imbue gets nothing from the totem, so weigh that when you pick your imbue and your totem.",
+          "facts": [
+           "class-shaman.windfury-and-flametongue-totems"
+          ]
+         },
+         {
+          "text": "Spirit Weapons lowers your threat by 30% while Rockbiter Weapon is not active, which helps you stay below the tank.",
+          "facts": [
+           "class-shaman.threat"
+          ]
+         },
+         {
+          "text": "Rage of the Farseer is a personal cooldown; use it for your own burst.",
+          "facts": [
+           "class-shaman.personal-burst"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Signing up as a raid tank.",
+          "fix": "Blizzard only says Enhancement can tank small groups for a while, and Warcraft Tavern doubts current talents are enough for endgame tanking.",
+          "facts": [
+           "class-shaman.temporary-tank"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-enhancement-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-shaman.enhancement-improved-ghost-wolf.r2",
+        "talents-shaman.enhancement-improved-stormstrike.r1",
+        "talents-shaman.enhancement-anticipation.r3",
+        "talents-shaman.enhancement-spirit-weapons.r1",
+        "class-shaman.sturdy-healer",
+        "talents-shaman.enhancement-rage-of-the-farseer.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Improved Ghost Wolf at rank 2 of 2 cuts Ghost Wolf's cast by 3.0 sec and lets you use it indoors; use it to close a gap or to get away.",
+          "facts": [
+           "talents-shaman.enhancement-improved-ghost-wolf.r2"
+          ]
+         },
+         {
+          "text": "Improved Stormstrike gives Stormstrike's cooldown a 50% chance to reset each time you dodge or parry, or a 100% chance at rank 2.",
+          "facts": [
+           "talents-shaman.enhancement-improved-stormstrike.r1",
+           "talents-shaman.enhancement-improved-stormstrike.r2"
+          ]
+         },
+         {
+          "text": "Anticipation adds 2%, 4% or 6% dodge and Spirit Weapons gives a chance to parry, and both feed Improved Stormstrike.",
+          "facts": [
+           "talents-shaman.enhancement-anticipation.r1",
+           "talents-shaman.enhancement-anticipation.r2",
+           "talents-shaman.enhancement-anticipation.r3",
+           "talents-shaman.enhancement-spirit-weapons.r1"
+          ]
+         },
+         {
+          "text": "Save Rage of the Farseer for a kill window: 30% attack speed for 25 sec.",
+          "facts": [
+           "talents-shaman.enhancement-rage-of-the-farseer.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Trying Ghost Wolf indoors without the talent.",
+          "fix": "Improved Ghost Wolf is what lets you use Ghost Wolf indoors.",
+          "facts": [
+           "talents-shaman.enhancement-improved-ghost-wolf.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "shaman-enhancement-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and swing timing",
+       "theory": [],
+       "unavailable": "Forever's attack power and spell power coefficients and its swing-timer rules have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "shaman-enhancement-301-caps",
+       "section": "stat-caps",
+       "title": "Hit, crit and haste breakpoints",
+       "theory": [
+        "class-shaman.melee-hit-cap-vs-raid-bosses"
+       ],
+       "unavailable": "Blizzard has published no melee hit cap for Forever, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "shaman-enhancement-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-shaman.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "shaman-enhancement-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "No reviewed matchup fact for Shamans exists yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "restoration",
+   "name": "Restoration",
+   "roles": [
+    "healer"
+   ],
+   "overview": {
+    "lead": "Restoration is the Shaman healer: Healing Wave, Chain Heal and healing totems, with Riptide at the bottom of the tree.",
+    "points": [
+     {
+      "text": "Forever adds Water Shield, an 11-point talent that returns mana when you are hit or your spells crit, and Mindfulness, which lets part of your mana regeneration continue while casting.",
+      "facts": [
+       "class-shaman.water-shield",
+       "class-shaman.regen-while-casting"
+      ]
+     },
+     {
+      "text": "Riptide heals 445 over 15 sec with no upfront healing and has a 12 sec cooldown. It also makes your Chain Heal 25% stronger on that target.",
+      "facts": [
+       "class-shaman.riptide",
+       "talents-shaman.restoration-riptide.r1"
+      ]
+     },
+     {
+      "text": "Mana Tide Totem is a 16-point talent.",
+      "facts": [
+       "class-shaman.mana-tide-totem"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-shaman.restoration-summary",
+     "class-shaman.change-9"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Restoration, the core healing rotation and your totems.",
+     "chapters": [
+      {
+       "id": "shaman-restoration-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-shaman.restoration-summary",
+        "class-shaman.healing-wave",
+        "class-shaman.regen-while-casting",
+        "class-shaman.water-shield",
+        "talents-shaman.restoration-healing-focus.r3",
+        "talents-shaman.restoration-mana-tide-totem.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Improved Healing Wave shortens Healing Wave's cast by 0.1 sec per rank, up to 0.5 sec at rank 5.",
+          "facts": [
+           "class-shaman.healing-wave"
+          ]
+         },
+         {
+          "text": "Mindfulness lets 17%, 33% or 50% of your mana regeneration continue while casting.",
+          "facts": [
+           "class-shaman.regen-while-casting"
+          ]
+         },
+         {
+          "text": "Water Shield is an 11-point talent: it returns mana when you are hit or, since 16 Oct, when one of your spells crits.",
+          "facts": [
+           "class-shaman.water-shield"
+          ]
+         },
+         {
+          "text": "Healing Focus gives your heals a 23%, 47% or 70% chance not to lose casting time when you take damage, which matters when mobs hit you in a dungeon.",
+          "facts": [
+           "talents-shaman.restoration-healing-focus.r1",
+           "talents-shaman.restoration-healing-focus.r2",
+           "talents-shaman.restoration-healing-focus.r3"
+          ]
+         },
+         {
+          "text": "Take Mana Tide Totem when you reach 16 points; the next chapter covers when to drop it.",
+          "facts": [
+           "class-shaman.mana-tide-totem"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Skipping Healing Way on the way to Riptide.",
+          "fix": "Riptide requires Healing Way.",
+          "facts": [
+           "talents-shaman.restoration-riptide"
+          ]
+         },
+         {
+          "mistake": "Trying to keep Lightning Shield and Water Shield up together.",
+          "fix": "Only one Elemental Shield can be active on the Shaman at any one time.",
+          "facts": [
+           "talents-shaman.restoration-water-shield.r1"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-restoration-dungeon-30"
+       ]
+      },
+      {
+       "id": "shaman-restoration-101-rotation",
+       "section": "rotation",
+       "title": "Core healing",
+       "theory": [
+        "talents-shaman.restoration-healing-way.r3",
+        "class-shaman.riptide",
+        "talents-shaman.restoration-riptide.r1",
+        "talents-shaman.restoration-nature-s-swiftness.r1",
+        "talents-shaman.restoration-mana-tide-totem.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Heal single targets with Healing Wave; Healing Way raises its healing by 8%, 17% or 25%.",
+          "facts": [
+           "talents-shaman.restoration-healing-way.r1",
+           "talents-shaman.restoration-healing-way.r2",
+           "talents-shaman.restoration-healing-way.r3"
+          ]
+         },
+         {
+          "text": "Put Riptide on a target who will keep taking damage: it heals 445 over 15 sec and makes your Chain Heal 25% stronger on that target.",
+          "facts": [
+           "talents-shaman.restoration-riptide.r1"
+          ]
+         },
+         {
+          "text": "Use a direct heal when the target needs health now: Riptide has no initial heal.",
+          "facts": [
+           "class-shaman.riptide"
+          ]
+         },
+         {
+          "text": "Use Mana Tide Totem when your group runs low: it restores 88 mana every 3 seconds to group members within 30 yards for 12 sec.",
+          "facts": [
+           "talents-shaman.restoration-mana-tide-totem.r1"
+          ]
+         },
+         {
+          "text": "Keep Nature's Swiftness for emergencies: it makes your next Nature spell with a cast under 10 sec instant.",
+          "facts": [
+           "talents-shaman.restoration-nature-s-swiftness.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Casting Riptide to save a target who is about to die.",
+          "fix": "Riptide has no initial heal; use Nature's Swiftness and a direct heal instead.",
+          "facts": [
+           "class-shaman.riptide",
+           "talents-shaman.restoration-nature-s-swiftness.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-restoration-101-totems",
+       "section": "rotation",
+       "title": "Healing totems and mana",
+       "theory": [
+        "talents-shaman.restoration-restorative-totems.r5",
+        "talents-shaman.restoration-totemic-focus.r5",
+        "class-shaman.change-1",
+        "class-shaman.change-3",
+        "class-shaman.totemic-call"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Drop Mana Spring and Healing Stream: Restorative Totems raises Mana Spring by up to 25% and Healing Stream by up to 50%.",
+          "facts": [
+           "talents-shaman.restoration-restorative-totems.r5"
+          ]
+         },
+         {
+          "text": "Totemic Focus cuts the mana cost of your totems, and of spells that summon or move them, by 5% per rank, up to 25%.",
+          "facts": [
+           "talents-shaman.restoration-totemic-focus.r1",
+           "talents-shaman.restoration-totemic-focus.r5"
+          ]
+         },
+         {
+          "text": "Buff totems last 5 minutes and the totem global cooldown is 1.0 s, so a healing set takes little time to keep up.",
+          "facts": [
+           "class-shaman.change-1"
+          ]
+         },
+         {
+          "text": "Save a healing set for Call of the Elements, and move it with Totemic Call (30-second cooldown) when the group moves.",
+          "facts": [
+           "class-shaman.change-3",
+           "class-shaman.totemic-call"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Recasting every totem when the group moves.",
+          "fix": "Totemic Call moves your totems to your current position on a 30-second cooldown.",
+          "facts": [
+           "class-shaman.totemic-call"
+          ]
+         },
+         {
+          "mistake": "Counting on Elemental Reach to shorten Totemic Call.",
+          "fix": "Elemental Reach no longer reduces that cooldown.",
+          "facts": [
+           "class-shaman.totemic-call"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, mana and crit, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "shaman-restoration-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-shaman.restoration-purification.r5",
+        "class-shaman.crit",
+        "talents-shaman.restoration-riptide",
+        "talents-shaman.restoration-ancestral-healing.r3",
+        "talents-shaman.restoration-natural-grace.r3",
+        "talents-shaman.restoration-nature-s-swiftness.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Riptide sits on row 7 and requires Healing Way.",
+          "facts": [
+           "talents-shaman.restoration-riptide"
+          ]
+         },
+         {
+          "text": "Purification raises the effectiveness of your healing spells by 2% per rank, up to 10%.",
+          "facts": [
+           "talents-shaman.restoration-purification.r1",
+           "talents-shaman.restoration-purification.r5"
+          ]
+         },
+         {
+          "text": "Tidal Mastery adds 1% healing crit per rank, up to 5%, and each healing crit can trigger Water Shield and Ancestral Healing.",
+          "facts": [
+           "class-shaman.crit"
+          ]
+         },
+         {
+          "text": "Natural Grace lowers the threat from your spells by 5%, 10% or 15%.",
+          "facts": [
+           "talents-shaman.restoration-natural-grace.r1",
+           "talents-shaman.restoration-natural-grace.r2",
+           "talents-shaman.restoration-natural-grace.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Riptide to heal up front.",
+          "fix": "Riptide is a heal over time with no initial heal.",
+          "facts": [
+           "class-shaman.riptide"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "shaman-restoration-raid-60"
+       ]
+      },
+      {
+       "id": "shaman-restoration-201-priorities",
+       "section": "stat-caps",
+       "title": "Mana and crit priorities",
+       "theory": [
+        "class-shaman.regen-while-casting",
+        "talents-shaman.restoration-water-shield.r1",
+        "class-shaman.water-shield",
+        "class-shaman.crit",
+        "talents-shaman.restoration-tidal-focus.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "At rank 3 of 3, Mindfulness keeps 50% of your mana regeneration going while you cast.",
+          "facts": [
+           "talents-shaman.restoration-mindfulness.r3"
+          ]
+         },
+         {
+          "text": "Water Shield starts with 3 globes. Each hit on you, or each crit of your spells, restores 2% of your maximum mana and uses a globe, at most one every few seconds. It lasts 10 min.",
+          "facts": [
+           "talents-shaman.restoration-water-shield.r1"
+          ]
+         },
+         {
+          "text": "Crit feeds your mana: a healing crit from Tidal Mastery can trigger Water Shield.",
+          "facts": [
+           "class-shaman.crit",
+           "class-shaman.water-shield"
+          ]
+         },
+         {
+          "text": "Tidal Focus cuts the mana cost of your healing spells by 1% per rank, up to 5%.",
+          "facts": [
+           "talents-shaman.restoration-tidal-focus.r1",
+           "talents-shaman.restoration-tidal-focus.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Running Lightning Shield instead of Water Shield as a healer.",
+          "fix": "Only one Elemental Shield can be active at a time, and Water Shield is the one that restores mana.",
+          "facts": [
+           "talents-shaman.restoration-water-shield.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-restoration-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "shaman-restoration-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-shaman.imbues-with-oils-2",
+        "class-shaman.forever-alchemy",
+        "class-shaman.classic-healer-kit",
+        "class-shaman.world-buffs"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep a weapon imbue up with wizard oil on top: imbues last 60 minutes and stack with it.",
+          "facts": [
+           "class-shaman.imbues-with-oils-2"
+          ]
+         },
+         {
+          "text": "Buy healing potions from First Aid crafters: Warcraft Tavern says they moved from Alchemy to First Aid.",
+          "facts": [
+           "class-shaman.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: warcraft.wiki.gg says they are removed in dungeons and raids.",
+          "facts": [
+           "class-shaman.world-buffs"
+          ]
+         },
+         {
+          "text": "Read the Classic healer list (Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion and the rest) as a Classic reference, not a Forever-checked list.",
+          "facts": [
+           "class-shaman.classic-healer-kit"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Asking an Alchemist for healing potions.",
+          "fix": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+          "facts": [
+           "class-shaman.forever-alchemy"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-restoration-201-raid",
+       "section": "praxis",
+       "title": "Healing the raid",
+       "theory": [
+        "class-shaman.mana-tide-totem",
+        "talents-shaman.restoration-mana-tide-totem.r1",
+        "class-shaman.raid-wide-buff-totems-2",
+        "class-shaman.alliance-shamans",
+        "class-shaman.reincarnation",
+        "class-shaman.sturdy-healer"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Place Mana Tide Totem with the group that needs mana: it restores 88 mana every 3 seconds to group members within 30 yards for 12 sec, on a 5 min cooldown.",
+          "facts": [
+           "talents-shaman.restoration-mana-tide-totem",
+           "talents-shaman.restoration-mana-tide-totem.r1"
+          ]
+         },
+         {
+          "text": "Blizzard lists Mana Tide Totem's ranks at 25, 38, 48 and 58.",
+          "facts": [
+           "class-shaman.mana-tide-totem"
+          ]
+         },
+         {
+          "text": "Your buff totems reach the whole raid: Grace of Air, Strength of Earth, Windfury and Flametongue since 16 Oct. Windfury and Flametongue can't both be active.",
+          "facts": [
+           "class-shaman.raid-wide-buff-totems-2"
+          ]
+         },
+         {
+          "text": "Improved Reincarnation cuts Reincarnation's cooldown by 10 or 20 min and brings you back with more health and mana.",
+          "facts": [
+           "class-shaman.reincarnation"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Dropping Mana Tide Totem away from the healers who need it.",
+          "fix": "It only reaches group members within 30 yards.",
+          "facts": [
+           "talents-shaman.restoration-mana-tide-totem.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "shaman-restoration-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-shaman.restoration-healing-focus.r3",
+        "talents-shaman.restoration-nature-s-swiftness.r1",
+        "class-shaman.sturdy-healer",
+        "class-shaman.riptide",
+        "talents-shaman.restoration-ancestral-healing.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Mail armor and a shield help you take pressure while you heal.",
+          "facts": [
+           "class-shaman.sturdy-healer"
+          ]
+         },
+         {
+          "text": "Healing Focus at rank 3 of 3 gives your heals a 70% chance not to lose casting time when you take damage.",
+          "facts": [
+           "talents-shaman.restoration-healing-focus.r3"
+          ]
+         },
+         {
+          "text": "Keep Nature's Swiftness for the moment a teammate is about to die: your next Nature spell with a cast under 10 sec becomes instant.",
+          "facts": [
+           "talents-shaman.restoration-nature-s-swiftness.r1"
+          ]
+         },
+         {
+          "text": "Put Riptide up early: it heals over time, not up front.",
+          "facts": [
+           "class-shaman.riptide"
+          ]
+         },
+         {
+          "text": "Ancestral Healing raises your target's armor by 8%, 17% or 25% for 15 sec after one of your heals crits.",
+          "facts": [
+           "talents-shaman.restoration-ancestral-healing.r1",
+           "talents-shaman.restoration-ancestral-healing.r2",
+           "talents-shaman.restoration-ancestral-healing.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Hard-casting heals under attack without Healing Focus.",
+          "fix": "Healing Focus gives your heals a 23%, 47% or 70% chance not to lose casting time when you take damage.",
+          "facts": [
+           "talents-shaman.restoration-healing-focus.r1",
+           "talents-shaman.restoration-healing-focus.r2",
+           "talents-shaman.restoration-healing-focus.r3"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Shaman macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "shaman-restoration-301-coefficients",
+       "section": "rotation",
+       "title": "Healing coefficients",
+       "theory": [],
+       "unavailable": "Forever's healing coefficients for Healing Wave, Chain Heal and Riptide have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "shaman-restoration-301-caps",
+       "section": "stat-caps",
+       "title": "Mana and crit breakpoints",
+       "theory": [],
+       "unavailable": "No reviewed mana-regeneration or crit breakpoint exists for Forever yet; it waits for client data or reviewed logs."
+      },
+      {
+       "id": "shaman-restoration-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-shaman.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "shaman-restoration-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "No reviewed matchup fact for Shamans exists yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

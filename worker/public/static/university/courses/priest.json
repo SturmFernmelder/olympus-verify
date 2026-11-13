@@ -1,0 +1,2303 @@
+{
+ "schema": "olympus-university-guide-v1",
+ "kind": "class",
+ "id": "priest",
+ "name": "Priest",
+ "status": "complete",
+ "reviewedAt": "2026-11-12",
+ "migratedFrom": "guides218.json classes[4] (2026-11-04), rewritten by hand against the 10 November talent data",
+ "factFiles": [
+  "common",
+  "class-priest",
+  "talents-priest"
+ ],
+ "quizFiles": [
+  "class-priest",
+  "talents-priest"
+ ],
+ "overview": {
+  "lead": "Priests heal, shield and deal Shadow damage. Discipline heals mostly by preventing damage, Holy heals directly, and Shadow is the ranged damage spec.",
+  "points": [
+   {
+    "text": "Alliance Priests can be Human, Dwarf, Night Elf or Gnome, and each race unlocks its own pair of Priest spells through the class quests.",
+    "facts": [
+     "class-priest.quest-racial-priest-spells"
+    ]
+   },
+   {
+    "text": "Every race now learns Fear Ward and Devouring Plague at level 20, so raids no longer need a Dwarf for Fear Ward.",
+    "facts": [
+     "class-priest.change-2",
+     "class-priest.fear-ward-for-every-priest"
+    ]
+   },
+   {
+    "text": "The first raids open on 9 Dec 2026: The Barrow Deeps, Hyjal Summit and Onyxia's Lair.",
+    "facts": [
+     "class-priest.launch-raids"
+    ]
+   }
+  ],
+  "facts": [
+   "class-priest.change-2",
+   "class-priest.change-4"
+  ]
+ },
+ "heldBack": [
+  {
+   "from": "classes[4].overview[0]",
+   "text": "Priests wear cloth ... and Blizzard calls the Priest the most versatile healer.",
+   "reason": "No reviewed fact holds either statement."
+  },
+  {
+   "from": "classes[4].overview[1]",
+   "text": "(Gnome is new)",
+   "reason": "No reviewed fact says which race is new to the class."
+  },
+  {
+   "from": "classes[4].overview[2]",
+   "text": "Datamined server hotfixes up to 30 Oct still changed Priest data after the talent snapshot.",
+   "reason": "The 10 November talent data includes the server hotfixes; the line described the older snapshot."
+  },
+  {
+   "from": "classes[4].overview[3]",
+   "text": "Talent points start at level 10 and reach 51 at 60. You respec at a class trainer in a major city, Dual Specialization unlocks at level 40",
+   "reason": "No reviewed fact holds the point budget, the respec rule or the Dual Specialization level. The raid date is kept from the launch-raids fact."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.summary[1]",
+   "text": "Penance (21 points) ... Power Infusion (31 points)",
+   "reason": "Point counts are not in the talent data; the overview names the rows instead."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.summary[2]",
+   "text": "Blizzard added Smite support ... but Smite's base damage is roughly half of Classic's from level 30 up in the files, so Smite damage in raids is unproven.",
+   "reason": "No reviewed fact holds the Smite damage comparison; the overview names the Smite talents from the talent data."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[0]",
+   "text": "talentsforever reads that as no cooldown at all.",
+   "reason": "No reviewed fact holds it; the 10 November data gives a 4 sec shorter cooldown."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[0]",
+   "text": "so with every point in Discipline it arrives at level 30.",
+   "reason": "No reviewed fact ties a talent row to a character level."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[2]",
+   "text": "Wands no longer scale with spell damage, and you must stand still for 0.5 sec before one fires.",
+   "reason": "No reviewed fact holds either wand rule."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[3], classes[4].specs[1].beginner.leveling[3]",
+   "text": "Dual Specialization at 40 lets you keep a questing build and a healing build.",
+   "reason": "No reviewed fact holds the level."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[1]",
+   "text": "(Classic: 15%)",
+   "reason": "No current fact holds the Classic total."
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[3]",
+   "text": "Gnome Eureka! now also boosts Power Word: Shield, and Human Divine Grace is an instant heal on an ally under 50% health that clears Weakened Soul (5 min cooldown).",
+   "reason": "The Eureka! half is now carried as common.racial-gnome-eureka-shield (16 Oct notes); no reviewed fact holds the Divine Grace details."
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[1]",
+   "text": "Dwarf Chastise roots humanoids, Gnome Confounding Flash confuses up to 5 nearby enemies, and Night Elf Elune's Grace makes melee and ranged attacks miss you more often.",
+   "reason": "The reviewed fact names these spells but not their effects."
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[2]",
+   "text": "Icy Veins lists every Priest healer spec as TBD for PvP; no Forever rankings exist yet.",
+   "reason": "The healer-rankings fact covers raid rankings only and is unavailable."
+  },
+  {
+   "from": "classes[4].specs[1].beginner.summary[0]",
+   "text": "Its 31-point talent",
+   "reason": "Point counts are not in the talent data; the overview says the last row."
+  },
+  {
+   "from": "classes[4].specs[1].beginner.leveling[1]",
+   "text": "needs Divine Fury 5/5",
+   "reason": "The talent data names Divine Fury as the prerequisite but not the rank."
+  },
+  {
+   "from": "classes[4].specs[1].pvp.overview[1]",
+   "text": "a Holy build needs 5 Discipline points",
+   "reason": "No reviewed fact holds the points needed per row."
+  },
+  {
+   "from": "classes[4].specs[1].pvp.overview[2]",
+   "text": "Since the 8 Oct build, critical strikes in PvP are no longer reduced.",
+   "reason": "No reviewed fact holds it."
+  },
+  {
+   "from": "classes[4].specs[2].beginner.summary[0], classes[4].specs[2].beginner.summary[1]",
+   "text": "(31 points, needs Vampiric Embrace) ... (16 points)",
+   "reason": "Point counts are not in the talent data; the prerequisite is kept from it."
+  },
+  {
+   "from": "classes[4].specs[2].beginner.summary[2]",
+   "text": "Blizzard says Shadow brings strong DoT damage but less utility than a Warlock.",
+   "reason": "No reviewed fact holds the quote."
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[3]",
+   "text": "Use Devouring Plague on cooldown (24 sec, down from 1 min); since 1 Oct it can crit.",
+   "reason": "No reviewed fact holds the cooldown or the crit change."
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[4]",
+   "text": "Shadow Word: Death is instant.",
+   "reason": "No reviewed fact holds its cast time; the cost rule is kept."
+  },
+  {
+   "from": "classes[4].specs[2].beginner.tips[0]",
+   "text": "There is no Vampiric Touch in the Forever spellbook (datamine).",
+   "reason": "No reviewed fact holds it."
+  },
+  {
+   "from": "classes[4].specs[2].pvp.overview[1]",
+   "text": "(needs Blackout 5/5)",
+   "reason": "The talent data names Blackout as the prerequisite but not the rank."
+  },
+  {
+   "from": "classes[4].specs[2].pvp.overview[2]",
+   "text": "Darkspear Islands is a new 15v15 battleground for levels 30-60; Alliance players earn Theramore Expeditionary Force reputation there.",
+   "reason": "No graded fact holds the battleground details yet."
+  }
+ ],
+ "tracks": {
+  "101": {
+   "summary": "What every Priest should know before choosing a spec: the Forever changes, the class quests, the baseline spells and the racial choice.",
+   "chapters": [
+    {
+     "id": "priest-101-forever-changes",
+     "section": "overview",
+     "title": "What Forever changes for Priests",
+     "theory": [
+      "class-priest.change-1",
+      "class-priest.change-6",
+      "class-priest.change-9",
+      "class-priest.change-2",
+      "class-priest.change-3",
+      "class-priest.change-4",
+      "class-priest.change-5",
+      "class-priest.change-7",
+      "class-priest.change-8"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Train Fear Ward and Devouring Plague at level 20, whatever your race. In Classic they were Dwarf and Undead racials.",
+        "facts": [
+         "class-priest.change-2"
+        ]
+       },
+       {
+        "text": "Divine Spirit is a baseline spell at level 30 and Shadow Word: Death at 32, so neither costs a talent point.",
+        "facts": [
+         "class-priest.change-2"
+        ]
+       },
+       {
+        "text": "Use Fade as soon as a pull turns on you: its threat drop is doubled.",
+        "facts": [
+         "class-priest.change-3"
+        ]
+       },
+       {
+        "text": "Cast Prayer of Healing on someone in the group you want to heal. It now heals the target's party and their pets, not yours.",
+        "facts": [
+         "class-priest.change-3"
+        ]
+       },
+       {
+        "text": "Renews from several Priests stack on one target, so two Priests can both keep Renew on a tank.",
+        "facts": [
+         "class-priest.change-3"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Spending talent points on Divine Spirit or Improved Power Word: Fortitude.",
+        "fix": "Blizzard made both baseline, and the 10 Nov talent data no longer lists them in the Discipline tree.",
+        "facts": [
+         "class-priest.change-4",
+         "class-priest.change-1"
+        ]
+       },
+       {
+        "mistake": "Looking for a Dwarf Priest to cover Fear Ward.",
+        "fix": "Every Priest learns Fear Ward at level 20 now.",
+        "facts": [
+         "class-priest.change-2"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "priest-101-class-quests",
+     "section": "overview",
+     "title": "Class quests",
+     "theory": [
+      "class-priest.quest-racial-priest-spells",
+      "class-priest.quest-benediction-and-anathema-classic"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Do your race's Priest class quests at levels 10 and 20: Warcraft Tavern lists them as the unlocks for your racial Priest spells.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Human Priests unlock Divine Grace and Feedback, Dwarves Desperate Prayer and Chastise, Night Elves Starshards and Elune's Grace, and Gnomes Confounding Flash and Contingency Plan.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       },
+       {
+        "text": "Read Benediction and Anathema as a Classic quest. It needs the Eye of Divinity from Majordomo Executus in Molten Core, and Molten Core is not one of the raids that open on 9 Dec.",
+        "facts": [
+         "class-priest.quest-benediction-and-anathema-classic"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Planning a Benediction run from a Classic guide.",
+        "fix": "The Classic chain needs Majordomo Executus in Molten Core, which is not a 9 Dec raid, so it is unconfirmed in Forever.",
+        "facts": [
+         "class-priest.quest-benediction-and-anathema-classic"
+        ]
+       },
+       {
+        "mistake": "Skipping the level 20 class quest.",
+        "fix": "Your racial Priest spells come from the class quests at levels 10 and 20.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "priest-101-baseline-spells",
+     "section": "overview",
+     "title": "Spells you learn without a quest",
+     "theory": [
+      "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+      "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Every Priest race trains Fear Ward and Devouring Plague at level 20. In the files Fear Ward lasts 3 min on a 3 min cooldown.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       },
+       {
+        "text": "Divine Spirit (level 30) and Shadow Word: Death (level 32) are baseline spells too.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death"
+        ]
+       },
+       {
+        "text": "In the files Divine Spirit lasts 1 hour, up from 30 min, and Prayer of Spirit covers the raid.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Looking for a quest to unlock Fear Ward.",
+        "fix": "No quest is needed: every Priest race learns Fear Ward and Devouring Plague at level 20.",
+        "facts": [
+         "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "priest-101-race",
+     "section": "overview",
+     "title": "Choosing a race",
+     "theory": [
+      "common.racial-human-spirit",
+      "common.racial-dwarf-artisans-precision",
+      "common.racial-gnome-eureka",
+      "class-priest.quest-racial-priest-spells"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "A Human Priest gets +10% Spirit, which Holy's Spiritual Guidance turns into healing.",
+        "facts": [
+         "common.racial-human-spirit",
+         "talents-priest.holy-spiritual-guidance.r1"
+        ]
+       },
+       {
+        "text": "A Dwarf Priest gets +1% hit with spells and attacks from Artisan's Precision, which matters most to Shadow.",
+        "facts": [
+         "common.racial-dwarf-artisans-precision",
+         "class-priest.extra-hit-for-dwarves"
+        ]
+       },
+       {
+        "text": "A Gnome Priest gets Eureka!, an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger and also benefits Power Word: Shield.",
+        "facts": [
+         "common.racial-gnome-eureka",
+         "common.racial-gnome-eureka-shield"
+        ]
+       },
+       {
+        "text": "The site holds no reviewed Night Elf racial bonus yet. Night Elf Priests unlock Starshards and Elune's Grace through their class quests.",
+        "facts": [
+         "class-priest.quest-racial-priest-spells"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Choosing a Dwarf for Fear Ward.",
+        "fix": "Every Priest race learns Fear Ward at level 20 now.",
+        "facts": [
+         "class-priest.change-2"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "priest-101-myths",
+     "section": "overview",
+     "title": "Myths and mix-ups",
+     "theory": [
+      "class-priest.quest-shadowmourne-is-not-a-priest-item",
+      "class-priest.change-6",
+      "class-priest.change-8",
+      "class-priest.change-5"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Shadowmourne is a Wrath of the Lich King axe for Paladins, Death Knights and Warriors. It is not a Priest item and not a Classic item.",
+        "facts": [
+         "class-priest.quest-shadowmourne-is-not-a-priest-item"
+        ]
+       },
+       {
+        "text": "Lightwell is gone from the Holy tree.",
+        "facts": [
+         "class-priest.change-6"
+        ]
+       },
+       {
+        "text": "Binding Heal is gone too: Blizzard replaced it with Holy Binding.",
+        "facts": [
+         "class-priest.change-8"
+        ]
+       },
+       {
+        "text": "Shadow Priests no longer raise a Warlock's damage: Shadow Weaving now boosts only your own Shadow damage.",
+        "facts": [
+         "class-priest.change-5"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Promising a Warlock extra damage from your Shadow Weaving.",
+        "fix": "Shadow Weaving now boosts only your own Shadow damage.",
+        "facts": [
+         "class-priest.change-5"
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "id": "priest-101-macros",
+     "section": "macros",
+     "title": "Essential macros",
+     "theory": [],
+     "unavailable": "No Priest macro has been checked in Forever yet. When one is, it will use only /cast, /use, /target and /stopattack with conditionals, because custom scripts stay disabled in the game client."
+    }
+   ],
+   "omitted": [
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "praxis",
+     "reason": "Covered in each spec's course."
+    }
+   ]
+  },
+  "201": {
+   "summary": "What a Priest brings to the raid, whatever the spec.",
+   "chapters": [
+    {
+     "id": "priest-201-raid-utility",
+     "section": "praxis",
+     "title": "What Priests bring to a raid",
+     "theory": [
+      "class-priest.fear-ward-for-every-priest",
+      "class-priest.prayer-of-healing",
+      "class-priest.renew-stacking",
+      "class-priest.raid-buffs-files",
+      "class-priest.launch-raids",
+      "class-priest.onyxia-2"
+     ],
+     "praxis": {
+      "steps": [
+       {
+        "text": "Fear Ward no longer depends on a Dwarf: every Priest race has it at 20.",
+        "facts": [
+         "class-priest.fear-ward-for-every-priest"
+        ]
+       },
+       {
+        "text": "Prayer of Healing heals the target's party and their pets, so you can cover a group you are not in.",
+        "facts": [
+         "class-priest.prayer-of-healing"
+        ]
+       },
+       {
+        "text": "Several Priests can keep Renew on the same tank: Renews from different Priests stack.",
+        "facts": [
+         "class-priest.renew-stacking"
+        ]
+       },
+       {
+        "text": "Check in game whether Prayer of Fortitude covers the whole raid. The files say it does, but a report on the 16 Oct beta patch says Fortitude is still cast per group.",
+        "facts": [
+         "class-priest.raid-buffs-files"
+        ]
+       },
+       {
+        "text": "The first raids open on 9 Dec 2026: The Barrow Deeps (10 players), Hyjal Summit (20) and Onyxia's Lair (40).",
+        "facts": [
+         "class-priest.launch-raids"
+        ]
+       },
+       {
+        "text": "Every raider carries their own Drakefire Amulet for Onyxia's Lair, and Blizzard asks raids to build fire resistance before the fight.",
+        "facts": [
+         "class-priest.onyxia-2"
+        ]
+       }
+      ],
+      "mistakes": [
+       {
+        "mistake": "Casting Prayer of Healing on yourself to heal another group.",
+        "fix": "Prayer of Healing heals the target's party, so target someone in the group that needs it.",
+        "facts": [
+         "class-priest.prayer-of-healing"
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "The 101 overview covers this."
+    },
+    {
+     "section": "talents",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "rotation",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "gear",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "consumables",
+     "reason": "Covered in each spec's course."
+    },
+    {
+     "section": "macros",
+     "reason": "No Priest macro has been checked in Forever yet."
+    }
+   ]
+  },
+  "301": {
+   "summary": "Advanced chapters live in each spec's 301 track.",
+   "chapters": [],
+   "omitted": [
+    {
+     "section": "overview",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "talents",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "rotation",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "stat-caps",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "gear",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "consumables",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "macros",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    },
+    {
+     "section": "praxis",
+     "reason": "Each spec's 301 track holds the advanced chapters."
+    }
+   ]
+  }
+ },
+ "specs": [
+  {
+   "id": "discipline",
+   "name": "Discipline",
+   "roles": [
+    "healer"
+   ],
+   "overview": {
+    "lead": "Discipline heals by preventing damage. Power Word: Shield is the centre: Soul Warding makes it cheaper and quicker to recast, Renewed Hope rewards healing shielded targets, and Divine Aegis turns critical heals into more shields.",
+    "points": [
+     {
+      "text": "Penance (row 5) is a 2 sec channel on a 12 sec cooldown that heals an ally or damages an enemy. Power Infusion, the tree's last talent, requires it.",
+      "facts": [
+       "class-priest.penance",
+       "talents-priest.discipline-penance",
+       "talents-priest.discipline-power-infusion"
+      ]
+     },
+     {
+      "text": "Power in Light and Mental Agility improve Smite, and Holy Precision adds hit with Holy spells.",
+      "facts": [
+       "talents-priest.discipline-power-in-light.r1",
+       "talents-priest.discipline-mental-agility.r1",
+       "talents-priest.discipline-holy-precision.r1"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-priest.discipline-summary",
+     "class-priest.soul-warding-snapshot"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Discipline, the shield rotation and the mana habits that matter first.",
+     "chapters": [
+      {
+       "id": "priest-discipline-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-priest.discipline-summary",
+        "talents-priest.discipline-power-in-light.r1",
+        "talents-priest.discipline-penance",
+        "talents-priest.discipline-soul-warding"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Power in Light makes Smite and Penance deal 2% more damage at rank 1 to targets with your Holy Fire or Shadow Word: Pain, which helps while questing.",
+          "facts": [
+           "talents-priest.discipline-power-in-light.r1"
+          ]
+         },
+         {
+          "text": "Penance sits on row 5 of the Discipline tree and either heals an ally or damages an enemy.",
+          "facts": [
+           "talents-priest.discipline-penance",
+           "talents-priest.discipline-penance.r1"
+          ]
+         },
+         {
+          "text": "Take Improved Power Word: Shield on the way down: Soul Warding requires it, and Renewed Hope requires Soul Warding.",
+          "facts": [
+           "talents-priest.discipline-soul-warding",
+           "talents-priest.discipline-renewed-hope"
+          ]
+         },
+         {
+          "text": "Wand Specialization adds 13% wand damage at rank 1 and 25% at rank 2.",
+          "facts": [
+           "talents-priest.discipline-wand-specialization.r1",
+           "talents-priest.discipline-wand-specialization.r2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Saving points for Power Infusion without taking Penance.",
+          "fix": "Power Infusion requires Penance.",
+          "facts": [
+           "talents-priest.discipline-power-infusion"
+          ]
+         },
+         {
+          "mistake": "Looking for Force of Will or Unbreakable Will.",
+          "fix": "Both are gone from the Discipline tree in the 10 Nov talent data.",
+          "facts": [
+           "class-priest.change-1"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-discipline-leveling-30"
+       ]
+      },
+      {
+       "id": "priest-discipline-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "class-priest.soul-warding-snapshot",
+        "class-priest.penance",
+        "talents-priest.discipline-renewed-hope.r1",
+        "class-priest.divine-aegis-snapshot",
+        "talents-priest.discipline-inner-focus.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Shield whoever is about to take damage. With Soul Warding, Power Word: Shield costs 15% less and its cooldown is 4 sec shorter.",
+          "facts": [
+           "class-priest.soul-warding-snapshot"
+          ]
+         },
+         {
+          "text": "Use Penance on cooldown for burst healing. It is a 2 sec channel on a 12 sec cooldown, and since the 8 Oct retune it stays more mana-efficient than Heal and Greater Heal.",
+          "facts": [
+           "class-priest.penance"
+          ]
+         },
+         {
+          "text": "Follow up with direct heals on shielded targets: at rank 1, Renewed Hope gives Flash Heal, Lesser Heal, Heal, Greater Heal and Penance 2% more crit chance on targets with Weakened Soul.",
+          "facts": [
+           "talents-priest.discipline-renewed-hope.r1"
+          ]
+         },
+         {
+          "text": "Each non-periodic critical heal leaves a Divine Aegis shield worth 5% of the heal per rank, absorbing up to 1,200 damage for 12 sec.",
+          "facts": [
+           "class-priest.divine-aegis-snapshot"
+          ]
+         },
+         {
+          "text": "Save Inner Focus for an expensive heal: the next spell costs no mana and gets 25% more crit chance.",
+          "facts": [
+           "talents-priest.discipline-inner-focus.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Spending Inner Focus on Renew.",
+          "fix": "Inner Focus adds crit chance only to a non-periodic spell that can crit, so use it on a direct heal.",
+          "facts": [
+           "talents-priest.discipline-inner-focus.r1"
+          ]
+         },
+         {
+          "mistake": "Expecting Divine Aegis shields from Renew ticks.",
+          "fix": "Only non-periodic critical heals create the shield.",
+          "facts": [
+           "class-priest.divine-aegis-snapshot"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-discipline-101-tips",
+       "section": "rotation",
+       "title": "Mana and threat habits",
+       "theory": [
+        "talents-priest.discipline-mental-agility.r1",
+        "talents-priest.discipline-meditation.r1",
+        "talents-priest.discipline-meditation.r3",
+        "class-priest.threat-snapshot",
+        "class-priest.intellect",
+        "talents-priest.discipline-twin-disciplines.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Mental Agility makes Smite, Holy Fire and your instant spells 3% cheaper at rank 1.",
+          "facts": [
+           "talents-priest.discipline-mental-agility.r1"
+          ]
+         },
+         {
+          "text": "Meditation keeps 17% of your mana regeneration going while you cast at rank 1, and 50% at rank 3.",
+          "facts": [
+           "talents-priest.discipline-meditation.r1",
+           "talents-priest.discipline-meditation.r3"
+          ]
+         },
+         {
+          "text": "Silent Resolve cuts the threat your spells generate by 10% per rank and also shortens Stun, Fear and Silence on you.",
+          "facts": [
+           "class-priest.threat-snapshot",
+           "talents-priest.discipline-silent-resolve.r1"
+          ]
+         },
+         {
+          "text": "Mental Strength raises your Intellect by 2 to 10%.",
+          "facts": [
+           "class-priest.intellect"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Twin Disciplines to help Greater Heal.",
+          "fix": "Twin Disciplines raises the damage and healing of instant cast spells only: 1% per rank.",
+          "facts": [
+           "talents-priest.discipline-twin-disciplines.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "priest-discipline-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "class-priest.divine-aegis-snapshot",
+        "talents-priest.discipline-renewed-hope.r5",
+        "class-priest.power-infusion-snapshot",
+        "talents-priest.discipline-improved-power-word-shield.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Divine Aegis at rank 3 of 3 makes each shield worth 15% of the critical heal, up to 1,200 damage.",
+          "facts": [
+           "talents-priest.discipline-divine-aegis.r3"
+          ]
+         },
+         {
+          "text": "Power Infusion raises a target's spell damage and healing by 20% for 15 sec, on a 3 min cooldown.",
+          "facts": [
+           "class-priest.power-infusion-snapshot"
+          ]
+         },
+         {
+          "text": "Improved Power Word: Shield adds 20% to your shield's absorb at rank 3 of 3.",
+          "facts": [
+           "talents-priest.discipline-improved-power-word-shield.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Giving Power Infusion to a melee player.",
+          "fix": "It raises spell damage and healing done, so give it to a caster or a healer.",
+          "facts": [
+           "class-priest.power-infusion-snapshot"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-discipline-raid-60"
+       ]
+      },
+      {
+       "id": "priest-discipline-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-priest.hit-for-priests",
+        "talents-priest.discipline-holy-precision",
+        "class-priest.intellect",
+        "class-priest.penance",
+        "talents-priest.discipline-meditation.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Skip hit gear: Holy Precision gives up to 18% hit with Holy spells, 6% per rank, and Blizzard added it so healing Priests can do without hit.",
+          "facts": [
+           "class-priest.hit-for-priests"
+          ]
+         },
+         {
+          "text": "Value Intellect: Mental Strength raises it by 2 to 10% since 16 Oct.",
+          "facts": [
+           "class-priest.intellect"
+          ]
+         },
+         {
+          "text": "Lean on Penance for mana: since the 8 Oct retune it stays more mana-efficient than Heal and Greater Heal.",
+          "facts": [
+           "class-priest.penance"
+          ]
+         },
+         {
+          "text": "Meditation at rank 3 keeps 50% of your mana regeneration going while you cast.",
+          "facts": [
+           "talents-priest.discipline-meditation.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Stacking hit gear on a Discipline Priest.",
+          "fix": "Holy Precision covers Holy spell hit: 18% at 3 ranks.",
+          "facts": [
+           "class-priest.hit-for-priests",
+           "talents-priest.discipline-holy-precision"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-discipline-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "priest-discipline-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-priest.classic-1-12-healer-kit-reference",
+        "class-priest.forever-alchemy",
+        "class-priest.camp-buffs",
+        "class-priest.world-buffs-in-raids"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Buy healing potions from a First Aid crafter: Warcraft Tavern says they moved out of Alchemy.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Flasks are brewed at a portable Alchemy Laboratory camp object, and Minor Arcane Elixir is one of the new elixirs.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Camp buffs are weaker copies of class buffs and do not stack with the real ones. You sit at the camp for at least 1 minute.",
+          "facts": [
+           "class-priest.camp-buffs"
+          ]
+         },
+         {
+          "text": "Read the healer kit (Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion and the rest) as a Classic 1.12 reference, not a Forever-checked list.",
+          "facts": [
+           "class-priest.classic-1-12-healer-kit-reference"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Asking an Alchemist for healing potions.",
+          "fix": "Healing potions moved to First Aid in Forever.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-discipline-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-priest.fear-ward-for-every-priest",
+        "class-priest.threat-snapshot",
+        "class-priest.prayer-of-healing",
+        "class-priest.raid-buffs-files",
+        "class-priest.launch-raids",
+        "class-priest.onyxia"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Fear Ward is yours to cast whatever your race, so Alliance raids no longer depend on Dwarf Priests for it.",
+          "facts": [
+           "class-priest.fear-ward-for-every-priest"
+          ]
+         },
+         {
+          "text": "Silent Resolve lowers your spell threat by 10% per rank, up to 30% at rank 3.",
+          "facts": [
+           "class-priest.threat-snapshot"
+          ]
+         },
+         {
+          "text": "Prayer of Healing heals the target's party, so you can cover a group you are not in.",
+          "facts": [
+           "class-priest.prayer-of-healing"
+          ]
+         },
+         {
+          "text": "The files show Power Word: Fortitude's top rank at 70 Stamina (Classic: 54). Confirm in game whether Prayer of Fortitude covers the raid or one group.",
+          "facts": [
+           "class-priest.raid-buffs-files"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+          "facts": [
+           "class-priest.world-buffs-in-raids"
+          ]
+         },
+         {
+          "text": "Build fire resistance before Onyxia's Lair; Blizzard gives no target number.",
+          "facts": [
+           "class-priest.onyxia"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Waiting for a Dwarf Priest to cover Fear Ward.",
+          "fix": "Every Priest race has Fear Ward at 20.",
+          "facts": [
+           "class-priest.fear-ward-for-every-priest"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-discipline-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-priest.discipline-silent-resolve.r3",
+        "talents-priest.discipline-martyrdom.r1",
+        "talents-priest.discipline-martyrdom.r2",
+        "talents-priest.discipline-penance.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Silent Resolve shortens Stun, Fear and Silence on you: 5% at rank 1, 15% at rank 3.",
+          "facts": [
+           "talents-priest.discipline-silent-resolve.r1",
+           "talents-priest.discipline-silent-resolve.r3"
+          ]
+         },
+         {
+          "text": "Martyrdom gives a 50% chance at rank 1, and a 100% chance at rank 2, to gain Focused Casting for 6 sec after a melee or ranged crit hits you. Focused Casting stops pushback and adds 20% resistance to interrupts.",
+          "facts": [
+           "talents-priest.discipline-martyrdom.r1",
+           "talents-priest.discipline-martyrdom.r2"
+          ]
+         },
+         {
+          "text": "Penance can damage an enemy as well as heal an ally, so it works both ways in a duel.",
+          "facts": [
+           "talents-priest.discipline-penance.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking one point of Martyrdom and expecting Focused Casting after every crit.",
+          "fix": "Rank 1 gives a 50% chance; rank 2 makes it 100%.",
+          "facts": [
+           "talents-priest.discipline-martyrdom.r1",
+           "talents-priest.discipline-martyrdom.r2"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "priest-discipline-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and cast timing",
+       "theory": [],
+       "unavailable": "Forever's healing and spell power coefficients have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "priest-discipline-301-caps",
+       "section": "stat-caps",
+       "title": "Crit, haste and mana breakpoints",
+       "theory": [
+        "class-priest.hit-for-priests"
+       ],
+       "unavailable": "Holy Precision covers hit, but no crit, haste or mana breakpoint for Forever healers has been published or measured, so no formula can be given yet."
+      },
+      {
+       "id": "priest-discipline-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-priest.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "priest-discipline-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "No reviewed matchup note exists for Discipline yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "holy",
+   "name": "Holy",
+   "roles": [
+    "healer"
+   ],
+   "overview": {
+    "lead": "Holy heals with Heal, Greater Heal, Renew and Prayer of Healing. Prayer of Mending, on the tree's last row, heals its target the next time they take damage and then jumps to another party or raid member.",
+    "points": [
+     {
+      "text": "Spirit pays off: Spiritual Guidance turns Spirit into healing, and the Human racial adds 10% Spirit.",
+      "facts": [
+       "talents-priest.holy-spiritual-guidance.r1",
+       "common.racial-human-spirit"
+      ]
+     },
+     {
+      "text": "Litany of Light returns mana when you alternate between different heals.",
+      "facts": [
+       "talents-priest.holy-litany-of-light.r1"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-priest.holy-summary",
+     "talents-priest.holy-prayer-of-mending.r1"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Holy, the core healing rotation and the habits that keep you alive.",
+     "chapters": [
+      {
+       "id": "priest-holy-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-priest.holy-summary",
+        "talents-priest.holy-holy-nova.r1",
+        "talents-priest.holy-searing-light",
+        "talents-priest.holy-holy-specialization.r1",
+        "talents-priest.holy-improved-renew.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Holy Nova (row 3) damages enemies within 10 yards and heals party members within 10 yards, with no threat.",
+          "facts": [
+           "talents-priest.holy-holy-nova",
+           "talents-priest.holy-holy-nova.r1"
+          ]
+         },
+         {
+          "text": "Searing Light requires Divine Fury and raises your Holy damage by 2% at rank 1.",
+          "facts": [
+           "talents-priest.holy-searing-light",
+           "talents-priest.holy-searing-light.r1"
+          ]
+         },
+         {
+          "text": "Holy Specialization adds 1% crit chance per rank to your Holy spells.",
+          "facts": [
+           "talents-priest.holy-holy-specialization.r1"
+          ]
+         },
+         {
+          "text": "Improved Renew makes Renew heal 5% more per rank, up to 15% at rank 3.",
+          "facts": [
+           "talents-priest.holy-improved-renew.r1",
+           "talents-priest.holy-improved-renew.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking Searing Light without points in Divine Fury.",
+          "fix": "Searing Light requires Divine Fury.",
+          "facts": [
+           "talents-priest.holy-searing-light"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-holy-dungeon-30"
+       ]
+      },
+      {
+       "id": "priest-holy-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "class-priest.prayer-of-mending",
+        "talents-priest.holy-prayer-of-mending.r1",
+        "talents-priest.holy-divine-fury.r1",
+        "talents-priest.holy-litany-of-light.r1",
+        "class-priest.renew-stacking",
+        "class-priest.prayer-of-healing-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Prayer of Mending on its 10 sec cooldown, on someone about to take damage: it heals them, then jumps up to 5 times within 20 yards.",
+          "facts": [
+           "class-priest.prayer-of-mending"
+          ]
+         },
+         {
+          "text": "Use Heal or Greater Heal for steady tank damage. Divine Fury cuts both casts by 0.1 sec per rank.",
+          "facts": [
+           "talents-priest.holy-divine-fury.r1"
+          ]
+         },
+         {
+          "text": "Alternate your heals: at rank 1, Litany of Light returns 5% of a spell's base cost when your previous heal was a different spell.",
+          "facts": [
+           "talents-priest.holy-litany-of-light.r1"
+          ]
+         },
+         {
+          "text": "Put Renew on targets taking light damage; Renews from several Priests stack.",
+          "facts": [
+           "class-priest.renew-stacking"
+          ]
+         },
+         {
+          "text": "Cast Prayer of Healing on a member of the group you want to heal: it heals the target's party.",
+          "facts": [
+           "class-priest.prayer-of-healing-2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Casting the same heal twice in a row and expecting Litany of Light's mana.",
+          "fix": "Litany of Light returns mana only when your previous heal was a different spell.",
+          "facts": [
+           "talents-priest.holy-litany-of-light.r1"
+          ]
+         },
+         {
+          "mistake": "Trying to keep Prayer of Mending on two players at once.",
+          "fix": "It can be on only one target at a time per caster.",
+          "facts": [
+           "talents-priest.holy-prayer-of-mending.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-holy-101-tips",
+       "section": "rotation",
+       "title": "Staying alive and casting through damage",
+       "theory": [
+        "talents-priest.holy-blessed-recovery.r1",
+        "talents-priest.holy-spirit-of-redemption.r1",
+        "talents-priest.holy-holy-binding.r1",
+        "talents-priest.holy-twilight-focus.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Blessed Recovery heals 8% of the damage over 6 sec at rank 1 after a melee or ranged crit, or after a single hit for more than 30% of your maximum health.",
+          "facts": [
+           "talents-priest.holy-blessed-recovery.r1"
+          ]
+         },
+         {
+          "text": "Spirit of Redemption (row 5) lets you cast healing spells for free for 15 sec after you die, and Prayer of Mending requires it.",
+          "facts": [
+           "talents-priest.holy-spirit-of-redemption",
+           "talents-priest.holy-spirit-of-redemption.r1",
+           "talents-priest.holy-prayer-of-mending"
+          ]
+         },
+         {
+          "text": "Holy Binding heals you for 50% as much each time your Flash Heal heals someone else, and that healing makes no threat.",
+          "facts": [
+           "talents-priest.holy-holy-binding.r1"
+          ]
+         },
+         {
+          "text": "Twilight Focus gives your spells a 23% chance at rank 1 not to lose casting time when you take damage.",
+          "facts": [
+           "talents-priest.holy-twilight-focus.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Holy Binding to trigger on Greater Heal.",
+          "fix": "Holy Binding triggers only when your Flash Heal heals someone other than you.",
+          "facts": [
+           "talents-priest.holy-holy-binding.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "The level-60 build, stat priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "priest-holy-201-talents",
+       "section": "talents",
+       "title": "Level-60 build",
+       "theory": [
+        "talents-priest.holy-spiritual-guidance.r5",
+        "talents-priest.holy-spiritual-healing.r3",
+        "talents-priest.holy-improved-healing.r3",
+        "talents-priest.holy-prayer-of-mending"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Spiritual Guidance at rank 5 adds spell healing equal to up to 25% of your total Spirit, and spell damage up to 8%.",
+          "facts": [
+           "talents-priest.holy-spiritual-guidance.r5"
+          ]
+         },
+         {
+          "text": "Spiritual Healing has 3 ranks; at rank 3 your spells heal 10% more.",
+          "facts": [
+           "talents-priest.holy-spiritual-healing",
+           "talents-priest.holy-spiritual-healing.r3"
+          ]
+         },
+         {
+          "text": "Prayer of Mending sits on row 7 and requires Spirit of Redemption.",
+          "facts": [
+           "talents-priest.holy-prayer-of-mending"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Following a Classic guide's rank count for Spiritual Healing.",
+          "fix": "Spiritual Healing has 3 ranks in Forever: 10% more healing at rank 3.",
+          "facts": [
+           "talents-priest.holy-spiritual-healing",
+           "talents-priest.holy-spiritual-healing.r3"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-holy-raid-60"
+       ]
+      },
+      {
+       "id": "priest-holy-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-priest.spiritual-guidance-snapshot",
+        "class-priest.human-spirit-racial",
+        "class-priest.spiritual-healing-snapshot",
+        "class-priest.improved-healing-snapshot",
+        "class-priest.prayer-of-mending",
+        "class-priest.heal-values-files"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Value Spirit: at rank 1 Spiritual Guidance turns up to 5% of your total Spirit into spell healing, and a Human Priest has 10% more Spirit.",
+          "facts": [
+           "class-priest.spiritual-guidance-snapshot",
+           "class-priest.human-spirit-racial"
+          ]
+         },
+         {
+          "text": "Improved Healing makes Lesser Heal, Heal, Greater Heal, Penance and Prayer of Mending cost 5% less per rank.",
+          "facts": [
+           "class-priest.improved-healing-snapshot"
+          ]
+         },
+         {
+          "text": "Expect smaller heals than in Classic from level 20: the files put the largest Greater Heal about 6% under Classic for the same mana.",
+          "facts": [
+           "class-priest.heal-values-files"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Planning mana from Classic heal sizes.",
+          "fix": "Heals start lower than in Classic from level 20, and the largest Greater Heal is about 6% under Classic for the same mana.",
+          "facts": [
+           "class-priest.heal-values-files"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-holy-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "priest-holy-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-priest.classic-1-12-healer-kit-reference",
+        "class-priest.forever-alchemy",
+        "class-priest.camp-buffs"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Buy healing potions from a First Aid crafter: Warcraft Tavern says they moved out of Alchemy.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Flasks are brewed at a portable Alchemy Laboratory camp object, and Minor Arcane Elixir is one of the new elixirs.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Camp buffs are weaker copies of class buffs and do not stack with the real ones. You sit at the camp for at least 1 minute.",
+          "facts": [
+           "class-priest.camp-buffs"
+          ]
+         },
+         {
+          "text": "Read the healer kit (Flask of Distilled Wisdom, Elixir of the Sages, Major Mana Potion and the rest) as a Classic 1.12 reference, not a Forever-checked list.",
+          "facts": [
+           "class-priest.classic-1-12-healer-kit-reference"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Asking an Alchemist for healing potions.",
+          "fix": "Healing potions moved to First Aid in Forever.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-holy-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-priest.renew-stacking",
+        "class-priest.prayer-of-healing-2",
+        "class-priest.raid-buffs-files-2",
+        "class-priest.threat",
+        "class-priest.healer-rankings",
+        "class-priest.onyxia-2"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Stack Renews with other Priests on the main tank: Renews from several Priests stack on one target.",
+          "facts": [
+           "class-priest.renew-stacking"
+          ]
+         },
+         {
+          "text": "Use Fade early when you pull threat: its threat drop is doubled.",
+          "facts": [
+           "class-priest.threat"
+          ]
+         },
+         {
+          "text": "Agree which group each Priest covers with Prayer of Healing; it heals the target's party, so you can heal a group you are not in.",
+          "facts": [
+           "class-priest.prayer-of-healing-2"
+          ]
+         },
+         {
+          "text": "Confirm in game whether Prayer of Fortitude reaches the whole raid: the files say yes, but a report on the 16 Oct beta patch says Fortitude is still cast per group.",
+          "facts": [
+           "class-priest.raid-buffs-files-2"
+          ]
+         },
+         {
+          "text": "Ignore healer rankings for now: none rest on Forever raid logs yet."
+         },
+         {
+          "text": "Carry your own Drakefire Amulet for Onyxia's Lair, and build fire resistance before the fight.",
+          "facts": [
+           "class-priest.onyxia-2"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Holding Renew back because another Priest's Renew is on the tank.",
+          "fix": "Renews from several Priests stack on one target, so cast yours.",
+          "facts": [
+           "class-priest.renew-stacking"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-holy-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-priest.holy-spirit-of-redemption.r1",
+        "talents-priest.holy-holy-nova.r1",
+        "talents-priest.discipline-silent-resolve",
+        "talents-priest.holy-spell-warding.r5"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spirit of Redemption keeps you healing for 15 sec after death, and Holy Nova heals party members within 10 yards with no threat.",
+          "facts": [
+           "talents-priest.holy-spirit-of-redemption.r1",
+           "talents-priest.holy-holy-nova.r1"
+          ]
+         },
+         {
+          "text": "Silent Resolve sits on row 2 of the Discipline tree, so a Holy build must spend Discipline points to reach it.",
+          "facts": [
+           "talents-priest.discipline-silent-resolve"
+          ]
+         },
+         {
+          "text": "Spell Warding cuts all spell damage you take by 2% per rank, up to 10% at rank 5.",
+          "facts": [
+           "talents-priest.holy-spell-warding.r1",
+           "talents-priest.holy-spell-warding.r5"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Trying to move or attack as the Spirit of Redemption.",
+          "fix": "The Spirit cannot move or attack; it can only cast healing spells, free of cost, for 15 sec.",
+          "facts": [
+           "talents-priest.holy-spirit-of-redemption.r1"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "priest-holy-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and cast timing",
+       "theory": [],
+       "unavailable": "Forever's healing and spell power coefficients have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "priest-holy-301-caps",
+       "section": "stat-caps",
+       "title": "Crit, haste and mana breakpoints",
+       "theory": [
+        "class-priest.hit-for-priests"
+       ],
+       "unavailable": "Holy Precision covers hit, but no crit, haste or mana breakpoint for Forever healers has been published or measured, so no formula can be given yet."
+      },
+      {
+       "id": "priest-holy-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-priest.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "priest-holy-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "No reviewed matchup note exists for Holy yet. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "shadow",
+   "name": "Shadow",
+   "roles": [
+    "caster"
+   ],
+   "overview": {
+    "lead": "Shadow deals damage over time and through Mind Flay. Shadowform, the tree's last talent, adds 10% Shadow damage, halves Shadow spell costs, doubles the crit damage bonus of Shadow spells and cuts Physical damage taken by 15%, but you cannot cast healing spells in it.",
+    "points": [
+     {
+      "text": "Vampiric Embrace heals your party for 20% of your Shadow spell damage, and Dark Inspiration raises your party's Spirit.",
+      "facts": [
+       "talents-priest.shadow-vampiric-embrace.r1",
+       "talents-priest.shadow-dark-inspiration.r1"
+      ]
+     },
+     {
+      "text": "Shadow Weaving now boosts only your own Shadow damage, so Shadow Priests no longer amplify Warlocks.",
+      "facts": [
+       "class-priest.shadow-weaving-is-personal"
+      ]
+     }
+    ],
+    "facts": [
+     "talents-priest.shadow-summary",
+     "class-priest.shadowform-snapshot"
+    ]
+   },
+   "tracks": {
+    "101": {
+     "summary": "Leveling as Shadow, the core rotation and the Shadow talents that changed.",
+     "chapters": [
+      {
+       "id": "priest-shadow-101-talents",
+       "section": "talents",
+       "title": "Leveling and talents",
+       "theory": [
+        "talents-priest.shadow-summary",
+        "talents-priest.shadow-spirit-tap.r1",
+        "talents-priest.shadow-mind-flay.r1",
+        "class-priest.vampiric-embrace",
+        "talents-priest.shadow-shadowform"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Spirit Tap: after a kill, a 20% chance at rank 1 to double your Spirit for 15 sec, with 50% of your mana regeneration continuing while you cast.",
+          "facts": [
+           "talents-priest.shadow-spirit-tap.r1"
+          ]
+         },
+         {
+          "text": "Mind Flay (row 3) slows the target's movement by 50% while it deals its damage.",
+          "facts": [
+           "talents-priest.shadow-mind-flay",
+           "talents-priest.shadow-mind-flay.r1"
+          ]
+         },
+         {
+          "text": "Fear Ward and Devouring Plague come at level 20 and Shadow Word: Death at 32, with no talent points.",
+          "facts": [
+           "class-priest.change-2"
+          ]
+         },
+         {
+          "text": "Vampiric Embrace has a 30 sec cooldown and cannot be resisted since 16 Oct.",
+          "facts": [
+           "class-priest.vampiric-embrace"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Saving points for Shadowform without taking Vampiric Embrace.",
+          "fix": "Shadowform requires Vampiric Embrace.",
+          "facts": [
+           "talents-priest.shadow-shadowform"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-shadow-leveling-30"
+       ]
+      },
+      {
+       "id": "priest-shadow-101-rotation",
+       "section": "rotation",
+       "title": "Core rotation",
+       "theory": [
+        "talents-priest.shadow-improved-shadow-word-pain.r1",
+        "talents-priest.shadow-improved-mind-blast.r1",
+        "talents-priest.shadow-improved-mind-flay.r1",
+        "talents-priest.shadow-dark-inspiration.r1",
+        "class-priest.change-8",
+        "talents-priest.shadow-early-demise.r1"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Shadow Word: Pain up; Improved Shadow Word: Pain adds 3 sec per rank.",
+          "facts": [
+           "talents-priest.shadow-improved-shadow-word-pain.r1"
+          ]
+         },
+         {
+          "text": "Cast Mind Blast on cooldown; Improved Mind Blast shortens that cooldown by 0.5 sec per rank, up to 2.5 sec.",
+          "facts": [
+           "talents-priest.shadow-improved-mind-blast.r1",
+           "talents-priest.shadow-improved-mind-blast.r5"
+          ]
+         },
+         {
+          "text": "Fill with Mind Flay and let it finish: with Improved Mind Flay each tick hits harder than the last, and a full channel triggers Dark Inspiration.",
+          "facts": [
+           "talents-priest.shadow-improved-mind-flay.r1",
+           "talents-priest.shadow-dark-inspiration.r1"
+          ]
+         },
+         {
+          "text": "Use Shadow Word: Death to finish targets. A hit that leaves the target alive costs you 30% of your maximum health; a miss costs nothing.",
+          "facts": [
+           "class-priest.change-8"
+          ]
+         },
+         {
+          "text": "Early Demise adds 15% crit chance per rank to Shadow Word: Death on targets at or below 20% health.",
+          "facts": [
+           "talents-priest.shadow-early-demise.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Cutting Mind Flay short.",
+          "fix": "Dark Inspiration needs a fully channeled Mind Flay, and Improved Mind Flay makes each tick stronger than the last.",
+          "facts": [
+           "talents-priest.shadow-dark-inspiration.r1",
+           "talents-priest.shadow-improved-mind-flay.r1"
+          ]
+         },
+         {
+          "mistake": "Casting Shadow Word: Death on a target it will not kill.",
+          "fix": "A hit that does not kill costs you 30% of your maximum health.",
+          "facts": [
+           "class-priest.change-8"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-shadow-101-tips",
+       "section": "rotation",
+       "title": "Shadow talents that changed",
+       "theory": [
+        "talents-priest.shadow-shadow-weaving.r1",
+        "talents-priest.shadow-shadow-weaving.r3",
+        "talents-priest.shadow-silence",
+        "talents-priest.shadow-devouring-contagion.r1",
+        "class-priest.shadow-weaving-is-personal"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Shadow Weaving now boosts only your own Shadow damage: 2% per stack, up to 5 stacks, with a 33% chance per spell at rank 1 and every time at rank 3.",
+          "facts": [
+           "talents-priest.shadow-shadow-weaving.r1",
+           "talents-priest.shadow-shadow-weaving.r3"
+          ]
+         },
+         {
+          "text": "Silence needs no other talent first. It stops the target casting for 5 sec on a 45 sec cooldown.",
+          "facts": [
+           "talents-priest.shadow-silence",
+           "talents-priest.shadow-silence.r1"
+          ]
+         },
+         {
+          "text": "Devouring Contagion makes Devouring Plague 25% cheaper at rank 1 and spreads it to 2 nearby enemies when the target dies.",
+          "facts": [
+           "talents-priest.shadow-devouring-contagion.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting your Shadow Weaving to boost a Warlock's damage.",
+          "fix": "It now boosts only your own Shadow damage.",
+          "facts": [
+           "class-priest.shadow-weaving-is-personal"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "stat-caps",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "gear",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "consumables",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "praxis",
+       "reason": "Covered in 201."
+      },
+      {
+       "section": "macros",
+       "reason": "See the class course: no Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "201": {
+     "summary": "Level-60 builds, hit and damage priorities, consumables, the raid and PvP.",
+     "chapters": [
+      {
+       "id": "priest-shadow-201-talents",
+       "section": "talents",
+       "title": "Level-60 builds",
+       "theory": [
+        "talents-priest.shadow-darkness.r5",
+        "talents-priest.shadow-shadow-focus.r5",
+        "class-priest.shadowform-snapshot",
+        "talents-priest.shadow-shadow-weaving.r3"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Open a build in the talent calculator and check it against your talents in game before you spend points."
+         },
+         {
+          "text": "Darkness adds 10% Shadow damage at rank 5 of 5.",
+          "facts": [
+           "talents-priest.shadow-darkness.r5"
+          ]
+         },
+         {
+          "text": "Shadow Focus adds 5% hit with Shadow spells at rank 5 of 5.",
+          "facts": [
+           "talents-priest.shadow-shadow-focus.r5"
+          ]
+         },
+         {
+          "text": "Shadow Weaving at rank 3 of 3 applies with every Shadow damage spell.",
+          "facts": [
+           "talents-priest.shadow-shadow-weaving.r3"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking Shadow Focus for the resist reduction older guides describe.",
+          "fix": "Blizzard switched it to hit: 1% hit with Shadow spells per rank.",
+          "facts": [
+           "class-priest.shadow-hit-from-talents-snapshot"
+          ]
+         }
+        ]
+       },
+       "presets": [
+        "priest-shadow-raid-60",
+        "priest-shadow-pvp-60"
+       ]
+      },
+      {
+       "id": "priest-shadow-201-priorities",
+       "section": "stat-caps",
+       "title": "Stat priorities and caps",
+       "theory": [
+        "class-priest.shadow-hit-from-talents-snapshot",
+        "class-priest.spell-hit-cap-against-raid-bosses-forever",
+        "class-priest.classic-1-12-hit-cap-reference-only",
+        "class-priest.extra-hit-for-dwarves",
+        "class-priest.shadowform-snapshot",
+        "class-priest.darkness-snapshot"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Shadow Focus is your talent hit: 1% per rank with Shadow spells, over 5 ranks.",
+          "facts": [
+           "class-priest.shadow-hit-from-talents-snapshot"
+          ]
+         },
+         {
+          "text": "A Dwarf gets 1% more hit with spells and attacks, and Warcraft Tavern advises Shadow to reach the hit cap as soon as possible.",
+          "facts": [
+           "class-priest.extra-hit-for-dwarves"
+          ]
+         },
+         {
+          "text": "Treat the Forever spell hit cap as unknown. The 16% you may read elsewhere is the Classic 1.12 cap against bosses three levels higher.",
+          "facts": [
+           "class-priest.classic-1-12-hit-cap-reference-only"
+          ]
+         },
+         {
+          "text": "Darkness adds 2% Shadow damage per rank, and Shadowform adds 10% on top.",
+          "facts": [
+           "class-priest.darkness-snapshot",
+           "class-priest.shadowform-snapshot"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Taking the Classic 16% hit cap as a Forever number.",
+          "fix": "16% is the Classic 1.12 cap against bosses three levels higher, not a Forever value.",
+          "facts": [
+           "class-priest.classic-1-12-hit-cap-reference-only"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-shadow-201-gear",
+       "section": "gear",
+       "title": "Pre-raid and phase gear",
+       "theory": [],
+       "unavailable": "No reviewed gear list for this spec exists yet. The pre-raid checklist tool maps the slots; phase tables wait for reviewed dungeon loot and the raids that open on 9 December."
+      },
+      {
+       "id": "priest-shadow-201-consumables",
+       "section": "consumables",
+       "title": "Consumables",
+       "theory": [
+        "class-priest.classic-1-12-caster-kit-reference",
+        "class-priest.forever-alchemy",
+        "class-priest.world-buffs-in-raids"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Read the caster kit (Flask of Supreme Power, Greater Arcane Elixir, Brilliant Wizard Oil and the rest) as a Classic 1.12 reference, not a Forever-checked list.",
+          "facts": [
+           "class-priest.classic-1-12-caster-kit-reference"
+          ]
+         },
+         {
+          "text": "Flasks are brewed at a portable Alchemy Laboratory camp object, and Minor Arcane Elixir is one of the new elixirs.",
+          "facts": [
+           "class-priest.forever-alchemy"
+          ]
+         },
+         {
+          "text": "Plan raid nights without world buffs: Wowhead's Forever data marks Rallying Cry of the Dragonslayer 'No effect while in a raid instance'.",
+          "facts": [
+           "class-priest.world-buffs-in-raids"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Counting on Rallying Cry of the Dragonslayer inside the raid.",
+          "fix": "Forever data marks it 'No effect while in a raid instance'.",
+          "facts": [
+           "class-priest.world-buffs-in-raids"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-shadow-201-raid",
+       "section": "praxis",
+       "title": "In the raid",
+       "theory": [
+        "class-priest.shadow-weaving-is-personal",
+        "class-priest.group-utility",
+        "class-priest.vampiric-embrace",
+        "class-priest.dark-inspiration-snapshot",
+        "class-priest.threat",
+        "class-priest.dps-rankings"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Keep Vampiric Embrace up: it heals your party for 20% of your Shadow damage for 30 sec, on a 30 sec cooldown.",
+          "facts": [
+           "class-priest.vampiric-embrace"
+          ]
+         },
+         {
+          "text": "Mind Blast and full Mind Flay channels give you and your party 3% more Spirit for 10 sec at rank 1 of Dark Inspiration.",
+          "facts": [
+           "class-priest.dark-inspiration-snapshot"
+          ]
+         },
+         {
+          "text": "Stack Shadow Weaving yourself: it boosts only your own Shadow damage.",
+          "facts": [
+           "class-priest.shadow-weaving-is-personal"
+          ]
+         },
+         {
+          "text": "Icy Veins lists your raid utility as Vampiric Embrace, Dark Inspiration, the Prayer buffs, Psychic Scream, Fear Ward, disease removal, Dispel Magic, Mind Control and Shackle Undead.",
+          "facts": [
+           "class-priest.group-utility"
+          ]
+         },
+         {
+          "text": "Use Fade when you pull threat: its threat drop is doubled.",
+          "facts": [
+           "class-priest.threat"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Expecting Vampiric Embrace to heal the whole raid.",
+          "fix": "It heals your party members only.",
+          "facts": [
+           "talents-priest.shadow-vampiric-embrace.r1"
+          ]
+         }
+        ]
+       }
+      },
+      {
+       "id": "priest-shadow-201-pvp",
+       "section": "praxis",
+       "title": "PvP",
+       "theory": [
+        "talents-priest.shadow-silence.r1",
+        "talents-priest.shadow-improved-psychic-scream",
+        "talents-priest.shadow-blackout.r1",
+        "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+        "class-priest.change-8"
+       ],
+       "praxis": {
+        "steps": [
+         {
+          "text": "Silence stops spellcasting for 5 sec and interrupts the cast in progress for 3 sec. It needs no prerequisite talent.",
+          "facts": [
+           "talents-priest.shadow-silence.r1",
+           "talents-priest.shadow-silence"
+          ]
+         },
+         {
+          "text": "Improved Psychic Scream requires Blackout and cuts Psychic Scream's cooldown by 2 sec at rank 1. Blackout gives your Shadow damage spells a 2% chance at rank 1 to stun for 3 sec.",
+          "facts": [
+           "talents-priest.shadow-improved-psychic-scream",
+           "talents-priest.shadow-improved-psychic-scream.r1",
+           "talents-priest.shadow-blackout.r1"
+          ]
+         },
+         {
+          "text": "Against a Warlock: Fear Ward is baseline for every Priest and lasts 3 min on a 3 min cooldown in the files, and Silence stops their casting for 5 sec.",
+          "facts": [
+           "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+           "talents-priest.shadow-silence.r1"
+          ]
+         },
+         {
+          "text": "Mind Flay slows the target's movement by 50%.",
+          "facts": [
+           "talents-priest.shadow-mind-flay.r1"
+          ]
+         }
+        ],
+        "mistakes": [
+         {
+          "mistake": "Opening with Shadow Word: Death on a healthy target.",
+          "fix": "A hit that fails to kill costs you 30% of your maximum health, so save it to finish.",
+          "facts": [
+           "class-priest.change-8"
+          ]
+         }
+        ]
+       }
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "The spec overview above covers this."
+      },
+      {
+       "section": "rotation",
+       "reason": "The 101 rotation covers what the reviewed facts support."
+      },
+      {
+       "section": "macros",
+       "reason": "No Priest macro has been checked in Forever yet."
+      }
+     ]
+    },
+    "301": {
+     "summary": "Advanced theory waits for data that does not exist yet: measured caps, client coefficients and raid logs. Each chapter says what is missing.",
+     "chapters": [
+      {
+       "id": "priest-shadow-301-coefficients",
+       "section": "rotation",
+       "title": "Coefficients and channel timing",
+       "theory": [],
+       "unavailable": "Forever's spell power coefficients and Mind Flay tick timing have not been read from client data or measured in reviewed logs."
+      },
+      {
+       "id": "priest-shadow-301-caps",
+       "section": "stat-caps",
+       "title": "Hit and crit breakpoints",
+       "theory": [
+        "class-priest.spell-hit-cap-against-raid-bosses-forever",
+        "class-priest.classic-1-12-hit-cap-reference-only"
+       ],
+       "unavailable": "Blizzard has published no level-60 spell hit cap for Forever, so no breakpoint formula can be given yet."
+      },
+      {
+       "id": "priest-shadow-301-bosses",
+       "section": "praxis",
+       "title": "Boss-by-boss execution",
+       "theory": [
+        "class-priest.launch-raids"
+       ],
+       "unavailable": "Barrow Deeps, Hyjal Summit and Onyxia's Lair open on 9 December 2026. Boss-by-boss execution is written from the first reviewed logs after that."
+      },
+      {
+       "id": "priest-shadow-301-duels",
+       "section": "praxis",
+       "title": "Duels and battlegrounds against every class",
+       "theory": [],
+       "unavailable": "Reviewed matchup notes exist only for the Warlock note in 201 PvP. A plan against all nine classes waits for reviewed duel and battleground facts."
+      }
+     ],
+     "omitted": [
+      {
+       "section": "overview",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "talents",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "gear",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "consumables",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      },
+      {
+       "section": "macros",
+       "reason": "Nothing beyond 201 has been reviewed yet."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

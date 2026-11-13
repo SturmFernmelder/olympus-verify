@@ -8,6 +8,15 @@
   "use strict";
   const CLASS_IDS = ["warrior", "paladin", "hunter", "rogue", "priest", "shaman", "mage", "warlock", "druid"];
   const DATA_URL = "/static/talents/data.json";
+  // Evergreen Stage 2, owner ruling of 12 Nov 2026: the calculator runs on the 10 November export, and build codes made on
+  // an older revision open read-only from that revision's archived snapshot. A code is never reinterpreted on newer trees.
+  const REVIEWED = Object.freeze({
+    "02e1e101d1a5": Object.freeze({ talents: 467, ranks: 1297, label: "10 November talent data" }),
+    "260cf99b52db": Object.freeze({ talents: 466, ranks: 1313, label: "16 October beta data" }),
+  });
+  const ARCHIVES = Object.freeze({
+    "260cf99b52db": Object.freeze({ data: "/static/talents/archive/260cf99b52db/data.json", art: "/static/talents/archive/260cf99b52db/art.json" }),
+  });
   const fail = message => ({ ok: false, error: message });
   const classOf = (data, name) => data.classes.find(c => c.id === String(name || "").toLowerCase());
   const talentsOf = cls => cls.trees.flatMap(tree => tree.talents);
@@ -45,7 +54,8 @@
         }
       }
     }
-    if (nodes !== 466 || ranks !== 1313 || trees !== 27) return fail("Snapshot coverage differs from its reviewed inventory.");
+    const reviewed = Object.hasOwn(REVIEWED, data.revision) ? REVIEWED[data.revision] : null;
+    if (!reviewed || nodes !== reviewed.talents || ranks !== reviewed.ranks || trees !== 27) return fail("Snapshot coverage differs from its reviewed inventory.");
     return { ok: true, talents: nodes, ranks, trees, classes: data.classes.length };
   }
   function emptyBuild(data, className = "warrior", level = 60) {
@@ -210,20 +220,44 @@
     if (!art || art.schema !== "olympus-talents-art-v1" || art.revision !== data.revision) return fail("The talent artwork does not match this snapshot.");
     const classes = data.classes.map(cls => cls.id), trees = data.classes.flatMap(cls => cls.trees.map(tree => cls.id + "-" + tree.id));
     const talents = data.classes.flatMap(cls => talentsOf(cls).map(t => t.id));
+    // 12 Nov 2026: a talent whose own official icon is not on file is listed here and drawn as a plain tile (art rule:
+    // official game assets only, nothing fetched). Every other talent still needs exactly one local icon.
+    const missing = art?.talentIconsUnavailable === undefined ? [] : art.talentIconsUnavailable;
+    if (!Array.isArray(missing) || missing.some(id => typeof id !== "string" || !talents.includes(id)) || new Set(missing).size !== missing.length) return fail("The talent artwork is incomplete or has an unrecognised path.");
+    const drawn = talents.filter(id => !missing.includes(id));
     const map = (value, keys) => value && typeof value === "object" && !Array.isArray(value)
       && Object.keys(value).sort().join("\n") === keys.slice().sort().join("\n")
       && Object.values(value).every(url => typeof url === "string" && /^\/static\/wow\/[A-Za-z0-9_/-]+\.(?:png|jpg|webp)$/.test(url) && !url.split("/").some(part => part === "." || part === ".."));
-    if (!map(art.classIcons, classes) || !map(art.treeIcons, trees) || !map(art.treeBackgrounds, trees) || !map(art.talentIcons, talents)
+    if (!map(art.classIcons, classes) || !map(art.treeIcons, trees) || !map(art.treeBackgrounds, trees) || !map(art.talentIcons, drawn)
       || art.classPortraits && !map(art.classPortraits, classes)) return fail("The talent artwork is incomplete or has an unrecognised path.");
-    return { ok: true, classes: classes.length, trees: trees.length, talents: talents.length };
+    return { ok: true, classes: classes.length, trees: trees.length, talents: drawn.length, unavailable: missing.length };
   }
   let dataPromise, artPromise, instanceSequence = 0;
+  const archivePromises = new Map();
+  function loadArchive(revision) {
+    if (!archivePromises.has(revision)) {
+      const urls = ARCHIVES[revision], json = url => fetch(url, { credentials: "same-origin" }).then(response => {
+        if (!response.ok) throw Error("The archived talent data could not be loaded.");
+        return response.json();
+      });
+      const promise = Promise.all([json(urls.data), json(urls.art)]).then(([snapshot, artwork]) => {
+        const checked = validateData(snapshot);
+        if (!checked.ok || snapshot.revision !== revision) throw Error("The archived talent data is not the reviewed snapshot.");
+        const checkedArt = validateArt(snapshot, artwork);
+        if (!checkedArt.ok) throw Error(checkedArt.error);
+        return { data: snapshot, art: artwork };
+      });
+      promise.catch(() => archivePromises.delete(revision));
+      archivePromises.set(revision, promise);
+    }
+    return archivePromises.get(revision);
+  }
   const mounted = new WeakMap();
   async function mount(container, options = {}) {
     if (!container || !container.ownerDocument || typeof container.replaceChildren !== "function") throw Error("A DOM container is required.");
     mounted.get(container)?.destroy();
     const document = container.ownerDocument, detailId = "olympus-talent-detail-" + ++instanceSequence;
-    let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null;
+    let active = true, compare = false, selected = null, message = "", build, data, art, detailLeaveTimer = null, archived = null;
     let reusableArtwork = null, artworkNotice = null, view = null, analysisView = null, feedbackSequence = 0;
     // .189 optional level-60 sheet (prepared as .186 on the .185 PR head, never released): loaded only when its section opens;
     // a failure never blocks the calculator. The sheet draws no <img>, so the .187/.188 artwork queue never sees it.
@@ -303,6 +337,11 @@
       node.addEventListener("load", () => settledArtwork(entry, true));
       return node;
     }
+    const readOnly = () => archived !== null;
+    const READ_ONLY_NOTE = "This archived build is read-only. Hover or focus a talent to read every rank.";
+    const canChange = (talentId, delta) => !readOnly() && allocate(data, build, talentId, delta).ok;
+    const talentArt = (talentId, attrs = {}, deferred = false) => art.talentIcons[talentId]
+      ? image(art.talentIcons[talentId], attrs, deferred) : h("span", { class: "talents-noart", "aria-hidden": "true" });
     container.replaceChildren(h("p", { role: "status", text: "Opening the talent library…" }));
     try {
       if (!dataPromise) dataPromise = fetch(DATA_URL, { credentials: "same-origin" }).then(async response => {
@@ -311,13 +350,25 @@
         if (!checked.ok) throw Error(checked.error); return snapshot;
       }).catch(error => { dataPromise = null; throw error; });
       data = await dataPromise;
-      if (!artPromise) artPromise = fetch(ART_URL, { credentials: "same-origin" }).then(async response => {
-        if (!response.ok) throw Error("The talent artwork could not be loaded.");
-        return response.json();
-      }).catch(error => { artPromise = null; throw error; });
-      art = await artPromise;
-      const checkedArt = validateArt(data, art);
-      if (!checkedArt.ok) { artPromise = null; throw Error(checkedArt.error); }
+      // An old code opens its own archived revision, read-only. A code whose archive fails to load or parse falls through
+      // to the current snapshot, which refuses it with the usual "different snapshot" message.
+      const wanted = typeof options.build === "string" ? /^ot1\.([a-f0-9]{12})\./.exec(options.build) : null;
+      if (wanted && wanted[1] !== data.revision && Object.hasOwn(ARCHIVES, wanted[1])) {
+        try {
+          const loaded = await loadArchive(wanted[1]);
+          if (!active) return controller;
+          if (parseBuild(loaded.data, options.build).ok) { data = loaded.data; art = loaded.art; archived = wanted[1]; }
+        } catch { message = "The archived " + REVIEWED[wanted[1]].label + " could not be loaded, so this build cannot be shown. Reopen the link to try again."; }
+      }
+      if (!archived) {
+        if (!artPromise) artPromise = fetch(ART_URL, { credentials: "same-origin" }).then(async response => {
+          if (!response.ok) throw Error("The talent artwork could not be loaded.");
+          return response.json();
+        }).catch(error => { artPromise = null; throw error; });
+        art = await artPromise;
+        const checkedArt = validateArt(data, art);
+        if (!checkedArt.ok) { artPromise = null; throw Error(checkedArt.error); }
+      }
       if (!active) return controller;
       const linkedClass = classOf(data, options.className || "warrior");
       build = emptyBuild(data, linkedClass ? linkedClass.id : "warrior");
@@ -327,7 +378,7 @@
         if (incoming.ok) {
           build = incoming.build;
           if (!linkedClass) message = "That linked class is unavailable. Showing the checked " + classOf(data, build.className).name + " shared plan.";
-        } else message = incoming.error + (!linkedClass ? " That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below." : "");
+        } else message = (message || incoming.error) + (!linkedClass ? " That linked class is unavailable. Showing a blank Warrior plan; choose a supported class below." : "");
       }
       selected = talentsOf(classOf(data, build.className))[0].id;
       render();
@@ -337,16 +388,18 @@
       return controller;
     }
     function changed() {
+      if (readOnly()) return;
       if (typeof options.onBuildChange === "function") options.onBuildChange({ className: build.className, build: serializeBuild(data, build), level: build.level, points: validateBuild(data, build).points });
     }
     function edit(talentId, delta) {
       if (!active) return;
+      if (readOnly()) { selected = talentId; message = READ_ONLY_NOTE; render(talentId, "blocked"); return; }
       selected = talentId; const result = allocate(data, build, talentId, delta);
       if (result.ok) { build = result.build; message = ""; changed(); } else message = result.error;
       render(talentId, result.ok ? delta > 0 ? "learn" : "refund" : "blocked");
     }
     function chooseClass(className) {
-      if (!active) return;
+      if (!active || readOnly()) return;
       if (className === build.className) return; // Re-selecting the active tab is not an explicit reset.
       build = emptyBuild(data, className, build.level); selected = talentsOf(classOf(data, className))[0].id; message = ""; changed(); render("class:" + className);
     }
@@ -373,29 +426,29 @@
       let laidOut = "forever", firstPaint = true, motionEffects = [], splitVisual = null;
       if (!talents.some(t => t.id === selected)) selected = talents[0].id;
       const displayClasses = [...data.classes].sort((a, b) => a.name.localeCompare(b.name, "en"));
-      const classSelect = h("select", { id: "olympus-talent-class", "aria-label": "Character class", tabindex: "-1", onchange(event) { chooseClass(event.target.value); } }, displayClasses.map(c => h("option", { value: c.id, text: c.name })));
+      const classSelect = h("select", { id: "olympus-talent-class", "aria-label": "Character class", tabindex: "-1", disabled: readOnly(), onchange(event) { chooseClass(event.target.value); } }, displayClasses.map(c => h("option", { value: c.id, text: c.name })));
       classSelect.value = cls.id;
       const classRow = h("nav", { class: "talents-classes", "aria-label": "Character classes" }, displayClasses.map(c => {
-        const button = h("button", { type: "button", class: "talents-class-button", "data-class": c.id, "aria-pressed": String(c.id === cls.id), onclick() { chooseClass(c.id); } }, image(art.classIcons[c.id]), h("span", { text: c.name }));
+        const button = h("button", { type: "button", class: "talents-class-button", "data-class": c.id, "aria-pressed": String(c.id === cls.id), disabled: readOnly(), onclick() { chooseClass(c.id); } }, image(art.classIcons[c.id]), h("span", { text: c.name }));
         classButtons.set(c.id, button); return button;
       }));
       const chooseLevel = (value) => {
-        if (!active) return;
+        if (!active || readOnly()) return;
         const next = { ...build, level: Number(value) }, checked = validateBuild(data, next);
         if (checked.ok) { build = next; message = ""; changed(); } else message = checked.error + " Refund points or reset first.";
         render("level");
       };
-      const level = h("select", { id: "olympus-talent-level", "aria-label": "Character level", onchange(event) { chooseLevel(event.target.value); } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
+      const level = h("select", { id: "olympus-talent-level", "aria-label": "Character level", disabled: readOnly(), onchange(event) { chooseLevel(event.target.value); } }, Array.from({ length: 51 }, (_, i) => h("option", { value: i + 10, text: String(i + 10) })));
       const levelPresetButtons = [];
       const levelPresets = h("div", { class: "talents-level-presets", role: "group", "aria-label": "Point budget" }, [30, 60].map(value => {
-        const button = h("button", {type:"button", "data-level-preset":String(value), "aria-pressed":String(build.level === value),
+        const button = h("button", {type:"button", "data-level-preset":String(value), "aria-pressed":String(build.level === value), disabled: readOnly(),
           text:`Level ${value} · ${value - 9} points`, onclick() { chooseLevel(value); }});
         levelPresetButtons.push([value, button]); return button;
       }));
       level.value = String(build.level);
       const compareInput = h("input", { type: "checkbox", checked: compare, onchange(event) { if (active) { compare = event.target.checked; render("compare"); } } });
       const detail = h("aside", { id: detailId, class: "talents-detail", "aria-label": "Selected talent", tabindex: "-1", hidden: true, onkeydown(event) { if (event.key === "Escape") { event.preventDefault(); buttons.get(selected).focus(); hideDetail(); } } });
-      const status = h("p", { class: "talents-feedback", role: "status", "aria-live": "polite", text: message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank." });
+      const status = h("p", { class: "talents-feedback", role: "status", "aria-live": "polite", text: message || (readOnly() ? READ_ONLY_NOTE : "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.") });
       artworkNotice = h("div", { class: "talents-artwork-notice", hidden: true, role: "status", "aria-live": "polite" },
         h("p", { text: "Some artwork could not be loaded. Talent names, details and point rules are still available." }),
         h("button", { type: "button", text: "Retry artwork", onclick(event) {
@@ -443,7 +496,7 @@
             c.note ? h("p", { text: c.note }) : null,
             c.replaces?.length ? h("p", { text: "Replaces: " + c.replaces.join(", ") }) : null,
             classicChangeDetail(t));
-          detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, image(art.talentIcons[t.id]), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { hideDetail(); if (button) button.focus(); hideDetail(); } })),
+          detail.replaceChildren(...[h("div", { class: "talents-tooltip-heading" }, talentArt(t.id), h("h3", { text: t.name }), h("button", { type: "button", class: "talents-detail-close", "aria-label": "Close talent details", text: "Close", onclick() { hideDetail(); if (button) button.focus(); hideDetail(); } })),
             rankLabel, t.cost ? h("p", { class: "talents-cost", text: t.cost }) : null, ranks,
             t.requires ? h("p", { class: "talents-requires", text: "Requires " + talents.find(p => p.id === t.requires).name + " at maximum rank." }) : null,
             h("details", { class: "talents-all-ranks" }, h("summary", { text: "Read all " + t.maxRank + " ranks" }), h("ol", null, t.descriptions.map(text => h("li", { text })))),
@@ -456,7 +509,7 @@
         detailRefs.nextText.textContent = t.descriptions[rank] || "";
         detailRefs.ranks.replaceChildren(detailRefs.currentHeading, detailRefs.currentText, ...(rank > 0 && rank < t.maxRank ? [detailRefs.next] : []));
         const focusedControl = [detailRefs.remove, detailRefs.learn].find(control => control === document.activeElement);
-        detailRefs.remove.disabled = !allocate(data, build, t.id, -1).ok; detailRefs.learn.disabled = !allocate(data, build, t.id, 1).ok; detailRefs.classic.hidden = !compare;
+        detailRefs.remove.disabled = !canChange(t.id, -1); detailRefs.learn.disabled = !canChange(t.id, 1); detailRefs.classic.hidden = !compare;
         if (detail.parentNode) detail.parentNode.removeAttribute("data-detail-open");
         if (button && button.parentNode) {
           if (detail.parentNode !== button.parentNode) button.parentNode.append(detail);
@@ -492,7 +545,7 @@
         const treeSection = h("section", { class: "talents-tree", "data-tree-index": treeIndex, "aria-label": tree.name }, frame, heading,
           h("div", { class: "talents-tree-body" }, backdrop, linkLayer,
             h("div", { class: "talents-grid" }, tree.talents.map(t => {
-              const rank = byId.get(t.id), canAdd = allocate(data, build, t.id, 1).ok, canRemove = allocate(data, build, t.id, -1).ok;
+              const rank = byId.get(t.id), canAdd = canChange(t.id, 1);
               const treeTabId = tree.talents.some(p => p.id === selected) ? selected : tree.talents[0].id;
               const pill = h("span", { class: "talents-rank-pill", "aria-hidden": "true", text: rank + "/" + t.maxRank });
               const pick = h("button", { type: "button", class: "talents-pick", tabindex: treeTabId === t.id ? "0" : "-1", "aria-pressed": String(selected === t.id), "aria-label": t.name + ", rank " + rank + " of " + t.maxRank + (canAdd ? ". Add one point." : ". Read talent details."),
@@ -513,7 +566,7 @@
                     .sort((a, b) => { const qa = at(a), qb = at(b); return Math.abs(qa.row - here.row) + Math.abs(qa.column - here.column) - Math.abs(qb.row - here.row) - Math.abs(qb.column - here.column); })[0];
                   if (near) buttons.get(near.id).focus();
                 }
-              }, image(art.talentIcons[t.id], {}, true), h("span", { class: "talents-name", text: t.name }), pill);
+              }, talentArt(t.id, {}, true), h("span", { class: "talents-name", text: t.name }), pill);
               buttons.set(t.id, pick);
               const badges = h("span", { class: "talents-node-badges", "aria-hidden": "true", hidden: !compare, text: comparisonBadges(t).map(label => label[0]).join("") });
               const primaryTag = changeTags(t, tree).find(tag => tag.id !== "ranks") || null;
@@ -538,12 +591,36 @@
         return treeSection;
       });
       const code = serializeBuild(data, build);
+      // CL2-088 (12 Nov 2026): one-click "Attach to my application" from the calculator itself. It hands the current code to
+      // the same pending-attachment path the guide presets use (app.js applyTalentAttachment218): level 30 or 60 only, the
+      // same class check there, and nothing is saved until the applicant saves the form. Archived builds cannot be attached.
+      const attachAvailable = !readOnly() && typeof options.onAttach === "function";
+      const attachNote = attachAvailable ? h("p", { class: "talents-attach-note", role: "status", "aria-live": "polite" }) : null;
+      const attach = attachAvailable ? h("button", { type: "button", class: "talents-attach-button", text: "Attach to my application", onclick() {
+        if (!active || view?.className !== cls.id || build.className !== cls.id || !container.contains(attach)) return;
+        const checked = validateBuild(data, build);
+        if (options.canAttach === false || (build.level !== 30 && build.level !== 60) || !checked.ok || !checked.points) { paintAttach(); return; }
+        attachNote.textContent = "Opening your application with this build…";
+        options.onAttach(Object.freeze({ classId: cls.id, level: build.level, code: serializeBuild(data, build), label: "Calculator build" }));
+      } }) : null;
+      const attachBlock = attach ? h("div", { class: "talents-attach" }, attach, attachNote) : null;
+      function paintAttach() {
+        if (!attach) return;
+        const checked = validateBuild(data, build), levelOk = build.level === 30 || build.level === 60;
+        attach.hidden = !levelOk;
+        attach.disabled = options.canAttach === false || !checked.ok || !checked.points;
+        const note = !levelOk ? "Choose level 30 or level 60 to attach this build to your application."
+          : options.canAttach === false ? (options.attachReason || "Applications are closed right now, so a build cannot be attached.")
+          : !checked.points ? "Spend at least one talent point before attaching this build."
+          : "Adds this level " + build.level + " build to your application form. Nothing is sent until you save the form.";
+        if (attachNote.textContent !== note && !/^Opening/.test(attachNote.textContent)) attachNote.textContent = note;
+      }
       const copy = h("button", { type: "button", text: "Copy link", async onclick() {
         const currentCode = serializeBuild(data, build), link = typeof location === "object" ? location.origin + location.pathname + "#/talents/" + cls.id + "/" + currentCode : currentCode;
         try { if (!navigator.clipboard?.writeText) throw Error("clipboard unavailable"); await navigator.clipboard.writeText(link); status.textContent = "Build link copied. Recipients must sign in and meet the site's access requirements."; }
         catch { status.textContent = "Copy the build code below; clipboard access is unavailable."; share.focus(); share.select(); }
       } });
-      const reset = h("button", { type: "button", text: "Reset", onclick() { if (!active) return; build = emptyBuild(data, cls.id, build.level); message = "Build reset."; changed(); render("reset"); } });
+      const reset = h("button", { type: "button", text: "Reset", disabled: readOnly(), onclick() { if (!active || readOnly()) return; build = emptyBuild(data, cls.id, build.level); message = "Build reset."; changed(); render("reset"); } });
       const share = h("input", { class: "talents-share-code", readonly: "readonly", "aria-label": "Shareable talent build code", value: code });
       const split = h("strong", { text: state.treePoints.join(" / ") }), pointsLeft = h("span", { text: "Points left: " + (state.budget - state.points) }), levelNeeded = h("span", { text: "Level needed: " + state.levelNeeded });
       const legend = h("p", { class: "talents-comparison-legend", hidden: !compare, text: "N New · C Changed · M Moved · dimmed: same as Classic. Hover or focus a talent for its Classic reference." });
@@ -557,9 +634,9 @@
             list("New in Forever", s.new), list("Moved", s.moved), list("Buffed by the rank-one numbers", s.buffed), list("Nerfed by the rank-one numbers", s.nerfed),
             list("Values changed (direction unclear)", s.tuned), list("Reworked wording", s.reworked), list("Classic-only (removed in Forever)", s.removed), list("Same as Classic", s.same));
         }),
-        h("p", { class: "talents-change-source" }, "Compared with the Talents Forever snapshot (beta client " + data.source.clientBuilds.join(", ") + ", generated " + data.source.upstreamGenerated + "). Later development notes may have changed values. ",
+        h("p", { class: "talents-change-source" }, "Compared with the Talents Forever snapshot (beta client " + data.source.clientBuilds.join(", ") + ", generated " + data.source.upstreamGenerated + "). Later hotfixes may have changed values. ",
           CLASS_SOURCES[cls.id] ? h("a", { href: CLASS_SOURCES[cls.id], rel: "noopener noreferrer", text: "Read Blizzard's " + cls.name + " deep dive" }) : null));
-      const analysisHost = options.analysis && typeof options.analysis.mount === "function" ? h("div", { class: "talents-analysis-host" }) : null;
+      const analysisHost = !readOnly() && options.analysis && typeof options.analysis.mount === "function" ? h("div", { class: "talents-analysis-host" }) : null;
       const guides = options.guideBuilds, checkedGuides = guides?.revision === data.revision && Array.isArray(guides.records) && Array.isArray(guides.sources);
       const guideSource = checkedGuides ? guides.sources.find(source => source.className === cls.id && typeof source.author === "string" && source.author && typeof source.updatedAt === "string" && source.updatedAt && /^https:\/\/www\.method\.gg\/wow-forever\/[a-z0-9-]+$/.test(source.url)) : null;
       const guideRecords = guideSource ? guides.records.filter(record => record.className === cls.id && typeof record.id === "string" && /^[a-z0-9-]+$/.test(record.id) && typeof record.label === "string" && record.label && record.url === guideSource.url && (() => { const candidate = parseBuild(data, record.code); return candidate.ok && candidate.build.className === cls.id; })()) : [];
@@ -595,7 +672,7 @@
       // settles is named unavailable inside this section, and closing and reopening the section asks for it again.
       const statsSource = options.stats60 && typeof options.stats60.mount === "function" ? () => options.stats60 : typeof options.loadStats60 === "function" ? options.loadStats60 : null;
       const statsBody = statsSource ? h("div", { class: "talents-stats60-body" }) : null;
-      const statsHost = statsSource ? h("details", { class: "talents-stats60-host", ontoggle() { statsOpen = statsHost.open === true; if (statsOpen) openStats(); } },
+      const statsHost = statsSource && !readOnly() ? h("details", { class: "talents-stats60-host", ontoggle() { statsOpen = statsHost.open === true; if (statsOpen) openStats(); } },
         h("summary", null, h("span", { class: "talents-stats60-title", text: "Level-60 character sheet" }), h("span", { class: "talents-stats60-hint", text: "Classic-reference base stats with exact talent modifiers, charts and spec comparison" })), statsBody) : null;
       function openStats() {
         if (!active || !statsHost || statsPending === statsHost || view?.className !== cls.id || !container.contains(statsHost)) return;
@@ -628,9 +705,12 @@
             const meter = h("meter", { min: "0", max: String(state.budget), value: String(state.treePoints[index]), "aria-label": tree.name + " points" }, String(state.treePoints[index])), label = h("b", { text: String(state.treePoints[index]) });
             specPointRefs.push({ meter, label }); return h("div", null, h("span", { text: tree.name }), meter, label);
           }))),
-        h("p", { class: "talents-diff-note" }, "This calculator uses the 16 October beta talent snapshot. Check shared builds against your current in-game talents and ",
-          h("a", { href: "https://us.forums.blizzard.com/en/wow/t/2360696/9", rel: "noopener noreferrer", text: "Blizzard's 2 November notes" }), "."),
-        guidePanel, moduleNote, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), legend, layoutNote,
+        readOnly()
+          ? h("p", { class: "talents-archive-notice", role: "note" }, "This build was made on the " + REVIEWED[archived].label + ". It is shown read-only because the talent trees have changed since then. ",
+            h("a", { href: "#/talents/" + cls.id, text: "Plan a new " + cls.name + " build on the current data" }), ".")
+          : h("p", { class: "talents-diff-note" }, "This calculator uses the " + REVIEWED[data.revision].label + ", which follows ",
+            h("a", { href: "https://us.forums.blizzard.com/en/wow/t/2360696/9", rel: "noopener noreferrer", text: "Blizzard's 2 November notes" }), " and the hotfixes since. Check shared builds against your talents in game."),
+        guidePanel, moduleNote, h("div", { class: "talents-summary" }, split, pointsLeft, levelNeeded), attachBlock, legend, layoutNote,
         artworkNotice, h("div", { class: "talents-workspace" }, h("div", { class: "talents-trees" }, treeCards)), status,
         analysisHost, h("div", { class: "talents-insights" }, changesPanel, statsHost),
         h("section", { class: "talents-sharing", "aria-label": "Share this build" }, h("label", null, "Share", share)),
@@ -654,14 +734,14 @@
         state = validateBuild(data, build); byId = new Map(talents.map((t, i) => [t.id, build.ranks[i]]));
         level.value = String(build.level); compareInput.checked = compare; legend.hidden = !compare;
         for (const [value, button] of levelPresetButtons) button.setAttribute("aria-pressed", String(build.level === value));
-        paintGuideAllocation();
+        paintGuideAllocation(); paintAttach();
         split.textContent = state.treePoints.join(" / "); pointsLeft.textContent = "Points left: " + (state.budget - state.points); levelNeeded.textContent = "Level needed: " + state.levelNeeded;
         for (const [index, label] of treePointLabels.entries()) {
           const points = state.treePoints[index], spec = specPointRefs[index]; label.textContent = points + (points === 1 ? " point" : " points");
           spec.meter.setAttribute("max", String(state.budget)); spec.meter.setAttribute("value", String(points)); spec.meter.textContent = String(points); spec.label.textContent = String(points);
         }
         for (const t of talents) {
-          const { node, pick, pill, badges, tree } = nodeRefs.get(t.id), rank = byId.get(t.id), canAdd = allocate(data, build, t.id, 1).ok;
+          const { node, pick, pill, badges, tree } = nodeRefs.get(t.id), rank = byId.get(t.id), canAdd = canChange(t.id, 1);
           node.className = "talents-node" + (rank ? " invested" : "") + (rank === t.maxRank ? " complete" : "") + (canAdd ? " available" : "") + (!canAdd && !rank ? " locked" : "") + (compare ? " compare-" + t.classic.status : "");
           pill.textContent = rank + "/" + t.maxRank; badges.hidden = !compare;
           pick.setAttribute("aria-label", t.name + ", rank " + rank + " of " + t.maxRank + (canAdd ? ". Add one point." : ". Read talent details."));
@@ -675,7 +755,7 @@
         if (layoutChanged) placeNodes(wanted);
         firstPaint = false;
         const currentCode = serializeBuild(data, build); share.value = currentCode; share.setAttribute("value", currentCode);
-        const announcement = message || "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.";
+        const announcement = message || (readOnly() ? READ_ONLY_NOTE : "Left-click adds a point; right-click or Shift-click refunds. Hover or focus a talent to read every rank.");
         if (status.textContent !== announcement) status.textContent = announcement;
         if (buttons.has(nextFocus)) {
           const target = buttons.get(nextFocus), insideDetails = detail.contains(document.activeElement) && detailTalent?.id === nextFocus;
@@ -775,5 +855,5 @@
       reusableArtwork = null; updateArtworkNotice();
     }
   }
-  return { validateData, validateArt, pointsAtLevel, emptyBuild, validateBuild, allocate, serializeBuild, parseBuild, comparisonBadges, changeTags, classicDiff, classicPlacements, treeChangeSummary, CLASS_SOURCES, COMPARE_EASING, mount };
+  return { REVIEWED, ARCHIVES, validateData, validateArt, pointsAtLevel, emptyBuild, validateBuild, allocate, serializeBuild, parseBuild, comparisonBadges, changeTags, classicDiff, classicPlacements, treeChangeSummary, CLASS_SOURCES, COMPARE_EASING, mount };
 });

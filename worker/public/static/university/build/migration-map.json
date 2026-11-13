@@ -1,0 +1,5232 @@
+{
+ "note": "Where each guides218.json path went (generated once by migrate-guides218.cjs).",
+ "source": "guides218.json reviewedAt 2026-11-04",
+ "entries": [
+  {
+   "from": "classes[0].changes[0]",
+   "to": "class-warrior.change-1"
+  },
+  {
+   "from": "classes[0].changes[1]",
+   "to": "class-warrior.change-2"
+  },
+  {
+   "from": "classes[0].changes[2]",
+   "to": "class-warrior.change-3"
+  },
+  {
+   "from": "classes[0].changes[3]",
+   "to": "class-warrior.change-4"
+  },
+  {
+   "from": "classes[0].changes[4]",
+   "to": "class-warrior.change-5"
+  },
+  {
+   "from": "classes[0].changes[5]",
+   "to": "class-warrior.change-6"
+  },
+  {
+   "from": "classes[0].changes[6]",
+   "to": "class-warrior.change-7"
+  },
+  {
+   "from": "classes[0].changes[7]",
+   "to": "class-warrior.change-8"
+  },
+  {
+   "from": "classes[0].classQuests[0]",
+   "to": "class-warrior.quest-defensive-stance-quest"
+  },
+  {
+   "from": "classes[0].classQuests[1]",
+   "to": "class-warrior.quest-race-armor-quests"
+  },
+  {
+   "from": "classes[0].classQuests[2]",
+   "to": "class-warrior.quest-the-affray-berserker-stance"
+  },
+  {
+   "from": "classes[0].overview",
+   "to": "courses/warrior.json overview"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[0]",
+   "to": "class-warrior.main-hand-hit-from-talents"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[1]",
+   "to": "class-warrior.hit-cap-at-level-60"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[2]",
+   "to": "class-warrior.dwarf-and-human-racials"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[3]",
+   "to": "class-warrior.weaponmaster-at-5-5"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[4]",
+   "to": "class-warrior.bloodthrill"
+  },
+  {
+   "from": "classes[0].specs[0].pro.priorities[5]",
+   "to": "class-warrior.slam"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[0]",
+   "to": "class-warrior.raid-role"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[1]",
+   "to": "class-warrior.armor-reduction"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[2]",
+   "to": "class-warrior.battle-shout"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[3]",
+   "to": "class-warrior.recklessness-talentsforever-data"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[4]",
+   "to": "class-warrior.onyxias-lair-entry"
+  },
+  {
+   "from": "classes[0].specs[0].pro.raid[5]",
+   "to": "class-warrior.launch-raids"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[0]",
+   "to": "class-warrior.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[1]",
+   "to": "class-warrior.classic-melee-consumables"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[2]",
+   "to": "class-warrior.flask-rule"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[3]",
+   "to": "class-warrior.elixir-of-the-grizzly"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[4]",
+   "to": "class-warrior.food"
+  },
+  {
+   "from": "classes[0].specs[0].pro.consumables[5]",
+   "to": "class-warrior.healing-potions"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.summary",
+   "to": "courses/warrior.json spec arms overview"
+  },
+  {
+   "from": "classes[0].specs[0].whatChanged",
+   "to": "talents-warrior.arms-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[0].specs[0].presets[0]",
+   "to": "warrior-arms-201-talents preset warrior-arms-raid-60"
+  },
+  {
+   "from": "classes[0].specs[0].presets[1]",
+   "to": "warrior-arms-201-talents preset warrior-arms-pvp-60"
+  },
+  {
+   "from": "classes[0].specs[0].presets[2]",
+   "to": "warrior-arms-101-talents preset warrior-arms-leveling-30"
+  },
+  {
+   "from": "classes[0].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[0]",
+   "to": "class-warrior.furious-precision"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[1]",
+   "to": "class-warrior.hit-cap-at-level-60-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[2]",
+   "to": "class-warrior.crit-and-rage"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[3]",
+   "to": "class-warrior.racials"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[4]",
+   "to": "class-warrior.flurry"
+  },
+  {
+   "from": "classes[0].specs[1].pro.priorities[5]",
+   "to": "class-warrior.bloodthirst-scaling"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[0]",
+   "to": "class-warrior.raid-role-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[1]",
+   "to": "class-warrior.blizzards-class-view"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[2]",
+   "to": "class-warrior.raging-blows"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[3]",
+   "to": "class-warrior.death-wish"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[4]",
+   "to": "class-warrior.battle-shout-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.raid[5]",
+   "to": "class-warrior.onyxias-lair-entry-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[0]",
+   "to": "class-warrior.world-buffs-in-raids-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[1]",
+   "to": "class-warrior.classic-melee-consumables",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[2]",
+   "to": "class-warrior.flask-rule-2"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[3]",
+   "to": "class-warrior.elixir-of-the-grizzly",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[4]",
+   "to": "class-warrior.food",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[1].pro.consumables[5]",
+   "to": "class-warrior.healing-potions",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.summary",
+   "to": "courses/warrior.json spec fury overview"
+  },
+  {
+   "from": "classes[0].specs[1].whatChanged",
+   "to": "talents-warrior.fury-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[0].specs[1].presets[0]",
+   "to": "warrior-fury-201-talents preset warrior-fury-raid-60"
+  },
+  {
+   "from": "classes[0].specs[1].presets[1]",
+   "to": "warrior-fury-101-talents preset warrior-fury-leveling-30"
+  },
+  {
+   "from": "classes[0].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[0]",
+   "to": "class-warrior.use-a-shield"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[1]",
+   "to": "class-warrior.threat-tools"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[2]",
+   "to": "class-warrior.rage-from-damage-taken"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[3]",
+   "to": "class-warrior.anticipation"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[4]",
+   "to": "class-warrior.improved-revenge"
+  },
+  {
+   "from": "classes[0].specs[2].pro.priorities[5]",
+   "to": "class-warrior.hit-and-expertise-caps"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[0]",
+   "to": "class-warrior.raid-tank"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[1]",
+   "to": "class-warrior.long-cooldowns"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[2]",
+   "to": "class-warrior.shield-wall-talentsforever-data"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[3]",
+   "to": "class-warrior.onyxias-lair"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[4]",
+   "to": "class-warrior.fire-resistance-target-for-onyxia"
+  },
+  {
+   "from": "classes[0].specs[2].pro.raid[5]",
+   "to": "class-warrior.raid-sizes"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[0]",
+   "to": "class-warrior.classic-tank-staples"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[1]",
+   "to": "class-warrior.classic-tank-buffs-and-food"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[2]",
+   "to": "class-warrior.flask-rule-2",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[3]",
+   "to": "class-warrior.food-in-forever"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[4]",
+   "to": "class-warrior.healing-potions",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[2].pro.consumables[5]",
+   "to": "class-warrior.world-buffs-in-raids-2",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.summary",
+   "to": "courses/warrior.json spec protection overview"
+  },
+  {
+   "from": "classes[0].specs[2].whatChanged",
+   "to": "talents-warrior.protection-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[0].specs[2].presets[0]",
+   "to": "warrior-protection-201-talents preset warrior-protection-raid-60"
+  },
+  {
+   "from": "classes[0].specs[2].presets[1]",
+   "to": "warrior-protection-101-talents preset warrior-protection-dungeon-30"
+  },
+  {
+   "from": "classes[0].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[0].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].changes[0]",
+   "to": "class-paladin.change-1"
+  },
+  {
+   "from": "classes[1].changes[1]",
+   "to": "class-paladin.change-2"
+  },
+  {
+   "from": "classes[1].changes[2]",
+   "to": "class-paladin.change-3"
+  },
+  {
+   "from": "classes[1].changes[3]",
+   "to": "class-paladin.change-4"
+  },
+  {
+   "from": "classes[1].changes[4]",
+   "to": "class-paladin.change-5"
+  },
+  {
+   "from": "classes[1].changes[5]",
+   "to": "class-paladin.change-6"
+  },
+  {
+   "from": "classes[1].changes[6]",
+   "to": "class-paladin.change-7"
+  },
+  {
+   "from": "classes[1].changes[7]",
+   "to": "class-paladin.change-8"
+  },
+  {
+   "from": "classes[1].classQuests[0]",
+   "to": "class-paladin.quest-the-tome-of-divinity"
+  },
+  {
+   "from": "classes[1].classQuests[1]",
+   "to": "class-paladin.quest-the-tome-of-valor-then-the-test-of-righteousness"
+  },
+  {
+   "from": "classes[1].classQuests[2]",
+   "to": "class-paladin.quest-must-be-delgren"
+  },
+  {
+   "from": "classes[1].classQuests[3]",
+   "to": "class-paladin.quest-summon-warhorse"
+  },
+  {
+   "from": "classes[1].classQuests[4]",
+   "to": "class-paladin.quest-summon-charger"
+  },
+  {
+   "from": "classes[1].overview",
+   "to": "courses/paladin.json overview"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[0]",
+   "to": "class-paladin.crit-and-mana"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[1]",
+   "to": "class-paladin.infusion-of-light"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[2]",
+   "to": "class-paladin.casting-under-pressure"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[3]",
+   "to": "class-paladin.lights-vigil"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[4]",
+   "to": "class-paladin.holy-spell-hit"
+  },
+  {
+   "from": "classes[1].specs[0].pro.priorities[5]",
+   "to": "class-paladin.healing-light"
+  },
+  {
+   "from": "classes[1].specs[0].pro.raid[0]",
+   "to": "class-paladin.role"
+  },
+  {
+   "from": "classes[1].specs[0].pro.raid[1]",
+   "to": "class-paladin.resistance-auras"
+  },
+  {
+   "from": "classes[1].specs[0].pro.raid[2]",
+   "to": "class-paladin.threat-after-salvation"
+  },
+  {
+   "from": "classes[1].specs[0].pro.raid[3]",
+   "to": "class-paladin.blessing-of-light"
+  },
+  {
+   "from": "classes[1].specs[0].pro.raid[4]",
+   "to": "class-paladin.classic-baseline"
+  },
+  {
+   "from": "classes[1].specs[0].pro.consumables[0]",
+   "to": "class-paladin.classic-healer-kit"
+  },
+  {
+   "from": "classes[1].specs[0].pro.consumables[1]",
+   "to": "class-paladin.forever-alchemy"
+  },
+  {
+   "from": "classes[1].specs[0].pro.consumables[2]",
+   "to": "class-paladin.camp-buffs-vs-blessings"
+  },
+  {
+   "from": "classes[1].specs[0].pro.consumables[3]",
+   "to": "class-paladin.flasks"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.summary",
+   "to": "courses/paladin.json spec holy overview"
+  },
+  {
+   "from": "classes[1].specs[0].whatChanged",
+   "to": "talents-paladin.holy-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[1].specs[0].presets[0]",
+   "to": "paladin-holy-201-talents preset paladin-holy-raid-60"
+  },
+  {
+   "from": "classes[1].specs[0].presets[1]",
+   "to": "paladin-holy-101-talents preset paladin-holy-dungeon-30"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].pvp.matchups[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].pro.priorities[0]",
+   "to": "class-paladin.threat"
+  },
+  {
+   "from": "classes[1].specs[1].pro.priorities[1]",
+   "to": "class-paladin.reckoning"
+  },
+  {
+   "from": "classes[1].specs[1].pro.priorities[2]",
+   "to": "class-paladin.shield-specialization"
+  },
+  {
+   "from": "classes[1].specs[1].pro.priorities[3]",
+   "to": "class-paladin.cooldowns"
+  },
+  {
+   "from": "classes[1].specs[1].pro.priorities[4]",
+   "to": "class-paladin.defense-and-armor"
+  },
+  {
+   "from": "classes[1].specs[1].pro.raid[0]",
+   "to": "class-paladin.multi-target-threat"
+  },
+  {
+   "from": "classes[1].specs[1].pro.raid[1]",
+   "to": "class-paladin.holy-shield-threat"
+  },
+  {
+   "from": "classes[1].specs[1].pro.raid[2]",
+   "to": "class-paladin.raid-tanking-at-60"
+  },
+  {
+   "from": "classes[1].specs[1].pro.raid[3]",
+   "to": "class-paladin.classic-baseline-2"
+  },
+  {
+   "from": "classes[1].specs[1].pro.raid[4]",
+   "to": "class-paladin.blessing-of-sanctuary"
+  },
+  {
+   "from": "classes[1].specs[1].pro.consumables[0]",
+   "to": "class-paladin.classic-tank-kit"
+  },
+  {
+   "from": "classes[1].specs[1].pro.consumables[1]",
+   "to": "class-paladin.fire-resistance-for-onyxia"
+  },
+  {
+   "from": "classes[1].specs[1].pro.consumables[2]",
+   "to": "class-paladin.classic-fire-resistance-sources"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.summary",
+   "to": "courses/paladin.json spec protection overview"
+  },
+  {
+   "from": "classes[1].specs[1].whatChanged",
+   "to": "talents-paladin.protection-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[1].specs[1].presets[0]",
+   "to": "paladin-protection-201-talents preset paladin-protection-raid-60"
+  },
+  {
+   "from": "classes[1].specs[1].presets[1]",
+   "to": "paladin-protection-101-talents preset paladin-protection-dungeon-30"
+  },
+  {
+   "from": "classes[1].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[0]",
+   "to": "class-paladin.judgement-uptime"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[1]",
+   "to": "class-paladin.unsealed-wrath"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[2]",
+   "to": "class-paladin.crit-and-vengeance"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[3]",
+   "to": "class-paladin.seal-damage"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[4]",
+   "to": "class-paladin.two-handed-weapons"
+  },
+  {
+   "from": "classes[1].specs[2].pro.priorities[5]",
+   "to": "class-paladin.melee-hit-cap-vs-raid-bosses"
+  },
+  {
+   "from": "classes[1].specs[2].pro.raid[0]",
+   "to": "class-paladin.champion-of-the-light"
+  },
+  {
+   "from": "classes[1].specs[2].pro.raid[1]",
+   "to": "class-paladin.retribution-threat"
+  },
+  {
+   "from": "classes[1].specs[2].pro.raid[2]",
+   "to": "class-paladin.blessing-of-might"
+  },
+  {
+   "from": "classes[1].specs[2].pro.raid[3]",
+   "to": "class-paladin.world-buffs"
+  },
+  {
+   "from": "classes[1].specs[2].pro.raid[4]",
+   "to": "class-paladin.classic-baseline-3"
+  },
+  {
+   "from": "classes[1].specs[2].pro.consumables[0]",
+   "to": "class-paladin.classic-melee-kit"
+  },
+  {
+   "from": "classes[1].specs[2].pro.consumables[1]",
+   "to": "class-paladin.new-forever-elixir"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.summary",
+   "to": "courses/paladin.json spec retribution overview"
+  },
+  {
+   "from": "classes[1].specs[2].whatChanged",
+   "to": "talents-paladin.retribution-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[1].specs[2].presets[0]",
+   "to": "paladin-retribution-201-talents preset paladin-retribution-raid-60"
+  },
+  {
+   "from": "classes[1].specs[2].presets[1]",
+   "to": "paladin-retribution-101-talents preset paladin-retribution-leveling-30"
+  },
+  {
+   "from": "classes[1].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[1].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].changes[0]",
+   "to": "class-hunter.change-1"
+  },
+  {
+   "from": "classes[2].changes[1]",
+   "to": "class-hunter.change-2"
+  },
+  {
+   "from": "classes[2].changes[2]",
+   "to": "class-hunter.change-3"
+  },
+  {
+   "from": "classes[2].changes[3]",
+   "to": "class-hunter.change-4"
+  },
+  {
+   "from": "classes[2].changes[4]",
+   "to": "class-hunter.change-5"
+  },
+  {
+   "from": "classes[2].changes[5]",
+   "to": "class-hunter.change-6"
+  },
+  {
+   "from": "classes[2].changes[6]",
+   "to": "class-hunter.change-7"
+  },
+  {
+   "from": "classes[2].changes[7]",
+   "to": "class-hunter.change-8"
+  },
+  {
+   "from": "classes[2].classQuests[0]",
+   "to": "class-hunter.quest-taming-the-beast"
+  },
+  {
+   "from": "classes[2].overview",
+   "to": "courses/hunter.json overview"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[0]",
+   "to": "class-hunter.pet-scaling"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[1]",
+   "to": "class-hunter.summon-hawk"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[2]",
+   "to": "class-hunter.unleashed-fury-and-ferocity"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[3]",
+   "to": "class-hunter.focused-fire"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[4]",
+   "to": "class-hunter.hit-cap-at-level-60"
+  },
+  {
+   "from": "classes[2].specs[0].pro.priorities[5]",
+   "to": "class-hunter.racials"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[0]",
+   "to": "class-hunter.raid-outlook"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[1]",
+   "to": "class-hunter.trueshot-aura"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[2]",
+   "to": "class-hunter.tranquilizing-shot"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[3]",
+   "to": "class-hunter.wolf-furious-howl"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[4]",
+   "to": "class-hunter.onyxias-lair-entry"
+  },
+  {
+   "from": "classes[2].specs[0].pro.raid[5]",
+   "to": "class-hunter.launch-raids"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[0]",
+   "to": "class-hunter.ammo"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[1]",
+   "to": "class-hunter.pet-food"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[2]",
+   "to": "class-hunter.elixir-of-cunning"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[3]",
+   "to": "class-hunter.food-in-forever"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[4]",
+   "to": "class-hunter.healing-potions"
+  },
+  {
+   "from": "classes[2].specs[0].pro.consumables[5]",
+   "to": "class-hunter.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.summary",
+   "to": "courses/hunter.json spec beast-mastery overview"
+  },
+  {
+   "from": "classes[2].specs[0].whatChanged",
+   "to": "talents-hunter.beast-mastery-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[2].specs[0].presets[0]",
+   "to": "hunter-beast-mastery-201-talents preset hunter-beast-mastery-raid-60"
+  },
+  {
+   "from": "classes[2].specs[0].presets[1]",
+   "to": "hunter-beast-mastery-101-talents preset hunter-beast-mastery-leveling-30"
+  },
+  {
+   "from": "classes[2].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[0]",
+   "to": "class-hunter.lone-wolf"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[1]",
+   "to": "class-hunter.careful-aim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[2]",
+   "to": "class-hunter.sniper-shot"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[3]",
+   "to": "class-hunter.rapid-killing"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[4]",
+   "to": "class-hunter.hit-cap-at-level-60-2"
+  },
+  {
+   "from": "classes[2].specs[1].pro.priorities[5]",
+   "to": "class-hunter.racials",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[0]",
+   "to": "class-hunter.raid-outlook-2"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[1]",
+   "to": "class-hunter.trueshot-aura-2"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[2]",
+   "to": "class-hunter.tranquilizing-shot",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[3]",
+   "to": "class-hunter.range"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[4]",
+   "to": "class-hunter.onyxias-lair-entry-2"
+  },
+  {
+   "from": "classes[2].specs[1].pro.raid[5]",
+   "to": "class-hunter.fire-resistance-target-for-onyxia"
+  },
+  {
+   "from": "classes[2].specs[1].pro.consumables[0]",
+   "to": "class-hunter.ammo",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.consumables[1]",
+   "to": "class-hunter.elixir-of-cunning",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.consumables[2]",
+   "to": "class-hunter.food-in-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.consumables[3]",
+   "to": "class-hunter.healing-potions",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].pro.consumables[4]",
+   "to": "class-hunter.world-buffs-in-raids",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.summary",
+   "to": "courses/hunter.json spec marksmanship overview"
+  },
+  {
+   "from": "classes[2].specs[1].whatChanged",
+   "to": "talents-hunter.marksmanship-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[2].specs[1].presets[0]",
+   "to": "hunter-marksmanship-201-talents preset hunter-marksmanship-raid-60"
+  },
+  {
+   "from": "classes[2].specs[1].presets[1]",
+   "to": "hunter-marksmanship-101-talents preset hunter-marksmanship-leveling-30"
+  },
+  {
+   "from": "classes[2].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[0]",
+   "to": "class-hunter.savage-strikes"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[1]",
+   "to": "class-hunter.predators-edge"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[2]",
+   "to": "class-hunter.lacerating-strikes"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[3]",
+   "to": "class-hunter.surefooted"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[4]",
+   "to": "class-hunter.hit-cap-at-level-60-3"
+  },
+  {
+   "from": "classes[2].specs[2].pro.priorities[5]",
+   "to": "class-hunter.racials",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[0]",
+   "to": "class-hunter.raid-outlook-3"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[1]",
+   "to": "class-hunter.rapid-fire-talentsforever-data"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[2]",
+   "to": "class-hunter.trueshot-aura",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[3]",
+   "to": "class-hunter.tranquilizing-shot",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[4]",
+   "to": "class-hunter.onyxias-lair-entry",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.raid[5]",
+   "to": "class-hunter.launch-raids-2"
+  },
+  {
+   "from": "classes[2].specs[2].pro.consumables[0]",
+   "to": "class-hunter.ammo",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.consumables[1]",
+   "to": "class-hunter.elixir-of-cunning",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.consumables[2]",
+   "to": "class-hunter.food-in-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.consumables[3]",
+   "to": "class-hunter.healing-potions",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].pro.consumables[4]",
+   "to": "class-hunter.world-buffs-in-raids",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.summary",
+   "to": "courses/hunter.json spec survival overview"
+  },
+  {
+   "from": "classes[2].specs[2].whatChanged",
+   "to": "talents-hunter.survival-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[2].specs[2].presets[0]",
+   "to": "hunter-survival-201-talents preset hunter-survival-raid-60"
+  },
+  {
+   "from": "classes[2].specs[2].presets[1]",
+   "to": "hunter-survival-201-talents preset hunter-survival-pvp-60"
+  },
+  {
+   "from": "classes[2].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[2].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].changes[0]",
+   "to": "class-rogue.change-1"
+  },
+  {
+   "from": "classes[3].changes[1]",
+   "to": "class-rogue.change-2"
+  },
+  {
+   "from": "classes[3].changes[2]",
+   "to": "class-rogue.change-3"
+  },
+  {
+   "from": "classes[3].changes[3]",
+   "to": "class-rogue.change-4"
+  },
+  {
+   "from": "classes[3].changes[4]",
+   "to": "class-rogue.change-5"
+  },
+  {
+   "from": "classes[3].changes[5]",
+   "to": "class-rogue.change-6"
+  },
+  {
+   "from": "classes[3].changes[6]",
+   "to": "class-rogue.change-7"
+  },
+  {
+   "from": "classes[3].changes[7]",
+   "to": "class-rogue.change-8"
+  },
+  {
+   "from": "classes[3].classQuests[0]",
+   "to": "class-rogue.quest-pick-lock-training"
+  },
+  {
+   "from": "classes[3].classQuests[1]",
+   "to": "class-rogue.quest-poisons-quest-klavens-tower"
+  },
+  {
+   "from": "classes[3].classQuests[2]",
+   "to": "class-rogue.quest-poison-unlocks"
+  },
+  {
+   "from": "classes[3].overview",
+   "to": "courses/rogue.json overview"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[0]",
+   "to": "class-rogue.precision"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[1]",
+   "to": "class-rogue.hit-cap-at-level-60"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[2]",
+   "to": "class-rogue.poison-scaling"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[3]",
+   "to": "class-rogue.venom"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[4]",
+   "to": "class-rogue.mutilate"
+  },
+  {
+   "from": "classes[3].specs[0].pro.priorities[5]",
+   "to": "class-rogue.racials"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[0]",
+   "to": "class-rogue.raid-outlook"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[1]",
+   "to": "class-rogue.shank-and-venom"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[2]",
+   "to": "class-rogue.expose-armor"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[3]",
+   "to": "class-rogue.feint"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[4]",
+   "to": "class-rogue.onyxias-lair-entry"
+  },
+  {
+   "from": "classes[3].specs[0].pro.raid[5]",
+   "to": "class-rogue.launch-raids"
+  },
+  {
+   "from": "classes[3].specs[0].pro.consumables[0]",
+   "to": "class-rogue.poisons-with-stones"
+  },
+  {
+   "from": "classes[3].specs[0].pro.consumables[1]",
+   "to": "class-rogue.poison-supplies"
+  },
+  {
+   "from": "classes[3].specs[0].pro.consumables[2]",
+   "to": "class-rogue.classic-melee-staples"
+  },
+  {
+   "from": "classes[3].specs[0].pro.consumables[3]",
+   "to": "class-rogue.food-in-forever"
+  },
+  {
+   "from": "classes[3].specs[0].pro.consumables[4]",
+   "to": "class-rogue.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.summary",
+   "to": "courses/rogue.json spec assassination overview"
+  },
+  {
+   "from": "classes[3].specs[0].whatChanged",
+   "to": "talents-rogue.assassination-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[3].specs[0].presets[0]",
+   "to": "rogue-assassination-201-talents preset rogue-assassination-raid-60"
+  },
+  {
+   "from": "classes[3].specs[0].presets[1]",
+   "to": "rogue-assassination-101-talents preset rogue-assassination-leveling-30"
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[0]",
+   "to": "class-rogue.precision-2"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[1]",
+   "to": "class-rogue.hit-cap-at-level-60",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[2]",
+   "to": "class-rogue.hack-and-slash-at-5-5"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[3]",
+   "to": "class-rogue.weapon-expertise"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[4]",
+   "to": "class-rogue.adrenaline-rush"
+  },
+  {
+   "from": "classes[3].specs[1].pro.priorities[5]",
+   "to": "class-rogue.racials",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[0]",
+   "to": "class-rogue.raid-outlook-2"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[1]",
+   "to": "class-rogue.blade-flurry"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[2]",
+   "to": "class-rogue.expose-armor-2"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[3]",
+   "to": "class-rogue.feint",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[4]",
+   "to": "class-rogue.onyxias-lair-entry",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.raid[5]",
+   "to": "class-rogue.launch-raids-2"
+  },
+  {
+   "from": "classes[3].specs[1].pro.consumables[0]",
+   "to": "class-rogue.poisons-with-stones",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.consumables[1]",
+   "to": "class-rogue.classic-melee-staples",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.consumables[2]",
+   "to": "class-rogue.food-in-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].pro.consumables[3]",
+   "to": "class-rogue.world-buffs-in-raids",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.summary",
+   "to": "courses/rogue.json spec combat overview"
+  },
+  {
+   "from": "classes[3].specs[1].whatChanged",
+   "to": "talents-rogue.combat-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[3].specs[1].presets[0]",
+   "to": "rogue-combat-201-talents preset rogue-combat-raid-60"
+  },
+  {
+   "from": "classes[3].specs[1].presets[1]",
+   "to": "rogue-combat-101-talents preset rogue-combat-leveling-30"
+  },
+  {
+   "from": "classes[3].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[0]",
+   "to": "class-rogue.death-mark"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[1]",
+   "to": "class-rogue.hemorrhage"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[2]",
+   "to": "class-rogue.rupture-talentsforever-data"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[3]",
+   "to": "class-rogue.precision-3"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[4]",
+   "to": "class-rogue.hit-cap-at-level-60",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.priorities[5]",
+   "to": "class-rogue.racials",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[0]",
+   "to": "class-rogue.raid-outlook-3"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[1]",
+   "to": "class-rogue.serrated-blades"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[2]",
+   "to": "class-rogue.ghostly-strike"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[3]",
+   "to": "class-rogue.expose-armor",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[4]",
+   "to": "class-rogue.feint",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.raid[5]",
+   "to": "class-rogue.onyxias-lair-entry",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.consumables[0]",
+   "to": "class-rogue.poisons-with-stones",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.consumables[1]",
+   "to": "class-rogue.classic-melee-staples",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.consumables[2]",
+   "to": "class-rogue.food-in-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].pro.consumables[3]",
+   "to": "class-rogue.world-buffs-in-raids",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.summary",
+   "to": "courses/rogue.json spec subtlety overview"
+  },
+  {
+   "from": "classes[3].specs[2].whatChanged",
+   "to": "talents-rogue.subtlety-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[3].specs[2].presets[0]",
+   "to": "rogue-subtlety-201-talents preset rogue-subtlety-raid-60"
+  },
+  {
+   "from": "classes[3].specs[2].presets[1]",
+   "to": "rogue-subtlety-201-talents preset rogue-subtlety-pvp-60"
+  },
+  {
+   "from": "classes[3].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[3].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].changes[0]",
+   "to": "class-priest.change-1"
+  },
+  {
+   "from": "classes[4].changes[1]",
+   "to": "class-priest.change-2"
+  },
+  {
+   "from": "classes[4].changes[2]",
+   "to": "class-priest.change-3"
+  },
+  {
+   "from": "classes[4].changes[3]",
+   "to": "class-priest.change-4"
+  },
+  {
+   "from": "classes[4].changes[4]",
+   "to": "class-priest.change-5"
+  },
+  {
+   "from": "classes[4].changes[5]",
+   "to": "class-priest.change-6"
+  },
+  {
+   "from": "classes[4].changes[6]",
+   "to": "class-priest.change-7"
+  },
+  {
+   "from": "classes[4].changes[7]",
+   "to": "class-priest.change-8"
+  },
+  {
+   "from": "classes[4].classQuests[0]",
+   "to": "class-priest.quest-racial-priest-spells"
+  },
+  {
+   "from": "classes[4].classQuests[1]",
+   "to": "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+  },
+  {
+   "from": "classes[4].classQuests[2]",
+   "to": "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death"
+  },
+  {
+   "from": "classes[4].classQuests[3]",
+   "to": "class-priest.quest-benediction-and-anathema-classic"
+  },
+  {
+   "from": "classes[4].classQuests[4]",
+   "to": "class-priest.quest-shadowmourne-is-not-a-priest-item"
+  },
+  {
+   "from": "classes[4].overview",
+   "to": "courses/priest.json overview"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[0]",
+   "to": "class-priest.hit-for-priests"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[1]",
+   "to": "class-priest.soul-warding-snapshot"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[2]",
+   "to": "class-priest.penance"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[3]",
+   "to": "class-priest.divine-aegis-snapshot"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[4]",
+   "to": "class-priest.intellect"
+  },
+  {
+   "from": "classes[4].specs[0].pro.priorities[5]",
+   "to": "class-priest.power-infusion-snapshot"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[0]",
+   "to": "class-priest.fear-ward-for-every-priest"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[1]",
+   "to": "class-priest.raid-buffs-files"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[2]",
+   "to": "class-priest.threat-snapshot"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[3]",
+   "to": "class-priest.prayer-of-healing"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[4]",
+   "to": "class-priest.launch-raids"
+  },
+  {
+   "from": "classes[4].specs[0].pro.raid[5]",
+   "to": "class-priest.onyxia"
+  },
+  {
+   "from": "classes[4].specs[0].pro.consumables[0]",
+   "to": "class-priest.classic-1-12-healer-kit-reference"
+  },
+  {
+   "from": "classes[4].specs[0].pro.consumables[1]",
+   "to": "class-priest.forever-alchemy"
+  },
+  {
+   "from": "classes[4].specs[0].pro.consumables[2]",
+   "to": "class-priest.camp-buffs"
+  },
+  {
+   "from": "classes[4].specs[0].pro.consumables[3]",
+   "to": "class-priest.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.summary",
+   "to": "courses/priest.json spec discipline overview"
+  },
+  {
+   "from": "classes[4].specs[0].whatChanged",
+   "to": "talents-priest.discipline-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[4].specs[0].presets[0]",
+   "to": "priest-discipline-201-talents preset priest-discipline-raid-60"
+  },
+  {
+   "from": "classes[4].specs[0].presets[1]",
+   "to": "priest-discipline-101-talents preset priest-discipline-leveling-30"
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[0]",
+   "to": "class-priest.spiritual-guidance-snapshot"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[1]",
+   "to": "class-priest.human-spirit-racial"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[2]",
+   "to": "class-priest.spiritual-healing-snapshot"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[3]",
+   "to": "class-priest.improved-healing-snapshot"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[4]",
+   "to": "class-priest.prayer-of-mending"
+  },
+  {
+   "from": "classes[4].specs[1].pro.priorities[5]",
+   "to": "class-priest.heal-values-files"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[0]",
+   "to": "class-priest.renew-stacking"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[1]",
+   "to": "class-priest.prayer-of-healing-2"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[2]",
+   "to": "class-priest.raid-buffs-files-2"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[3]",
+   "to": "class-priest.threat"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[4]",
+   "to": "class-priest.healer-rankings"
+  },
+  {
+   "from": "classes[4].specs[1].pro.raid[5]",
+   "to": "class-priest.onyxia-2"
+  },
+  {
+   "from": "classes[4].specs[1].pro.consumables[0]",
+   "to": "class-priest.classic-1-12-healer-kit-reference",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[1].pro.consumables[1]",
+   "to": "class-priest.forever-alchemy",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[1].pro.consumables[2]",
+   "to": "class-priest.camp-buffs",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.summary",
+   "to": "courses/priest.json spec holy overview"
+  },
+  {
+   "from": "classes[4].specs[1].whatChanged",
+   "to": "talents-priest.holy-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[4].specs[1].presets[0]",
+   "to": "priest-holy-201-talents preset priest-holy-raid-60"
+  },
+  {
+   "from": "classes[4].specs[1].presets[1]",
+   "to": "priest-holy-101-talents preset priest-holy-dungeon-30"
+  },
+  {
+   "from": "classes[4].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[0]",
+   "to": "class-priest.shadow-hit-from-talents-snapshot"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[1]",
+   "to": "class-priest.spell-hit-cap-against-raid-bosses-forever"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[2]",
+   "to": "class-priest.classic-1-12-hit-cap-reference-only"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[3]",
+   "to": "class-priest.extra-hit-for-dwarves"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[4]",
+   "to": "class-priest.shadowform-snapshot"
+  },
+  {
+   "from": "classes[4].specs[2].pro.priorities[5]",
+   "to": "class-priest.darkness-snapshot"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[0]",
+   "to": "class-priest.shadow-weaving-is-personal"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[1]",
+   "to": "class-priest.group-utility"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[2]",
+   "to": "class-priest.vampiric-embrace"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[3]",
+   "to": "class-priest.dark-inspiration-snapshot"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[4]",
+   "to": "class-priest.threat",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[2].pro.raid[5]",
+   "to": "class-priest.dps-rankings"
+  },
+  {
+   "from": "classes[4].specs[2].pro.consumables[0]",
+   "to": "class-priest.classic-1-12-caster-kit-reference"
+  },
+  {
+   "from": "classes[4].specs[2].pro.consumables[1]",
+   "to": "class-priest.forever-alchemy",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[2].pro.consumables[2]",
+   "to": "class-priest.world-buffs-in-raids",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.summary",
+   "to": "courses/priest.json spec shadow overview"
+  },
+  {
+   "from": "classes[4].specs[2].whatChanged",
+   "to": "talents-priest.shadow-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[4].specs[2].presets[0]",
+   "to": "priest-shadow-201-talents preset priest-shadow-raid-60"
+  },
+  {
+   "from": "classes[4].specs[2].presets[1]",
+   "to": "priest-shadow-201-talents preset priest-shadow-pvp-60"
+  },
+  {
+   "from": "classes[4].specs[2].presets[2]",
+   "to": "priest-shadow-101-talents preset priest-shadow-leveling-30"
+  },
+  {
+   "from": "classes[4].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[4].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].changes[0]",
+   "to": "class-shaman.change-1"
+  },
+  {
+   "from": "classes[5].changes[1]",
+   "to": "class-shaman.change-2"
+  },
+  {
+   "from": "classes[5].changes[2]",
+   "to": "class-shaman.change-3"
+  },
+  {
+   "from": "classes[5].changes[3]",
+   "to": "class-shaman.change-4"
+  },
+  {
+   "from": "classes[5].changes[4]",
+   "to": "class-shaman.change-5"
+  },
+  {
+   "from": "classes[5].changes[5]",
+   "to": "class-shaman.change-6"
+  },
+  {
+   "from": "classes[5].changes[6]",
+   "to": "class-shaman.change-7"
+  },
+  {
+   "from": "classes[5].changes[7]",
+   "to": "class-shaman.change-8"
+  },
+  {
+   "from": "classes[5].classQuests[0]",
+   "to": "class-shaman.quest-earth-totem-quest-teo-hammerstorm-anvilmar"
+  },
+  {
+   "from": "classes[5].classQuests[1]",
+   "to": "class-shaman.quest-fire-totem-quest-bruegs-kindleborn-braldir-ashmantle"
+  },
+  {
+   "from": "classes[5].classQuests[2]",
+   "to": "class-shaman.quest-water-totem-quest-norric-lochthane-loch-modan"
+  },
+  {
+   "from": "classes[5].classQuests[3]",
+   "to": "class-shaman.quest-air-totem-quest-veyric-arathi-highlands"
+  },
+  {
+   "from": "classes[5].overview",
+   "to": "courses/shaman.json overview"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[0]",
+   "to": "class-shaman.call-of-thunder"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[1]",
+   "to": "class-shaman.lightning-mastery"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[2]",
+   "to": "class-shaman.crit-damage"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[3]",
+   "to": "class-shaman.chain-lightning"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[4]",
+   "to": "class-shaman.mana"
+  },
+  {
+   "from": "classes[5].specs[0].pro.priorities[5]",
+   "to": "class-shaman.spell-hit-classic-baseline-for-the-cap"
+  },
+  {
+   "from": "classes[5].specs[0].pro.raid[0]",
+   "to": "class-shaman.raid-wide-buff-totems"
+  },
+  {
+   "from": "classes[5].specs[0].pro.raid[1]",
+   "to": "class-shaman.raid-wide-totem-range"
+  },
+  {
+   "from": "classes[5].specs[0].pro.raid[2]",
+   "to": "class-shaman.no-bloodlust"
+  },
+  {
+   "from": "classes[5].specs[0].pro.raid[3]",
+   "to": "class-shaman.resistance-totems"
+  },
+  {
+   "from": "classes[5].specs[0].pro.raid[4]",
+   "to": "class-shaman.world-buffs"
+  },
+  {
+   "from": "classes[5].specs[0].pro.consumables[0]",
+   "to": "class-shaman.classic-caster-kit"
+  },
+  {
+   "from": "classes[5].specs[0].pro.consumables[1]",
+   "to": "class-shaman.imbues-with-oils"
+  },
+  {
+   "from": "classes[5].specs[0].pro.consumables[2]",
+   "to": "class-shaman.new-forever-elixirs"
+  },
+  {
+   "from": "classes[5].specs[0].pro.consumables[3]",
+   "to": "class-shaman.flasks"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.summary",
+   "to": "courses/shaman.json spec elemental overview"
+  },
+  {
+   "from": "classes[5].specs[0].whatChanged",
+   "to": "talents-shaman.elemental-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[5].specs[0].presets[0]",
+   "to": "shaman-elemental-201-talents preset shaman-elemental-raid-60"
+  },
+  {
+   "from": "classes[5].specs[0].presets[1]",
+   "to": "shaman-elemental-101-talents preset shaman-elemental-leveling-30"
+  },
+  {
+   "from": "classes[5].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[0]",
+   "to": "class-shaman.stormstrike"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[1]",
+   "to": "class-shaman.maelstrom-weapon"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[2]",
+   "to": "class-shaman.attack-speed"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[3]",
+   "to": "class-shaman.intellect-into-power"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[4]",
+   "to": "class-shaman.elemental-devastation"
+  },
+  {
+   "from": "classes[5].specs[1].pro.priorities[5]",
+   "to": "class-shaman.melee-hit-cap-vs-raid-bosses"
+  },
+  {
+   "from": "classes[5].specs[1].pro.raid[0]",
+   "to": "class-shaman.windfury-and-flametongue-totems"
+  },
+  {
+   "from": "classes[5].specs[1].pro.raid[1]",
+   "to": "class-shaman.threat"
+  },
+  {
+   "from": "classes[5].specs[1].pro.raid[2]",
+   "to": "class-shaman.temporary-tank"
+  },
+  {
+   "from": "classes[5].specs[1].pro.raid[3]",
+   "to": "class-shaman.personal-burst"
+  },
+  {
+   "from": "classes[5].specs[1].pro.consumables[0]",
+   "to": "class-shaman.classic-melee-kit"
+  },
+  {
+   "from": "classes[5].specs[1].pro.consumables[1]",
+   "to": "class-shaman.stones-with-imbues"
+  },
+  {
+   "from": "classes[5].specs[1].pro.consumables[2]",
+   "to": "class-shaman.new-forever-elixir"
+  },
+  {
+   "from": "classes[5].specs[1].pro.consumables[3]",
+   "to": "class-shaman.camp-buffs"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.summary",
+   "to": "courses/shaman.json spec enhancement overview"
+  },
+  {
+   "from": "classes[5].specs[1].whatChanged",
+   "to": "talents-shaman.enhancement-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[5].specs[1].presets[0]",
+   "to": "shaman-enhancement-201-talents preset shaman-enhancement-raid-60"
+  },
+  {
+   "from": "classes[5].specs[1].presets[1]",
+   "to": "shaman-enhancement-101-talents preset shaman-enhancement-leveling-30"
+  },
+  {
+   "from": "classes[5].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[0]",
+   "to": "class-shaman.riptide"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[1]",
+   "to": "class-shaman.healing-wave"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[2]",
+   "to": "class-shaman.water-shield"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[3]",
+   "to": "class-shaman.regen-while-casting"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[4]",
+   "to": "class-shaman.crit"
+  },
+  {
+   "from": "classes[5].specs[2].pro.priorities[5]",
+   "to": "class-shaman.totemic-call"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[0]",
+   "to": "class-shaman.mana-tide-totem"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[1]",
+   "to": "class-shaman.alliance-shamans"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[2]",
+   "to": "class-shaman.sturdy-healer"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[3]",
+   "to": "class-shaman.raid-wide-buff-totems-2"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[4]",
+   "to": "class-shaman.reincarnation"
+  },
+  {
+   "from": "classes[5].specs[2].pro.raid[5]",
+   "to": "class-shaman.classic-baseline"
+  },
+  {
+   "from": "classes[5].specs[2].pro.consumables[0]",
+   "to": "class-shaman.classic-healer-kit"
+  },
+  {
+   "from": "classes[5].specs[2].pro.consumables[1]",
+   "to": "class-shaman.forever-alchemy"
+  },
+  {
+   "from": "classes[5].specs[2].pro.consumables[2]",
+   "to": "class-shaman.imbues-with-oils-2"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.summary",
+   "to": "courses/shaman.json spec restoration overview"
+  },
+  {
+   "from": "classes[5].specs[2].whatChanged",
+   "to": "talents-shaman.restoration-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[5].specs[2].presets[0]",
+   "to": "shaman-restoration-201-talents preset shaman-restoration-raid-60"
+  },
+  {
+   "from": "classes[5].specs[2].presets[1]",
+   "to": "shaman-restoration-101-talents preset shaman-restoration-dungeon-30"
+  },
+  {
+   "from": "classes[5].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[5].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].changes[0]",
+   "to": "class-mage.change-1"
+  },
+  {
+   "from": "classes[6].changes[1]",
+   "to": "class-mage.change-2"
+  },
+  {
+   "from": "classes[6].changes[2]",
+   "to": "class-mage.change-3"
+  },
+  {
+   "from": "classes[6].changes[3]",
+   "to": "class-mage.change-4"
+  },
+  {
+   "from": "classes[6].changes[4]",
+   "to": "class-mage.change-5"
+  },
+  {
+   "from": "classes[6].changes[5]",
+   "to": "class-mage.change-6"
+  },
+  {
+   "from": "classes[6].changes[6]",
+   "to": "class-mage.change-7"
+  },
+  {
+   "from": "classes[6].changes[7]",
+   "to": "class-mage.change-8"
+  },
+  {
+   "from": "classes[6].classQuests[0]",
+   "to": "class-mage.quest-mage-class-quests"
+  },
+  {
+   "from": "classes[6].classQuests[1]",
+   "to": "class-mage.quest-teleports-portal-trainer"
+  },
+  {
+   "from": "classes[6].classQuests[2]",
+   "to": "class-mage.quest-portals-portal-trainer"
+  },
+  {
+   "from": "classes[6].classQuests[3]",
+   "to": "class-mage.quest-teleport-dalaran"
+  },
+  {
+   "from": "classes[6].classQuests[4]",
+   "to": "class-mage.quest-comprehension-comprehend-scroll"
+  },
+  {
+   "from": "classes[6].classQuests[5]",
+   "to": "class-mage.quest-conjure-water-and-conjure-food"
+  },
+  {
+   "from": "classes[6].overview",
+   "to": "courses/mage.json overview"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[0]",
+   "to": "class-mage.spell-hit-cap-against-raid-bosses-forever"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[1]",
+   "to": "class-mage.classic-1-12-hit-cap-reference-only"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[2]",
+   "to": "class-mage.spell-hit-from-talents"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[3]",
+   "to": "class-mage.stat-focus"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[4]",
+   "to": "class-mage.arcane-blast-stacks"
+  },
+  {
+   "from": "classes[6].specs[0].pro.priorities[5]",
+   "to": "class-mage.arcane-wrath"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[0]",
+   "to": "class-mage.raid-utility"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[1]",
+   "to": "class-mage.threat-control-snapshot"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[2]",
+   "to": "class-mage.mana-on-long-fights-snapshot"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[3]",
+   "to": "class-mage.alliance-racials-for-raiders"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[4]",
+   "to": "class-mage.launch-raids"
+  },
+  {
+   "from": "classes[6].specs[0].pro.raid[5]",
+   "to": "class-mage.onyxia"
+  },
+  {
+   "from": "classes[6].specs[0].pro.consumables[0]",
+   "to": "class-mage.classic-1-12-caster-kit-reference"
+  },
+  {
+   "from": "classes[6].specs[0].pro.consumables[1]",
+   "to": "class-mage.forever-alchemy"
+  },
+  {
+   "from": "classes[6].specs[0].pro.consumables[2]",
+   "to": "class-mage.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[6].specs[0].pro.consumables[3]",
+   "to": "class-mage.camp-buffs"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.summary",
+   "to": "courses/mage.json spec arcane overview"
+  },
+  {
+   "from": "classes[6].specs[0].whatChanged",
+   "to": "talents-mage.arcane-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[6].specs[0].presets[0]",
+   "to": "mage-arcane-201-talents preset mage-arcane-raid-60"
+  },
+  {
+   "from": "classes[6].specs[0].presets[1]",
+   "to": "mage-arcane-101-talents preset mage-arcane-leveling-30"
+  },
+  {
+   "from": "classes[6].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[0]",
+   "to": "class-mage.spell-hit-from-talents-2"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[1]",
+   "to": "class-mage.spell-hit-cap-against-raid-bosses-forever-2"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[2]",
+   "to": "class-mage.classic-1-12-hit-cap-reference-only",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[3]",
+   "to": "class-mage.fire-crit"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[4]",
+   "to": "class-mage.heating-up"
+  },
+  {
+   "from": "classes[6].specs[1].pro.priorities[5]",
+   "to": "class-mage.stat-focus-2"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[0]",
+   "to": "class-mage.personal-scorch-and-ignite"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[1]",
+   "to": "class-mage.fire-power-snapshot"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[2]",
+   "to": "class-mage.combustion-snapshot"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[3]",
+   "to": "class-mage.threat-snapshot"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[4]",
+   "to": "class-mage.aoe-snapshot"
+  },
+  {
+   "from": "classes[6].specs[1].pro.raid[5]",
+   "to": "class-mage.onyxia",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[6].specs[1].pro.consumables[0]",
+   "to": "class-mage.classic-1-12-caster-kit-reference-2"
+  },
+  {
+   "from": "classes[6].specs[1].pro.consumables[1]",
+   "to": "class-mage.classic-1-12-engineering-extras-reference"
+  },
+  {
+   "from": "classes[6].specs[1].pro.consumables[2]",
+   "to": "class-mage.classic-1-12-fire-resistance-sources-reference"
+  },
+  {
+   "from": "classes[6].specs[1].pro.consumables[3]",
+   "to": "class-mage.forever-alchemy",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.summary",
+   "to": "courses/mage.json spec fire overview"
+  },
+  {
+   "from": "classes[6].specs[1].whatChanged",
+   "to": "talents-mage.fire-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[6].specs[1].presets[0]",
+   "to": "mage-fire-201-talents preset mage-fire-raid-60"
+  },
+  {
+   "from": "classes[6].specs[1].presets[1]",
+   "to": "mage-fire-101-talents preset mage-fire-leveling-30"
+  },
+  {
+   "from": "classes[6].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[0]",
+   "to": "class-mage.spell-hit-from-talents-3"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[1]",
+   "to": "class-mage.spell-hit-cap-against-raid-bosses-forever-3"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[2]",
+   "to": "class-mage.classic-1-12-hit-cap-reference-only",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[3]",
+   "to": "class-mage.ice-lance"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[4]",
+   "to": "class-mage.fingers-of-frost-snapshot"
+  },
+  {
+   "from": "classes[6].specs[2].pro.priorities[5]",
+   "to": "class-mage.frostfire-bolt-for-hybrids"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[0]",
+   "to": "class-mage.winters-chill-is-personal"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[1]",
+   "to": "class-mage.threat-and-mana-snapshot"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[2]",
+   "to": "class-mage.survival-snapshot"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[3]",
+   "to": "class-mage.ice-barrier"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[4]",
+   "to": "class-mage.raid-utility-2"
+  },
+  {
+   "from": "classes[6].specs[2].pro.raid[5]",
+   "to": "class-mage.onyxia-2"
+  },
+  {
+   "from": "classes[6].specs[2].pro.consumables[0]",
+   "to": "class-mage.classic-1-12-frost-mage-kit-reference"
+  },
+  {
+   "from": "classes[6].specs[2].pro.consumables[1]",
+   "to": "class-mage.forever-alchemy",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[6].specs[2].pro.consumables[2]",
+   "to": "class-mage.conjured-supplies"
+  },
+  {
+   "from": "classes[6].specs[2].pro.consumables[3]",
+   "to": "class-mage.world-buffs-in-raids-2"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.summary",
+   "to": "courses/mage.json spec frost overview"
+  },
+  {
+   "from": "classes[6].specs[2].whatChanged",
+   "to": "talents-mage.frost-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[6].specs[2].presets[0]",
+   "to": "mage-frost-201-talents preset mage-frost-raid-60"
+  },
+  {
+   "from": "classes[6].specs[2].presets[1]",
+   "to": "mage-frost-201-talents preset mage-frost-pvp-60"
+  },
+  {
+   "from": "classes[6].specs[2].presets[2]",
+   "to": "mage-frost-101-talents preset mage-frost-leveling-30"
+  },
+  {
+   "from": "classes[6].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[6].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].changes[0]",
+   "to": "class-warlock.change-1"
+  },
+  {
+   "from": "classes[7].changes[1]",
+   "to": "class-warlock.change-2"
+  },
+  {
+   "from": "classes[7].changes[2]",
+   "to": "class-warlock.change-3"
+  },
+  {
+   "from": "classes[7].changes[3]",
+   "to": "class-warlock.change-4"
+  },
+  {
+   "from": "classes[7].changes[4]",
+   "to": "class-warlock.change-5"
+  },
+  {
+   "from": "classes[7].changes[5]",
+   "to": "class-warlock.change-6"
+  },
+  {
+   "from": "classes[7].changes[6]",
+   "to": "class-warlock.change-7"
+  },
+  {
+   "from": "classes[7].changes[7]",
+   "to": "class-warlock.change-8"
+  },
+  {
+   "from": "classes[7].classQuests[0]",
+   "to": "class-warlock.quest-demon-quests-imp-voidwalker-succubus-incubus-felhunter"
+  },
+  {
+   "from": "classes[7].classQuests[1]",
+   "to": "class-warlock.quest-ritual-of-summoning-and-create-soulstone"
+  },
+  {
+   "from": "classes[7].classQuests[2]",
+   "to": "class-warlock.quest-inferno-infernal"
+  },
+  {
+   "from": "classes[7].classQuests[3]",
+   "to": "class-warlock.quest-ritual-of-doom-doomguard"
+  },
+  {
+   "from": "classes[7].classQuests[4]",
+   "to": "class-warlock.quest-felsteed-and-dreadsteed"
+  },
+  {
+   "from": "classes[7].overview",
+   "to": "courses/warlock.json overview"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[0]",
+   "to": "class-warlock.warlock-hit-from-talents"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[1]",
+   "to": "class-warlock.spell-hit-cap-against-raid-bosses-forever"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[2]",
+   "to": "class-warlock.classic-1-12-hit-cap-reference-only"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[3]",
+   "to": "class-warlock.shadow-crit"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[4]",
+   "to": "class-warlock.wrack-snapshot"
+  },
+  {
+   "from": "classes[7].specs[0].pro.priorities[5]",
+   "to": "class-warlock.spirit-and-mana"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[0]",
+   "to": "class-warlock.curse-of-the-elements"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[1]",
+   "to": "class-warlock.one-bane-per-warlock"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[2]",
+   "to": "class-warlock.curse-plus-bane-untested"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[3]",
+   "to": "class-warlock.demonic-sacrifice-snapshot"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[4]",
+   "to": "class-warlock.group-utility"
+  },
+  {
+   "from": "classes[7].specs[0].pro.raid[5]",
+   "to": "class-warlock.no-shadow-priest-boost"
+  },
+  {
+   "from": "classes[7].specs[0].pro.consumables[0]",
+   "to": "class-warlock.weapon-imbue"
+  },
+  {
+   "from": "classes[7].specs[0].pro.consumables[1]",
+   "to": "class-warlock.classic-1-12-caster-kit-reference"
+  },
+  {
+   "from": "classes[7].specs[0].pro.consumables[2]",
+   "to": "class-warlock.forever-alchemy"
+  },
+  {
+   "from": "classes[7].specs[0].pro.consumables[3]",
+   "to": "class-warlock.healthstones"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.summary",
+   "to": "courses/warlock.json spec affliction overview"
+  },
+  {
+   "from": "classes[7].specs[0].whatChanged",
+   "to": "talents-warlock.affliction-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[7].specs[0].presets[0]",
+   "to": "warlock-affliction-201-talents preset warlock-affliction-raid-60"
+  },
+  {
+   "from": "classes[7].specs[0].presets[1]",
+   "to": "warlock-affliction-101-talents preset warlock-affliction-leveling-30"
+  },
+  {
+   "from": "classes[7].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[0]",
+   "to": "class-warlock.demonic-knowledge-snapshot"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[1]",
+   "to": "class-warlock.sacrifice-and-pact"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[2]",
+   "to": "class-warlock.master-demonologist-pairing"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[3]",
+   "to": "class-warlock.hit-for-demonology-snapshot"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[4]",
+   "to": "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[7].specs[1].pro.priorities[5]",
+   "to": "class-warlock.decimation-snapshot"
+  },
+  {
+   "from": "classes[7].specs[1].pro.raid[0]",
+   "to": "class-warlock.pet-tanking-in-raids"
+  },
+  {
+   "from": "classes[7].specs[1].pro.raid[1]",
+   "to": "class-warlock.demonic-brand-threat-snapshot"
+  },
+  {
+   "from": "classes[7].specs[1].pro.raid[2]",
+   "to": "class-warlock.pet-utility"
+  },
+  {
+   "from": "classes[7].specs[1].pro.raid[3]",
+   "to": "class-warlock.ritual-of-summoning"
+  },
+  {
+   "from": "classes[7].specs[1].pro.raid[4]",
+   "to": "class-warlock.onyxia"
+  },
+  {
+   "from": "classes[7].specs[1].pro.consumables[0]",
+   "to": "class-warlock.weapon-imbue-2"
+  },
+  {
+   "from": "classes[7].specs[1].pro.consumables[1]",
+   "to": "class-warlock.classic-1-12-caster-kit-reference-2"
+  },
+  {
+   "from": "classes[7].specs[1].pro.consumables[2]",
+   "to": "class-warlock.forever-alchemy",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[7].specs[1].pro.consumables[3]",
+   "to": "class-warlock.camp-buffs"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.summary",
+   "to": "courses/warlock.json spec demonology overview"
+  },
+  {
+   "from": "classes[7].specs[1].whatChanged",
+   "to": "talents-warlock.demonology-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[7].specs[1].presets[0]",
+   "to": "warlock-demonology-201-talents preset warlock-demonology-raid-60"
+  },
+  {
+   "from": "classes[7].specs[1].presets[1]",
+   "to": "warlock-demonology-101-talents preset warlock-demonology-leveling-30"
+  },
+  {
+   "from": "classes[7].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[0]",
+   "to": "class-warlock.incinerate"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[1]",
+   "to": "class-warlock.cast-speed-snapshot"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[2]",
+   "to": "class-warlock.destruction-damage-snapshot"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[3]",
+   "to": "class-warlock.hit-for-destruction-snapshot"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[4]",
+   "to": "class-warlock.spell-hit-cap-against-raid-bosses-forever",
+   "note": "duplicate of an earlier claim"
+  },
+  {
+   "from": "classes[7].specs[2].pro.priorities[5]",
+   "to": "class-warlock.classic-1-12-hit-cap-reference-only-2"
+  },
+  {
+   "from": "classes[7].specs[2].pro.raid[0]",
+   "to": "class-warlock.improved-shadow-bolt"
+  },
+  {
+   "from": "classes[7].specs[2].pro.raid[1]",
+   "to": "class-warlock.bane-of-havoc"
+  },
+  {
+   "from": "classes[7].specs[2].pro.raid[2]",
+   "to": "class-warlock.mana-snapshot"
+  },
+  {
+   "from": "classes[7].specs[2].pro.raid[3]",
+   "to": "class-warlock.curse-of-the-elements-files"
+  },
+  {
+   "from": "classes[7].specs[2].pro.raid[4]",
+   "to": "class-warlock.healthstones-and-soulstone"
+  },
+  {
+   "from": "classes[7].specs[2].pro.consumables[0]",
+   "to": "class-warlock.weapon-imbue-3"
+  },
+  {
+   "from": "classes[7].specs[2].pro.consumables[1]",
+   "to": "class-warlock.classic-1-12-caster-kit-reference-3"
+  },
+  {
+   "from": "classes[7].specs[2].pro.consumables[2]",
+   "to": "class-warlock.classic-1-12-fire-resistance-sources-reference"
+  },
+  {
+   "from": "classes[7].specs[2].pro.consumables[3]",
+   "to": "class-warlock.world-buffs-in-raids"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.summary",
+   "to": "courses/warlock.json spec destruction overview"
+  },
+  {
+   "from": "classes[7].specs[2].whatChanged",
+   "to": "talents-warlock.destruction-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[7].specs[2].presets[0]",
+   "to": "warlock-destruction-201-talents preset warlock-destruction-raid-60"
+  },
+  {
+   "from": "classes[7].specs[2].presets[1]",
+   "to": "warlock-destruction-101-talents preset warlock-destruction-leveling-30"
+  },
+  {
+   "from": "classes[7].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[7].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].changes[0]",
+   "to": "class-druid.change-1"
+  },
+  {
+   "from": "classes[8].changes[1]",
+   "to": "class-druid.change-2"
+  },
+  {
+   "from": "classes[8].changes[2]",
+   "to": "class-druid.change-3"
+  },
+  {
+   "from": "classes[8].changes[3]",
+   "to": "class-druid.change-4"
+  },
+  {
+   "from": "classes[8].changes[4]",
+   "to": "class-druid.change-5"
+  },
+  {
+   "from": "classes[8].changes[5]",
+   "to": "class-druid.change-6"
+  },
+  {
+   "from": "classes[8].changes[6]",
+   "to": "class-druid.change-7"
+  },
+  {
+   "from": "classes[8].changes[7]",
+   "to": "class-druid.change-8"
+  },
+  {
+   "from": "classes[8].classQuests[0]",
+   "to": "class-druid.quest-bear-form-heeding-the-call-to-body-and-heart"
+  },
+  {
+   "from": "classes[8].classQuests[1]",
+   "to": "class-druid.quest-cure-poison-lessons-anew-the-power-over-poison-chain"
+  },
+  {
+   "from": "classes[8].classQuests[2]",
+   "to": "class-druid.quest-aquatic-form-a-lesson-to-learn"
+  },
+  {
+   "from": "classes[8].classQuests[3]",
+   "to": "class-druid.quest-cat-form-the-great-cat-spirit-new-in-forever"
+  },
+  {
+   "from": "classes[8].classQuests[4]",
+   "to": "class-druid.quest-skyborne-druid-form-quests"
+  },
+  {
+   "from": "classes[8].overview",
+   "to": "courses/druid.json overview"
+  },
+  {
+   "from": "classes[8].specs[0].pro.priorities[0]",
+   "to": "class-druid.eclipse-loop"
+  },
+  {
+   "from": "classes[8].specs[0].pro.priorities[1]",
+   "to": "class-druid.damage-over-time"
+  },
+  {
+   "from": "classes[8].specs[0].pro.priorities[2]",
+   "to": "class-druid.crit-chain"
+  },
+  {
+   "from": "classes[8].specs[0].pro.priorities[3]",
+   "to": "class-druid.mana"
+  },
+  {
+   "from": "classes[8].specs[0].pro.priorities[4]",
+   "to": "class-druid.spell-hit-classic-baseline-for-the-cap"
+  },
+  {
+   "from": "classes[8].specs[0].pro.raid[0]",
+   "to": "class-druid.moonkin-aura"
+  },
+  {
+   "from": "classes[8].specs[0].pro.raid[1]",
+   "to": "class-druid.moonkin-aura-with-leader-of-the-pack"
+  },
+  {
+   "from": "classes[8].specs[0].pro.raid[2]",
+   "to": "class-druid.raid-utility-levels"
+  },
+  {
+   "from": "classes[8].specs[0].pro.raid[3]",
+   "to": "class-druid.world-buffs"
+  },
+  {
+   "from": "classes[8].specs[0].pro.raid[4]",
+   "to": "class-druid.classic-baseline"
+  },
+  {
+   "from": "classes[8].specs[0].pro.consumables[0]",
+   "to": "class-druid.potions-in-moonkin-form"
+  },
+  {
+   "from": "classes[8].specs[0].pro.consumables[1]",
+   "to": "class-druid.classic-caster-kit"
+  },
+  {
+   "from": "classes[8].specs[0].pro.consumables[2]",
+   "to": "class-druid.new-forever-elixirs"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.summary",
+   "to": "courses/druid.json spec balance overview"
+  },
+  {
+   "from": "classes[8].specs[0].whatChanged",
+   "to": "talents-druid.balance-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[8].specs[0].presets[0]",
+   "to": "druid-balance-201-talents preset druid-balance-raid-60"
+  },
+  {
+   "from": "classes[8].specs[0].presets[1]",
+   "to": "druid-balance-101-talents preset druid-balance-leveling-30"
+  },
+  {
+   "from": "classes[8].specs[0].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[0].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[0]",
+   "to": "class-druid.bear-threat"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[1]",
+   "to": "class-druid.bear-survival"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[2]",
+   "to": "class-druid.rage"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[3]",
+   "to": "class-druid.cat-energy"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[4]",
+   "to": "class-druid.bleed-bonus"
+  },
+  {
+   "from": "classes[8].specs[1].pro.priorities[5]",
+   "to": "class-druid.feral-capstones"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[0]",
+   "to": "class-druid.leader-of-the-pack"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[1]",
+   "to": "class-druid.bear-raid-tanking"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[2]",
+   "to": "class-druid.swipe-in-the-beta-snapshot"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[3]",
+   "to": "class-druid.weapon-procs-in-form"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[4]",
+   "to": "class-druid.classic-baseline-2"
+  },
+  {
+   "from": "classes[8].specs[1].pro.raid[5]",
+   "to": "class-druid.melee-hit-cap-vs-raid-bosses"
+  },
+  {
+   "from": "classes[8].specs[1].pro.consumables[0]",
+   "to": "class-druid.classic-tank-kit"
+  },
+  {
+   "from": "classes[8].specs[1].pro.consumables[1]",
+   "to": "class-druid.flasks"
+  },
+  {
+   "from": "classes[8].specs[1].pro.consumables[2]",
+   "to": "class-druid.rage-potions-and-thistletea"
+  },
+  {
+   "from": "classes[8].specs[1].pro.consumables[3]",
+   "to": "class-druid.new-forever-elixirs-2"
+  },
+  {
+   "from": "classes[8].specs[1].pro.consumables[4]",
+   "to": "class-druid.fire-resistance-for-onyxia"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.summary",
+   "to": "courses/druid.json spec feral-combat overview"
+  },
+  {
+   "from": "classes[8].specs[1].whatChanged",
+   "to": "talents-druid.feral-combat-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[8].specs[1].presets[0]",
+   "to": "druid-feral-combat-201-talents preset druid-feral-combat-raid-60"
+  },
+  {
+   "from": "classes[8].specs[1].presets[1]",
+   "to": "druid-feral-combat-201-talents preset druid-feral-combat-dungeon-60"
+  },
+  {
+   "from": "classes[8].specs[1].presets[2]",
+   "to": "druid-feral-combat-101-talents preset druid-feral-combat-leveling-30"
+  },
+  {
+   "from": "classes[8].specs[1].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].pvp.overview[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].pvp.matchups[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].pvp.matchups[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[1].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[0]",
+   "to": "class-druid.heal-over-time-core"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[1]",
+   "to": "class-druid.crits"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[2]",
+   "to": "class-druid.swiftmend"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[3]",
+   "to": "class-druid.bloom"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[4]",
+   "to": "class-druid.mana-2"
+  },
+  {
+   "from": "classes[8].specs[2].pro.priorities[5]",
+   "to": "class-druid.wild-growth"
+  },
+  {
+   "from": "classes[8].specs[2].pro.raid[0]",
+   "to": "class-druid.blizzards-healer-intent"
+  },
+  {
+   "from": "classes[8].specs[2].pro.raid[1]",
+   "to": "class-druid.several-druids-together"
+  },
+  {
+   "from": "classes[8].specs[2].pro.raid[2]",
+   "to": "class-druid.utility"
+  },
+  {
+   "from": "classes[8].specs[2].pro.raid[3]",
+   "to": "class-druid.classic-baseline-3"
+  },
+  {
+   "from": "classes[8].specs[2].pro.consumables[0]",
+   "to": "class-druid.classic-healer-kit"
+  },
+  {
+   "from": "classes[8].specs[2].pro.consumables[1]",
+   "to": "class-druid.forever-alchemy"
+  },
+  {
+   "from": "classes[8].specs[2].pro.consumables[2]",
+   "to": "class-druid.camp-buffs"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.summary",
+   "to": "courses/druid.json spec restoration overview"
+  },
+  {
+   "from": "classes[8].specs[2].whatChanged",
+   "to": "talents-druid.restoration-summary (recomputed from talents/data.json)"
+  },
+  {
+   "from": "classes[8].specs[2].presets[0]",
+   "to": "druid-restoration-201-talents preset druid-restoration-raid-60"
+  },
+  {
+   "from": "classes[8].specs[2].presets[1]",
+   "to": "druid-restoration-101-talents preset druid-restoration-dungeon-30"
+  },
+  {
+   "from": "classes[8].specs[2].pvp.overview[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].pvp.overview[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.leveling[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.leveling[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.leveling[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.leveling[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.rotation[4]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[0]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[1]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[2]",
+   "to": "praxis step"
+  },
+  {
+   "from": "classes[8].specs[2].beginner.tips[3]",
+   "to": "praxis step"
+  },
+  {
+   "from": "professions[0].changes[0]",
+   "to": "profession-alchemy.healing-potions-moved"
+  },
+  {
+   "from": "professions[0].changes[1]",
+   "to": "profession-alchemy.dyes"
+  },
+  {
+   "from": "professions[0].changes[2]",
+   "to": "profession-alchemy.new-materials"
+  },
+  {
+   "from": "professions[0].changes[3]",
+   "to": "profession-alchemy.camp-objects"
+  },
+  {
+   "from": "professions[0].changes[4]",
+   "to": "profession-alchemy.profession-title"
+  },
+  {
+   "from": "professions[0].changes[5]",
+   "to": "profession-alchemy.professions-window"
+  },
+  {
+   "from": "professions[0].leveling[0]",
+   "to": "profession-alchemy.skill-ranks"
+  },
+  {
+   "from": "professions[0].leveling[1]",
+   "to": "profession-alchemy.alliance-trainers"
+  },
+  {
+   "from": "professions[0].leveling[2]",
+   "to": "profession-alchemy.merchants-favor"
+  },
+  {
+   "from": "professions[0].leveling[3]",
+   "to": "profession-alchemy.favor-recipes"
+  },
+  {
+   "from": "professions[0].leveling[4]",
+   "to": "profession-alchemy.legacy"
+  },
+  {
+   "from": "professions[0].leveling[5]",
+   "to": "profession-alchemy.fire-protection-recipe-classic-baseline"
+  },
+  {
+   "from": "professions[0].raidValue[0]",
+   "to": "profession-alchemy.flasks"
+  },
+  {
+   "from": "professions[0].raidValue[1]",
+   "to": "profession-alchemy.30-minute-elixirs"
+  },
+  {
+   "from": "professions[0].raidValue[2]",
+   "to": "profession-alchemy.new-potions"
+  },
+  {
+   "from": "professions[0].raidValue[3]",
+   "to": "profession-alchemy.rage-potions"
+  },
+  {
+   "from": "professions[0].unknowns[0]",
+   "to": "profession-alchemy.unknown-1"
+  },
+  {
+   "from": "professions[0].unknowns[1]",
+   "to": "profession-alchemy.unknown-2"
+  },
+  {
+   "from": "professions[0].unknowns[2]",
+   "to": "profession-alchemy.unknown-3"
+  },
+  {
+   "from": "professions[0].unknowns[3]",
+   "to": "profession-alchemy.unknown-4"
+  },
+  {
+   "from": "professions[0].overview",
+   "to": "professions/alchemy.json overview"
+  },
+  {
+   "from": "professions[0].goldNote",
+   "to": "alchemy-201-gold praxis step"
+  },
+  {
+   "from": "professions[1].changes[0]",
+   "to": "profession-blacksmithing.new-recipes"
+  },
+  {
+   "from": "professions[1].changes[1]",
+   "to": "profession-blacksmithing.gear-only-you-can-make"
+  },
+  {
+   "from": "professions[1].changes[2]",
+   "to": "profession-blacksmithing.camp-objects"
+  },
+  {
+   "from": "professions[1].leveling[0]",
+   "to": "profession-blacksmithing.skill-ranks"
+  },
+  {
+   "from": "professions[1].leveling[1]",
+   "to": "profession-blacksmithing.specialization-classic-baseline"
+  },
+  {
+   "from": "professions[1].leveling[2]",
+   "to": "profession-blacksmithing.merchants-favor"
+  },
+  {
+   "from": "professions[1].leveling[3]",
+   "to": "profession-blacksmithing.legacy"
+  },
+  {
+   "from": "professions[1].raidValue[0]",
+   "to": "profession-blacksmithing.weapon-stones"
+  },
+  {
+   "from": "professions[1].raidValue[1]",
+   "to": "profession-blacksmithing.sharpening-wheel-buff"
+  },
+  {
+   "from": "professions[1].unknowns[0]",
+   "to": "profession-blacksmithing.unknown-1"
+  },
+  {
+   "from": "professions[1].unknowns[1]",
+   "to": "profession-blacksmithing.unknown-2"
+  },
+  {
+   "from": "professions[1].unknowns[2]",
+   "to": "profession-blacksmithing.unknown-3"
+  },
+  {
+   "from": "professions[1].unknowns[3]",
+   "to": "profession-blacksmithing.unknown-4"
+  },
+  {
+   "from": "professions[1].overview",
+   "to": "professions/blacksmithing.json overview"
+  },
+  {
+   "from": "professions[1].goldNote",
+   "to": "blacksmithing-201-gold praxis step"
+  },
+  {
+   "from": "professions[2].changes[0]",
+   "to": "profession-enchanting.wands-staves-and-relics"
+  },
+  {
+   "from": "professions[2].changes[1]",
+   "to": "profession-enchanting.camp-objects"
+  },
+  {
+   "from": "professions[2].leveling[0]",
+   "to": "profession-enchanting.skill-ranks"
+  },
+  {
+   "from": "professions[2].leveling[1]",
+   "to": "profession-enchanting.favor-recipes"
+  },
+  {
+   "from": "professions[2].leveling[2]",
+   "to": "profession-enchanting.legacy"
+  },
+  {
+   "from": "professions[2].raidValue[0]",
+   "to": "profession-enchanting.necklace-enchants"
+  },
+  {
+   "from": "professions[2].raidValue[1]",
+   "to": "profession-enchanting.two-hand-caster-enchants"
+  },
+  {
+   "from": "professions[2].raidValue[2]",
+   "to": "profession-enchanting.enchanted-lute"
+  },
+  {
+   "from": "professions[2].unknowns[0]",
+   "to": "profession-enchanting.unknown-1"
+  },
+  {
+   "from": "professions[2].unknowns[1]",
+   "to": "profession-enchanting.unknown-2"
+  },
+  {
+   "from": "professions[2].unknowns[2]",
+   "to": "profession-enchanting.unknown-3"
+  },
+  {
+   "from": "professions[2].unknowns[3]",
+   "to": "profession-enchanting.unknown-4"
+  },
+  {
+   "from": "professions[2].overview",
+   "to": "professions/enchanting.json overview"
+  },
+  {
+   "from": "professions[2].goldNote",
+   "to": "enchanting-201-gold praxis step"
+  },
+  {
+   "from": "professions[3].changes[0]",
+   "to": "profession-engineering.satchel-bombs"
+  },
+  {
+   "from": "professions[3].changes[1]",
+   "to": "profession-engineering.clanking-cord-belts"
+  },
+  {
+   "from": "professions[3].changes[2]",
+   "to": "profession-engineering.skill-scaling"
+  },
+  {
+   "from": "professions[3].changes[3]",
+   "to": "profession-engineering.gnome-racial"
+  },
+  {
+   "from": "professions[3].changes[4]",
+   "to": "profession-engineering.camp-objects"
+  },
+  {
+   "from": "professions[3].leveling[0]",
+   "to": "profession-engineering.skill-ranks"
+  },
+  {
+   "from": "professions[3].leveling[1]",
+   "to": "profession-engineering.specialization-classic-baseline"
+  },
+  {
+   "from": "professions[3].leveling[2]",
+   "to": "profession-engineering.favor-recipes"
+  },
+  {
+   "from": "professions[3].leveling[3]",
+   "to": "profession-engineering.legacy"
+  },
+  {
+   "from": "professions[3].raidValue[0]",
+   "to": "profession-engineering.saf-t-explosives"
+  },
+  {
+   "from": "professions[3].raidValue[1]",
+   "to": "profession-engineering.emergency-field-cloak"
+  },
+  {
+   "from": "professions[3].unknowns[0]",
+   "to": "profession-engineering.unknown-1"
+  },
+  {
+   "from": "professions[3].unknowns[1]",
+   "to": "profession-engineering.unknown-2"
+  },
+  {
+   "from": "professions[3].unknowns[2]",
+   "to": "profession-engineering.unknown-3"
+  },
+  {
+   "from": "professions[3].unknowns[3]",
+   "to": "profession-engineering.unknown-4"
+  },
+  {
+   "from": "professions[3].overview",
+   "to": "professions/engineering.json overview"
+  },
+  {
+   "from": "professions[3].goldNote",
+   "to": "engineering-201-gold praxis step"
+  },
+  {
+   "from": "professions[4].changes[0]",
+   "to": "profession-herbalism.starter-zone-book"
+  },
+  {
+   "from": "professions[4].changes[1]",
+   "to": "profession-herbalism.scarce-herbs"
+  },
+  {
+   "from": "professions[4].changes[2]",
+   "to": "profession-herbalism.camp-objects"
+  },
+  {
+   "from": "professions[4].changes[3]",
+   "to": "profession-herbalism.no-passive-bonus"
+  },
+  {
+   "from": "professions[4].leveling[0]",
+   "to": "profession-herbalism.skill-caps"
+  },
+  {
+   "from": "professions[4].leveling[1]",
+   "to": "profession-herbalism.level-for-each-rank"
+  },
+  {
+   "from": "professions[4].leveling[2]",
+   "to": "profession-herbalism.legacy-perks"
+  },
+  {
+   "from": "professions[4].leveling[3]",
+   "to": "profession-herbalism.switching"
+  },
+  {
+   "from": "professions[4].raidValue[0]",
+   "to": "profession-herbalism.healing-potion-herbs"
+  },
+  {
+   "from": "professions[4].unknowns[0]",
+   "to": "profession-herbalism.unknown-1"
+  },
+  {
+   "from": "professions[4].unknowns[1]",
+   "to": "profession-herbalism.unknown-2"
+  },
+  {
+   "from": "professions[4].unknowns[2]",
+   "to": "profession-herbalism.unknown-3"
+  },
+  {
+   "from": "professions[4].overview",
+   "to": "professions/herbalism.json overview"
+  },
+  {
+   "from": "professions[4].goldNote",
+   "to": "herbalism-201-gold praxis step"
+  },
+  {
+   "from": "professions[5].changes[0]",
+   "to": "profession-leatherworking.tanning-rack"
+  },
+  {
+   "from": "professions[5].changes[1]",
+   "to": "profession-leatherworking.camp-objects"
+  },
+  {
+   "from": "professions[5].changes[2]",
+   "to": "profession-leatherworking.gear-only-you-can-make"
+  },
+  {
+   "from": "professions[5].leveling[0]",
+   "to": "profession-leatherworking.skill-ranks"
+  },
+  {
+   "from": "professions[5].leveling[1]",
+   "to": "profession-leatherworking.specialization-classic-baseline"
+  },
+  {
+   "from": "professions[5].leveling[2]",
+   "to": "profession-leatherworking.merchants-favor"
+  },
+  {
+   "from": "professions[5].leveling[3]",
+   "to": "profession-leatherworking.legacy"
+  },
+  {
+   "from": "professions[5].raidValue[0]",
+   "to": "profession-leatherworking.core-armor-kit"
+  },
+  {
+   "from": "professions[5].raidValue[1]",
+   "to": "profession-leatherworking.stat-armor-kits"
+  },
+  {
+   "from": "professions[5].unknowns[0]",
+   "to": "profession-leatherworking.unknown-1"
+  },
+  {
+   "from": "professions[5].unknowns[1]",
+   "to": "profession-leatherworking.unknown-2"
+  },
+  {
+   "from": "professions[5].unknowns[2]",
+   "to": "profession-leatherworking.unknown-3"
+  },
+  {
+   "from": "professions[5].unknowns[3]",
+   "to": "profession-leatherworking.unknown-4"
+  },
+  {
+   "from": "professions[5].overview",
+   "to": "professions/leatherworking.json overview"
+  },
+  {
+   "from": "professions[5].goldNote",
+   "to": "leatherworking-201-gold praxis step"
+  },
+  {
+   "from": "professions[6].changes[0]",
+   "to": "profession-mining.starter-zone-book"
+  },
+  {
+   "from": "professions[6].changes[1]",
+   "to": "profession-mining.scarce-ores"
+  },
+  {
+   "from": "professions[6].changes[2]",
+   "to": "profession-mining.new-bars"
+  },
+  {
+   "from": "professions[6].changes[3]",
+   "to": "profession-mining.camp-objects"
+  },
+  {
+   "from": "professions[6].changes[4]",
+   "to": "profession-mining.no-jewelcrafting"
+  },
+  {
+   "from": "professions[6].leveling[0]",
+   "to": "profession-mining.skill-caps"
+  },
+  {
+   "from": "professions[6].leveling[1]",
+   "to": "profession-mining.level-for-each-rank"
+  },
+  {
+   "from": "professions[6].leveling[2]",
+   "to": "profession-mining.legacy-perks"
+  },
+  {
+   "from": "professions[6].raidValue[0]",
+   "to": "profession-mining.lodestone"
+  },
+  {
+   "from": "professions[6].unknowns[0]",
+   "to": "profession-mining.unknown-1"
+  },
+  {
+   "from": "professions[6].unknowns[1]",
+   "to": "profession-mining.unknown-2"
+  },
+  {
+   "from": "professions[6].unknowns[2]",
+   "to": "profession-mining.unknown-3"
+  },
+  {
+   "from": "professions[6].overview",
+   "to": "professions/mining.json overview"
+  },
+  {
+   "from": "professions[6].goldNote",
+   "to": "mining-201-gold praxis step"
+  },
+  {
+   "from": "professions[7].changes[0]",
+   "to": "profession-skinning.starter-zone-book"
+  },
+  {
+   "from": "professions[7].changes[1]",
+   "to": "profession-skinning.pristine-materials"
+  },
+  {
+   "from": "professions[7].changes[2]",
+   "to": "profession-skinning.reagent-bag-slot"
+  },
+  {
+   "from": "professions[7].changes[3]",
+   "to": "profession-skinning.camp-objects"
+  },
+  {
+   "from": "professions[7].leveling[0]",
+   "to": "profession-skinning.skill-caps"
+  },
+  {
+   "from": "professions[7].leveling[1]",
+   "to": "profession-skinning.level-for-each-rank"
+  },
+  {
+   "from": "professions[7].leveling[2]",
+   "to": "profession-skinning.legacy-perks"
+  },
+  {
+   "from": "professions[7].raidValue[0]",
+   "to": "profession-skinning.camp-chair"
+  },
+  {
+   "from": "professions[7].unknowns[0]",
+   "to": "profession-skinning.unknown-1"
+  },
+  {
+   "from": "professions[7].unknowns[1]",
+   "to": "profession-skinning.unknown-2"
+  },
+  {
+   "from": "professions[7].overview",
+   "to": "professions/skinning.json overview"
+  },
+  {
+   "from": "professions[7].goldNote",
+   "to": "skinning-201-gold praxis step"
+  },
+  {
+   "from": "professions[8].changes[0]",
+   "to": "profession-tailoring.reagent-bags"
+  },
+  {
+   "from": "professions[8].changes[1]",
+   "to": "profession-tailoring.bigger-bags"
+  },
+  {
+   "from": "professions[8].changes[2]",
+   "to": "profession-tailoring.dyes-in-recipes"
+  },
+  {
+   "from": "professions[8].changes[3]",
+   "to": "profession-tailoring.gear-only-you-can-make"
+  },
+  {
+   "from": "professions[8].changes[4]",
+   "to": "profession-tailoring.camp-objects"
+  },
+  {
+   "from": "professions[8].leveling[0]",
+   "to": "profession-tailoring.skill-ranks"
+  },
+  {
+   "from": "professions[8].leveling[1]",
+   "to": "profession-tailoring.merchants-favor"
+  },
+  {
+   "from": "professions[8].leveling[2]",
+   "to": "profession-tailoring.legacy"
+  },
+  {
+   "from": "professions[8].raidValue[0]",
+   "to": "profession-tailoring.spell-school-sets"
+  },
+  {
+   "from": "professions[8].raidValue[1]",
+   "to": "profession-tailoring.faction-banner"
+  },
+  {
+   "from": "professions[8].unknowns[0]",
+   "to": "profession-tailoring.unknown-1"
+  },
+  {
+   "from": "professions[8].unknowns[1]",
+   "to": "profession-tailoring.unknown-2"
+  },
+  {
+   "from": "professions[8].unknowns[2]",
+   "to": "profession-tailoring.unknown-3"
+  },
+  {
+   "from": "professions[8].unknowns[3]",
+   "to": "profession-tailoring.unknown-4"
+  },
+  {
+   "from": "professions[8].overview",
+   "to": "professions/tailoring.json overview"
+  },
+  {
+   "from": "professions[8].goldNote",
+   "to": "tailoring-201-gold praxis step"
+  },
+  {
+   "from": "professions[9].changes[0]",
+   "to": "profession-cooking.food-gives-xp"
+  },
+  {
+   "from": "professions[9].changes[1]",
+   "to": "profession-cooking.well-fed"
+  },
+  {
+   "from": "professions[9].changes[2]",
+   "to": "profession-cooking.campfire"
+  },
+  {
+   "from": "professions[9].changes[3]",
+   "to": "profession-cooking.bigger-camps"
+  },
+  {
+   "from": "professions[9].changes[4]",
+   "to": "profession-cooking.camp-rules"
+  },
+  {
+   "from": "professions[9].changes[5]",
+   "to": "profession-cooking.unlocking-camps"
+  },
+  {
+   "from": "professions[9].leveling[0]",
+   "to": "profession-cooking.skill-ranks"
+  },
+  {
+   "from": "professions[9].leveling[1]",
+   "to": "profession-cooking.journeyman-campfire"
+  },
+  {
+   "from": "professions[9].leveling[2]",
+   "to": "profession-cooking.cookie"
+  },
+  {
+   "from": "professions[9].leveling[3]",
+   "to": "profession-cooking.favor-recipes"
+  },
+  {
+   "from": "professions[9].leveling[4]",
+   "to": "profession-cooking.legacy-perks"
+  },
+  {
+   "from": "professions[9].raidValue[0]",
+   "to": "profession-cooking.reworked-raid-foods"
+  },
+  {
+   "from": "professions[9].raidValue[1]",
+   "to": "profession-cooking.iron-oven"
+  },
+  {
+   "from": "professions[9].raidValue[2]",
+   "to": "profession-cooking.healer-food"
+  },
+  {
+   "from": "professions[9].unknowns[0]",
+   "to": "profession-cooking.unknown-1"
+  },
+  {
+   "from": "professions[9].unknowns[1]",
+   "to": "profession-cooking.unknown-2"
+  },
+  {
+   "from": "professions[9].unknowns[2]",
+   "to": "profession-cooking.unknown-3"
+  },
+  {
+   "from": "professions[9].unknowns[3]",
+   "to": "profession-cooking.unknown-4"
+  },
+  {
+   "from": "professions[9].overview",
+   "to": "professions/cooking.json overview"
+  },
+  {
+   "from": "professions[9].goldNote",
+   "to": "cooking-201-gold praxis step"
+  },
+  {
+   "from": "professions[10].changes[0]",
+   "to": "profession-fishing.camp-objects"
+  },
+  {
+   "from": "professions[10].changes[1]",
+   "to": "profession-fishing.luremaster"
+  },
+  {
+   "from": "professions[10].leveling[0]",
+   "to": "profession-fishing.artisan-step"
+  },
+  {
+   "from": "professions[10].leveling[1]",
+   "to": "profession-fishing.skill-cap"
+  },
+  {
+   "from": "professions[10].raidValue[0]",
+   "to": "profession-fishing.fish-bowl"
+  },
+  {
+   "from": "professions[10].raidValue[1]",
+   "to": "profession-fishing.seafood-for-raid-foods"
+  },
+  {
+   "from": "professions[10].unknowns[0]",
+   "to": "profession-fishing.unknown-1"
+  },
+  {
+   "from": "professions[10].unknowns[1]",
+   "to": "profession-fishing.unknown-2"
+  },
+  {
+   "from": "professions[10].unknowns[2]",
+   "to": "profession-fishing.unknown-3"
+  },
+  {
+   "from": "professions[10].unknowns[3]",
+   "to": "profession-fishing.unknown-4"
+  },
+  {
+   "from": "professions[10].overview",
+   "to": "professions/fishing.json overview"
+  },
+  {
+   "from": "professions[10].goldNote",
+   "to": "fishing-201-gold praxis step"
+  },
+  {
+   "from": "professions[11].changes[0]",
+   "to": "profession-first-aid.healing-potions"
+  },
+  {
+   "from": "professions[11].changes[1]",
+   "to": "profession-first-aid.new-remedies"
+  },
+  {
+   "from": "professions[11].changes[2]",
+   "to": "profession-first-aid.powerful-anti-venom"
+  },
+  {
+   "from": "professions[11].changes[3]",
+   "to": "profession-first-aid.camp-objects"
+  },
+  {
+   "from": "professions[11].changes[4]",
+   "to": "profession-first-aid.cannot-be-unlearned"
+  },
+  {
+   "from": "professions[11].leveling[0]",
+   "to": "profession-first-aid.expert-and-artisan"
+  },
+  {
+   "from": "professions[11].leveling[1]",
+   "to": "profession-first-aid.field-medicine"
+  },
+  {
+   "from": "professions[11].raidValue[0]",
+   "to": "profession-first-aid.self-made-healing-potions"
+  },
+  {
+   "from": "professions[11].raidValue[1]",
+   "to": "profession-first-aid.heavy-runecloth-bandage"
+  },
+  {
+   "from": "professions[11].raidValue[2]",
+   "to": "profession-first-aid.first-aid-kit"
+  },
+  {
+   "from": "professions[11].unknowns[0]",
+   "to": "profession-first-aid.unknown-1"
+  },
+  {
+   "from": "professions[11].unknowns[1]",
+   "to": "profession-first-aid.unknown-2"
+  },
+  {
+   "from": "professions[11].unknowns[2]",
+   "to": "profession-first-aid.unknown-3"
+  },
+  {
+   "from": "professions[11].unknowns[3]",
+   "to": "profession-first-aid.unknown-4"
+  },
+  {
+   "from": "professions[11].overview",
+   "to": "professions/first-aid.json overview"
+  },
+  {
+   "from": "professions[11].goldNote",
+   "to": "first-aid-201-gold praxis step"
+  },
+  {
+   "from": "tools, presets, classSummary",
+   "to": "unchanged in guides218.json (tools stay in guides218.js; presets copied to presets/<class>.json)"
+  }
+ ]
+}

@@ -1,0 +1,161 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-herbalism",
+ "questions": [
+  {
+   "id": "profession-herbalism.starter-book",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-changes",
+   "type": "mcq",
+   "stem": "Which starting-zone quest item teaches Herbalism?",
+   "choices": [
+    "Wild Harvest",
+    "Mining for Dummies",
+    "Pelt Collecting for Beginners"
+   ],
+   "answer": 0,
+   "explanation": "Wild Harvest teaches Herbalism and gives +2 skill. Mining for Dummies teaches Mining, and Pelt Collecting for Beginners teaches Skinning.",
+   "facts": [
+    "profession-herbalism.starter-zone-book"
+   ],
+   "distractorFacts": [
+    "profession-mining.starter-zone-book",
+    "profession-skinning.starter-zone-book"
+   ]
+  },
+  {
+   "id": "profession-herbalism.scarce-herb",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-changes",
+   "type": "mcq",
+   "stem": "Which of these is one of the new scarce herbs that alchemists turn into dyes?",
+   "choices": [
+    "Rosecap",
+    "Sungrass",
+    "Golden Sansam"
+   ],
+   "answer": 0,
+   "explanation": "Frilled Lichen, Rosecap and Stranglevine are the new scarce herbs. Sungrass and Golden Sansam go into First Aid healing potions.",
+   "facts": [
+    "profession-herbalism.scarce-herbs",
+    "profession-herbalism.healing-potion-herbs"
+   ]
+  },
+  {
+   "id": "profession-herbalism.greenhouse",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-camp",
+   "type": "mcq",
+   "stem": "Which Herbalism camp object unlocks at skill 140?",
+   "choices": [
+    "Greenhouse",
+    "Incense Candle",
+    "Seed Hybridizer"
+   ],
+   "answer": 0,
+   "explanation": "The Incense Candle comes at skill 20, the Greenhouse at 140 and the Seed Hybridizer at 300.",
+   "facts": [
+    "profession-herbalism.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-herbalism.candle-buff",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-camp",
+   "type": "mcq",
+   "stem": "Which class buff does the Incense Candle's buff match?",
+   "choices": [
+    "Arcane Intellect",
+    "Blessing of Might",
+    "Moonkin Aura"
+   ],
+   "answer": 0,
+   "explanation": "The Incense Candle matches Arcane Intellect. The Mining Lodestone matches Blessing of Might and the Skinning Camp Chair matches Moonkin Aura. None of them stacks with the class buff it copies.",
+   "facts": [
+    "profession-herbalism.camp-objects",
+    "profession-mining.lodestone",
+    "profession-skinning.camp-chair"
+   ]
+  },
+  {
+   "id": "profession-herbalism.expert-cap",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-leveling",
+   "type": "mcq",
+   "stem": "Up to what skill does Expert Herbalism go?",
+   "choices": [
+    "225",
+    "150",
+    "300"
+   ],
+   "answer": 0,
+   "explanation": "Apprentice goes up to 75, Journeyman to 150, Expert to 225 and Artisan to 300.",
+   "facts": [
+    "profession-herbalism.skill-caps"
+   ]
+  },
+  {
+   "id": "profession-herbalism.bountiful-harvest",
+   "scope": "profession:herbalism",
+   "tier": 101,
+   "chapter": "herbalism-101-leveling",
+   "type": "mcq",
+   "stem": "Which Legacy perk gives extra Scarce resources from gathering?",
+   "choices": [
+    "Bountiful Harvest",
+    "Working Overtime",
+    "Master Chef"
+   ],
+   "answer": 0,
+   "explanation": "Bountiful Harvest gives extra Scarce resources. Working Overtime improves your skill-up chance, and Master Chef gives extra cooking results.",
+   "facts": [
+    "profession-herbalism.legacy-perks"
+   ],
+   "distractorFacts": [
+    "profession-cooking.legacy-perks"
+   ]
+  },
+  {
+   "id": "profession-herbalism.potion-herb",
+   "scope": "profession:herbalism",
+   "tier": 201,
+   "chapter": "herbalism-201-raid",
+   "type": "scenario",
+   "stem": "A raider with First Aid wants to make their own healing potions and asks you for herbs. Which of these do they need?",
+   "choices": [
+    "Golden Sansam",
+    "Rosecap",
+    "Stranglevine"
+   ],
+   "answer": 0,
+   "explanation": "First Aid healing potions use Sungrass or Golden Sansam. Rosecap and Stranglevine are scarce herbs for dyes.",
+   "facts": [
+    "profession-herbalism.healing-potion-herbs",
+    "profession-herbalism.scarce-herbs"
+   ]
+  },
+  {
+   "id": "profession-herbalism.dye-maker",
+   "scope": "profession:herbalism",
+   "tier": 201,
+   "chapter": "herbalism-201-gold",
+   "type": "mcq",
+   "stem": "Which profession turns Frilled Lichen, Rosecap and Stranglevine into dyes?",
+   "choices": [
+    "Alchemy",
+    "First Aid"
+   ],
+   "answer": 0,
+   "explanation": "Alchemists turn the scarce herbs into dyes. First Aid buys Sungrass and Golden Sansam for healing potions.",
+   "facts": [
+    "profession-herbalism.scarce-herbs",
+    "profession-herbalism.healing-potion-herbs"
+   ]
+  }
+ ]
+}

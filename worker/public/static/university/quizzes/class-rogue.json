@@ -1,0 +1,964 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-rogue",
+ "questions": [
+  {
+   "id": "class-rogue.precision-ranks",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-forever-changes",
+   "type": "mcq",
+   "stem": "How many ranks does Precision have in Forever?",
+   "choices": [
+    "3 ranks",
+    "5 ranks"
+   ],
+   "answer": 0,
+   "explanation": "Precision drops to 3 ranks for up to +3% hit, and now applies to attacks, spells and poisons. Classic had 5 ranks for 5%.",
+   "facts": [
+    "class-rogue.change-5"
+   ]
+  },
+  {
+   "id": "class-rogue.precision-poisons",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which talent's hit chance now also applies to your poisons?",
+   "choices": [
+    "Precision",
+    "Lethality",
+    "Seal Fate"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard's notes say Malice's crit and Precision's hit now apply to poisons. Lethality and Seal Fate changed point costs but do not touch poisons.",
+   "facts": [
+    "class-rogue.change-1"
+   ],
+   "distractorFacts": [
+    "class-rogue.change-6"
+   ]
+  },
+  {
+   "id": "class-rogue.lockpicking-80",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-class-quests",
+   "type": "mcq",
+   "stem": "How much Lockpicking skill does the poisons quest need?",
+   "choices": [
+    "80",
+    "300",
+    "16"
+   ],
+   "answer": 0,
+   "explanation": "The poisons quest needs 80 Lockpicking. Pick Lock is trained at level 16, and 300 is the Poisons skill cap at level 60.",
+   "facts": [
+    "class-rogue.quest-pick-lock-training"
+   ],
+   "distractorFacts": [
+    "class-rogue.quest-poison-unlocks"
+   ]
+  },
+  {
+   "id": "class-rogue.deadly-at-30",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-class-quests",
+   "type": "mcq",
+   "stem": "Which poison do Rogues learn at level 30?",
+   "choices": [
+    "Deadly",
+    "Wound",
+    "Crippling",
+    "Mind-numbing"
+   ],
+   "answer": 0,
+   "explanation": "Crippling comes at 20, Mind-numbing at 24, Deadly at 30 and Wound at 32.",
+   "facts": [
+    "class-rogue.quest-poison-unlocks"
+   ]
+  },
+  {
+   "id": "class-rogue.poisons-chain-start",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-class-quests",
+   "type": "mcq",
+   "stem": "Who starts the Alliance poisons quest chain?",
+   "choices": [
+    "Master Mathias Shaw",
+    "Agent Kearnen",
+    "Klaven Mortwake"
+   ],
+   "answer": 0,
+   "explanation": "The chain starts with Master Mathias Shaw in Stormwind, sends you to Agent Kearnen in Westfall, and ends at Klaven's Tower with the elite Klaven Mortwake.",
+   "facts": [
+    "class-rogue.quest-poisons-quest-klavens-tower"
+   ]
+  },
+  {
+   "id": "class-rogue.wind-blessed",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-race",
+   "type": "mcq",
+   "stem": "Which Alliance racial gives +2% haste?",
+   "choices": [
+    "Wind-Blessed",
+    "Ruthless",
+    "Artisan's Precision"
+   ],
+   "answer": 0,
+   "explanation": "High Order Skyborne Wind-Blessed gives +2% haste. Human Ruthless gives +1% crit and Dwarf Artisan's Precision +1% hit.",
+   "facts": [
+    "common.racial-skyborne-wind-blessed"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-dwarf-artisans-precision"
+   ]
+  },
+  {
+   "id": "class-rogue.hit-race",
+   "scope": "class:rogue",
+   "tier": 101,
+   "chapter": "rogue-101-race",
+   "type": "scenario",
+   "stem": "You want extra hit on your Rogue. Which race's racial gives +1% hit with spells and attacks?",
+   "choices": [
+    "Dwarf",
+    "Human",
+    "High Order Skyborne"
+   ],
+   "answer": 0,
+   "explanation": "Dwarf Artisan's Precision gives +1% hit with spells and attacks. Human Ruthless gives crit and Skyborne Wind-Blessed gives haste.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-rogue.expose-armor-sunder",
+   "scope": "class:rogue",
+   "tier": 201,
+   "chapter": "rogue-201-group-utility",
+   "type": "mcq",
+   "stem": "Which Rogue ability no longer blocks a Warrior's Sunder Armor?",
+   "choices": [
+    "Expose Armor",
+    "Feint",
+    "Distract"
+   ],
+   "answer": 0,
+   "explanation": "Expose Armor now equals five Sunder Armor stacks and no longer blocks Sunder, so Rogues and Warriors can both add armor reduction.",
+   "facts": [
+    "class-rogue.change-2"
+   ],
+   "distractorFacts": [
+    "class-rogue.change-3"
+   ]
+  },
+  {
+   "id": "class-rogue.onyxia-40",
+   "scope": "class:rogue",
+   "tier": 201,
+   "chapter": "rogue-201-group-utility",
+   "type": "mcq",
+   "stem": "Which launch raid is the 40-player raid?",
+   "choices": [
+    "Onyxia's Lair",
+    "Hyjal Summit",
+    "Barrow Deeps"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps is for 10 players, Hyjal Summit for 20 and Onyxia's Lair for 40; all three open on 9 December 2026.",
+   "facts": [
+    "class-rogue.launch-raids"
+   ]
+  },
+  {
+   "id": "class-rogue.mutilate-poisoned",
+   "scope": "spec:rogue-assassination",
+   "tier": 101,
+   "chapter": "rogue-assassination-101-rotation",
+   "type": "mcq",
+   "stem": "How much more damage does Mutilate deal against poisoned targets?",
+   "choices": [
+    "20%",
+    "90%"
+   ],
+   "answer": 0,
+   "explanation": "Mutilate deals 20% more damage against poisoned targets. 90% is its weapon damage with each weapon.",
+   "facts": [
+    "talents-rogue.assassination-mutilate.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.seal-fate-3",
+   "scope": "spec:rogue-assassination",
+   "tier": 101,
+   "chapter": "rogue-assassination-101-rotation",
+   "type": "mcq",
+   "stem": "With Seal Fate at rank 3 of 3, what chance does a crit from a combo-point ability have to add an extra combo point?",
+   "choices": [
+    "100%",
+    "66%",
+    "33%"
+   ],
+   "answer": 0,
+   "explanation": "Seal Fate gives 33%, 66% and 100% at ranks 1, 2 and 3.",
+   "facts": [
+    "talents-rogue.assassination-seal-fate.r3"
+   ],
+   "distractorFacts": [
+    "talents-rogue.assassination-seal-fate.r2",
+    "talents-rogue.assassination-seal-fate.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.vile-poisons-5",
+   "scope": "spec:rogue-assassination",
+   "tier": 101,
+   "chapter": "rogue-assassination-101-poisons",
+   "type": "mcq",
+   "stem": "At rank 5 of 5, how much does Vile Poisons raise your poison damage?",
+   "choices": [
+    "20%",
+    "16%",
+    "12%"
+   ],
+   "answer": 0,
+   "explanation": "Vile Poisons adds 4% poison damage per rank, 20% at rank 5. It also gives poisons up to 40% extra chance to resist dispels.",
+   "facts": [
+    "talents-rogue.assassination-vile-poisons.r5"
+   ],
+   "distractorFacts": [
+    "talents-rogue.assassination-vile-poisons.r4",
+    "talents-rogue.assassination-vile-poisons.r3"
+   ]
+  },
+  {
+   "id": "class-rogue.poison-at-26",
+   "scope": "spec:rogue-assassination",
+   "tier": 101,
+   "chapter": "rogue-assassination-101-poisons",
+   "type": "scenario",
+   "stem": "You are a level 26 Rogue who has done the poisons questline. Which of these poisons can you have learned?",
+   "choices": [
+    "Mind-numbing",
+    "Deadly",
+    "Wound"
+   ],
+   "answer": 0,
+   "explanation": "Mind-numbing comes at 24. Deadly waits until 30 and Wound until 32.",
+   "facts": [
+    "class-rogue.quest-poison-unlocks"
+   ]
+  },
+  {
+   "id": "class-rogue.improved-expose-refund",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-combo",
+   "type": "scenario",
+   "stem": "You cast Expose Armor with 5 combo points and Improved Expose Armor at rank 2 of 2. How many combo points come back?",
+   "choices": [
+    "2 Combo Points",
+    "1 Combo Point"
+   ],
+   "answer": 0,
+   "explanation": "Improved Expose Armor refunds 1 combo point at rank 1 and 2 at rank 2, only when Expose Armor is cast with 5.",
+   "facts": [
+    "talents-rogue.assassination-improved-expose-armor.r2"
+   ],
+   "distractorFacts": [
+    "talents-rogue.assassination-improved-expose-armor.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.ruthlessness-finisher",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-combo",
+   "type": "mcq",
+   "stem": "Which Assassination talent can add a combo point to your target after a finishing move?",
+   "choices": [
+    "Ruthlessness",
+    "Relentless Strikes",
+    "Seal Fate"
+   ],
+   "answer": 0,
+   "explanation": "Ruthlessness gives finishers a chance to add a combo point. Relentless Strikes restores Energy after finishers, and Seal Fate adds combo points after crits from builders.",
+   "facts": [
+    "talents-rogue.assassination-ruthlessness",
+    "talents-rogue.assassination-ruthlessness.r1"
+   ],
+   "distractorFacts": [
+    "talents-rogue.assassination-relentless-strikes",
+    "talents-rogue.assassination-seal-fate"
+   ]
+  },
+  {
+   "id": "class-rogue.precision-max",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-priorities",
+   "type": "mcq",
+   "stem": "How much hit does Precision give at most in Forever?",
+   "choices": [
+    "+3% hit",
+    "+1% hit",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Precision gives up to +3% hit over 3 ranks. +1% hit is the Dwarf racial and +1% crit the Human racial.",
+   "facts": [
+    "class-rogue.precision"
+   ],
+   "distractorFacts": [
+    "class-rogue.racials"
+   ]
+  },
+  {
+   "id": "class-rogue.venom-damage",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-priorities",
+   "type": "mcq",
+   "stem": "With Venom, how much does Shank raise your poison damage?",
+   "choices": [
+    "30%",
+    "20%"
+   ],
+   "answer": 0,
+   "explanation": "Venom raises poison damage by 30% and the chance to apply poisons by 20%, for six seconds after Shank.",
+   "facts": [
+    "class-rogue.venom"
+   ]
+  },
+  {
+   "id": "class-rogue.grilled-squid",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-consumables",
+   "type": "mcq",
+   "stem": "What does Grilled Squid give in Forever?",
+   "choices": [
+    "+1% crit",
+    "+40 Attack Power"
+   ],
+   "answer": 0,
+   "explanation": "Grilled Squid now gives +1% crit instead of Agility. Mightfish Steak gives +40 Attack Power.",
+   "facts": [
+    "class-rogue.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-rogue.classic-elixir",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which elixir is on the melee staples list?",
+   "choices": [
+    "Elixir of the Mongoose",
+    "Mightfish Steak",
+    "Grilled Squid"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Mongoose heads the Classic 1.12 melee list. Grilled Squid is on it too, but it is a food, and so is Mightfish Steak.",
+   "facts": [
+    "class-rogue.classic-melee-staples"
+   ],
+   "distractorFacts": [
+    "class-rogue.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-rogue.barrow-deeps-10",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-raid",
+   "type": "mcq",
+   "stem": "How many players does Barrow Deeps hold?",
+   "choices": [
+    "10",
+    "20",
+    "40"
+   ],
+   "answer": 0,
+   "explanation": "Barrow Deeps holds 10, Hyjal Summit 20 and Onyxia's Lair 40.",
+   "facts": [
+    "class-rogue.launch-raids"
+   ]
+  },
+  {
+   "id": "class-rogue.kidney-shot-2",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-pvp",
+   "type": "mcq",
+   "stem": "With Improved Kidney Shot at rank 2 of 2, how much more damage does a target stunned by your Kidney Shot take from your poisons and attacks?",
+   "choices": [
+    "10%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Improved Kidney Shot gives 5% at rank 1 and 10% at rank 2.",
+   "facts": [
+    "talents-rogue.assassination-improved-kidney-shot.r2"
+   ],
+   "distractorFacts": [
+    "talents-rogue.assassination-improved-kidney-shot.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.berserker-rage-slow",
+   "scope": "spec:rogue-assassination",
+   "tier": 201,
+   "chapter": "rogue-assassination-201-pvp",
+   "type": "scenario",
+   "stem": "You slow a Warrior with Improved Berserker Rage at rank 2 of 2, and they use Berserker Rage. What chance does it have to remove your slow?",
+   "choices": [
+    "100%",
+    "50%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "At rank 2 of 2 Berserker Rage has a 100% chance to remove all movement impairing effects. 50% is Mortal Strike's healing cut and 15% Improved Hamstring's highest immobilize chance.",
+   "facts": [
+    "class-rogue.vs-warrior-improved-berserker-rage"
+   ],
+   "distractorFacts": [
+    "class-rogue.vs-warrior-mortal-strike",
+    "class-rogue.vs-warrior-improved-hamstring"
+   ]
+  },
+  {
+   "id": "class-rogue.deadly-coefficient",
+   "scope": "spec:rogue-assassination",
+   "tier": 301,
+   "chapter": "rogue-assassination-301-poison-scaling",
+   "type": "mcq",
+   "stem": "What attack-power coefficient did Blizzard set for Deadly Poison?",
+   "choices": [
+    "0.009",
+    "0.01"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard raised the coefficients to 0.009 for Deadly Poison and 0.01 for Instant Poison.",
+   "facts": [
+    "class-rogue.poison-scaling"
+   ]
+  },
+  {
+   "id": "class-rogue.malice-poisons",
+   "scope": "spec:rogue-assassination",
+   "tier": 301,
+   "chapter": "rogue-assassination-301-poison-scaling",
+   "type": "mcq",
+   "stem": "Which talent's critical strike chance applies to your poisons?",
+   "choices": [
+    "Malice",
+    "Lethality",
+    "Seal Fate"
+   ],
+   "answer": 0,
+   "explanation": "Malice's crit applies to poisons. Lethality raises the crit damage of named attacks, and Seal Fate turns crits from builders into combo points.",
+   "facts": [
+    "class-rogue.change-1"
+   ],
+   "distractorFacts": [
+    "class-rogue.change-6"
+   ]
+  },
+  {
+   "id": "class-rogue.flawless-execution",
+   "scope": "spec:rogue-combat",
+   "tier": 101,
+   "chapter": "rogue-combat-101-rotation",
+   "type": "mcq",
+   "stem": "By how much does Flawless Execution reduce the Energy cost of Eviscerate?",
+   "choices": [
+    "by 15",
+    "by 5",
+    "by 3"
+   ],
+   "answer": 0,
+   "explanation": "Flawless Execution reduces Eviscerate's cost by 15 Energy. Efficient Strikes takes 3 or 5 Energy off Sinister Strike and Hemorrhage.",
+   "facts": [
+    "talents-rogue.combat-flawless-execution.r1",
+    "talents-rogue.combat-efficient-strikes.r1",
+    "talents-rogue.combat-efficient-strikes.r2"
+   ]
+  },
+  {
+   "id": "class-rogue.adrenaline-duration",
+   "scope": "spec:rogue-combat",
+   "tier": 101,
+   "chapter": "rogue-combat-101-rotation",
+   "type": "mcq",
+   "stem": "How long does Adrenaline Rush last once used?",
+   "choices": [
+    "15 sec",
+    "5 min"
+   ],
+   "answer": 0,
+   "explanation": "Adrenaline Rush raises your Energy regeneration rate by 100% for 15 sec. Five minutes is its cooldown.",
+   "facts": [
+    "talents-rogue.combat-adrenaline-rush.r1",
+    "talents-rogue.combat-adrenaline-rush"
+   ]
+  },
+  {
+   "id": "class-rogue.hack-and-slash-extra",
+   "scope": "spec:rogue-combat",
+   "tier": 101,
+   "chapter": "rogue-combat-101-weapons",
+   "type": "mcq",
+   "stem": "Which weapons get the extra-attack chance from Hack and Slash?",
+   "choices": [
+    "Axe/Sword",
+    "Dagger/Fist",
+    "Mace"
+   ],
+   "answer": 0,
+   "explanation": "Axes and swords get extra attacks, daggers and fist weapons get crit, and maces ignore armor.",
+   "facts": [
+    "talents-rogue.combat-hack-and-slash.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.weapon-expertise",
+   "scope": "spec:rogue-combat",
+   "tier": 101,
+   "chapter": "rogue-combat-101-weapons",
+   "type": "mcq",
+   "stem": "Which Combat talent lowers the chance your attacks are dodged or parried?",
+   "choices": [
+    "Weapon Expertise",
+    "Hack and Slash",
+    "Adrenaline Rush"
+   ],
+   "answer": 0,
+   "explanation": "Weapon Expertise now lowers the chance your attacks are dodged or parried instead of adding weapon skill.",
+   "facts": [
+    "class-rogue.weapon-expertise"
+   ],
+   "distractorFacts": [
+    "class-rogue.hack-and-slash-at-5-5",
+    "class-rogue.adrenaline-rush"
+   ]
+  },
+  {
+   "id": "class-rogue.flash-of-steel-5",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-energy",
+   "type": "mcq",
+   "stem": "With Flash of Steel at rank 5 of 5, how much more Energy does Shank generate?",
+   "choices": [
+    "by 15",
+    "by 12",
+    "by 9"
+   ],
+   "answer": 0,
+   "explanation": "Flash of Steel adds 3 Energy per rank to Shank, 15 at rank 5, and cuts its cooldown by up to 2.0 sec.",
+   "facts": [
+    "talents-rogue.combat-flash-of-steel.r5"
+   ],
+   "distractorFacts": [
+    "talents-rogue.combat-flash-of-steel.r4",
+    "talents-rogue.combat-flash-of-steel.r3"
+   ]
+  },
+  {
+   "id": "class-rogue.adrenaline-cooldown",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-energy",
+   "type": "mcq",
+   "stem": "What is Adrenaline Rush's cooldown?",
+   "choices": [
+    "5 min cooldown",
+    "2 min cooldown"
+   ],
+   "answer": 0,
+   "explanation": "Adrenaline Rush has a 5 min cooldown. Blade Flurry, which it requires, has a 2 min cooldown.",
+   "facts": [
+    "talents-rogue.combat-adrenaline-rush"
+   ],
+   "distractorFacts": [
+    "talents-rogue.combat-blade-flurry"
+   ]
+  },
+  {
+   "id": "class-rogue.hack-and-slash-mace",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-priorities",
+   "type": "mcq",
+   "stem": "With Hack and Slash at 5/5, how much armor do your mace attacks ignore?",
+   "choices": [
+    "15%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "At 5/5 maces ignore 15% of armor; 5% is the extra-attack chance for axes and swords and the crit bonus for daggers and fist weapons.",
+   "facts": [
+    "class-rogue.hack-and-slash-at-5-5"
+   ]
+  },
+  {
+   "id": "class-rogue.racial-hit",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-priorities",
+   "type": "mcq",
+   "stem": "Which racial adds +1% hit?",
+   "choices": [
+    "Dwarf Artisan's Precision",
+    "Human Ruthless"
+   ],
+   "answer": 0,
+   "explanation": "Dwarf Artisan's Precision adds +1% hit with spells and attacks; Human Ruthless adds +1% crit.",
+   "facts": [
+    "class-rogue.racials"
+   ]
+  },
+  {
+   "id": "class-rogue.mightfish",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-consumables",
+   "type": "mcq",
+   "stem": "Which food gives +40 Attack Power in Forever?",
+   "choices": [
+    "Mightfish Steak",
+    "Grilled Squid"
+   ],
+   "answer": 0,
+   "explanation": "Mightfish Steak gives +40 Attack Power and Grilled Squid +1% crit. Icy Veins says both need an Iron Oven camp object.",
+   "facts": [
+    "class-rogue.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-rogue.blade-flurry-duration",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-raid",
+   "type": "mcq",
+   "stem": "How long does Blade Flurry last once used?",
+   "choices": [
+    "15 sec",
+    "2 min"
+   ],
+   "answer": 0,
+   "explanation": "Blade Flurry lasts 15 sec; 2 min is its cooldown.",
+   "facts": [
+    "talents-rogue.combat-blade-flurry.r1",
+    "talents-rogue.combat-blade-flurry"
+   ]
+  },
+  {
+   "id": "class-rogue.mortal-strike-heal",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-pvp",
+   "type": "mcq",
+   "stem": "By how much does a Warrior's Mortal Strike reduce healing on its target?",
+   "choices": [
+    "50%",
+    "15%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Mortal Strike reduces the effectiveness of any healing by 50% for 10 sec.",
+   "facts": [
+    "class-rogue.vs-warrior-mortal-strike"
+   ],
+   "distractorFacts": [
+    "class-rogue.vs-warrior-improved-hamstring",
+    "class-rogue.vs-warrior-improved-berserker-rage"
+   ]
+  },
+  {
+   "id": "class-rogue.hunter-traps",
+   "scope": "spec:rogue-combat",
+   "tier": 201,
+   "chapter": "rogue-combat-201-pvp",
+   "type": "mcq",
+   "stem": "How long is the cooldown that all of a Hunter's traps share?",
+   "choices": [
+    "30-second cooldown",
+    "20 seconds",
+    "10 sec"
+   ],
+   "answer": 0,
+   "explanation": "All Hunter traps share one 30-second cooldown, and Hunters can lay them in combat.",
+   "facts": [
+    "class-rogue.vs-hunter-traps"
+   ],
+   "distractorFacts": [
+    "class-rogue.vs-warrior-victory-rush",
+    "class-rogue.vs-warrior-mortal-strike"
+   ]
+  },
+  {
+   "id": "class-rogue.hemorrhage-bonus",
+   "scope": "spec:rogue-subtlety",
+   "tier": 101,
+   "chapter": "rogue-subtlety-101-rotation",
+   "type": "mcq",
+   "stem": "How much more Rupture and Garrote damage does a target take from you after Hemorrhage?",
+   "choices": [
+    "15%",
+    "100%",
+    "145%"
+   ],
+   "answer": 0,
+   "explanation": "Hemorrhage makes the target take 15% more Rupture and Garrote damage from you for 15 sec. 100% and 145% are its weapon damage without and with a dagger.",
+   "facts": [
+    "talents-rogue.subtlety-hemorrhage.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.death-mark-delay",
+   "scope": "spec:rogue-subtlety",
+   "tier": 101,
+   "chapter": "rogue-subtlety-101-rotation",
+   "type": "mcq",
+   "stem": "After how long does Death Mark deal the damage it stored?",
+   "choices": [
+    "6 sec",
+    "10 sec"
+   ],
+   "answer": 0,
+   "explanation": "Death Mark deals the stored damage after 6 sec; 10 sec is its cooldown.",
+   "facts": [
+    "talents-rogue.subtlety-death-mark.r1",
+    "talents-rogue.subtlety-death-mark"
+   ]
+  },
+  {
+   "id": "class-rogue.camouflage-3",
+   "scope": "spec:rogue-subtlety",
+   "tier": 101,
+   "chapter": "rogue-subtlety-101-stealth",
+   "type": "mcq",
+   "stem": "With Camouflage at rank 3 of 3, how much shorter is Stealth's cooldown?",
+   "choices": [
+    "6 sec",
+    "4 sec",
+    "2 sec"
+   ],
+   "answer": 0,
+   "explanation": "Camouflage cuts Stealth's cooldown by 2 sec per rank and its speed penalty by 5% per rank.",
+   "facts": [
+    "talents-rogue.subtlety-camouflage.r3"
+   ],
+   "distractorFacts": [
+    "talents-rogue.subtlety-camouflage.r2",
+    "talents-rogue.subtlety-camouflage.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.dirty-tricks",
+   "scope": "spec:rogue-subtlety",
+   "tier": 101,
+   "chapter": "rogue-subtlety-101-stealth",
+   "type": "mcq",
+   "stem": "Which abilities does Dirty Tricks make cheaper?",
+   "choices": [
+    "Sap and Blind",
+    "Cheap Shot and Garrote"
+   ],
+   "answer": 0,
+   "explanation": "Dirty Tricks cuts the Energy cost of Sap and Blind. Dirty Deeds is the talent that makes Cheap Shot and Garrote cheaper.",
+   "facts": [
+    "talents-rogue.subtlety-dirty-tricks.r1",
+    "talents-rogue.subtlety-dirty-deeds.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.boot-knife-points",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-combo",
+   "type": "mcq",
+   "stem": "How many combo points does a Boot Knife proc add?",
+   "choices": [
+    "2 Combo Points",
+    "1 Combo Point"
+   ],
+   "answer": 0,
+   "explanation": "Boot Knife gives Shank a chance to add 2 combo points. Hemorrhage awards 1.",
+   "facts": [
+    "talents-rogue.subtlety-boot-knife.r5",
+    "talents-rogue.subtlety-hemorrhage.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.premeditation-window",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-combo",
+   "type": "mcq",
+   "stem": "Within how long must you add to or use Premeditation's combo points?",
+   "choices": [
+    "20 sec",
+    "2 min"
+   ],
+   "answer": 0,
+   "explanation": "Premeditation's combo points are lost after 20 sec; 2 min is its cooldown.",
+   "facts": [
+    "talents-rogue.subtlety-premeditation.r1",
+    "talents-rogue.subtlety-premeditation"
+   ]
+  },
+  {
+   "id": "class-rogue.death-mark-cost",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-priorities",
+   "type": "mcq",
+   "stem": "How much Energy does Death Mark cost?",
+   "choices": [
+    "25 Energy",
+    "40 Energy",
+    "35 Energy"
+   ],
+   "answer": 0,
+   "explanation": "Death Mark costs 25 Energy. Ghostly Strike costs 40 and Hemorrhage 35.",
+   "facts": [
+    "talents-rogue.subtlety-death-mark"
+   ],
+   "distractorFacts": [
+    "talents-rogue.subtlety-ghostly-strike",
+    "talents-rogue.subtlety-hemorrhage"
+   ]
+  },
+  {
+   "id": "class-rogue.mightfish-sub",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-consumables",
+   "type": "mcq",
+   "stem": "What does Mightfish Steak give in Forever?",
+   "choices": [
+    "+40 Attack Power",
+    "+1% crit"
+   ],
+   "answer": 0,
+   "explanation": "Mightfish Steak gives +40 Attack Power; Grilled Squid gives +1% crit.",
+   "facts": [
+    "class-rogue.food-in-forever"
+   ]
+  },
+  {
+   "id": "class-rogue.ghostly-window",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-raid",
+   "type": "mcq",
+   "stem": "For how long after Ghostly Strike can your next Ambush or Garrote skip Stealth?",
+   "choices": [
+    "7 sec",
+    "20 sec"
+   ],
+   "answer": 0,
+   "explanation": "Ghostly Strike's window is 7 sec; 20 sec is its cooldown.",
+   "facts": [
+    "talents-rogue.subtlety-ghostly-strike.r1",
+    "talents-rogue.subtlety-ghostly-strike"
+   ]
+  },
+  {
+   "id": "class-rogue.preparation-reset",
+   "scope": "spec:rogue-subtlety",
+   "tier": 201,
+   "chapter": "rogue-subtlety-201-pvp",
+   "type": "scenario",
+   "stem": "You have used Vanish and Blind in a fight. Which talent finishes their cooldowns at once?",
+   "choices": [
+    "Preparation",
+    "Premeditation",
+    "Elusiveness"
+   ],
+   "answer": 0,
+   "explanation": "Preparation finishes the cooldowns on your other Rogue abilities. Elusiveness only shortens Vanish and Blind, and Premeditation adds combo points.",
+   "facts": [
+    "talents-rogue.subtlety-preparation",
+    "talents-rogue.subtlety-preparation.r1"
+   ],
+   "distractorFacts": [
+    "talents-rogue.subtlety-premeditation",
+    "talents-rogue.subtlety-elusiveness"
+   ]
+  },
+  {
+   "id": "class-rogue.death-mark-5",
+   "scope": "spec:rogue-subtlety",
+   "tier": 301,
+   "chapter": "rogue-subtlety-301-death-mark",
+   "type": "mcq",
+   "stem": "At 5 combo points, how much of your attack damage does Death Mark store?",
+   "choices": [
+    "60% stored",
+    "36% stored",
+    "12% stored"
+   ],
+   "answer": 0,
+   "explanation": "Death Mark stores 12% per combo point: 12% at 1, 36% at 3 and 60% at 5, with Garrote and Rupture counted at twice the rate.",
+   "facts": [
+    "talents-rogue.subtlety-death-mark.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.death-mark-cap-3",
+   "scope": "spec:rogue-subtlety",
+   "tier": 301,
+   "chapter": "rogue-subtlety-301-death-mark",
+   "type": "mcq",
+   "stem": "What is Death Mark's damage cap at 3 combo points, before Attack Power and crit raise it?",
+   "choices": [
+    "369 damage cap",
+    "267 damage cap",
+    "471 damage cap"
+   ],
+   "answer": 0,
+   "explanation": "The caps are 165, 267, 369, 471 and 573 for 1 to 5 combo points, raised by Attack Power and critical strike chance.",
+   "facts": [
+    "talents-rogue.subtlety-death-mark.r1"
+   ]
+  },
+  {
+   "id": "class-rogue.coup-de-grace-death-mark",
+   "scope": "spec:rogue-subtlety",
+   "tier": 301,
+   "chapter": "rogue-subtlety-301-death-mark",
+   "type": "mcq",
+   "stem": "With Coup de Grace at rank 3 of 3, how much does Death Mark's damage and storage rate rise?",
+   "choices": [
+    "20%",
+    "13%",
+    "7%"
+   ],
+   "answer": 0,
+   "explanation": "Coup de Grace gives 7%, 13% and 20% at ranks 1 to 3, to Eviscerate's damage and to Death Mark's damage and storage rate.",
+   "facts": [
+    "talents-rogue.combat-coup-de-grace.r3"
+   ],
+   "distractorFacts": [
+    "talents-rogue.combat-coup-de-grace.r2",
+    "talents-rogue.combat-coup-de-grace.r1"
+   ]
+  }
+ ]
+}

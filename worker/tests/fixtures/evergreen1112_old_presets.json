@@ -1,0 +1,350 @@
+[
+ {
+  "id": "warrior-arms-raid-60",
+  "classId": "warrior",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warrior.60.3030521303251520155050000000000000000000000000000000"
+ },
+ {
+  "id": "warrior-arms-pvp-60",
+  "classId": "warrior",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warrior.60.0332501313201523105050100000000000005000000000000000"
+ },
+ {
+  "id": "warrior-arms-leveling-30",
+  "classId": "warrior",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warrior.30.3032501303010000000000000000000000000000000000000000"
+ },
+ {
+  "id": "warrior-fury-raid-60",
+  "classId": "warrior",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warrior.60.3200501000000000055053005152210501000000000000000000"
+ },
+ {
+  "id": "warrior-fury-leveling-30",
+  "classId": "warrior",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warrior.30.0000000000000000005053025000010000000000000000000000"
+ },
+ {
+  "id": "warrior-protection-raid-60",
+  "classId": "warrior",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warrior.60.0500501000000000000000000000000000250533120331021351"
+ },
+ {
+  "id": "warrior-protection-dungeon-30",
+  "classId": "warrior",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warrior.30.0000000000000000000000000000000000250303020321000000"
+ },
+ {
+  "id": "paladin-holy-raid-60",
+  "classId": "paladin",
+  "level": 60,
+  "code": "ot1.260cf99b52db.paladin.60.05320213225111051500230002000000005000000000000000"
+ },
+ {
+  "id": "paladin-holy-dungeon-30",
+  "classId": "paladin",
+  "level": 30,
+  "code": "ot1.260cf99b52db.paladin.30.05320013122101000000000000000000000000000000000000"
+ },
+ {
+  "id": "paladin-protection-raid-60",
+  "classId": "paladin",
+  "level": 60,
+  "code": "ot1.260cf99b52db.paladin.60.00000000000000000553051332133155105000000000000000"
+ },
+ {
+  "id": "paladin-protection-dungeon-30",
+  "classId": "paladin",
+  "level": 30,
+  "code": "ot1.260cf99b52db.paladin.30.00000000000000000053021310131100000000000000000000"
+ },
+ {
+  "id": "paladin-retribution-raid-60",
+  "classId": "paladin",
+  "level": 60,
+  "code": "ot1.260cf99b52db.paladin.60.50003000000000000503000000000000005225331101330321"
+ },
+ {
+  "id": "paladin-retribution-leveling-30",
+  "classId": "paladin",
+  "level": 30,
+  "code": "ot1.260cf99b52db.paladin.30.00000000000000000000000000000000005215301201100000"
+ },
+ {
+  "id": "hunter-beast-mastery-raid-60",
+  "classId": "hunter",
+  "level": 60,
+  "code": "ot1.260cf99b52db.hunter.60.53200015051012510052552001000000000000000000000000"
+ },
+ {
+  "id": "hunter-beast-mastery-leveling-30",
+  "classId": "hunter",
+  "level": 30,
+  "code": "ot1.260cf99b52db.hunter.30.05202105041100000000000000000000000000000000000000"
+ },
+ {
+  "id": "hunter-marksmanship-raid-60",
+  "classId": "hunter",
+  "level": 60,
+  "code": "ot1.260cf99b52db.hunter.60.30000000000000000053552511523051500000000000000000"
+ },
+ {
+  "id": "hunter-marksmanship-leveling-30",
+  "classId": "hunter",
+  "level": 30,
+  "code": "ot1.260cf99b52db.hunter.30.00000000000000000053252301000000000000000000000000"
+ },
+ {
+  "id": "hunter-survival-raid-60",
+  "classId": "hunter",
+  "level": 60,
+  "code": "ot1.260cf99b52db.hunter.60.00000000000000000052552001000000500240031050220151"
+ },
+ {
+  "id": "hunter-survival-pvp-60",
+  "classId": "hunter",
+  "level": 60,
+  "code": "ot1.260cf99b52db.hunter.60.00000000000000000550052201000100053023231201002150"
+ },
+ {
+  "id": "rogue-assassination-raid-60",
+  "classId": "rogue",
+  "level": 60,
+  "code": "ot1.260cf99b52db.rogue.60.00502312551521051302303000000000000020000000000000000"
+ },
+ {
+  "id": "rogue-assassination-leveling-30",
+  "classId": "rogue",
+  "level": 30,
+  "code": "ot1.260cf99b52db.rogue.30.02512000500501000000000000000000000000000000000000000"
+ },
+ {
+  "id": "rogue-combat-raid-60",
+  "classId": "rogue",
+  "level": 60,
+  "code": "ot1.260cf99b52db.rogue.60.00532012500000000325023000015152310000000000000000000"
+ },
+ {
+  "id": "rogue-combat-leveling-30",
+  "classId": "rogue",
+  "level": 30,
+  "code": "ot1.260cf99b52db.rogue.30.00000000000000000320033211014100000000000000000000000"
+ },
+ {
+  "id": "rogue-subtlety-raid-60",
+  "classId": "rogue",
+  "level": 60,
+  "code": "ot1.260cf99b52db.rogue.60.00502300200000000302003000000000003020213310213211501"
+ },
+ {
+  "id": "rogue-subtlety-pvp-60",
+  "classId": "rogue",
+  "level": 60,
+  "code": "ot1.260cf99b52db.rogue.60.00000000000000000005033212211000000320223310213211050"
+ },
+ {
+  "id": "priest-discipline-raid-60",
+  "classId": "priest",
+  "level": 60,
+  "code": "ot1.260cf99b52db.priest.60.0050050313300115313150500303000000000000000000000000"
+ },
+ {
+  "id": "priest-discipline-leveling-30",
+  "classId": "priest",
+  "level": 30,
+  "code": "ot1.260cf99b52db.priest.30.5000320303030110000000000000000000000000000000000000"
+ },
+ {
+  "id": "priest-holy-raid-60",
+  "classId": "priest",
+  "level": 60,
+  "code": "ot1.260cf99b52db.priest.60.0050050210300000000350510323012153100000000000000000"
+ },
+ {
+  "id": "priest-holy-dungeon-30",
+  "classId": "priest",
+  "level": 30,
+  "code": "ot1.260cf99b52db.priest.30.0000000000000000000350500303011000000000000000000000"
+ },
+ {
+  "id": "priest-shadow-raid-60",
+  "classId": "priest",
+  "level": 60,
+  "code": "ot1.260cf99b52db.priest.60.0050050010300000000000000000000000050052201251312251"
+ },
+ {
+  "id": "priest-shadow-pvp-60",
+  "classId": "priest",
+  "level": 60,
+  "code": "ot1.260cf99b52db.priest.60.0053012013300000000000000000000000035052021201310251"
+ },
+ {
+  "id": "priest-shadow-leveling-30",
+  "classId": "priest",
+  "level": 30,
+  "code": "ot1.260cf99b52db.priest.30.0000000000000000000000000000000000000552001221300000"
+ },
+ {
+  "id": "shaman-elemental-raid-60",
+  "classId": "shaman",
+  "level": 60,
+  "code": "ot1.260cf99b52db.shaman.60.55033310030213510500000000000000000532000010000000"
+ },
+ {
+  "id": "shaman-elemental-leveling-30",
+  "classId": "shaman",
+  "level": 30,
+  "code": "ot1.260cf99b52db.shaman.30.55003110131010000000000000000000000000000000000000"
+ },
+ {
+  "id": "shaman-enhancement-raid-60",
+  "classId": "shaman",
+  "level": 60,
+  "code": "ot1.260cf99b52db.shaman.60.05320000000000000550320310051122510500000000000000"
+ },
+ {
+  "id": "shaman-enhancement-leveling-30",
+  "classId": "shaman",
+  "level": 30,
+  "code": "ot1.260cf99b52db.shaman.30.00000000000000000510320310051000000000000000000000"
+ },
+ {
+  "id": "shaman-restoration-raid-60",
+  "classId": "shaman",
+  "level": 60,
+  "code": "ot1.260cf99b52db.shaman.60.00000000000000000050000000000000005533203315513151"
+ },
+ {
+  "id": "shaman-restoration-dungeon-30",
+  "classId": "shaman",
+  "level": 30,
+  "code": "ot1.260cf99b52db.shaman.30.00000000000000000000000000000000005230001314010100"
+ },
+ {
+  "id": "mage-arcane-raid-60",
+  "classId": "mage",
+  "level": 60,
+  "code": "ot1.260cf99b52db.mage.60.0552225223121311531230000000000000000000000000000000000"
+ },
+ {
+  "id": "mage-arcane-leveling-30",
+  "classId": "mage",
+  "level": 30,
+  "code": "ot1.260cf99b52db.mage.30.0032005203101310000000000000000000000000000000000000000"
+ },
+ {
+  "id": "mage-fire-raid-60",
+  "classId": "mage",
+  "level": 60,
+  "code": "ot1.260cf99b52db.mage.60.0000000000000000000235523331321351310050000000000000000"
+ },
+ {
+  "id": "mage-fire-leveling-30",
+  "classId": "mage",
+  "level": 30,
+  "code": "ot1.260cf99b52db.mage.30.0000000000000000000205303301001300000000000000000000000"
+ },
+ {
+  "id": "mage-frost-raid-60",
+  "classId": "mage",
+  "level": 60,
+  "code": "ot1.260cf99b52db.mage.60.0302205003001300000000000000000000000555000331021301201"
+ },
+ {
+  "id": "mage-frost-pvp-60",
+  "classId": "mage",
+  "level": 60,
+  "code": "ot1.260cf99b52db.mage.60.0000000000000000000000000000000000002555323331121331251"
+ },
+ {
+  "id": "mage-frost-leveling-30",
+  "classId": "mage",
+  "level": 30,
+  "code": "ot1.260cf99b52db.mage.30.0000000000000000000000000000000000000500223301101300000"
+ },
+ {
+  "id": "warlock-affliction-raid-60",
+  "classId": "warlock",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warlock.60.2552032103520135100502030010000000000000000000000000"
+ },
+ {
+  "id": "warlock-affliction-leveling-30",
+  "classId": "warlock",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warlock.30.2050232100320100000000000000000000000000000000000000"
+ },
+ {
+  "id": "warlock-demonology-raid-60",
+  "classId": "warlock",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warlock.60.0500000000000000000550032012210013510550005000000000"
+ },
+ {
+  "id": "warlock-demonology-leveling-30",
+  "classId": "warlock",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warlock.30.0000000000000000000350322002013000000000000000000000"
+ },
+ {
+  "id": "warlock-destruction-raid-60",
+  "classId": "warlock",
+  "level": 60,
+  "code": "ot1.260cf99b52db.warlock.60.0500000000000000000502030010000000000550325103101351"
+ },
+ {
+  "id": "warlock-destruction-leveling-30",
+  "classId": "warlock",
+  "level": 30,
+  "code": "ot1.260cf99b52db.warlock.30.0000000000000000000000000000000000000053025130101000"
+ },
+ {
+  "id": "druid-balance-raid-60",
+  "classId": "druid",
+  "level": 60,
+  "code": "ot1.260cf99b52db.druid.60.5532220115501351000000000000000000005050000000000000"
+ },
+ {
+  "id": "druid-balance-leveling-30",
+  "classId": "druid",
+  "level": 30,
+  "code": "ot1.260cf99b52db.druid.30.5232200114001000000000000000000000000000000000000000"
+ },
+ {
+  "id": "druid-feral-combat-raid-60",
+  "classId": "druid",
+  "level": 60,
+  "code": "ot1.260cf99b52db.druid.60.0000000000000000552000321211322120510550300000000000"
+ },
+ {
+  "id": "druid-feral-combat-dungeon-60",
+  "classId": "druid",
+  "level": 60,
+  "code": "ot1.260cf99b52db.druid.60.0000000000000000552323321201320125510300000000000000"
+ },
+ {
+  "id": "druid-feral-combat-leveling-30",
+  "classId": "druid",
+  "level": 30,
+  "code": "ot1.260cf99b52db.druid.30.0000000000000000502003021200320100000000000000000000"
+ },
+ {
+  "id": "druid-restoration-raid-60",
+  "classId": "druid",
+  "level": 60,
+  "code": "ot1.260cf99b52db.druid.60.0530200100000000000000000000000000005053035123113251"
+ },
+ {
+  "id": "druid-restoration-dungeon-30",
+  "classId": "druid",
+  "level": 30,
+  "code": "ot1.260cf99b52db.druid.30.0000000000000000000000000000000000005050035100110000"
+ }
+]

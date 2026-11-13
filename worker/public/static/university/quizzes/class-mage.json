@@ -1,0 +1,812 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-mage",
+ "questions": [
+  {
+   "id": "class-mage.precision-hit",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Frost talent now gives 2%, 4% or 6% hit with all spells?",
+   "choices": [
+    "Precision",
+    "Arcane Focus",
+    "Piercing Ice"
+   ],
+   "answer": 0,
+   "explanation": "Precision in the Frost tree now improves hit with all spells by 2%, 4% or 6%. Blizzard removed Arcane Focus and Piercing Ice.",
+   "facts": [
+    "class-mage.change-5"
+   ]
+  },
+  {
+   "id": "class-mage.cold-snap-21",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which talent is now the 21-point Frost talent?",
+   "choices": [
+    "Cold Snap",
+    "Ice Block",
+    "Ice Barrier"
+   ],
+   "answer": 0,
+   "explanation": "Cold Snap is the 21-point Frost talent, with a 10 min cooldown. Ice Block is the 16-point talent, and Ice Barrier needs Cold Snap.",
+   "facts": [
+    "class-mage.change-6"
+   ]
+  },
+  {
+   "id": "class-mage.personal-scorch",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-forever-changes",
+   "type": "scenario",
+   "stem": "A Fire Mage keeps Improved Scorch stacked on the boss. Who benefits from those stacks in Forever?",
+   "choices": [
+    "Only the Mage who applies them",
+    "The whole raid",
+    "Every Mage"
+   ],
+   "answer": 0,
+   "explanation": "Improved Scorch and Winter's Chill now help only the Mage who applies them, so one Mage no longer keeps Scorch up for the whole raid.",
+   "facts": [
+    "class-mage.change-2"
+   ]
+  },
+  {
+   "id": "class-mage.portal-reagent",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-class-quests",
+   "type": "mcq",
+   "stem": "Which reagent does Warcraft Tavern list for Mage portals?",
+   "choices": [
+    "Rune of Portals",
+    "Rune of Teleportation"
+   ],
+   "answer": 0,
+   "explanation": "Portals use Rune of Portals. Rune of Teleportation is the reagent for teleports.",
+   "facts": [
+    "class-mage.quest-portals-portal-trainer"
+   ],
+   "distractorFacts": [
+    "class-mage.quest-teleports-portal-trainer"
+   ]
+  },
+  {
+   "id": "class-mage.darnassus-level",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-class-quests",
+   "type": "mcq",
+   "stem": "At what level does an Alliance Mage learn Teleport: Darnassus?",
+   "choices": [
+    "30",
+    "20",
+    "40",
+    "50"
+   ],
+   "answer": 0,
+   "explanation": "Teleport: Darnassus comes at 30. Teleport: Stormwind and Teleport: Ironforge come at 20; portals follow at 40 and 50.",
+   "facts": [
+    "class-mage.quest-teleports-portal-trainer"
+   ],
+   "distractorFacts": [
+    "class-mage.quest-portals-portal-trainer"
+   ]
+  },
+  {
+   "id": "class-mage.failed-decipher",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-class-quests",
+   "type": "mcq",
+   "stem": "According to beta reports, what does a failed Comprehend Scroll decipher do?",
+   "choices": [
+    "Turns you into a sheep",
+    "Unlocks a Research tradeskill"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern's beta reports say a failed decipher turns you into a sheep until the skill improves. Returning books to librarians is what unlocks Research.",
+   "facts": [
+    "class-mage.quest-comprehension-comprehend-scroll"
+   ]
+  },
+  {
+   "id": "class-mage.eureka",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-race",
+   "type": "mcq",
+   "stem": "Which racial gives a Gnome Mage an 8 sec buff that makes non-periodic abilities 10% cheaper and stronger?",
+   "choices": [
+    "Eureka!",
+    "Ruthless",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "Gnome Eureka! is the 8 sec buff. Ruthless is the Human crit racial and Wind-Blessed the Skyborne haste racial.",
+   "facts": [
+    "common.racial-gnome-eureka"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-mage.attuned-raid",
+   "scope": "class:mage",
+   "tier": 101,
+   "chapter": "mage-101-race",
+   "type": "scenario",
+   "stem": "A High Order Skyborne Mage enters a raid. Which racial bonus is removed?",
+   "choices": [
+    "Attuned",
+    "Wind-Blessed"
+   ],
+   "answer": 0,
+   "explanation": "Skyborne's Attuned bonus is removed when you enter a raid. Wind-Blessed, +2% haste, stays.",
+   "facts": [
+    "common.racial-skyborne-attuned",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-mage.mage-armor-regen",
+   "scope": "class:mage",
+   "tier": 201,
+   "chapter": "mage-201-mana",
+   "type": "mcq",
+   "stem": "In the talentsforever datamine, how much of your mana regeneration does Mage Armor let continue while casting?",
+   "choices": [
+    "50%",
+    "30%"
+   ],
+   "answer": 0,
+   "explanation": "The datamine reads 50% for Mage Armor. 30% is the Classic value.",
+   "facts": [
+    "class-mage.mage-armor-regen"
+   ]
+  },
+  {
+   "id": "class-mage.frost-channeling-cost",
+   "scope": "class:mage",
+   "tier": 201,
+   "chapter": "mage-201-mana",
+   "type": "scenario",
+   "stem": "You have Frost Channeling at 3/3. How much cheaper are your Frost spells?",
+   "choices": [
+    "15%",
+    "10%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Frost Channeling at 3/3 makes Frost spells cost 15% less mana and cause 30% less threat. 5% is the rank 1 value.",
+   "facts": [
+    "class-mage.threat-and-mana-snapshot"
+   ]
+  },
+  {
+   "id": "class-mage.hyjal-size",
+   "scope": "class:mage",
+   "tier": 201,
+   "chapter": "mage-201-raid-utility",
+   "type": "mcq",
+   "stem": "How many players does Hyjal Summit take?",
+   "choices": [
+    "20",
+    "10",
+    "40"
+   ],
+   "answer": 0,
+   "explanation": "Hyjal Summit is a 20-player raid. The Barrow Deeps takes 10 and Onyxia's Lair 40.",
+   "facts": [
+    "class-mage.launch-raids"
+   ]
+  },
+  {
+   "id": "class-mage.brilliance-raid",
+   "scope": "class:mage",
+   "tier": 201,
+   "chapter": "mage-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which Mage buff covers the party and the raid in the files?",
+   "choices": [
+    "Arcane Brilliance",
+    "Arcane Intellect"
+   ],
+   "answer": 0,
+   "explanation": "The files show Arcane Brilliance reaching the party and the raid. Arcane Intellect is reported as still cast per group, so check it in game.",
+   "facts": [
+    "class-mage.raid-utility"
+   ]
+  },
+  {
+   "id": "class-mage.arcane-blast-duration",
+   "scope": "spec:mage-arcane",
+   "tier": 101,
+   "chapter": "mage-arcane-101-rotation",
+   "type": "mcq",
+   "stem": "How long do your Arcane Blast stacks last?",
+   "choices": [
+    "18 seconds",
+    "6 sec",
+    "3.5 sec"
+   ],
+   "answer": 0,
+   "explanation": "The Arcane Blast stack lasts 18 seconds from the first cast. 6 sec is Arcane Wrath's cooldown and 3.5 sec its cast time.",
+   "facts": [
+    "class-mage.arcane-blast-stacks"
+   ],
+   "distractorFacts": [
+    "class-mage.arcane-wrath"
+   ]
+  },
+  {
+   "id": "class-mage.arcane-wrath-mana",
+   "scope": "spec:mage-arcane",
+   "tier": 101,
+   "chapter": "mage-arcane-101-rotation",
+   "type": "mcq",
+   "stem": "Arcane Wrath gains spell damage equal to what share of your maximum mana?",
+   "choices": [
+    "5%",
+    "12%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Arcane Wrath gains spell damage equal to 5% of your maximum mana. 12% of Intellect and a 100% cost increase belong to each Arcane Blast stack.",
+   "facts": [
+    "class-mage.arcane-wrath"
+   ],
+   "distractorFacts": [
+    "class-mage.arcane-blast-stacks"
+   ]
+  },
+  {
+   "id": "class-mage.subtlety-resist",
+   "scope": "spec:mage-arcane",
+   "tier": 101,
+   "chapter": "mage-arcane-101-tips",
+   "type": "mcq",
+   "stem": "Arcane Subtlety at rank 1 lowers your target's resistance to all your spells by how much?",
+   "choices": [
+    "8",
+    "15"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 lowers the target's resistance by 8 and the threat of your Arcane spells by 15%. Rank 2 gives 15 and 30%.",
+   "facts": [
+    "talents-mage.arcane-arcane-subtlety.r1"
+   ],
+   "distractorFacts": [
+    "talents-mage.arcane-arcane-subtlety.r2"
+   ]
+  },
+  {
+   "id": "class-mage.channeling-blast",
+   "scope": "spec:mage-arcane",
+   "tier": 101,
+   "chapter": "mage-arcane-101-tips",
+   "type": "mcq",
+   "stem": "With Improved Channeling at 5/5, what chance do Arcane Blast and Arcane Wrath have not to lose casting time when you take damage?",
+   "choices": [
+    "70%",
+    "100%",
+    "56%"
+   ],
+   "answer": 0,
+   "explanation": "At 5/5 Arcane Missiles gets 100% and Arcane Blast and Arcane Wrath get 70%. 56% is the rank 4 value.",
+   "facts": [
+    "talents-mage.arcane-improved-channeling.r5"
+   ],
+   "distractorFacts": [
+    "talents-mage.arcane-improved-channeling.r4"
+   ]
+  },
+  {
+   "id": "class-mage.classic-hit-cap",
+   "scope": "spec:mage-arcane",
+   "tier": 201,
+   "chapter": "mage-arcane-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, what was the spell hit cap against bosses three levels higher?",
+   "choices": [
+    "16%",
+    "1%",
+    "6%"
+   ],
+   "answer": 0,
+   "explanation": "The Classic 1.12 reference is 16% spell hit against bosses three levels higher, with 1% of spells always missing. 6% is what Precision gives at 3/3 in Forever.",
+   "facts": [
+    "class-mage.classic-1-12-hit-cap-reference-only"
+   ],
+   "distractorFacts": [
+    "class-mage.spell-hit-from-talents"
+   ]
+  },
+  {
+   "id": "class-mage.blast-intellect",
+   "scope": "spec:mage-arcane",
+   "tier": 201,
+   "chapter": "mage-arcane-201-priorities",
+   "type": "mcq",
+   "stem": "Each Arcane Blast stack adds what share of your Intellect as Spell Damage?",
+   "choices": [
+    "12%",
+    "5%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Each stack adds 12% of Intellect as Spell Damage and raises Arcane Blast's cost by 100%. 5% is Arcane Wrath's share of maximum mana.",
+   "facts": [
+    "class-mage.arcane-blast-stacks"
+   ],
+   "distractorFacts": [
+    "class-mage.arcane-wrath"
+   ]
+  },
+  {
+   "id": "class-mage.healing-potions",
+   "scope": "spec:mage-arcane",
+   "tier": 201,
+   "chapter": "mage-arcane-201-consumables",
+   "type": "mcq",
+   "stem": "Which profession makes healing potions in Forever, according to Warcraft Tavern?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Healing potions moved from Alchemy to First Aid. Alchemists now brew flasks at a portable Alchemy Laboratory.",
+   "facts": [
+    "class-mage.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-mage.subtlety-threat-r2",
+   "scope": "spec:mage-arcane",
+   "tier": 201,
+   "chapter": "mage-arcane-201-raid",
+   "type": "mcq",
+   "stem": "How much less threat do your Arcane spells cause with Arcane Subtlety at rank 2?",
+   "choices": [
+    "30%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Arcane Subtlety cuts Arcane threat by 15% at rank 1 and 30% at rank 2.",
+   "facts": [
+    "class-mage.threat-control-snapshot"
+   ]
+  },
+  {
+   "id": "class-mage.ice-block-16",
+   "scope": "spec:mage-arcane",
+   "tier": 201,
+   "chapter": "mage-arcane-201-pvp",
+   "type": "scenario",
+   "stem": "An Arcane PvP build wants Ice Block. Blizzard calls Ice Block the Frost talent at how many points?",
+   "choices": [
+    "16-point",
+    "21-point"
+   ],
+   "answer": 0,
+   "explanation": "Ice Block is the 16-point Frost talent, so the build puts 16 points in Frost. Cold Snap is the 21-point one.",
+   "facts": [
+    "class-mage.change-6"
+   ]
+  },
+  {
+   "id": "class-mage.arcane-mind-crit",
+   "scope": "spec:mage-arcane",
+   "tier": 301,
+   "chapter": "mage-arcane-301-scaling",
+   "type": "mcq",
+   "stem": "Arcane Mind at 5/5 raises the critical strike damage bonus of your Arcane spells by how much?",
+   "choices": [
+    "100%",
+    "10%",
+    "80%"
+   ],
+   "answer": 0,
+   "explanation": "At 5/5 Arcane Mind adds 100% to the crit damage bonus and 10% to your Intellect. 80% is the rank 4 value.",
+   "facts": [
+    "talents-mage.arcane-arcane-mind.r5"
+   ],
+   "distractorFacts": [
+    "talents-mage.arcane-arcane-mind.r4"
+   ]
+  },
+  {
+   "id": "class-mage.wrath-scales",
+   "scope": "spec:mage-arcane",
+   "tier": 301,
+   "chapter": "mage-arcane-301-scaling",
+   "type": "mcq",
+   "stem": "Arcane Wrath's extra spell damage scales with which of these?",
+   "choices": [
+    "Maximum mana",
+    "Intellect"
+   ],
+   "answer": 0,
+   "explanation": "Arcane Wrath gains spell damage equal to 5% of your maximum mana. Intellect is what Arcane Blast converts into spell damage.",
+   "facts": [
+    "class-mage.arcane-wrath"
+   ],
+   "distractorFacts": [
+    "class-mage.arcane-blast-stacks"
+   ]
+  },
+  {
+   "id": "class-mage.scorch-r1",
+   "scope": "spec:mage-fire",
+   "tier": 101,
+   "chapter": "mage-fire-101-rotation",
+   "type": "mcq",
+   "stem": "With Improved Scorch at rank 1, how often does Scorch make the target vulnerable to your Fire damage?",
+   "choices": [
+    "33%",
+    "67%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives a 33% chance, rank 2 67% and rank 3 every time (100%).",
+   "facts": [
+    "talents-mage.fire-improved-scorch.r1"
+   ],
+   "distractorFacts": [
+    "talents-mage.fire-improved-scorch.r2",
+    "talents-mage.fire-improved-scorch.r3"
+   ]
+  },
+  {
+   "id": "class-mage.pyroblast-3-stacks",
+   "scope": "spec:mage-fire",
+   "tier": 101,
+   "chapter": "mage-fire-101-rotation",
+   "type": "scenario",
+   "stem": "You have 3 Heating Up stacks. How long is your next Pyroblast's cast?",
+   "choices": [
+    "1.5 sec",
+    "6 sec",
+    "20 sec"
+   ],
+   "answer": 0,
+   "explanation": "Each stack cuts Pyroblast's cast by 25%, so 3 stacks bring it to 1.5 sec. 6 sec is the base cast, and 20 sec is how long the buff lasts.",
+   "facts": [
+    "class-mage.heating-up",
+    "talents-mage.fire-pyroblast"
+   ]
+  },
+  {
+   "id": "class-mage.fire-tree-points",
+   "scope": "spec:mage-fire",
+   "tier": 101,
+   "chapter": "mage-fire-101-tips",
+   "type": "mcq",
+   "stem": "How many talent points does the Fire tree hold?",
+   "choices": [
+    "46",
+    "45",
+    "48"
+   ],
+   "answer": 0,
+   "explanation": "The Fire tree holds 46 points. Arcane holds 45 and Frost 48.",
+   "facts": [
+    "class-mage.change-9"
+   ],
+   "distractorFacts": [
+    "class-mage.change-1",
+    "class-mage.change-10"
+   ]
+  },
+  {
+   "id": "class-mage.ifb-range",
+   "scope": "spec:mage-fire",
+   "tier": 101,
+   "chapter": "mage-fire-101-tips",
+   "type": "mcq",
+   "stem": "Improved Fire Blast at rank 1 adds how much range to Fire Blast?",
+   "choices": [
+    "8 yards",
+    "15 yards"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 adds 8 yards and cuts the cooldown by 1 sec; rank 2 adds 15 yards and 2 sec.",
+   "facts": [
+    "talents-mage.fire-improved-fire-blast.r1"
+   ],
+   "distractorFacts": [
+    "talents-mage.fire-improved-fire-blast.r2"
+   ]
+  },
+  {
+   "id": "class-mage.critical-mass-cap",
+   "scope": "spec:mage-fire",
+   "tier": 201,
+   "chapter": "mage-fire-201-priorities",
+   "type": "mcq",
+   "stem": "Critical Mass now stops at three points. How much crit does it give there?",
+   "choices": [
+    "6%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Critical Mass caps at three points for 6% crit. 10% is what five points in Incineration give its spells.",
+   "facts": [
+    "class-mage.fire-crit"
+   ]
+  },
+  {
+   "id": "class-mage.classic-always-miss",
+   "scope": "spec:mage-fire",
+   "tier": 201,
+   "chapter": "mage-fire-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, what share of spells always missed, whatever your hit?",
+   "choices": [
+    "1%",
+    "16%"
+   ],
+   "answer": 0,
+   "explanation": "In the Classic 1.12 reference 1% of spells always miss. 16% was the spell hit cap against bosses three levels higher.",
+   "facts": [
+    "class-mage.classic-1-12-hit-cap-reference-only"
+   ]
+  },
+  {
+   "id": "class-mage.onyxia-cloak",
+   "scope": "spec:mage-fire",
+   "tier": 201,
+   "chapter": "mage-fire-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much fire resistance did the Onyxia Scale Cloak give?",
+   "choices": [
+    "+16",
+    "+15"
+   ],
+   "answer": 0,
+   "explanation": "The Classic 1.12 reference gives the Onyxia Scale Cloak +16. The Drakefire Amulet, Juju Ember and the Greater Fire Resistance enchant give +15.",
+   "facts": [
+    "class-mage.classic-1-12-fire-resistance-sources-reference"
+   ]
+  },
+  {
+   "id": "class-mage.fire-power-cap",
+   "scope": "spec:mage-fire",
+   "tier": 201,
+   "chapter": "mage-fire-201-raid",
+   "type": "mcq",
+   "stem": "Fire Power at rank 1 adds 1% Fire damage per Fire effect on the target, up to what maximum?",
+   "choices": [
+    "4%",
+    "12%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 stops at 4%. At 3/3 it is 3% per effect, up to 12%.",
+   "facts": [
+    "class-mage.fire-power-snapshot"
+   ]
+  },
+  {
+   "id": "class-mage.impact-r1",
+   "scope": "spec:mage-fire",
+   "tier": 201,
+   "chapter": "mage-fire-201-pvp",
+   "type": "mcq",
+   "stem": "What is Impact's chance to stun at rank 1?",
+   "choices": [
+    "3%",
+    "7%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Impact gives your Fire spells a 3% stun chance at rank 1, 7% at rank 2 and 10% at rank 3.",
+   "facts": [
+    "talents-mage.fire-impact.r1"
+   ],
+   "distractorFacts": [
+    "talents-mage.fire-impact.r2",
+    "talents-mage.fire-impact.r3"
+   ]
+  },
+  {
+   "id": "class-mage.frostfire-280",
+   "scope": "spec:mage-fire",
+   "tier": 301,
+   "chapter": "mage-fire-301-crits",
+   "type": "mcq",
+   "stem": "In Blizzard's example, how much do Frostfire Bolt crits deal with Ignite plus Ice Shards?",
+   "choices": [
+    "280%",
+    "300%"
+   ],
+   "answer": 0,
+   "explanation": "Frostfire Bolt counts as Fire and Frost, so Ignite and Ice Shards both apply: Blizzard's example gives 280%. 300% is Ice Lance's bonus against Frozen targets.",
+   "facts": [
+    "class-mage.frostfire-bolt-for-hybrids"
+   ],
+   "distractorFacts": [
+    "class-mage.ice-lance"
+   ]
+  },
+  {
+   "id": "class-mage.ice-lance-frozen",
+   "scope": "spec:mage-frost",
+   "tier": 101,
+   "chapter": "mage-frost-101-rotation",
+   "type": "mcq",
+   "stem": "How much extra damage does Ice Lance deal to Frozen targets?",
+   "choices": [
+    "300%",
+    "280%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Frozen targets take Ice Lance's restored 300% damage bonus. 280% is Blizzard's Frostfire Bolt crit example, and 15% is Fingers of Frost's proc chance.",
+   "facts": [
+    "class-mage.ice-lance"
+   ],
+   "distractorFacts": [
+    "class-mage.frostfire-bolt-for-hybrids",
+    "class-mage.fingers-of-frost-snapshot"
+   ]
+  },
+  {
+   "id": "class-mage.ice-block-duration",
+   "scope": "spec:mage-frost",
+   "tier": 101,
+   "chapter": "mage-frost-101-rotation",
+   "type": "mcq",
+   "stem": "How long does Ice Block protect you?",
+   "choices": [
+    "10 sec",
+    "5 min"
+   ],
+   "answer": 0,
+   "explanation": "Ice Block protects you for 10 sec, and you cannot act during it. 5 min is its cooldown.",
+   "facts": [
+    "class-mage.survival-snapshot"
+   ]
+  },
+  {
+   "id": "class-mage.cold-snap-cooldown",
+   "scope": "spec:mage-frost",
+   "tier": 101,
+   "chapter": "mage-frost-101-tips",
+   "type": "mcq",
+   "stem": "What is Cold Snap's cooldown in the current talent data?",
+   "choices": [
+    "10 min cooldown",
+    "5 min cooldown",
+    "30 sec cooldown"
+   ],
+   "answer": 0,
+   "explanation": "Cold Snap has a 10 min cooldown. 5 min is Ice Block's cooldown and 30 sec is Ice Barrier's.",
+   "facts": [
+    "talents-mage.frost-cold-snap"
+   ],
+   "distractorFacts": [
+    "talents-mage.frost-ice-block",
+    "talents-mage.frost-ice-barrier"
+   ]
+  },
+  {
+   "id": "class-mage.shatter-r1",
+   "scope": "spec:mage-frost",
+   "tier": 101,
+   "chapter": "mage-frost-101-tips",
+   "type": "mcq",
+   "stem": "Shatter at rank 1 adds how much crit chance against Frozen targets?",
+   "choices": [
+    "17%",
+    "33%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Shatter gives 17% at rank 1, 33% at rank 2 and 50% at rank 3.",
+   "facts": [
+    "talents-mage.frost-shatter.r1"
+   ],
+   "distractorFacts": [
+    "talents-mage.frost-shatter.r2",
+    "talents-mage.frost-shatter.r3"
+   ]
+  },
+  {
+   "id": "class-mage.shared-cooldown",
+   "scope": "spec:mage-frost",
+   "tier": 201,
+   "chapter": "mage-frost-201-priorities",
+   "type": "mcq",
+   "stem": "Which spell shares an 8-second cooldown with Ice Lance?",
+   "choices": [
+    "Fire Blast",
+    "Frostfire Bolt"
+   ],
+   "answer": 0,
+   "explanation": "Ice Lance and Fire Blast share an 8-second cooldown. Frostfire Bolt is a separate cast.",
+   "facts": [
+    "class-mage.ice-lance"
+   ],
+   "distractorFacts": [
+    "class-mage.frostfire-bolt-for-hybrids"
+   ]
+  },
+  {
+   "id": "class-mage.conjure-water",
+   "scope": "spec:mage-frost",
+   "tier": 201,
+   "chapter": "mage-frost-201-consumables",
+   "type": "mcq",
+   "stem": "How many bottles of water does one Conjure Water cast make in Forever?",
+   "choices": [
+    "20",
+    "18",
+    "7"
+   ],
+   "answer": 0,
+   "explanation": "Conjure Water makes 20 bottles per cast across 7 ranks. 18 was the Classic count of sweet rolls from Conjure Food rank 6, which now makes 20.",
+   "facts": [
+    "class-mage.conjured-supplies",
+    "class-mage.quest-conjure-water-and-conjure-food"
+   ]
+  },
+  {
+   "id": "class-mage.ice-barrier-frost",
+   "scope": "spec:mage-frost",
+   "tier": 201,
+   "chapter": "mage-frost-201-raid",
+   "type": "mcq",
+   "stem": "Casting Ice Barrier raises your Frost damage by how much for one minute?",
+   "choices": [
+    "15%",
+    "5%"
+   ],
+   "answer": 0,
+   "explanation": "Ice Barrier raises Frost damage by 15% for one minute, and by another 5% while the barrier holds.",
+   "facts": [
+    "class-mage.ice-barrier"
+   ]
+  },
+  {
+   "id": "class-mage.bane-removal",
+   "scope": "spec:mage-frost",
+   "tier": 201,
+   "chapter": "mage-frost-201-pvp",
+   "type": "scenario",
+   "stem": "An enemy puts a Bane on you. Which Mage spell also removes Banes in Forever?",
+   "choices": [
+    "Remove Lesser Curse",
+    "Arcane Brilliance"
+   ],
+   "answer": 0,
+   "explanation": "Remove Lesser Curse also removes Banes in Forever. Arcane Brilliance is the Intellect buff.",
+   "facts": [
+    "class-mage.raid-utility-2"
+   ]
+  },
+  {
+   "id": "class-mage.winters-chill-stack",
+   "scope": "spec:mage-frost",
+   "tier": 301,
+   "chapter": "mage-frost-301-frozen",
+   "type": "mcq",
+   "stem": "Each Winter's Chill stack increases the damage your next Cone of Cold deals to the target by how much?",
+   "choices": [
+    "20%",
+    "7%"
+   ],
+   "answer": 0,
+   "explanation": "Each stack adds 20% damage taken from your next Cone of Cold, and the Cone of Cold also gains 7% of your spell damage per stack.",
+   "facts": [
+    "talents-mage.frost-winter-s-chill.r5"
+   ]
+  }
+ ]
+}

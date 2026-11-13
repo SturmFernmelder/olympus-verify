@@ -1,0 +1,131 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "profession-engineering",
+ "questions": [
+  {
+   "id": "profession-engineering.gnome-racial",
+   "scope": "profession:engineering",
+   "tier": 101,
+   "chapter": "engineering-101-changes",
+   "type": "mcq",
+   "stem": "What does the Gnome racial Engineering Specialization do in Forever?",
+   "choices": [
+    "Cuts the failure and backfire rate of engineering devices by 20%",
+    "Adds skill"
+   ],
+   "answer": 0,
+   "explanation": "It no longer adds skill. It now cuts the failure and backfire rate of engineering devices by 20%.",
+   "facts": [
+    "profession-engineering.gnome-racial"
+   ]
+  },
+  {
+   "id": "profession-engineering.workbench-skill",
+   "scope": "profession:engineering",
+   "tier": 101,
+   "chapter": "engineering-101-changes",
+   "type": "mcq",
+   "stem": "At what Engineering skill does the Anarchist's Workbench unlock?",
+   "choices": [
+    "300",
+    "140",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "Engineering camp objects unlock at skills 20, 140 and 300, and the Anarchist's Workbench is the last.",
+   "facts": [
+    "profession-engineering.camp-objects"
+   ]
+  },
+  {
+   "id": "profession-engineering.ripper",
+   "scope": "profession:engineering",
+   "tier": 101,
+   "chapter": "engineering-101-leveling",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which engineering specialization gets the Dimensional Ripper - Everlook?",
+   "choices": [
+    "Goblin",
+    "Gnomish"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 Goblin engineers get the Dimensional Ripper - Everlook; Gnomish engineers get the Ultrasafe Transporter: Gadgetzan and the World Enlarger.",
+   "facts": [
+    "profession-engineering.specialization-classic-baseline"
+   ]
+  },
+  {
+   "id": "profession-engineering.saf-t-favor",
+   "scope": "profession:engineering",
+   "tier": 101,
+   "chapter": "engineering-101-leveling",
+   "type": "mcq",
+   "stem": "How much Merchant's Favor does the SAF-T Dynamite recipe cost?",
+   "choices": [
+    "45",
+    "270",
+    "360"
+   ],
+   "answer": 0,
+   "explanation": "SAF-T Dynamite costs 45 Favor at skill 25. The Emergency Field Cloak needs 270 Favor and the Gnomish Poultryizer 360.",
+   "facts": [
+    "profession-engineering.favor-recipes"
+   ]
+  },
+  {
+   "id": "profession-engineering.cloak-recipe",
+   "scope": "profession:engineering",
+   "tier": 201,
+   "chapter": "engineering-201-gear",
+   "type": "mcq",
+   "stem": "What does the Emergency Field Cloak recipe need?",
+   "choices": [
+    "Honored and 270 Favor",
+    "skill 300 and 360 Favor",
+    "45 Merchant's Favor at skill 25"
+   ],
+   "answer": 0,
+   "explanation": "The Emergency Field Cloak needs Honored and 270 Favor. Skill 300 and 360 Favor is the Gnomish Poultryizer, and 45 Favor at skill 25 is SAF-T Dynamite.",
+   "facts": [
+    "profession-engineering.favor-recipes"
+   ]
+  },
+  {
+   "id": "profession-engineering.dark-iron-satchel",
+   "scope": "profession:engineering",
+   "tier": 201,
+   "chapter": "engineering-201-raid",
+   "type": "mcq",
+   "stem": "What does the Dark Iron satchel bomb need?",
+   "choices": [
+    "skill 285, Honored",
+    "Honored and 270 Favor",
+    "skill 300 and 360 Favor"
+   ],
+   "answer": 0,
+   "explanation": "Satchel bombs run from Copper up to Dark Iron, which needs skill 285 and Honored. The other two are the Emergency Field Cloak and Gnomish Poultryizer recipes.",
+   "facts": [
+    "profession-engineering.satchel-bombs",
+    "profession-engineering.favor-recipes"
+   ]
+  },
+  {
+   "id": "profession-engineering.who-uses",
+   "scope": "profession:engineering",
+   "tier": 201,
+   "chapter": "engineering-201-market",
+   "type": "mcq",
+   "stem": "Which of these is true of SAF-T explosives?",
+   "choices": [
+    "Non-engineers can use SAF-T explosives",
+    "only the engineer who makes it can use it"
+   ],
+   "answer": 0,
+   "explanation": "Non-engineers can use SAF-T explosives, which is why they sell beyond other engineers. The Emergency Field Cloak is the opposite: only the engineer who makes it can use it.",
+   "facts": [
+    "profession-engineering.saf-t-explosives",
+    "profession-engineering.emergency-field-cloak"
+   ]
+  }
+ ]
+}

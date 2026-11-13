@@ -1,0 +1,849 @@
+{
+ "schema": "olympus-university-quiz-v1",
+ "file": "class-priest",
+ "questions": [
+  {
+   "id": "class-priest.fear-ward-level",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-forever-changes",
+   "type": "mcq",
+   "stem": "At what level does every Priest learn Fear Ward in Forever?",
+   "choices": [
+    "At 20",
+    "At 30",
+    "At 32"
+   ],
+   "answer": 0,
+   "explanation": "Every Priest learns Fear Ward and Devouring Plague at 20. Divine Spirit is baseline at 30 and Shadow Word: Death at 32.",
+   "facts": [
+    "class-priest.change-2"
+   ]
+  },
+  {
+   "id": "class-priest.fade",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which Priest ability has its threat drop doubled in Forever?",
+   "choices": [
+    "Fade",
+    "Prayer of Healing",
+    "Flash Heal"
+   ],
+   "answer": 0,
+   "explanation": "Fade's threat drop is doubled. Prayer of Healing now heals the target's party, and Flash Heal gained the Holy Binding self-heal.",
+   "facts": [
+    "class-priest.change-3"
+   ],
+   "distractorFacts": [
+    "class-priest.change-8"
+   ]
+  },
+  {
+   "id": "class-priest.discipline-gone",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-forever-changes",
+   "type": "mcq",
+   "stem": "Which of these Discipline talents is no longer in the Forever tree?",
+   "choices": [
+    "Force of Will",
+    "Soul Warding",
+    "Penance"
+   ],
+   "answer": 0,
+   "explanation": "Force of Will is gone, with Unbreakable Will, Improved Power Word: Fortitude and Divine Spirit. Soul Warding and Penance are new talents.",
+   "facts": [
+    "class-priest.change-1"
+   ]
+  },
+  {
+   "id": "class-priest.dwarf-spells",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-class-quests",
+   "type": "mcq",
+   "stem": "Which race's Priests unlock Desperate Prayer and Chastise through their class quests?",
+   "choices": [
+    "Dwarf",
+    "Human",
+    "Night Elf",
+    "Gnome"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern lists Desperate Prayer and Chastise for Dwarves. Humans get Divine Grace and Feedback, Night Elves Starshards and Elune's Grace, Gnomes Confounding Flash and Contingency Plan.",
+   "facts": [
+    "class-priest.quest-racial-priest-spells"
+   ]
+  },
+  {
+   "id": "class-priest.benediction-eye",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-class-quests",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which boss drops the Eye of Divinity needed for Benediction?",
+   "choices": [
+    "Majordomo Executus",
+    "Lord Kazzak",
+    "Eris Havenfire"
+   ],
+   "answer": 0,
+   "explanation": "In Classic the Eye of Divinity comes from Majordomo Executus in Molten Core. Lord Kazzak is a source of the Eye of Shadow, and Eris Havenfire gives the Splinter of Nordrassil quest.",
+   "facts": [
+    "class-priest.quest-benediction-and-anathema-classic"
+   ]
+  },
+  {
+   "id": "class-priest.baseline-spell",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-baseline-spells",
+   "type": "mcq",
+   "stem": "Which of these spells does every Priest race learn without a class quest?",
+   "choices": [
+    "Fear Ward",
+    "Desperate Prayer",
+    "Starshards",
+    "Confounding Flash"
+   ],
+   "answer": 0,
+   "explanation": "Fear Ward (with Devouring Plague) is baseline at level 20 for every race. Desperate Prayer, Starshards and Confounding Flash are racial spells from class quests.",
+   "facts": [
+    "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague",
+    "class-priest.quest-racial-priest-spells"
+   ]
+  },
+  {
+   "id": "class-priest.divine-spirit-level",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-baseline-spells",
+   "type": "mcq",
+   "stem": "At what level is Divine Spirit learned as a baseline spell?",
+   "choices": [
+    "30",
+    "32",
+    "20"
+   ],
+   "answer": 0,
+   "explanation": "Divine Spirit comes at level 30 and Shadow Word: Death at 32. Fear Ward and Devouring Plague come at 20.",
+   "facts": [
+    "class-priest.quest-no-quest-needed-divine-spirit-and-shadow-word-death",
+    "class-priest.quest-no-quest-needed-fear-ward-and-devouring-plague"
+   ]
+  },
+  {
+   "id": "class-priest.human-spirit",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-race",
+   "type": "mcq",
+   "stem": "What does the Human racial give a Priest in the 26 Oct notes?",
+   "choices": [
+    "+10% Spirit",
+    "+1% hit",
+    "+2% haste"
+   ],
+   "answer": 0,
+   "explanation": "Humans get +10% Spirit. +1% hit is the Dwarf's Artisan's Precision and +2% haste is the Skyborne's Wind-Blessed.",
+   "facts": [
+    "common.racial-human-spirit"
+   ],
+   "distractorFacts": [
+    "common.racial-dwarf-artisans-precision",
+    "common.racial-skyborne-wind-blessed"
+   ]
+  },
+  {
+   "id": "class-priest.dwarf-racial",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-race",
+   "type": "mcq",
+   "stem": "Which racial gives a Dwarf Priest +1% hit with spells and attacks?",
+   "choices": [
+    "Artisan's Precision",
+    "Ruthless",
+    "Wind-Blessed",
+    "Eureka!"
+   ],
+   "answer": 0,
+   "explanation": "Artisan's Precision is the Dwarf racial. Ruthless is Human, Wind-Blessed is Skyborne and Eureka! is Gnome.",
+   "facts": [
+    "common.racial-dwarf-artisans-precision"
+   ],
+   "distractorFacts": [
+    "common.racial-human-ruthless",
+    "common.racial-skyborne-wind-blessed",
+    "common.racial-gnome-eureka"
+   ]
+  },
+  {
+   "id": "class-priest.binding-heal",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-myths",
+   "type": "mcq",
+   "stem": "Which talent replaced Binding Heal?",
+   "choices": [
+    "Holy Binding",
+    "Prayer of Mending",
+    "Divine Aegis"
+   ],
+   "answer": 0,
+   "explanation": "Blizzard replaced Binding Heal with Holy Binding. Prayer of Mending and Divine Aegis are separate new talents.",
+   "facts": [
+    "class-priest.change-8"
+   ],
+   "distractorFacts": [
+    "class-priest.change-6",
+    "class-priest.change-1"
+   ]
+  },
+  {
+   "id": "class-priest.lightwell",
+   "scope": "class:priest",
+   "tier": 101,
+   "chapter": "priest-101-myths",
+   "type": "mcq",
+   "stem": "Which Classic Holy talent is gone from the Forever tree?",
+   "choices": [
+    "Lightwell",
+    "Improved Renew",
+    "Holy Reach"
+   ],
+   "answer": 0,
+   "explanation": "Lightwell and Improved Prayer of Healing are gone. Improved Renew and Holy Reach are unchanged from Classic 1.12.",
+   "facts": [
+    "class-priest.change-6"
+   ]
+  },
+  {
+   "id": "class-priest.onyxia-size",
+   "scope": "class:priest",
+   "tier": 201,
+   "chapter": "priest-201-raid-utility",
+   "type": "mcq",
+   "stem": "How many players does Onyxia's Lair take from 9 Dec 2026?",
+   "choices": [
+    "40",
+    "20",
+    "10"
+   ],
+   "answer": 0,
+   "explanation": "Onyxia's Lair is a 40-player raid. Hyjal Summit takes 20 and The Barrow Deeps 10.",
+   "facts": [
+    "class-priest.launch-raids"
+   ]
+  },
+  {
+   "id": "class-priest.fear-ward-raid",
+   "scope": "class:priest",
+   "tier": 201,
+   "chapter": "priest-201-raid-utility",
+   "type": "mcq",
+   "stem": "Which Priests can cast Fear Ward in Forever?",
+   "choices": [
+    "Every Priest race",
+    "Dwarf Priests"
+   ],
+   "answer": 0,
+   "explanation": "Every Priest race has Fear Ward at 20, so Alliance raids no longer depend on Dwarf Priests for it.",
+   "facts": [
+    "class-priest.fear-ward-for-every-priest"
+   ]
+  },
+  {
+   "id": "class-priest.aegis-rank-1",
+   "scope": "spec:priest-discipline",
+   "tier": 101,
+   "chapter": "priest-discipline-101-rotation",
+   "type": "mcq",
+   "stem": "At rank 1, how much of a critical heal does a Divine Aegis shield absorb?",
+   "choices": [
+    "5%",
+    "10%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 shields 5% of the amount healed; rank 2 gives 10% and rank 3 gives 15%, up to 1,200 damage for 12 sec.",
+   "facts": [
+    "talents-priest.discipline-divine-aegis.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-divine-aegis.r2",
+    "talents-priest.discipline-divine-aegis.r3"
+   ]
+  },
+  {
+   "id": "class-priest.penance-cooldown",
+   "scope": "spec:priest-discipline",
+   "tier": 101,
+   "chapter": "priest-discipline-101-rotation",
+   "type": "mcq",
+   "stem": "How long is Penance's cooldown?",
+   "choices": [
+    "12 sec",
+    "2 sec",
+    "3 min"
+   ],
+   "answer": 0,
+   "explanation": "Penance is a 2 sec channel on a 12 sec cooldown. 3 min is Inner Focus's cooldown.",
+   "facts": [
+    "class-priest.penance",
+    "talents-priest.discipline-penance"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-inner-focus"
+   ]
+  },
+  {
+   "id": "class-priest.renewed-hope-target",
+   "scope": "spec:priest-discipline",
+   "tier": 101,
+   "chapter": "priest-discipline-101-rotation",
+   "type": "mcq",
+   "stem": "Renewed Hope adds crit chance to heals on targets with which effect?",
+   "choices": [
+    "Weakened Soul",
+    "Holy Fire",
+    "Shadow Word: Pain"
+   ],
+   "answer": 0,
+   "explanation": "Renewed Hope works on targets with Weakened Soul, the effect your Power Word: Shield leaves. Holy Fire and Shadow Word: Pain are what Power in Light looks for.",
+   "facts": [
+    "talents-priest.discipline-renewed-hope.r1",
+    "talents-priest.discipline-power-in-light.r1"
+   ]
+  },
+  {
+   "id": "class-priest.meditation-rank-1",
+   "scope": "spec:priest-discipline",
+   "tier": 101,
+   "chapter": "priest-discipline-101-tips",
+   "type": "mcq",
+   "stem": "At rank 1, how much of your mana regeneration does Meditation keep going while you cast?",
+   "choices": [
+    "17%",
+    "33%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 keeps 17%; rank 2 keeps 33% and rank 3 keeps 50%.",
+   "facts": [
+    "talents-priest.discipline-meditation.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-meditation.r2",
+    "talents-priest.discipline-meditation.r3"
+   ]
+  },
+  {
+   "id": "class-priest.threat-talent",
+   "scope": "spec:priest-discipline",
+   "tier": 101,
+   "chapter": "priest-discipline-101-tips",
+   "type": "mcq",
+   "stem": "Which Discipline talent reduces the threat your spells generate?",
+   "choices": [
+    "Silent Resolve",
+    "Mental Agility",
+    "Meditation",
+    "Martyrdom"
+   ],
+   "answer": 0,
+   "explanation": "Silent Resolve cuts spell threat by 10% per rank. Mental Agility lowers mana costs, Meditation keeps regeneration going and Martyrdom grants Focused Casting.",
+   "facts": [
+    "talents-priest.discipline-silent-resolve",
+    "talents-priest.discipline-silent-resolve.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-mental-agility",
+    "talents-priest.discipline-meditation",
+    "talents-priest.discipline-martyrdom"
+   ]
+  },
+  {
+   "id": "class-priest.holy-precision-max",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-priorities",
+   "type": "mcq",
+   "stem": "How much hit with Holy spells does Holy Precision give at most?",
+   "choices": [
+    "18%",
+    "6%",
+    "12%"
+   ],
+   "answer": 0,
+   "explanation": "Holy Precision gives 6% per rank, so 18% at rank 3. Blizzard added it so healing Priests can skip hit gear.",
+   "facts": [
+    "class-priest.hit-for-priests",
+    "talents-priest.discipline-holy-precision.r2"
+   ]
+  },
+  {
+   "id": "class-priest.potions-profession",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-consumables",
+   "type": "mcq",
+   "stem": "In Forever, which profession makes healing potions?",
+   "choices": [
+    "First Aid",
+    "Alchemy"
+   ],
+   "answer": 0,
+   "explanation": "Warcraft Tavern says healing potions moved from Alchemy to First Aid.",
+   "facts": [
+    "class-priest.forever-alchemy"
+   ]
+  },
+  {
+   "id": "class-priest.healer-flask",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which flask is on the healer kit list?",
+   "choices": [
+    "Flask of Distilled Wisdom",
+    "Flask of Supreme Power"
+   ],
+   "answer": 0,
+   "explanation": "The Classic healer list starts with Flask of Distilled Wisdom. Flask of Supreme Power is on the caster list.",
+   "facts": [
+    "class-priest.classic-1-12-healer-kit-reference",
+    "class-priest.classic-1-12-caster-kit-reference"
+   ]
+  },
+  {
+   "id": "class-priest.hyjal-size",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-raid",
+   "type": "mcq",
+   "stem": "How many players does Hyjal Summit take?",
+   "choices": [
+    "20",
+    "10",
+    "40"
+   ],
+   "answer": 0,
+   "explanation": "Hyjal Summit takes 20. The Barrow Deeps takes 10 and Onyxia's Lair 40.",
+   "facts": [
+    "class-priest.launch-raids"
+   ]
+  },
+  {
+   "id": "class-priest.silent-resolve-rank-3",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-raid",
+   "type": "mcq",
+   "stem": "At rank 3, how much less threat do your spells generate with Silent Resolve?",
+   "choices": [
+    "30%",
+    "10%",
+    "20%"
+   ],
+   "answer": 0,
+   "explanation": "Silent Resolve cuts spell threat by 10% per rank: 10% at rank 1, 20% at rank 2 and 30% at rank 3.",
+   "facts": [
+    "talents-priest.discipline-silent-resolve.r3"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-silent-resolve.r1",
+    "talents-priest.discipline-silent-resolve.r2"
+   ]
+  },
+  {
+   "id": "class-priest.martyrdom-rank-1",
+   "scope": "spec:priest-discipline",
+   "tier": 201,
+   "chapter": "priest-discipline-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 1, what chance does Martyrdom give you to gain Focused Casting after a melee or ranged crit hits you?",
+   "choices": [
+    "50%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives a 50% chance; rank 2 makes it 100%.",
+   "facts": [
+    "talents-priest.discipline-martyrdom.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.discipline-martyrdom.r2"
+   ]
+  },
+  {
+   "id": "class-priest.mending-cooldown",
+   "scope": "spec:priest-holy",
+   "tier": 101,
+   "chapter": "priest-holy-101-rotation",
+   "type": "mcq",
+   "stem": "What is Prayer of Mending's cooldown?",
+   "choices": [
+    "10 sec",
+    "30 sec"
+   ],
+   "answer": 0,
+   "explanation": "Prayer of Mending has a 10 sec cooldown. It lasts 30 sec after each jump.",
+   "facts": [
+    "class-priest.prayer-of-mending",
+    "talents-priest.holy-prayer-of-mending.r1"
+   ]
+  },
+  {
+   "id": "class-priest.litany-rank-1",
+   "scope": "spec:priest-holy",
+   "tier": 101,
+   "chapter": "priest-holy-101-rotation",
+   "type": "mcq",
+   "stem": "At rank 1, how much of a heal's base cost does Litany of Light return?",
+   "choices": [
+    "5%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 returns 5% of the base cost when your previous heal was a different spell; rank 2 returns 10%.",
+   "facts": [
+    "talents-priest.holy-litany-of-light.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.holy-litany-of-light.r2"
+   ]
+  },
+  {
+   "id": "class-priest.binding-spell",
+   "scope": "spec:priest-holy",
+   "tier": 101,
+   "chapter": "priest-holy-101-tips",
+   "type": "mcq",
+   "stem": "Holy Binding heals you when you cast which spell on someone else?",
+   "choices": [
+    "Flash Heal",
+    "Greater Heal",
+    "Lesser Heal"
+   ],
+   "answer": 0,
+   "explanation": "Holy Binding heals you for 50% as much each time your Flash Heal heals someone else. Greater Heal and Lesser Heal do not trigger it.",
+   "facts": [
+    "talents-priest.holy-holy-binding.r1",
+    "talents-priest.holy-improved-healing.r1"
+   ]
+  },
+  {
+   "id": "class-priest.blessed-recovery-rank-1",
+   "scope": "spec:priest-holy",
+   "tier": 101,
+   "chapter": "priest-holy-101-tips",
+   "type": "mcq",
+   "stem": "At rank 1, what share of the damage does Blessed Recovery heal over 6 sec?",
+   "choices": [
+    "8%",
+    "17%",
+    "25%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 heals 8% of the damage taken; rank 2 heals 17% and rank 3 heals 25%.",
+   "facts": [
+    "talents-priest.holy-blessed-recovery.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.holy-blessed-recovery.r2",
+    "talents-priest.holy-blessed-recovery.r3"
+   ]
+  },
+  {
+   "id": "class-priest.guidance-rank-1",
+   "scope": "spec:priest-holy",
+   "tier": 201,
+   "chapter": "priest-holy-201-priorities",
+   "type": "mcq",
+   "stem": "At rank 1, Spiritual Guidance raises your spell healing by up to what share of your total Spirit?",
+   "choices": [
+    "5%",
+    "1%",
+    "25%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 adds healing up to 5% of your total Spirit (and spell damage up to 1%). Rank 5 raises the healing share to 25%.",
+   "facts": [
+    "talents-priest.holy-spiritual-guidance.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.holy-spiritual-guidance.r5"
+   ]
+  },
+  {
+   "id": "class-priest.healer-elixir",
+   "scope": "spec:priest-holy",
+   "tier": 201,
+   "chapter": "priest-holy-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which elixir is on the healer kit list?",
+   "choices": [
+    "Elixir of the Sages",
+    "Greater Arcane Elixir"
+   ],
+   "answer": 0,
+   "explanation": "Elixir of the Sages is on the Classic healer list. Greater Arcane Elixir is on the caster list.",
+   "facts": [
+    "class-priest.classic-1-12-healer-kit-reference",
+    "class-priest.classic-1-12-caster-kit-reference"
+   ]
+  },
+  {
+   "id": "class-priest.party-heal",
+   "scope": "spec:priest-holy",
+   "tier": 201,
+   "chapter": "priest-holy-201-raid",
+   "type": "mcq",
+   "stem": "Which Priest spell heals the target's party, so you can heal a group you are not in?",
+   "choices": [
+    "Prayer of Healing",
+    "Fade"
+   ],
+   "answer": 0,
+   "explanation": "Prayer of Healing now heals the target's party. Fade is the threat drop, which is doubled in Forever.",
+   "facts": [
+    "class-priest.prayer-of-healing-2",
+    "class-priest.threat"
+   ]
+  },
+  {
+   "id": "class-priest.spell-warding-rank-1",
+   "scope": "spec:priest-holy",
+   "tier": 201,
+   "chapter": "priest-holy-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 1, how much does Spell Warding reduce the spell damage you take?",
+   "choices": [
+    "2%",
+    "4%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Spell Warding gives 2% per rank: 2% at rank 1, 4% at rank 2 and 10% at rank 5.",
+   "facts": [
+    "talents-priest.holy-spell-warding.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.holy-spell-warding.r2",
+    "talents-priest.holy-spell-warding.r5"
+   ]
+  },
+  {
+   "id": "class-priest.pain-rank-1",
+   "scope": "spec:priest-shadow",
+   "tier": 101,
+   "chapter": "priest-shadow-101-rotation",
+   "type": "mcq",
+   "stem": "At rank 1, how much longer does Improved Shadow Word: Pain make Shadow Word: Pain last?",
+   "choices": [
+    "3 sec",
+    "6 sec"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 adds 3 sec; rank 2 adds 6 sec.",
+   "facts": [
+    "talents-priest.shadow-improved-shadow-word-pain.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-improved-shadow-word-pain.r2"
+   ]
+  },
+  {
+   "id": "class-priest.flay-ramp",
+   "scope": "spec:priest-shadow",
+   "tier": 101,
+   "chapter": "priest-shadow-101-rotation",
+   "type": "mcq",
+   "stem": "Which talent makes each Mind Flay tick deal more damage than the one before?",
+   "choices": [
+    "Improved Mind Flay",
+    "Dark Inspiration",
+    "Improved Mind Blast"
+   ],
+   "answer": 0,
+   "explanation": "Improved Mind Flay makes each tick deal 10% more than the last at rank 1. Dark Inspiration raises Spirit, and Improved Mind Blast shortens Mind Blast's cooldown.",
+   "facts": [
+    "talents-priest.shadow-improved-mind-flay",
+    "talents-priest.shadow-improved-mind-flay.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-dark-inspiration",
+    "talents-priest.shadow-improved-mind-blast"
+   ]
+  },
+  {
+   "id": "class-priest.weaving-rank-1",
+   "scope": "spec:priest-shadow",
+   "tier": 101,
+   "chapter": "priest-shadow-101-tips",
+   "type": "mcq",
+   "stem": "At rank 1, what chance does each Shadow damage spell have to apply Shadow Weaving?",
+   "choices": [
+    "33%",
+    "67%",
+    "100%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives a 33% chance, rank 2 67% and rank 3 100%. Each stack adds 2% to the Shadow damage the target takes from you, up to 5 stacks.",
+   "facts": [
+    "talents-priest.shadow-shadow-weaving.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-shadow-weaving.r2",
+    "talents-priest.shadow-shadow-weaving.r3"
+   ]
+  },
+  {
+   "id": "class-priest.contagion-rank-1",
+   "scope": "spec:priest-shadow",
+   "tier": 101,
+   "chapter": "priest-shadow-101-tips",
+   "type": "mcq",
+   "stem": "At rank 1, how much cheaper does Devouring Contagion make Devouring Plague?",
+   "choices": [
+    "25%",
+    "50%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 cuts Devouring Plague's mana cost by 25%; rank 2 cuts it by 50%.",
+   "facts": [
+    "talents-priest.shadow-devouring-contagion.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-devouring-contagion.r2"
+   ]
+  },
+  {
+   "id": "class-priest.classic-hit-cap",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-priorities",
+   "type": "mcq",
+   "stem": "In Classic 1.12, how much spell hit did you need against bosses three levels higher?",
+   "choices": [
+    "16%",
+    "1%"
+   ],
+   "answer": 0,
+   "explanation": "In Classic 1.12 the cap was 16% against bosses three levels higher, and 1% of spells always missed. Forever has no published value yet.",
+   "facts": [
+    "class-priest.classic-1-12-hit-cap-reference-only"
+   ]
+  },
+  {
+   "id": "class-priest.hit-talent",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-priorities",
+   "type": "mcq",
+   "stem": "Which Shadow talent improves your chance to hit with Shadow spells?",
+   "choices": [
+    "Shadow Focus",
+    "Darkness",
+    "Shadow Reach",
+    "Blackout"
+   ],
+   "answer": 0,
+   "explanation": "Shadow Focus adds 1% hit with Shadow spells per rank. Darkness adds damage, Shadow Reach adds range and Blackout adds a stun chance.",
+   "facts": [
+    "talents-priest.shadow-shadow-focus",
+    "talents-priest.shadow-shadow-focus.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-darkness",
+    "talents-priest.shadow-shadow-reach",
+    "talents-priest.shadow-blackout"
+   ]
+  },
+  {
+   "id": "class-priest.caster-flask",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-consumables",
+   "type": "mcq",
+   "stem": "In Classic 1.12, which flask is on the caster kit list?",
+   "choices": [
+    "Flask of Supreme Power",
+    "Flask of Distilled Wisdom"
+   ],
+   "answer": 0,
+   "explanation": "Flask of Supreme Power is on the Classic caster list. Flask of Distilled Wisdom is on the healer list.",
+   "facts": [
+    "class-priest.classic-1-12-caster-kit-reference",
+    "class-priest.classic-1-12-healer-kit-reference"
+   ]
+  },
+  {
+   "id": "class-priest.inspiration-rank-1",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-raid",
+   "type": "mcq",
+   "stem": "At rank 1, how much Spirit does Dark Inspiration give you and your party?",
+   "choices": [
+    "3%",
+    "6%",
+    "15%"
+   ],
+   "answer": 0,
+   "explanation": "Rank 1 gives 3% for 10 sec, rank 2 gives 6% and rank 5 gives 15%.",
+   "facts": [
+    "talents-priest.shadow-dark-inspiration.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-dark-inspiration.r2",
+    "talents-priest.shadow-dark-inspiration.r5"
+   ]
+  },
+  {
+   "id": "class-priest.silence-duration",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-pvp",
+   "type": "mcq",
+   "stem": "How long does Silence stop the target from casting spells?",
+   "choices": [
+    "5 sec",
+    "45 sec"
+   ],
+   "answer": 0,
+   "explanation": "Silence stops casting for 5 sec. 45 sec is its cooldown.",
+   "facts": [
+    "talents-priest.shadow-silence.r1",
+    "talents-priest.shadow-silence"
+   ]
+  },
+  {
+   "id": "class-priest.blackout-rank-1",
+   "scope": "spec:priest-shadow",
+   "tier": 201,
+   "chapter": "priest-shadow-201-pvp",
+   "type": "mcq",
+   "stem": "At rank 1, what chance does Blackout give your Shadow damage spells to stun the target?",
+   "choices": [
+    "2%",
+    "4%",
+    "10%"
+   ],
+   "answer": 0,
+   "explanation": "Blackout gives 2% per rank, for a 3 sec stun: 2% at rank 1, 4% at rank 2 and 10% at rank 5.",
+   "facts": [
+    "talents-priest.shadow-blackout.r1"
+   ],
+   "distractorFacts": [
+    "talents-priest.shadow-blackout.r2",
+    "talents-priest.shadow-blackout.r5"
+   ]
+  }
+ ]
+}
