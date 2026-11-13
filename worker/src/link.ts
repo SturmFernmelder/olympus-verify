@@ -278,7 +278,6 @@ function ipv6Groups(s: string): number[] | null {
   const fill = 8 - left.length - right.length;
   return fill >= 1 ? [...left, ...new Array<number>(fill).fill(0), ...right] : null;
 }
-const addressKey = (request: Request) => linkAddressKey(request.headers.get('CF-Connecting-IP') ?? '');
 
 /** A JSON answer in upstream's shape ({ ok, status, reason, message }) and headers. */
 function answer(reason: string, message: string, status: number, headers: Record<string, string> = {}): Response {
@@ -343,9 +342,10 @@ async function routeProof(request: Request, env: Env, cors: Record<string, strin
   if (!schemaReady) return answer('server', 'The bot is updating its database: try again in a minute.', 503, cors);
   // A first filter in memory, per isolate (site-core.ts), ahead of upstream's own D1 limits before Discord is asked; an
   // IPv6 address counts by its /64, as upstream's limit counts it.
-  const { rateLimited } = await import('./site-core');
-  if (rateLimited(`link:proof:${addressKey(request)}`, 20, 60)) {
-    return answer('limit', 'Too many tries: wait a while and send it again.', 429, { ...cors, 'Retry-After': '60' });
+  const {consumeAddressRateLimit280,rateLimitHeaders280}=await import('./soft-rate-limit280');
+  const limit=await consumeAddressRateLimit280('link:proof',request.headers.get('CF-Connecting-IP')??'',20,60,'link64');
+  if (limit.limited) {
+    return answer('limit', 'Too many tries: wait a while and send it again.', 429, { ...cors, ...rateLimitHeaders280(limit) });
   }
   const { readInteractionBody, credentialFetch } = await import('./discord');
   const body = await readInteractionBody(request, PROOF_BODY_MAX);
@@ -360,9 +360,10 @@ async function routeProof(request: Request, env: Env, cors: Record<string, strin
 
 async function routeKeys(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'POST') return answer('method', 'POST only.', 405, { Allow: 'POST' });
-  const { rateLimited } = await import('./site-core');
-  if (rateLimited(`link:keys:${addressKey(request)}`, 10, 60)) {
-    return answer('limit', 'Too many tries: wait a while and send it again.', 429, { 'Retry-After': '60' });
+  const {consumeAddressRateLimit280,rateLimitHeaders280}=await import('./soft-rate-limit280');
+  const limit=await consumeAddressRateLimit280('link:keys',request.headers.get('CF-Connecting-IP')??'',10,60,'link64');
+  if (limit.limited) {
+    return answer('limit', 'Too many tries: wait a while and send it again.', 429,rateLimitHeaders280(limit));
   }
   const core = await loadCore();
   const lenv = linkEnv(env);

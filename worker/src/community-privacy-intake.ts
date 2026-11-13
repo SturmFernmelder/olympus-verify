@@ -1,3 +1,4 @@
+import {consumeRateLimit280,consumeAddressRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .82 (1 Oct 2026): the private request intake, consolidation batch 6 of Codex's adapter map, ported from Olympus
  * Forever's src/privacy-requests.ts and migrations/0008_privacy_requests.sql (frozen candidate manifest 296db2c8…;
@@ -179,9 +180,10 @@ function credential(body: Record<string, unknown>): { caseId: string; caseCode: 
 const notFound = () => apiJson({ error: "case_not_found" }, 404);
 const featureOff = () => apiJson({ error: "feature_disabled", message: "This part of the site is not switched on." }, 503);
 /** The first filter for the public routes: the shared in-memory limiter by path and IP (the D1 caps are the real bound). */
-function limited(request: Request, path: string): Response | null {
-  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  return rateLimited(`pi:${path}:${ip}`, 20, 60) ? apiJson({ error: "rate_limited" }, 429, { "Retry-After": "60" }) : null;
+async function limited(request: Request, path: string): Promise<Response | null> {
+  const purpose=['/api/privacy/requests','/api/privacy/requests/read','/api/privacy/requests/reply'].includes(path)?path:'unknown';
+  const limit=await consumeAddressRateLimit280('pi:'+purpose,request.headers.get('CF-Connecting-IP')??'',20,60);
+  return limit.limited ? apiJson({ error: "rate_limited" }, 429,rateLimitHeaders280(limit)) : null;
 }
 
 /** The row, if the code matches and it is live (point of use). Same answer otherwise. */
@@ -207,7 +209,7 @@ async function privacyDispatch(request: Request, env: Env, path: string, contact
   const m = request.method;
   if (m === "GET" && path === "/api/privacy/config") return privacyConfig(env);
   if (m !== "POST") return apiJson({ error: "not_found" }, 404);
-  const over = limited(request, path);
+  const over = await limited(request, path);
   if (over) return over;
   try {
     if (path === "/api/privacy/requests") return await privacyCreate(request, env, contactForm);
@@ -429,7 +431,8 @@ export async function adminUpdateCase(request: Request, env: Env, ctx: Community
   if (!ctx.features.has("privacy_intake")) return featureOff();
   const reload = needPage(request);
   if (reload) return reload;
-  if (rateLimited(`piw:${admin.discord_id}`, 60, 60)) return apiJson({ error: "slow_down" }, 429);
+  const limit=consumeRateLimit280(`piw:${admin.discord_id}`,60,60);
+  if(limit.limited)return apiJson({error:"slow_down"},429,rateLimitHeaders280(limit));
   try {
     for (const k of Object.keys(body)) if (!["caseId", "messageId", "status", "reply"].includes(k)) throw new Bad("invalid_request");
     const caseId = body.caseId, opId = body.messageId;

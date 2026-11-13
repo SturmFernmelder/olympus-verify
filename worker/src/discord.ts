@@ -4,6 +4,7 @@ import { staffChannel } from "./env";
 import { audit } from "./db";
 import {dispatchOriginalProviderFetch,captureOriginalProviderInit} from './privacy-global-serving-origin';
 import {canonicalMigrationProducerHeld233} from './canonical-migration233';
+import {botResponseHeaders280} from './bot-response280';
 
 export const API = "https://discord.com/api/v10";
 
@@ -299,7 +300,7 @@ export const replyPublic = (data: Record<string, unknown>) => json({ type: 4, da
 export const updateMessage = (data: Record<string, unknown>) => json({ type: 7, data: { allowed_mentions: { parse: [] }, ...data } });
 
 export const json = (obj: unknown, status = 200) =>
-  new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(obj), { status, headers: botResponseHeaders280({ "Content-Type": "application/json; charset=utf-8" }) });
 
 export interface Interaction {
   type: number;

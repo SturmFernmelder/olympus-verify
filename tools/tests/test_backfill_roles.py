@@ -31,8 +31,12 @@ guild_map = load("guild_map_under_test", "guild-map.py")
 class Fake(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
+        self.handle_backfill()
+    def do_POST(self):
+        self.handle_backfill()
+    def handle_backfill(self):
         u = urllib.parse.urlparse(self.path); q = dict(urllib.parse.parse_qsl(u.query))
-        SEEN.append({"path": u.path, "q": q, "auth": self.headers.get("Authorization")})
+        SEEN.append({"path": u.path, "q": q, "auth": self.headers.get("Authorization"), "method": self.command})
         if MODE["kind"] == "redirect":
             self.send_response(MODE["status"])
             self.send_header("Location", MODE["location"])
@@ -45,6 +49,8 @@ class Fake(http.server.BaseHTTPRequestHandler):
             self.send_response(200); self.end_headers(); self.wfile.write(json.dumps(payload).encode()); return
         if self.headers.get("Authorization") != f"Bearer {TOKEN}":
             self.send_response(401); self.end_headers(); return
+        if (q.get("apply") == "1") != (self.command == "POST"):
+            self.send_response(405); self.end_headers(); return
         after, limit, apply = q.get("after", ""), int(q["limit"]), q.get("apply") == "1"
         rows = [i for i in IDS if i > after][:limit]
         lacking = [i for i in rows if int(i) % 3 == 0]
@@ -136,14 +142,14 @@ dry = run()
 lacking = sum(1 for i in IDS if int(i) % 3 == 0)
 check("dry run exits cleanly", dry.returncode == 0)
 check("dry run pages through all 45 accounts in 20s", [s["q"].get("after", "") for s in SEEN] == ["", IDS[19], IDS[39]])
-check("dry run never asks to apply", all("apply" not in s["q"] for s in SEEN))
+check("dry run uses GET and never asks to apply", all("apply" not in s["q"] and s["method"] == "GET" for s in SEEN))
 check(f"dry run reports {lacking} to grant and changes nothing", f"would grant Guild Member:  {lacking}" in dry.stdout and "DRY RUN" in dry.stdout)
 check("dry run says how to apply", "--apply" in dry.stdout)
 check("the token is sent as a bearer header", all(s["auth"] == f"Bearer {TOKEN}" for s in SEEN))
 check("the token is never printed", TOKEN not in dry.stdout + dry.stderr)
 
 app = run("--apply")
-check("apply passes apply=1 on every page", SEEN and all(s["q"].get("apply") == "1" for s in SEEN))
+check("apply uses POST and apply=1 on every page", SEEN and all(s["q"].get("apply") == "1" and s["method"] == "POST" for s in SEEN))
 check(f"apply reports {lacking} granted", f"granted Guild Member:  {lacking}" in app.stdout and "APPLIED" in app.stdout)
 
 cfg.write_text(json.dumps({"worker_url": ORIGIN, "watcher_token": "wrong"}))

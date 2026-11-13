@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Explicit publication for the source-authored appointment catalogue.
  * Canonical Discord pointers stay in the existing appointed setting: they confer
  * no permissions and the unchanged Native eraser already withholds exact pointers.
@@ -281,7 +282,8 @@ export async function appointedIdentitiesPage(request: Request, env: Env): Promi
   // either Guild Member admission or any appointee lookup; no anonymous bucket.
   const ctx = await communityContext(env, request);
   if (!ctx.subject) return apiJson({ error: 'signed_out' }, 401);
-  if (rateLimited('appointed-read:' + ctx.subject.discordId, 20, 60)) return apiJson({ error: 'slow_down' }, 429);
+  const rateLimitAt284280=consumeRateLimit280('appointed-read:' + ctx.subject.discordId,20,60);
+  if (rateLimitAt284280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt284280));
   const q = new URL(request.url).searchParams, after = q.get('after'), revision = q.get('revision'), role = q.get('role');
   if ((after === null) !== (revision === null) || after !== null && (!APPOINTMENT_IDENTITY_ROLES.includes(after) || !/^[A-Za-z0-9_-]{43}$/.test(revision!)) ||
       role !== null && (!APPOINTMENT_IDENTITY_ROLES.includes(role) || after !== null || revision !== null) ||

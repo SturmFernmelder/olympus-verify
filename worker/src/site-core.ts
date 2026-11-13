@@ -404,19 +404,7 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   }
 }
 
-const buckets = new Map<string, { n: number; reset: number }>();
-/** Per isolate, so a soft limit: enough to stop a stuck script or a held-down key, not a determined attacker. */
-export function rateLimited(key: string, max: number, windowSeconds: number): boolean {
-  const t = now();
-  let b = buckets.get(key);
-  if (!b || b.reset <= t) {
-    if (buckets.size > 5000) buckets.clear();
-    b = { n: 0, reset: t + windowSeconds };
-    buckets.set(key, b);
-  }
-  b.n++;
-  return b.n > max;
-}
+export {rateLimited,consumeRateLimit280,consumeAddressRateLimit280,rateLimitHeaders280,type RateLimitResult280} from './soft-rate-limit280';
 
 // How many applicants each role has on the board: the same for everyone, so an isolate keeps it for half a minute.
 // Anything that moves an application on or off the board clears it (in the isolate that made the change).

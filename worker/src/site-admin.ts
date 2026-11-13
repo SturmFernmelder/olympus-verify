@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import { NICKNAME_SETTINGS_FILTER233 } from './member-nickname-data233';
 /**
@@ -47,6 +48,7 @@ import { closeRenameHold, listRenames, markForcedRename } from "./rename-review"
 import { handleNewsAdmin } from "./site-news";
 async function treasuryLedger242(...args:Parameters<typeof import('./intake242').treasuryLedger242>){return (await import('./intake242')).treasuryLedger242(...args);}
 import { handleTreasuryCosmeticAdmin } from "./treasury-cosmetic";
+import {receiptNoteMaintenance280} from './treasury-note-maintenance280';
 import { discordDirectoryAttendedVisibility } from "./community-discord-directory";
 import { handleRulesetPublication } from './ruleset-publication';
 import { handleMembershipRetirement } from './membership-retirement-route';
@@ -65,6 +67,8 @@ const PROFESSIONS_OF_A = "json_each(CASE WHEN json_valid(a.answers) THEN a.answe
 
 export async function handleAdmin(request: Request, env: Env, path: string, admin: SiteUser, _waitUntil: (work: () => Promise<unknown>) => void,decisionOrigin?:MembershipDecisionOrigin,originalDispatch?:BetaRoleDispatch): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
+  if (request.method !== 'GET' && request.method !== 'HEAD' && request.headers.get('X-Olympus') !== PAGE_VERSION)
+    return apiJson({error:'reload',message:'The site changed since this page opened. Reload before saving.'},409);
   if(path.startsWith('/api/admin/membership-retirement'))return handleMembershipRetirement(request,env,path,admin,roleDispatch);
   if(path.startsWith('/api/admin/beta-role-reset'))return handleBetaRoleReset(request,env,path,admin);
   if(path==='/api/admin/beta-reset'||path.startsWith('/api/admin/beta-reset/'))return apiJson({error:'beta_reset_scope_replaced',message:'The beta reset preserves website appointments and leadership. Use the member and rank role reset preview.'},410);
@@ -79,6 +83,7 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   const actor = admin.discord_id;
 
   if (parts[0] === 'ruleset-publication') return handleRulesetPublication(request,env,parts.slice(1),body);
+  if (path === '/api/admin/treasury/ledger/note-redaction') return receiptNoteMaintenance280(request,env,actor,body);
   if (parts[0] === 'treasury' && parts[1] === 'ledger' && m === 'GET') return treasuryLedger242(request,env);
   if (parts[0] === 'treasury') return handleTreasuryCosmeticAdmin(request,env,parts.slice(1),admin,body);
   if (parts[0] === 'discord-directory' && parts.length === 2) return discordDirectoryAttendedVisibility(request, env, await communityContext(env, request), parts[1]!, body);
@@ -89,7 +94,8 @@ export async function handleAdmin(request: Request, env: Env, path: string, admi
   if (m === "PUT" && parts[0] === "settings") {
     // Original authenticated administrator already captured by site-api.ts.
     // The soft cap precedes every changed-holder provider lookup.
-    if (rateLimited('appointed-save:' + actor, 30, 60)) return apiJson({ error: 'slow_down' }, 429);
+    const rateLimitAt96280=consumeRateLimit280('appointed-save:' + actor,30,60);
+    if (rateLimitAt96280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt96280));
     return saveSettings(env, actor, body);
   }
   // .114: the Battle.net sign-in switch (bnet-switch.ts), the I-X leadership directory and the beta reset (site-leadership.ts), forced renames (rename-review.ts)
@@ -1286,6 +1292,7 @@ function auditRules(actions: string, subject: AuditRule["subject"], fields: Audi
   for (const action of actions.split(" ")) AUDIT_RULES[action] = { actor, subject, fields };
 }
 auditRules("treasury.receipt242", "none", { copper: "count", items: "count" }, "id-or-system");
+auditRules("treasury.receipt_note_redaction280", "none", { ceiling: "count", blanked: "count" }, "id-or-system");
 auditRules("site.login site.login_not_member site.left_server site.application_withdrawn site.copy_exported", "id");
 auditRules("site.application_submitted site.application_updated site.settings site.leadership site.beta_closed", "none");
 auditRules("site.ruleset_switch", "none", { mode: ["beta", "full_release"], targets: "count", approver: "boolean" }); // item 7 (14 Oct 2026): the switch, never the identity

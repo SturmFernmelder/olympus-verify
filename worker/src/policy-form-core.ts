@@ -6,7 +6,26 @@ export const FORM_COOKIE = "__Host-olg_privacy_form";
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 export type FormPurpose = "contact-create" | "case-read" | "case-reply" | "copy-export" | "site-erase" | "full-erase" | "bnet-unlink" | "privacy-signin" | "erasure-status";
 const PURPOSES: readonly string[] = ["contact-create", "case-read", "case-reply", "copy-export", "site-erase", "full-erase", "bnet-unlink", "privacy-signin", "erasure-status"];
-export class FormError extends Error { constructor(public readonly code: string, public readonly status = 400) { super(code); } }
+export class FormError extends Error {
+ readonly retryAfterSeconds?:number;
+ constructor(public readonly code:string,public readonly status=400,retryAfterSeconds?:number){
+  super(code);
+  if(status===429&&typeof retryAfterSeconds==='number'&&Number.isSafeInteger(retryAfterSeconds)&&retryAfterSeconds>=1&&retryAfterSeconds<=86400)this.retryAfterSeconds=retryAfterSeconds;
+ }
+}
+/** Header metadata is only from the original known local refusal, never an
+ * instruction to retry an unknown account/provider operation. */
+export function formErrorResponse280(response:Response,error:unknown):Response{
+ if(response.status===429&&error instanceof FormError&&error.status===429&&error.retryAfterSeconds!==undefined)response.headers.set('Retry-After',String(error.retryAfterSeconds));
+ return response;
+}
+/** Preserve a known HTTP limiter refusal when a JSON result is rendered as a
+ * script-free form. Never synthesize an interval for an unknown/capacity error. */
+export function copyRateLimitResponse280(response:Response,source:Response):Response{
+ const value=source.headers.get('Retry-After');
+ if(response.status===429&&source.status===429&&value&&/^[1-9][0-9]{0,4}$/.test(value)&&Number(value)<=86400)response.headers.set('Retry-After',value);
+ return response;
+}
 export const randomCode = (n = 32): string => b64u(crypto.getRandomValues(new Uint8Array(n)));
 export function formCookie(nonce: string): string { return `${FORM_COOKIE}=${nonce}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=3600`; }
 export function formNonce(request: Request): string | null {

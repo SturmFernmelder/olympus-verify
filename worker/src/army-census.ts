@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Owner-authorized aggregate publishing, 20 October 2026. No character rows or reporter identity enter storage. */
 import type { Env } from "./env";
 import { apiJson, currentUser, originalUserSession, isSiteAdmin, PAGE_VERSION, sameOrigin, rateLimited, sign, verify, b64u, securityHeaders } from "./site-core";
@@ -209,7 +210,8 @@ export async function armyPrivate(request: Request, env: Env, path: string): Pro
     const length = request.headers.get("Content-Length");
     if (length !== null && (!/^(0|[1-9][0-9]*)$/.test(length) || !integer(Number(length), 0, 8192))) return apiJson({ error: "body_too_large" }, 413);
     await read(reporter); reporter.check();
-    if (rateLimited("army-publish:" + reporter.ctx.subject!.discordId, 20, 60)) return apiJson({ error: "slow_down" }, 429);
+    const rateLimitAt212280=consumeRateLimit280("army-publish:" + reporter.ctx.subject!.discordId,20,60);
+    if (rateLimitAt212280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt212280));
     const raw = await readRaw(request, reporter.check); reporter.check();
     let body: unknown; try { body = JSON.parse(raw); } catch { bad(); }
     const preview = path.endsWith("/preview"), outcome = path.endsWith("/outcome");

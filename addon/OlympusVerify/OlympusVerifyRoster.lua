@@ -4,9 +4,8 @@
   different, their display name, with rank, level and when they were last seen. Filter by typing (character or Discord
   name), by status, rank and class, or online only; click a column heading to sort by it, again to reverse.
 
-  Where the data comes from: the client's own guild roster (live), the unverified list and the verified list the watcher
-  writes into OlympusQueue.lua (Worker build .41 sends the verified list with the Discord names). Like every other part
-  of that file, the lists are as fresh as the last /reload.
+  Where the data comes from: the client's current native guild roster and the loaded Watcher verification lists.
+  Watcher query/roster clocks are shown separately; repainting this window does not load a newer file or renew evidence.
 
   Reads OlympusVerifyAPI.Roster. A current unverified member's status opens one editable whisper; it never sends it.
   Promotion buttons use the existing dated launch queue and recheck one exact GUID per hardware click. Nothing here
@@ -284,7 +283,7 @@ local function PromotionCandidates()
 end
 
 local function Eligible(m, candidates)
-  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=7 and m.rankIndex<=9
+  return type(m.guid) == "string" and candidates[m.guid] == true and type(m.rankIndex)=="number" and m.rankIndex>=6 and m.rankIndex<=9
 end
 
 local function CurrentRank()
@@ -668,7 +667,7 @@ local function Build()
   local copy=Button(frame,"Copy table",104,24,CopyTable,"Copy filtered table","Open a read-only tab-separated copy of the current filtered/sorted rows. No codes, request bodies or account IDs are exported.")
   copy:SetPoint("LEFT",refresh,"RIGHT",6,0)
   W.selectButton:SetPoint("LEFT",copy,"RIGHT",6,0)
-  W.batchButton=Button(frame,"Check verified Initiates",176,24,function() W.RequestVerifiedInitiates() end,
+  W.batchButton=Button(frame,"Check first 20 shown",176,24,function() W.RequestVerifiedInitiates() end,
     "Check verified Initiates", "Request fresh promotion checks for all currently verified native Initiates, up to twenty exact GUIDs, then reload. This clears display filters and never promotes anyone.")
   W.batchButton:SetPoint("LEFT",W.selectButton,"RIGHT",6,0)
   W.refreshButton,W.copyButton=refresh,copy
@@ -828,19 +827,23 @@ W.RequestSelected=function()
 end
 W.RequestVerifiedInitiates=function()
   Reload()
-  local targets,seen={},{}
-  for _,row in ipairs(cache.list) do
+  local shown=Visible()
+  local targets,seen,eligible={},{},0
+  for _,row in ipairs(shown) do
     if row.rankIndex==9 and row.status=="verified" and not row.historicalLinked then
-      if type(row.guid)~="string" or seen[row.guid] then Say("A verified Initiate GUID is missing or ambiguous; no check requested.");return false end
-      seen[row.guid]=true;targets[#targets+1]=row.guid
+      local ok,valid=pcall(function()
+        if type(issecretvalue)=="function" and issecretvalue(row.guid) then return false end
+        return type(row.guid)=="string" and #row.guid<=40 and row.guid:match("^Player%-%d+%-%x+$")~=nil
+      end)
+      if not ok or not valid or seen[row.guid] then Say("A verified Initiate GUID is missing or ambiguous; no check requested.");return false end
+      seen[row.guid]=true;eligible=eligible+1
+      if #targets<20 then targets[#targets+1]=row.guid end
     end
   end
-  if #targets<1 then Say("No verified native Initiates are present in the current loaded display. Refresh verification data first.");return false end
-  if #targets>20 then Say("More than twenty verified Initiates are present. Use individual selected checks; no partial batch was requested.");return false end
+  if #targets<1 then Say("No verified native Initiates match the current shown filters. Refresh verification data or adjust the view first.");return false end
   local launch=OlympusLaunch229
   if type(launch)~="table" or type(launch.SelectMany)~="function" then Say("The bounded Initiate checker is unavailable; no check requested.");return false end
-  view.initiates,view.rank,view.status,view.action,view.class,view.online,view.presence,view.text=true,0,2,4,0,false,1,""
-  if search then search:SetText("") end
+  Say("Selected the first "..#targets.." shown verified Initiate(s) for this explicit check; "..(eligible-#targets).." additional shown candidate(s). No automatic next batch or promotion.")
   offset=0;W.Refresh()
   return launch.SelectMany(targets)
 end

@@ -1,3 +1,4 @@
+import {consumeRateLimit280} from './soft-rate-limit280';
 /** Attended single-parent retirement. A site session is never a general Discord role capability. */
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import type {Env} from './env';
@@ -12,7 +13,7 @@ const ROOT='/api/admin/membership-retirement',HEX=/^[0-9a-f]{32}$/,MAC=/^[A-Za-z
 type Session=OriginalSiteSession;
 type Form={expiresAt:number;formNonce:string;token:string};
 type Captured={parent:RetirementParent;generation:string|null;active:boolean;at:number};
-class Refused extends Error{constructor(readonly code:string,readonly status=409){super(code);}}
+class Refused extends Error{constructor(readonly code:string,readonly status=409,readonly retryAfterSeconds?:number){super(code);}}
 const keys=(v:unknown,wanted:string)=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===wanted;
 const canonical=(p:RetirementParent)=>Object.fromEntries(RETIREMENT_PARENT_FIELDS.map(k=>[k,p[k]]));
 const claims=(purpose:string,s:Session,b:ReturnType<typeof membershipTargets>,c:Captured,f:Omit<Form,'token'>,child:RetirementParent|null)=>JSON.stringify({purpose,staff:s,binding:b,parent:canonical(c.parent),generation:c.generation,form:f,child:child?canonical(child):null});
@@ -69,7 +70,8 @@ export async function handleMembershipRetirement(request:Request,env:Env,path:st
   }
   if(request.method!=='POST'||path===ROOT)throw new Refused('method_not_allowed',405);
   if(url.search||!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)throw new Refused('retirement_bad_origin',403);
-  if(rateLimited('membership-retirement:'+s.u,12,60))throw new Refused('retirement_slow_down',429);
+  const limit=consumeRateLimit280('membership-retirement:'+s.u,12,60);
+  if(limit.limited)throw new Refused('retirement_slow_down',429,limit.retryAfterSeconds);
   const input=await body(request),reconcile=path.endsWith('/reconcile');
   if(!keys(input,reconcile?'form,operationId,parentGrantId':'form,parentGrantId')||typeof input.parentGrantId!=='string'||!HEX.test(input.parentGrantId)||reconcile&&(typeof input.operationId!=='string'||!HEX.test(input.operationId)))throw new Refused('retirement_bad_request',400);
   const f=input.form as Form;
@@ -82,5 +84,5 @@ export async function handleMembershipRetirement(request:Request,env:Env,path:st
   const budget={limit:8,attempts:0,retries:0};
   const settled=await retireOwnedMembershipRole(env,c.parent.id,{subjectGeneration:c.generation},budget,admission,removalDispatch);
   return apiJson({...settled,providerAttempts:budget.attempts},settled.state==='held'?409:200);
- }catch(e){return e instanceof Refused?apiJson({error:e.code},e.status):apiJson({error:'retirement_outcome_unconfirmed'},503);}
+ }catch(e){return e instanceof Refused?apiJson({error:e.code},e.status,e.status===429&&e.retryAfterSeconds?{'Retry-After':String(e.retryAfterSeconds)}:{}):apiJson({error:'retirement_outcome_unconfirmed'},503);}
 }

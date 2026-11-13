@@ -4,6 +4,8 @@ local ADDON = ...
 local Q = { generation = 0, pending = {}, continuations = {}, sessionPromotions = {} }
 OlympusLaunch229 = Q
 local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
+local DirectiveIntent
+local DiscoveryControlCurrent
 local function Say(text) DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: " .. text) end
 local function Text(value, limit)
   if type(issecretvalue) == "function" then local ok, secret = pcall(issecretvalue, value); if not ok or secret then return nil end end
@@ -118,20 +120,20 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
     Q.scopeChanged = true; return nil, "Native guild/character identity changed; launch actions held." end
   if Preview() then return nil, "Preview is display only; launch actions held." end
   if type(data) ~= "table" then return refuse("projection_missing", "No dated launch projection is loaded; no action taken.") end
-  if data.version ~= 2 then return refuse("projection_version", "The loaded launch container version is incompatible; no action taken.") end
+  if data.version ~= 3 then return refuse("projection_version", "The loaded launch container version is incompatible; no action taken.") end
   if type(data.pages) ~= "table" or #data.pages < 1 or #data.pages > 50 then
     local stop=Text(data.stoppedReason,64)
     local spec=stop and LOADED_STOP[stop] and LOADED_STATES[stop]
     return refuse("projection_pages", "No supported launch page list is loaded; no action taken."
       ..(spec and (" Unvalidated loaded container reports: "..spec[1]..". "..spec[2].." Next step: "..spec[3]) or "")) end
   local control = OlympusVerifyDB and OlympusVerifyDB.launchControl
-  local held = data.stoppedReason or control and (control.action == "stop" or control.id ~= data.controlId)
+  local held = data.stoppedReason or not selectedPage and not DiscoveryControlCurrent(control,identity,data.controlId,now)
   local result = { identity = identity, invites = {}, promotions = {}, riskBuffer = {}, held = {}, partial = data.scanComplete ~= true,
     pages = data.pages, actionHeld = held, freshness = {}, scanComplete = data.scanComplete == true, stalePages = 0 }
   local first, guids = data.pages[1], {}
   if type(first) ~= "table" then return refuse("malformed_page", "The first launch page is malformed; no action taken.") end
-  if first.protocol ~= "officer-operations-v233" then
-    return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
+  if first.protocol ~= "officer-operations-v234" then
+    return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v234. No action taken; obtain a compatible source projection.") end
   if type(first) ~= "table" or type(first.scan) ~= "table" or not Text(first.scan.id, 32) or #first.scan.id ~= 32
     or not first.scan.id:match("^%x+$") or not Number(first.scan.startedAt, 1, now + 5)
     or not Number(first.scan.expiresAt, first.scan.startedAt + 1, first.scan.startedAt + 600) then
@@ -140,8 +142,12 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
     return refuse("malformed_entitlements", "The first launch page's entitlement metadata is malformed; no action taken.") end
   for index, page in ipairs(data.pages) do
     if type(page) ~= "table" then return refuse("malformed_page", "A launch page is malformed; no action taken.") end
-    if page.protocol ~= "officer-operations-v233" then
-      return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v233. No action taken; obtain a compatible source projection.") end
+    if page.protocol ~= "officer-operations-v234" then
+      return refuse("page_protocol", "The loaded launch page protocol is incompatible with officer-operations-v234. No action taken; obtain a compatible source projection.") end
+    local ranks=OlympusVerifyNativeRankConstants
+    if not ranks or page.rankProfile~=ranks.profile or page.rankSchemeDigest~=ranks.digest
+      or not OlympusVerifyNativeRanks or not OlympusVerifyNativeRanks.Qualified({version=1,names=page.rankNames}) then
+      return refuse("rank_scheme", "The complete Directive rank table is unconfirmed; rank-dependent actions are held.") end
     if page.status ~= "ready" and page.status ~= "partial" then
       return refuse("page_status", "A launch page is not in a supported ready or partial source state; no action taken.") end
     if not Number(page.fetchedAt, 1, 2147483647) or not Number(page.expiresAt, page.fetchedAt, page.fetchedAt + pageTTL)
@@ -182,9 +188,10 @@ local function HistoricalCurrent(data, selectedPage, selectedTTL)
           queueIds[row.queueId],proofIds[row.proofId]=true,true
           result.freshness[row.guid].expiresAt=math.min(page.expiresAt,row.expiresAt)
         elseif label == "promotions" then
-          if not Number(row.currentSlot, 7, 9) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
-            or not ((row.targetSlot == 6 and row.targetName == "Veteran" and row.reason == "knight-veteran")
-              or (row.targetSlot == 8 and row.targetName == "Member" and row.reason == "verified-initiate" and row.currentSlot == 9)) then
+          if not Number(row.currentSlot, 6, 9) or not Number(row.targetSlot, 0, 9) or row.targetSlot >= row.currentSlot
+            or not ((row.targetSlot == 5 and row.targetName == "Veteran" and row.reason == "knight-veteran")
+              or (row.targetSlot == 7 and row.targetName == "Member" and row.reason == "verified-initiate" and (row.currentSlot == 9 or selectedPage and row.currentSlot==8)))
+            or selectedPage and not DirectiveIntent(row,page,identity,now) then
             return refuse("unsupported_promotion_target", "The launch projection contains a malformed or unsupported promotion target; no action taken.") end
         elseif label == "riskBuffer" and (row.currentSlot ~= 9 or row.reviewOnly ~= true or row.reason ~= "unverified-initiate") then
           return nil, "Unsupported risk-buffer entry; no action taken."
@@ -203,11 +210,42 @@ local function ExactKeys(value, allowed)
   for key in pairs(value) do if not allowed[key] then return false end end
   return true
 end
+DiscoveryControlCurrent=function(control,identity,id,now)
+  if not ExactKeys(control,{version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,offset=true,mac=true})
+    or control.version~=1 or (control.action~="scan" and control.action~="recheck") or control.id~=id
+    or not Text(control.id,32) or not Number(control.observedAt,1,now+5) or control.id:match("^(%d+):%d+$")~=tostring(control.observedAt)
+    or control.scopeHash~=identity.scopeHash or control.guid~=identity.guid or not Number(control.offset,0,980) or control.offset%20~=0
+    or control.action=="scan" and control.offset~=0 or not Text(control.mac,32) or #control.mac~=32
+    or not Text(cfg.secret,1024) or type(H.hmacSha256hex)~="function" then return false end
+  local message=table.concat({"launch-control","1",control.action,control.id,tostring(control.observedAt),identity.scopeHash,identity.guid,tostring(control.offset)},"|")
+  return control.mac==H.hmacSha256hex(cfg.secret,message):sub(1,32)
+end
+local INTENT_KEYS={version=true,id=true,actorGuid=true,targetGuid=true,name=true,subjectDigest=true,rankProfile=true,rankSchemeDigest=true,
+  originSnapshotId=true,originSnapshotAt=true,originContext=true,startSlot=true,finalSlot=true,reason=true,issuedAt=true,expiresAt=true,
+  acknowledgedSteps=true,lastSnapshotId=true,lastObservedAt=true}
+DirectiveIntent=function(row,page,identity,now)
+  local p,ranks=row.intent,OlympusVerifyNativeRankConstants
+  if not ranks or not ExactKeys(p,INTENT_KEYS) or p.version~=1 or not Text(p.id,160) or #p.id<8
+    or p.actorGuid~=identity.guid or p.targetGuid~=row.guid or p.targetGuid==identity.guid or p.name~=row.name
+    or not Text(p.subjectDigest,64) or #p.subjectDigest~=64 or not p.subjectDigest:match("^[0-9a-f]+$")
+    or p.rankProfile~=ranks.profile or p.rankSchemeDigest~=ranks.digest
+    or not Number(p.originSnapshotId,1,2147483647) or not Number(p.originSnapshotAt,1,now+5)
+    or not Text(p.originContext,32) or #p.originContext~=32 or not p.originContext:match("^[0-9a-f]+$")
+    or not Number(p.startSlot,6,9) or p.finalSlot~=row.targetSlot or p.reason~=row.reason
+    or not ((p.finalSlot==5 and p.reason=="knight-veteran") or (p.finalSlot==7 and p.startSlot==9 and p.reason=="verified-initiate"))
+    or not Number(p.acknowledgedSteps,0,p.startSlot-p.finalSlot-1) or row.currentSlot~=p.startSlot-p.acknowledgedSteps
+    or not Number(p.issuedAt,p.originSnapshotAt,now+5) or not Number(p.expiresAt,p.issuedAt+1,p.issuedAt+600)
+    or page.expiresAt>p.expiresAt or p.lastSnapshotId~=page.snapshotId or p.originSnapshotId>p.lastSnapshotId
+    or not Number(p.lastObservedAt,p.originSnapshotAt,page.snapshotAt)
+    or p.acknowledgedSteps==0 and p.lastSnapshotId~=p.originSnapshotId or p.acknowledgedSteps>0 and p.lastSnapshotId<=p.originSnapshotId
+    or not Text(row.intentToken,4096) or not row.intentToken:match("^[%w_%-]+%.[0-9a-f]+$") then return false end
+  return true
+end
 local SELECT_KEYS={version=true,protocol=true,controlId=true,actorGuid=true,targetGuid=true,scopeHash=true,observedAt=true,
   snapshotId=true,snapshotAt=true,startedAt=true,expiresAt=true,running=true,stoppedReason=true,attempts=true,completed=true,page=true,coveredGuids=true}
 local SELECT_CONTROL={version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,targetGuid=true,mac=true}
-local BATCH_CONTROL={version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,targetGuids=true,mac=true}
-local BATCH_KEYS={version=true,protocol=true,controlId=true,actorGuid=true,targetGuids=true,targetsDigest=true,coverageKind=true,scopeHash=true,observedAt=true,
+local BATCH_CONTROL={version=true,action=true,id=true,observedAt=true,scopeHash=true,guid=true,targetGuids=true,confirmations=true,mac=true}
+local BATCH_KEYS={version=true,protocol=true,controlId=true,actorGuid=true,targetGuids=true,targetsDigest=true,coverageKind=true,confirmations=true,scopeHash=true,observedAt=true,
   snapshotId=true,snapshotAt=true,startedAt=true,expiresAt=true,running=true,stoppedReason=true,attempts=true,completed=true,page=true,coveredGuids=true}
 -- GUIDs contain only this fixed alphabet, so canonical JSON needs no free-text escaping.
 local function BatchTargets(value, sorted)
@@ -225,9 +263,9 @@ local function BatchTargets(value, sorted)
   return copy,"["..table.concat(encoded,",").."]",table.concat(copy,",")
 end
 local function ValidSelect(control,identity,now)
-  local batch=type(control)=="table" and control.version==3 and control.action=="select-many"
+  local batch=type(control)=="table" and control.version==4 and control.action=="select-directive"
   if not ExactKeys(control,batch and BATCH_CONTROL or SELECT_CONTROL)
-    or not batch and (control.version~=2 or control.action~="select")
+    or not batch or not Text(control.confirmations,65536)
     or not Text(control.id,32) or not Number(control.observedAt,1,now+5) or control.id:match("^(%d+):%d+$")~=tostring(control.observedAt)
     or control.scopeHash~=identity.scopeHash or control.guid~=identity.guid or not Text(control.mac,32) or #control.mac~=32
     or not Text(cfg.secret,1024) or not H or type(H.hmacSha256hex)~="function" then return false end
@@ -235,7 +273,7 @@ local function ValidSelect(control,identity,now)
   if batch then targets,encoded,joined=BatchTargets(control.targetGuids,true)
   elseif Text(control.targetGuid,40) and control.targetGuid:match("^Player%-%d+%-%x+$") then targets,joined={control.targetGuid},control.targetGuid end
   if not targets then return false end
-  local message=table.concat({"launch-selected-read",batch and "3" or "2",batch and "select-many" or "select",control.id,tostring(control.observedAt),control.scopeHash,control.guid,joined},"|")
+  local message=table.concat({"launch-selected-read","4","select-directive",control.id,tostring(control.observedAt),control.scopeHash,control.guid,joined,control.confirmations},"|")
   if control.mac~=H.hmacSha256hex(cfg.secret,message):sub(1,32) then return false end
   return targets,batch,encoded
 end
@@ -261,9 +299,7 @@ local function SelectedCurrent(identity, now, control)
   if not targets then return nil end
   local requested={};for _,id in ipairs(targets) do requested[id]=true end
   local held={targetGuid=targets[1],targetGuids=batch and targets or nil,covered=requested,state="pending",reason="The selected read is awaiting a matching result; its historical recommendation is held."}
-  if not ExactKeys(data,batch and BATCH_KEYS or SELECT_KEYS) or data.version~=1
-    or batch and data.protocol~="promotion-selection-v276"
-    or not batch and data.protocol~="promotion-selection-v273" and data.protocol~="promotion-selection-v274"
+  if not ExactKeys(data,BATCH_KEYS) or data.version~=2 or data.protocol~="promotion-selection-directive-v1" or data.confirmations~=control.confirmations
     or data.controlId~=control.id or data.actorGuid~=identity.guid or not batch and data.targetGuid~=control.targetGuid
     or data.scopeHash~=identity.scopeHash or data.observedAt~=control.observedAt or data.startedAt~=data.observedAt
     or not Number(data.observedAt,1,now+5) or type(data.running)~="boolean" or type(data.completed)~="boolean"
@@ -305,8 +341,7 @@ local function SelectedCurrent(identity, now, control)
     or page.nextCursor~=nil or page.pageCursor~=nil then return held end
   -- The owner's longer window applies only to new selected-promotion observations.
   -- Legacy selected results and all discovery actions keep their original 60-second cap.
-  local ttl=(batch or data.protocol=="promotion-selection-v274") and 600 or 60
-  local checked=HistoricalCurrent({version=2,controlId=control.id,scanComplete=false,pages={page}},true,ttl)
+  local checked=HistoricalCurrent({version=3,controlId=control.id,scanComplete=false,pages={page}},true,600)
   if not checked then return held end
   for _,kind in ipairs({"promotions","held","riskBuffer"}) do
     for _,row in ipairs(checked[kind]) do if not covered[row.guid] then return held end end
@@ -358,20 +393,25 @@ local function NativeRoster(identity)
   if Read(GetGuildRosterShowOffline) ~= true then return nil, "A complete native offline-inclusive roster is required." end
   local count = Read(GetNumGuildMembers)
   if not Number(count, 1, 1000) or type(GetGuildRosterInfo) ~= "function" then return nil, "Native roster is unknown." end
+  local ranks=OlympusVerifyNativeRanks
+  local beforeRanks=ranks and ranks.Observe()
+  if not ranks or not ranks.Qualified(beforeRanks) then return nil,"The complete Directive rank table is unconfirmed; no rank action is ready." end
   local rows, names = {}, {}
   for index = 1, count do
-    local ok, name, _, slot, level, _, _, note, officerNote, online, _, _, _, _, _, _, _, guid = pcall(GetGuildRosterInfo, index)
+    local ok, name, rank, slot, level, _, _, note, officerNote, online, _, _, _, _, _, _, _, guid = pcall(GetGuildRosterInfo, index)
     name, guid = ok and Text(name, 100), ok and Text(guid, 40)
+    rank=ok and Text(rank,96)
     local key = name and H.normalizeCharacter(name)
-    if not name or not guid or not key or not Number(slot, 0, 9) or rows[guid] or names[key] then return nil, "Native roster is incomplete or ambiguous." end
+    if not name or not guid or not key or not Number(slot, 0, 9) or rank~=beforeRanks.names[slot+1] or rows[guid] or names[key] then return nil, "Native roster or its rank labels are incomplete or ambiguous." end
     local onlineKnown = type(online) == "boolean"
     if type(issecretvalue) == "function" then local known, secret = pcall(issecretvalue, online); if not known or secret then onlineKnown = false end end
-    rows[guid] = { name = name, guid = guid, slot = slot, level = level, note = note, officerNote = officerNote,
+    rows[guid] = { name = name, guid = guid, slot = slot, rank=rank, level = level, note = note, officerNote = officerNote,
       online = onlineKnown and online == true, onlineKnown = onlineKnown, index = index }
     names[key] = true
   end
   local final = Identity()
-  if not final or final.guild ~= identity.guild or final.realm ~= identity.realm or final.guid ~= identity.guid then return nil, "Native identity changed; no action taken." end
+  if not final or final.guild ~= identity.guild or final.realm ~= identity.realm or final.guid ~= identity.guid or final.rank~=identity.rank then return nil, "Native identity changed; no action taken." end
+  if not ranks.Same(beforeRanks,ranks.Observe()) then return nil,"The native rank table changed during observation; no rank action is ready." end
   return rows
 end
 local function ActionContext()
@@ -502,17 +542,24 @@ local function PromotionRow(current,id)
   for _,row in ipairs(current.promotions) do if row.guid==id then return row,current.freshness[id] end end
 end
 local function SameAttempt(record,id,current)
-  if not (type(record)=="table" and getmetatable(record)==nil and record.version==2
+  if not (type(record)=="table" and getmetatable(record)==nil and record.version==3
     and record.scopeHash==current.identity.scopeHash and record.actorGuid==current.identity.guid
-    and record.targetGuid==id and Text(record.name,100) and Number(record.startSlot,7,9)
-    and Number(record.target,6,8) and Number(record.attemptedAt,1,time())
+    and record.targetGuid==id and Text(record.name,100) and Number(record.startSlot,6,9)
+    and (record.target==5 or record.target==7 and record.startSlot==9) and Number(record.attemptedAt,1,time())
+    and OlympusVerifyNativeRankConstants and record.rankProfile==OlympusVerifyNativeRankConstants.profile
+    and record.rankSchemeDigest==OlympusVerifyNativeRankConstants.digest
+    and Text(record.intentId,160) and Text(record.intentName,100) and Text(record.intentToken,4096) and Text(record.originalIntentToken,4096) and Text(record.subjectDigest,64)
+    and Number(record.intentIssuedAt,1,record.attemptedAt) and Number(record.intentExpiresAt,record.intentIssuedAt+1,record.intentIssuedAt+600)
+    and Number(record.snapshotId,1,2147483647)
+    and Number(record.admittedSteps,0,3) and Number(record.selectedSnapshotId,record.snapshotId,2147483647) and Text(record.selectedContextId,32)
     and type(record.steps)=="table" and getmetatable(record.steps)==nil
-    and Number(#record.steps,1,3) and #record.steps<=record.startSlot-record.target) then return false end
+    and Number(#record.steps,1,4) and #record.steps<=record.startSlot-record.target and record.admittedSteps==#record.steps-1) then return false end
   local count=0
   for key,step in pairs(record.steps) do
     count=count+1
     if not Number(key,1,#record.steps) or type(step)~="table" or getmetatable(step)~=nil
       or step.from~=record.startSlot-key+1 or step.expected~=step.from-1
+      or not Text(step.intentToken,4096) or not Number(step.snapshotId,record.snapshotId,2147483647) or not Text(step.contextId,32) or step.admittedSteps~=key-1
       or not Number(step.attemptedAt,record.attemptedAt,time()) then return false end
     if record.state=="confirmed" and (step.state~="rank-observed" or not Number(step.observedAt,step.attemptedAt,time())) then return false end
   end
@@ -523,7 +570,8 @@ local function SameAttempt(record,id,current)
 end
 local ATTEMPT_KEYS={version=true,scopeHash=true,actorGuid=true,targetGuid=true,name=true,target=true,startSlot=true,
   snapshotId=true,contextId=true,attemptedAt=true,steps=true,previous=true,state=true,completed=true,
-  observedSlot=true,observedAt=true,observedGeneration=true}
+  observedSlot=true,observedAt=true,observedGeneration=true,intentId=true,intentName=true,intentToken=true,originalIntentToken=true,subjectDigest=true,rankProfile=true,
+  rankSchemeDigest=true,intentIssuedAt=true,intentExpiresAt=true,admittedSteps=true,selectedSnapshotId=true,selectedContextId=true}
 local function CopySessionAttempt(record,id,depth)
   if depth>8 or type(record)~="table" or not ExactKeys(record,ATTEMPT_KEYS)
     or not Text(record.actorGuid,40) or not Text(record.scopeHash,16)
@@ -541,10 +589,11 @@ local function CopySessionAttempt(record,id,depth)
   end
   copy.steps={}
   for i,step in ipairs(record.steps) do
-    if not ExactKeys(step,{from=true,expected=true,attemptedAt=true,state=true,observedAt=true})
+    if not ExactKeys(step,{from=true,expected=true,attemptedAt=true,state=true,observedAt=true,intentToken=true,snapshotId=true,contextId=true,admittedSteps=true})
       or (step.state~="unknown" and step.state~="rank-observed")
       or step.observedAt~=nil and not Number(step.observedAt,step.attemptedAt,time()) then return nil end
-    copy.steps[i]={from=step.from,expected=step.expected,attemptedAt=step.attemptedAt,state=step.state,observedAt=step.observedAt}
+    copy.steps[i]={from=step.from,expected=step.expected,attemptedAt=step.attemptedAt,state=step.state,observedAt=step.observedAt,
+      intentToken=step.intentToken,snapshotId=step.snapshotId,contextId=step.contextId,admittedSteps=step.admittedSteps}
   end
   if record.previous~=nil then
     copy.previous=CopySessionAttempt(record.previous,id,depth+1)
@@ -614,9 +663,13 @@ function Q.PublishPromotionCustody()
   return result
 end
 local function SamePromotion(record,row,source,current)
-  return SameAttempt(record,row.guid,current) and record.snapshotId==source.snapshotId
-    and record.contextId==source.contextId and record.target==row.targetSlot
-    and record.startSlot==row.currentSlot and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
+  local p=row.intent
+  return SameAttempt(record,row.guid,current) and p and source.kind=="selected" and DirectiveIntent(row,source.page,current.identity,time())
+    and record.intentId==p.id and record.snapshotId==p.originSnapshotId and record.contextId==p.originContext
+    and record.target==p.finalSlot and record.startSlot==p.startSlot and record.subjectDigest==p.subjectDigest
+    and record.rankProfile==p.rankProfile and record.rankSchemeDigest==p.rankSchemeDigest
+    and record.intentIssuedAt==p.issuedAt and record.intentExpiresAt==p.expiresAt and record.intentName==row.name
+    and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
 end
 function Q.PromotionStatus(id,current,nativeSlot)
   if Q.promotionBlocked then return "blocked" end
@@ -631,18 +684,28 @@ function Q.PromotionStatus(id,current,nativeSlot)
   if owned and (db~=owned.database or ledger~=owned.ledger or ledger[id]~=owned.record) then return "pending" end
   if storageOwner and storageOwner.entries[id]~=ledger[id] then StorageConflict(db);return "pending" end
   local record=ledger[id]
-  if record==nil then return "clear" end
-  current=current or Q.Current()
-  if not current or not SameAttempt(record,id,current) or record.state~="confirmed" then return "pending" end
-  local row,source=PromotionRow(current,id)
-  if not row or not source or not ActionFresh(current,source) then return "pending" end
+  if record==nil then
+    local row=current and PromotionRow(current,id)
+    if row and row.intent and row.intent.acknowledgedSteps~=0 then return "pending" end
+    return "clear"
+  end
+  -- Without a supplied validated context this is history/read-only status, never continuation admission.
+  local identity=current and current.identity or Identity()
+  if not identity or not SameAttempt(record,id,current or {identity=identity}) or record.state~="confirmed" then return "pending" end
   if nativeSlot~=nil and nativeSlot~=record.observedSlot then return "pending" end
+  local row,source
+  if current then row,source=PromotionRow(current,id) end
+  if not row or not source or not ActionFresh(current,source) then
+    if record.completed then return "settled" end
+    return not record.completed and time()<record.intentExpiresAt and (nativeSlot==nil or nativeSlot==record.observedSlot) and "recheck" or "pending" end
   if SamePromotion(record,row,source,current) then
     if record.completed then return "confirmed" end
-    local continuation=Q.continuations[id]
-    if continuation and continuation.record==record and continuation.generation==record.observedGeneration
-      and Q.generation>=continuation.generation and record.observedSlot>record.target
-      and record.observedSlot<record.startSlot and #record.steps<record.startSlot-record.target then return "continue" end
+    -- Only a new server-admitted selected source may carry the confirmed original intent across reload.
+    if row.intent.acknowledgedSteps==#record.steps and row.currentSlot==record.observedSlot
+      and source.snapshotId>record.selectedSnapshotId and source.page.snapshotAt>=record.observedAt
+      and source.page.fetchedAt>=record.observedAt and time()<record.intentExpiresAt
+      and record.observedSlot>record.target and #record.steps<record.startSlot-record.target then return "continue" end
+    if not record.completed and time()<record.intentExpiresAt then return "recheck" end
   elseif record.completed and record.contextId~=source.contextId and row.currentSlot==record.observedSlot
     and row.targetSlot<record.observedSlot and H.normalizeCharacter(record.name)==H.normalizeCharacter(row.name)
     and source.page and source.page.scan and source.page.scan.startedAt>=record.observedAt and source.page.fetchedAt>=record.observedAt then
@@ -654,8 +717,26 @@ function Q.AttemptHeld(id,current,nativeSlot)
   local status=Q.PromotionStatus(id,current,nativeSlot)
   return status=="pending" or status=="blocked"
 end
-local function ReconcilePromotions()
+local ReconcilePromotions
+local reconcileTimer,lastReconcileAt=false,nil
+local function ScheduleReconciliation(delay)
+  if reconcileTimer or not (C_Timer and type(C_Timer.After)=="function") then return end
+  reconcileTimer=true
+  local ok=pcall(C_Timer.After,delay,function() reconcileTimer=false;ReconcilePromotions() end)
+  if not ok then reconcileTimer=false end
+end
+ReconcilePromotions=function()
   if next(Q.pending)==nil then return end
+  local now,active=time(),false
+  if not Number(now,1,2147483647) then return end
+  for _,pending in pairs(Q.pending) do
+    if Number(pending.observeUntil,1,2147483647) and now<pending.observeUntil and Q.generation>pending.generation then active=true;break end
+  end
+  if not active then return end -- Stop observation work at its original bound; retain every unknown original.
+  if lastReconcileAt and now<lastReconcileAt then lastReconcileAt=now;ScheduleReconciliation(1);return end
+  local delay=lastReconcileAt and 1-(now-lastReconcileAt) or 0
+  if delay>0 then ScheduleReconciliation(delay);return end
+  lastReconcileAt=now
   local current=Q.Current()
   if not current then return end
   local roster=NativeRoster(current.identity)
@@ -664,7 +745,9 @@ local function ReconcilePromotions()
   for id,pending in pairs(Q.pending) do
     local record,native=ledger[id],roster[id]
     local row,source=PromotionRow(current,id)
-    if row and source and record==pending.record and SamePromotion(record,row,source,current) and pending.step==record.steps[#record.steps]
+    if Number(pending.observeUntil,1,2147483647) and now<pending.observeUntil
+      and row and source and record==pending.record and SamePromotion(record,row,source,current) and pending.step==record.steps[#record.steps]
+      and row.intent.acknowledgedSteps==record.admittedSteps and source.snapshotId==record.selectedSnapshotId and source.contextId==record.selectedContextId
       and ActionFresh(current,source) and Q.generation>pending.generation
       and native and native.slot==pending.expected and native.name==record.name then
       record.state,record.observedSlot,record.observedAt,record.observedGeneration="confirmed",native.slot,time(),Q.generation
@@ -695,6 +778,8 @@ local function PreparePromotion(target)
   for index, value in ipairs(current.promotions) do if value.guid == target or tostring(index) == target then row = value; break end end
   if not row then Say("No current promotion matches that GUID/index."); return false end
   local fresh = current.freshness[row.guid]
+  if not fresh or fresh.kind~="selected" or not DirectiveIntent(row,fresh.page,current.identity,time()) then
+    Say("A fresh Directive selected plan is required before a promotion click; discovery remains advisory.");return false end
   if not fresh or (fresh.actionHeld==nil and current.actionHeld or fresh.actionHeld) or not Number(fresh.expiresAt,1,2147483647)
     or not Number(fresh.scanExpiresAt,1,2147483647) or time() >= fresh.expiresAt or time() >= fresh.scanExpiresAt then Say("This page is stale or stopped. Explicitly recheck it and reload before acting."); return false end
   local native = roster[row.guid]
@@ -714,6 +799,8 @@ local function PreparePromotion(target)
   if status~="continue" and native.slot~=row.currentSlot then Say("The native rank changed since this projection; refresh it."); return false end
   if Read(GuildControlGetRankName, row.targetSlot + 1) ~= row.targetName then
     Say("The client cannot confirm the named target rank. Use the normal guild roster UI; no promotion sent."); return false end
+  if Read(GuildControlGetRankName,native.slot)~=OlympusVerifyNativeRankConstants.names[native.slot] then
+    Say("The immediately next native rank label is unconfirmed; no promotion sent.");return false end
   local cg = type(C_GuildInfo) == "table" and C_GuildInfo or {}
   -- Direct promotion API calls were forbidden in the attended .35 client checks
   -- (12 November 2026). Only the inherited secure button executes the command.
@@ -734,14 +821,22 @@ local function ReservePromotion(prepared)
       if depth>=8 or type(previous)~="table" then Say("Native attempt history needs review; no action taken.");return false end
       previous=previous.previous
     end
-    record={version=2,scopeHash=current.identity.scopeHash,actorGuid=current.identity.guid,targetGuid=row.guid,name=native.name,
-      target=row.targetSlot,startSlot=native.slot,snapshotId=fresh.snapshotId,contextId=fresh.contextId,attemptedAt=time(),steps={},previous=record}
+    local p=row.intent
+    if p.acknowledgedSteps~=0 or p.startSlot~=native.slot then Say("The original promotion intent is unavailable; no action taken.");return false end
+    record={version=3,scopeHash=current.identity.scopeHash,actorGuid=current.identity.guid,targetGuid=row.guid,name=native.name,
+      target=p.finalSlot,startSlot=p.startSlot,snapshotId=p.originSnapshotId,contextId=p.originContext,attemptedAt=time(),steps={},previous=record,
+      intentId=p.id,intentName=p.name,intentToken=row.intentToken,originalIntentToken=row.intentToken,subjectDigest=p.subjectDigest,rankProfile=p.rankProfile,rankSchemeDigest=p.rankSchemeDigest,
+      intentIssuedAt=p.issuedAt,intentExpiresAt=p.expiresAt,admittedSteps=p.acknowledgedSteps,selectedSnapshotId=fresh.snapshotId,selectedContextId=fresh.contextId}
     ledger[row.guid]=record
     OwnedEntry(ledger,row.guid,record)
   end
-  local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown"}
+  record.intentToken=row.intentToken;record.admittedSteps=row.intent.acknowledgedSteps
+  record.selectedSnapshotId,record.selectedContextId=fresh.snapshotId,fresh.contextId
+  local step={from=native.slot,expected=native.slot-1,attemptedAt=time(),state="unknown",intentToken=row.intentToken,
+    snapshotId=fresh.snapshotId,contextId=fresh.contextId,admittedSteps=row.intent.acknowledgedSteps}
   record.steps[#record.steps+1]=step;record.state="unknown";record.completed=false
-  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected,database=OlympusVerifyDB,ledger=ledger,phase="reserved"}
+  local attempt={record=record,step=step,generation=Q.generation,expected=step.expected,database=OlympusVerifyDB,ledger=ledger,phase="reserved",
+    observeUntil=math.min(fresh.expiresAt,fresh.scanExpiresAt)}
   Q.sessionPromotions[row.guid]=attempt
   Q.continuations[row.guid]=nil
   Q.pending[row.guid], Q.activeAttempt, Q.inAction = attempt, attempt, "promote"
@@ -845,9 +940,15 @@ function Q.RecordCurrentPromotionObservation(target)
   local ledger=AttemptLedger();local receipt=ledger and ledger[target]
   local status=not ledger and "unavailable" or receipt==nil and "absent"
     or type(receipt)=="table" and (receipt.state=="unknown" or receipt.state=="confirmed") and receipt.state or "invalid"
-  local observation={version=1,origin="current-native-rank-observation",guid=target,name=member.name,actorGuid=identity.guid,
+  local observation={version=2,origin="current-native-rank-observation",guid=target,name=member.name,actorGuid=identity.guid,
     scopeHash=identity.scopeHash,guild=identity.guild,realm=identity.realm,observedAt=time(),nativeGeneration=Q.generation,
-    rankIndex=member.slot,rankName=rankName,receiptStatus=status,commandAttempted=false,historicalOutcomeSettled=false}
+    rankIndex=member.slot,rankName=rankName,rankProfile=OlympusVerifyNativeRankConstants.profile,rankSchemeDigest=OlympusVerifyNativeRankConstants.digest,
+    receiptStatus=status,commandAttempted=false,historicalOutcomeSettled=false}
+  local previous=history[target]
+  if previous~=nil then
+    local prior=type(previous)=="table" and Number(previous.observedAt,1,time()) and tostring(previous.observedAt) or "unavailable time"
+    Say("Replacing the prior factual observation from "..prior..". This does not settle or alter command attempt history.")
+  end
   history[target]=observation
   Say(string.format("Current native rank: %s is %s (slot%d); stored attempt receipt %s. This dated observation records no command and recreates no missing receipt.",member.name,rankName,member.slot,status))
   if status=="unknown" then Say("The original unknown attempt remains unchanged and held; a current rank cannot settle its past effect.")
@@ -955,9 +1056,20 @@ function Q.Select(targetGuid)
   OlympusVerifyDB=OlympusVerifyDB or {}
   local db,now=OlympusVerifyDB,time()
   db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
-  local value={version=2,action="select",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
-    scopeHash=identity.scopeHash,guid=identity.guid,targetGuid=targetGuid}
-  value.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","2","select",value.id,tostring(now),identity.scopeHash,identity.guid,targetGuid},"|")):sub(1,32)
+  local ledger,confirmations=AttemptLedger(),"[]"
+  if not ledger then Say("Prior attempt custody is unavailable; selected read held.");return false end
+  local record=ledger[targetGuid]
+  if record~=nil and not (type(record)=="table" and record.completed==true) then
+    if not SameAttempt(record,targetGuid,{identity=identity}) or record.state~="confirmed" or record.completed~=false
+      or roster[targetGuid].slot~=record.observedSlot or now>=record.intentExpiresAt then
+      Say("The original attempt is unknown, incompatible or expired; a new selected read cannot repair it.");return false end
+    local step=record.steps[#record.steps]
+    if not record.intentToken:match("^[%w_%-]+%.[0-9a-f]+$") then return false end
+    confirmations='[{"guid":"'..targetGuid..'","token":"'..record.intentToken..'","from":'..tostring(step.from)..',"to":'..tostring(step.expected)..',"observedAt":'..tostring(step.observedAt)..'}]'
+  end
+  local value={version=4,action="select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+    scopeHash=identity.scopeHash,guid=identity.guid,targetGuids={targetGuid},confirmations=confirmations}
+  value.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","4","select-directive",value.id,tostring(now),identity.scopeHash,identity.guid,targetGuid,confirmations},"|")):sub(1,32)
   db.launchControl=value
   Say("Selected GUID read requested. This reload saves its fresh native source; sync later to load the dated result. Promotion needs a separate hardware click.")
   OlympusVerifyAPI.Sync();return true
@@ -981,9 +1093,12 @@ function Q.SelectMany(targetGuids)
   OlympusVerifyDB=OlympusVerifyDB or {}
   local db,now=OlympusVerifyDB,time()
   db.launchSequence=Number(db.launchSequence,0,999999999) and db.launchSequence+1 or 1
-  local control={version=3,action="select-many",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
-    scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=targets}
-  control.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","3","select-many",control.id,tostring(now),identity.scopeHash,identity.guid,joined},"|")):sub(1,32)
+  local ledger=AttemptLedger()
+  if not ledger then Say("Prior attempt custody is unavailable; no check requested.");return false end
+  for _,id in ipairs(targets) do if ledger[id]~=nil then Say("Select prior attempts individually; batch checks cannot replace their history.");return false end end
+  local control={version=4,action="select-directive",id=tostring(now)..":"..tostring(db.launchSequence),observedAt=now,
+    scopeHash=identity.scopeHash,guid=identity.guid,targetGuids=targets,confirmations="[]"}
+  control.mac=H.hmacSha256hex(cfg.secret,table.concat({"launch-selected-read","4","select-directive",control.id,tostring(now),identity.scopeHash,identity.guid,joined,"[]"},"|")):sub(1,32)
   db.launchControl=control
   Say("Requested a fresh check of "..#targets.." verified native Initiates. This reload exports the request; load its completed result before promoting. No promotion was sent.")
   OlympusVerifyAPI.Sync();return true
@@ -1088,7 +1203,8 @@ function Q.Show()
       Q.rowRecheckButtons[i]=button("Recheck + reload",426,-171-(i-1)*28,112,function()
         local row=(Q.shownRows or {})[(Q.listPage-1)*8+index];local current,why=Q.Current()
         local source=row and current and current.freshness[row.guid]
-        if source then Q.Control("recheck",source.offset) else Say(why or "This recommendation is unavailable; refresh the projection.") end
+        if source and source.kind=="selected" then Q.Select(row.guid)
+        elseif source then Q.Control("recheck",source.offset) else Say(why or "This recommendation is unavailable; refresh the projection.") end
       end)
     end
     button("Previous",18,-405,100,function() Q.listPage=math.max(1,Q.listPage-1);Q.Show() end)
@@ -1162,7 +1278,11 @@ events:SetScript("OnUpdate",function()
   local control=OlympusVerifyDB and OlympusVerifyDB.launchControl
   if type(control)~="table" or control.action=="stop" or not Number(control.observedAt,1,time()) then return end
   local age=time()-control.observedAt
-  if age>=5 and age<60 and Q.remindedControl~=control.id and (not OlympusLaunchQueue or OlympusLaunchQueue.controlId~=control.id) then
+  if age<5 or age>=60 or Q.remindedControl==control.id then return end
+  local identity=Identity()
+  local selected=identity and SelectedCurrent(identity,time(),control)
+  if selected and selected.completed then Q.remindedControl=control.id;return end -- Notification-only decision, never cached authority.
+  if not OlympusLaunchQueue or OlympusLaunchQueue.controlId~=control.id then
     Q.remindedControl=control.id
     Say("The Watcher queue may be ready. Sync again to load and check its actual dated status; this reminder is not an acknowledgment.")
     if OlympusVerifyAutoSync then OlympusVerifyAutoSync.Request("queue-check") end

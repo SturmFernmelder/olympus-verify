@@ -387,18 +387,20 @@ end
 -- This only withholds a new read from a row with unresolved native history. It
 -- cannot clear history or make a promotion eligible; the launch dispatcher owns
 -- all action admission and the selected read remains a separate reload workflow.
-local function CheckCustodyClear(launch,id)
+local function CheckCustodyClear(launch,id,current,nativeSlot)
   if type(launch)~="table" or type(launch.AttemptHeld)~="function" then return false end
-  local ok,held=pcall(launch.AttemptHeld,id)
+  local ok,held=pcall(launch.AttemptHeld,id,current,nativeSlot)
   return ok and held==false -- Shared journal/save-conflict admission, never a second authority policy.
 end
-local function PromotionControl(input,result,ready,detail,bound)
+local function PromotionControl(input,result,ready,detail,bound,current)
   local launch=OlympusLaunch229
   if ready and bound then return "Promote",true,"promote" end
-  if input.rankIndex==8 then return "Member",false,nil end -- Native rank and attempt history are separate facts.
+  if input.rankIndex==7 and OlympusVerifyNativeRanks and OlympusVerifyNativeRanks.Qualified(OlympusVerifyNativeRanks.Observe()) then return "Member",false,nil end -- Native rank and attempt history are separate facts.
   if not bound then return "Unavailable",false,nil end
+  if detail and detail.state=="recheck" and type(launch.Select)=="function" then return "Check next",true,"check" end
+  if detail and detail.label=="Target rank observed (history retained)" then return "Observed",false,nil end
   if detail and (detail.state=="pending" or detail.state=="held")
-    or input.guid and not CheckCustodyClear(launch,input.guid) then return "Held",false,nil end
+    or input.guid and not CheckCustodyClear(launch,input.guid,current,input.rankIndex) then return "Held",false,nil end
   if result.status=="verified" and not result.historicalLinked and input.rankIndex==9
     and Text(input.guid,40) and type(launch.Select)=="function"
     and (not detail or detail.state=="expired" or detail.state=="no_recommendation" or detail.state=="unavailable") then
@@ -448,7 +450,7 @@ local function NewButton(parent)
     local result=G.Verification(b.rowName,b.rowGuid)
     local input=PromotionInput(b.rowName,b.rowGuid,result)
     local ready,details=PromotionState({input})
-    local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+    local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound,details.current)
     if mode=="check" then self.guildRecheck={guid=b.rowGuid,name=b.rowName};return end
     if mode~="promote" then
       local detail=details.byGuid and details.byGuid[b.rowGuid]
@@ -466,7 +468,7 @@ local function NewButton(parent)
       local result=G.Verification(b.rowName,b.rowGuid)
       local input=PromotionInput(b.rowName,b.rowGuid,result)
       local ready,details=PromotionState({input})
-      local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound)
+      local _,_,mode=PromotionControl(input,result,ready[b.rowGuid],details.byGuid and details.byGuid[b.rowGuid],self.bound,details.current)
       if mode=="check" then launch.Select(check.guid) end
     end
   end) end
@@ -561,7 +563,7 @@ local function Paint()
         local ready,details=PromotionState(inputs)
         for i,b in ipairs(painted) do
           b.promote.detail=details.byGuid and details.byGuid[b.rowGuid]
-          local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound)
+          local text,enabled,mode=PromotionControl(inputs[i],b.result,ready[b.rowGuid],b.promote.detail,b.promote.bound,details.current)
           b.promote.mode=mode;b.promote:SetText(text);b.promote:SetEnabled(enabled)
         end
       else h.column:Hide(); h.fallback:Show() end

@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** Owner-attended additional-gold recognition. No module-level I/O, automatic
  * grant, schema change, public balance or authority from a cosmetic title.
  * Physical Discord effects stay in the central role-settlements writer. */
@@ -182,7 +183,8 @@ export async function handleTreasuryCosmeticAdmin(request: Request, env: Treasur
     const originalSubject = ctx.subject, actor = captureCommunitySubject(originalSubject);
     const requestCurrent = () => { e.check(); actor.check(); if (ctx.subject !== originalSubject || !isSiteAdmin(env, actor.subject.discordId)) return fail('treasury_actor_changed', 403); };
     requestCurrent();
-    if (rateLimited(`treasury:${actor.subject.discordId}`, 30, 60)) return apiJson({ error: 'slow_down' }, 429);
+    const rateLimitAt185280=consumeRateLimit280(`treasury:${actor.subject.discordId}`,30,60);
+    if (rateLimitAt185280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt185280));
     requestCurrent();
     const sub = parts.join('/');
     if (sub === 'target') {

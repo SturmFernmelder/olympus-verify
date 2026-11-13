@@ -21,6 +21,7 @@ import { API, credentialFetch } from "./discord";
 import { purgeBattleNetData } from "./bnet-retention";
 import { BNET_SWITCH_KEY, bnetLoginOn, bnetSwitchedOffPage } from "./bnet-switch";
 import { readPrivacySubject, privacyBoundSubjectEnv, type PrivacySubject } from './privacy-serving-authority';
+import {oauthResultPage280 as page,botResponseHeaders280} from './bot-response280';
 
 const SCOPES = "identify role_connections.write";
 
@@ -56,10 +57,10 @@ export async function startLinkedRole(env: Env): Promise<Response> {
   url.searchParams.set("prompt", "consent");
   return new Response(null, {
     status: 302,
-    headers: {
+    headers: botResponseHeaders280({
       Location: url.toString(),
       "Set-Cookie": `olv_state=${state}.${mac}; Max-Age=600; Path=/; HttpOnly; Secure; SameSite=Lax`,
-    },
+    }),
   });
 }
 
@@ -121,11 +122,11 @@ export async function linkedRoleCallback(env: Env, request: Request): Promise<Re
   // domain, and nothing typed there is ever visible to this bot.
   return new Response(bnetInterstitial(bnetUrl.toString(), me.global_name ?? me.username), {
     status: 200,
-    headers: {
+    headers: botResponseHeaders280({
       "Content-Type": "text/html; charset=utf-8",
       "Set-Cookie": `olv_bnet=${sealed}; Max-Age=600; Path=/; HttpOnly; Secure; SameSite=Lax`,
       "Referrer-Policy": "no-referrer",
-    },
+    },true),
   });
 }
 
@@ -264,7 +265,7 @@ export async function bindBattletag(
   if (!push.ok) return page("Almost", "Your BattleTag was saved but Discord refused the role metadata. Try the link once more.", 502);
   if (readback === "other") return page("Almost", "Your BattleTag was saved, but Discord still shows an older name on this connection. Remove the connection under Discord's Settings \u2192 Connections and link once more.", 502);
   if (readback === "absent") return page("Almost", "Your BattleTag was saved, but Discord did not confirm the role record. Try the link once more; if this keeps happening, remove the connection under Discord's Settings \u2192 Connections and link again, or tell an officer.", 502);
-  return page("Linked", `${battletag} is now linked to your Discord account. Go back to Discord — the Linked Role applies within a minute — and run /verify &lt;character&gt;.`, 200);
+  return page("Linked", `${battletag} is now linked to your Discord account. Go back to Discord — the Linked Role applies within a minute — and run /verify <character>.`, 200);
 }
 
 // ---- sealed cookie: AES-GCM under a key derived from COOKIE_SECRET; carries the Discord identity through the Battle.net round trip ----
@@ -319,11 +320,4 @@ domain in your address bar before you type anything.</p>
 <p class="fine">Olympus never sees your Blizzard password, and never asks for it. Blizzard tells us your BattleTag and
 nothing else \u2014 no email, no payment details, no account access. Close this tab to stop; nothing has been saved yet.</p>
 </main></html>`;
-}
-
-function page(title: string, body: string, status: number, extraHeaders: Record<string, string> = {}) {
-  const html = `<!doctype html><meta charset="utf-8"><title>Olympus — ${title}</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;background:#1e1f22;color:#e3e5e8;display:grid;place-items:center;min-height:100vh;margin:0}main{max-width:32rem;padding:2rem}h1{color:#c9a227}</style>
-<main><h1>${title}</h1><p>${body}</p></main>`;
-  return new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8", ...extraHeaders } });
 }

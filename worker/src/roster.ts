@@ -443,7 +443,7 @@ export function releaseCap(bound: number): number {
  */
 async function rosterFingerprint(members: RosterMemberIn[]): Promise<string> {
   const canon = members
-    .map((m) => `${normalizeCharacter(m.name)}|${m.rankIndex ?? ""}|${(m.note ?? "").trim()}|${guidOf(m.guid) ?? ""}`)
+    .map((m) => `${normalizeCharacter(m.name)}|${m.rankIndex ?? ""}|${JSON.stringify(m.rank ?? null)}|${(m.note ?? "").trim()}|${guidOf(m.guid) ?? ""}`)
     .sort()
     .join("\n");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon));
@@ -496,7 +496,7 @@ async function reportDuplicateNames(env: Env, count: number, dupes: Array<{ key:
  * against ROSTER_INGEST_STATEMENTS (scheduled-budget.ts) before it starts; whatever does not fit stays in the worklist for
  * the next export or the cron.
  */
-export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}`, fresh?: FreshIngest,originalDispatch?:BetaRoleDispatch) {
+export async function ingestRoster(env: Env, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, fresh?: FreshIngest,originalDispatch?:BetaRoleDispatch) {
   const removal = originalDispatch??departureDispatch(env); // Original entry capture survives every facade and await.
   const count = { used: 0 };
   const counted = countStatements(env, count);
@@ -572,7 +572,7 @@ async function seatBase(env: Env, upTo: number, cut: number, maxShrinkPct: numbe
   return base;
 }
 
-async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}`, notices: NoticeBatch, removal: RemovalDispatch, holder?: { calls?: CallBudget }) {
+async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, members: RosterMemberIn[], source: "addon" | "api" | `addon-native-v1:${string}` | `addon-native-v2:${string}`, notices: NoticeBatch, removal: RemovalDispatch, holder?: { calls?: CallBudget }) {
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export naming one character key twice is refused
   // before anything is read or written: no snapshot, no member rows, no first-seen dates, no link, character or role
   // change. ingest.ts answers 422, which the watcher takes as final (a 4xx is not retried); the next export is judged
@@ -597,7 +597,9 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
     throw new Error("Roster snapshot is still being written; retry this export");
   }
   const fullyStored = !!prev && prev.complete === 1 && prev.stored_count === prev.member_count;
-  if (prev && (prev.exported_at > exportedAt || (prev.exported_at === exportedAt && prev.source===source && !stuck && fullyStored))) {
+  const fingerprint = await rosterFingerprint(members);
+  if (prev && (prev.exported_at > exportedAt || (prev.exported_at === exportedAt && prev.source===source && !stuck && fullyStored
+    && (!source.startsWith('addon-native-v2:') || prev.content_hash===fingerprint)))) {
     // .115 (finding A): an export older than the stored one, or the same one sent again, still changes no snapshot. But the
     // newest snapshot's effects may be unfinished (its invocation stopped partway, or its slice did not reach every item),
     // and a retry is exactly when the watcher is back: it resumes them rather than answering "older" and leaving them.
@@ -631,7 +633,6 @@ async function ingestRosterInner(env: Env, adm: Admission, exportedAt: number, m
   // /ingest/roster return 500. So an unchanged roster refreshes the existing snapshot row and reuses its members.
   // The diff below still runs either way: somebody may have *verified* since the last export even though the guild
   // itself did not move, and that still has to grant a role.
-  const fingerprint = await rosterFingerprint(members);
   let snapId: number;
   const unchanged = !!prev && !stuck && prev.source===source && prev.content_hash === fingerprint;
   let run: EffectRun | null = null; // .115 (finding A): the effects run this export derives, if any

@@ -1,7 +1,7 @@
 import './privacy-access-data';
 import './ruleset-publication-data';
 import {TREASURY_RECEIPT_OWN_SQL242} from './treasury-data242';
-import {nicknameUnresolvedSql233} from './member-nickname-data233';
+import {nicknameUnresolvedSql233,nicknameErasureUnresolvedSql233} from './member-nickname-data233';
 /** Serving-account completion; independent provider messages/recovery copies retain truthful custody.
  * Dormant .129 completion and restore authority are not enabled by this module.
  */
@@ -76,7 +76,7 @@ function ambiguousAccountReferencesSql(discipline=false):string{
  ELSE NOT EXISTS(SELECT 1 FROM json_each(${a}.details,'$.names') WHERE type<>'text') END`;
  // Ambiguous/manual references in another owner's record cannot be guessed away. The structured
  // application scrub runs below, but any still-ambiguous raw document closes this batch.
- return `(${nicknameUnresolvedSql233('?2')}) OR EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
+ return `(${nicknameErasureUnresolvedSql233('?2')}) OR EXISTS(SELECT 1 FROM site_settings WHERE instr(value,?2)>0)
  OR EXISTS(SELECT 1 FROM site_applications a WHERE a.discord_id<>?2 AND instr(a.answers,?2)>0 AND
  (NOT json_valid(a.answers) OR CASE WHEN json_valid(a.answers) THEN json_type(a.answers)<>'object' OR
  (SELECT COUNT(*) FROM json_each(a.answers) WHERE key='references')<>1 OR

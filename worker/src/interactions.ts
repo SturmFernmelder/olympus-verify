@@ -27,6 +27,7 @@ import { openRenameHold, reapplyText } from "./rename-review";
 import { captureLaneConfig, FRESH_AUDIT, laneClock, LEGACY_BAN_ALLOWANCE, type LaneCapture } from "./full-release-roles";
 import { appendLinkBlock } from "./link"; // .186: the Olympus Link code, last in the two code replies; off, the very same string
 import { isNicknameInteraction233,handleNicknameInteraction233 } from './member-nickname233';
+import type {RoleRequestReceipt280} from './role-reconcile242';
 async function requestRoleReconciliation242(...args:Parameters<typeof import('./role-reconcile242').requestRoleReconciliation242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).requestRoleReconciliation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){if(currentNativeVerification242(args[0]))return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 import {captureLaunchVerification} from './launch-verification227';
@@ -34,6 +35,21 @@ function currentNativeVerification242(env:Env):boolean{const capture=captureLaun
 
 /** Revision 4: registers deferred work past the reply (index.ts deferOriginalServing). Absent in tests and direct callers. */
 type Defer = (label: string, work: () => Promise<unknown>) => void;
+export type VerificationIssueOutcome280=Readonly<{reconciliation?:RoleRequestReceipt280;refusal?:Readonly<{kind:'active_named_cap';retryAfterSeconds:number}>}>;
+// Per-original-response bookkeeping only. No browser field or mutable global
+// Boolean can claim that another request created durable reconciliation work.
+const issueOutcomes280=new WeakMap<Response,VerificationIssueOutcome280>();
+const issueReply280=(response:Response,outcome:VerificationIssueOutcome280)=>{issueOutcomes280.set(response,Object.freeze(outcome));return response;};
+export function verificationIssueOutcome280(response:Response):VerificationIssueOutcome280|null{return issueOutcomes280.get(response)??null;}
+function wakeIssued280(env:Env,response:Response,defer?:Defer){if(verificationIssueOutcome280(response)?.reconciliation?.kind==='created')defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));}
+export function roleRequestText280(receipt:RoleRequestReceipt280):string{
+ switch(receipt.kind){
+  case 'created':return 'One guarded check of your existing links has been queued. It can finish on hold if the trusted roster or current access cannot be confirmed; use **My status** or **/verify-status** for the result.';
+  case 'already_pending':return 'A check of your existing links is already waiting. No duplicate check was created. A fresh officer sync or the scheduled recovery can service it; use **My status** or **/verify-status** for the result.';
+  case 'held':return 'The check is on hold. No new check was queued. Use **My status** or **/verify-status** to review your current access.';
+  case 'unknown':return 'The request outcome could not be confirmed. No extra wake was sent. Check **My status** or **/verify-status** before submitting again; an existing queued check may still be waiting.';
+ }
+}
 /** Revision 4 (A6): the fresh-role wording, only with a configured capture whose lane is open now (from epochStart); before
  * that, and in every unconfigured call, the .160 text. Grants for the verify and guide texts, removals for unbind. */
 const freshGrantText = (lane?: LaneCapture) => !!lane && laneClock(lane, now()).grants;
@@ -66,6 +82,13 @@ async function refreshPinnedGuide(env: Env, channel: string, lane?: LaneCapture)
 const PENDING_TTL = 24 * 3600; // one code per character per day, plus the boundary tolerance in codes.ts
 // A request code is accepted on its issue day and the next (codes.ts), so a nonce is not handed out again for 48 hours.
 const NONCE_REUSE_AFTER = 48 * 3600;
+/** Source-authored SQL data, never account admission or proof authority. The
+ * authenticated caller's original Native subject/generation fence still owns
+ * execution. Keeping this statement shared permits a stale-read race test. */
+export const TICKET_REQUEST280_INSERT_SQL=`INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce)
+ SELECT ?1, '', '', ?2, ?3, ?4
+ WHERE NOT EXISTS (SELECT 1 FROM pending WHERE nonce=?4 AND created_at>?5)
+ AND NOT EXISTS (SELECT 1 FROM pending WHERE discord_id=?1 AND nonce IS NOT NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER))`;
 // Forever uses two-part names; allow one space and apostrophes, and accented letters (EU realms) via Unicode classes.
 const NAME_RE = /^\p{L}[\p{L}' ]{1,30}$/u;
 const NATIVE_NAME_RE242 = /^\p{L}[\p{L}' ]{1,31}$/u;
@@ -99,7 +122,7 @@ export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,
         // character is whichever one whispers it (27 Sep). The option is optional once scripts/register.mjs has run.
         const character = (option<string>(i, "character") ?? "").trim();
         const response=await (character ? issueCode(env,i,character,lane,roleDispatch) : issueTicket(env,i,lane));
-        if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;
+        wakeIssued280(env,response,defer);return response;
       }
       case "verify-status":
       case "olympus-status":
@@ -122,7 +145,7 @@ export async function handleInteraction(env: Env, i: Interaction, defer?: Defer,
   if (i.type === 3) return handleComponent(env,i,lane,roleDispatch,defer);
   if (i.type === 5) {
     // modal submit — the "Verify a character" button in the pinned guide
-    if (i.data?.custom_id === GUIDE_MODAL) {const response=await issueCode(env,i,modalField(i,GUIDE_FIELD)??'',lane,roleDispatch);if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;}
+    if (i.data?.custom_id === GUIDE_MODAL) {const response=await issueCode(env,i,modalField(i,GUIDE_FIELD)??'',lane,roleDispatch);wakeIssued280(env,response,defer);return response;}
     return reply("Unknown form.");
   }
   return reply("Unsupported interaction.");
@@ -155,8 +178,8 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
   if (currentNativeVerification242(env) && existing && existing.discord_id === user.id && ['member','verified','queued'].includes(existing.status) && existing.verified_at) {
     // Ownership is already recorded; the latest roster can update rank immediately.
     // The queue carries no identity authority: the original Native issuer rechecks it.
-    await requestRoleReconciliation242(env,user.id,'existing_verified_request');
-    return reply(`**${existing.name}** is already linked to your account. A guarded refresh of your current guild role has been requested. No new code is needed to request this refresh. Use **/verify-status** here for current access; the in-game Watcher list is a dated snapshot and can lag behind.`);
+    const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_request')??Object.freeze({kind:'held' as const});
+    return issueReply280(reply(`**${existing.name}** is already linked to your account. ${roleRequestText280(reconciliation)} No new code or whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind.`),{reconciliation});
   }
   if (captureLaunchVerification(env).mode==='legacy' && existing && existing.discord_id === user.id && existing.status === "member") {
     const note = restoreNote(await restoreMemberRole(env, user.id, roles, "verify",roleDispatch));
@@ -181,6 +204,7 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
       `INSERT INTO pending (discord_id, name_key, name, created_at, expires_at)
        SELECT ?1, ?2, ?3, ?4, ?5
         WHERE NOT EXISTS (SELECT 1 FROM pending WHERE name_key = ?2 AND consumed_at IS NULL AND expires_at > ?4)
+          AND (SELECT COUNT(*) FROM (SELECT 1 FROM pending WHERE discord_id=?1 AND nonce IS NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER) LIMIT 3))<3
           AND NOT EXISTS (SELECT 1 FROM pending p WHERE p.name_key = ?2 AND p.nonce IS NULL
                            AND ((p.created_at >= ?6
                                  AND NOT EXISTS (SELECT 1 FROM characters c WHERE c.name_key = ?2 AND c.discord_id = ?1
@@ -191,11 +215,16 @@ export async function requestCharacterCode242(env:Env,user:{id:string;username?:
     )
       .bind(user.id, nameKey, raw, opened, expiresAt, opened - (opened % 86_400))
       .run();
+    if(ins.success!==true||!ins.meta||!Number.isSafeInteger(ins.meta.changes)||ins.meta.changes<0||ins.meta.changes>1)throw Error('verification280_request_outcome_unknown');
     if (ins.meta.changes) await audit(env, user.id, "verify.requested", raw);
     else {
       // Another press got there first, or the name is closed for today: whoever holds it now decides the answer.
       open = await openPendingFor(env, nameKey);
-      if (!open) return reply(await takenToday(env, raw, opened));
+      if (!open) {
+        const active=await env.DB.prepare("SELECT expires_at FROM pending WHERE discord_id=?1 AND nonce IS NULL AND consumed_at IS NULL AND expires_at>CAST(strftime('%s','now') AS INTEGER) ORDER BY expires_at LIMIT 3").bind(user.id).all<{expires_at:number}>();
+        if(active.results.length===3){const retryAfterSeconds=Math.max(1,Math.ceil(active.results[0]!.expires_at-now()));return issueReply280(reply('You already have at least **3 active character requests**. Finish an existing request or wait for one to expire before opening another name. You can still use the name-free request-code option in **Verify another character**.'),{refusal:Object.freeze({kind:'active_named_cap',retryAfterSeconds})});}
+        return reply(await takenToday(env, raw, opened));
+      }
       if (open.discord_id !== user.id) return reply(await heldElsewhere(env, raw));
       opened = open.created_at;
       expiresAt = open.expires_at;
@@ -253,7 +282,7 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
   if (member?.banned) return reply("This account cannot verify. Contact High Council if you think that is a mistake.");
   if(currentNativeVerification242(env)&&!newCharacter){
     const linked=await env.DB.prepare("SELECT name FROM characters WHERE discord_id=?1 AND status IN('member','verified','queued') AND verified_at IS NOT NULL AND guid IS NOT NULL ORDER BY verified_at DESC LIMIT 1").bind(user.id).first<{name:string}>();
-    if(linked){await requestRoleReconciliation242(env,user.id,'existing_verified_button');return reply(`**${linked.name}** is already linked. A guarded refresh of your current roster rank has been requested; no new whisper is needed to request this refresh. Use **My status** here or **/verify-status** for current access. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.`);}
+    if(linked){const reconciliation=await requestRoleReconciliation242(env,user.id,'existing_verified_button')??Object.freeze({kind:'held' as const});return issueReply280(reply(`**${linked.name}** is already linked. ${roleRequestText280(reconciliation)} No new whisper is needed to request this check. The in-game Watcher list is a dated snapshot and can lag behind. To link a different character, press **Verify another character**.`),{reconciliation});}
   }
 
   // Until an officer's addon and watcher that understand request codes have checked in (relays.ts), a request code
@@ -269,14 +298,11 @@ async function issueTicket(env: Env, i: Interaction, lane?: LaneCapture,newChara
     // day and the next, so at most 48 hours; postVerify also insists on the exact code a request showed). The check
     // and the insert are one statement, so two presses racing for the same nonce cannot both get it: D1 runs
     // statements one at a time.
-    const ins = await env.DB.prepare(
-      `INSERT INTO pending (discord_id, name_key, name, created_at, expires_at, nonce)
-       SELECT ?1, '', '', ?2, ?3, ?4
-        WHERE NOT EXISTS (SELECT 1 FROM pending WHERE nonce = ?4 AND created_at > ?5)`,
-    )
+    const ins = await env.DB.prepare(TICKET_REQUEST280_INSERT_SQL)
       .bind(user.id, t, t + PENDING_TTL, nonce, t - NONCE_REUSE_AFTER)
       .run();
-    if (!ins.meta.changes) continue;
+    if(ins.success!==true||!ins.meta||!Number.isSafeInteger(ins.meta.changes)||ins.meta.changes<0||ins.meta.changes>1)throw Error('verification280_ticket_outcome_unknown');
+    if (!ins.meta.changes) {row=await openTicketFor(env,user.id);if(row)break;continue;}
     row = { id: Number(ins.meta.last_row_id), discord_id: user.id, name_key: "", name: "", created_at: t, expires_at: t + PENDING_TTL, consumed_at: null, nonce };
     await audit(env, user.id, "verify.ticket_issued", undefined, { expiresAt: row.expires_at });
   }
@@ -686,7 +712,7 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       // SEN-01 follow-up (30 Oct 2026): a name with no live binding (never linked, or unbound) can still be held by an open
       // request. Closing it is the officers' lever short of a ban; the reply names the holder, who cannot take the name back
       // before 00:00 UTC (issueCode). A blank name (open request codes carry an empty name_key) closes nothing; an unbound
-      // name with nothing open is unbound again as before.
+      // name with nothing open is a no-op for release; explicit unbind stays separate.
       const held = key && (!row || row.status === "unbound") ? await openPendingFor(env, key) : null;
       if (held) {
         // Keep the original target generation with the officer through every continuation.
@@ -705,6 +731,7 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
         await releaseEnv.DB.prepare('SELECT 1 AS admin_release_target_current').first();
         return reply(`No binding for **${held.name}**; the open verification request from <@${held.discord_id}> is closed, and ${when}${ticket}.`);
       }
+      if (subcommand(i) === "release") return reply("No open verification request for this character. Nothing was unlinked.");
       if (!row) return reply(`No binding for **${raw}**.`);
       await env.DB.batch([
         env.DB.prepare("UPDATE characters SET status = 'unbound', left_at = ?2, guid = NULL WHERE name_key = ?1").bind(key, now()),
@@ -897,7 +924,7 @@ async function handleComponent(env: Env, i: Interaction, lane?: LaneCapture,role
   const id = i.data?.custom_id ?? "";
   // One click, no typing: a request code whose character is decided by who whispers it (27 Sep). The modal that asked
   // for the name is still answered below, for anyone who had it open across the deploy.
-  if(id===GUIDE_VERIFY){const response=await issueTicket(env,i,lane);if(currentNativeVerification242(env))defer?.('interaction_roles242',()=>kickRoleWork242(env,'requests'));return response;}
+  if(id===GUIDE_VERIFY){const response=await issueTicket(env,i,lane);wakeIssued280(env,response,defer);return response;}
   if(id==='guide:another'&&currentNativeVerification242(env))return issueTicket(env,i,lane,true);
   if (id === GUIDE_STATUS) return cmdStatus(env, i,roleDispatch);
   const [ns, action, arg] = id.split(":");

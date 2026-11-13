@@ -2,6 +2,7 @@
 -- Owner exception (12 October 2026): exact attended Fern beta mode, OFF after reload.
 -- The copied beta envelope is a local bound, never Discord/account/server authority.
 -- Requests remain local/online; no claim that offline signers process whispers.
+-- Retained historical beta-only profiles. No current production attestation profile is qualified by this file.
 OlympusVerifyBrowser = {}
 local challenge,expires,window,tiles=nil,0,nil,{}
 local rosterFreshAt,refreshAt,displayUntil=nil,0,0
@@ -11,6 +12,7 @@ local challengeCreated,exceptionCreated,exceptionExpires=nil,nil,nil
 local betaNonces,betaNonceCount={},0 -- bounded memory only; no SavedVariables or key
 local betaRanks={[0]='Guild Master','Officer','Veteran','Member','Initiate'}
 local function say(s) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage('|cffd4af37Olympus browser:|r '..s) end end
+local HISTORICAL_PROFILE='Historical beta-only browser profile; current production attestation is unqualified.'
 local function clock() return GetServerTime and GetServerTime() or time() end
 local function clear(disableBeta)
  challenge=nil;expires=0;rosterFreshAt=nil;pending={};displayQueue={};displayUntil=0
@@ -45,13 +47,13 @@ local function betaGuid(value)
 end
 function OlympusVerifyBrowser.SetChallenge(text)
  if type(text)~='string' or not text:match('^[0-9a-f]+$') or #text~=32 then clear(true);return false,'Expected the exact 32-character browser challenge' end
- if not normalProfile() then clear(true);return false,'Requires this client profile and native High Council rank (index 1)' end
+ if not normalProfile() then clear(true);return false,HISTORICAL_PROFILE..' This client does not match the retained native High Council tuple.' end
  clear(true);challenge=text;expires=clock()+300;refresh();return true
 end
 function OlympusVerifyBrowser.SetBetaEnabled(enabled)
  clear(true)
  if enabled==false then return true,'Fern beta mode is off' end
- if enabled~=true or not betaProfile() then return false,'Requires the exact attended Fern beta character and client profile' end
+ if enabled~=true or not betaProfile() then return false,HISTORICAL_PROFILE..' Requires the exact historical attended Fern tuple.' end
  betaEnabled=true;return true,'Fern beta mode enabled locally; copy the original challenge from your qualified browser'
 end
 function OlympusVerifyBrowser.SetBetaChallenge(text)
@@ -157,7 +159,7 @@ function OlympusVerifyBrowser.Command(message)
  if message=='browser beta off' then local ok,reason=OlympusVerifyBrowser.SetBetaEnabled(false);say(reason);return ok end
  local envelope=message:match('^browser beta (.+)$')
  if envelope then local ok,reason=OlympusVerifyBrowser.SetBetaChallenge(envelope);say(ok and 'Original beta challenge ready; keep this game and qualified browser open.' or reason);return ok end
- local code=message:match('^browser ([0-9a-f]+)$');if not code then say('Use /olv browser <challenge>, or /olv browser beta enable then /olv browser beta <original envelope>. /olv browser beta off closes beta mode. Members whisper !olympus <code>.');return false end
+ local code=message:match('^browser ([0-9a-f]+)$');if not code then say(HISTORICAL_PROFILE..' Retained commands: /olv browser <challenge>, or /olv browser beta enable then /olv browser beta <original envelope>. /olv browser beta off closes beta mode.');return false end
  local ok,reason=OlympusVerifyBrowser.SetChallenge(code);say(ok and 'Challenge ready for five minutes; keep this game and browser open.' or reason);return ok
 end
 -- Preserve the accepted roster panel's /olv dispatcher and Olympus Guild's /oly alias.

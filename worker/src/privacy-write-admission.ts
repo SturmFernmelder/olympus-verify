@@ -222,34 +222,37 @@ export function registerAdmissionCountedDatabase(_wrapper:D1Database,_base:D1Dat
 export const admissionPlanWrites=(sql:string):boolean=>/\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i.test(sql);
 export const admissionTransportCost=(sqls:readonly string[]):number=>sqls.some(admissionPlanWrites)?4:(sqls.length?1:0); // an aborting native epoch proof precedes every read group
 
-// Owner-directed query factoring (2026-10-15): retain each exact catalogue proof while sharing the root JSON scan.
-const CATALOGUE_CTE=`WITH business AS MATERIALIZED(SELECT name,sql FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV' AND ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} AND name<>'${SLOT}'),
- expected_root AS MATERIALIZED(SELECT key,value FROM json_each(?3) WHERE key IN('tables','triggers','indexes')),
- expected AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.columns') AS columns FROM json_each((SELECT value FROM expected_root WHERE key='tables'))),
- actual_columns AS MATERIALIZED(SELECT m.name,p.name AS column_name FROM business m JOIN pragma_table_info(m.name) p),
- wanted_columns AS MATERIALIZED(SELECT e.name,j.value AS column_name FROM expected e JOIN json_each(e.columns) j),
- expected_triggers AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql FROM json_each((SELECT value FROM expected_root WHERE key='triggers'))),
- expected_indexes AS MATERIALIZED(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.tbl_name') AS tbl_name FROM json_each((SELECT value FROM expected_root WHERE key='indexes')))`;
+// Identify-path CTE-free proof relations. The business LIMIT/OFFSET prevents
+// flattening before the table-valued PRAGMA: provider objects must be filtered
+// before named introspection. Each consuming statement still proves the whole
+// exact catalogue in both directions; these fragments cache no prior authority.
+const BUSINESS=`(SELECT name,sql FROM sqlite_master WHERE type='table' AND substr(lower(name),1,7)<>'sqlite_' AND name<>'_cf_KV' AND ${PROVIDER_METADATA_APPLICATION_OBJECT_FILTER_SQL} AND name<>'${SLOT}' LIMIT -1 OFFSET 0)`;
+const EXPECTED_ROOT=`(SELECT key,value FROM json_each(?3) WHERE key IN('tables','triggers','indexes'))`;
+const EXPECTED=`(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.columns') AS columns FROM json_each((SELECT value FROM ${EXPECTED_ROOT} WHERE key='tables')))`;
+const ACTUAL_COLUMNS=`(SELECT m.name,p.name AS column_name FROM ${BUSINESS} m JOIN pragma_table_info(m.name) p)`;
+const WANTED_COLUMNS=`(SELECT e.name,j.value AS column_name FROM ${EXPECTED} e JOIN json_each(e.columns) j)`;
+const EXPECTED_TRIGGERS=`(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql FROM json_each((SELECT value FROM ${EXPECTED_ROOT} WHERE key='triggers')))`;
+const EXPECTED_INDEXES=`(SELECT json_extract(value,'$.name') AS name,json_extract(value,'$.sql') AS sql,json_extract(value,'$.tbl_name') AS tbl_name FROM json_each((SELECT value FROM ${EXPECTED_ROOT} WHERE key='indexes')))`;
 const TABLES_CURRENT=`${PROVIDER_METADATA_CURRENT_SQL} AND (SELECT sql FROM sqlite_master WHERE type='table' AND name='${SLOT}')=json_extract(?3,'$.slotSQL')
  AND (SELECT COUNT(*) FROM pragma_table_info('${SLOT}'))=9
  AND NOT EXISTS(SELECT name FROM pragma_table_info('${SLOT}') EXCEPT SELECT value FROM json_each(?3,'$.slotColumns'))
- AND (SELECT COUNT(*) FROM business)=json_array_length(?3,'$.tables') AND (SELECT COUNT(*) FROM expected)=json_array_length(?3,'$.tables')
- AND NOT EXISTS(SELECT name,sql FROM business EXCEPT SELECT name,sql FROM expected)
- AND NOT EXISTS(SELECT name,sql FROM expected EXCEPT SELECT name,sql FROM business)
- AND NOT EXISTS(SELECT name,column_name FROM actual_columns EXCEPT SELECT name,column_name FROM wanted_columns)
- AND NOT EXISTS(SELECT name,column_name FROM wanted_columns EXCEPT SELECT name,column_name FROM actual_columns)
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} EXCEPT SELECT name,sql,tbl_name FROM expected_indexes)
- AND NOT EXISTS(SELECT name,sql,tbl_name FROM expected_indexes EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL})`;
+ AND (SELECT COUNT(*) FROM ${BUSINESS})=json_array_length(?3,'$.tables') AND (SELECT COUNT(*) FROM ${EXPECTED})=json_array_length(?3,'$.tables')
+ AND NOT EXISTS(SELECT name,sql FROM ${BUSINESS} EXCEPT SELECT name,sql FROM ${EXPECTED})
+ AND NOT EXISTS(SELECT name,sql FROM ${EXPECTED} EXCEPT SELECT name,sql FROM ${BUSINESS})
+ AND NOT EXISTS(SELECT name,column_name FROM ${ACTUAL_COLUMNS} EXCEPT SELECT name,column_name FROM ${WANTED_COLUMNS})
+ AND NOT EXISTS(SELECT name,column_name FROM ${WANTED_COLUMNS} EXCEPT SELECT name,column_name FROM ${ACTUAL_COLUMNS})
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL} EXCEPT SELECT name,sql,tbl_name FROM ${EXPECTED_INDEXES})
+ AND NOT EXISTS(SELECT name,sql,tbl_name FROM ${EXPECTED_INDEXES} EXCEPT SELECT name,sql,tbl_name FROM sqlite_master WHERE type='index' AND substr(lower(name),1,7)<>'sqlite_' AND ${D1_PERFORMANCE_INDEX_APPLICATION_OBJECT_FILTER_SQL})`;
 const SCHEMA_CURRENT=`${TABLES_CURRENT} AND (SELECT COUNT(*) FROM sqlite_master WHERE type='trigger')=json_array_length(?3,'$.triggers')
- AND NOT EXISTS(SELECT name,sql FROM sqlite_master WHERE type='trigger' EXCEPT SELECT name,sql FROM expected_triggers)
- AND NOT EXISTS(SELECT name,sql FROM expected_triggers EXCEPT SELECT name,sql FROM sqlite_master WHERE type='trigger')`;
+ AND NOT EXISTS(SELECT name,sql FROM sqlite_master WHERE type='trigger' EXCEPT SELECT name,sql FROM ${EXPECTED_TRIGGERS})
+ AND NOT EXISTS(SELECT name,sql FROM ${EXPECTED_TRIGGERS} EXCEPT SELECT name,sql FROM sqlite_master WHERE type='trigger')`;
 const CONTROL_ROW=`(SELECT COUNT(*) FROM ${SLOT})=1 AND EXISTS(SELECT 1 FROM ${SLOT} WHERE singleton=1 AND protocol='${VERSION}'
  AND typeof(singleton)='integer' AND typeof(active)='integer' AND typeof(entry_changes)='integer' AND entry_changes>=0
  AND typeof(logical_changes)='integer' AND logical_changes>=0`;
-const ADMIT=`${CATALOGUE_CTE} SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=1 AND nonce=?1 AND purpose=?2 AND epoch=?4 AND mode='serving')
+const ADMIT=`SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=1 AND nonce=?1 AND purpose=?2 AND epoch=?4 AND mode='serving')
  THEN 1 ELSE json_extract('privacy_write_catalogue_or_control_refused','$') END AS admitted`;
-const CURRENT=`${CATALOGUE_CTE} SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=0 AND nonce='' AND purpose='' AND epoch=?4 AND mode='serving') THEN 1 ELSE 0 END AS current`;
-const CURRENT_SCHEMA=`${CATALOGUE_CTE} SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=0 AND nonce='' AND purpose='' AND epoch=?4 AND mode='serving')
+const CURRENT=`SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=0 AND nonce='' AND purpose='' AND epoch=?4 AND mode='serving') THEN 1 ELSE 0 END AS current`;
+const CURRENT_SCHEMA=`SELECT CASE WHEN ${SCHEMA_CURRENT} AND ${CONTROL_ROW} AND active=0 AND nonce='' AND purpose='' AND epoch=?4 AND mode='serving')
  AND EXISTS(SELECT 1 FROM site_settings WHERE key='auditTypedNames' AND value='115')
  AND NOT EXISTS(SELECT 1 FROM site_applications WHERE position IN('raid_leader','raid_assist'))
  AND NOT EXISTS(SELECT 1 FROM site_votes WHERE ballot='raid_leader')

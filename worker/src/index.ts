@@ -1,8 +1,11 @@
+import {consumeAddressRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 // Optional .242 features are lazy boundaries: preserve the original Core/QR initialization order.
 async function handleRoleContinuation242(...args:Parameters<typeof import('./role-reconcile242').handleRoleContinuation242>){return (await import('./role-reconcile242')).handleRoleContinuation242(...args);}
 async function kickRoleWork242(...args:Parameters<typeof import('./role-reconcile242').kickRoleWork242>){return (await import('./role-reconcile242')).kickRoleWork242(...args);}
 async function kickRoleWorkGroups266(...args:Parameters<typeof import('./role-reconcile242').kickRoleWorkGroups266>){return (await import('./role-reconcile242')).kickRoleWorkGroups266(...args);}
 async function postIntake242(...args:Parameters<typeof import('./intake242').postIntake242>){return (await import('./intake242')).postIntake242(...args);}
+async function intakeCreatedRoleRequest280(response:Response){return (await import('./intake242')).intakeCreatedRoleRequest280(response);}
+async function purgeReceipt242(...args:Parameters<typeof import('./intake242').purgeReceipt242>){return (await import('./intake242')).purgeReceipt242(...args);}
 import './treasury-data242';
 import { isGuildCommand219, guildCommandReadOnly219, handleGuildCommand219 } from './guild-commands219';
 /**
@@ -45,7 +48,7 @@ import { sweepMemberRoles } from "./restore";
 import { continueRosterEffects } from "./roster";
 import {runServingErasureJob} from './privacy-serving-jobs';
 import {captureServingRetentionSchedule,sweepServingRetention} from './privacy-retention';
-import {captureMembershipDecisionOrigin,captureRejectionExpiryInvocation,sweepRejectionExpiry} from './privacy-rejection-decision';
+import {captureMembershipDecisionOrigin,captureRejectionExpiryInvocation,sweepRejectionExpiry,MembershipDecisionSignedOut} from './privacy-rejection-decision';
 import { bnetLinkCallback, linkedRoleCallback, startLinkedRole } from "./oauth";
 import { bnetLoginState } from "./bnet-switch";
 import { sweepRenameHolds } from "./rename-review";
@@ -225,7 +228,7 @@ export default {
     let globalEntry:ReturnType<typeof captureGlobalServingEntry>;try{globalEntry=captureGlobalServingEntry(env,ctx,'fetch',request);}catch{return json({error:'original_serving_held'},503); }env=globalEntry.env;request=globalEntry.request!;
     // Capture native/host/version/method custody before any facade substitution or await.
     // Only this Names boundary is managed; missing bindings hold Names without a legacy fallback.
-    try{captureMembershipDecisionOrigin(request,env);}catch{return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
+    try{captureMembershipDecisionOrigin(request,env);}catch(e){if(e instanceof MembershipDecisionSignedOut)return json({error:'signed_out',message:'Sign in with Discord before using staff decisions.'},401);return new Response(JSON.stringify({error:'original_membership_decision_held'}),{status:409,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});}
     let namesOrigin:HandlerServingOrigin|undefined;
     if(host==="bot"&&request.method==="POST"&&path==="/interactions"){try{namesOrigin=captureHandlerServingOrigin(request,env,ctx);}catch{}}
     let siteOAuthOrigin:SiteOAuthOrigin|undefined;
@@ -281,7 +284,8 @@ export default {
         if (siteHost(env) !== hostOf(env.PUBLIC_BASE_URL)) return new Response("not found", { status: 404 });
       }
       const res = await route(request, env, path, schemaReady, ctx, namesOrigin,roleDispatch);
-      if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)){
+      if(request.method==='POST'&&res.ok&&['/ingest/verify','/ingest/roster','/ingest/intake242'].includes(path)
+        &&(path!=='/ingest/intake242'||await intakeCreatedRoleRequest280(res))){
        const verification242=captureLaunchVerification(env);
        if(verification242.mode==='members-only'&&verification242.scope&&verification242.current()){
         deferOriginalServing(ctx,'roles242_requests',()=>kickRoleWork242(env,'requests'));
@@ -345,7 +349,11 @@ export default {
         const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='newsCron');
         return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;
       };
-      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return canonicalMinute?runSourceCanonicalRankScheduledBody(globalEntry.env,ctx,check):resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost);});
+      const retentionSliceCost = (): OriginalScheduledSliceCost | null => {
+        const facts=originalScheduledCallbackPhysicalCostObservation(event,ctx),row=facts.jobs.find(job=>job.job==='sweepServingRetention');
+        return row?Object.freeze({state:row.state,statements:row.statements,pendingGroups:row.pendingGroups,failedGroups:row.failedGroups}):null;
+      };
+      await dispatchGlobalServingEntry(globalEntry,()=>{originalScheduledCallback(original,event,ctx);return canonicalMinute?runSourceCanonicalRankScheduledBody(globalEntry.env,ctx,check):resetMinute?runSourceBetaResetScheduledBody(globalEntry.env,ctx,roleDispatch):runSourceEpoch2ScheduledBody(globalEntry.env,ctx,undefined,roleDispatch,roleSliceCost,newsSliceCost,retentionSliceCost);});
     } catch(e) {
       console.error("cron entry held; skipping this run",errorRef(e));
     }
@@ -386,7 +394,7 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
 /** Source-owned whole-schedule measurement seam. The real handler checks the installed Epoch2 qualification guard.
  * Native fixture calls this same schema and complete dispatch body; no source loader replacement or activation proof. */
 type OriginalScheduledSliceCost = Readonly<{state:string;statements:number;pendingGroups:number;failedGroups:number}>;
-export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
+export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionContext,originalSchedule?:OriginalRosterSchedule,originalDispatch?:BetaRoleDispatch,readOriginalRoleCost?:()=>OriginalScheduledSliceCost|null,readOriginalNewsCost?:()=>OriginalScheduledSliceCost|null,readOriginalRetentionCost?:()=>OriginalScheduledSliceCost|null): Promise<void> {
     const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
     const originalRetentionSchedule=captureServingRetentionSchedule(),rosterSchedule=originalSchedule??captureOriginalRosterSchedule();
     const rosterCadence=originalRosterScheduleFacts(rosterSchedule);
@@ -449,7 +457,18 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
     });
     deferOriginalServing(ctx,'runOfficerDigest',()=>runOfficerDigest(env).catch((e) => console.error("officer digest failed", errorRef(e)))); // .85: the daily officer digest (counts only) behind its own switch; off, it only removes what it posted
     deferOriginalServing(ctx,'runServingErasureJob',()=>runServingErasureJob(env).then(out=>{if(nativeErasureMode(env))console.log('native erasure tick',{attempted:out.attempted,completed:out.completed,held:out.held});}).catch(e=>console.error('serving erasure continuation failed',errorRef(e))));
-    deferOriginalServing(ctx,'sweepServingRetention',()=>sweepServingRetention(env,originalRetentionSchedule).catch(e=>console.error('serving retention failed',errorRef(e))));
+    deferOriginalServing(ctx,'sweepServingRetention',async()=>{
+      try{await sweepServingRetention(env,originalRetentionSchedule);}
+      catch(e){console.error('serving retention failed',errorRef(e));return;}
+      // Receipt expiry shares only observed spare in this original25-statement
+      // slice. A saturated/failed/unknown observation defers; it never borrows
+      // another job's budget or supplies identity/deletion authority.
+      let cost:OriginalScheduledSliceCost|null=null;
+      try{cost=readOriginalRetentionCost?.()??null;}catch{return;}
+      if(!cost||cost.state!=='running'||cost.pendingGroups!==0||cost.failedGroups!==0||!Number.isSafeInteger(cost.statements)||cost.statements<0||cost.statements>20)return;
+      try{await purgeReceipt242(env);}
+      catch(e){console.error('receipt retention held',errorRef(e));}
+    });
   const rejectionExpiry=captureRejectionExpiryInvocation(env);
   deferOriginalServing(ctx,'sweepRejectionExpiry',()=>sweepRejectionExpiry(env,rejectionExpiry).catch(e=>console.error('rejection expiry held',errorRef(e))));
 }
@@ -560,7 +579,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     if (body === null) return new Response("payload too large", { status: 413 });
     if (!(await verifyInteraction(env, request, body))) return new Response("bad signature", { status: 401 });
     const i = JSON.parse(body) as Interaction;
-    if (env.DISCORD_APP_ID && i.application_id !== env.DISCORD_APP_ID) return new Response("wrong application", { status: 400 });
+    if (typeof env.DISCORD_APP_ID !== 'string' || !/^[0-9]{17,20}$/.test(env.DISCORD_APP_ID))
+      return json({error:'interaction_application_unconfigured'},503);
+    if (i.application_id !== env.DISCORD_APP_ID) return new Response("wrong application", { status: 400 });
     const interactionGuild = env.SITE_GUILD_ID || env.GUILD_ID;
     if (i.type !== 1 && (!interactionGuild || i.guild_id !== interactionGuild)) return new Response(null, { status: 204 });
     if (!schemaReady && i.type !== 1) return reply("The bot is updating its database \u2014 please try again in a minute.");
@@ -617,8 +638,9 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     return res;
   }
   // .90 (P-17): the OAuth entry points on the bot host, limited per client address, in memory (a first filter)
-  if ((path === "/linked-role" || path === "/oauth/callback" || path === "/bnet/link") && rateLimited(`oauth:${path}:${request.headers.get("CF-Connecting-IP") ?? ""}`, 20, 60)) {
-    return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
+  if (path === "/linked-role" || path === "/oauth/callback" || path === "/bnet/link") {
+    const limit=await consumeAddressRateLimit280('oauth:'+path,request.headers.get('CF-Connecting-IP')??'',20,60);
+    if(limit.limited)return new Response(JSON.stringify({error:'rate_limited'}),{status:429,headers:{'Content-Type':'application/json; charset=utf-8',...rateLimitHeaders280(limit),'Cache-Control':'no-store'}});
   }
   if (request.method === "GET" && path === "/linked-role") return await startLinkedRole(env);
   if (request.method === "GET" && path === "/oauth/callback") return await linkedRoleCallback(env, request);
@@ -645,7 +667,8 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     }
     if (query.has("cacheOnly242") || query.has("keyVersion") || (body !== null && typeof body === "object" && "keyVersion" in body)) {
       const versions=query.getAll('keyVersion');
-      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v233')return handleLaunchOperations229(request,env,true);
+      if(request.method==='POST'&&path==='/ingest/roster'&&versions.length===1&&versions[0]==='native-roster-v2'&&query.size===1&&body!==null&&!('keyVersion'in body))return await postRoster(env,body,ctx?(label,work)=>deferOriginalServing(ctx,label,work):undefined,roleDispatch,true);
+      if(request.method==='GET'&&path==='/queue/launch-operations'&&versions.length===1&&versions[0]==='officer-operations-v234')return handleLaunchOperations229(request,env,true);
       if(request.method==='POST'&&path==='/ingest/officer-invite'&&versions.length===1&&versions[0]==='officer-operations-v233'&&query.size===1&&body!==null&&!('keyVersion'in body))return postOfficerInvite233(env,body);
       if (versions.length === 1 && (versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL || versions[0] === STRICT_ROSTER_DISPLAY_PROTOCOL_V2)
           && request.method === "GET" && path === "/queue/unverified" && query.size === 1) {
@@ -690,8 +713,8 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
     }
     if (request.method === "POST" && path === "/queue/written") return await postQueueWritten(env, body);
   }
-  // Read-only server inspection. Same bearer token as the watcher: it is already a trusted-operator credential,
-  // and what this exposes -- role and channel structure -- is visible to any member of the server anyway.
+  // Trusted-operator inspection and an explicit POST-only backfill apply. GET
+  // remains read-only, including old bookmarked apply URLs.
   if (path.startsWith("/admin/")) {
     if (!(await watcherAuthorized(env, request))) return new Response("unauthorized", { status: 401 });
     // The build is stamped into the map itself. A deploy is live at Cloudflare before every edge is serving it, so
@@ -706,7 +729,13 @@ async function route(request: Request, env: Env, path: string, schemaReady = tru
         throw error;
       }
     }
-    if (request.method === "GET" && path === "/admin/backfill-roles") return json(await backfillRoles(env, backfillOptions(query),roleDispatch));
+    if (path === '/admin/backfill-roles') {
+      if (!['GET','POST'].includes(request.method) || request.method === 'GET' && query.get('apply') === '1')
+        return new Response('Use an explicit POST to apply a backfill.',{status:405,headers:{Allow:'GET, POST'}});
+      if (request.method === 'POST' && (query.getAll('apply').length !== 1 || query.get('apply') !== '1'))
+        return json({error:'explicit_apply_required'},400);
+      return json(await backfillRoles(env,backfillOptions(query),roleDispatch));
+    }
   }
   // .186 Olympus Link (link.ts): POST /proof and POST /api/link/keys on the bot host only, never under /admin/ (that
   // prefix takes WATCHER_TOKEN). While Link is off routeLink answers null and these reach the 404 below unchanged.

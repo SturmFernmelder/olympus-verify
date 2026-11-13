@@ -7,7 +7,9 @@ local H, cfg = OlympusHmac, OlympusVerifyConfig or {}
 local transport = OlympusVerifyAPI and OlympusVerifyAPI.TreasuryTransport
 local secret = cfg.secret
 if type(secret) ~= "string" or secret == "" or secret:find("^REPLACE_WITH_") then secret = nil end
-local T = { version = 1, maxReceipts = 1000, maxObservations = 50, maximumCopper = 2147483647, retentionSeconds = 30 * 86400 }
+local T = { version = 2, maxReceipts = 1000, maxObservations = 50, maximumCopper = 2147483647, retentionSeconds = 30 * 86400 }
+local COLLECTOR = "Fern Melder"
+local REFERENCE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 local frame = CreateFrame("Frame", "OlympusVerifyTreasuryFrame")
 local trade, mailbox, mailBatch, cache, totals, scanSerial = nil, false, nil, {}, {}, 0
 local cacheComplete = false
@@ -45,9 +47,34 @@ local function printLine(text)
 end
 local function identity()
   local me = transport and name(call(transport.Name))
-  local expected = name(cfg.treasuryRecipient or "Fern Melder")
-  if cfg.treasuryTracking == false or not me or not expected or normalize(me) ~= normalize(expected) then return nil end
-  return me, readable(transport and call(transport.Guid))
+  local ownGuid = readable(transport and call(transport.Guid))
+  local guild, realm = name(call(GetGuildInfo, "player")), name(call(GetRealmName))
+  -- The owner narrowed capture to this exact collector on 12 November 2026.
+  -- An editable recipient setting cannot authorize another officer's mailbox.
+  if cfg.treasuryTracking == false or me ~= COLLECTOR or not ownGuid or not ownGuid:match("^Player%-%d+%-%x+$") or not guild or not realm then return nil end
+  return me, ownGuid, guild, realm
+end
+local function reference(value, extract)
+  value = readable(value)
+  if not value or #value > 512 then return nil end
+  local found, count
+  if extract then
+    local cursor = 1
+    while true do
+      local first = value:find("TITHE-", cursor, true)
+      if not first then break end
+      count = (count or 0) + 1
+      local candidate = value:sub(first, first + 14)
+      if value:sub(first - 1, first - 1):match("[%w_%-]") or value:sub(first + 15, first + 15):match("[%w_%-]") then return nil end
+      found = candidate; cursor = first + 6
+    end
+    if count ~= 1 then return nil end
+  else found = value end
+  if not found or not found:match("^TITHE%-%w%w%w%w%-%w%w%w%w$") then return nil end
+  for character in found:sub(7):gmatch("[^%-]") do
+    if not REFERENCE_ALPHABET:find(character, 1, true) then return nil end
+  end
+  return found
 end
 local function prune(d)
   local cutoff = time() - T.retentionSeconds
@@ -78,32 +105,44 @@ local function db()
 end
 local function observe(reason, sender, incoming)
   local d = db(); if not d then return end
-  table.insert(d.observations, { ts = time(), reason = reason, sender = name(sender), incomingCopper = integer(incoming), status = "not_credited" })
-  while #d.observations > T.maxObservations do table.remove(d.observations, 1) end
+  -- Counts only for new unconfirmed transfers; legacy originals stay untouched.
+  d.titheObservationCounts280 = d.titheObservationCounts280 or {}
+  d.titheObservationCounts280[reason] = (d.titheObservationCounts280[reason] or 0) + 1
 end
 local function payload(row)
-  return table.concat({ "gold", "1", row.id, string.format("%.0f", row.ts), row.kind, string.format("%.0f", row.incomingCopper),
-    string.format("%.0f", row.outgoingCopper), normalize(row.sender), normalize(row.recipient) }, "|")
+  local fields = {row.id, string.format("%.0f", row.ts), row.kind, string.format("%.0f", row.incomingCopper),
+    normalize(row.sender), row.senderGuid or "", normalize(row.recipient), row.collectorGuid, row.guild, row.realm,
+    row.reference, row.clientVersion, row.evidence, row.recipient}
+  local encoded = {"tithe-gold-v2|"}
+  for _, field in ipairs(fields) do encoded[#encoded + 1] = tostring(#field) .. ":" .. field end
+  return table.concat(encoded)
+end
+local function intakeBody(row)
+  if type(row) ~= "table" or row.version ~= 2 or not row.mac then return nil end
+  local allowed = {version=true,id=true,ts=true,kind=true,sender=true,senderGuid=true,recipient=true,collectorGuid=true,
+    guild=true,realm=true,reference=true,clientVersion=true,incomingCopper=true,outgoingCopper=true,netCopper=true,
+    status=true,classification=true,evidence=true,source=true,mac=true,relay=true}
+  for key in pairs(row) do if not allowed[key] then return nil end end
+  return {id=row.id,type="donation",source="tithe-gold-v2",character=row.sender,guid=row.senderGuid or "",
+    requestedAt=row.ts,requestedBy=row.recipient,guild=row.guild,realm=row.realm,clientVersion=row.clientVersion,
+    donation={version=2,kind=row.kind,copper=row.incomingCopper,recipient=row.recipient,collectorGuid=row.collectorGuid,reference=row.reference},
+    evidence={kind=row.evidence,confirmedLocal=true,automaticCredit=false,mac=row.mac}}
 end
 local function relay(row)
-  if not secret or not H or not H.hmacSha256hex or not transport then row.relay = "not_configured"; return false end
-  local me = identity()
-  if not me or normalize(me) ~= normalize(row.recipient) then row.relay = "collector_mismatch"; return false end
-  row.mac = H.hmacSha256hex(secret, payload(row)):sub(1, 32)
-  local text = string.format("Olympus: gold %s %.0f paid %.0f from %s (id %s, ts %.0f, ref OLVt-%s)",
-    row.kind, row.incomingCopper, row.outgoingCopper, row.sender, row.id, row.ts, row.mac)
-  if #text > 255 then row.relay = "too_long"; return false end
-  local ok = call(transport.Note, text)
-  row.relay = ok and "queued_to_chat_log" or "savedvariables_fallback"
-  return ok and true or false
+  local live = OlympusVerifyLive242
+  local body = intakeBody(row)
+  if not body or not live or type(live.Queue) ~= "function" then row.relay = "savedvariables_pending"; return false end
+  local queued = live.Queue(body, "tithe-gold-v2|" .. row.id)
+  row.relay = queued and "savedvariables_pending" or "intake_held"
+  return queued and true or false
 end
 local function transferContext()
-  local me, guid = identity(); local d = db()
+  local me, guid, guild, realm = identity(); local d = db()
   if not me or not d then return nil end
   d.nextId = (tonumber(d.nextId) or 0) + 1
   local at = time()
   local seed = table.concat({ guid or me, tostring(at), tostring(d.nextId), tostring(OlympusVerifyDB.boots or 0), tostring(call(GetTime) or 0) }, "|")
-  return { id = H.sha256hex(seed):sub(1, 24), ts = at }
+  return { id = H.sha256hex(seed):sub(1, 24), ts = at, recipient = me, collectorGuid = guid, guild = guild, realm = realm }
 end
 local function claimIntake(context, kind)
   local d = db(); if not d or not context then return nil end
@@ -118,16 +157,22 @@ local function claimIntake(context, kind)
   d.liveIntakeOwners242[context.id] = true
   return context.id
 end
-local function record(kind, sender, incoming, outgoing, evidence, context)
-  local me, guid = identity(); local d = db()
+local function record(kind, sender, incoming, outgoing, evidence, context, titheReference, senderGuid)
+  local me, guid, guild, realm = identity(); local d = db()
   sender, incoming, outgoing = name(sender), integer(incoming), integer(outgoing)
-  if not me or not d or not sender or not incoming or incoming <= 0 or not outgoing then return false end
+  titheReference = reference(titheReference)
+  if not me or not d or not sender or not incoming or incoming <= 0 or outgoing ~= 0 or not titheReference or not secret then return false end
+  if senderGuid ~= nil and (type(senderGuid) ~= "string" or not senderGuid:match("^Player%-%d+%-%x+$")) then return false end
   -- Pending transactions are never evicted or rejected for a local batch cap.
   -- Watcher upload batches are independently bounded and acknowledged.
   context = context or transferContext(); if not context then return false end
-  local row = { version = 1, id = context.id, ts = time(), kind = kind, sender = sender, recipient = me,
-    collectorGuid = guid, incomingCopper = incoming, outgoingCopper = outgoing, netCopper = incoming - outgoing,
+  if context.recipient ~= me or context.collectorGuid ~= guid or context.guild ~= guild or context.realm ~= realm then return false end
+  local clientVersion = readable(call(C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata, ADDON, "Version")) or "unavailable"
+  local row = { version = 2, id = context.id, ts = time(), kind = kind, sender = sender, senderGuid = senderGuid or "", recipient = me,
+    collectorGuid = guid, guild = guild, realm = realm, reference = titheReference, clientVersion = clientVersion,
+    incomingCopper = incoming, outgoingCopper = 0, netCopper = incoming,
     status = "confirmed_local", classification = "unclassified_receipt", evidence = evidence, source = "OlympusVerify" }
+  row.mac = H.hmacSha256hex(secret, payload(row)):sub(1, 32)
   table.insert(d.receipts, row)
   relay(row)
   printLine(string.format("recorded a local %s receipt. Unclassified; sync pending, not automatic tithe credit.", kind))
@@ -158,7 +203,7 @@ local function settleTrade()
   if not current or not trade.before or not trade.incoming or not trade.outgoing then return false end
   if current - trade.before ~= trade.incoming - trade.outgoing then return false end
   local done = trade; trade = nil
-  if done.incoming > 0 then return record("trade", done.sender, done.incoming, done.outgoing, "trade_complete_and_money_delta", done.context) end
+  if done.incoming > 0 then return record("trade", done.sender, done.incoming, done.outgoing, "trade_complete_and_money_delta", done.context, done.reference, done.senderGuid) end
   return false
 end
 local function expireTrade(expected)
@@ -182,8 +227,9 @@ local function header(index)
   if not subject or #subject > 512 then return nil end
   -- A transient bucket, not a durable message/person ID: same-looking mails retain their multiplicity.
   -- Removing an attachment must not move a still-uncollected gold amount into another bucket.
-  local bucket = H.sha256hex(table.concat({ sender, subject }, "|"))
-  return { sender = sender, money = money, cod = cod, bucket = bucket, index = index }
+  local titheReference = reference(subject, true)
+  local bucket = H.sha256hex(table.concat({ normalize(sender), titheReference or "" }, "|"))
+  return { sender = sender, money = money, cod = cod, reference = titheReference, bucket = bucket, index = index }
 end
 local function settleMail()
   local batch = mailBatch
@@ -205,7 +251,7 @@ local function settleMail()
   local kept = {}
   for _, intent in ipairs(batch.intents) do
     if matched[intent] then
-      record("mail", intent.sender, intent.money, 0, "take_money_inbox_depletion_and_money_delta", intent.context)
+      record("mail", intent.sender, intent.money, 0, "take_money_inbox_depletion_and_money_delta", intent.context, intent.reference)
       batch.baselines[intent.bucket] = totals[intent.bucket] or 0
     else table.insert(kept, intent) end
   end
@@ -256,7 +302,7 @@ end
 local function takingMoney(index)
   if not mailbox or not identity() or not cacheComplete then return end
   local row = cache[tonumber(index)]
-  if not row or row.money <= 0 then return end
+  if not row or row.money <= 0 or not row.reference then return end
   if row.cod ~= 0 then observe("cod_excluded", row.sender, row.money); return end
   if not mailBatch then
     local copied = {}; for k, v in pairs(totals) do copied[k] = v end
@@ -266,7 +312,7 @@ local function takingMoney(index)
   end
   local key = tostring(scanSerial) .. ":" .. tostring(index)
   if mailBatch.keys[key] then return mailBatch.keys[key] end
-  local intent = { sender = row.sender, money = row.money, bucket = row.bucket, context = transferContext() }
+  local intent = { sender = row.sender, money = row.money, reference = row.reference, bucket = row.bucket, context = transferContext() }
   mailBatch.keys[key] = intent
   table.insert(mailBatch.intents, intent)
   if #mailBatch.intents > 100 then expireMail(mailBatch) end
@@ -311,7 +357,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
   elseif event == "TRADE_SHOW" then
     if not identity() then return end
     if trade then expireTrade(trade) end
-    trade = { sender = partner(), before = balance(), at = time(), accepted = false, ambiguous = time() < uncertainTradeUntil, context = transferContext() }
+    trade = { sender = partner(), senderGuid = readable(call(UnitGUID, "npc")), before = balance(), at = time(), accepted = false, ambiguous = time() < uncertainTradeUntil, context = transferContext() }
     tradeMoney()
   elseif event == "TRADE_MONEY_CHANGED" then tradeMoney(); if trade then trade.accepted = false end
   elseif event == "TRADE_ACCEPT_UPDATE" then
@@ -349,6 +395,13 @@ end)
 
 OlympusVerifyTreasury = {
   Normalize = normalize,
+  IntakeBody280 = intakeBody,
+  SetTradeReference280 = function(value)
+    local valid = reference(value)
+    if not identity() or not trade or trade.completed or not valid then return false end
+    trade.reference = valid
+    return true
+  end,
   TradeTransferId627 = function() return trade and trade.context and trade.context.id end,
   MailTransferId627 = function(index) local intent=takingMoney(index);return intent and intent.context and intent.context.id end,
   ClaimTradeIntake242 = function() return trade and claimIntake(trade.context,"trade") end,
@@ -358,23 +411,26 @@ OlympusVerifyTreasury = {
   end,
   Status = function()
     local d = db() or {}
-    return { enabled = identity() ~= nil, recipient = cfg.treasuryRecipient or "Fern Melder", nativeName = transport and name(call(transport.Name)), confirmedLocal = #(d.receipts or {}),
+    return { enabled = identity() ~= nil, recipient = COLLECTOR, nativeName = transport and name(call(transport.Name)), confirmedLocal = #(d.receipts or {}),
       unconfirmed = #(d.observations or {}), overflow = d.overflows or 0, mailHooked = mailHooked,
       retentionSeconds = T.retentionSeconds,
       mailSnapshotComplete = cacheComplete,
-      storage = "SavedVariables writes at client reload/logout; chat log may buffer", automaticCredit = false }
+      storage = "Minimal tithe receipts reach SavedVariables at client reload/logout; no message text is collected", automaticCredit = false }
   end,
 }
 local function TreasurySlash()
   local status = OlympusVerifyTreasury.Status()
   printLine(string.format("%d confirmed local receipts; %d observations without credit; collector %s (%s).",
     status.confirmedLocal, status.unconfirmed, status.recipient, status.enabled and "this character" or "not active on this character"))
-  printLine("Read-only tracking; no automatic tithe credit. SavedVariables reaches disk at /reload/logout; chat-log delivery may be delayed.")
+  printLine("Only gold to Fern Melder with one TITHE reference is recorded; no automatic credit. SavedVariables reaches disk at /reload/logout.")
   printLine("Pending receipts persist until server acknowledgement; confirmed redundant local copies may be pruned after 30 days.")
 end
 local slashRegistry = OlympusVerifySlash234
 if type(slashRegistry) == "table" and type(slashRegistry.Register) == "function" then
   slashRegistry.Register("OLYMPUSTREASURY", {"/olvtreasury"}, TreasurySlash)
+  slashRegistry.Register("OLYMPUSTITHEREFERENCE", {"/olvtithe"}, function(value)
+    printLine(OlympusVerifyTreasury.SetTradeReference280(value) and "TITHE reference set for this open trade only." or "Open the intended trade, then enter /olvtithe TITHE-XXXX-XXXX. No note or reference was saved.")
+  end)
 elseif type(SlashCmdList) == "table" then
   SLASH_OLYMPUSTREASURY1 = "/olvtreasury"
   SlashCmdList.OLYMPUSTREASURY = TreasurySlash

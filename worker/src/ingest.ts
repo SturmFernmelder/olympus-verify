@@ -1,6 +1,7 @@
 import { readPrivacySubject, admittedPrivacySubjectWrite, pendingPrivacyCapture,privacyBoundSubjectEnv,PrivacySiteRequestHeld,privacyCaptureFromColumns,privacyGenerationFenceSql,privacyProviderCustodyDatabase,type PrivacySubject } from './privacy-serving-authority';
 /** Endpoints for the officer-side watcher (bearer WATCHER_TOKEN). */
 import { intVar, staffChannel, type Env } from "./env";
+import { nativeSnapshotSource } from './native-rank-schemes';
 import { audit, getCharacter, getMember, linksNotBefore, now, openPendingFor, openTicket, type PendingRow,type PrivacyReference } from "./db";
 import { codeFor, dayBucket, isValidCode, isValidTicket, normalizeCharacter, normalizeCodeInput, TICKET_LENGTH, ticketFor, ticketNonce } from "./codes";
 import { json, logLine, postMessage, staffNotice } from "./discord";
@@ -893,7 +894,7 @@ async function postEventsInner(env: Env, body: { events: EventIn[] }, notices: N
   return json({ applied });
 }
 
-export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[];nativeGuild?:string;nativeRealm?:string }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch): Promise<Response> {
+export async function postRoster(env: Env, body: { exportedAt: number; members: RosterMemberIn[];nativeGuild?:string;nativeRealm?:string;nativeRankTable?:unknown }, defer?: (label: string, work: () => Promise<unknown>) => void,originalDispatch?:BetaRoleDispatch,rankProtocol=false): Promise<Response> {
   const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);
   const launch=captureLaunchVerification(env);
   if(launch.mode==='held')return json({error:'verification_native_scope_unconfirmed'},503);
@@ -905,7 +906,10 @@ export async function postRoster(env: Env, body: { exportedAt: number; members: 
   // (roster.ts cannot import the lane module: full-release-roles reaches roster.ts, so that would be a module-load cycle).
   const lane = captureLaneConfig(env);
   if (!Array.isArray(body.members) || !body.exportedAt) return json({ error: "exportedAt and members[] required" }, 400);
-  const summary = await ingestRoster(env, body.exportedAt, body.members, launch.mode==='members-only'?launch.scope!.provenance:"addon", lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
+  const source=launch.mode==='members-only' ? rankProtocol
+    ? nativeSnapshotSource(launch.scope!.guild,launch.scope!.realm,body.nativeRankTable,body.members)
+    : launch.scope!.provenance : "addon";
+  const summary = await ingestRoster(env, body.exportedAt, body.members, source, lane.configured && defer ? { cap: lane, defer } : undefined,roleDispatch);
   // .115 (Codex's review of f975, 3 Oct 2026, 13:15 UTC, finding 2): an export refused for duplicate names is a 422, which
   // the watcher takes as final (watcher.py Worker.call: a 4xx is not retried, since sending it again changes nothing).
   // The review of 3 Oct 2026 added "unusable" (every batch committed, and the stored rows still fell short of the count):

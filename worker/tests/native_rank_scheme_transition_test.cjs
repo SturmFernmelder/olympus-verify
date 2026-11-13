@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path');
+const {loadPureSource218}=require('./helpers/pure_source218.cjs');
+const root=path.resolve(__dirname,'..'),ranks=loadPureSource218(root,'native-rank-schemes'),ops=loadPureSource218(root,'launch-operations229');
+const at=1800000000,table={version:1,names:[...ranks.DIRECTIVE_RANK_NAMES]};
+const rows=[{name:'Fixture Leader',guid:'Player-1-0001',currentSlot:0,rank:'Guild Master',verification:'verified',level:60,lastOnlineSeconds:0},{name:'Fixture Initiate',guid:'Player-1-0002',currentSlot:9,rank:'Initiate',verification:'verified',level:30,lastOnlineSeconds:0}];
+const source={snapshotId:1,snapshotAt:at-1,memberCount:2,guild:'OLYMPUS PRIME',realm:'Fixture Realm',scopeHash:'a'.repeat(16),nativeRankTable:table};
+const knight=new Map([[rows[1].guid,'non-knight']]);
+// Material fail-before: the old projector accepted these overlapping occupied ranks under an old full table.
+const old={...table,names:['Guild Master','Stewart','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Initiate']};
+assert.equal(ops.projectLaunchOperations229({...source,nativeRankTable:old},rows,knight,at,at+60).status,'held','old table with only occupied GM0/Initiate9 must not qualify');
+assert.equal(ops.projectLaunchOperations229({...source,nativeRankTable:null},rows,knight,at,at+60).promotions.length,0);
+const good=ops.projectLaunchOperations229(source,rows,knight,at,at+60);
+assert.equal(good.status,'ready');assert.deepEqual(good.promotions.map(r=>[r.currentSlot,r.targetSlot,r.targetName]),[[9,7,'Member']]);
+for(const names of [table.names.slice(0,9),[...table.names,'Extra'],table.names.map((x,i)=>i===8?'':x),table.names.map((x,i)=>i===8?'Member':x),table.names.map((x,i)=>i===1?'Steward':x)])assert.equal(ranks.directiveRankTable({version:1,names}),null);
+assert.equal(ranks.directiveRankTable({version:1,names:[...table.names]}).names[8],'Alt');
+assert.equal(ranks.directiveMemberRanks([{rankIndex:9,rank:'Initiate'}],old),false);
+assert.equal(ranks.directiveMemberRanks([{rankIndex:8,rank:'Member'}],table),false);
+const a=ranks.nativeSnapshotSource(source.guild,source.realm,table,[{rankIndex:9,rank:'Initiate'}]),b=ranks.nativeSnapshotSource(source.guild,source.realm,old,[{rankIndex:9,rank:'Initiate'}]);
+assert.notEqual(a,b);assert.equal(a,ranks.qualifiedNativeSnapshotSource(source.guild,source.realm));
+assert.equal(ranks.nativeMembershipSourceMatches(a,source.guild,source.realm),true);assert.equal(ranks.nativeMembershipSourceMatches(b,source.guild,source.realm),true);
+assert.equal(ranks.nativeMembershipSourceMatches(a,source.guild,'Other Realm'),false);
+const alt={...rows[1],currentSlot:8,rank:'Alt'};
+assert.equal(ops.projectSelectedPromotions274({...source,memberCount:1},[alt],new Map([[alt.guid,'non-knight']]),at,at+600).promotions.length,0,'ordinary Alt is not an Initiate continuation');
+console.log('PASS whole-table rank transition, empty-rank negatives, source identity and ordinary-Alt boundary');

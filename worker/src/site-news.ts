@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * News: Viktor's request (2 Oct 2026, item A), build .115. A members' page under Community -> News that says what is
  * going on in the guild, and short notices the site's administrators post for the whole guild.
@@ -702,8 +703,9 @@ function figuresDto(f: StoredFigures | null) {
  */
 export async function newsPage(request: Request, env: Env): Promise<Response> {
   const ctx = await communityContext(env, request, { guildRoleRead: true });
-  if (ctx.subject && rateLimited(`nr:${ctx.subject.discordId}`, NEWS_LIMITS.readsPerMin, 60)) {
-    return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
+  const rateLimitAt705280=(ctx.subject)?consumeRateLimit280(`nr:${ctx.subject.discordId}`,NEWS_LIMITS.readsPerMin,60):null;
+  if (rateLimitAt705280?.limited) {
+    return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt705280));
   }
   const settings = await loadSettings(env);
   if (!settings.newsOn) return apiJson({ error: "news_off", message: "The News page is switched off." }, 404);
@@ -803,8 +805,9 @@ export async function handleNewsAdmin(request: Request, env: Env, parts: string[
   if (request.headers.get("X-Olympus") !== PAGE_VERSION) {
     return apiJson({ error: "reload", message: "The site has been updated since this page was opened. Reload the page, then try again." }, 409);
   }
-  if (rateLimited(`nw:${ctx.subject!.discordId}`, NEWS_LIMITS.writesPerMin, 60)) {
-    return apiJson({ error: "slow_down", message: "Too many saves in one minute. Wait a moment, then try again." }, 429);
+  const rateLimitAt806280=consumeRateLimit280(`nw:${ctx.subject!.discordId}`,NEWS_LIMITS.writesPerMin,60);
+  if (rateLimitAt806280.limited) {
+    return apiJson({ error: "slow_down", message: "Too many saves in one minute. Wait a moment, then try again." }, 429,rateLimitHeaders280(rateLimitAt806280));
   }
   if (sub === "") return createNotice(request, env, ctx, body);
   if (sub === "update") return updateNotice(request, env, ctx, body);
@@ -839,7 +842,8 @@ export async function handleTownCrierEditor(request: Request, env: Env, parts: s
     if (request.method !== 'POST' || !['', 'update', 'delete'].includes(sub)) return apiJson({ error: 'not_found' }, 404);
     if (!sameOrigin(request)) return apiJson({ error: 'bad_origin' }, 403);
     if (request.headers.get('X-Olympus') !== PAGE_VERSION) return apiJson({ error: 'reload', message: 'Reload the page before editing News.' }, 409);
-    if (rateLimited(`nw:${ctx.subject.discordId}`, NEWS_LIMITS.writesPerMin, 60)) return apiJson({ error: 'slow_down' }, 429);
+    const rateLimitAt842280=consumeRateLimit280(`nw:${ctx.subject.discordId}`,NEWS_LIMITS.writesPerMin,60);
+    if (rateLimitAt842280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt842280));
     response = sub === '' ? await createNotice(request, env, ctx, body, authority)
       : sub === 'update' ? await updateNotice(request, env, ctx, body, authority)
         : await deleteNotice(request, env, ctx, body, authority);

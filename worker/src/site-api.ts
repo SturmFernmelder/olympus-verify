@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { APPLICATION_SPECS_219 } from './application-specs219';
 import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
@@ -59,7 +60,7 @@ import { releaseReserved } from "./site-queue";
 import { handleAttendedBetaWindow } from "./site-beta-window";
 import { handleAdmin } from "./site-admin";
 async function handleSiteVerification242(...args:Parameters<typeof import('./verification242').handleSiteVerification242>){return (await import('./verification242')).handleSiteVerification242(...args);}
-import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembershipDecisionOrigin,MembershipDecisionHeld} from "./privacy-rejection-decision";
+import {membershipDecisionOrigin,authenticateMembershipDecision,assertMembershipDecisionOrigin,MembershipDecisionHeld,MembershipDecisionForbidden} from "./privacy-rejection-decision";
 import { handleCommunity } from "./community-routes";
 import { exportMyData } from "./site-export";
 import { handlePrivacyIntake } from "./community-privacy-intake";
@@ -97,7 +98,8 @@ export function generalSettingsDto(settings: SiteSettings): SiteSettings {
  * no character, guild notice, leadership or member payload is read here. */
 export async function resourceUpdatesPage(request: Request, env: Env): Promise<Response> {
   const first = await readSession(env, request);
-  if (first && rateLimited(`resources:${first.u}`, 20, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt100280=(first)?consumeRateLimit280(`resources:${first.u}`,20,60):null;
+  if (rateLimitAt100280?.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt100280));
   const admit = async (): Promise<Response | null> => {
     const session = await readSession(env, request);
     if (!session) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
@@ -140,7 +142,7 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   if(m==='POST' && path==='/api/me/erasure/status'){if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)return apiJson({error:'bad_origin'},403);const body=await readJson(request);const status=await erasureRequestStatus(env,request,typeof body?.operationId==='string'?body.operationId:'',typeof body?.statusToken==='string'?body.statusToken:undefined);return status?apiJson(status):apiJson({error:'not_found'},404);}
   const decisionOrigin=membershipDecisionOrigin(request);
   let decisionAuth:Awaited<ReturnType<typeof authenticateMembershipDecision>>=null;
-  try{if(decisionOrigin)decisionAuth=await authenticateMembershipDecision(decisionOrigin,env);}catch(e){if(e instanceof MembershipDecisionHeld)return apiJson({error:e.code},409);throw e;}
+  try{if(decisionOrigin)decisionAuth=await authenticateMembershipDecision(decisionOrigin,env);}catch(e){if(e instanceof MembershipDecisionForbidden)return apiJson({error:'forbidden',message:'This action requires a site administrator.'},403);if(e instanceof MembershipDecisionHeld)return apiJson({error:e.code},409);throw e;}
   const user = decisionOrigin?decisionAuth?.user??null:await currentUser(env, request);
   if (!user) return apiJson({ error: "signed_out", message: "You are signed out. Sign in with Discord again." }, 401);
   if (m !== "GET" && m !== "HEAD" && !sameOrigin(request)) return apiJson({ error: "bad_origin", message: "Refused: that request did not come from this page." }, 403);
@@ -151,7 +153,24 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   const admin = isSiteAdmin(env, user.discord_id);
   if (path === "/api/me/verification") {
     if (m !== "GET" && request.headers.get("X-Olympus") !== PAGE_VERSION) return apiJson({error:"page_outdated",message:"Reload this page before verifying."},409);
-    return handleSiteVerification242(request, env, {id:user.discord_id}, (_label, work) => waitUntil(work));
+    const subject=Object.freeze({discordId:originalSession.u,sessionVersion:originalSession.v,expiresAt:originalSession.e,
+      privacyGeneration:originalSession.g,accountIncarnation:originalSession.n,originalSession});
+    const admitWrite=async():Promise<Response|null>=>{
+      // Own-account admission deliberately requires no linked character, guild
+      // role or addon. Keep this original session/birth/generation across awaits.
+      const facts=await admittedReadAs(env,subject,'authenticatedIdentity',[
+        env.DB.prepare('SELECT denied,in_server,checked_at FROM site_users WHERE discord_id=?1').bind(subject.discordId),
+      ]);
+      if(facts===FENCE_REFUSED)return apiJson({error:'signed_out',message:'Your sign-in changed. Sign in with Discord again.'},401);
+      const rows=facts[0]?.results as {denied:number;in_server:number;checked_at:number|null}[]|undefined;
+      if(!rows||rows.length!==1)return apiJson({error:'account_changed',message:'Your account state changed. Reload before verifying.'},409);
+      const standing=rows[0]!;
+      if(standing.denied!==0)return apiJson({error:'denied',message:DENIED_TEXT},403);
+      const gone=await stillMember(env,{...user,...standing});if(gone)return gone;
+      const current=await admittedReadAs(env,subject,'applicantWrite',[]);
+      return current===FENCE_REFUSED?apiJson({error:'account_changed',message:'Your account state changed. Reload before verifying.'},409):null;
+    };
+    return handleSiteVerification242(request, env, {id:user.discord_id}, (_label, work) => waitUntil(work),admitWrite);
   }
   if (path.startsWith("/api/admin/")) {
     if (!admin) return apiJson({ error: "forbidden" }, 403);
@@ -173,7 +192,8 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
     // The board shows other members' applications, so it is for members in good standing only: not denied, still in
     // Asmongold's server (checked with Discord at most hourly, as for a save), and not read by a script at speed.
     if (user.denied) return apiJson({ error: "denied", message: DENIED_TEXT }, 403);
-    if (rateLimited(`r:${user.discord_id}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
+    const rateLimitAt193280=consumeRateLimit280(`r:${user.discord_id}`,90,60);
+    if (rateLimitAt193280.limited) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt193280));
     const gone = await stillMember(env, user);
     if (gone) return gone;
     let role = "";
@@ -203,8 +223,9 @@ export async function handleApi(request: Request, env: Env, path: string, waitUn
   }
   // Board votes come one click at a time, so they get a roomier limit of their own.
   const vote = m === "PUT" && path === "/api/board/vote";
-  if (rateLimited(`${vote ? "b" : "w"}:${user.discord_id}`, vote ? 120 : 30, 60)) {
-    return apiJson({ error: "slow_down", message: vote ? "Too many votes in one minute. Wait a moment, then carry on." : "Too many saves in one minute. Wait a moment, then try again." }, 429);
+  const rateLimitAt223280=consumeRateLimit280(`${vote ? "b" : "w"}:${user.discord_id}`,vote ? 120 : 30,60);
+  if (rateLimitAt223280.limited) {
+    return apiJson({ error: "slow_down", message: vote ? "Too many votes in one minute. Wait a moment, then carry on." : "Too many saves in one minute. Wait a moment, then try again." }, 429,rateLimitHeaders280(rateLimitAt223280));
   }
   const body = await readJson(request);
   if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
@@ -1096,7 +1117,8 @@ async function saveReserved(env: Env, user: SiteUser, body: Record<string, unkno
 async function search(env: Env, user: SiteUser, url: URL, admin: boolean): Promise<Response> {
   const q = cleanText(url.searchParams.get("q"), 32).replace(/^@/, "");
   if (Array.from(q).length < 2) return apiJson({ results: [] });
-  if (rateLimited(`s:${user.discord_id}`, 40, 60)) return apiJson({ error: "slow_down", message: "Searching too fast. Wait a few seconds.", results: [] }, 429);
+  const rateLimitAt1116280=consumeRateLimit280(`s:${user.discord_id}`,40,60);
+  if (rateLimitAt1116280.limited) return apiJson({ error: "slow_down", message: "Searching too fast. Wait a few seconds.", results: [] }, 429,rateLimitHeaders280(rateLimitAt1116280));
   if (!/^\d{17,20}$/.test(env.SITE_GUILD_ID ?? "") || !env.DISCORD_BOT_TOKEN) return apiJson({ results: [], unavailable: true });
   const appointment = admin && url.searchParams.get('purpose') === 'appointment';
   let out: { found: Found[]; limited?: boolean };

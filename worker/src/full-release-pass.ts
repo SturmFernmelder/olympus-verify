@@ -577,7 +577,7 @@ async function runNative232Pass(env:Env,io:Readonly<{calls:CallBudget;adm?:Admis
     return !!await writer.DB.prepare("SELECT 1 AS recorded FROM audit WHERE actor='system' AND action='role.native232_attempt' AND subject=?1 AND json_extract(CASE WHEN json_valid(details) THEN details ELSE '{}' END,'$.walk')=?2 LIMIT 1").bind(subject,walkId).first();
    };
   const canonical=captureCanonicalRankConfig233(env);
-   const window=(await env.DB.prepare(canonical.present?L.CANONICAL233_SWEEP249_SELECT:L.NATIVE232_SWEEP249_SELECT).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
+   const window=(await env.DB.prepare(canonical.present?L.DIRECTIVE_CANONICAL_SWEEP280_SELECT:L.NATIVE232_SWEEP249_SELECT).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
    const refs:PrivacyReference[]=[];let visited=0,stop='',progressHeld=false;
   // Each subject is admitted against physical SQL and HTTP room, rather than a fixed two-account quota.
   const subjectLimit=10; // Re-evaluate live SQL/HTTP room before each visit; a cheap held account must not consume a worst-case slot.

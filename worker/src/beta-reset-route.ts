@@ -1,3 +1,4 @@
+import {consumeRateLimit280} from './soft-rate-limit280';
 /** Owner preview and immutable arming of the fixed beta reset. This route never touches Discord. */
 import type {Env} from './env';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
@@ -14,7 +15,7 @@ const RETENTION_PURPOSE='beta-retention-cutoff-confirm-v1';
 const RETIRE_PURPOSE='beta-role-reset-retire-v1';
 type Session=OriginalSiteSession;
 type Form={expiresAt:number;formNonce:string;token:string};
-class Refused extends Error{constructor(readonly code:string,readonly status=409){super(code);}}
+class Refused extends Error{constructor(readonly code:string,readonly status=409,readonly retryAfterSeconds?:number){super(code);}}
 const keys=(v:unknown,wanted:string)=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===wanted;
 const config=(env:Env)=>['BETA_RESET_REMOVALS_ENABLED','GUILD_ID','DISCORD_APP_ID','SITE_ADMINS','ROLE_GUILD_MEMBER','ROLE_GUILD_LEADER','ROLE_OFFICER','ROLE_RAID_LEADER','ROLE_GUILD_MASTER','ROLE_MODERATOR','QR_NATIVE_ROLE_MAP'].map(k=>Object.getOwnPropertyDescriptor(env,k)?.value??null);
 const claims=(s:Session,b:unknown,f:Omit<Form,'token'>,purpose=PURPOSE,retention:unknown=null)=>JSON.stringify({purpose,staff:s,binding:b,epoch:BETA_RESET_EPOCH,cutoff:BETA_RESET_CUTOFF,guildId:BETA_RESET_GUILD_ID,roleIds:BETA_RESET_ROLE_IDS,form:f,retention});
@@ -59,7 +60,8 @@ export async function handleBetaRoleReset(request:Request,env:Env,path:string,ad
   }
   if(request.method!=='POST'||path!==ROOT+'/arm'&&path!==ROOT+'/confirm-cutoff'&&path!==ROOT+'/retire')throw new Refused('method_not_allowed',405);
   if(!sameOrigin(request)||request.headers.get('X-Olympus')!==PAGE_VERSION)throw new Refused('beta_reset_bad_origin',403);
-  if(rateLimited('beta-reset-arm:'+s.u,6,60))throw new Refused('beta_reset_slow_down',429);
+  const limit=consumeRateLimit280('beta-reset-arm:'+s.u,6,60);
+  if(limit.limited)throw new Refused('beta_reset_slow_down',429,limit.retryAfterSeconds);
   if(path===ROOT+'/retire'){
    const retired=parseBetaResetRetirement(c.raw,env),originalRaw=retired?.originalPolicy??(parseBetaResetPolicy(c.raw,env)?c.raw:null);
    if(originalRaw===null||betaPolicyRetirementSql(env,c,1).sql==='0=1')throw new Refused('beta_reset_not_retirable');
@@ -108,5 +110,5 @@ export async function handleBetaRoleReset(request:Request,env:Env,path:string,ad
    AND ${g.sql} ON CONFLICT(key) DO NOTHING RETURNING value`).bind(BETA_RESET_POLICY_KEY,policy,original.u,original.v,original.e,f.expiresAt,armedAt,...g.values).first<{value:string}>();
   assertOriginalSiteSessionRead(original);if(!row||row.value!==policy)throw new Refused('beta_reset_original_admission_changed');
   return apiJson({ok:true,policyArmed:true,removalsEnabled:env.BETA_RESET_REMOVALS_ENABLED==='true',cutoff:BETA_RESET_CUTOFF,roleIds:BETA_RESET_ROLE_IDS},200,{'Cache-Control':'no-store'});
- }catch(e){return e instanceof Refused?apiJson({error:e.code},e.status):apiJson({error:'beta_reset_outcome_unconfirmed'},503);}
+ }catch(e){return e instanceof Refused?apiJson({error:e.code},e.status,e.status===429&&e.retryAfterSeconds?{'Retry-After':String(e.retryAfterSeconds)}:{}):apiJson({error:'beta_reset_outcome_unconfirmed'},503);}
 }

@@ -20,6 +20,60 @@ local function guid(v) return text(v,64) and v:match("^Player%-%d+%-%x+$") and v
 local function say(s) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffc9a227Olympus|r: "..s) end end
 local function ownName() return call(API.TreasuryTransport and API.TreasuryTransport.Name) or call(GetUnitName,"player",true) or call(UnitName,"player") end
 local function norm(s) return H.normalizeCharacter(s or "") end
+local function asciiLower(s) return (s:gsub("[A-Z]",function(c) return string.char(c:byte()+32) end)) end
+local function realmKey243(value)
+  if not text(value,128) or value=="" or value:find("[%z\1-\31\127|:%[%]()]" ) or value:find("-",1,true) then return nil end
+  local key=asciiLower(value:gsub(" +",""));return key~="" and key or nil
+end
+local function nativeKey243(value,localRealm)
+  if not text(value,128) or value:find("[%z\1-\31\127|:%[%]()]" ) then return nil end
+  local base,suffix=value:match("^(.-)%-(.+)$")
+  if value:find("-",1,true) and not base then return nil end
+  base=base or value
+  if base:find("-",1,true) or suffix and suffix:find("-",1,true) then return nil end
+  base=asciiLower(base:gsub(" +"," "):gsub("^ ",""):gsub(" $",""))
+  local realm=realmKey243(suffix or localRealm)
+  if #base<2 or not realm then return nil end
+  return #base..":"..base..#realm..":"..realm,realm
+end
+local function selfId243(key,observation)
+  return H.sha256hex("olympus-self-request243|"..#key..":"..key..#observation..":"..observation):sub(1,32)
+end
+local function selfBinding243(row,sender)
+  local allowed={id=true,type=true,source=true,character=true,guid=true,guild=true,rankName=true,rankIndex=true,code=true,requestedBy=true,requestedAt=true,observationId=true,observedAt=true,guidSource=true,bridgeUntrusted=true,clientVersion=true,realm=true,status=true}
+  if type(row)~="table" or row.type~="verify" or row.source~="self-addon243" or row.status~="pending" then return nil end
+  for k in pairs(row) do if not allowed[k] then return nil end end
+  if not text(row.observationId,32) or #row.observationId~=32 or not row.observationId:match("^[0-9a-f]+$")
+    or not guid(row.guid) or not H.strictCode(row.code or "") or row.guidSource~="UnitGUID-player" or row.bridgeUntrusted~=true
+    or type(row.observedAt)~="number" or row.observedAt~=math.floor(row.observedAt) or row.observedAt<=0 or row.requestedAt~=row.observedAt
+    or row.observedAt<=time()-600 or row.observedAt>time()+5 then return nil end
+  local realm=call(GetRealmName);local key,nativeRealm=nativeKey243(sender,realm)
+  if not key or nativeKey243(row.character,realm)~=key or nativeKey243(row.requestedBy,realm)~=key or realmKey243(row.realm)~=nativeRealm then return nil end
+  if not text(row.id,32) or row.id~=selfId243(key,row.observationId) then return nil end
+  return key
+end
+local function boundedCount243(t,limit)
+  local n=0;for _ in pairs(type(t)=="table" and t or {}) do n=n+1;if n>=limit then return n end end;return n
+end
+local function capacity243(d,sender)
+  for _,field in ipairs({"entries","dedup","observations","mail","mailActive","mailHistory","bridgeMetadata","bridgeReturns242","bridgeOutbound242","bridgeWireIds626","deliveryReceipts242","acknowledgements","transportSchedule243"}) do
+    if boundedCount243(d[field],4096)>=4096 then return false,"capacity" end
+  end
+  if sender then
+    local n=0
+    for id,route in pairs(d.bridgeReturns242 or {}) do
+      local row=d.entries[id]
+      if type(route)~="table" or row~=nil and type(row)~="table" then return false,"retained-format" end
+      if route.senderKey243==sender and row and row.status=="pending" then n=n+1;if n>=16 then return false,"sender-capacity" end end
+    end
+  end
+  return true
+end
+local function admissionHeld243(d,reason)
+  d.admissionHolds243=d.admissionHolds243 or {count=0}
+  d.admissionHolds243.count=math.min(1000000,(tonumber(d.admissionHolds243.count) or 0)+1)
+  d.admissionHolds243.reason=reason -- fixed purpose/capacity label, never request text
+end
 function V.IsAuthorizedWatcher()
   local _,_,rank=call(GetGuildInfo,"player")
   return type(cfg.secret)=="string" and #cfg.secret>=16 and not cfg.secret:find("REPLACE",1,true)
@@ -27,37 +81,47 @@ function V.IsAuthorizedWatcher()
 end
 local function db()
   if type(OlympusVerifyDB)~="table" then return nil end
-  OlympusVerifyDB.intake242=OlympusVerifyDB.intake242 or {version=1,nextId=0,entries={},dedup={},acknowledgements={}}
-  return OlympusVerifyDB.intake242
+  if OlympusVerifyDB.intake242==nil then OlympusVerifyDB.intake242={version=1,nextId=0,entries={},dedup={},acknowledgements={}} end
+  local d=OlympusVerifyDB.intake242
+  if type(d)~="table" or type(d.entries)~="table" or type(d.dedup)~="table" or type(d.acknowledgements)~="table" then
+    if not state.custodyFormatHeld243 then say("Retained intake format is held; existing data was not replaced. Inspect the Watcher before retrying.");state.custodyFormatHeld243=true end
+    return nil
+  end
+  return d
 end
 local function clone(v, depth)
   if type(v)~="table" then if type(v)=="string" or type(v)=="number" or type(v)=="boolean" then return v end;return nil end
   if (depth or 0)>5 then return nil end
   local out={};for k,x in pairs(v) do if type(k)=="string" or type(k)=="number" then out[k]=clone(x,(depth or 0)+1) end end;return out
 end
-local function announce(id)
-  -- An untrusted discovery nudge, never an approval or a remotely executable job.
-  if C_ChatInfo and type(C_ChatInfo.SendAddonMessage)=="function" and call(IsInGuild) then
-    pcall(C_ChatInfo.SendAddonMessage,"OLYMPUS","PEND~"..id,"GUILD")
-  end
-end
-function V.Queue(row, key)
+function V.Queue(row, key,remoteSenderKey)
   local d=db();if not d or type(row)~="table" then return nil end
+  -- Only the new minimal native collector receipt may enter financial custody.
+  -- Old originals are neither rewritten nor upgraded under their old IDs.
+  if row.type=="donation" then
+    local allowed={id=true,type=true,source=true,character=true,guid=true,requestedAt=true,requestedBy=true,guild=true,realm=true,clientVersion=true,donation=true,evidence=true}
+    local donationKeys={version=true,kind=true,copper=true,recipient=true,collectorGuid=true,reference=true}
+    local evidenceKeys={kind=true,confirmedLocal=true,automaticCredit=true,mac=true}
+    if row.source~="tithe-gold-v2" or type(row.donation)~="table" or type(row.evidence)~="table" or row.requestedBy~="Fern Melder" then return nil end
+    for field in pairs(row) do if not allowed[field] then return nil end end
+    for field in pairs(row.donation) do if not donationKeys[field] then return nil end end
+    for field in pairs(row.evidence) do if not evidenceKeys[field] then return nil end end
+    if row.donation.version~=2 or row.donation.recipient~="Fern Melder" or row.evidence.confirmedLocal~=true or row.evidence.automaticCredit~=false then return nil end
+  end
   if key and d.dedup[key] then return d.entries[d.dedup[key]] end
-  if row.id and d.entries[row.id] then return d.entries[row.id] end
+  if row.id and d.entries[row.id]~=nil then return type(d.entries[row.id])=="table" and d.entries[row.id] or nil end
+  local available,why=capacity243(d,remoteSenderKey);if not available then admissionHeld243(d,why);return nil end
   d.nextId=(tonumber(d.nextId) or 0)+1
   row.id=row.id or H.sha256hex(table.concat({guid(call(UnitGUID,"player")) or ownName() or "unknown",tostring(time()),tostring(d.nextId)},"|")):sub(1,32)
   row.requestedAt=row.requestedAt or time();row.requestedBy=row.requestedBy or ownName();row.status="pending"
-  if row.clientVersion==nil then row.clientVersion="0.6.29" end
+  if row.clientVersion==nil then
+    row.clientVersion=text(call(API.Version),32)
+      or text(call(C_AddOns and C_AddOns.GetAddOnMetadata,ADDON,"Version"),32)
+      or text(call(GetAddOnMetadata,ADDON,"Version"),32) or "unknown"
+  end
   row.guild=row.guild or call(GetGuildInfo,"player");row.realm=row.realm or call(GetRealmName)
   d.entries[row.id]=row;if key then d.dedup[key]=row.id end
-  if type(OlympusDB)=="table" then
-    OlympusDB.pendingRoleUpdates=OlympusDB.pendingRoleUpdates or {}
-    -- IDs are map keys here; no unordered deletion/expiry of another addon's jobs.
-    OlympusDB.pendingRoleUpdates[row.id]=clone(row)
-  end
   state.dirty=true
-  if not state.lastAnnounce or time()-state.lastAnnounce>=2 then state.lastAnnounce=time();announce(row.id) end
   if OlympusVerifyAutoSync and (not state.pendingAlertAt or time()-state.pendingAlertAt>=30) then
     state.pendingAlertAt=time();OlympusVerifyAutoSync.Request("whisper")
   end
@@ -121,27 +185,46 @@ end
 -- Officer fallback. A fresh unique native GUID/rank remains mandatory.
 local function configuredCollector() return text(cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder",128) end
 local function existingSecret() return type(cfg.secret)=="string" and #cfg.secret>0 and not cfg.secret:find("REPLACE",1,true) end
-local applyBridgeACK,returnBridgeACK
+local applyBridgeACK,returnBridgeACK,nativeCollector
 local function queueWire(row, recipient)
   if not text(recipient,128) or not C_ChatInfo or type(C_ChatInfo.SendAddonMessage)~="function" then return end
   local wireId=transportId(row.id);if not wireId then return end
   local raw=pack(row,0);if not raw or #raw>8192 then return end
   local count=math.ceil(#raw/170)
+  if #state.outbound-(state.outboundHead or 0)+count>512 then return false end
   for i=1,count do state.outbound[#state.outbound+1]={target=recipient,message=wireId..":"..i..":"..count..":"..raw:sub((i-1)*170+1,i*170),pendingRequestId=row.id} end
+  return true
 end
 local function sendRow(row, recipient)
-  local d=db();local binding=bodyBinding(row);local me=ownName();local ownGuid=guid(call(UnitGUID,"player"))
-  if not d or not binding or not me or not ownGuid or norm(row.requestedBy)~=norm(me) then return end
-  d.bridgeOutbound242=d.bridgeOutbound242 or {};d.bridgeWireIds626=d.bridgeWireIds626 or {};d.deliveryFailures242=d.deliveryFailures242 or {}
-  if d.deliveryFailures242[row.id]=="unsupported_callback" then return end
-  local original=d.bridgeOutbound242[row.id]
-  if original and (original.bodySHA256~=binding or norm(original.collector)~=norm(recipient) or original.ownGuid~=ownGuid or norm(original.recipient)~=norm(me)) then
-    d.deliveryFailures242[row.id]="original_body_or_recipient_changed";return
+  if type(row)~="table" or row.type=="donation" then return end -- collector-local financial evidence
+  local d=db();local me=ownName();local ownGuid=guid(call(UnitGUID,"player"))
+  if not d or not ownGuid or not state.newSelf243 or state.newSelf243[row.id]~=row then return end
+  d.transportSchedule243=d.transportSchedule243 or {};local schedule=d.transportSchedule243[row.id]
+  if schedule and schedule.attempted then return end -- possible delivery is unknown, never an automatic resend
+  if schedule and schedule.nextAt>time() then return end
+  local key=selfBinding243(row,me);local recipientKey=nativeKey243(recipient,call(GetRealmName))
+  if not key or not recipientKey then return end
+  local binding=bodyBinding(row);if not binding then return end
+  if schedule and (schedule.bodySHA256~=binding or schedule.recipientKey~=recipientKey or schedule.ownGuid~=ownGuid) then return end
+  schedule=schedule or {bodySHA256=binding,recipientKey=recipientKey,ownGuid=ownGuid,attempted=false,nextAt=time(),state="waiting"}
+  d.transportSchedule243[row.id]=schedule
+  local collector=nativeCollector and nativeCollector(recipient)
+  local exact=false
+  if collector then
+    for i=1,math.min(tonumber(call(GetNumGuildMembers)) or 0,1000) do
+      local name,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,id=call(GetGuildRosterInfo,i)
+      if id==collector and nativeKey243(name,call(GetRealmName))==recipientKey then exact=true end
+    end
   end
-  d.bridgeOutbound242[row.id]=original or {bodySHA256=binding,collector=recipient,recipient=me,ownGuid=ownGuid,character=row.character,guid=row.guid or ""}
+  if not exact then schedule.nextAt=time()+30;return end
+  d.bridgeOutbound242=d.bridgeOutbound242 or {};d.bridgeWireIds626=d.bridgeWireIds626 or {};d.deliveryFailures242=d.deliveryFailures242 or {}
+  local original=d.bridgeOutbound242[row.id]
+  if original and (original.bodySHA256~=binding or original.ownGuid~=ownGuid or nativeKey243(original.collector,call(GetRealmName))~=recipientKey) then return end
   local wireId=transportId(row.id);if not wireId or d.bridgeWireIds626[wireId] and d.bridgeWireIds626[wireId]~=row.id then return end
+  if not queueWire(row,recipient) then schedule.nextAt=time()+30;return end
+  d.bridgeOutbound242[row.id]=original or {bodySHA256=binding,collector=recipient,recipient=me,ownGuid=ownGuid,character=row.character,guid=row.guid or ""}
   d.bridgeWireIds626[wireId]=row.id
-  queueWire(row,recipient)
+  schedule.attempted=true;schedule.state="delivery_unknown";schedule.firstQueuedAt=time()
 end
 local function legacyReturnRoute626(original,stored,sender,d)
   -- Only the known .625 self-request sanitation can be reconstructed without
@@ -184,21 +267,29 @@ local function receiveWire(message, sender, distribution)
   state.incoming[key]=nil
   local row=unpackWire(table.concat(entry.parts));if not row or transportId(row.id)~=id then return end
   if not V.IsAuthorizedWatcher() or not text(row.character,128) or row.status~="pending"
-    or (row.type~="verify" and row.type~="role" and row.type~="guild" and row.type~="donation") then return end
+    or (row.type~="verify" and row.type~="role" and row.type~="guild") then return end
   local d=db();if not d then return end
-  local binding=bodyBinding(row);if not binding then return end
   d.bridgeReturns242=d.bridgeReturns242 or {}
-  local route=d.bridgeReturns242[row.id]
-  local stored=d.entries[row.id]
-  if stored and not route then
-    route=legacyReturnRoute626(row,stored,sender,d)
-    if not route then d.deliveryFailures242=d.deliveryFailures242 or {};d.deliveryFailures242[row.id]="unsupported_callback";return end
-    d.bridgeReturns242[row.id]=route
+  local route=d.bridgeReturns242[row.id];local stored=d.entries[row.id]
+  if route~=nil and type(route)~="table" or stored~=nil and type(stored)~="table" then return end
+  if stored then
+    if not route then
+      route=legacyReturnRoute626(row,stored,sender,d)
+      if not route then return end
+      d.bridgeReturns242[row.id]=route
+    end
+    local sameSender=route.senderKey243 and nativeKey243(sender,call(GetRealmName))==route.senderKey243 or not route.senderKey243 and norm(route.recipient)==norm(sender)
+    if not sameSender or route.bodySHA256~=bodyBinding(row) then return end
     local acknowledged=d.acknowledgements[row.id]
     if acknowledged then returnBridgeACK(stored,acknowledged) end
-    return -- the retained pending/unknown original is never queued again
+    return -- exact old packet may observe only its original known terminal callback
   end
-  if stored and (norm(route.recipient)~=norm(sender) or route.bodySHA256~=binding) then return end
+  if route then return end
+  local available,why=capacity243(d,nativeKey243(sender,call(GetRealmName)))
+  if not available then admissionHeld243(d,why);return end
+  local senderKey=selfBinding243(row,sender)
+  if not senderKey then return end
+  local binding=bodyBinding(row);if not binding then return end
   local originalName,originalGuid=row.character,row.guid or ""
   -- Remote clients cannot assert officer membership proofs or Native Discord
   -- observations. Keep their original Authority token as untrusted input.
@@ -210,9 +301,9 @@ local function receiveWire(message, sender, distribution)
     row.nativeMembership=call(API.NativeBridgeMembership242,sender,row.guid,row.code)
   end
   row.requestedBy=row.requestedBy or sender
-  local queued=V.Queue(row,"remote|"..sender.."|"..id)
+  local queued=V.Queue(row,"remote|"..sender.."|"..id,senderKey)
   if queued then
-    d.bridgeReturns242[row.id]=route or {recipient=sender,bodySHA256=binding,character=originalName,guid=originalGuid}
+    d.bridgeReturns242[row.id]=route or {recipient=sender,bodySHA256=binding,character=originalName,guid=originalGuid,senderKey243=senderKey}
     local acknowledged=d.acknowledgements[row.id]
     if acknowledged then returnBridgeACK(queued,acknowledged) end
   end
@@ -221,6 +312,7 @@ end
 -- membership witness or permission to retry an earlier unknown server effect.
 function V.NewVerificationObservation(source, sender, senderGuid, lineId)
   local d=db();if not d then return nil end
+  local available,why=capacity243(d);if not available then admissionHeld243(d,why);return nil end
   if not state.observationSession then
     d.observationSessions=(tonumber(d.observationSessions) or 0)+1;state.observationSession=d.observationSessions
   end
@@ -268,7 +360,7 @@ local function receiptMAC(r)
   local payload=table.concat({"intake242",r.id,r.status,r.guid or "",norm(r.character),r.discordRole or "",tostring(r.observedAt),tostring(r.expiresAt)},"|")
   return H.hmacSha256hex(cfg.secret,payload):sub(1,32)==r.mac
 end
-local function nativeCollector(sender)
+nativeCollector=function(sender)
   if norm(sender)~=norm(configuredCollector()) or call(IsInGuild)~=true then return nil end
   if not state.guildRosterAt or time()-state.guildRosterAt>60 or state.guildRosterAt>time() then return nil,"stale" end
   local count=call(GetNumGuildMembers)
@@ -293,22 +385,17 @@ local function nativeCollector(sender)
   return nil
 end
 local function matchingCallback(row,d)
-  local metadata=d.bridgeMetadata and d.bridgeMetadata[row.id]
-  if not metadata then return row end -- the original OlympusVerify entry
-  local container
-  if metadata.origin=="Olympus-pendingRoleUpdates" then container=OlympusDB
-  elseif metadata.origin=="OlympusRecordDB-pendingRoleUpdates" then container=OlympusRecordDB end
-  local candidate=type(container)=="table" and type(container.pendingRoleUpdates)=="table" and container.pendingRoleUpdates[row.id]
-  if type(candidate)~="table" or candidate.id~=row.id or candidate.type~=row.type or not text(candidate.character,128) or norm(candidate.character)~=norm(row.character)
-    or bodyBinding(candidate)~=bodyBinding(row) then return nil end
-  return candidate
+  if d.bridgeMetadata and d.bridgeMetadata[row.id] then return nil end -- old unqualified foreign original stays held
+  return row
 end
 returnBridgeACK=function(row,r)
   local d=db();local route=d and d.bridgeReturns242 and d.bridgeReturns242[row.id]
-  if not route or not V.IsAuthorizedWatcher() or not receiptValid(r) or not receiptMAC(r)
+  if #state.outbound-(state.outboundHead or 0)>=512 then return end
+  if type(route)~="table" or not V.IsAuthorizedWatcher() or not receiptValid(r) or not receiptMAC(r)
     or norm(r.character)~=norm(route.character) or (route.guid~="" and route.guid~=(r.guid or "")) then return end
   state.returnedACKs=state.returnedACKs or {}
   local key=row.id.."|"..route.recipient;local last=state.returnedACKs[key]
+  if not last and boundedCount243(state.returnedACKs,4096)>=4096 then return end
   if last and last.mac==r.mac and time()-last.at<2 then return end
   -- A single bounded delivery report. Its MAC uses the existing shared secret;
   -- it is deliberately NOT an intake242 server receipt or a role proof.
@@ -332,6 +419,7 @@ applyBridgeACK=function(message,sender)
     or norm(sender)~=norm(sent.collector) or norm(sender)~=norm(configuredCollector())
     or body~=sent.bodySHA256:sub(1,32) or bodyBinding(row)~=sent.bodySHA256
     or row.character~=sent.character or (row.guid or "")~=sent.guid then return end
+  if row.source=="self-addon243" and nativeKey243(sender,call(GetRealmName))~=nativeKey243(sent.collector,call(GetRealmName)) then return end
   if existingSecret() and H.hmacSha256hex(cfg.secret,message:sub(1,-34)):sub(1,32)~=mac then return end
   local collector,why=nativeCollector(sender)
   if not collector then
@@ -360,10 +448,6 @@ applyBridgeACK=function(message,sender)
   sent.collectorGuid=collector
   d.deliveryReceipts242[row.id]={status=terminal,observedAt=at,expiresAt=untilAt,collector=sender,collectorGuid=collector,observationSHA256=observation,collectorReportedDeliveryOnly=true,existingSecretMACVerified=existingSecret() and true or false}
   row.status=terminal;callback.status=terminal
-  if OlympusDB and OlympusDB.pendingRoleUpdates then
-    local mirrored=OlympusDB.pendingRoleUpdates[row.id]
-    if type(mirrored)=="table" and bodyBinding(mirrored)==sent.bodySHA256 then mirrored.status=terminal end
-  end
   if state.pendingACKs then state.pendingACKs[row.id]=nil end
 end
 local function receipts()
@@ -375,9 +459,8 @@ local function receipts()
       local payload=table.concat({"intake242",r.id,r.status,r.guid or "",norm(r.character),r.discordRole or "",tostring(r.observedAt),tostring(r.expiresAt)},"|")
       if r.mac==H.hmacSha256hex(cfg.secret,payload):sub(1,32) then
         local row=d.entries[r.id]
-        if row and norm(row.character)==norm(r.character) and (not row.guid or row.guid=="" or row.guid==r.guid) then
+        if row and not (d.bridgeMetadata and d.bridgeMetadata[r.id]) and norm(row.character)==norm(r.character) and (not row.guid or row.guid=="" or row.guid==r.guid) then
           row.status=r.status;row.serverReceipt=clone(r);d.acknowledgements[r.id]=clone(r)
-          if OlympusDB and OlympusDB.pendingRoleUpdates and OlympusDB.pendingRoleUpdates[r.id] then OlympusDB.pendingRoleUpdates[r.id].status=r.status end
           returnBridgeACK(row,r)
         end
       end
@@ -430,110 +513,27 @@ local function mailSignature(row, body)
   for _,item in ipairs(row.items) do parts[#parts+1]=tostring(item.itemId or item.link or item.name)..":"..tostring(item.count) end
   return H.sha256hex(table.concat(parts,"|"))
 end
-local function bagCount(id)
-  return type(id)=="number" and call(GetItemCount,id,false) or nil
-end
-local function transferId627(kind)
-  local d=db();if not d then return nil end
-  d.transferNext627=(tonumber(d.transferNext627) or 0)+1
-  return H.sha256hex(table.concat({"transfer627",guid(call(UnitGUID,"player")) or ownName() or "",kind,tostring(time()),tostring(d.transferNext627)},"|")):sub(1,32)
-end
-local function transferBase627(kind,id)
-  return {contextVersion=1,kind=kind,transferId=id,ownGuid=guid(call(UnitGUID,"player")),ownName=ownName(),guild=call(GetGuildInfo,"player"),realm=call(GetRealmName),observedAt=time()}
-end
-local function saveTransfer627(p)
-  local d=db();if not d then return false end
-  if p.kind=="trade" then d.tradeCollection242=clone(p) else d.mailCollection242=clone(p) end
-  return true
-end
-local function heldCount627(d)
-  if state.heldTransferCount627~=nil then return state.heldTransferCount627 end
-  local n=0
-  for _ in pairs(type(d.heldTransfers627)=="table" and d.heldTransfers627 or {}) do n=n+1;if n>1000 then break end end
-  state.heldTransferCount627=n;return n
-end
-local function transferRoom627()
-  local d=db();if not d or heldCount627(d)>=1000 then state.transferCapacityHeld627=true;return false end
-  return true
-end
-local function holdTransfer627(p,reason)
-  local d=db();if not d then return end
-  if not transferRoom627() then return false end
-  d.heldTransfers627=d.heldTransfers627 or {};d.heldTransferNext627=(tonumber(d.heldTransferNext627) or 0)+1
-  local key=type(p)=="table" and text(p.transferId,64) or nil
-  key=key or ("untyped-"..d.heldTransferNext627)
-  if d.heldTransfers627[key] then key=key.."-"..d.heldTransferNext627 end
-  d.heldTransfers627[key]={context=p,reason=reason,heldAt=time()}
-  state.heldTransferCount627=heldCount627(d)+1
-  return true
-end
-local function validTransfer627(p,kind)
-  if type(p)~="table" or p.contextVersion~=1 or p.kind~=kind or not text(p.transferId,32)
-    or (#p.transferId~=24 and #p.transferId~=32) or not p.transferId:match("^%x+$")
-    or not guid(p.ownGuid) or p.ownGuid~=guid(call(UnitGUID,"player")) or not text(p.ownName,128) or norm(p.ownName)~=norm(ownName())
-    or not text(p.guild,128) or not text(p.realm,128) or type(p.observedAt)~="number" or p.observedAt<=0 or p.observedAt~=math.floor(p.observedAt) or p.observedAt>time()+5 then return false end
-  if p.completedAt~=nil and (type(p.completedAt)~="number" or p.completedAt<p.observedAt or p.completedAt>time()+5 or p.completedAt~=math.floor(p.completedAt)) then return false end
-  local items=kind=="trade" and p.items or type(p.header)=="table" and p.header.items
-  if type(items)~="table" or #items>16 or type(p.beforeMoney)~="number" or p.beforeMoney<0 then return false end
-  for _,item in ipairs(items) do
-    if type(item)~="table" or type(item.itemId)~="number" or item.itemId<=0 or item.itemId~=math.floor(item.itemId)
-      or type(item.count)~="number" or item.count<1 or item.count~=math.floor(item.count) then return false end
-  end
-  if kind=="trade" then return text(p.partner,128) and type(p.incoming)=="number" and p.incoming>=0 and type(p.outgoing)=="number" and p.outgoing>=0 end
-  return text(p.header.sender,128) and text(p.header.subject,512) and text(p.body,8192) and type(p.header.money)=="number" and p.header.money>=0
-    and type(p.expected)=="table" and type(p.beforeItems)=="table" and type(p.mail)=="table" and text(p.key,128)
-end
-local function queueTransfer627(p,row,key)
-  local d=db();if not d then return nil end
-  if p.exportBody~=nil and type(p.exportBody)~="table" then
-    p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil
-  end
-  local at=p.completedAt or p.observedAt
-  row.id=p.transferId;row.observedAt=at;row.requestedAt=at;row.requestedBy=p.ownName;row.guild=p.guild;row.realm=p.realm
-  row.clientVersion=type(p.exportBody)=="table" and p.exportBody.clientVersion or "0.6.29"
-  local expected=bodyBinding(row)
-  if not expected or p.exportBody~=nil and bodyBinding(p.exportBody)~=expected then p.heldReason="saved_transfer_body_unproved";saveTransfer627(p);return nil end
-  if p.exportBody==nil then p.exportBody=clone(row);saveTransfer627(p) end
-  local original=d.entries[p.transferId]
-  if original and bodyBinding(original)~=bodyBinding(p.exportBody) then p.heldReason="original_intake_body_conflict";saveTransfer627(p);return nil end
-  local queued=V.Queue(clone(p.exportBody),key)
-  if queued and (queued.id~=p.transferId or bodyBinding(queued)~=expected) then p.heldReason="original_intake_body_conflict";saveTransfer627(p);return nil end
-  if not queued then p.heldReason="intake_queue_unavailable";saveTransfer627(p) end
-  return queued
-end
-local function settleMailCollection()
-  local p=state.collecting;if not p then return end
-  if not validTransfer627(p,"mail") then p.heldReason="invalid_saved_mail_context";saveTransfer627(p);return end
-  if p.treasuryExpected and p.exclusiveClaimed~=true then p.heldReason="mail_claim_unproved";saveTransfer627(p);return end
-  if not p.restored then
-    local h=mailHeader(p.index);local body=text(call(GetInboxText,p.index),8192)
-    if h and h.sender==p.header.sender and h.subject==p.header.subject and body==p.body and h.money==0 and not h.hasItems then p.inboxConfirmed=true end
-    local money=call(GetMoney)
-    if type(money)=="number" and money-p.beforeMoney==p.header.money then p.moneyConfirmed=true end
-    local confirmed=true;for id,count in pairs(p.expected) do local n=bagCount(id);if type(n)~="number" or type(p.beforeItems[id])~="number" or n-p.beforeItems[id]<count then confirmed=false end end
-    if confirmed then p.itemsConfirmed=true end
-    if p.inboxConfirmed and p.moneyConfirmed and p.itemsConfirmed and not p.completedAt then p.completedAt=time() end
-    saveTransfer627(p)
-  end
-  if p.inboxConfirmed~=true or p.moneyConfirmed~=true or p.itemsConfirmed~=true then p.heldReason=p.restored and "restored_mail_native_proof_incomplete" or "mail_native_proof_pending";saveTransfer627(p);return end
-  local row=queueTransfer627(p,{type="donation",source="mail",character=p.header.sender,guidSource="unavailable",
-    donation={copper=p.header.money,items=p.header.items,note=p.body or p.header.subject},
-    evidence={kind="mail-loot-inbox-empty-and-wallet-bag-delta",confirmedLocal=true,automaticCredit=false}},"mail-loot|"..p.key)
-  if row then p.mail.donationId=row.id;p.mail.collected=true;local d=db();if d then d.mailCollection242=nil end;state.collecting=nil end
-end
+-- Rich financial transfer collection was retired by the owner on12 November2026.
+-- Its saved originals remain in their original fields; no new body is read or upgraded.
 function V.ScanMailbox()
-  if not state.mailOpen or state.mailBusy then return end
-  state.mailBusy=true;receipts();settleMailCollection()
+  if not state.mailOpen or state.mailBusy or cfg.readMail==false or not V.IsAuthorizedWatcher() then return end
+  state.mailBusy=true;receipts()
   local d=db();if not d then state.mailBusy=false;return end
+  local available,why=capacity243(d);if not available then admissionHeld243(d,why);state.mailBusy=false;return end
   d.mail=d.mail or {};d.mailActive=d.mailActive or {};d.mailHistory=d.mailHistory or {}
   local n,total=call(GetInboxNumItems)
-  if type(n)~="number" or type(total)~="number" or n<0 or n>1000 then state.mailBusy=false;return end
+  if type(n)~="number" or type(total)~="number" or n<0 or n>50 or n~=math.floor(n) then
+    if type(n)=="number" and n>50 and not state.mailCapacityHeld243 then say("Verification mail scan is held above50 loaded mails. Handle mail manually; existing requests are preserved.");state.mailCapacityHeld243=true end
+    state.mailBusy=false;return
+  end
+  state.mailCapacityHeld243=false
   local complete=n==total
   state.mailCache={};state.mailBalance=call(GetMoney)
-  local identities={};local readableComplete=complete
+  local identities,bodies,headers={},{},{};local readableComplete=complete
   for i=1,n do
     local h=mailHeader(i)
     local body=text(call(GetInboxText,i),8192)
+    headers[i]=h;bodies[i]=body
     if h and body then
       local key=H.sha256hex(h.sender.."|"..h.subject.."|"..body)
       identities[key]=(identities[key] or 0)+1
@@ -550,17 +550,28 @@ function V.ScanMailbox()
       end
     end
   end
-  -- Reverse order tolerates deleting exactly one checked empty mail in a scan.
+  -- Read each qualified body once. Native mail-taking/deletion remains manual.
   for i=n,1,-1 do
-    local h=mailHeader(i)
+    local h=headers[i]
     if h then
       state.mailCache[i]=h
-      local body=text(call(GetInboxText,i),8192)
+      local body=bodies[i]
       local contentKey=body and H.sha256hex(h.sender.."|"..h.subject.."|"..body)
       local unique=contentKey and identities[contentKey]==1
       body=body or ""
       local content=h.subject.."\n"..body;local token=content:match("![Vv][Ee][Rr][Ii][Ff][Yy]%s+([%w]+)")
-      if not token then for candidate in content:gmatch("[%w]+") do if H.strictCode(candidate) and type(cfg.secret)=="string" and H.checkCode(cfg.secret,h.sender,candidate) then token=candidate;break end end end
+      if not token then token=h.subject:match("^%s*([%w]+)%s*$") end
+      token=token and H.strictCode(token)
+      if token then
+        local day=H.utcDay(time())
+        if not state.mailCodeChecks243 or state.mailCodeChecks243.day~=day then state.mailCodeChecks243={day=day,checks={}} end
+        local checks=state.mailCodeChecks243.checks;local key=(contentKey or "").."|"..token;local valid=checks[key]
+        if valid==nil then
+          if boundedCount243(checks,4096)>=4096 then admissionHeld243(d,"mail-code-capacity");token=nil
+          else valid=H.checkCode(cfg.secret,h.sender,token) and true or false;checks[key]=valid end
+        end
+        if not valid then token=nil end
+      end
       if token then
         local fingerprint=H.sha256hex(h.sender.."|"..h.subject.."|"..body.."|"..token)
         local mail=d.mail[fingerprint]
@@ -568,6 +579,8 @@ function V.ScanMailbox()
           d.mailHistory[mail.observation and mail.observation.id or mail.verifyId or fingerprint]=mail
           mail=nil
         end
+        local available,why=capacity243(d)
+        if not mail and not available then admissionHeld243(d,why);state.mailBusy=false;return end
         mail=mail or {};d.mail[fingerprint]=mail
         if contentKey then d.mailActive[contentKey]=fingerprint end
         if contentKey and (identities[contentKey] or 0)>1 then mail.ambiguous=true end
@@ -586,165 +599,37 @@ function V.ScanMailbox()
             local proof={version=242,sender=h.sender,code=captured.code,observedAt=at,guild=guildName,realm=realm,collectorGuid=collector,fingerprint=fingerprint}
             proof.mac=H.hmacSha256hex(cfg.secret,table.concat({"mail-origin","242",norm(h.sender),captured.code,tostring(at),guildName,realm,collector,fingerprint},"|")):sub(1,32)
             captured.mailProof242=proof
-            if OlympusDB and OlympusDB.pendingRoleUpdates then OlympusDB.pendingRoleUpdates[captured.id]=clone(captured) end
           end
         end
-        local validCode=H.strictCode(token) and type(cfg.secret)=="string" and H.checkCode(cfg.secret,h.sender,H.strictCode(token))
-        local originalProof=captured and captured.mailProof242
-        local exactProof=originalProof and originalProof.fingerprint==fingerprint
-        if readableComplete and unique and exactProof and validCode and h.cod==0 and (h.money>0 or h.hasItems) and not mail.collected and not state.collecting and not state.mailRestoreHeld627 and transferRoom627() then
-          local beforeItems,expected={},{};local safe=true
-          for _,item in ipairs(h.items) do
-            if type(item.itemId)~="number" or type(item.count)~="number" or type(bagCount(item.itemId))~="number" then safe=false;break end
-            beforeItems[item.itemId]=bagCount(item.itemId);expected[item.itemId]=(expected[item.itemId] or 0)+item.count
-          end
-          local money=call(GetMoney)
-          if safe and type(money)=="number" then
-          local treasury=OlympusVerifyTreasury;local status=treasury and call(treasury.Status)
-          local treasuryExpected=h.money>0 and status and status.enabled
-          local transferId=treasuryExpected and call(treasury.MailTransferId627,i) or transferId627("mail")
-          if not treasuryExpected or transferId then
-          local pending=transferBase627("mail",transferId)
-          pending.index=i;pending.header=h;pending.key=mail.observation and mail.observation.id or fingerprint;pending.mail=mail;pending.mailFingerprint=fingerprint
-          pending.body=body;pending.beforeMoney=money;pending.beforeItems=beforeItems;pending.expected=expected;pending.treasuryExpected=treasuryExpected
-          state.collecting=pending;saveTransfer627(pending)
-          if validTransfer627(pending,"mail") and (not treasuryExpected or call(treasury.ClaimMailIntake242,i)==transferId) then
-            pending.exclusiveClaimed=treasuryExpected and true or false;saveTransfer627(pending)
-            -- Actual loot is confirmed by later mailbox/wallet/bag events; a
-            -- successful API return alone never records a donation.
-            if h.money>0 then call(TakeInboxMoney,i) end
-            if h.hasItems then call(AutoLootMailItem,i) end
-          else pending.heldReason="mail_context_or_claim_unproved";saveTransfer627(pending)
-          end
-          end
-          end
-        end
-        local verify=d.entries[mail.verifyId];local donation=mail.donationId and d.entries[mail.donationId]
-        if readableComplete and unique and exactProof and not mail.deleteRequestedAt and h.cod==0 and h.money==0 and not h.hasItems and verify and verify.status=="done" and verify.serverReceipt
-          and (not mail.hadValue or mail.collected and donation and donation.status=="done" and donation.serverReceipt) and type(DeleteInboxItem)=="function" then
-          -- The current header/body must still match immediately before delete.
-          local again=mailHeader(i)
-          if again and mailSignature(again,text(call(GetInboxText,i),8192) or "")==mailSignature(h,body) then
-            mail.deleteRequestedAt=time();pcall(DeleteInboxItem,i);break
-          end
-        end
+        -- A delivered verification receipt never authorizes deleting player mail.
+
       end
     end
   end
   state.mailBusy=false
 end
-local function tradeItems()
-  local out={}
-  for i=1,6 do local name,texture,count=call(GetTradeTargetItemInfo,i);if name then
-    local link=text(call(GetTradeTargetItemLink,i),512)
-    out[#out+1]={slot=i,name=text(name,256),count=count,link=link,itemId=link and tonumber(link:match("item:(%d+)"))}
-  end end
-  return out
-end
-local function finishTrade()
-  local t=state.trade
-  if state.tradeCapacityBlocked627 then return end
-  if not t or t.ambiguous or t.complete~=true or t.accepted~=true or not t.partner or type(t.incoming)~="number" or type(t.outgoing)~="number" then return end
-  if not validTransfer627(t,"trade") then t.heldReason="invalid_saved_trade_context";saveTransfer627(t);return end
-  if t.treasuryExpected and t.exclusiveClaimed~=true then t.heldReason="trade_claim_unproved";saveTransfer627(t);return end
-  local expected={};for _,item in ipairs(t.items) do
-    if not item.itemId or type(item.count)~="number" then return end
-    expected[item.itemId]=(expected[item.itemId] or 0)+item.count
-  end
-  if not t.restored then
-    local balance=call(GetMoney)
-    if type(balance)=="number" and balance-t.beforeMoney==t.incoming-t.outgoing then t.moneyConfirmed=true end
-    local confirmed=true
-    for id,count in pairs(expected) do
-      local now=bagCount(id);if type(now)~="number" or not t.beforeItems or type(t.beforeItems[id])~="number" or now-t.beforeItems[id]<count then confirmed=false end
-    end
-    if confirmed then t.itemsConfirmed=true end
-    saveTransfer627(t)
-  end
-  if t.moneyConfirmed~=true or t.itemsConfirmed~=true then t.heldReason=t.restored and "restored_trade_native_proof_incomplete" or "trade_native_proof_pending";saveTransfer627(t);return end
-  if t.incoming>0 or #t.items>0 then
-    if t.incoming>0 and t.treasuryExpected and not t.transferId then return end
-    local row=queueTransfer627(t,{type="donation",source="trade",character=t.partner,guid=t.guid,
-      donation={copper=t.incoming,outgoingCopper=t.outgoing,items=t.items,note=t.note or ""},
-      evidence={kind="native-trade-complete-and-wallet-delta",confirmedLocal=true,automaticCredit=false}},"trade|"..t.transferId)
-    if not row then return end
-  end
-  local d=db();if d then d.tradeCollection242=nil end;state.trade=nil
-end
 local function restorePending627()
   if state.restoredPending627 then return end
   state.restoredPending627=true;local d=db();if not d then return end
+  d.receiptPolicyHolds280=d.receiptPolicyHolds280 or {}
   for _,kind in ipairs({"trade","mail"}) do
-    local field=kind=="trade" and "tradeCollection242" or "mailCollection242";local saved=d[field]
-    if saved then
-      if validTransfer627(saved,kind) then
-        local p=clone(saved);p.restored=true
-        if kind=="trade" then state.trade=p
-        else
-          local fingerprint=p.mailFingerprint
-          if not fingerprint and d.mailActive then fingerprint=d.mailActive[H.sha256hex(p.header.sender.."|"..p.header.subject.."|"..p.body)] end
-          local original=fingerprint and d.mail and d.mail[fingerprint]
-          if p.mail.verifyId and (not original or original.verifyId~=p.mail.verifyId) then
-            state.mailRestoreHeld627=true;holdTransfer627(saved,"saved_mail_instance_binding_unproved")
-          else p.mail=original or p.mail;state.collecting=p end
-        end
-      else
-        d.restoreHeldKinds627=d.restoreHeldKinds627 or {}
-        if not d.restoreHeldKinds627[kind] then d.restoreHeldKinds627[kind]=holdTransfer627(saved,"legacy_or_invalid_saved_"..kind.."_context") and true or false end
-        if kind=="mail" then state.mailRestoreHeld627=true elseif d.restoreHeldKinds627[kind] then d.tradeCollection242=nil end
-      end
-    end
+    if d[kind=="trade" and "tradeCollection242" or "mailCollection242"] then d.receiptPolicyHolds280[kind]=true end
   end
-  finishTrade();settleMailCollection()
-end
-local function mirrorBridge()
-  local d=db();if not d then return end
-  local function mirror(row,origin)
-    -- Keep the original body byte-identical across its source and this mirror.
-    -- Taint/provenance belongs outside the canonical entry, never in an added
-    -- source/clientVersion/proof field under the same durable ID.
-    d.bridgeMetadata=d.bridgeMetadata or {}
-    d.bridgeMetadata[row.id]={untrusted=true,origin=origin,capturedAt=time(),automaticAuthority=false}
-    d.entries[row.id]=clone(row);d.entries[row.id].status=row.status or "pending"
-    state.dirty=true
-  end
-  if type(OlympusDB)=="table" and type(OlympusDB.pendingRoleUpdates)=="table" then
-    for key,row in pairs(OlympusDB.pendingRoleUpdates) do
-      if type(row)=="table" and row.status~="done" and row.status~="rejected" and text(row.id,64) and not d.entries[row.id]
-        and (row.type=="verify" or row.type=="role" or row.type=="guild" or row.type=="donation") then
-        -- Preserve data as an untrusted request. Worker independently resolves
-        -- ownership/rank/roles; comm payloads never invoke protected APIs here.
-        mirror(row,"Olympus-pendingRoleUpdates")
-      end
-    end
-  end
-  if type(OlympusRecordDB)=="table" then
-    d.recordBridge={present=true,capturedAt=time(),api="OlympusRecordDB",automaticAuthority=false}
-    for _,row in pairs(type(OlympusRecordDB.pendingRoleUpdates)=="table" and OlympusRecordDB.pendingRoleUpdates or {}) do
-      if type(row)=="table" and text(row.id,64) and not d.entries[row.id] and row.status~="done" and row.status~="rejected" then
-        mirror(row,"OlympusRecordDB-pendingRoleUpdates")
-      end
-    end
-  end
+  -- Existing bodies, hashes, clocks and possible deliveries remain unchanged.
 end
 function V.Flush(reason)
-  receipts();mirrorBridge();finishTrade();settleMailCollection()
+  receipts()
   local d=db();if d then d.lastFlush={at=time(),reason=reason,pendingPersisted=true};d.lastCharacter=ownName();d.lastGuid=guid(call(UnitGUID,"player")) end
-  if d and state.collecting then saveTransfer627(state.collecting) end
-  if d and state.trade then saveTransfer627(state.trade) end
-  -- A claimed rich transfer owns the original Treasury ID even if its item
-  -- proof is still pending. Never export a second body or replace it later.
+  -- Only newly observed v2 native receipts can enter intake. No legacy upgrade
+  -- or sanitization under an old source ID is permitted.
   local treasury=OlympusVerifyDB and OlympusVerifyDB.treasury
   for _,r in ipairs(treasury and treasury.receipts or {}) do
-    if type(r)=="table" and r.status=="confirmed_local" and not (treasury.liveIntakeOwners242 and treasury.liveIntakeOwners242[r.id]) then
-      V.Queue({id=r.id,type="donation",character=r.sender,guid=r.senderGuid,source="treasury-receipt242",requestedAt=r.ts,
-        donation={copper=r.incomingCopper,outgoingCopper=r.outgoingCopper,items={},note=""},
-        evidence={kind=r.evidence,confirmedLocal=true,automaticCredit=false,legacyReceiptId=r.id}},"treasury|"..r.id)
+    if type(r)=="table" and r.version==2 and r.status=="confirmed_local" and OlympusVerifyTreasury and OlympusVerifyTreasury.IntakeBody280 then
+      local body=OlympusVerifyTreasury.IntakeBody280(r)
+      if body then V.Queue(body,"tithe-gold-v2|"..r.id) end
     end
   end
-  if d and not V.IsAuthorizedWatcher() then
-    for _,row in pairs(d.entries) do if row.status=="pending" and norm(row.requestedBy)==norm(ownName()) then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder") end end
-  end
+  for _,row in pairs(state.newSelf243 or {}) do if d and d.entries[row.id]==row and row.status=="pending" then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder") end end
   -- SavedVariables is flushed by the client at reload/logout, never by a timer.
 end
 local function officerCount()
@@ -833,19 +718,35 @@ end
 function V.PrintOwnStatus()
   local rows=V.VisibleEntries();say("Your verification and role requests: "..#rows..". These are delivery results; check Discord /verify-status for current access.")
   local d=db()
+  for _,r in ipairs(rows) do if r.status=="pending" and r.source=="self-addon242" then say("An older request is preserved for review and will not be resent automatically. Check Discord /verify-status before a new deliberate request.");break end end
+  for _,r in ipairs(rows) do local t=d and d.transportSchedule243 and d.transportSchedule243[r.id];if r.status=="pending" and t and t.attempted then say("Delivery is unconfirmed. This request is preserved and will not be resent automatically; check Discord /verify-status before a new deliberate request.");break end end
+  if d and d.admissionHolds243 then say("New intake is held at its bounded capacity; existing originals remain preserved.") end
   if state.transferCapacityHeld627 then say("Transfer intake is held at its retained-context capacity. Existing originals and claims are preserved for review.") end
   for i=math.max(1,#rows-19),#rows do local r=rows[i];local unsupported=d and d.deliveryFailures242 and d.deliveryFailures242[r.id]=="unsupported_callback";say((r.type or "request")..": "..(unsupported and "unsupported_callback" or r.status or "pending")..(r.serverReceipt and r.serverReceipt.discordRole and " / "..r.serverReceipt.discordRole or "")) end
 end
+local function selfCode243(value)
+  if type(value)~="string" or #value>256 or value:find("[%z\1-\8\11\12\14-\31\127]") then return nil end
+  value=value:gsub("^[ \t\r\n]+",""):gsub("[ \t\r\n]+$","")
+  local code=H.strictCode(value);if code then return code end
+  code=value:match("^![Vv][Ee][Rr][Ii][Ff][Yy]%s+([%w]+)$")
+  if code then return H.strictCode(code) end
+  local target,token=value:match("^/[Ww]%s+(.-)%s+![Vv][Ee][Rr][Ii][Ff][Yy]%s+([%w]+)$")
+  if target and nativeKey243(target,call(GetRealmName))==nativeKey243(configuredCollector(),call(GetRealmName)) then return H.strictCode(token) end
+end
 function V.QueueSelf(code)
-  code=H.strictCode(code or "")
-  local me,id=ownName(),guid(call(UnitGUID,"player"));local guildName,rankName,rankIndex=call(GetGuildInfo,"player")
-  if not code or not me or not id then say("Use /olv verify CODE with your own code and a readable native player identity.");return false end
+  code=selfCode243(code)
+  local me,id=ownName(),guid(call(UnitGUID,"player"));local realm=call(GetRealmName);local key,nativeRealm=nativeKey243(me,realm)
+  local guildName,rankName,rankIndex=call(GetGuildInfo,"player")
+  if not code or not key or realmKey243(realm)~=nativeRealm or not id then say("Use /olv verify CODE with your own code and a readable native player identity.");return false end
   local observation=V.NewVerificationObservation("self-command",me,id)
-  if not observation then return false end
-  local row=V.Queue({type="verify",source="self-addon242",character=me,guid=id,guild=guildName,rankName=rankName,rankIndex=rankIndex,
-    code=code,requestedBy=me,observationId=observation.id,observedAt=observation.observedAt,guidSource="UnitGUID-player",bridgeUntrusted=true},"self|"..id.."|"..code.."|observation|"..observation.id)
-  if row and row.status=="pending" then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder");say("Your request is saved and queued for officer Sync. Use /olv status for delivery; check Discord /verify-status for current access.")
-  elseif row then say("Your request delivery is "..tostring(row.status)..". Delivery alone does not confirm current verification or a Discord role. Check Discord /verify-status for current access.") end
+  if not observation then say("Request capacity is held. Existing originals are preserved; inspect /olv status.");return false end
+  local row=V.Queue({id=selfId243(key,observation.id),type="verify",source="self-addon243",character=me,guid=id,guild=guildName,rankName=rankName,rankIndex=rankIndex,
+    code=code,requestedBy=me,requestedAt=observation.observedAt,realm=realm,observationId=observation.id,observedAt=observation.observedAt,guidSource="UnitGUID-player",bridgeUntrusted=true},"self|"..id.."|"..code.."|observation|"..observation.id)
+  if row and row.status=="pending" then
+    state.newSelf243=state.newSelf243 or {};state.newSelf243[row.id]=row
+    sendRow(row,configuredCollector())
+    say("Your request is saved. Delivery may be unconfirmed; check /olv status and Discord /verify-status before deliberately creating another request.")
+  elseif row then say("Your request delivery is "..tostring(row.status)..". Check Discord /verify-status for current access.") end
   return row~=nil
 end
 local function nativeDiscord(info)
@@ -860,22 +761,26 @@ local function nativeDiscord(info)
   V.Queue({type="guild",source="native-discord-event242",character=name,guid=id,nativeDiscord=proof,observedAt=at},"native-discord|"..user.."|"..id.."|"..math.floor(at/300))
 end
 local function boot()
-  db();restorePending627();receipts();mirrorBridge();officerButton()
-  if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix,"OLYMPUS") end
+  db();restorePending627();receipts();officerButton()
   if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix,"OLV242") end
   if OlympusVerifySlash234 and OlympusVerifySlash234.Register then
-    OlympusVerifySlash234.Register("OLYMPUSVERIFYSELF242",{"/olvverify"},function(message) V.QueueSelf(message) end)
-    OlympusVerifySlash234.Register("OLYMPUSDONATIONNOTE242",{"/olvdonationnote"},function(message)
-      state.donationNote=text(message,512) or "";if state.trade and not state.trade.complete then state.trade.note=state.donationNote;saveTransfer627(state.trade) end;say("Note saved for the current/next completed trade; a note is not payment proof.")
-    end)
+    state.selfSlash243=state.selfSlash243 or function(message) V.QueueSelf(message) end
+    state.noteSlash243=state.noteSlash243 or function(message)
+      local treasury=OlympusVerifyTreasury
+      local accepted=treasury and treasury.SetTradeReference280 and treasury.SetTradeReference280(message)
+      say(accepted and "TITHE reference set for this open trade only." or "No note was saved. Open the intended trade, then use /olvtithe TITHE-XXXX-XXXX.")
+    end
+    local selfReady=OlympusVerifySlash234.Register("OLYMPUSVERIFYSELF",{"/olvverify"},state.selfSlash243)
+    local noteReady=OlympusVerifySlash234.Register("OLYMPUSDONATIONNOTE",{"/olvdonationnote"},state.noteSlash243)
+    if not selfReady and not state.slashHeld243 then say("The /olvverify alias is unavailable; use /olv verify CODE. Existing commands were preserved.") end
+    state.slashHeld243=not selfReady or not noteReady
+
   end
   OlympusVerifyBridge242={QueueSelf=V.QueueSelf,Status=V.BridgeStatus,VisibleEntries=V.VisibleEntries,IsAuthorizedWatcher=V.IsAuthorizedWatcher}
   if OlympusBridge and type(OlympusBridge.RegisterSection)=="function" and not state.bridgeSection then
     state.bridgeSection=call(OlympusBridge.RegisterSection,"verification",243,V.BridgeStatus)
   end
-  local d=db();if d and not V.IsAuthorizedWatcher() then
-    for _,row in pairs(d.entries) do if row.status=="pending" and norm(row.requestedBy)==norm(ownName()) then sendRow(row,cfg.bridgeRecipient or cfg.treasuryRecipient or "Fern Melder") end end
-  end
+  -- Login never adopts a retained pending original for another transport attempt.
   if not state.pump and C_Timer and C_Timer.NewTicker then
     state.pump=C_Timer.NewTicker(0.3,function()
       local index=(state.outboundHead or 0)+1;local next=state.outbound[index]
@@ -900,29 +805,7 @@ local function boot()
       return state.olySlash(msg,...)
     end
   end
-  if type(hooksecurefunc)=="function" and not state.mailHooks then
-    state.mailHooks=true
-    local function taking(index)
-      if state.collecting or state.mailRestoreHeld627 or not state.mailOpen or not transferRoom627() then return end
-      local h=state.mailCache and state.mailCache[index]
-      if not h or h.cod~=0 or h.money==0 and not h.hasItems or type(state.mailBalance)~="number" then return end
-      local beforeItems,expected={},{}
-      for _,item in ipairs(h.items) do
-        local count=bagCount(item.itemId);if type(count)~="number" or type(item.count)~="number" then return end
-        beforeItems[item.itemId]=count;expected[item.itemId]=(expected[item.itemId] or 0)+item.count
-      end
-      local body=text(call(GetInboxText,index),8192) or h.subject
-      local treasury=OlympusVerifyTreasury;local status=treasury and call(treasury.Status)
-      local treasuryExpected=h.money>0 and status and status.enabled
-      local transferId=treasuryExpected and call(treasury.MailTransferId627,index) or transferId627("mail")
-      if treasuryExpected and not transferId then return end
-      local pending=transferBase627("mail",transferId)
-      pending.index=index;pending.header=h;pending.key=transferId;pending.mail={};pending.body=body;pending.beforeMoney=state.mailBalance;pending.beforeItems=beforeItems;pending.expected=expected;pending.treasuryExpected=treasuryExpected
-      state.collecting=pending;saveTransfer627(pending)
-      if treasuryExpected then pending.exclusiveClaimed=call(treasury.ClaimMailIntake242,index)==transferId;if not pending.exclusiveClaimed then pending.heldReason="mail_claim_unproved" end;saveTransfer627(pending) end
-    end
-    for _,name in ipairs({"TakeInboxMoney","TakeInboxItem","AutoLootMailItem"}) do if type(_G[name])=="function" then pcall(hooksecurefunc,name,taking) end end
-  end
+  -- Mail-taking hooks belong solely to the body-free Treasury observer.
 end
 for _,event in ipairs({"PLAYER_LOGIN","MAIL_SHOW","MAIL_CLOSED","MAIL_INBOX_UPDATE","BAG_UPDATE_DELAYED","PLAYER_MONEY","PLAYER_LOGOUT",
   "TRADE_SHOW","TRADE_MONEY_CHANGED","TRADE_TARGET_ITEM_CHANGED","TRADE_PLAYER_ITEM_CHANGED","TRADE_ACCEPT_UPDATE","TRADE_REQUEST_CANCEL","TRADE_CLOSED","UI_INFO_MESSAGE",
@@ -933,54 +816,17 @@ f:SetScript("OnEvent",function(_,event,...)
   elseif event=="MAIL_CLOSED" then state.mailOpen=false
   elseif event=="MAIL_INBOX_UPDATE" then V.ScanMailbox()
   elseif event=="PLAYER_LOGOUT" then V.Flush("logout")
-  elseif event=="BAG_UPDATE_DELAYED" or event=="PLAYER_MONEY" then settleMailCollection();finishTrade()
-  elseif event=="TRADE_SHOW" then
-    if not transferRoom627() then state.tradeCapacityBlocked627=true;return end
-    local partner=text(call(GetUnitName,"npc",true),128) or text(call(UnitName,"npc"),128)
-    local money=call(GetMoney)
-    if state.trade then
-      finishTrade()
-      if state.trade then
-        if not state.trade.complete then state.tradeUncertainUntil=time()+30 end
-        if not holdTransfer627(clone(state.trade),"superseded_by_new_native_trade") then state.tradeCapacityBlocked627=true;return end
-        local d=db();if d then d.tradeCollection242=nil end;state.trade=nil
-      end
-    end
-    local treasury=OlympusVerifyTreasury;local status=treasury and call(treasury.Status)
-    local treasuryExpected=status and status.enabled
-    local transferId=treasuryExpected and call(treasury.TradeTransferId627) or transferId627("trade")
-    if partner and type(money)=="number" and transferId then
-      local pending=transferBase627("trade",transferId)
-      pending.partner=partner;pending.guid=guid(call(UnitGUID,"npc"));pending.beforeMoney=money;pending.items=tradeItems();pending.incoming=call(GetTargetTradeMoney);pending.outgoing=call(GetPlayerTradeMoney)
-      pending.ambiguous=time()<(state.tradeUncertainUntil or 0);pending.note=state.donationNote;pending.treasuryExpected=treasuryExpected
-      state.trade=pending;saveTransfer627(pending)
-      if treasuryExpected then pending.exclusiveClaimed=call(treasury.ClaimTradeIntake242)==transferId;if not pending.exclusiveClaimed then pending.heldReason="trade_claim_unproved" end;saveTransfer627(pending) end
-    end
-  elseif event=="TRADE_MONEY_CHANGED" or event=="TRADE_TARGET_ITEM_CHANGED" or event=="TRADE_PLAYER_ITEM_CHANGED" then if state.trade and not state.tradeCapacityBlocked627 then state.trade.items=tradeItems();state.trade.incoming=call(GetTargetTradeMoney);state.trade.outgoing=call(GetPlayerTradeMoney);state.trade.accepted=false;state.trade.moneyConfirmed=nil;state.trade.itemsConfirmed=nil;saveTransfer627(state.trade) end
-  elseif event=="TRADE_ACCEPT_UPDATE" then local ours,theirs=...;if state.trade and not state.tradeCapacityBlocked627 then
-    state.trade.items=tradeItems();state.trade.incoming=call(GetTargetTradeMoney);state.trade.outgoing=call(GetPlayerTradeMoney)
-    state.trade.accepted=(ours==1 or ours==true) and (theirs==1 or theirs==true)
-    state.trade.beforeItems={};for _,item in ipairs(state.trade.items) do if item.itemId then state.trade.beforeItems[item.itemId]=bagCount(item.itemId) end end
-    saveTransfer627(state.trade)
-  end
-  elseif event=="TRADE_REQUEST_CANCEL" then
-    if state.tradeCapacityBlocked627 then return end
-    if state.trade then if not holdTransfer627(clone(state.trade),"native_trade_cancelled") then state.tradeCapacityBlocked627=true;return end;local d=db();if d then d.tradeCollection242=nil end end;state.trade=nil
-  elseif event=="TRADE_CLOSED" then finishTrade()
-  elseif event=="UI_INFO_MESSAGE" then local a,b=...;if state.trade and not state.tradeCapacityBlocked627 and (b or a)==(ERR_TRADE_COMPLETE or "Trade complete.") then state.trade.complete=true;state.trade.completedAt=state.trade.completedAt or time();saveTransfer627(state.trade);finishTrade() end
   elseif event=="CHAT_MSG_WHISPER" then
     local msg,sender=text(select(1,...),4096),text(select(2,...),128)
     if msg and sender and not verificationText(msg) then
       state["human:"..norm(sender)]=true
-      if msg:lower():find("donat") or msg:lower():find("treasury") or msg:lower():find("%d+%s*[gsc]%f[%W]") then
-        V.Queue({type="donation",source="whisper-declaration",character=sender,guid=guid(select(12,...)),donation={copper=0,items={},note=msg},evidence={kind="unconfirmed-declaration",confirmedLocal=false,automaticCredit=false}},"declaration|"..norm(sender).."|"..msg.."|"..math.floor(time()/30))
-      end
+      -- General whisper text is never retained or treated as a receipt.
     end
   elseif event=="CHAT_MSG_WHISPER_INFORM" then local msg,sender=...;if text(msg) and msg:sub(1,8)=="Olympus:" then closeVerificationWindow(sender) end
   elseif event=="CHAT_MSG_ADDON" then
     local prefix,message,distribution,sender=...
     if prefix=="OLV242" then receiveWire(message,sender,distribution)
-    elseif prefix=="OLYMPUS" and text(message,255) and message:match("^PEND~[%w%-]+$") then mirrorBridge() end
+    end
   elseif event=="CHAT_MSG_GUILD" then
     -- A Blizzard event GUID is captured as raw evidence. No Discord ID is
     -- inferred from a display name or a chosen character name.
@@ -989,6 +835,7 @@ f:SetScript("OnEvent",function(_,event,...)
     nativeDiscord(select(18,...))
   elseif event=="GUILD_ROSTER_UPDATE" then
     state.guildRosterAt=time();state.collectorCache626=nil;officerButton()
+    for _,row in pairs(state.newSelf243 or {}) do if row.status=="pending" then sendRow(row,configuredCollector()) end end
     local pending=state.pendingACKs or {};state.pendingACKs={}
     for _,item in pairs(pending) do applyBridgeACK(item.message,item.sender) end
   end

@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .70 (1 Oct 2026): departure review items, consolidation batch 4b (second half) of Codex's adapter map, ported from
  * Olympus Forever's src/departures.ts onto the keeper's door, on the contract Codex set at 02:41 UTC:
@@ -185,7 +186,8 @@ export async function updateDeparture(request: Request, env: Env, ctx: Community
   if (!ctx.features.has("departures")) return featureOff();
   const reload = needPage(request);
   if (reload) return reload;
-  if (rateLimited(`cdp:${admin.discord_id}`, 60, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt188280=consumeRateLimit280(`cdp:${admin.discord_id}`,60,60);
+  if (rateLimitAt188280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt188280));
   try {
     for (const k of Object.keys(body)) if (!["id", "revision", "action", "category"].includes(k)) throw new Bad("invalid_request");
     const { id, revision, action, category } = body;

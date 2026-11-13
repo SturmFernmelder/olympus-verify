@@ -19,7 +19,7 @@ import {captureBetaRoleDispatch,type BetaRoleDispatch} from './beta-reset-policy
  * Banned accounts are skipped: /olympus-admin ban removes the role but leaves the characters at 'member' until the
  * in-game kick reaches the roster, and a backfill must not hand the role straight back.
  *
- * Dry by default. Applying is a bulk write against real people's accounts, so it takes an explicit ?apply=1.
+ * GET is dry only. Applying is a bulk write, so the operator route requires an explicit POST with ?apply=1.
  */
 import { membershipSettlementEnabled,membershipTargets,membershipTargetsCurrent } from './membership-role-transition';
 import { privacyCaptureFromColumns } from './privacy-serving-authority';
@@ -157,7 +157,7 @@ export async function backfillRoles(env: Env, opts: BackfillOptions,originalDisp
     const done = !stopped && rows.results.length < opts.limit;
     return {
       apply: opts.apply,
-      note: note ?? (opts.apply ? undefined : "dry run — nothing was changed; add &apply=1 to grant"),
+      note: note ?? (opts.apply ? undefined : "dry run — nothing was changed; an explicit POST with &apply=1 is required to grant"),
       totalMembers: total?.n ?? 0,
       selected: rows.results.length,
       examined,

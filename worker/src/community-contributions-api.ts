@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /**
  * .75 (1 Oct 2026): the HTTP layer of the contribution (tithe) ledger, consolidation batch 5 of Codex's adapter map
  * (the donor's src/contributions/routes.ts, frozen candidate manifest 296db2c8…), on the keeper's door:
@@ -164,7 +165,8 @@ export async function contributionsAcknowledge(request: Request, env: Env, ctx: 
   const reload = needPage(request);
   if (reload) return reload;
   const me = ctx.subject!, scope = L.contributionScope(env);
-  if (rateLimited(`cta:${me.discordId}`, 30, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt167280=consumeRateLimit280(`cta:${me.discordId}`,30,60);
+  if (rateLimitAt167280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt167280));
   const body = await readJson(request);
   if (body === null) return apiJson({ error: "bad_request", message: "That request could not be read." }, 400);
   try {
@@ -204,7 +206,8 @@ export async function adminContributionAction(request: Request, env: Env, ctx: C
   if (!ctx.features.has("contributions")) return featureOff();
   const reload = needPage(request);
   if (reload) return reload;
-  if (rateLimited(`ctw:${admin.discord_id}`, 60, 60)) return apiJson({ error: "slow_down" }, 429);
+  const rateLimitAt207280=consumeRateLimit280(`ctw:${admin.discord_id}`,60,60);
+  if (rateLimitAt207280.limited) return apiJson({ error: "slow_down" }, 429,rateLimitHeaders280(rateLimitAt207280));
   const me = admin.discord_id, fence = ctx.subject!, scope = L.contributionScope(env), at = now(), actor = `staff:${me}`;
   try {
     if (!L.contributionsWritable(env)) throw new L.ContributionError("contributions_disabled");

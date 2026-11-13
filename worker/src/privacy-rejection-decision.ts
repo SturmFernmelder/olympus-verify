@@ -14,6 +14,9 @@ type DecisionRefusal = 'original_membership_decision_held' | 'reload' | 'target_
 export class MembershipDecisionHeld extends Error {
  constructor(readonly code: DecisionRefusal = 'original_membership_decision_held') { super(code); }
 }
+/** Refusal classes carry no decision capability or late session replacement. */
+export class MembershipDecisionSignedOut extends Error {}
+export class MembershipDecisionForbidden extends Error {}
 const held=(code?:DecisionRefusal):never=>{throw new MembershipDecisionHeld(code);};
 function unb64u(text:string):Uint8Array{if(typeof text!=='string'||!/^[A-Za-z0-9_-]*$/.test(text))return held();const raw=atob(text.replaceAll('-','+').replaceAll('_','/')+'='.repeat((4-text.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0));}
 const HEX=/^[0-9a-f]{32}$/,ID=/^\d{17,20}$/,KEY=/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
@@ -47,7 +50,7 @@ export function captureMembershipDecisionOrigin(request:Request,env:Env):Members
  const getter=method(headers,'get');if(getter.fn!==headerGet)return held();const requestFields=['url','method','headers'].map(k=>field(request,k));if(requestFields[0]!.descriptor.get!==requestURL||requestFields[1]!.descriptor.get!==requestMethod||requestFields[2]!.descriptor.get!==requestHeaders)return held();
  const get=(key:string)=>Reflect.apply(headerGet,headers,[key]) as string|null;
  const cookie=get('Cookie')??'',token=get('X-Olympus-Decision-Target');
- let unsigned:Session|null=null;const cookiePart=cookie.split(/;\s*/).find(s=>s.startsWith(SESSION_COOKIE+'='));if(cookiePart){const value=cookiePart.slice(SESSION_COOKIE.length+1),dot=value.indexOf('.');if(dot>0){try{const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(unb64u(value.slice(0,dot))));unsigned=sessionCopy({u:parsed.u,v:parsed.v,e:parsed.e,g:parsed.g??null,n:parsed.n});}catch{return held();}}}
+ let unsigned:Session|null=null;const cookiePart=cookie.split(/;\s*/).find(s=>s.startsWith(SESSION_COOKIE+'='));if(!cookiePart)throw new MembershipDecisionSignedOut();if(cookiePart){const value=cookiePart.slice(SESSION_COOKIE.length+1),dot=value.indexOf('.');if(dot>0){try{const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(unb64u(value.slice(0,dot))));unsigned=sessionCopy({u:parsed.u,v:parsed.v,e:parsed.e,g:parsed.g??null,n:parsed.n});}catch{return held();}}}
  const raw=data(env,'DB') as D1Database;if(!raw||typeof raw!=='object')return held();
  const prepare=method(raw,'prepare'),batch=method(raw,'batch'),config=['DB','COOKIE_SECRET','SITE_ADMINS'].map(k=>field(env,k));
  const values=config.map(f=>{if(!Object.hasOwn(f.descriptor,'value'))return held();return f.descriptor.value;});
@@ -70,7 +73,7 @@ function sessionCopy(s:Session):Session{const u=data(s,'u'),v=data(s,'v'),e=data
 export async function authenticateMembershipDecision(origin:MembershipDecisionOrigin,env:Env):Promise<{user:SiteUser;session:OriginalSiteSession}|null>{
  const o=original(origin,env);const descriptors=Object.getOwnPropertyDescriptors(o.authEnv);descriptors.DB={value:env.DB,enumerable:true};const authEnv=Object.freeze(Object.create(Object.getPrototypeOf(o.authEnv),descriptors)) as Env;
  const s=await readSession(authEnv,o.authRequest);original(origin,env);if(!s)return null;assertOriginalSiteSessionRead(s);const copied=sessionCopy(s);if(!o.unsigned||JSON.stringify(copied)!==JSON.stringify(o.unsigned)||o.session)return held();o.session=copied;o.originalRead=s;
- const user=await currentUser(authEnv,o.authRequest);original(origin,env);if(!user||user.discord_id!==copied.u||!isSiteAdmin(authEnv,copied.u))return null;
+ const user=await currentUser(authEnv,o.authRequest);original(origin,env);if(!user)return null;if(user.discord_id!==copied.u)return held();if(!isSiteAdmin(authEnv,copied.u))throw new MembershipDecisionForbidden();
  if(o.method==='POST'){
   if(!sameOrigin(o.request))return held();
   if(Reflect.apply(headerGet,nativeGet(o.request,'headers') as Headers,['X-Olympus'])!==PAGE_VERSION)return held('reload');
@@ -243,7 +246,7 @@ export async function sweepRejectionExpiry(env:Env,invocation:ExpiryInvocation):
 
 const SUMMARY_SOURCE=`SELECT CASE WHEN u.rejection_event_id IS NOT NULL THEN 'active' WHEN u.rejection_window_expired=1 THEN 'expired' WHEN u.denied=1 OR a.status='declined' THEN 'legacy_unknown' ELSE 'none' END AS state,d.source,d.rejected_at,d.retain_until,CASE WHEN a.rejection_event_id=u.rejection_event_id THEN 'original_application' ELSE 'account_mirror_only' END AS relation FROM site_users u LEFT JOIN site_applications a ON a.discord_id=u.discord_id LEFT JOIN privacy_rejection_decisions d ON d.decision_id=u.rejection_event_id AND d.subject_key=?2 AND d.target_account_incarnation=u.account_incarnation WHERE u.discord_id=?1`;
 /** Exactly two fixed primitives; native byte/NUL limits execute BEFORE large values reach the FFI. */
-export function rejectionSummaryStatement(env:Env,id:string,key:string):D1PreparedStatement{if(!ID.test(id)||!canonicalRejectionKey(key))return held();const fields=['state','source','rejected_at','retain_until','relation'];const bounded=fields.map(f=>`CASE WHEN ${f} IS NULL THEN NULL WHEN typeof(${f}) IN('integer','real') THEN ${f} WHEN typeof(${f})='text' AND length(CAST(${f} AS BLOB))<=256 AND instr(${f},char(0))=0 THEN ${f} ELSE json_extract('rejection_copy_scalar_held','$') END AS ${f}`).join(',');return env.DB.prepare(`WITH selected AS MATERIALIZED(${SUMMARY_SOURCE}) SELECT ${bounded} FROM selected LIMIT 2`).bind(id,key);}
+export function rejectionSummaryStatement(env:Env,id:string,key:string):D1PreparedStatement{if(!ID.test(id)||!canonicalRejectionKey(key))return held();const fields=['state','source','rejected_at','retain_until','relation'];const bounded=fields.map(f=>`CASE WHEN ${f} IS NULL THEN NULL WHEN typeof(${f}) IN('integer','real') THEN ${f} WHEN typeof(${f})='text' AND length(CAST(${f} AS BLOB))<=256 AND instr(${f},char(0))=0 THEN ${f} ELSE json_extract('rejection_copy_scalar_held','$') END AS ${f}`).join(',');return env.DB.prepare(`SELECT ${bounded} FROM (${SUMMARY_SOURCE}) AS selected LIMIT 2`).bind(id,key);}
 export function projectRejectionSummary(rows:readonly unknown[]):unknown{if(rows.length>1)return held();if(!rows.length)return null;const r=rows[0];if(!r||typeof r!=='object')return held();const state=data(r,'state'),source=data(r,'source'),at=data(r,'rejected_at'),until=data(r,'retain_until'),relation=data(r,'relation');if(!['active','expired','legacy_unknown','none'].includes(state as string)||source!==null&&!['member_application_decline','explicit_membership_deny'].includes(source as string)||at!==null&&!Number.isSafeInteger(at)||until!==null&&!Number.isSafeInteger(until)||state==='active'&&(source===null||typeof at!=='number'||at<1||until!==at+31536000))return held();return Object.freeze({purpose:'guild_membership_rejection',state,source,originalRejectedAt:at,retainUntil:until,relation,coverage:'current minimized account mirror; legacy clock and other copies unqualified'});}
 
 

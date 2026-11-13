@@ -52,6 +52,7 @@ from custody_recovery import StateLease  # noqa: E402
 from treasury_receipts227 import TreasuryJournal, normalize_name as treasury_name, parse_note as treasury_note  # noqa: E402
 from native_membership227 import parse_membership_note, validate_membership  # noqa: E402
 import launch_operations229  # noqa: E402
+import native_rank_attestation  # noqa: E402
 import officer_invites233  # noqa: E402
 
 # The sender is a character name, never a channel tag or a UI escape. Since patch 12.1 code shipped to this client,
@@ -326,7 +327,9 @@ class Worker:
             # A pre-launch Worker refuses keyVersion before touching the queue
             # or ingestion. This also fences a binary rollback after startup's
             # health check; an ignored proof can never become a legacy grant.
-            wire_path += ('&' if '?' in wire_path else '?') + 'keyVersion=launch-membership-v1'
+            protocol = ('native-roster-v2' if method == 'POST' and path == '/ingest/roster'
+                        and isinstance(body, dict) and 'nativeRankTable' in body else 'launch-membership-v1')
+            wire_path += ('&' if '?' in wire_path else '?') + 'keyVersion=' + protocol
         req = urllib.request.Request(self.base + wire_path, data=data, method=method)
         req.add_header("Authorization", f"Bearer {self.token}")
         req.add_header("Content-Type", "application/json")
@@ -470,6 +473,10 @@ class CustodyStopped(RuntimeError):
 
 class VerificationDeferred(RuntimeError):
     """Original source remains on disk; no verification claim or request was made."""
+
+
+class SavedVariablesSourceUnavailable(RuntimeError):
+    """Recoverable source read/shape failure; never a state-journal failure."""
 
 
 class Delivery(str, Enum):
@@ -1703,7 +1710,11 @@ class Watcher:
         if not self.sv_file.exists():
             self._verification_roster = None
             return
-        initial = self.sv_file.stat()
+        try:
+            initial = self.sv_file.stat()
+        except (OSError, ValueError):
+            self._verification_roster = None
+            raise SavedVariablesSourceUnavailable() from None
         mtime = initial.st_mtime
         if mtime <= self.state.d["sv_mtime"]:
             if getattr(self, '_launch_consumed_sv_witness', None) != witness:
@@ -1720,7 +1731,11 @@ class Watcher:
             self.state.d["sv_mtime"] = mtime
             self.state.save()
             return
-        current = self.sv_file.stat()
+        try:
+            current = self.sv_file.stat()
+        except (OSError, ValueError):
+            self._verification_roster = None
+            raise SavedVariablesSourceUnavailable() from None
         if (current.st_mtime_ns, current.st_size) != (initial.st_mtime_ns, initial.st_size):
             self._verification_roster = None
             return
@@ -1728,6 +1743,9 @@ class Watcher:
             self._verification_roster = None
             return
         self._verification_sv_stamp = (current.st_mtime_ns, current.st_size)
+        if type(data) is not dict or type(data.get("OlympusVerifyDB") or {}) is not dict:
+            self._verification_roster = None
+            raise SavedVariablesSourceUnavailable()
         db = data.get("OlympusVerifyDB") or {}
         treasury = db.get("treasury") or {}
         receipts = treasury.get("receipts") if isinstance(treasury, dict) else None
@@ -1739,11 +1757,11 @@ class Watcher:
         if not self.membership_only:
             self.forward_events(db.get("events") or [])
         control = self.valid_launch_control(db)
-        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many')
+        new_scan = (control is not None and control['action'] in ('scan', 'select', 'select-many', 'select-directive')
                     and not self.state.was_seen("launch-control:" + control['guid'] + ":" + control['id']))
         slot = db.get('launchControl')
         consumed = getattr(self, '_launch_selected_control', None)
-        preserve_discovery = (control is not None and control.get('version') in (2, 3) or consumed is not None
+        preserve_discovery = (control is not None and control.get('version') in (2, 3, 4) or consumed is not None
                               and isinstance(slot, dict) and type(slot.get('version')) is int
                               and type(slot.get('observedAt')) is int and slot == consumed)
         # Recognizing the already consumed slot after 60s preserves history only;
@@ -1901,13 +1919,15 @@ class Watcher:
             value = roster.get(field)
             if isinstance(value, str) and 0 < len(value.encode("utf-8")) <= 128 and not any(ord(c) < 32 or ord(c) == 127 for c in value):
                 native_scope[field] = value
+        if 'nativeRankTable' in roster:
+            native_scope['nativeRankTable'] = native_rank_attestation.observation(roster['nativeRankTable'])
         # Scope is part of source identity, including an otherwise identical
         # export at the same second. Never let an older export replace a newer
         # one, and retain old unscoped watermarks without an unsolicited replay.
         scope_hash = hashlib.sha256(json.dumps(native_scope, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
         prior_scope_hash = self.state.d.get("roster_scope_hash")
         same_scope = prior_scope_hash == scope_hash or prior_scope_hash is None and not native_scope
-        if not exported or exported < self.state.d["roster_sent"] or exported == self.state.d["roster_sent"] and same_scope or not isinstance(members, list):
+        if not exported or exported < self.state.d["roster_sent"] or not isinstance(members, list):
             return
         self._verification_roster = None  # a newer pending/refused source never borrows an older positive ACK
         payload = {
@@ -1932,6 +1952,10 @@ class Watcher:
         # from its configuration or a character claim. The Worker pins it before
         # admitting a launch roster. Older addons remain unscoped, not guessed.
         payload.update(native_scope)
+        payload_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False).encode('utf-8')).hexdigest()
+        prior_payload_hash = self.state.d.get('roster_payload_hash')
+        if exported == self.state.d['roster_sent'] and same_scope and (prior_payload_hash is None or prior_payload_hash == payload_hash):
+            return  # An old watermark is not reconstructed into a new dispatch.
         self._verification_roster_candidate = None
         if digest is not None:
             self._launch_roster_candidate = {'body': json.loads(json.dumps(payload)), 'digest': digest, 'exportedAt': exported}
@@ -1942,6 +1966,7 @@ class Watcher:
         previous_watermark = self.state.d["roster_sent"]
         self.state.d["roster_sent"] = exported  # committed atomically with custody, before any dispatch
         self.state.d["roster_scope_hash"] = scope_hash
+        self.state.d['roster_payload_hash'] = payload_hash
         outcome = self.post("/ingest/roster", payload, f"roster {exported}")
         if outcome is Delivery.NO_CUSTODY:
             self.state.d["roster_sent"] = previous_watermark
@@ -1949,6 +1974,10 @@ class Watcher:
                 self.state.d.pop("roster_scope_hash", None)
             else:
                 self.state.d["roster_scope_hash"] = prior_scope_hash
+            if prior_payload_hash is None:
+                self.state.d.pop('roster_payload_hash', None)
+            else:
+                self.state.d['roster_payload_hash'] = prior_payload_hash
             raise NoCustody("roster source paused until original custody is available")
         if outcome is Delivery.DELIVERED:
             self._last_unverified_pull = 0.0  # the list is derived from the roster: refresh it on the next queue pull
@@ -2076,7 +2105,7 @@ class Watcher:
             return None
         own = saved_character(db)
         validator = (launch_operations229.validate_selected_control
-                      if isinstance(control, dict) and control.get('version') in (2, 3) else launch_operations229.validate_control)
+                      if isinstance(control, dict) and control.get('version') in (2, 3, 4) else launch_operations229.validate_control)
         if (not own or codes.normalize_character(own) != codes.normalize_character(self.officer)
                 or not isinstance(roster.get("exportedAt"), (int, float)) or not 0 <= at-roster["exportedAt"] <= 600
                 or not validator(self.secret, control, at, db.get("lastCharacterGuid"), roster.get("nativeGuild"), roster.get("nativeRealm"))):
@@ -2098,7 +2127,7 @@ class Watcher:
             self._custody_halted = True
             self._launch_consumed_sv_witness = None
             raise CustodyStopped("launch control reservation custody stopped; inspect storage and restart") from None
-        if control['version'] in (2, 3):
+        if control['version'] in (2, 3, 4):
             if self.launch_scan.phase != 'idle':
                 self.launch_scan._stop('superseded')
             self._launch_selected_control = json.loads(json.dumps(control))
@@ -2560,6 +2589,12 @@ class Watcher:
     def run(self) -> None:
         self.require_launch_worker()
         log(f"watcher {WATCHER_VERSION}: watching {self.chat_log} and {self.sv_file}")
+        def savedvars_lane():
+            try:
+                self.check_savedvars()
+            except SavedVariablesSourceUnavailable:
+                self._require_custody_continuation()
+                log("SavedVariables source held: unreadable or invalid data (contents withheld)")
         while True:
             prefix_seconds = 0.0
             launch_seconds = None
@@ -2569,12 +2604,12 @@ class Watcher:
                 self.recover_local_settlement()
                 self._require_custody_continuation()
                 if self.membership_only:
-                    self.check_savedvars()
+                    savedvars_lane()
                 self.flush_outbox()
                 self._require_custody_continuation()
                 self.tail_chat_log()
                 if not self.membership_only:
-                    self.check_savedvars()
+                    savedvars_lane()
                 prefix_seconds = max(0.0, time.monotonic() - prefix_started)
                 launch_started = time.monotonic()
                 selected = getattr(self, 'launch_selected', None)

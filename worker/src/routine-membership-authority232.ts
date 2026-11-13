@@ -9,11 +9,14 @@ import { captureLaunchVerification } from './launch-verification227';
 import { captureNativeRankConfig232,historicalNativeRankPolicy232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,NATIVE_GUILD232,SHARED_MEMBER232 } from './native-rank-reconciliation232';
 import {captureCanonicalRankConfig233} from './canonical-ranks233';
 import {recognizedMembershipAnchor232 as ANCHOR} from './roster-verification275';
+import {DIRECTIVE_RANK_NAMES,DIRECTIVE_NATIVE_PROFILE,nativeMembershipSourceMatches,qualifiedNativeSnapshotSource} from './native-rank-schemes';
+import {directiveSnapshotSql280} from './directive-native-authority';
 
 declare const routine232Brand:unique symbol;
 export type RoutineMembership232=Readonly<{[routine232Brand]:true}>;
 export type RoutineMembership232Facts=Readonly<{subject:string;subjectGeneration:string|null;snapshotId:number;snapshotExportedAt:number;
  deadline:number;primary:Readonly<{guid:string;nameKey:string;rank:string;index:number}>|null;policyRaw:string;
+ rankQualified:boolean;rankProfile:string|null;
  cause:'eligible'|'departure'|'ban'|'rename_hold'|'blocking_role'}>;
 type Scalar=string|number|null;
 type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env};
@@ -88,16 +91,18 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   const results=await db.batch([db.prepare(READ).bind(subject,selection.raw,canonical.mode==='enabled'?canonical.raw:'null',cutoff)]);const resultCheck=graph(results);check();
   if(results.length!==1||results[0]?.success!==true||results[0].results.length!==1)return null;
   const row=results[0].results[0] as SourceRow;const at=row.at,floor=intVar(env.ROSTER_MIN_MEMBERS,0),shrink=intVar(env.ROSTER_MAX_SHRINK_PCT,10);
-  if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at||row.exported_at<=at-600||row.exported_at<cutoff||row.source!==scope||row.complete!==1||row.trusted!==1||row.guid_unique!==1||row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return null;
+  if(!Number.isSafeInteger(at)||at<1||!Number.isSafeInteger(row.id)||row.id<1||!Number.isSafeInteger(row.exported_at)||row.exported_at>at||row.exported_at<=at-600||row.exported_at<cutoff||!nativeMembershipSourceMatches(row.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)||row.complete!==1||row.trusted!==1||row.guid_unique!==1||row.state!==null&&row.state!=='active'||row.generation!==null&&(row.generation.length!==32||!HEX32.test(row.generation)))return null;
   const rows=JSON.parse(row.rows_json) as unknown[][],links=JSON.parse(row.links_json) as unknown[][],standing=JSON.parse(row.standing_json) as number[];
   if(!Array.isArray(rows)||rows.length!==row.member_count||rows.length<floor||rows.length>1000||!Number.isSafeInteger(row.previous_count)||(row.previous_count-rows.length)*100>shrink*row.previous_count||!Array.isArray(links)||!links.length||links.length>100||standing.length!==3||standing.some(v=>v!==0&&v!==1))return null;
+  const directiveSource=row.source===qualifiedNativeSnapshotSource(NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm),rankNames=directiveSource?DIRECTIVE_RANK_NAMES:NATIVE_RANK_NAMES232;
+  const rankQualified=directiveSource&&rows.every(r=>Array.isArray(r)&&r.length===4&&typeof r[3]==='number'&&Number.isInteger(r[3])&&r[3]>=0&&r[3]<10&&r[2]===DIRECTIVE_RANK_NAMES[r[3]]);
   const byGuid=new Map<string,Readonly<{guid:string;nameKey:string;rank:string;index:number}>>(),names=new Set<string>(),unknownGuidKeys=new Set<string>(),seenNativeGuids=new Set<string>(),unknownRankKeys=new Set<string>(),unknownRankGuids=new Set<string>();
   for(const r of rows){if(!Array.isArray(r)||r.length!==4)return null;const [key,guid,rank,index]=r;
    if(typeof key!=='string'||!key||names.has(key))return null;
    names.add(key);
    // .237: unknown ranks prove no rank or departure. Keep every identity in
    // the global fences, while holding only accounts linked to those rows.
-   const rankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===NATIVE_RANK_NAMES232[index];
+   const rankKnown=typeof index==='number'&&Number.isInteger(index)&&index>=0&&index<=9&&rank===rankNames[index];
    if(!rankKnown)unknownRankKeys.add(key);
    // Offline unrelated members can lack a GUID. They prove no identity and do
    // not block a different fully proved character's rank. Target names whose
@@ -136,7 +141,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   eligible.sort((a,b)=>a.index-b.index||(a.guid<b.guid?-1:a.guid>b.guid?1:0));
   const cause:RoutineMembership232Facts['cause']=standing[0]===1||standing[1]===1?'ban':standing[2]===1?'rename_hold':eligible.length?'eligible':'departure';
   const primary=cause==='eligible'?eligible[0]!:null,deadline=Math.min(at+300,row.exported_at+600);
-  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause});
+  const facts=Object.freeze({subject,subjectGeneration:row.generation,snapshotId:row.id,snapshotExportedAt:row.exported_at,deadline,primary,policyRaw:selection.raw,cause,rankQualified,rankProfile:rankQualified?DIRECTIVE_NATIVE_PROFILE:null});
   const values=Object.freeze([subject,row.generation,row.id,row.exported_at,row.source,row.member_count,row.rows_json,row.links_json,row.standing_json,deadline,cutoff,row.previous_count,selection.raw,canonical.mode==='enabled'?canonical.raw:'null']);
   const effectCheck=(effect:Env)=>{check();const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
    for(const key of CONFIG){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}};
@@ -151,10 +156,11 @@ export function closeRoutineMembership232(cap:RoutineMembership232):void{origina
 /** Fixed authored JSON comparisons freeze every linked alt and the exact original
  * current Native profile. Deadline, standing and generation are checked in SQL
  * at every queue/claim/final admission, including across provider awaits. */
-export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1):Readonly<{sql:string;values:readonly Scalar[];next:number}>{
+export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1,rankConversion=false):Readonly<{sql:string;values:readonly Scalar[];next:number}>{
  assertRoutineMembership232(env,cap);if(!Number.isSafeInteger(start)||start<1||start>75)return held();const r=originals.get(cap)!;
+ if(rankConversion&&!r.facts.rankQualified)return held();
  const q=(n:number)=>'?'+(start+n),replace=(sql:string)=>sql.replace(/\?1\b/g,q(0));
- return Object.freeze({sql:`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER)
+ return Object.freeze({sql:`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${directiveSnapshotSql280(q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
   AND EXISTS(SELECT 1 FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=${q(0)} WHERE
   (s.id=${q(2)} AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.exported_at=${q(3)} AND s.source=${q(4)})
   AND (s.member_count=${q(5)} AND s.complete=1 AND s.trusted=1 AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))

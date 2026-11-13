@@ -17,7 +17,7 @@ export async function handleAccessCheck242(env:Env,i:Interaction,signedAt:number
  if(!/^[1-9][0-9]{16,19}$/.test(subject)||i.type===3&&(!button||button[1]!==actor.id||Number(button[3])<=now()||Number(button[3])>now()+180))return reply('This private Fix button expired. Run /olympus check again.');
  let a;try{a=await captureGuildActor219(env,i,now(),signedAt);}catch{return reply('Sign in on the Olympus website and use a current eligible server account first.');}
  const privileged=discordCommandOwner225(env,actor.id,i.guild_id??'')||await guildStaffNow219(env,a);
- if((subject!==actor.id||button)&&!privileged)return reply('Only the primary owner or current High Council can check another account or use Fix.');
+ if((subject!==actor.id||button)&&!privileged)return reply('Only the primary owner or current authorized guild staff can check another account or use Fix.');
  const app=env.DISCORD_APP_ID,token=i.token;
  if(!app||typeof token!=='string'||token.length<20||token.length>2048||!/^[A-Za-z0-9_.-]+$/.test(token))return reply('This interaction cannot receive a private response.');
  defer('interaction_access242',async()=>{

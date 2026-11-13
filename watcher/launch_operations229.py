@@ -9,9 +9,10 @@ import re
 import time
 import urllib.parse
 from typing import Any, Callable
+from native_rank_schemes import NATIVE_PROFILE, SCHEME_DIGEST as RANK_DIGEST, NAMES as RANK_NAMES
 
-PATH = "/queue/launch-operations?keyVersion=officer-operations-v233"
-PROTOCOL = "officer-operations-v233"
+PATH = "/queue/launch-operations?keyVersion=officer-operations-v234"
+PROTOCOL = "officer-operations-v234"
 MAX_BYTES = 262144
 MAX_PAGES = 50
 MAX_REFRESH_ATTEMPTS = 50
@@ -20,12 +21,15 @@ SOURCE_CHANGED_ERRORS = frozenset({'launch_cursor_source_changed', 'launch_curso
 SELECTED_PROTOCOL = "promotion-selection-v274"
 SELECTED_LEGACY_PROTOCOL = "promotion-selection-v273"
 SELECTED_BATCH_PROTOCOL = "promotion-selection-v276"
+DIRECTIVE_PROTOCOL = "promotion-selection-directive-v1"
+_DIRECTIVE_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuids", "confirmations", "mac"}
 _SELECTED_CONTROL_KEYS = {"version", "action", "id", "observedAt", "scopeHash", "guid", "targetGuid", "mac"}
 _SELECTED_BATCH_CONTROL_KEYS = (_SELECTED_CONTROL_KEYS - {'targetGuid'}) | {'targetGuids'}
 _SELECTED_KEYS = {"version", "protocol", "controlId", "actorGuid", "targetGuid", "scopeHash", "observedAt", "snapshotId", "snapshotAt", "startedAt", "expiresAt", "running", "stoppedReason", "attempts", "completed", "page", "coveredGuids"}
 _SELECTED_BATCH_KEYS = (_SELECTED_KEYS - {'targetGuid'}) | {'targetGuids', 'targetsDigest', 'coverageKind'}
+_DIRECTIVE_KEYS = _SELECTED_BATCH_KEYS | {'confirmations'}
 _GUID = re.compile(r"Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}")
-_KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions"}
+_KEYS = {"protocol", "fetchedAt", "expiresAt", "status", "snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "entitlements", "nextCursor", "pageCursor", "scan", "invites", "promotions", "riskBuffer", "held", "heldReasons", "motd", "actions", "rankProfile", "rankSchemeDigest", "rankNames"}
 
 
 def canonical_guild(value: Any) -> str | None:
@@ -53,12 +57,58 @@ def _person(row: Any) -> bool:
     return isinstance(row, dict) and _text(row.get("name"), 100) and bool(row["name"]) and "|" not in row["name"] and isinstance(row.get("guid"), str) and _GUID.fullmatch(row["guid"]) is not None
 
 
+def _directive_intent(row: dict[str, Any], page: dict[str, Any], at: int, stale: bool = False) -> bool:
+    p = row.get('intent')
+    keys = {'version','id','actorGuid','targetGuid','name','subjectDigest','rankProfile','rankSchemeDigest','originSnapshotId','originSnapshotAt','originContext','startSlot','finalSlot','reason','issuedAt','expiresAt','acknowledgedSteps','lastSnapshotId','lastObservedAt'}
+    return (isinstance(p, dict) and set(p) == keys and type(p['version']) is int and p['version'] == 1
+            and _text(p['id'], 160) and 8 <= len(p['id']) <= 160
+            and isinstance(p['actorGuid'], str) and _GUID.fullmatch(p['actorGuid']) is not None and p['actorGuid'] != row['guid']
+            and p['targetGuid'] == row['guid'] and p['name'] == row['name']
+            and isinstance(p['subjectDigest'], str) and re.fullmatch('[a-f0-9]{64}', p['subjectDigest']) is not None
+            and p['rankProfile'] == NATIVE_PROFILE and p['rankSchemeDigest'] == RANK_DIGEST
+            and _integer(p['originSnapshotId'], 1) and _integer(p['originSnapshotAt'], 1, at+5)
+            and isinstance(p['originContext'], str) and re.fullmatch('[a-f0-9]{32}', p['originContext']) is not None
+            and _integer(p['startSlot'], 6, 9) and p['finalSlot'] == row['targetSlot'] and p['reason'] == row['reason']
+            and (p['finalSlot'] == 5 and p['reason'] == 'knight-veteran' or p['finalSlot'] == 7 and p['startSlot'] == 9 and p['reason'] == 'verified-initiate')
+            and _integer(p['acknowledgedSteps'], 0, p['startSlot']-p['finalSlot']-1)
+            and row['currentSlot'] == p['startSlot']-p['acknowledgedSteps']
+            and _integer(p['issuedAt'], p['originSnapshotAt'], at+5) and _integer(p['expiresAt'], p['issuedAt']+1, p['issuedAt']+600)
+            and (stale or at < p['expiresAt']) and page['expiresAt'] <= p['expiresAt']
+            and p['lastSnapshotId'] == page['snapshotId'] and p['originSnapshotId'] <= p['lastSnapshotId']
+            and _integer(p['lastObservedAt'], p['originSnapshotAt'], page['snapshotAt'])
+            and (p['acknowledgedSteps'] == 0 and p['lastSnapshotId'] == p['originSnapshotId'] or p['acknowledgedSteps'] > 0 and p['lastSnapshotId'] > p['originSnapshotId'])
+            and isinstance(row.get('intentToken'), str) and len(row['intentToken']) <= 4096
+            and re.fullmatch(r'[-_A-Za-z0-9]+\.[a-f0-9]{64}', row['intentToken']) is not None)
+
+
+def _confirmations(value: Any, targets: list[str]) -> list[dict[str, Any]] | None:
+    if not _text(value, 65536) or not value.isascii():
+        return None
+    try:
+        rows = json.loads(value)
+        if not isinstance(rows, list) or len(rows) > 1 or rows and len(targets) != 1:
+            return None
+        seen = set()
+        for row in rows:
+            if (not isinstance(row, dict) or set(row) != {'guid','token','from','to','observedAt'}
+                    or row['guid'] not in targets or row['guid'] in seen or not _integer(row['from'], 6, 9)
+                    or row['to'] != row['from']-1 or not _integer(row['observedAt'], 1)
+                    or not isinstance(row['token'], str) or len(row['token']) > 4096 or re.fullmatch(r'[-_A-Za-z0-9]+\.[a-f0-9]{64}', row['token']) is None):
+                return None
+            seen.add(row['guid'])
+        return rows
+    except (ValueError, TypeError):
+        return None
+
+
 def validate_page(report: Any, at: int, allow_stale: bool = False) -> bool:
     return _validate_page(report, at, allow_stale, 60)
 
 
 def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> bool:
     if not isinstance(report, dict) or set(report) != _KEYS or report["protocol"] != PROTOCOL or not isinstance(report["status"], str) or report["status"] not in {"ready", "partial", "held"}:
+        return False
+    if report['status'] != 'held' and (report['rankProfile'] != NATIVE_PROFILE or report['rankSchemeDigest'] != RANK_DIGEST or report['rankNames'] != list(RANK_NAMES)):
         return False
     fetched, expires = report["fetchedAt"], report["expiresAt"]
     if not _integer(fetched, 1) or not _integer(expires, 1) or not fetched < expires <= fetched + report_ttl or not fetched <= at + 5 or not allow_stale and at >= expires:
@@ -82,7 +132,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
         if (not isinstance(scan["id"], str) or not re.fullmatch(r"[0-9a-f]{32}", scan["id"])
                 or not _integer(scan["startedAt"], 1) or not _integer(scan["expiresAt"], 1)
                 or not scan["startedAt"] <= fetched < scan["expiresAt"] <= min(scan["startedAt"] + 600, snapshot + 600)
-                or not _text(report["pageCursor"], 4096) or not report["pageCursor"] or not report["pageCursor"].isascii()):
+                or not _text(report["pageCursor"], 8192 if report_ttl == 600 else 4096) or not report["pageCursor"] or not report["pageCursor"].isascii()):
             return False
     entitlement = report["entitlements"]
     if (not isinstance(entitlement, dict) or set(entitlement) != {"offset", "pageSize", "scanned", "total", "unscanned", "retryAfterSeconds"}
@@ -116,11 +166,12 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
             return False
         guids.add(row["guid"]); queue_ids.add(row["queueId"]); proof_ids.add(row["proofId"])
     for row in report["promotions"]:
-        if (not _person(row) or set(row) != {"guid", "name", "currentSlot", "targetSlot", "targetName", "reason"}
-                or not _integer(row["currentSlot"], 7, 9) or row["targetSlot"] not in (6, 8) or type(row["targetSlot"]) is not int
+        if (not _person(row) or set(row) not in ({"guid", "name", "currentSlot", "targetSlot", "targetName", "reason"}, {"guid", "name", "currentSlot", "targetSlot", "targetName", "reason", "intent", "intentToken"})
+                or not _integer(row["currentSlot"], 6, 9) or row["targetSlot"] not in (5, 7) or type(row["targetSlot"]) is not int
                 or row["targetSlot"] >= row["currentSlot"]
-                or (row["targetSlot"], row["targetName"], row["reason"]) not in ((6, "Veteran", "knight-veteran"), (8, "Member", "verified-initiate"))
-                or row["targetSlot"] == 8 and row["currentSlot"] != 9
+                or (row["targetSlot"], row["targetName"], row["reason"]) not in ((5, "Veteran", "knight-veteran"), (7, "Member", "verified-initiate"))
+                or row["targetSlot"] == 7 and row["currentSlot"] != 9 and 'intent' not in row
+                or 'intent' in row and not _directive_intent(row, report, at, allow_stale)
                 or row["guid"] in guids):
             return False
         guids.add(row["guid"])
@@ -148,7 +199,7 @@ def _validate_page(report: Any, at: int, allow_stale: bool, report_ttl: int) -> 
 
 
 def _same_scan(page: dict[str, Any], first: dict[str, Any]) -> bool:
-    return (all(page[key] == first[key] for key in ("snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "scan"))
+    return (all(page[key] == first[key] for key in ("snapshotId", "snapshotAt", "memberCount", "guild", "canonicalGuild", "realm", "scopeHash", "scan", "rankProfile", "rankSchemeDigest", "rankNames"))
             and page["entitlements"]["total"] == first["entitlements"]["total"])
 
 
@@ -340,7 +391,7 @@ class Scan:
         return True
 
     def result(self) -> dict[str, Any]:
-        return {'version': 2, 'controlId': self.control_id, 'scanComplete': self.complete, 'running': self.phase != 'idle',
+        return {'version': 3, 'controlId': self.control_id, 'scanComplete': self.complete, 'running': self.phase != 'idle',
                 'stoppedReason': self.stopped, 'discoveredPages': len(self.pages), 'refreshedPages': self.refreshed,
                 'pages': [self.pages[key] for key in sorted(self.pages)]}
 
@@ -362,7 +413,7 @@ def _lua(value: Any) -> str:
 
 
 def render_pages(result: Any, at: int) -> str | None:
-    if not isinstance(result, dict) or set(result) != {'version', 'controlId', 'scanComplete', 'running', 'stoppedReason', 'discoveredPages', 'refreshedPages', 'pages'} or result['version'] != 2:
+    if not isinstance(result, dict) or set(result) != {'version', 'controlId', 'scanComplete', 'running', 'stoppedReason', 'discoveredPages', 'refreshedPages', 'pages'} or result['version'] != 3:
         return None
     pages = result['pages']
     if (not isinstance(pages, list) or len(pages) > MAX_PAGES or not _text(result['controlId'], 32)
@@ -393,6 +444,9 @@ def targets_digest276(value: list[str]) -> str:
 
 
 def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
+    if value.get('version') == 4:
+        message = '|'.join(['launch-selected-read','4','select-directive',value['id'],str(value['observedAt']),value['scopeHash'],value['guid'],','.join(value['targetGuids']),value['confirmations']])
+        return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]
     batch = value.get('version') == 3
     message = '|'.join(['launch-selected-read', '3' if batch else '2', 'select-many' if batch else 'select', value['id'], str(value['observedAt']),
                          value['scopeHash'], value['guid'], ','.join(value['targetGuids']) if batch else value['targetGuid']])
@@ -400,6 +454,25 @@ def selected_control_mac(secret: str, value: dict[str, Any]) -> str:
 
 
 def validate_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    # Old controls remain historical originals; never upgrade them to the new ladder.
+    if (set(value) != _DIRECTIVE_CONTROL_KEYS or type(value.get('version')) is not int or value['version'] != 4
+            or value['action'] != 'select-directive' or not _selected_targets276(value['targetGuids'])
+            or _confirmations(value['confirmations'], value['targetGuids']) is None
+            or not isinstance(value['id'], str) or re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', value['id']) is None
+            or not _integer(value['observedAt'], 1) or value['id'].split(':')[0] != str(value['observedAt'])
+            or not at-60 <= value['observedAt'] <= at+5 or value['guid'] != guid
+            or not isinstance(guid, str) or _GUID.fullmatch(guid) is None or guid in value['targetGuids']
+            or not _text(guild) or canonical_guild(guild) != 'OLYMPUS PRIME' or guild != guild.strip() or not _text(realm) or not realm
+            or value['scopeHash'] != hashlib.sha256(f'native-scope|1|{guild}|{realm}'.encode()).hexdigest()[:16]
+            or not isinstance(value['mac'], str) or re.fullmatch('[a-f0-9]{32}', value['mac']) is None):
+        return False
+    return hmac.compare_digest(value['mac'], selected_control_mac(secret, value))
+
+
+def validate_legacy_selected_control(secret: str, value: Any, at: int, guid: Any, guild: Any, realm: Any) -> bool:
+    """Historical2/3 recognition only; no current Directive action admission."""
     if not isinstance(value, dict):
         return False
     batch = value.get('version') == 3
@@ -423,15 +496,15 @@ def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, all
     # Only the recognized promotion-only envelope can opt into its longer
     # observation window. The public discovery validator stays fixed at60s.
     protocol = record.get('protocol')
-    batch = protocol == SELECTED_BATCH_PROTOCOL
-    if (protocol not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL, SELECTED_BATCH_PROTOCOL) or not isinstance(page, dict)
+    batch = protocol == DIRECTIVE_PROTOCOL
+    if (protocol != DIRECTIVE_PROTOCOL or not isinstance(page, dict)
             or page.get('nextCursor') is not None or page.get('invites') != [] or page.get('riskBuffer') != []
             or page.get('status') == 'held'):
         return False
     if batch and (record.get('coverageKind') != 'selected-guids' or not _selected_targets276(record.get('targetGuids'))
                   or record.get('targetsDigest') != targets_digest276(record['targetGuids']) or covered != record['targetGuids']):
         return False
-    report_ttl = 60 if protocol == SELECTED_LEGACY_PROTOCOL else 600
+    report_ttl = 600
     if (not _validate_page(page, at, allow_stale, report_ttl)
             or page['snapshotId'] != record['snapshotId'] or page['snapshotAt'] != record['snapshotAt']
             or page['scopeHash'] != record['scopeHash'] or page['scan']['startedAt'] != record['startedAt']
@@ -445,7 +518,8 @@ def _selected_page(page: Any, record: dict[str, Any], covered: Any, at: int, all
     if (e['offset'] % 20 or (e['offset'] != 0 or e['scanned'] != len(record['targetGuids']) if batch else e['scanned'] != min(20, e['total']-e['offset']))
             or e['total'] != page['memberCount'] or e['unscanned'] != max(0, e['total']-e['offset']-e['scanned'])):
         return False
-    return all(row['guid'] in covered for key in ('promotions', 'held') for row in page[key])
+    return (all(row['guid'] in covered for key in ('promotions', 'held') for row in page[key])
+            and all('intent' in row and row['intent']['actorGuid'] == record['actorGuid'] for row in page['promotions']))
 
 
 class SelectedRead:
@@ -463,15 +537,16 @@ class SelectedRead:
         return self.record is not None and self.record['running']
 
     def request(self, control: dict[str, Any], accepted: Any, roster: Any, at: float) -> None:
-        batch = control.get('version') == 3
-        self.record = dict(version=1, protocol=SELECTED_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
+        batch = control.get('version') == 4
+        self.record = dict(version=2, protocol=DIRECTIVE_PROTOCOL, controlId=control['id'], actorGuid=control['guid'],
+                           confirmations=control.get('confirmations'),
                            scopeHash=control['scopeHash'], observedAt=control['observedAt'],
                            snapshotId=None, snapshotAt=None, startedAt=control['observedAt'], expiresAt=None,
                            running=False, stoppedReason='native-roster-receipt-required', attempts=0, completed=False,
                            page=None, coveredGuids=[])
         if batch:
             targets = list(control['targetGuids'])
-            self.record.update(protocol=SELECTED_BATCH_PROTOCOL, targetGuids=targets,
+            self.record.update(protocol=DIRECTIVE_PROTOCOL, targetGuids=targets,
                                targetsDigest=targets_digest276(targets), coverageKind='selected-guids')
         else:
             self.record['targetGuid'] = control['targetGuid']
@@ -479,7 +554,7 @@ class SelectedRead:
         self.native_digest = None
         self.native_guids = set()
         digest = complete_roster_digest(roster)
-        if (not isinstance(accepted, dict) or digest is None or accepted.get('digest') != digest
+        if (not batch or not isinstance(accepted, dict) or digest is None or accepted.get('digest') != digest
                 or accepted.get('exportedAt') != roster['exportedAt'] or not _integer(accepted.get('snapshot'), 1)
                 or not 0 <= at-roster['exportedAt'] < 600):
             return
@@ -544,8 +619,8 @@ class SelectedRead:
             return False
         if r['attempts'] >= 3:
             return self.hold('rate-limit-retries-exhausted')
-        batch = r['protocol'] == SELECTED_BATCH_PROTOCOL
-        query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'])
+        batch = r['protocol'] == DIRECTIVE_PROTOCOL
+        query = dict(selectionId=r['controlId'], snapshotId=r['snapshotId'], snapshotAt=r['snapshotAt'], actorGuid=r['actorGuid'], confirmations=r['confirmations'])
         query.update(targetGuids=json.dumps(r['targetGuids'], separators=(',', ':'))) if batch else query.update(targetGuid=r['targetGuid'])
         if self.cursor:
             query['cursor'] = self.cursor
@@ -564,10 +639,10 @@ class SelectedRead:
                     return self.hold('rate-limit-retries-exhausted')
                 return self.defer_rate_limit(reply.get('retryAfterSeconds'))
             return self.hold('source-refused')
-        keys = {'version', 'protocol', 'controlId', 'coveredGuids', 'page'} | ({'coverageKind', 'targetGuids', 'targetsDigest'} if batch else {'targetGuid'})
+        keys = {'version', 'protocol', 'controlId', 'coveredGuids', 'page', 'actorGuid', 'coverageKind', 'targetGuids', 'targetsDigest'}
         if (not isinstance(reply, dict) or set(reply) != keys
-                or type(reply['version']) is not int or reply['version'] != 1
-                or (reply['protocol'] != SELECTED_BATCH_PROTOCOL if batch else reply['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL))
+                or type(reply['version']) is not int or reply['version'] != 2 or reply['actorGuid'] != r['actorGuid']
+                or reply['protocol'] != DIRECTIVE_PROTOCOL
                 or reply['controlId'] != r['controlId']
                 or (reply['targetGuids'] != r['targetGuids'] or reply['targetsDigest'] != r['targetsDigest'] or reply['coverageKind'] != 'selected-guids' if batch else reply['targetGuid'] != r['targetGuid'])):
             return self.hold('invalid-selected-page')
@@ -600,9 +675,9 @@ class SelectedRead:
 def render_selected(record: Any, at: int) -> str | None:
     if not isinstance(record, dict):
         return None
-    batch = record.get('protocol') == SELECTED_BATCH_PROTOCOL
-    if (set(record) != (_SELECTED_BATCH_KEYS if batch else _SELECTED_KEYS) or type(record['version']) is not int or record['version'] != 1
-            or record['protocol'] not in (SELECTED_PROTOCOL, SELECTED_LEGACY_PROTOCOL, SELECTED_BATCH_PROTOCOL) or not _text(record['controlId'], 32)
+    batch = record.get('protocol') == DIRECTIVE_PROTOCOL
+    if (set(record) != _DIRECTIVE_KEYS or type(record['version']) is not int or record['version'] != 2
+            or not batch or _confirmations(record['confirmations'], record['targetGuids']) is None or not _text(record['controlId'], 32)
             or not re.fullmatch(r'[0-9]{9,11}:[0-9]{1,10}', record['controlId'])
             or not _integer(record['observedAt'], 1) or record['controlId'].split(':')[0] != str(record['observedAt'])
             or record['startedAt'] != record['observedAt'] or not _integer(record['attempts'], 0, 3)

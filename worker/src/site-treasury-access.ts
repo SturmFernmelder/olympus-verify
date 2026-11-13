@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** .218 officer-tier Treasury plan (owner rulings, 31 Oct 2026: officers and above only; "Either source").
  * Admits a site admin, a currently published Co-Guild Master or Treasurer appointment proved again inside the same
  * admitted read, an officer rank on a CURRENT roster export (the configured ten-rank profile only, after the launch cut,
@@ -185,7 +186,8 @@ export async function treasuryAccess(request: Request, env: Env): Promise<Access
     if (proof.allows(roster[0])) return { canRead: true, source: "roster", check, readmit: () => readmit(proof) };
   }
   // Only the Discord path costs a provider call, so only it is limited (per isolate, per account).
-  if (rateLimited(`tpd:${subject.discordId}`, TREASURY_DISCORD_READS_PER_MINUTE, 60)) return privateSiteAsset(apiJson({ error: "slow_down", message: "Too many checks. Wait a minute and try again." }, 429, { "Retry-After": "60" }));
+  const rateLimitAt188280=consumeRateLimit280(`tpd:${subject.discordId}`,TREASURY_DISCORD_READS_PER_MINUTE,60);
+  if (rateLimitAt188280.limited) return privateSiteAsset(apiJson({ error: "slow_down", message: "Too many checks. Wait a minute and try again." }, 429, rateLimitHeaders280(rateLimitAt188280)));
   // Discord authority is one fresh provider-response snapshot per request, before asset storage.
   // A caller whose role changes during that asset await can still receive that one response. Later requests
   // check a new provider response; no cross-request result cache or strong upstream consistency

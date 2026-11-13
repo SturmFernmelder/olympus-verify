@@ -9,10 +9,21 @@ import {communityContext,admittedRead,FENCE_REFUSED} from './community-context';
 import {apiJson} from './site-core';
 import {errorRef} from './log';
 import {captureLaunchVerification,captureNativeMembershipProof,verifyNativeMembershipProof} from './launch-verification227';
-class IntakeRejected extends Error {}
+import {nativeMembershipSourceMatches,nativeMembershipSourceSql} from './native-rank-schemes';
+import {recordTitheReceipt280,ordinaryIntakeShape280,TitheReceiptPolicyHeld280,TitheCollectorPending280,TITHE_SOURCE280,storedTitheShape280} from './tithe-receipt280';
 const ACTION='treasury.receipt242',ID=/^[A-Za-z0-9:._-]{1,128}$/;
+const createdRoleRequestResponses280=new WeakMap<Response,boolean>();
+/** Source-owned creation receipt only; copied/client JSON cannot request a wake. */
+export const intakeCreatedRoleRequest280=(response:Response):boolean=>createdRoleRequestResponses280.get(response)===true;
 // .251: a valid receipt's original observation fixes its lifetime, regardless of relay arrival.
-const RECEIPT_DEADLINE="CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.retainUntil')='integer' THEN json_extract(details,'$.retainUntil') END END";
+const RECEIPT_DEADLINE="CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.observedAt')='integer' AND json_extract(details,'$.observedAt')>0 AND json_extract(details,'$.observedAt')<=ts+5 AND json_type(details,'$.retainUntil')='integer' AND json_extract(details,'$.retainUntil')=json_extract(details,'$.observedAt')+2592000 THEN json_extract(details,'$.retainUntil') END END";
+/** One fixed page, independent of new uploads. Root must charge its measured
+ * Native cost in the existing schedule before wiring a quiet cron call. */
+export async function purgeReceipt242(env:Env):Promise<{deleted:number;limit:100}>{
+ const result=await env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER) ORDER BY id LIMIT 100)`).run();
+ const deleted=result.meta.changes;if(!result.success||!Number.isSafeInteger(deleted)||deleted<0||deleted>100)throw Error('receipt_retention_unknown');
+ return {deleted,limit:100};
+}
 const clean=(v:unknown,max:number)=>typeof v==='string'?v.replace(/[\x00-\x1f\x7f]/g,' ').trim().slice(0,max):'';
 const hash=async(v:unknown)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(v)))),b=>b.toString(16).padStart(2,'0')).join('');
 const hex=(b:ArrayBuffer)=>Array.from(new Uint8Array(b),n=>n.toString(16).padStart(2,'0')).join('');
@@ -24,8 +35,8 @@ async function mailWitness242(env:Env,e:Record<string,unknown>,name:string,code:
  const message=['mail-origin','242',normalizeCharacter(name),code,p.observedAt,p.guild,p.realm,p.collectorGuid,p.fingerprint].join('|');
  if(!equal(await mac(env,message),p.mac)||!launch.current())return null;
  // Native mail supplied identity; roster supplies only the unique current GUID corroboration, never code/ownership.
- const rows=await env.DB.prepare(`SELECT r.guid FROM roster_members r JOIN roster_snapshots s ON s.id=r.snapshot_id WHERE r.name_key=?1 AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND s.source=?2 AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER) AND s.member_count=(SELECT COUNT(*) FROM roster_members x WHERE x.snapshot_id=s.id) AND EXISTS(SELECT 1 FROM roster_members collector WHERE collector.snapshot_id=s.id AND collector.guid=?3) LIMIT 2`).bind(normalizeCharacter(name),launch.scope.provenance,p.collectorGuid).all<{guid:string}>();
- if(rows.results.length!==1||!/^Player-[0-9]+-[0-9A-Fa-f]+$/.test(rows.results[0]!.guid)||!launch.current())return null;
+ const rows=await env.DB.prepare(`SELECT r.guid,s.source FROM roster_members r JOIN roster_snapshots s ON s.id=r.snapshot_id WHERE r.name_key=?1 AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND ${nativeMembershipSourceSql('s.source','?2')} AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER) AND s.member_count=(SELECT COUNT(*) FROM roster_members x WHERE x.snapshot_id=s.id) AND EXISTS(SELECT 1 FROM roster_members collector WHERE collector.snapshot_id=s.id AND collector.guid=?3) LIMIT 2`).bind(normalizeCharacter(name),launch.scope.provenance,p.collectorGuid).all<{guid:string;source:string}>();
+ if(rows.results.length!==1||!/^Player-[0-9]+-[0-9A-Fa-f]+$/.test(rows.results[0]!.guid)||!launch.current()||!nativeMembershipSourceMatches(rows.results[0]!.source,launch.scope.guild,launch.scope.realm))return null;
  const guid=rows.results[0]!.guid,scopeHash=(await hashText('native-scope|1|'+launch.scope.guild+'|'+launch.scope.realm)).slice(0,16),observedAt=Number(p.observedAt);
  const nativeMembership={version:1,member:true,observedAt,scopeHash,mac:await mac(env,['membership','1',normalizeCharacter(name),guid,code,'1',observedAt,scopeHash].join('|'))};
  if(!launch.current()||observedAt<=now()-600)return null;
@@ -37,52 +48,28 @@ async function nativeDiscord242(env:Env,e:Record<string,unknown>,subject:string,
  if(!p||launch.mode!=='members-only'||!launch.scope||p.version!==242||p.fromDiscord!==true||p.userID!==subject||p.lastOnlineGUID!==guid||p.lastOnlineName!==name||p.guild!==launch.scope.guild||p.realm!==launch.scope.realm||!Number.isSafeInteger(p.observedAt)||Number(p.observedAt)<=now()-600||Number(p.observedAt)>now()+5||typeof p.collectorGuid!=='string')return false;
  const message=['native-discord','242',subject,guid,normalizeCharacter(name),p.observedAt,p.guild,p.realm,p.collectorGuid].join('|');
  if(!equal(await mac(env,message),p.mac)||!launch.current())return false;
- const snapshot=await env.DB.prepare(`SELECT s.id FROM roster_snapshots s WHERE s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND s.source=?1 AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER) AND s.member_count=(SELECT COUNT(*) FROM roster_members x WHERE x.snapshot_id=s.id) AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?2 AND r.name_key=?3) AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?4)`).bind(launch.scope.provenance,guid,normalizeCharacter(name),p.collectorGuid).first();
- if(!snapshot||!launch.current())return false;
+ const snapshot=await env.DB.prepare(`SELECT s.id,s.source FROM roster_snapshots s WHERE s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND ${nativeMembershipSourceSql('s.source','?1')} AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER) AND s.member_count=(SELECT COUNT(*) FROM roster_members x WHERE x.snapshot_id=s.id) AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?2 AND r.name_key=?3) AND EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND r.guid=?4)`).bind(launch.scope.provenance,guid,normalizeCharacter(name),p.collectorGuid).first<{id:number;source:string}>();
+ if(!snapshot||!launch.current()||!nativeMembershipSourceMatches(snapshot.source,launch.scope.guild,launch.scope.realm))return false;
  await audit(env,'watcher','guild.discord_observation242',subject,{guid,character:name,observedAt:p.observedAt,source:'native-discord-event242'});
  return launch.current();
-}
-/** Receipts are unclassified evidence in the existing audit JSON ledger, not tithe allocation or payment approval. */
-async function donation(env:Env,e:Record<string,unknown>,id:string,character:string){
- const d=e.donation;if(!d||typeof d!=='object'||Array.isArray(d))throw new IntakeRejected('donation_required');
- const raw=d as Record<string,unknown>,copper=raw.copper??0;
- if(!Number.isSafeInteger(copper)||Number(copper)<0||Number(copper)>2147483647)throw new IntakeRejected('invalid_copper');
- const items=Array.isArray(raw.items)?raw.items:raw.items&&typeof raw.items==='object'?Object.values(raw.items):[];
- if(items.length>100)throw new IntakeRejected('too_many_items');
- const observedAt=Number(e.requestedAt??e.ts),at=now();
- if(!Number.isSafeInteger(observedAt)||observedAt<=0||observedAt>at+5||observedAt<=at-30*86400)throw new IntakeRejected('receipt_outside_retention');
- const value={version:242,sourceId:id,source:clean(e.source,40),character,characterKey:normalizeCharacter(character),guid:clean(e.guid,40),copper,items:items.map(x=>{
-  if(typeof x==='string')return {name:clean(x,200),count:1};
-  if(!x||typeof x!=='object')throw new IntakeRejected('invalid_item');const r=x as Record<string,unknown>,count=Number(r.count??r.quantity??1);
-  if(!Number.isSafeInteger(count)||count<1||count>100000)throw new IntakeRejected('invalid_item_count');
-  return {name:clean(r.name??r.link,200),itemId:clean(String(r.itemId??r.id??''),20),count};
- }),note:clean(raw.note,1000),evidence:e.evidence&&typeof e.evidence==='object'?{kind:clean((e.evidence as Record<string,unknown>).kind,100),confirmedLocal:(e.evidence as Record<string,unknown>).confirmedLocal===true,automaticCredit:false}:{kind:clean(e.evidence??e.classification??'declaration',100),confirmedLocal:false,automaticCredit:false},observedAt,classification:'unclassified_receipt',retainUntil:observedAt+30*86400};
- if(!Number(copper)&&!value.items.length&&!value.note)throw new IntakeRejected('empty_receipt');
- const payloadHash=await hash(value),details=JSON.stringify({...value,payloadHash}),subject='intake242:'+id;
- const db=env.DB;
- // Atomic source-key reservation: concurrent exact retries cannot create two ledger rows.
- await db.prepare('INSERT INTO audit(ts,actor,action,subject,details) SELECT ?1,\'watcher\',?2,?3,?4 WHERE NOT EXISTS(SELECT 1 FROM audit WHERE action=?2 AND subject=?3)').bind(at,ACTION,subject,details).run();
- const row=await db.prepare('SELECT details FROM audit WHERE action=?1 AND subject=?2 ORDER BY id LIMIT 1').bind(ACTION,subject).first<{details:string}>();
- if(!row)throw Error('receipt_write_unknown');
- if(JSON.parse(row.details).payloadHash!==payloadHash)throw new IntakeRejected('receipt_source_conflict');
- return 'unclassified_receipt_recorded';
 }
 export async function postIntake242(env:Env,body:{entries?:unknown}):Promise<Response>{
  const rows=Array.isArray(body.entries)?body.entries:body.entries&&typeof body.entries==='object'?Object.values(body.entries):null;
  if(!rows||rows.length>25)return json({error:'entries_limit_25'},400);
- const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[];
+ const acknowledgements:Record<string,unknown>[]=[],deferred:Record<string,unknown>[]=[],policyHolds:Record<string,unknown>[]=[];let createdAny=false;
  // Bounded retention of this evidence family only; no unrelated audit history touched.
  // Unreadable historical deadlines stay hidden; arrival+30 days remains their deletion-only fallback bound.
- await env.DB.prepare(`DELETE FROM audit WHERE id IN(SELECT id FROM audit WHERE action='treasury.receipt242' AND COALESCE((${RECEIPT_DEADLINE}),ts+2592000)<=CAST(strftime('%s','now') AS INTEGER) ORDER BY id LIMIT 100)`).run();
+ await purgeReceipt242(env);
  for(const value of rows){
   if(!value||typeof value!=='object'||Array.isArray(value))continue;
-  const e=value as Record<string,unknown>,id=String(e.id??''),character=clean(e.character??e.name,100);
-  if(!ID.test(id)||!character)continue;
-  const base={id,character,guid:clean(e.guid,40)};
+  const e=value as Record<string,unknown>,id=typeof e.id==='string'?e.id:'';
+  if(!ID.test(id))continue;
+  if(e.type!=='donation'&&!ordinaryIntakeShape280(e)){policyHolds.push({id,outcome:'intake_policy_held'});continue;}
+  const character=e.type==='donation'&&typeof e.character==='string'?e.character:clean(e.character??e.name,100),base={id,character,guid:clean(e.guid,40)};
   try{
    const launch=captureLaunchVerification(env);
    if(['verify','role','guild'].includes(String(e.type))&&typeof e.guild==='string'&&launch.mode==='members-only'&&launch.scope&&e.guild!==launch.scope.guild){deferred.push({...base,outcome:'approved_branch_authority_pending',originalNoEffect:true});continue;}
-   if(e.type==='donation'){acknowledgements.push({...base,status:'done',outcome:await donation(env,e,id,character)});continue;}
+   if(e.type==='donation'){acknowledgements.push({...base,status:'done',outcome:await recordTitheReceipt280(env,e)});continue;}
    if(e.type==='verify'){
     const observedAt=Number(e.observedAt??e.requestedAt??e.ts);let proof=e.nativeMembership,guid=clean(e.guid,40);
     if(e.source==='mail'&&e.mailProof242){const witness=await mailWitness242(env,e,character,String(e.code??''));if(witness){proof=witness.nativeMembership;guid=witness.guid;}}
@@ -108,20 +95,22 @@ export async function postIntake242(env:Env,body:{entries?:unknown}):Promise<Res
     if(linked.results.length!==1){acknowledgements.push({...base,status:'rejected',outcome:'existing_guid_link_required'});continue;}
     if(e.source==='native-discord-event242'&&!await nativeDiscord242(env,e,linked.results[0]!.discord_id,guid,character)){acknowledgements.push({...base,status:'rejected',outcome:'native_discord_observation_not_qualified'});continue;}
     const {requestRoleReconciliation242}=await import('./role-reconcile242');
-    await requestRoleReconciliation242(env,linked.results[0]!.discord_id,'authenticated-addon-intake');
+    const requested=await requestRoleReconciliation242(env,linked.results[0]!.discord_id,'authenticated-addon-intake');
+    if(requested.kind!=='created'&&requested.kind!=='already_pending')continue;
+    if(requested.kind==='created')createdAny=true;
     acknowledgements.push({...base,status:'done',outcome:'server_reconciliation_requested'});continue;
    }
    acknowledgements.push({...base,status:'rejected',outcome:'unsupported_intake_type'});
-  }catch(error){if(error instanceof IntakeRejected){acknowledgements.push({...base,status:'rejected',outcome:error.message});continue;}console.error('intake242',errorRef(error));/* no ACK for an unknown write/transport outcome */}
+  }catch(error){if(error instanceof TitheReceiptPolicyHeld280){policyHolds.push({id,outcome:'intake_policy_held'});continue;}if(error instanceof TitheCollectorPending280){deferred.push(error.original);continue;}console.error('intake242',errorRef(error));/* no ACK for an unknown write/transport outcome */}
  }
- return json({version:242,acknowledgements,deferred});
+ const response=json({version:242,acknowledgements,deferred,policyHolds});createdRoleRequestResponses280.set(response,createdAny);return response;
 }
 /** Existing authenticated staff admission; cursor pagination and literal LIKE escaping. */
 export async function treasuryLedger242(request:Request,env:Env):Promise<Response>{
  const ctx=await communityContext(env,request),url=new URL(request.url),before=Math.max(0,Number(url.searchParams.get('cursor'))||0),q=likeArg((url.searchParams.get('q')??'').slice(0,100));
  if(!ctx.capabilities.communityStaff)return apiJson({error:'forbidden'},403);
- const results=await admittedRead(env,ctx,'applicantWrite',[env.DB.prepare(`SELECT id,ts,details FROM audit WHERE action=?1 AND (?2=0 OR id<?2) AND (${RECEIPT_DEADLINE})>CAST(strftime('%s','now') AS INTEGER) AND details LIKE ?3 ESCAPE '\\' ORDER BY id DESC LIMIT 101`).bind(ACTION,before,q)]);
+ const results=await admittedRead(env,ctx,'applicantWrite',[env.DB.prepare(`SELECT id,ts,CASE WHEN json_valid(details) THEN json_remove(details,'$.note','$.items') ELSE '{}' END AS details FROM audit WHERE action=?1 AND (?2=0 OR id<?2) AND (${RECEIPT_DEADLINE})>CAST(strftime('%s','now') AS INTEGER) AND ((CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.character')='text' THEN json_extract(details,'$.character') ELSE '' END ELSE '' END) LIKE ?3 ESCAPE '\\' OR (CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.guid')='text' THEN json_extract(details,'$.guid') ELSE '' END ELSE '' END) LIKE ?3 ESCAPE '\\' OR (CASE WHEN json_valid(details) THEN CASE WHEN json_type(details,'$.reference')='text' THEN json_extract(details,'$.reference') ELSE '' END ELSE '' END) LIKE ?3 ESCAPE '\\') ORDER BY id DESC LIMIT 101`).bind(ACTION,before,q)]);
  if(results===FENCE_REFUSED)return apiJson({error:'forbidden'},403);
  const rows=results[0]!.results as {id:number;ts:number;details:string}[];
- return apiJson({classification:'unclassified_receipts',rows:rows.slice(0,100).map(r=>{const d=JSON.parse(r.details);return {id:r.id,source:d.source||'addon242',donor:d.character,donorGuid:d.guid,copper:d.copper,items:d.items.map((x:{itemId?:string;name:string;count:number})=>({id:x.itemId??'',name:x.name,count:x.count})),note:d.note,at:d.observedAt,status:d.classification,evidence:d.evidence};}),nextCursor:rows.length>100?String(rows[99]!.id):null});
+ return apiJson({classification:'unclassified_receipts',rows:rows.slice(0,100).map(r=>{const parsed=JSON.parse(r.details),d=parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:{},current=storedTitheShape280(d,r.ts);return {id:r.id,source:current?TITHE_SOURCE280:'legacy_capture_held',donor:typeof d.character==='string'?d.character:'Unclassified legacy record',donorGuid:typeof d.guid==='string'?d.guid:'',copper:Number.isSafeInteger(d.copper)?d.copper:0,items:[],note:'',at:Number.isSafeInteger(d.observedAt)?d.observedAt:null,status:current?'unclassified_receipt':'legacy_capture_held',reference:current?d.reference:null,kind:current?d.kind:null,evidence:current?{kind:d.evidence.kind,confirmedLocal:d.evidence.confirmedLocal,automaticCredit:d.evidence.automaticCredit}:null};}),nextCursor:rows.length>100?String(rows[99]!.id):null});
 }

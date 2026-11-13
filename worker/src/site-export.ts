@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { metadataFields219 } from './guild-calendar-metadata219';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
 import './privacy-access-data';
@@ -120,8 +121,9 @@ async function beginHistory(request: Request, env: Env, user: SiteUser, raw?: st
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareHistory(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600))
-    return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt123280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt123280.limited)
+    return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt123280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 async function finishHistory(env: Env, s: CommunitySubject, plan: HistoryPlan, at: number, metadata: D1Result, rows: D1Result): Promise<OwnActionHistoryPage | null> {
@@ -199,7 +201,8 @@ async function beginEventChanges(request: Request, env: Env, user: SiteUser, raw
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareEventChanges(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt202280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt202280.limited) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt202280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 const EVENT_CHANGE_FIELDS = new Set(["title", "details", "startsAt", "durationMin", "capacity", "roleTargets"]);
@@ -297,7 +300,8 @@ async function beginContributionDecisions(request: Request, env: Env, user: Site
   const subject: CommunitySubject = Object.freeze({discordId:s.discordId,sessionVersion:s.sessionVersion,expiresAt:s.expiresAt,privacyGeneration:s.privacyGeneration,accountIncarnation:s.accountIncarnation,originalSession:s.originalSession});assertOriginalSiteSessionRead(subject.originalSession);
   const plan = await prepareContributionDecisions(env, subject, raw);
   if (!plan) return { ok: false, response: apiJson({ error: "invalid_cursor" }, 400) };
-  if (rateLimited(`cx:${subject.discordId}`, 5, 3600)) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429) };
+  const rateLimitAt300280=consumeRateLimit280(`cx:${subject.discordId}`,5,3600);
+  if (rateLimitAt300280.limited) return { ok: false, response: apiJson({ error: "slow_down", message: "Five copy views or downloads an hour. Try again later." }, 429,rateLimitHeaders280(rateLimitAt300280)) };
   return { ok: true, id: subject.discordId, subject, plan };
 }
 const CONTRIBUTION_DECISION_ACTIONS = new Set(["allocation_reversed", "receipt_voided", "removal_recorded", "state_open", "state_exempt", "state_disputed", "state_resolved", "contact_acknowledged", "contact_officer_contact", "contact_final_notice", "contact_final_acknowledged", "contact_final_officer_contact"]);

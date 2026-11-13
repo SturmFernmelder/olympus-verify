@@ -31,6 +31,7 @@ const check=(name,v)=>{assert.equal(v,true,name);n++;console.log('PASS '+name);}
  }
  const priorHTTP=http.length,erased=await mf.dispatchFetch('http://fixture.invalid/erasure-assertions',{method:'POST'}),erasedText=await erased.text();fs.writeFileSync(path.join(out,'erasure-assertions.json'),erasedText);assert.equal(erased.status,200,'actual erasure assertion callback');const er=JSON.parse(erasedText);
  check('Native terminal single assertion accepts exact retained erased-unknown marker',er.actualLocalWorkerdD1&&er.guardSuccess&&er.redacted==='{"v":1,"state":"erased_unknown"}');
+ check('the exact redaction marker permits the erasure predicate and retains the unresolved-write predicate',er.writeBlocked===1&&er.erasureBlocked===0);
  check('late original PATCH receipt raw-value CAS changes zero rows after redaction',er.lateChanges===0&&er.lateRows===0&&er.afterLate===er.redacted);
  check('unexpected original private value refuses terminal transaction and rolls back prior write',er.negatives[0].held&&er.negatives[0].rolledBack);
  check('semantically similar but nonexact marker refuses and rolls back terminal write',er.negatives[1].held&&er.negatives[1].rolledBack);

@@ -12,6 +12,8 @@
 import { DB_NOW, sha256 } from './account-generation-contracts';
 import { privacyGenerationFenceSql } from './privacy-serving-authority';
 import { NATIVE_RANKS } from './qr-phase1';
+import {NATIVE_SCOPE232} from './native-rank-reconciliation232';
+import {directiveSnapshotSql280} from './directive-native-authority';
 import { parseNativeRoleMap,privilegedNativeMap } from './native-rank-adapter';
 import { BETA_RESET_CUTOFF,BETA_RESET_ROLE_IDS } from './beta-reset-policy';
 import { intVar } from './env';
@@ -266,6 +268,17 @@ function boundedCanonicalSweep266(sql:string):string{
  return sql;
 }
 export const CANONICAL233_SWEEP249_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266);
+/** Current scheduling vocabulary is separate from the retained .233 selector.
+ * Old receipts remain candidates/lineage, never a new ordinal's settled rank.
+ * Unqualified tables admit only independent standing-cleanup candidates. The
+ * original issuer and adjacent writer CAS still prove every actual effect. */
+const DIRECTIVE_CANDIDATES280=CANONICAL_CANDIDATES266
+ .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'","a.native_profile IN('olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
+ .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')");
+const DIRECTIVE_SWEEP_WORK280=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
+ .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'","r.native_profile='olympus-canonical-ranks-directive-20261112-v2'");
+export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,
+ `SELECT * FROM (${DIRECTIVE_SWEEP_WORK280}) WHERE restricted OR EXISTS(SELECT 1 FROM roster_snapshots rank_scope280 WHERE ${directiveSnapshotSql280('rank_scope280.id',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`));
 
 // --- configuration capture (A1, Q6). Synchronous, descriptor-based: an accessor or inherited key is never invoked.
 export const LANE_CONFIG_KEYS=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','FULL_RELEASE_ROLES','STAFF_TEN_RANK_ROLES','LINKS_NOT_BEFORE','LINKS_NOT_BEFORE_CLOCK_GATED','ROSTER_MIN_MEMBERS','ROSTER_MAX_SHRINK_PCT',

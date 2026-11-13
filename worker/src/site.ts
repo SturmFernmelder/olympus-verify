@@ -39,6 +39,7 @@ import { policyHeaders } from "./policy-render";
 import { loadSiteState, meta, snowflakeTime } from "./site-data";
 import { generalSettingsDto, handleApi, meData } from "./site-api";
 import { apiJson, b64u, clearCookie, cookie, currentUser, rateLimited, readSession, sameOrigin, securityHeaders, sign, verify, SESSION_COOKIE } from "./site-core";
+import {consumeAddressRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { rankPlannerFragmentPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
@@ -82,10 +83,12 @@ export async function handleSite(
   if (privacyForms) return privacyForms;
   // .90 (P-17): the sign-in routes are the site's unauthenticated entry points that do work (a state cookie, a token exchange):
   // limited per client address, in memory (approximate per isolate; a first filter in front of the zone's own rules)
-  if ((path === "/auth/login" || path === "/auth/callback") && rateLimited(`auth:${path}:${request.headers.get("CF-Connecting-IP") ?? ""}`, AUTH_PER_MINUTE, 60)) {
-    return new Response("Too many sign-in attempts from your network in the last minute. Wait a moment, then try again.", {
+  if (path === "/auth/login" || path === "/auth/callback") {
+    const limit=await consumeAddressRateLimit280('auth:'+path,request.headers.get('CF-Connecting-IP')??'',AUTH_PER_MINUTE,60);
+    if(path==='/auth/callback')try{assertSiteOAuthCallbackCustody(siteOAuthOrigin!);}catch(e){if(!(e instanceof RecoveryFloorHeld))throw e;return apiJson({error:'privacy_held'},409,{'Set-Cookie':clearCookie(STATE_COOKIE)});}
+    if(limit.limited)return new Response("Too many sign-in attempts from your network in the last minute. Wait a moment, then try again.", {
       status: 429,
-      headers: securityHeaders(new Headers({ "Content-Type": "text/plain; charset=utf-8", "Retry-After": "60" })),
+      headers: securityHeaders(new Headers({ "Content-Type": "text/plain; charset=utf-8", ...rateLimitHeaders280(limit) })),
     });
   }
   const m = request.method;

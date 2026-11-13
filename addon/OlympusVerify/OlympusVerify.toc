@@ -6,12 +6,14 @@
 ## OptionalDeps: Olympus
 ## SavedVariables: OlympusVerifyDB
 
-# Interface number: set to the Forever beta client's build (check /run print((select(4, GetBuildInfo()))) in game).
+# Supported interfaces are explicit qualification metadata; qualify each future client before adding its number.
 Libs\OlympusHmac.lua
 Config.lua
 OlympusQueue.lua
 OlympusVerifyLists.lua
 OlympusVerifyRanks.lua
+OlympusVerifyNativeRankConstants.lua
+OlympusVerifyNativeRanks.lua
 OlympusVerify.lua
 OlympusVerifyUI.lua
 OlympusVerifyAutoSync.lua

@@ -1,6 +1,7 @@
 /** Owner .233 policy. One applicable canonical rank grants member access directly;
  * the technical-partner role is separate. This module is pure configuration and
  * planning, never Native admission, provider ownership or a migration capability. */
+import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_CANONICAL_INDEX,DIRECTIVE_RANK_NAMES} from './native-rank-constants';
 export const CANONICAL_GUILD233='236932545793490944';
 export const CANONICAL_PROFILE233='olympus-canonical-ranks-20261106-v1';
 export const CANONICAL_RANKS233=Object.freeze([
@@ -25,7 +26,7 @@ export const NATIVE_NAMES233=Object.freeze(['Guild Master','Stewart','High Counc
  * are unique. Branch offices and Alt are never inferred from a native ordinal. */
 export const NATIVE_CANONICAL_INDEX233=Object.freeze([0,1,1,2,3,4,7,8,9,11]);
 export type CanonicalRank233=Readonly<{key:string;name:string;roleId:string;permissions:string}>;
-export type CanonicalRankPolicy233=Readonly<{version:1;enabled:boolean;profile:typeof CANONICAL_PROFILE233;guildId:typeof CANONICAL_GUILD233;ranks:readonly CanonicalRank233[]}>;
+export type CanonicalRankPolicy233=Readonly<{version:1|2;enabled:boolean;profile:typeof CANONICAL_PROFILE233|typeof DIRECTIVE_CANONICAL_PROFILE;guildId:typeof CANONICAL_GUILD233;ranks:readonly CanonicalRank233[]}>;
 export type CanonicalRankCapture233=Readonly<{present:boolean;mode:'off'|'held'|'enabled';raw:string|null;policy:CanonicalRankPolicy233|null;current:()=>boolean}>;
 export type CanonicalEntitlements233=Readonly<{version:1;profile:typeof CANONICAL_PROFILE233;guildId:typeof CANONICAL_GUILD233;packetSHA256:string;entries:readonly Readonly<{subject:string;generation:string|null;roleKey:'branch-gm'|'branch-officer'|'alt'}>[]} >;
 const ENTITLEMENT_KEYS233=Object.freeze(['branch-gm','branch-officer','alt']);
@@ -38,7 +39,7 @@ export function parseCanonicalRankPolicy233(raw:unknown):CanonicalRankPolicy233{
  let x:unknown;try{x=JSON.parse(raw);}catch{return held('canonical233_configuration');}
  if(!x||typeof x!=='object'||Array.isArray(x)||!keys(x as Record<string,unknown>,'version,enabled,profile,guildId,ranks'))return held('canonical233_keys');
  const v=x as Record<string,unknown>;
- if(v.version!==1||typeof v.enabled!=='boolean'||v.profile!==CANONICAL_PROFILE233||v.guildId!==CANONICAL_GUILD233||!Array.isArray(v.ranks)||v.ranks.length!==12)return held('canonical233_scope');
+ if(!(v.version===1&&v.profile===CANONICAL_PROFILE233||v.version===2&&v.profile===DIRECTIVE_CANONICAL_PROFILE)||typeof v.enabled!=='boolean'||v.guildId!==CANONICAL_GUILD233||!Array.isArray(v.ranks)||v.ranks.length!==12)return held('canonical233_scope');
  const ranks=v.ranks.map((r:unknown,index:number)=>{const expected=CANONICAL_RANKS233[index]!;
   if(!r||typeof r!=='object'||Array.isArray(r)||!keys(r as Record<string,unknown>,'key,name,roleId,permissions'))return held('canonical233_rank');
   const a=r as Record<string,unknown>;
@@ -46,7 +47,7 @@ export function parseCanonicalRankPolicy233(raw:unknown):CanonicalRankPolicy233{
   return Object.freeze({...expected,permissions:a.permissions});
  });
  if(new Set(ranks.map(r=>r.roleId)).size!==12)return held('canonical233_duplicate');
- const policy=Object.freeze({version:1 as const,enabled:v.enabled,profile:CANONICAL_PROFILE233,guildId:CANONICAL_GUILD233,ranks:Object.freeze(ranks)});
+ const policy:CanonicalRankPolicy233=Object.freeze({version:v.version as 1|2,enabled:v.enabled,profile:v.profile as CanonicalRankPolicy233['profile'],guildId:CANONICAL_GUILD233,ranks:Object.freeze(ranks)});
  if(JSON.stringify(policy)!==raw)return held('canonical233_canonical');originals.add(policy);return policy;
 }
 export function captureCanonicalRankConfig233(env:unknown):CanonicalRankCapture233{
@@ -67,8 +68,15 @@ export function hasCanonicalMemberAccess233(env:unknown,roles:unknown):boolean{
  return c.mode==='enabled'&&!!c.policy&&c.current()&&!!guild&&Object.hasOwn(guild,'value')&&guild.value===c.policy.guildId&&Array.isArray(roles)&&roles.length<=250&&roles.every(r=>typeof r==='string'&&ID.test(r))&&new Set(roles).size===roles.length&&roles.some(r=>c.policy!.ranks.some(rank=>rank.roleId===r));
 }
 export function canonicalNativeRole233(policy:CanonicalRankPolicy233,index:unknown,name:unknown):CanonicalRank233|null{
- if(!originals.has(policy)||!policy.enabled||typeof index!=='number'||!Number.isInteger(index)||index<0||index>=10||name!==NATIVE_NAMES233[index])return null;
- return policy.ranks[NATIVE_CANONICAL_INDEX233[index]!]??null;
+ if(!originals.has(policy)||!policy.enabled)return null;
+ const current=policy.profile===DIRECTIVE_CANONICAL_PROFILE,names=current?DIRECTIVE_RANK_NAMES:NATIVE_NAMES233,mapping=current?DIRECTIVE_CANONICAL_INDEX:NATIVE_CANONICAL_INDEX233;
+ if(typeof index!=='number'||!Number.isInteger(index)||index<0||index>=10||name!==names[index])return null;
+ return policy.ranks[mapping[index]!]??null;
+}
+/** Current writer selection only. A retained v1 policy can still describe old
+ * receipts and present-role access; it cannot issue a new Directive conversion. */
+export function currentDirectiveCanonicalPolicy233(policy:CanonicalRankPolicy233|null):policy is CanonicalRankPolicy233{
+ return !!policy&&originals.has(policy)&&policy.enabled&&policy.version===2&&policy.profile===DIRECTIVE_CANONICAL_PROFILE;
 }
 /** A present selection suppresses old producers even if malformed/disabled. It
  * never changes an old ACK or supplies authority to delete a role. */

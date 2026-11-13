@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 import { eventParticipantSql226, eventParticipantNameSql226 } from './guild-event-owner226';
 import { attendanceUnlocked219, rsvpPreferenceSql219 } from './guild-calendar-metadata219';
 /**
@@ -297,7 +298,8 @@ export async function listEvents(request: Request, env: Env, ctx: CommunityConte
       after = { digest, startsAt, id };
     }
     if (to <= from || to - from > EVENT_LIMITS.windowDays * 86400) throw new Bad("invalid_window");
-    if (rateLimited(`ce:${ctx.subject!.discordId}`, 90, 60)) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429);
+    const rateLimitAt300280=consumeRateLimit280(`ce:${ctx.subject!.discordId}`,90,60);
+    if (rateLimitAt300280.limited) return apiJson({ error: "slow_down", message: "Too many pages in one minute. Wait a moment, then carry on." }, 429,rateLimitHeaders280(rateLimitAt300280));
     const viewer = viewerOf(ctx);
     const limit = scanLimit(env);
     // .67: one fenced batch. The whole window (bounded) gives the order digest the cursor carries; the page is selected in
@@ -445,7 +447,8 @@ export async function rsvp(request: Request, env: Env, ctx: CommunityContext): P
   const reload = needPage(request);
   if (reload) return reload;
   const me = ctx.subject!.discordId;
-  if (rateLimited(`cr:${me}`, 30, 60)) return apiJson({ error: "slow_down", message: "Too many answers in one minute. Wait a moment, then try again." }, 429);
+  const rateLimitAt448280=consumeRateLimit280(`cr:${me}`,30,60);
+  if (rateLimitAt448280.limited) return apiJson({ error: "slow_down", message: "Too many answers in one minute. Wait a moment, then try again." }, 429,rateLimitHeaders280(rateLimitAt448280));
   try {
     const body = await bodyOf(request, ["eventId", "status", "character", "raidRole", "revision", "remindMention"]);
     const eventId = idOf(body.eventId);

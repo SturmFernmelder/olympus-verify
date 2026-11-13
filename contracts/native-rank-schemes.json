@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "nativeProfile": "olympus-prime-directive-20261112-v1",
+  "canonicalProfile": "olympus-canonical-ranks-directive-20261112-v2",
+  "names": ["Guild Master", "High Council", "Officer", "Officer Alt", "Raid Leader", "Veteran", "Raider", "Member", "Alt", "Initiate"],
+  "canonicalIndexes": [0, 1, 2, 3, 4, 7, 8, 9, 10, 11],
+  "veteran": 5,
+  "member": 7,
+  "alt": 8,
+  "initiate": 9
+}

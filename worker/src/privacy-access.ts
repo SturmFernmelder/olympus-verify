@@ -1,3 +1,5 @@
+import {consumeAddressRateLimit280} from './soft-rate-limit280';
+import {formErrorResponse280} from './policy-form-core';
 /** Fresh identify-only privacy access (owner takeover, 2026-10-10). No membership or ordinary session authority. */
 import {privacyAccountIncarnation,privacyAccountIncarnationLiteralFenceSql} from './privacy-serving-authority';
 import type { Env } from './env';
@@ -149,7 +151,8 @@ export async function beginPrivacyAccess(request:Request,env:Env):Promise<Respon
  if(!env.DISCORD_APP_ID||!env.DISCORD_CLIENT_SECRET||!env.COOKIE_SECRET)throw new FormError('privacy_unavailable',503);
  const form=await readForm(request,['csrf']);
  await requireFormToken(env,request,form.csrf??'','privacy-signin');
- if(rateLimited('privacy-access:'+String(request.headers.get('CF-Connecting-IP')??''),10,60))throw new FormError('slow_down',429);
+ const limit=await consumeAddressRateLimit280('privacy-access',request.headers.get('CF-Connecting-IP')??'',10,60);
+ if(limit.limited)throw new FormError('slow_down',429,limit.retryAfterSeconds);
  const state=random(),browser=random(),stateHash=await privacyAccessHash(state),browserHash=await privacyAccessHash(browser);
  await env.DB.batch(privacyAccessPurgeStatements(env));
  const result=await env.DB.prepare(`INSERT INTO privacy_access_oauth(state_hash,browser_hash,purpose,created_at,expires_at)
@@ -298,7 +301,7 @@ export function privacyAccessRefusal(request:Request,error:unknown):Response{
  const status=error instanceof FormError?error.status:503;
   const support=new URL(request.url).pathname==='/privacy/callback'&&error instanceof FormError?CALLBACK_SUPPORT.get(error.code):undefined;
   const diagnostic=scopeSupport(request,error);
-  return htmlResponse(request,'Privacy connection unavailable',`<div data-privacy-refusal="${support??'PA-U0'}"${diagnostic?.attributes??''}><p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>${diagnostic?.body??''}</div>`,status);
+  return formErrorResponse280(htmlResponse(request,'Privacy connection unavailable',`<div data-privacy-refusal="${support??'PA-U0'}"${diagnostic?.attributes??''}><p>The connection or form could not be confirmed. Reconnect Discord for a fresh twelve-minute privacy connection. If an erasure response was lost, keep its request ID and use its private status code at Account data controls. Unresolved outcomes need attended help from an Olympus officer.</p><p><a href="/privacy/access">Privacy account connection</a> · <a href="/privacy/contact">Account help</a></p>${diagnostic?.body??''}</div>`,status),error);
 }
 
 const erasurePaused='<p>Automatic serving-account erasure is temporarily paused while Olympus checks older account records. Downloads and checks of existing erasure requests remain available. Ask an Olympus officer for attended help. Reconnecting Discord does not enable erasure.</p>';

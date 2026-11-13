@@ -62,6 +62,10 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   }
   if (AUTH_PATHS.has(path) || PRIVACY_PATHS.has(path) || path === '/api/me/export' || path === '/api/me/erasure/status' || path === '/api/me/erasure') return null;
   if (path === '/auth/logout' && request.method === 'POST') return null; // the original same-origin handler must clear even a departed/denied session
+  // This exact own-account service authenticates in site-api. Its POST admits
+  // the account rate before fresh membership/body work and rechecks standing;
+  // its GET stays available for an authenticated denied/departed account.
+  if(path==='/api/me/verification'&&(request.method==='GET'||request.method==='POST'))return null;
   let user;
   try { user = await currentUser(env, request); }
   catch (e) {

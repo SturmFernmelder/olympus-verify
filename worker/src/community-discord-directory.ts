@@ -1,3 +1,4 @@
+import {consumeRateLimit280,rateLimitHeaders280} from './soft-rate-limit280';
 /** On-demand Discord membership, independent of optional self-published profiles.
  * One bounded REST page; no roster mirror, account creation or role write.
  * Attended preference writes retain only a counts/choice audit, never target identity.
@@ -170,7 +171,8 @@ function characters(raw: string) {
 export async function discordDirectoryList(request: Request, env: Env, ctx: CommunityContext): Promise<Response> {
   if (!ctx.features.has('directory')) return apiJson({ error: 'feature_disabled' }, 503);
   if (!ctx.subject || !ctx.capabilities.communityRead) return communityReadRefusal(env, request);
-  if (rateLimited(`dcd:${ctx.subject.discordId}`, 40, 60)) return apiJson({ error: 'slow_down' }, 429);
+  const rateLimitAt173280=consumeRateLimit280(`dcd:${ctx.subject.discordId}`,40,60);
+  if (rateLimitAt173280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt173280));
   try {
     const originalSubject = ctx.subject, checkEnv = sourceCapture(env), capture = captureCommunitySubject(originalSubject), subject = capture.subject;
     const check = () => { checkEnv(); capture.check(); if (ctx.subject !== originalSubject) throw new PageFault('discord_directory_unavailable', 503); };
@@ -240,7 +242,8 @@ export async function discordDirectoryVisibility(request: Request, env: Env, ctx
   if (request.method === 'PUT') {
     if (!sameOrigin(request) || request.headers.get('X-Olympus') !== PAGE_VERSION) return apiJson({ error: 'bad_origin' }, 403);
     if (Object.keys(body).join(',') !== 'listed' || typeof body.listed !== 'boolean') return apiJson({ error: 'invalid_visibility' }, 400);
-    if (rateLimited(`dvv:${s.discordId}`, 20, 60)) return apiJson({ error: 'slow_down' }, 429);
+    const rateLimitAt243280=consumeRateLimit280(`dvv:${s.discordId}`,20,60);
+    if (rateLimitAt243280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt243280));
     const value = `COALESCE((SELECT ${hiddenValue} FROM site_settings ds WHERE ds.key=?4),'{}')`;
     check(); const written = await admitted(env, ctx, [env.DB.prepare(`INSERT INTO site_settings(key,value,updated_at,updated_by) SELECT ?4,CASE WHEN ?7=1 THEN json_remove(${value},?5) ELSE json_set(${value},?5,?6) END,${DB_NOW},NULL WHERE ${fenceSql('authenticatedIdentity', 1, 2, 3, s.privacyGeneration, s.accountIncarnation)} AND (?7=1 OR (SELECT COUNT(*) FROM json_each(${value}))<10000 OR json_type(${value},?5) IS NOT NULL) ON CONFLICT(key)DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=NULL`).bind(s.discordId, s.sessionVersion, s.expiresAt, VISIBILITY_KEY, path, s.accountIncarnation, body.listed ? 1 : 0)]); check();
     if (written === FENCE_REFUSED) return apiJson({ error: 'visibility_not_saved' }, 409);
@@ -257,7 +260,8 @@ export async function discordDirectoryAttendedVisibility(request: Request, env: 
   if (!['status', 'visibility'].includes(action) || !validId(body.discordId) || Object.keys(body).sort().join(',') !== (action === 'status' ? 'discordId' : 'discordId,listed,requestConfirmed') || action === 'visibility' && (typeof body.listed !== 'boolean' || body.requestConfirmed !== true)) return apiJson({ error: 'invalid_visibility' }, 400);
   const original = ctx.subject, captured = captureCommunitySubject(original), subject = captured.subject, checkEnv = sourceCapture(env);
   const check = () => { checkEnv(); captured.check(); if (ctx.subject !== original || !isSiteAdmin(env, subject.discordId)) throw Error('discord_directory_original_staff_changed'); };
-  if (rateLimited('dva:' + subject.discordId, 20, 60)) return apiJson({ error: 'slow_down' }, 429);
+  const rateLimitAt260280=consumeRateLimit280('dva:' + subject.discordId,20,60);
+  if (rateLimitAt260280.limited) return apiJson({ error: 'slow_down' }, 429,rateLimitHeaders280(rateLimitAt260280));
   const target = body.discordId, targetPath = '$."' + target + '"';
   const value = `COALESCE((SELECT ${hiddenValue} FROM site_settings ds WHERE ds.key=?4),'{}')`;
   if (action === 'visibility') {
