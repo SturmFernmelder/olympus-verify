@@ -73,7 +73,9 @@ check('.208 adds one separately reserved Council trading office without repurpos
  const row=server.OFFICE_APPOINTMENTS.find(o=>o.key==='office_96');
  assert.equal(row.label,'Lord High Factor · Minister of Trading & Markets');assert.equal(row.nativeSlot,1);assert.equal(row.nativeRankOrdinal,2);assert.equal(row.tier,'high_council');
  assert.equal(row.applicationEligible,false);assert.deepEqual(row.applicationRoleKeys,[]);assert.equal(row.mappingApplies,false);
- const originalTerms=JSON.stringify(originalTerms218(organization.terms.slice(0,95)));
+ // CL2-039 (our 6162226/80db07c, owner ruling of 13 Nov 2026) moved three terms' nodeId; the repository's exact
+ // inverse undoes only that recorded delta (and refuses any other change) before the original digest applies.
+ const originalTerms=JSON.stringify(originalTerms218(require('../../scripts/build-governance-titles.cjs').restoreReportingLines1113(organization).terms.slice(0,95)));
  // Preserve the original JSON property order, as JSON.stringify does. The
  // original 95 objects were compared against accepted .207 before pinning.
  assert.equal(require('node:crypto').createHash('sha256').update(originalTerms).digest('hex'),'74fb4f44153a550b7b306789763e73932393e96124d781572c6d2db5c9b87d3b');
@@ -81,9 +83,11 @@ check('.208 adds one separately reserved Council trading office without repurpos
  assert.equal(server.OFFICE_APPOINTMENTS.find(o=>o.key==='office_86').label,'Lord High Treasurer · Minister of the Imperial Exchequer');
 });
 check('the finite two-institution inverse preserves all96 originals and rejects unscoped or unapproved rewrites',()=>{
+ // CL2-039 (our 6162226/80db07c): the recorded reporting-line delta is undone first, by the repository's exact inverse.
+ const restored1113=require('../../scripts/build-governance-titles.cjs').restoreReportingLines1113(organization).terms;
  const digest=terms=>require('node:crypto').createHash('sha256').update(JSON.stringify(originalTerms218(terms))).digest('hex');
- assert.equal(digest(organization.terms.slice(0,96)),'edf51ea2b8b757b359fa77b676e56644a641264df3bd06d7393390221e54a5de');
- const copy=()=>JSON.parse(JSON.stringify(organization.terms.slice(0,96)));
+ assert.equal(digest(restored1113.slice(0,96)),'edf51ea2b8b757b359fa77b676e56644a641264df3bd06d7393390221e54a5de');
+ const copy=()=>JSON.parse(JSON.stringify(restored1113.slice(0,96)));
  const extra=copy();extra[25].historicalApplicationProfile.note='unreviewed';assert.throws(()=>originalTerms218(extra),/exact six historical fields/);
  const unscoped=copy();unscoped[0].applicationMetadataScope=historicalScope218;assert.throws(()=>originalTerms218(unscoped),/unscoped historical field/);
  const label=copy();label[25].applicationLabel='Head of Justice';assert.throws(()=>originalTerms218(label));
