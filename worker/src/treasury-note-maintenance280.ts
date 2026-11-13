@@ -10,10 +10,26 @@ const KEY='maintenance:treasury-note-redaction280';
 const ACTION='treasury.receipt_note_redaction280';
 const PURPOSE='treasury-note-redaction280-v1';
 const MAX_ROWS=1000;
+const OPERATION_ID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const SAFE="CASE WHEN typeof(details)='text' AND length(CAST(details AS BLOB))<=65536 THEN CASE WHEN json_valid(details) THEN details ELSE '{}' END ELSE '{}' END";
 const SOURCE=`json_extract(${SAFE},'$.source')`;
 const COVERED=`(${SOURCE} IN('mail','whisper-declaration'))`;
 const NONEMPTY=`(json_type(${SAFE},'$.note')='text' AND json_extract(${SAFE},'$.note')<>'')`;
+// SQLite decodes an unpaired JSON surrogate to an invalid UTF-8 sequence.
+// Classify it in SQL before the preservation manifest; never return its text.
+// Balance the fixed32 leaves: the Native statement wrapper shares SQLite's
+// depth100 limit, so a left-associated OR chain cannot be appended safely.
+const balancedOr=(parts:readonly string[]):string=>{
+ let level=[...parts];
+ while(level.length>1){
+  const next:string[]=[];
+  for(let i=0;i<level.length;i+=2)next.push(i+1<level.length?`(${level[i]} OR ${level[i+1]})`:level[i]!);
+  level=next;
+ }
+ return level[0]!;
+};
+const INVALID_NOTE_UNICODE=`(json_type(${SAFE},'$.note')='text' AND (${balancedOr(Array.from({length:32},(_v,n)=>
+ `instr(CAST(json_extract(${SAFE},'$.note') AS BLOB),X'ED${(160+n).toString(16).toUpperCase()}')>0`))}))`;
 const FAMILY="action='treasury.receipt242' AND id<=?1";
 // The non-note projection never returns the note text to application code.
 // Length plus non-note JSON equality detects value changes as well as length drift.
@@ -28,10 +44,13 @@ const INVALID=`typeof(details) IS NOT 'text' OR length(CAST(details AS BLOB))>65
  json_type(${SAFE})<>'object' OR json_type(${SAFE},'$.source') IS NOT 'text'
  OR EXISTS(SELECT 1 FROM json_each(${SAFE}) GROUP BY key HAVING COUNT(*)>1)
  OR (json_type(details,'$.note') IS NOT NULL AND json_type(details,'$.note')<>'text')
+ OR ${INVALID_NOTE_UNICODE}
  OR (${NONEMPTY} AND NOT ${COVERED}) ELSE 0 END`;
 type Census={ceiling:number;rows:number;covered:number;nonempty:number;invalid:number;manifest:string};
 type Review={actor:string;version:number;generation:string|null;birth:string;epoch:string;id:string;created:number;expires:number;ceiling:number};
-const refused=()=>apiJson({error:'receipt_note_cleanup_held',message:'The reviewed receipt scope changed or needs classification. Nothing is confirmed erased.'},409);
+const refused=(invalidRows?:number)=>apiJson({error:'receipt_note_cleanup_held',message:'The cleanup is held or its outcome is unconfirmed. Check cleanup status before any further action.',nextAction:'status',
+ ...(invalidRows===undefined?{}:{unclassifiedReceiptRows:invalidRows})},409);
+const unconfirmed=()=>apiJson({error:'receipt_note_cleanup_unconfirmed',message:'The cleanup outcome is not confirmed. Check cleanup status before any further action.',nextAction:'status'},503);
 const clock=()=>Math.floor(Date.now()/1000);
 const whole=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>=0;
 
@@ -61,9 +80,9 @@ async function status(env:Env):Promise<Response>{
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)
    ||Object.keys(parsed).sort().join(',')!=='blanked,ceiling,completedAt,operationId,version'||parsed.version!==1
    ||!['blanked','ceiling','completedAt'].every(k=>whole(parsed[k]))
-   ||typeof parsed.operationId!=='string'||!/^[a-f0-9-]{36}$/.test(parsed.operationId))return refused();
+   ||typeof parsed.operationId!=='string'||!OPERATION_ID.test(parsed.operationId))return unconfirmed();
   completion=parsed;
- }catch{return refused();}
+ }catch{return unconfirmed();}
  return apiJson({state:completion?'recorded':'not_recorded',completion,remainingCoveredNotes:result[1]?.results?.[0]?.remaining??null,
   unclassifiedReceiptRows:result[1]?.results?.[0]?.unclassified??null,
   scope:'Serving D1 notes only. Local originals, recovery copies and original payload commitments are unchanged.'});
@@ -84,7 +103,7 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
   const max=await env.DB.prepare("SELECT COALESCE(MAX(id),0) AS ceiling FROM audit WHERE action='treasury.receipt242'").first<{ceiling:number}>();
   if(!max||!whole(max.ceiling))return refused();
   const scope=await census(env,max.ceiling);
-  if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused();
+  if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused(scope?.invalid);
   const at=clock(),review:Review={actor,version:session.v,generation:session.g,birth:session.n,epoch:env.PRIVACY_WRITE_ADMISSION_EPOCH??'',
    id:crypto.randomUUID(),created:at,expires:Math.min(session.e,at+600),ceiling:scope.ceiling};
   if(!/^[a-f0-9]{32}$/.test(review.epoch))return refused();
@@ -95,6 +114,10 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
    scope:'Only note text on mail and whisper-declaration receipt242 rows. Every row, other field, original payloadHash and deadline is retained.'});
  }
  if(body.action!=='apply'||body.confirm!=='BLANK RECEIPT NOTES'||typeof body.review!=='string'||body.review.length>2048)return apiJson({error:'confirmation_required'},400);
+ // This is a read of the owner's already recorded result, not a renewed apply.
+ // An expired old review must not deny that the one-time operation completed.
+ const existing=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?1').bind(KEY).first<{value:string}>();
+ if(existing)return status(env);
  const dot=body.review.lastIndexOf('.');if(dot<1)return refused();
  const raw=body.review.slice(0,dot),signature=body.review.slice(dot+1);
  if(!await verify(env.COOKIE_SECRET,PURPOSE,raw,signature))return refused();
@@ -103,20 +126,18 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
   ||review.actor!==actor||review.version!==session.v||review.generation!==session.g||review.birth!==session.n
   ||review.epoch!==env.PRIVACY_WRITE_ADMISSION_EPOCH||!whole(review.created)||!whole(review.expires)||!whole(review.ceiling)
   ||review.created>clock()+5||review.expires<=clock()||review.expires>review.created+600||review.expires>session.e
-  ||typeof review.id!=='string'||!/^[a-f0-9-]{36}$/.test(review.id))return refused();
+  ||typeof review.id!=='string'||!OPERATION_ID.test(review.id))return refused();
  assertOriginalSiteSessionRead(session);
- const existing=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?1').bind(KEY).first<{value:string}>();
- if(existing)return status(env); // Never re-issue the update after an uncertain response.
  // Fresh current ceiling: the authorized source/family scope is fixed, not the
  // historical43/58 count. A ceiling cannot be supplied or expanded by the client.
  const max=await env.DB.prepare("SELECT COALESCE(MAX(id),0) AS ceiling FROM audit WHERE action='treasury.receipt242'").first<{ceiling:number}>();
  if(!max||!whole(max.ceiling)||max.ceiling<review.ceiling)return refused();
- const scope=await census(env,max.ceiling);if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused();
+ const scope=await census(env,max.ceiling);if(!scope||scope.rows>MAX_ROWS||scope.invalid)return refused(scope?.invalid);
  const completedAt=clock(),marker=JSON.stringify({version:1,operationId:review.id,ceiling:scope.ceiling,blanked:scope.nonempty,completedAt});
  const equalManifest=`(${MANIFEST})=?2 COLLATE BINARY`;
  const assertions=`${equalManifest} AND NOT EXISTS(SELECT 1 FROM audit WHERE ${FAMILY} AND (${INVALID}))`;
  const sqlHold="json_extract('receipt_note_redaction_scope_held','$')";
- await env.DB.batch([
+ try{await env.DB.batch([
   env.DB.prepare(`SELECT CASE WHEN ${assertions} AND NOT EXISTS(SELECT 1 FROM site_settings WHERE key=?3)
    AND CAST(strftime('%s','now') AS INTEGER)<?4 AND (SELECT COUNT(*) FROM audit WHERE ${FAMILY} AND ${COVERED} AND ${NONEMPTY})=?5
    THEN 1 ELSE ${sqlHold} END AS admitted`).bind(scope.ceiling,scope.manifest,KEY,review.expires,scope.nonempty),
@@ -128,6 +149,10 @@ export async function receiptNoteMaintenance280(request:Request,env:Env,actor:st
   env.DB.prepare('INSERT INTO site_settings(key,value,updated_at,updated_by)VALUES(?1,?2,?3,NULL)').bind(KEY,marker,completedAt),
   env.DB.prepare('INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,?2,?3,NULL,?4)').bind(completedAt,actor,ACTION,JSON.stringify({ceiling:scope.ceiling,blanked:scope.nonempty})),
   env.DB.prepare(`SELECT CASE WHEN EXISTS(SELECT 1 FROM site_settings WHERE key=?1 AND value=?2) THEN 1 ELSE ${sqlHold} END AS recorded`).bind(KEY,marker),
- ]);
+ ]);}catch{
+  // The transaction may have committed before its answer was lost. A fresh
+  // status request must resolve that; this response never repeats the write.
+  return unconfirmed();
+ }
  return status(env);
 }

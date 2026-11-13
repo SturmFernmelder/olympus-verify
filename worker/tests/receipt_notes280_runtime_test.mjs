@@ -64,6 +64,7 @@ async function run(_request,bindings){
   check(label+' cannot obtain or apply this owner maintenance',response.status!==200&&JSON.stringify(await rows())===JSON.stringify(before),{status:response.status});
  }
  const previewResponse=await call('preview',{cookie:owner}),preview=await previewResponse.json();
+ if(previewResponse.status!==200)console.log('NOTES_PREVIEW_REFUSED',JSON.stringify({status:previewResponse.status,error:preview.error,nextAction:preview.nextAction,unclassifiedReceiptRows:preview.unclassifiedReceiptRows}));
  check('actual owner gets a counts-only preview',previewResponse.status===200&&preview.state==='preview'&&preview.notesToBlank===43
   &&preview.receiptRows===58&&!JSON.stringify(preview).includes('SYNTHETIC PRIVATE NOTE')&&!JSON.stringify(preview).includes('Synthétique'));
  const savedMax=preview.ceiling;
@@ -77,6 +78,20 @@ async function run(_request,bindings){
  const uncertain=JSON.stringify(await rows()),unknownAttempt=await call('apply',{cookie:owner,extra:{review:preview.review,confirm:'BLANK RECEIPT NOTES'}});
  check('new text-bearing unclassified source holds the whole apply',unknownAttempt.status===409&&JSON.stringify(await rows())===uncertain);
  await writer.prepare("DELETE FROM audit WHERE subject='intake242:unknown'").run();
+ for(const [label,note]of [['unpaired high surrogate','\ud800'],['unpaired low surrogate','\udc00']]){
+  await writer.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','intake242:unicode',?2)")
+   .bind(at,JSON.stringify({source:'mail',note,payloadHash:'original-unicode'})).run();
+  const image=JSON.stringify(await rows()),held=await call('preview',{cookie:owner}),value=await held.json();
+  check(label+' is classified before an apply without returning its note',held.status===409&&value.error==='receipt_note_cleanup_held'&&JSON.stringify(await rows())===image&&!Object.hasOwn(value,'note'),{status:held.status});
+  await writer.prepare("DELETE FROM audit WHERE subject='intake242:unicode'").run();
+ }
+ // Its hex spelling contains an odd-nibble EDA8... substring, although the
+ // decoded UTF-8 is valid. Encoding classification must operate on bytes.
+ await writer.prepare("INSERT INTO audit(ts,actor,action,subject,details)VALUES(?1,'watcher','treasury.receipt242','intake242:valid-unicode',?2)")
+  .bind(at,JSON.stringify({source:'mail',note:'>\u0688a',payloadHash:'original-valid-unicode'})).run();
+ const validUnicodeImage=JSON.stringify(await rows()),validUnicodePreview=await call('preview',{cookie:owner});
+ check('valid Unicode with odd-nibble surrogate-like hex stays reviewable',validUnicodePreview.status===200&&JSON.stringify(await rows())===validUnicodeImage);
+ await writer.prepare("DELETE FROM audit WHERE subject='intake242:valid-unicode'").run();
  for(const[label,details]of [
   ['malformed JSON','not-json'],['duplicate note','{"source":"mail","note":"A","note":"B"}'],
   ['missing source','{"note":"SYNTHETIC TEXT"}'],['nontext note','{"source":"mail","note":17}'],
@@ -126,6 +141,9 @@ async function run(_request,bindings){
  const immutable=JSON.stringify(await rows()),repeat=await call('apply',{cookie:owner,extra:{review:preview.review,confirm:'BLANK RECEIPT NOTES'}});
  check('repeated original apply is read-only status, not another write',repeat.status===200&&JSON.stringify(await rows())===immutable
   &&(await raw.prepare("SELECT COUNT(*) n FROM audit WHERE action='treasury.receipt_note_redaction280'").first()).n===1);
+ const expiredData=JSON.stringify({...reviewed,created:at-1000,expires:at-100}),expiredReview=expiredData+'.'+await sign(config.COOKIE_SECRET,'treasury-note-redaction280-v1',expiredData);
+ const expiredReply=await call('apply',{cookie:owner,extra:{review:expiredReview,confirm:'BLANK RECEIPT NOTES'}}),expiredBody=await expiredReply.json();
+ check('expired review after completion returns recorded status without another write',expiredReply.status===200&&expiredBody.state==='recorded'&&JSON.stringify(await rows())===immutable);
  const st=await call('status',{cookie:owner});
  check('lost-reply recovery can use status without repeating apply',st.status===200&&(await st.json()).state==='recorded');
  const marker=(await raw.prepare('SELECT value FROM site_settings WHERE key=?1').bind(KEY).first()).value;
