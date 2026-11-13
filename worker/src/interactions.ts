@@ -585,7 +585,11 @@ const BAN_RANK_REASONS: Record<string, string> = {
   refused_403: "Discord refused the removal (403)",
   refused_404: "Discord reported the member or the role as missing (404)",
   rate_limited_429: "Discord rate-limited the removal; the role sweep can try again when its banned rotation reaches this account",
-  delete_outcome_unknown: "Discord's answer was lost",
+  provider_refused_manual: "Discord returned a confirmed 403/404 refusal; that original removal is not repeated automatically",
+  ban_rank1112_provider_refused_manual: "Discord returned a confirmed 403/404 refusal; that original removal is not repeated automatically",
+  managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  ban_rank1112_managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  delete_outcome_unknown: "Discord's answer could not confirm the removal",
   confirmation_unknown: "the confirming member read failed",
   effect_not_confirmed: "the role was still present after Discord accepted the removal",
   receipt_unknown: "the result could not be recorded",
@@ -606,6 +610,8 @@ const BAN_RANK_HOLDS: Record<string, string> = {
   bot_inventory: "Discord's role data could not be read",
   target_inventory_unknown: "the member holds a role missing from the server's role list",
   ban_rank1112_inventory_or_currentness_held: "Discord's role or member data could not be read",
+  managed_rank_cooldown: "Discord's recorded wait deadline is still active; normal rank-role changes wait for it",
+  managed_rank_pacing_held: "the recorded rank-role wait data could not be confirmed; ask the operator to review it",
 };
 /** Past this length the role list gives way to counts, so the reply, the staff card and the log line all stay inside
  * Discord's 2,000 characters next to a 400-character reason and the member summary (repair round, 12 Nov 2026). */
@@ -647,7 +653,7 @@ function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): st
   if (r.inServer === false) return "\nNot in the Discord server, so no rank role was removed.";
   const lines: string[] = [];
   if (r.removed.length) lines.push(`Rank roles removed (confirmed absent): ${r.removed.map(role).join(", ")}.`);
-  if (r.held.length) lines.push(`Rank roles not removed: ${grouped(r.held)}.${r.held.some((x) => !["removal_cause_withdrawn", "rate_limited_429"].includes(x.reason)) ? " Remove them in Discord by hand if they must go now." : ""}`);
+  if (r.held.length) lines.push(`Rank roles not removed: ${grouped(r.held)}.${r.held.some((x) => !["removal_cause_withdrawn", "rate_limited_429", "managed_rank_cooldown", "ban_rank1112_managed_rank_cooldown"].includes(x.reason)) ? " Remove them in Discord by hand if they must go now." : ""}`);
   const earlier = r.unknown.filter((x) => x.reason === "earlier_role_change_unresolved"), own = r.unknown.filter((x) => x.reason !== "earlier_role_change_unresolved");
   if (own.length) lines.push(`Rank roles with an unconfirmed result: ${grouped(own)}. ${BAN_RANK_UNKNOWN_HOLD}`);
   if (earlier.length) lines.push(`Rank roles still on the member: ${grouped(earlier)}. ${BAN_RANK_EARLIER_HOLD}`);
@@ -932,9 +938,18 @@ async function cmdAdmin(env: Env, i: Interaction, lane?: LaneCapture, defer?: De
       // Round 4 item 8 (13 Nov 2026): every rank role an unresolved row of ANY purpose holds back is named, and a change
       // still in flight at this moment is called in flight, not unconfirmed.
       const blocked = await unbanBlockedRanks1112(env, target);
-      if (blocked === null) return reply(`<@${target}> can verify again. The bot could not read whether any Olympus rank role stays blocked for them; check before granting one by hand.`);
-      if (!blocked.length) return reply(`<@${target}> can verify again.`);
-      return reply(unbanBlockedText1112(target, blocked));
+      const diagnostics = await import('./access-check242');
+      let known:import('./access-check242').ManualRankRefusalRow280[]|null=null;
+      try{known=(await diagnostics.manualRankRefusalStatement280(env,target).all<import('./access-check242').ManualRankRefusalRow280>()).results;}catch{/* Refused diagnostics never imply no outstanding history. */}
+      if (blocked === null || known === null) return reply(`<@${target}> can verify again. The bot could not read all outstanding role changes and known provider refusals; check the member's roles in Discord before granting one by hand.`);
+      const refused=diagnostics.manualRankRefusalText280(known),base=blocked.length?unbanBlockedText1112(target,blocked):`<@${target}> can verify again.`;
+      let text=base+(refused?'\n'+refused:'');
+      if(text.length>1950){
+        const group=(kind:UnbanBlock1112['kind'])=>blocked.filter(row=>row.kind===kind).map(row=>`<@&${row.role}>`).join(', ');
+        const unknown=group('unconfirmed'),live=group('inflight');
+        text=`<@${target}> can verify again.`+(unknown?`\nUnconfirmed original changes still block: ${unknown}. No replay or clearance; attended resolution is required.`:'')+(live?`\nOriginal changes still in flight block: ${live}. Their outcome must be known first.`:'')+(refused?'\n'+refused:'');
+      }
+      return reply(text);
     }
     case "queue": {
       const q = await env.DB.prepare(
