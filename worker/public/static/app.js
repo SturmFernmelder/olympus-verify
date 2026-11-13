@@ -7141,6 +7141,7 @@
     }
     if (sub === "profile" && feat("directory")) { if (!can("confirmedGuildData")) { add(body, memberActionNotice()); return; } return communityProfile(body); }
     if (sub === "calendar" && feat("events")) {
+      if (body && body.classList) body.classList.add("calendar-view"); // round 5: the calendar pages' phone target sizes (app.css, community .96 block)
       // .98: the organizer's pages live beside the member's (the Worker decides who may write; the page shows the refusal)
       if (parts[1] === "new") return organizerNewEvent(body);
       if (parts[1] && parts[2] === "edit") return organizerEditEvent(body, parts[1]);
@@ -7932,6 +7933,8 @@
     const more = h("button", { class: "btn small", type: "button", text: "Show more", hidden: true });
     const range = h("span", { class: "muted small" });
     let cursor = null, generation = 0; // .102 (F96-1): every load is bound to the window it asked for; a reply to a window the viewer has left is discarded
+    // Calendar round 5 (owner ruling, 13 Nov 2026): officers schedule events too. The list answers canCreate; the create write proves the role again.
+    const scheduleLink = h("a", { class: "btn small", href: "#/community/calendar/new", text: "Schedule an event", hidden: !can("organizer") });
     const load = async (restart) => {
       const gen = ++generation;
       const win = { from, to };
@@ -7942,6 +7945,7 @@
         const params = cursor ? `cursor=${encodeURIComponent(cursor)}` : `from=${encodeURIComponent(isoOf(win.from))}&to=${encodeURIComponent(isoOf(win.to))}`;
         const data = await api("GET", `/api/community/events?${params}`);
         if (gen !== generation) return; // Earlier or Later was pressed meanwhile: these rows belong to the window that was left
+        if (data.canCreate === true) scheduleLink.hidden = false;
         for (const e of data.events) list.appendChild(eventCard(e, true));
         cursor = data.nextCursor;
         more.hidden = !cursor;
@@ -7955,7 +7959,7 @@
     };
     more.addEventListener("click", () => load(false));
     const shift = (d) => { from += d; to += d; load(true); };
-    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), can("organizer") ? h("a", { class: "btn small", href: "#/community/calendar/new", text: "Schedule an event" }) : null),
+    add(body, frame("Calendar", h("div", { class: "btn-row" }, h("button", { class: "btn small", type: "button", text: "Earlier", onclick: () => shift(-31 * DAY) }), range, h("button", { class: "btn small", type: "button", text: "Later", onclick: () => shift(31 * DAY) }), scheduleLink),
       h("p", { class: "muted small", text: "Guild events as the organizers scheduled them, with the answers of confirmed members. Open an event to answer. Times are shown in your own time zone." }),
       status, list, h("div", { class: "btn-row" }, more)));
     if (feat("attendance")) add(body, myAttendancePanel());
@@ -8021,7 +8025,7 @@
     // The page asks the Worker whether this viewer manages the event (canManage); the Worker decides every request again.
     let manages = can("organizer");
     if (!manages && can("confirmedGuildData")) { try { const d = await api("GET", `/api/community/event?id=${encodeURIComponent(id)}`); manages = !!(d && d.event && d.event.id === id && d.event.canManage === true); } catch { manages = false; } }
-    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event organizer or a site administrator can manage its announcement." }))); return; }
+    if (!manages) { add(body, frame("Discord announcement", null, h("p", { text: "Only the event's organizer, the High Council, the War Heads or a site administrator can manage its announcement." }))); return; }
     const key = "olympus.eventDelivery." + id;
     const opPattern = /^[A-Za-z0-9_-]{22}$/;
     const messagePattern = /^https:\/\/discord\.com\/channels\/[0-9]{17,20}\/[0-9]{17,20}\/([0-9]{17,20})$/;
@@ -8126,8 +8130,14 @@
         forget(); message.value = "";
       } catch (ex) {
         // These are definite pre-effect refusals. Every other answer remains bound to its operation until a durable read proves it.
-        if (!uncertain(ex) && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(codeOf(ex))) forget();
-        status.textContent = uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
+        // Round 5 follow-up (13 Nov 2026): the Worker answers feature_disabled and delivery_not_configured with 503 before
+        // any effect, and the shared uncertain() counts every coded 5xx as unknown. So a DECODED answer (the Worker's own
+        // JSON, not a lost or unreadable one) whose code is in this list is a refusal whatever its status; any other coded
+        // 5xx, an unreadable answer and a network failure stay unknown.
+        const decoded = ex instanceof ApiError && ex.status > 0 && !!ex.data && typeof ex.data.error === "string" && ex.data.error !== "unreadable_answer";
+        const refused = decoded && ["feature_disabled", "delivery_not_configured", "preview_changed", "stale_revision", "publication_closed", "event_not_scheduled", "event_creation_horizon", "not_organizer", "membership_unconfirmed", "delivery_destination_unqualified", "delivery_destination_changed", "delivery_custody_unqualified", "delivery_not_held"].includes(ex.data.error);
+        if (refused) forget();
+        status.textContent = refused ? explain(ex, ex.data.error === "delivery_not_configured" ? "Discord announcements are not set up on this site. Nothing was sent." : "The announcement could not be completed.") : uncertain(ex) ? "The answer was lost. Check status or the existing message before taking any further action." : explain(ex, "The announcement could not be completed.");
       } finally { busy = false; buttons(); }
       await load();
     };
@@ -8546,8 +8556,9 @@
   }
   const ATTENDANCE_STATES = ["present", "absent", "excused", "unknown"];
   const ORGANIZER_ERRORS = {
-    not_organizer: "Only guild organizers can do that.",
-    not_event_organizer: "Only the organizer who scheduled this event (or a site admin) can change it.",
+    not_organizer: "Events are managed by the officer or organizer who scheduled them, and by the High Council, the War Heads and site administrators.",
+    not_event_organizer: "This event belongs to another organizer. Only that organizer, the High Council, the War Heads or a site administrator can change it.",
+    not_creator: "Scheduling events is for officers (the Leader, the High Council, Officers and Raid Leaders), guild organizers and site administrators.",
     capacity_below_signups: "The capacity cannot go below the places already taken. Lower it after the answers change.", capacity_below_accepted: "The capacity cannot go below the members already accepted on the roster. Bench or decline someone first.",
     op_conflict: "A different event was already created from this form. Reload the page to start a new one.",
     invalid_title: "Give the event a title of 1 to 80 characters, without control or text-direction characters.", // CL2-135
@@ -8740,7 +8751,11 @@
     return form;
   }
   async function organizerNewEvent(body) {
-    if (!can("organizer")) { add(body, frame("Schedule an event", null, noticeBox("info", "icon-shield", h("p", { text: ORGANIZER_ERRORS.not_organizer })))); return; }
+    // Round 5: an officer who is not a listed organizer gets the form when the calendar list says canCreate (no extra provider call there).
+    let allowed = can("organizer");
+    if (!allowed && can("confirmedGuildData")) { try { const d = await api("GET", "/api/community/events"); allowed = !!d && d.canCreate === true; } catch { allowed = false; } }
+    if (!body.isConnected) return;
+    if (!allowed) { add(body, frame("Schedule an event", null, noticeBox("info", "icon-shield", h("p", { text: ORGANIZER_ERRORS.not_creator })))); return; }
     const opId = b64url(16); // fixed for this form: a retry after a lost answer replays the same creation (the event's id is this id)
     const pending = h("div");
     let frozen = null; // .103: the exact payload whose answer was lost
