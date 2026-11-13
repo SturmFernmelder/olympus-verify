@@ -723,6 +723,16 @@ const runUi280=String.raw`
   await openL(Object.assign(copy('rankheld'),{pageCursor:shaped(8192)}));bounds.pc8192=outcome();
   await openL(Object.assign(copy('rankheld'),{pageCursor:shaped(8193)}));bounds.pc8193=outcome();
   check('L9 Codex\'s late-429 v235 page (5,477-character page link, 19 promotions) is shown; the same page in the v234 form is refused, and a v235 page link of 8,193 characters is refused while 8,192 is shown',late.pageCursor.length===5477&&bounds.late235&&bounds.late234==='unconfirmed'&&bounds.pc8192==='shown'&&bounds.pc8193==='unconfirmed',JSON.stringify(bounds));
+  // Item 2: the next-page link is shape-checked before any request is built from it.
+  const nextCases=[];
+  const q234=()=>as234(copy('qualified1000-first'));
+  for(const [label,make,want] of [['v234 link of 4,096',()=>Object.assign(q234(),{nextCursor:shaped(4096)}),'shown'],['v234 link of 4,097',()=>Object.assign(q234(),{nextCursor:shaped(4097)}),'unconfirmed'],['v234 link with a plus sign',()=>Object.assign(q234(),{nextCursor:'A+'+shaped(300).slice(2)}),'unconfirmed'],['v234 link without a MAC',()=>Object.assign(q234(),{nextCursor:'AAAA'}),'unconfirmed'],['v234 link that is a number',()=>Object.assign(q234(),{nextCursor:4096}),'unconfirmed'],
+   ['v235 link of 8,192',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8192)}),'shown'],['v235 link of 8,193',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8193)}),'unconfirmed'],['v235 link with a slash',()=>Object.assign(copy('held1000-first'),{nextCursor:'A/'+shaped(300).slice(2)}),'unconfirmed'],['v235 link with an upper-case MAC',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(300).slice(0,236)+'A'.repeat(64)}),'unconfirmed']]){
+   const d=make();await openL(d);const o=outcome(),more=btn('Load next 20 role checks'),visible=!!more&&!more.hidden;
+   if(visible)await clickL(more);const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
+   nextCases.push({label,want,o,visible,reads:reads.length,sent:sent===null?null:sent===d.nextCursor,drawn:!nothingDrawn()});
+  }
+  check('L10 a next-page link is checked like the page link of its family: 4,096 for v234 and 8,192 for v235 are followed byte for byte; longer, outside the alphabet or not text holds the page and is never sent',nextCases.every(c=>c.want==='shown'?c.o==='shown'&&c.visible&&c.reads===2&&c.sent===true:c.o==='unconfirmed'&&!c.visible&&c.reads===1&&!c.drawn),JSON.stringify(nextCases));
   // Families never mix inside one scan; an undeclared family is refused with the existing message.
   const mix=[];
   await openL(copy('qualified1000-first'),as234(copy('qualified1000-offset20')));await clickL(btn('Load next 20 role checks'));mix.push(['v234 page after a v235 page',outcome(),reads.length,!nothingDrawn()]);
@@ -737,6 +747,7 @@ const runUi280=String.raw`
    ['reason unknown',d=>{d.heldReasons=['arbitrary'];}],['both reasons',d=>{d.heldReasons=['native-rank-scheme-unconfirmed','directive-rank-policy-held'];}],['reasons not a list',d=>{d.heldReasons='native-rank-scheme-unconfirmed';}],
    ['held row other reason',d=>{d.held[1].reason='pending-verification';}],['held row extra field',d=>{d.held[0].currentSlot=9;}],['held row bad character id',d=>{d.held[0].guid='Not a GUID';}],['held not a list',d=>{d.held={};}],['held row repeated',d=>{d.held[1]={...d.held[0]};}],
    ['page link too long',d=>{d.pageCursor=shaped(8193);}],['page link outside the alphabet',d=>{d.pageCursor='A+'+d.pageCursor.slice(2);}],['page link missing',d=>{d.pageCursor=null;}],
+   ['next link too long',d=>{d.nextCursor=shaped(8193);}],['next link outside the alphabet',d=>{d.nextCursor='A='+shaped(300).slice(2);}],['next link not text',d=>{d.nextCursor=true;}],
    ['invite source unknown',d=>{d.invites[0].source='native-who-unit-v242';}],['invite extra field',d=>{d.invites[0].version=235;}],['invite other scope',d=>{d.invites[0].scopeHash='0'.repeat(16);}],['four invites',d=>{d.invites=[0,1,2,3].map(i=>({...d.invites[0],queueId:i+1,proofId:String(i).repeat(32)}));}],
    ['export after the read',d=>{d.snapshotAt=d.fetchedAt+6;}],['window over 60 s',d=>{d.expiresAt=d.fetchedAt+61;}],['window empty',d=>{d.expiresAt=d.fetchedAt;}],['scan id malformed',d=>{d.scan.id='x';}],['scan starts after the read',d=>{d.scan.startedAt=d.fetchedAt+1;}],['scan over 600 s',d=>{d.scan.expiresAt=d.scan.startedAt+601;}],
    ['offset not a page start',d=>{d.entitlements.offset=10;}],['MOTD not ASCII',d=>{d.motd.short='Olympus – officers';}],['automatic action',d=>{d.actions.automatic=true;}],['role grants',d=>{d.actions.roleGrants=true;}],['removals',d=>{d.actions.removals=true;}],

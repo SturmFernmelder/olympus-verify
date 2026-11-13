@@ -4856,6 +4856,8 @@
         if(cursor&&model&&(model.protocol===DISCOVERY235)!==(d?.protocol===DISCOVERY235))throw Error('launch_family_changed');
         const verdict234=view.assess(d,cursor&&model?model:null);
         if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
+        // Round 5 item 2: a next-page link gets the continuation link's shape check (its family's bound) before any request is built from it.
+        if(d.nextCursor!==null&&!view.pageCursorShape(d.nextCursor))throw Error('launch_next_cursor_unconfirmed');
         if(!d||d.protocol!==view.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
           ||!Array.isArray(d.promotions)||!Array.isArray(d.riskBuffer)||!Array.isArray(d.held)||!Array.isArray(d.invites)||d.invites.length>3||d.promotions.length>1000||d.riskBuffer.length>1000||d.held.length>1000
           ||d.status==='held'&&(d.promotions.length||d.riskBuffer.length||d.invites.length)||!Number.isSafeInteger(d.fetchedAt)||!Number.isSafeInteger(d.expiresAt)
