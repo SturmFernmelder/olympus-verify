@@ -6935,12 +6935,10 @@
   ];
   const visibleCommunitySections = () => COMMUNITY_SECTIONS.filter(section => section.visible());
   const communitySection = key => COMMUNITY_SECTIONS.find(section => section.key === key);
-  // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
-  function communityTabs(sub) {
-    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
-      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
-    // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
-    // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+  // RC-272 (round 3, 12 Nov 2026): on a phone the current section can start off-screen in the scrolling row, so the row
+  // is scrolled sideways until its link is fully visible. Only the row's own scrollLeft moves: the page never jumps.
+  // Round 4 item 5 (13 Nov 2026): shared by the member and the admin Community rows.
+  function scrollCurrentTabIntoRow(nav) {
     requestAnimationFrame(() => {
       const current = nav.isConnected && nav.scrollWidth > nav.clientWidth ? nav.querySelector('[aria-current="page"]') : null;
       if (!current) return;
@@ -6948,6 +6946,12 @@
       if (link.left < row.left + pad) nav.scrollLeft -= row.left + pad - link.left;
       else if (link.right > row.right - pad) nav.scrollLeft += link.right - (row.right - pad);
     });
+  }
+  // CL2-272 (12 Nov 2026): below 768 px the sections are one scrolling row (CSS), not a stack of wrapped rows.
+  function communityTabs(sub) {
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community sections" }, visibleCommunitySections().map(({ key, href, label }) =>
+      h("a", { class: "btn small", href, text: label, "aria-current": sub === key ? "page" : false })));
+    scrollCurrentTabIntoRow(nav);
     return h("div", { class: "community-tabs" }, nav,
       // The scroll hint is for sighted phone users only; it is not tied to the nav, so it is never announced where it is hidden.
       h("p", { class: "community-scroll-hint", id: "community-scroll-hint", text: "Scroll sideways for more Community sections." }));
@@ -8923,8 +8927,9 @@
     if (feat("contributions")) tabs.push(["ledger", "Ledger"]);
     if (feat("privacy_intake")) tabs.push(["inbox", "Private inbox"]);
     if (feat("directory")) tabs.push(["claims", "Character claims"]);
-    return h("div", { class: "community-admin-nav" },
-      h("nav", { class: "btn-row", "aria-label": "Community admin sections", "aria-describedby": "community-admin-scroll-hint" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false }))),
+    const nav = h("nav", { class: "btn-row", "aria-label": "Community admin sections", "aria-describedby": "community-admin-scroll-hint" }, tabs.map(([k, t]) => h("a", { class: "btn small", href: "#/admin/community" + (k ? "/" + k : ""), text: t, "aria-current": sub === k ? "page" : false })));
+    scrollCurrentTabIntoRow(nav); // Round 4 item 5 (13 Nov 2026): the current tab is scrolled into view on phones, as on the member row.
+    return h("div", { class: "community-admin-nav" }, nav,
       h("p", { class: "community-admin-scroll-hint", id: "community-admin-scroll-hint", text: "Scroll for more Community sections." }));
   }
   async function adminCommunity(body, parts) {
