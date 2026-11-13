@@ -2253,8 +2253,8 @@
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
   // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
-  const GOVERNANCE_SHA256 = "794ce6b3304eac706681eee016cbd7eef1a97152778c491d3b5e7aa28263ff31";
-  const GOVERNANCE_BYTES = 267459;
+  const GOVERNANCE_SHA256 = "c643bd48f834fc46ca8b6de7ec747efb33364daf789900ca13a483efe1d9db4b";
+  const GOVERNANCE_BYTES = 267752;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -2284,7 +2284,9 @@
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
       const ids = new Set(data.nodes.map((n) => n.id));
       if (ids.size !== data.nodes.length || data.nodes.some((n) => !/^[a-z][a-z0-9-]*$/.test(n.id) || (n.parent !== null && !ids.has(n.parent)) ||
-          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id))) ||
+          !own(data.legend, n.relation) || !Array.isArray(n.coordinates) || n.coordinates.some((id) => !ids.has(id)) ||
+          // CL2-039 (13 Nov 2026): a second authority a node reports to must be another existing node.
+          (n.alsoReportsTo !== undefined && (!Array.isArray(n.alsoReportsTo) || n.alsoReportsTo.some((id) => !ids.has(id) || id === n.id || id === n.parent)))) ||
           data.terms.some((t, i) => t.ordinal !== i + 1 || typeof t.label !== "string" || !ids.has(t.nodeId)) || new Set(data.terms.map((t) => t.label)).size !== 103) throw new Error("The organization model has an invalid relation.");
       // A corrupt static file must not turn recursive rendering into a loop.
       for (const n of data.nodes) {

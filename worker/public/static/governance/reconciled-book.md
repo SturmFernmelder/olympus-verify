@@ -187,7 +187,7 @@ Holder acknowledgement, if obtainable: __________. Issuing authority signature: 
 
 # Revised Organisation Chart
 
-The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Chief of Staff coordinates daily work. Justice handles cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants.
+The chart identifies accountability and the distinct coordination paths. Guild Masters report to Asmon and the High Council; portfolio heads coordinate through emissaries. The Guild Master, as Sovereign, and the Co-Guild Master form the top tier. The Chief of Staff coordinates daily work. The Lord High Justiciar sits in the High Council Cabinet, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals. Hearing panels decide cases independently. Systems is a shared division, not a fifth core department. This book newly appoints none of the named holders; the two existing website appointments retained by the owner's reset choice remain distinct from the unissued governance warrants.
 
 [[OVERVIEW]]
 

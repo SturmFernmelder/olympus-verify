@@ -83,7 +83,7 @@ const currentCopy228 = JSON.parse(currentCopyBytes);
 // decision or named holder, and leaves every D-numbered register entry verbatim. Whole-paragraph pairs keep each
 // earlier edition exactly recoverable, so it is applied last and inverted first.
 const evergreen1112Bytes = fs.readFileSync(path.join(root, 'docs/governance-evergreen1112.json'));
-if (sha256(evergreen1112Bytes) !== '076cdceda90de8c5a7a1ed4a24b7351e60744655eeee265e31fe388bd603a8c8') throw Error('Evergreen1112 editorial manifest changed');
+if (sha256(evergreen1112Bytes) !== 'f2add42e4ce7ba8da628e21586e67438288617c00fa5da0d3357c1f16b4c8385') throw Error('Evergreen1112 editorial manifest changed');
 const evergreen1112 = JSON.parse(evergreen1112Bytes);
 
 function scopedParagraphBridge(text, inverse, scope, manifest, label) {

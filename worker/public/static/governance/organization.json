@@ -6,8 +6,8 @@
   "appointmentsIssued": false,
   "book": {
     "path": "/static/governance/reconciled-book.md",
-    "bytes": 267459,
-    "sha256": "794ce6b3304eac706681eee016cbd7eef1a97152778c491d3b5e7aa28263ff31"
+    "bytes": 267752,
+    "sha256": "c643bd48f834fc46ca8b6de7ec747efb33364daf789900ca13a483efe1d9db4b"
   },
   "councilComposition": {
     "status": "owner_directed_current228",
@@ -76,7 +76,7 @@
         "id": "head-justice",
         "label": "Lord High Justiciar · Minister of Justice & The Privy Court",
         "familyKey": "head_justice",
-        "nodeId": "justice",
+        "nodeId": "justiciar",
         "officeKeys": [
           "office_101"
         ],
@@ -465,9 +465,24 @@
       "chapter": "organisation-and-offices"
     },
     {
+      "id": "justiciar",
+      "title": "Lord High Justiciar",
+      "parent": "founder",
+      "alsoReportsTo": [
+        "executive"
+      ],
+      "relation": "accountability",
+      "kind": "High Council portfolio",
+      "icon": "moderator",
+      "remit": "Oversees the Court branch: the Council of Justice, the Stockades & Court of Appeals (the Privy Court) and their hearing panels.",
+      "limits": "Holding this office is not a permanent seat on every case or a power to judge one’s own enforcement decision. Hearing panels decide cases independently.",
+      "coordinates": [],
+      "chapter": "organisation-and-offices"
+    },
+    {
       "id": "justice",
       "title": "Council of Justice",
-      "parent": "founder",
+      "parent": "justiciar",
       "relation": "independence",
       "kind": "independent adjudication",
       "icon": "moderator",
@@ -479,13 +494,15 @@
     {
       "id": "executive",
       "title": "Co-Guild Master and Vice Guild Master",
-      "parent": "founder",
+      "parent": null,
       "relation": "coordination",
       "kind": "appointments",
       "icon": "co_gm",
       "remit": "Agendas, absence cover and liaison within an accepted warrant.",
       "limits": "Neither title is a native rank, automatic succession or command over other Guild Masters.",
-      "coordinates": [],
+      "coordinates": [
+        "founder"
+      ],
       "chapter": "organisation-and-offices"
     },
     {
@@ -4423,7 +4440,7 @@
       "ordinal": 101,
       "label": "Lord High Justiciar · Minister of Justice & The Privy Court",
       "classification": "portfolios",
-      "nodeId": "justice",
+      "nodeId": "justiciar",
       "note": "Individual reserved Council portfolio; no appointment or permissions are issued by publication.",
       "nativeSlot": 1,
       "nativeRelationship": ".199 display association: Rank 2 High Council, zero-based slot 1; no automatic appointment, vote, sanction, rank change or permission.",
@@ -4721,7 +4738,7 @@
       "boundary": "No bank custody, property ownership, moderation permission or paid service is created by this guide."
     },
     {
-      "nodeId": "justice",
+      "nodeId": "justiciar",
       "title": "Lord High Justiciar · Minister of Justice & The Privy Court",
       "duty": "Provides unconflicted case panels and independent appeal review.",
       "output": "Reasoned decisions, recusals, correction and appeal routes.",
@@ -10952,6 +10969,58 @@
         "before": "heraldry",
         "after": "council",
         "reason": "Chancery is now a distinct reserved Council portfolio; Heraldry remains a coordinating communications partner."
+      }
+    ]
+  },
+  "reportingLines1113": {
+    "recordedAt": "2026-11-13",
+    "issue": "CL2-039",
+    "authority": "owner ruling of 13 November 2026 on the organization chart: placement and reporting lines only; holders, votes, seat numbers, office keys and application tracks unchanged",
+    "summary": "The Co-Guild Master sits in the top tier beside the Guild Master. The Lord High Justiciar sits in the High Council Cabinet tier, reports directly to both and oversees the Court branch.",
+    "changes": [
+      {
+        "nodeId": "executive",
+        "field": "parent",
+        "before": "founder",
+        "after": null
+      },
+      {
+        "nodeId": "executive",
+        "field": "coordinates",
+        "before": [],
+        "after": [
+          "founder"
+        ]
+      },
+      {
+        "nodeId": "justiciar",
+        "field": "node",
+        "before": null,
+        "after": "added before justice"
+      },
+      {
+        "nodeId": "justice",
+        "field": "parent",
+        "before": "founder",
+        "after": "justiciar"
+      },
+      {
+        "term": "office_101",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
+      },
+      {
+        "officeMandate": "Lord High Justiciar · Minister of Justice & The Privy Court",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
+      },
+      {
+        "councilSeat": "head-justice",
+        "field": "nodeId",
+        "before": "justice",
+        "after": "justiciar"
       }
     ]
   }

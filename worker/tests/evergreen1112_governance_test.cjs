@@ -319,6 +319,53 @@ check('REV-GOV-5', 'the vote board inserts the class leads right after their fam
 check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s seat (Vice Guild Master after Co-GM)', dir.keyToFamily['office_92'] === 'co_gm' && fam('co_gm').primaryKey === 'office_19'
   && /const familySeat = family\?\.group === "council" \? seatKeys1112\.indexOf\(family\.primaryKey\) : -1;/.test(orgView) && /return 1e4 \+ familySeat \+ 0\.1 \+ t\.ordinal \/ 1e4;/.test(orgView));
 
+// ================================================================ round 5 (owner rulings of 13 Nov 2026, about 12:15 UTC)
+// ---------------------------------------------------------------- CL2-039 organization chart: placement and reporting only
+{
+  const nodeOf = id => model.nodes.find(n => n.id === id) || {};
+  const exec = nodeOf('executive'), founder = nodeOf('founder'), justiciar = nodeOf('justiciar'), justice = nodeOf('justice');
+  const seatOf = id => (model.councilComposition.currentSeats.find(s => s.id === id) || {});
+  check('CL2-039', 'the Co-Guild Master node sits in the top tier beside the Guild Master (both chart roots, joined by a coordination line)',
+    founder.parent === null && exec.parent === null && (exec.coordinates || []).includes('founder') && seatOf('gm-chair').nodeId === 'founder' && seatOf('co-gm').nodeId === 'executive',
+    JSON.stringify({ executiveParent: exec.parent, coordinates: exec.coordinates }));
+  check('CL2-039', 'the Lord High Justiciar has its own node that reports directly to both top-tier offices',
+    justiciar.parent === 'founder' && JSON.stringify(justiciar.alsoReportsTo) === '["executive"]' && justiciar.relation === 'accountability'
+    && seatOf('head-justice').nodeId === 'justiciar' && (model.terms.find(t => t.officeKey === 'office_101') || {}).nodeId === 'justiciar'
+    && model.officeMandates.filter(o => o.nodeId === 'justiciar').map(o => o.title).join('|') === 'Lord High Justiciar · Minister of Justice & The Privy Court',
+    JSON.stringify({ justiciar: justiciar.id || null, seat: seatOf('head-justice').nodeId }));
+  check('CL2-039', 'the Court branch (Council of Justice) hangs under the Justiciar and keeps its independent-review relation',
+    justice.parent === 'justiciar' && justice.relation === 'independence' && (model.terms.find(t => t.officeKey === 'office_26') || {}).nodeId === 'justice'
+    && /Council of Justice/.test(justiciar.remit || '') && /Stockades & Court of Appeals/.test(justiciar.remit || ''), JSON.stringify({ justiceParent: justice.parent }));
+  // Not covered by the ruling, so identical to b631136: seats (labels, families, office keys, order), the 13-seat count,
+  // every term except its node, appointments, application tracks and the native ranks. No person's name in the model.
+  const digest = v => sha256(JSON.stringify(v));
+  check('CL2-039', 'seats, seat numbers, office keys, terms, appointments and application tracks are unchanged; the model names no person',
+    digest(model.councilComposition.currentSeats.map(({ nodeId, ...s }) => s)) === 'eb27436254d4efeeae741b062683a6103fe1ef28e243006ceb766c267272ebdb'
+    && digest(model.terms.map(({ nodeId, ...t }) => t)) === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'
+    && digest([model.appointments, model.applicationTracks, model.roleRank199, model.nativeRanks]) === '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34'
+    && model.councilComposition.cabinetSeatCount === 13 && model.cabinet218.seatCount === 13 && !/richwcampbell/i.test(JSON.stringify(model)));
+  // Every current seat except the Council chair sits on the node of its own office (the chair's office_43 placement is the
+  // separate open question on the branch Guild Master term, not covered by this ruling).
+  const misplaced = model.councilComposition.currentSeats.filter(s => s.id !== 'gm-chair' && (model.terms.find(t => t.officeKey === s.officeKeys[0]) || {}).nodeId !== s.nodeId).map(s => s.id);
+  check('CL2-039', 'every Council seat but the chair is placed on the node of its own office', misplaced.length === 0, misplaced.join(','));
+  check('CL2-039', 'the model has a dated record of every placement change, so the earlier edition is recoverable', (() => {
+    const r = model.reportingLines1113; if (!r || r.recordedAt !== '2026-11-13' || !Array.isArray(r.changes)) return false;
+    const has = (k, v, f, a) => r.changes.some(c => c[k] === v && c.field === f && JSON.stringify(c.after) === JSON.stringify(a));
+    return has('nodeId', 'executive', 'parent', null) && has('nodeId', 'executive', 'coordinates', ['founder']) && has('nodeId', 'justice', 'parent', 'justiciar')
+      && has('term', 'office_101', 'nodeId', 'justiciar') && has('councilSeat', 'head-justice', 'nodeId', 'justiciar') && r.changes.some(c => c.nodeId === 'justiciar' && c.before === null);
+  })());
+  const chartText = chapter('Revised Organisation Chart');
+  check('CL2-039', 'the book\'s chart chapter states the same lines: top tier, the Justiciar reporting to both, the Court under it',
+    chartText.includes('The Guild Master, as Sovereign, and the Co-Guild Master form the top tier.')
+    && chartText.includes('The Lord High Justiciar sits in the High Council Cabinet, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch: the Council of Justice and the Stockades & Court of Appeals.')
+    && !chartText.includes('Justice handles cases independently.'), chartText.slice(0, 80));
+  check('CL2-039', 'the overview states the same line and lists the Justiciar seat under Justice & independent review',
+    overview.includes('The Lord High Justiciar holds the individual High Council portfolio, reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch')
+    && overview.includes('councilReferences("justiciar")') && !overview.includes('councilReferences("justice")'));
+  check('CL2-039', 'the page refuses a model whose second reporting authority is unknown, itself or its own parent',
+    /n\.alsoReportsTo !== undefined && \(!Array\.isArray\(n\.alsoReportsTo\) \|\| n\.alsoReportsTo\.some\(\(id\) => !ids\.has\(id\) \|\| id === n\.id \|\| id === n\.parent\)\)/.test(app));
+}
+
 // ================================================================ browser checks (only with --base and --cdp)
 // The follow-up items of 12 Nov 2026, measured in headless Edge through the audit CDP helper against a harness serving
 // the tree under test. Numbers are printed with every check.
@@ -340,6 +387,9 @@ async function browserChecks(BASE, CDP_PORT) {
   // Browser checks print their measurement on PASS too, so the receipts carry numbers.
   const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
   try {
+    // Round 5 (13 Nov 2026): --round5 runs only the round 5 browser checks.
+    await round5Checks({ open, ev, show, bcheck });
+    if (argv.includes('--round5')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     await round4Checks({ open, ev, show, bcheck, cdp, H });
     if (argv.includes('--round4')) { if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3))); return; }
     // INT-GOV-1 (CL2-100): navigation landmarks are the site menu and one page-contents list; per-chapter rows are groups.
@@ -434,6 +484,61 @@ async function browserChecks(BASE, CDP_PORT) {
       Object.values(targets).every(t => t.links > 0 && t.minLink >= 44 && t.summary >= 44 && t.over <= 0), show(targets));
     if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
+}
+
+// ================================================================ round 5 browser checks (13 Nov 2026)
+async function round5Checks({ open, ev, show, bcheck }) {
+  // CL2-039: the inspector and the List (the chart's text alternative) say the same placement at all six widths.
+  const SEATS = { justiciar: 'Lord High Justiciar · Minister of Justice & The Privy Court', executive: 'Hand of the Sovereign · Co-Guild Master', justice: 'Council of Justice', founder: 'Founder and Patron' };
+  const EXPECT = {
+    justiciar: { inspector: `Accountable to: ${SEATS.founder} and ${SEATS.executive} (the top tier).`, list: `accountability: ${SEATS.founder} and ${SEATS.executive}` },
+    executive: { inspector: `Top tier, beside ${SEATS.founder}; no reporting parent in this model.`, list: `Top tier, beside ${SEATS.founder}` },
+    founder: { inspector: `Top tier, beside ${SEATS.executive}; no reporting parent in this model.`, list: `Top tier, beside ${SEATS.executive}` },
+    justice: { inspector: `Independent review remit connected to: ${SEATS.justiciar}.`, list: `independence: ${SEATS.justiciar}` },
+  };
+  const READ = `const m=document.querySelector('.org-relationship-map205');if(m)m.open=true;await new Promise(r=>setTimeout(r,700));
+    const rel=document.querySelector('.org-inspector .org-relation');const list={};
+    for(const row of document.querySelectorAll('.org-list-row')){const t=row.querySelector('.org-list-title strong')?.textContent;const p=row.querySelector(':scope > p.small');if(t)list[t]=p&&p.textContent}
+    return {inspector:rel&&rel.textContent,list,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`;
+  const seen = {}, wrong = [];
+  for (const width of [1440, 1280, 768, 390, 375, 320]) for (const id of Object.keys(EXPECT)) {
+    if (width !== 1280 && id !== 'justiciar') continue;
+    await open('member', width, 'organization/' + id, 900);
+    const got = seen[id + '@' + width] = await ev(READ);
+    if (!got || got.inspector !== EXPECT[id].inspector || got.over > 0) wrong.push(id + '@' + width + ' ' + show(got && { inspector: got.inspector, over: got.over }));
+    for (const [key, want] of Object.entries(EXPECT)) if (got && got.list[SEATS[key]] !== want.list) wrong.push(id + '@' + width + ' list ' + key + ' ' + show(got.list[SEATS[key]]));
+  }
+  bcheck('CL2-039', 'inspector and List give the same placement: Justiciar accountable to both top-tier offices, Co-GM and Guild Master side by side, Court under the Justiciar (1440 to 320 px, no overflow)',
+    wrong.length === 0, wrong.length ? wrong.slice(0, 4).join(' | ') : show({ justiciar1280: seen['justiciar@1280'].inspector, over: Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, v.over])) }));
+  // The full map: the top tier shares a column, the Justiciar is in the Cabinet column with the portfolios, the Court is
+  // one column further, and the lines run from the Justiciar to both top-tier offices.
+  await open('member', 1440, 'organization', 900);
+  const map = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,500));
+    [...document.querySelectorAll('.org-chart-tools button')].find(b=>b.textContent==='Full map').click();await new Promise(r=>setTimeout(r,500));
+    const left=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b&&!b.hidden?parseFloat(b.style.left):null};
+    const top=id=>{const b=document.querySelector('[data-organization-node="'+id+'"]');return b?parseFloat(b.style.top):null};
+    const edges=[...document.querySelectorAll('path.org-edge')].filter(p=>p.style.display!=='none').map(p=>p.getAttribute('data-from')+'>'+p.getAttribute('data-to')+':'+[...p.classList].find(c=>c.startsWith('org-edge-')&&c!=='org-edge-active'));
+    return {left:Object.fromEntries(['founder','executive','council','treasury','justiciar','justice'].map(id=>[id,left(id)])),top:{founder:top('founder'),executive:top('executive')},edges:edges.filter(e=>/justic|executive>|>executive/.test(e))}`);
+  const L = map.left;
+  bcheck('CL2-039', 'full map: Guild Master and Co-GM in the top column, the Justiciar in the Cabinet column, the Court beyond it, lines to both top-tier offices',
+    L.founder !== null && L.founder === L.executive && map.top.executive > map.top.founder && L.justiciar === L.treasury && L.council < L.justiciar && L.justice > L.justiciar
+    && ['justiciar>founder:org-edge-accountability', 'justiciar>executive:org-edge-accountability', 'justice>justiciar:org-edge-independence', 'executive>founder:org-edge-coordination'].every(e => map.edges.includes(e)), show(map));
+  // The Justiciar's branch shows both authorities it reports to (wide: one column; phone: stacked above it) and the Court.
+  const branches = {};
+  for (const width of [1280, 390]) {
+    await open('member', width, 'organization/justiciar', 900);
+    branches[width] = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,800));
+      const cards=[...document.querySelectorAll('.org-stage .org-node')].filter(b=>!b.hidden).map(b=>({id:b.dataset.organizationNode,x:parseFloat(b.style.left),y:parseFloat(b.style.top)}));return cards`);
+  }
+  const at = (w, id) => branches[w].find(c => c.id === id) || {};
+  bcheck('CL2-039', 'the Justiciar branch shows the Guild Master and the Co-GM it reports to and the Court under it (1280 px columns, 390 px stacked)',
+    at(1280, 'founder').x === at(1280, 'executive').x && at(1280, 'founder').x < at(1280, 'justiciar').x && at(1280, 'justiciar').x < at(1280, 'justice').x
+    && JSON.stringify(branches[390].slice().sort((a, b) => a.y - b.y).map(c => c.id).slice(0, 4)) === '["founder","executive","justiciar","justice"]', show(branches));
+  await open('member', 1280, 'organization', 900);
+  const independent = await ev(`const s=document.querySelector('.org-alliance-independent');return s?{text:s.querySelector('p').textContent,seat:!!s.querySelector('a[data-council-reference206="head-justice"]'),chair:[...document.querySelectorAll('[data-council-seat206]')].slice(0,2).map(li=>li.querySelector('small').textContent)}:null`);
+  bcheck('CL2-039', 'the alliance overview says the same: the Justiciar reports to the Guild Master and the Co-GM, its seat is listed under Justice, and the chair and Co-GM are the top tier',
+    !!independent && independent.text.includes('reports directly to the Guild Master and the Co-Guild Master, and oversees the Court branch') && independent.seat
+    && JSON.stringify(independent.chair) === JSON.stringify(['Council chair · top tier · Rank 1 Leader', 'Co-Guild Master · top tier · Rank 2 High Council']), show(independent));
 }
 
 // ================================================================ round 4 browser checks (13 Nov 2026)
