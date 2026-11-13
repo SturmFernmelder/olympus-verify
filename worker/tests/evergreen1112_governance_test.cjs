@@ -226,6 +226,18 @@ check('CL2-061', 'the Council group opens with the Leader and the thirteen seats
 const seedKeys = [...read('worker/src/site-role-directory203.ts').matchAll(/^\s+\{ key: '([a-z_]+)', label:/gm)].map(m => m[1]);
 check('CL2-061', 'the directory\'s family seed order itself starts with the Leader and the seats in protocol order', JSON.stringify(seedKeys.slice(0, 14)) === JSON.stringify(['leader', ...offices.COUNCIL_FAMILY_ORDER]), seedKeys.slice(0, 4).join(','));
 
+// ---------------------------------------------------------------- RC-038 (owner ruling of 13 Nov 2026, "Keep 13 seats")
+// Section II.1.1(b) must list the twelve portfolios exactly as the role directory and organization.json define them
+// (the Council order without the Co-Guild Master), with the Co-Guild Master as the seat beside them, not a portfolio.
+const s111b = book.split('\n').find(l => l.startsWith('(b) High Council Roles concern the competent Leader')) || '';
+const remitNames = ((/with their distinct ([^.;]+?) remits as individually warranted/.exec(s111b) || [])[1] || '').split(', ').flatMap(x => x.split(' and '));
+const portfolioKeys = offices.COUNCIL_FAMILY_ORDER.filter(k => k !== 'co_gm');
+const modelPortfolios = JSON.parse(read('worker/public/static/governance/organization.json')).councilComposition.currentSeats.filter(s => s.id !== 'gm-chair' && s.id !== 'co-gm').map(s => s.familyKey);
+const remitFamily = name => { const hits = portfolioKeys.filter(k => fam(k).label.includes(name === 'Treasury' ? 'Treasurer' : name)); return hits.length === 1 ? hits[0] : '?' + name; };
+check('RC-038', 'Section II.1.1(b) names the twelve Council portfolios of the directory and organization.json, in their order, with the Co-Guild Master beside them',
+  portfolioKeys.length === 12 && JSON.stringify(modelPortfolios) === JSON.stringify(portfolioKeys) && JSON.stringify(remitNames.map(remitFamily)) === JSON.stringify(portfolioKeys)
+  && /the twelve current portfolios enumerated in Article II\.8/.test(s111b) && /the Co-Guild Master sits beside them with the executive coordination remit\./.test(s111b), remitNames.join(' | '));
+
 // ---------------------------------------------------------------- CL2-036 one eligibility rule: what the Worker accepts
 const accepted = new Set();
 for (const row of offices.OFFICE_APPOINTMENTS) for (const track of ['member', 'raider', 'artisan']) {
