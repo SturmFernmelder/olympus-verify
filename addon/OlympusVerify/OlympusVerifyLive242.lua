@@ -758,7 +758,7 @@ function V.PrintOwnStatus()
   local rows=V.VisibleEntries();say("Your verification and role requests: "..#rows..". These are delivery results; check Discord /verify-status for current access.")
   local d=db()
   local privacy=localPrivacy280()
-  if privacy.held then say("Local correspondence cleanup is incomplete; affected financial originals stay local only. Verification requests use their normal checks.")
+  if privacy.held then say("Local correspondence cleanup is incomplete"..(type(privacy.heldItems)=="number"and (" ("..privacy.heldItems.." held items)")or "")..". Held financial originals stay local only; recognized items use scoped blanking. Verification requests use their normal checks.")
   elseif (privacy.blankedLeaves or 0)>0 then say("Local financial correspondence was blanked. Those originals stay local only; delivery history and unconfirmed outcomes were not changed. Watcher copies have separate custody.") end
   for _,r in ipairs(rows) do if r.status=="pending" and r.source=="self-addon242" then say("An older request is preserved for review and will not be resent automatically. Check Discord /verify-status before a new deliberate request.");break end end
   for _,r in ipairs(rows) do local t=d and d.transportSchedule243 and d.transportSchedule243[r.id];if r.status=="pending" and t and t.attempted then say("Delivery is unconfirmed. This request is preserved and will not be resent automatically; check Discord /verify-status before a new deliberate request.");break end end

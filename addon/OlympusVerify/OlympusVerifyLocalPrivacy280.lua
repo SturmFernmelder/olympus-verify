@@ -20,6 +20,8 @@ local HEADER=set({"sender","subject","money","cod","items","hasItems","returned"
 local DONATION=set({"copper","outgoingCopper","items","note"})
 local ENTRY=set({"id","type","source","character","guid","guidSource","requestedAt","requestedBy","status","clientVersion","guild","realm","observedAt","donation","evidence","attempts","outcome","acknowledgedAt","serverReceipt"})
 local LEGACY={mail=8192,trade=512,["whisper-declaration"]=4096,["treasury-receipt242"]=0}
+local BRIDGE_ENTRY={};for k in next,ENTRY do BRIDGE_ENTRY[k]=true end;BRIDGE_ENTRY.bridgeUntrusted=true;BRIDGE_ENTRY.bridgeSender=true
+local BRIDGE_EVIDENCE=set({"kind","confirmedLocal","automaticCredit"})
 local function count(t)local n=0;for _ in next,t do n=n+1 end;return n end
 local function integer(n)return type(n)=="number" and n==n and n>=0 and n<=9007199254740991 and n==math.floor(n)end
 local function metadata(m)
@@ -61,10 +63,19 @@ local function currentV2(row)
   or not keys(row.donation,CURRENT_DONATION)or not keys(row.evidence,CURRENT_EVIDENCE)then return false end
  return row.donation.version==2 and row.donation.recipient=="Fern Melder"and row.evidence.confirmedLocal==true and row.evidence.automaticCredit==false
 end
+local function entryLimit(row,key)
+ if not plain(row)or row.type~="donation"or not rid(row.id)or row.id~=key or not keys(row.donation,DONATION)then return nil end
+ local limit=LEGACY[row.source]
+ if limit~=nil and keys(row,ENTRY)then return limit end
+ -- Exact dfca receiveWire replacement. It is untrusted correspondence only.
+ if row.source=="addon-bridge242"and keys(row,BRIDGE_ENTRY)and row.bridgeUntrusted==true
+  and type(row.bridgeSender)=="string"and #row.bridgeSender>0 and #row.bridgeSender<=128 and not row.bridgeSender:find("[%z\1-\8\11\12\14-\31]")
+  and keys(row.evidence,BRIDGE_EVIDENCE)and row.evidence.kind=="remote-unconfirmed-declaration"and row.evidence.confirmedLocal==false and row.evidence.automaticCredit==false then return 4096 end
+ return nil
+end
 local function validEntry(row,key)
- if not keys(row,ENTRY)or row.type~="donation"or LEGACY[row.source]==nil or not rid(row.id)or row.id~=key or not keys(row.donation,DONATION)then return false end
- local note=rawget(row.donation,"note")
- return note==nil or type(note)=="string"and #note<=LEGACY[row.source]
+ local limit=entryLimit(row,key);if limit==nil then return false end
+ local note=rawget(row.donation,"note");return note==nil or type(note)=="string"and #note<=limit
 end
 local function financial(row)return type(row)=="table"and(rawget(row,"type")=="donation"or rawget(row,"donation")~=nil)end
 local function hasText(v)return type(v)=="string"and #v>0 end
@@ -77,7 +88,7 @@ end
 local REASONS=set({"retained-format","byte-capacity","table-capacity","field-capacity","depth-capacity","retained-key-format","cycle","privacy-metadata-format","correspondence-format","original-id-format","financial-original-format","financial-context-format","mail-context-format","export-body-format","held-context-format","declaration-key-format","metadata-capacity","original-root-changed"})
 local function held(root,d,reason)
  reason=REASONS[reason]and reason or "retained-format"
- if type(root)=="table"then cache[root]={intake=d,complete=false,held=true,reason=reason}end
+ if type(root)=="table"then cache[root]={intake=d,complete=false,held=true,globalHeld=true,reason=reason}end
  return false,reason
 end
 function P.Ensure(root)
@@ -92,63 +103,74 @@ function P.Ensure(root)
  if m~=nil and not metadata(m)then return held(root,d,"privacy-metadata-format")end
  m=m or {version=1,purpose=PURPOSE,blockedIds={},blockedTransferIds={},retiredDeclarations={},stats={blankedLeaves=0,retiredKeyCount=0,blockedOriginals=0,blockedTransfers=0}}
  local changed,blanks=false,0
- local function blank(t,key,limit)
-  local value=rawget(t,key)
-  if value~=nil and(type(value)~="string"or #value>limit)then error("correspondence-format",0)end
-  if hasText(value)then rawset(t,key,"");changed=true;blanks=blanks+1 end
+ local counts={heldEntries=0,heldContexts=0,heldKeys=0,heldItems=0}
+ local entries,contexts,retired={},{},{}
+ local function affected(id,transfer)
+  if rid(id)then
+   if m.blockedIds[id]~=true then m.blockedIds[id]=true;changed=true end
+   if transfer and m.blockedTransferIds[id]~=true then m.blockedTransferIds[id]=true;changed=true end
+  end
  end
- local function affected(id)if not rid(id)then error("original-id-format",0)end;m.blockedIds[id]=true end
- local function entry(row,key,original)
-  if not financial(row)or currentV2(row)then return end
-  if not validEntry(row,key)then error("financial-original-format",0)end
-  local donation=type(row)=="table"and rawget(row,"donation");local note=type(donation)=="table"and rawget(donation,"note")
-  if note==nil then return end -- no invented scalar Treasury correspondence
-  if not validEntry(row,key)then error("financial-original-format",0)end
-  if hasText(type(original)=="table"and type(original.donation)=="table"and rawget(original.donation,"note"))then affected(row.id)end
-  blank(donation,"note",LEGACY[row.source])
+ local function itemHeld(kind,id,other,transfer)
+  counts[kind]=counts[kind]+1;counts.heldItems=counts.heldItems+1;affected(id,transfer);affected(other,transfer)
  end
- local function context(c,original)
-  if not keys(c,CONTEXT)or c.contextVersion~=1 or(c.kind~="mail"and c.kind~="trade")or not rid(c.transferId)then error("financial-context-format",0)end
-  local touched=contextText(original)
+ local function mirrored(id)return type(rawget(d,"bridgeMetadata"))=="table"and rawget(d.bridgeMetadata,id)~=nil end
+ local function knownEntry(row,key)return validEntry(row,key)and not mirrored(key)end
+ local function leaf(t,key,limit)local v=rawget(t,key);return v==nil or type(v)=="string"and #v<=limit end
+ local function knownContext(c)
+  if not keys(c,CONTEXT)or c.contextVersion~=1 or(c.kind~="mail"and c.kind~="trade")or not rid(c.transferId)then return false end
   if c.kind=="mail"then
-   if not keys(c.header,HEADER)or type(c.body)~="string"then error("mail-context-format",0)end
-   blank(c,"body",8192);blank(c.header,"subject",512)
-  else blank(c,"note",512)end
-  if c.exportBody~=nil then
-   if not plain(c.exportBody)or c.exportBody.type~="donation"or c.exportBody.source~=c.kind or c.exportBody.id~=c.transferId then error("export-body-format",0)end
-   entry(c.exportBody,c.exportBody.id,original and original.exportBody)
-  end
-  if touched then
-   m.blockedTransferIds[c.transferId]=true;affected(c.transferId)
-   if c.exportBody and rid(c.exportBody.id)then affected(c.exportBody.id)end
+   if not keys(c.header,HEADER)or type(c.body)~="string"or #c.body>8192 or not leaf(c.header,"subject",512)then return false end
+  elseif not leaf(c,"note",512)then return false end
+  return c.exportBody==nil or knownEntry(c.exportBody,c.transferId)and c.exportBody.source==c.kind
+ end
+ -- Classify every item before blanking. Unknown roots retain their original
+ -- objects so aliases into a recognized clone cannot accidentally edit them.
+ for id,row in next,replacement.entries do
+  if financial(row)and not currentV2(row)then
+   if knownEntry(row,id)then entries[#entries+1]={row=row,key=id,original=rawget(d.entries,id)}
+   else local original=rawget(d.entries,id);replacement.entries[id]=original;itemHeld("heldEntries",id,type(original)=="table"and rawget(original,"id"))end
   end
  end
- local valid,reason=pcall(function()
-  for id,row in next,replacement.entries do entry(row,id,rawget(d.entries,id))end
-  for _,field in ipairs({"mailCollection242","tradeCollection242"})do
-   local c=rawget(replacement,field);if c~=nil then context(c,rawget(d,field))end
+ for _,field in ipairs({"mailCollection242","tradeCollection242"})do
+  local c=rawget(replacement,field)
+  if c~=nil then
+   if knownContext(c)then contexts[#contexts+1]={row=c,original=rawget(d,field)}
+   else local original=rawget(d,field);replacement[field]=original;itemHeld("heldContexts",type(original)=="table"and rawget(original,"transferId"),nil,true)end
   end
-  local transfers=rawget(replacement,"heldTransfers627")
-  if transfers~=nil then
-   if not plain(transfers)then error("held-context-format",0)end
-   for key,wrapper in next,transfers do
-    if not keys(wrapper,{context=true,reason=true,heldAt=true})then error("held-context-format",0)end
-    local original=rawget(d.heldTransfers627,key);context(wrapper.context,original and original.context)
-   end
+ end
+ local transfers=rawget(replacement,"heldTransfers627")
+ if transfers~=nil then
+  if not plain(transfers)then replacement.heldTransfers627=rawget(d,"heldTransfers627");itemHeld("heldContexts")
+  else for key,wrapper in next,transfers do
+   local original=rawget(d.heldTransfers627,key)
+   if keys(wrapper,{context=true,reason=true,heldAt=true})and knownContext(wrapper.context)then contexts[#contexts+1]={row=wrapper.context,original=original and original.context}
+   else transfers[key]=original;local c=type(original)=="table"and rawget(original,"context");itemHeld("heldContexts",type(c)=="table"and rawget(c,"transferId"),nil,true)end
+  end end
+ end
+ for key,id in next,replacement.dedup do
+  if type(key)=="string"and key:sub(1,12)=="declaration|"then
+   local row=type(id)=="string"and rawget(replacement.entries,id)
+   if #key<=4258 and knownEntry(row,id)and row.source=="whisper-declaration"then retired[#retired+1]={key=key,entryId=id}
+   else itemHeld("heldKeys",id)end
   end
-  local retired={}
-  for key,id in next,replacement.dedup do
-   if type(key)=="string"and key:sub(1,12)=="declaration|"then
-    local row=type(id)=="string"and rawget(replacement.entries,id)
-    if #key>4258 or not validEntry(row,id)or row.source~="whisper-declaration"then error("declaration-key-format",0)end
-    retired[#retired+1]={key=key,entryId=id}
-   end
-  end
-  for _,record in ipairs(retired)do
-   replacement.dedup[record.key]=nil;m.retiredDeclarations[#m.retiredDeclarations+1]={entryId=record.entryId,reason=RETIRED};affected(record.entryId);changed=true
-  end
- end)
- if not valid then return held(root,d,reason)end
+ end
+ local function blank(t,key)
+  if hasText(rawget(t,key))then rawset(t,key,"");changed=true;blanks=blanks+1 end
+ end
+ local function blankEntry(row,id)
+  if hasText(rawget(row.donation,"note"))then affected(id);blank(row.donation,"note")end
+ end
+ for _,item in ipairs(entries)do blankEntry(item.row,item.key)end
+ for _,item in ipairs(contexts)do
+  local c=item.row;local touched=contextText(item.original)
+  if c.kind=="mail"then blank(c,"body");blank(c.header,"subject")else blank(c,"note")end
+  if c.exportBody then blankEntry(c.exportBody,c.exportBody.id)end
+  if touched then affected(c.transferId,true)end
+ end
+ for _,record in ipairs(retired)do
+  replacement.dedup[record.key]=nil;m.retiredDeclarations[#m.retiredDeclarations+1]={entryId=record.entryId,reason=RETIRED};affected(record.entryId);changed=true
+ end
  if changed then
   m.stats.blankedLeaves=m.stats.blankedLeaves+blanks;m.stats.retiredKeyCount=#m.retiredDeclarations
   m.stats.blockedOriginals=count(m.blockedIds);m.stats.blockedTransfers=count(m.blockedTransferIds)
@@ -158,9 +180,10 @@ function P.Ensure(root)
   if rawget(root,"intake242")~=d then return held(root,d,"original-root-changed")end
   rawset(root,"intake242",replacement);d=replacement;cost=afterCost
  end
- local current=rawget(d,FIELD)
- cache[root]={intake=d,complete=true,held=false,reason="scoped-minimization-complete",cost=cost,stats=current and current.stats or {blankedLeaves=0,retiredKeyCount=0,blockedOriginals=0,blockedTransfers=0}}
- return true
+ local current=rawget(d,FIELD);local complete=counts.heldItems==0
+ local reason=complete and "scoped-minimization-complete"or "scoped-minimization-incomplete"
+ cache[root]={intake=d,complete=complete,held=not complete,globalHeld=false,reason=reason,cost=cost,counts=counts,stats=current and current.stats or {blankedLeaves=0,retiredKeyCount=0,blockedOriginals=0,blockedTransfers=0}}
+ return complete,reason
 end
 -- Existing current rows still pass their ORIGINAL validators; this is a denial
 -- test only, never a claim that a row or receipt is authentic.
@@ -197,7 +220,8 @@ function P.Blocked(root,id,row)
  if financial(row)then
   if currentV2(row)then return false end -- every normal source validator still runs
   local donation=type(row)=="table"and rawget(row,"donation")
-  if not complete or type(donation)=="table"and hasText(rawget(donation,"note"))then return true end
+  local state=type(root)=="table"and cache[root]
+  if state and state.globalHeld or not validEntry(row,id)or type(donation)=="table"and hasText(rawget(donation,"note"))then return true end
  end
  return false
 end
@@ -209,6 +233,6 @@ end
 function P.Status(root)
  P.Ensure(root);local s=type(root)=="table"and cache[root]
  local out={available=true,complete=s and s.complete==true or false,held=not s or s.held==true,reason=s and s.reason or "savedvars-unavailable"}
- if s and s.complete then for k,v in next,s.stats or {}do out[k]=v end;out.cost=s.cost end
+ if s and not s.globalHeld then for k,v in next,s.stats or {}do out[k]=v end;for k,v in next,s.counts or {}do out[k]=v end;out.cost=s.cost end
  return out
 end

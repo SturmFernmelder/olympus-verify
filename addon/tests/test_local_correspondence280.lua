@@ -36,7 +36,9 @@ for _,kind in ipairs({"malformed","cycle","metadata-infinite","metadata-overflow
  else bad.intake242.localCorrespondence280={version=1,purpose="financial-correspondence-local-only-v1",blockedIds={},blockedTransferIds={},retiredDeclarations={},stats={blankedLeaves=kind=="metadata-infinite"and math.huge or 9007199254740991,retiredKeyCount=0,blockedOriginals=0,blockedTransfers=0}}end
  box.e.OlympusVerifyDB=bad;local old=bad.intake242;local oldNote=old.entries[MAIL].donation.note
  box.v.Status();local status=box.e.OlympusVerifyLocalPrivacy280.Status(bad)
- check(kind.." is incomplete with no partial graph mutation",status.held and not status.complete and bad.intake242==old and old.entries[MAIL].donation.note==oldNote)
+ local itemHold=kind=="malformed"and bad.intake242~=old and bad.intake242.entries[MAIL].donation.note==""and bad.intake242.mailCollection242==old.mailCollection242 and old.entries[MAIL].donation.note==oldNote and status.heldContexts==1
+ local globalHold=kind~="malformed"and bad.intake242==old and old.entries[MAIL].donation.note==oldNote
+ check(kind.." holds the unknown item or global structural failure without rewriting originals",status.held and not status.complete and(itemHold or globalHold))
  local obs=box.v.NewVerificationObservation("whisper","Fresh Member","Player-1-AAAA2222","fresh-"..kind)
  local verified=box.v.CaptureVerification("whisper","Fresh Member","ABCDEF","Player-1-AAAA2222",nil,false,obs)
  check(kind.." does not impose a global verification hold",verified and verified.status=="pending"and verified.observationId==obs.id)
@@ -83,6 +85,79 @@ for _,mode in ipairs({"ids-stats","transfers-stats","ids-extra","transfers-extra
  box.incoming=751;box.event("TRADE_SHOW");local ready=box.e.OlympusVerifyTreasury.SetTradeReference280("TITHE-ABCD-EFGH");box.event("TRADE_ACCEPT_UPDATE",1,1);box.wallet=box.wallet+751;box.event("UI_INFO_MESSAGE",1,"Trade complete.");box.event("PLAYER_MONEY")
  local nextRow;for _,r in pairs(box.rows())do if r.source=="tithe-gold-v2"and r.donation.copper==751 then nextRow=r end end
  check(mode.." unrelated current native-v2 keeps original validators",ready and nextRow and nextRow.id~=row.id and nextRow.donation.note==nil)
+end
+-- This row shape was reproduced through actual dfca sender chunks and the
+-- actual collector receiveWire path in actual_dfca_probe.py, not inferred from
+-- an allegation or granted remote trust. The literal is a portable regression.
+local function bridgeRow(id)
+ local row=seed().intake242.entries[MAIL];row.id=id;row.source="addon-bridge242";row.bridgeUntrusted=true;row.bridgeSender="Relayed Member"
+ row.evidence={kind="remote-unconfirmed-declaration",confirmedLocal=false,automaticCredit=false};return row
+end
+do
+ local box=fixture(true);local root=seed();local id=string.rep("e",32);root.intake242.entries[id]=bridgeRow(id);local original=clone(root.intake242.entries[id]);box.e.OlympusVerifyDB=root
+ local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root);local row=root.intake242.entries[id];local status=p.Status(root)
+ check("exact dfca relayed donation is recognized without remote authority",status.complete and row.source=="addon-bridge242"and row.evidence.kind=="remote-unconfirmed-declaration"and row.evidence.confirmedLocal==false)
+ check("relayed correspondence blanks and original ID stays denied",row.donation.note==""and p.Blocked(root,id,row)and root.intake242.localCorrespondence280.blockedIds[id])
+ local expected=clone(original);expected.donation.note="";check("bridged sender facts/hash/status/attempts/clocks stay exact",same(row,expected))
+ local before=clone(row);box.ack(row);box.v.Flush("bridged-old-ack");check("recognized bridged original cannot adopt even a signed ACK",same(row,before)and root.intake242.acknowledgements[id]==nil)
+end
+do
+ local box=fixture(true);local root=seed();local bridge=string.rep("e",32);local unknown=string.rep("f",32);local scalar=string.rep("d",24)
+ root.intake242.entries[bridge]=bridgeRow(bridge)
+ root.intake242.entries[unknown]={id=unknown,type="donation",source="Olympus-pendingRoleUpdates",character="Unknown Donor",requestedAt=1794312000,status="outcome_unknown",attempts=7,donation={note="PRIVATE_UNKNOWN",items={{itemId=789,count=4}}},unexpected=true}
+ root.intake242.bridgeMetadata={[unknown]={origin="Olympus-pendingRoleUpdates"}}
+ root.intake242.heldTransfers627["untyped-1"]={context={kind="mail",body="PRIVATE_UNTYPED",header={subject="PRIVATE_UNTYPED_SUBJECT"}},reason="legacy_or_invalid_saved_mail_context",heldAt=1794312000}
+ root.intake242.entries[scalar]={id=scalar,type="donation",source="treasury-receipt242",requestedAt=1794312000,donation={copper=12}}
+ local old=root.intake242;local unknownRow=old.entries[unknown];local untyped=old.heldTransfers627["untyped-1"];local unknownImage=clone(unknownRow);local untypedImage=clone(untyped)
+ box.e.OlympusVerifyDB=root;local p=box.e.OlympusVerifyLocalPrivacy280;local complete=p.Ensure(root);local d=root.intake242;local status=p.Status(root)
+ check("one unknown row and untyped context do not prevent recognized blanking",not complete and d~=old and d.entries[MAIL].donation.note==""and d.entries[bridge].donation.note==""and next(d.dedup)==nil)
+ check("unsupported mirror and untyped context stay byte-equivalent original objects",d.entries[unknown]==unknownRow and same(unknownRow,unknownImage)and d.heldTransfers627["untyped-1"]==untyped and same(untyped,untypedImage))
+ check("partial status explicitly counts both held items",status.held and not status.complete and status.heldEntries==1 and status.heldContexts==1 and status.heldKeys==0 and status.heldItems==2)
+ check("unknown valid original ID is permanently deny-only",d.localCorrespondence280.blockedIds[unknown]and p.Blocked(root,unknown,unknownRow))
+ check("unrelated scalar receipt is not blanket-marked or delivery-blocked",not d.localCorrespondence280.blockedIds[scalar]and not p.Blocked(root,scalar,d.entries[scalar]))
+ check("original graph facts and foreign copies remain unchanged",old.entries[MAIL].donation.note=="PRIVATE_MAIL"and unknownRow.attempts==7 and unknownRow.status=="outcome_unknown"and unknownRow.donation.items[1].count==4)
+ local first=clone(d);setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLocalPrivacy280.lua")),box.e)("OlympusVerify");p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root)
+ check("partial reload neither reblanks nor renews counts or identities",same(root.intake242,first)and p.Status(root).heldItems==2)
+ local obs=box.v.NewVerificationObservation("whisper","Fresh Member","Player-1-AAAA2222","mixed-unknown")
+ local proof=box.v.CaptureVerification("whisper","Fresh Member","ABCDEF","Player-1-AAAA2222",nil,false,obs)
+ check("partial item holds preserve fresh verification path",proof and proof.observationId==obs.id and proof.status=="pending")
+ box.incoming=752;box.event("TRADE_SHOW");local ready=box.e.OlympusVerifyTreasury.SetTradeReference280("TITHE-ABCD-EFGH");box.event("TRADE_ACCEPT_UPDATE",1,1);box.wallet=box.wallet+752;box.event("UI_INFO_MESSAGE",1,"Trade complete.");box.event("PLAYER_MONEY")
+ local current;for _,row in pairs(box.rows())do if row.source=="tithe-gold-v2"and row.donation.copper==752 then current=row end end
+ check("partial item holds preserve actual fresh native v2",ready and current and current.donation.note==nil)
+end
+do
+ local box=fixture(true);local root=seed();local id=string.rep("f",24);local shared=root.intake242.entries[MAIL].donation
+ root.intake242.entries[id]={id=id,type="donation",source="unclassified",donation=shared};local unknown=root.intake242.entries[id];box.e.OlympusVerifyDB=root
+ local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root)
+ check("recognized/unknown shared aliases detach before any blanking",root.intake242.entries[MAIL].donation.note==""and unknown.donation==shared and shared.note=="PRIVATE_MAIL"and root.intake242.entries[id]==unknown)
+ check("recognized internal entry/context aliases remain preserved",root.intake242.mailCollection242.exportBody==root.intake242.entries[MAIL])
+end
+for _,kind in ipairs({"wrong-evidence","untrusted-false","bad-sender","extra-key"})do
+ local box=fixture(true);local root=seed();local id=string.rep("e",32);local row=bridgeRow(id)
+ if kind=="wrong-evidence"then row.evidence.kind="unrecognized"elseif kind=="untrusted-false"then row.bridgeUntrusted=false elseif kind=="bad-sender"then row.bridgeSender=42 else row.extra=true end
+ root.intake242.entries[id]=row;local image=clone(row);box.e.OlympusVerifyDB=root;local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root)
+ check(kind.." bridge item stays unchanged while other text blanks",same(row,image)and root.intake242.entries[id]==row and root.intake242.entries[MAIL].donation.note==""and p.Status(root).heldEntries==1)
+ check(kind.." bridge item has no send/ACK authority",p.Blocked(root,id,row)and root.intake242.localCorrespondence280.blockedIds[id])
+end
+do
+ local box=fixture(true);local root=seed();local badKey="declaration|PRIVATE_UNCLASSIFIED_KEY";root.intake242.dedup[badKey]=42;box.e.OlympusVerifyDB=root
+ local p=box.e.OlympusVerifyLocalPrivacy280;p.Ensure(root);local status=p.Status(root)
+ check("unknown raw key is preserved without suppressing known retirements",root.intake242.dedup[badKey]==42 and #root.intake242.localCorrespondence280.retiredDeclarations==2 and root.intake242.entries[MAIL].donation.note=="")
+ check("unknown raw key reports counted incomplete status",status.heldItems==1 and status.heldKeys==1 and not status.complete)
+end
+-- Global structural/metadata bounds still veto the entire candidate even
+-- when known and unknown financial items would otherwise be handled separately.
+for _,kind in ipairs({"invalid-counter","generated-counter","generated-capacity"})do
+ local box=fixture(true);local root=seed();local bridge=string.rep("e",32);local unknown=string.rep("f",32)
+ root.intake242.entries[bridge]=bridgeRow(bridge);root.intake242.entries[unknown]={id=unknown,type="donation",source="unclassified",donation={note="PRIVATE_UNKNOWN"}}
+ if kind=="generated-capacity"then
+  root.intake242.extra={};local function fields(v,seen)if type(v)~="table"then return 0 end;seen=seen or{};if seen[v]then return 0 end;seen[v]=true;local n=0;for _,x in pairs(v)do n=n+1+fields(x,seen)end;return n end
+  local available=262143-fields(root.intake242);for i=1,available do root.intake242.extra[i]=true end
+ else root.intake242.localCorrespondence280={version=1,purpose="financial-correspondence-local-only-v1",blockedIds={},blockedTransferIds={},retiredDeclarations={},stats={blankedLeaves=kind=="invalid-counter"and -1 or 9007199254740991,retiredKeyCount=0,blockedOriginals=0,blockedTransfers=0}}end
+ local old=root.intake242;local note=old.entries[MAIL].donation.note;box.e.OlympusVerifyDB=root;local p=box.e.OlympusVerifyLocalPrivacy280;local complete=p.Ensure(root);local status=p.Status(root)
+ check(kind.." mixed scope preserves the entire original on global failure",not complete and root.intake242==old and old.entries[MAIL].donation.note==note and old.entries[bridge].donation.note~="")
+ check(kind.." reports incomplete without invented per-item count",status.held and not status.complete and status.heldItems==nil)
+ check(kind.." keeps known and unknown financial originals blocked",p.Blocked(root,bridge,old.entries[bridge])and p.Blocked(root,unknown,old.entries[unknown]))
 end
 print(string.format("local correspondence280: %d/%d passed",checks-failed,checks))
 if failed>0 then error("local correspondence280 regression failed")end
