@@ -57,7 +57,8 @@ export function buildAllianceOverview205(data, directory) {
 export function renderAllianceOverview205(data, ui, onSelectNode) {
   const { h, posIcon } = ui;
   const nativeRankDisplayName = (slot, name) => slot === 0 ? "Leader (Guild Master)" : name;
-  const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
+  // REV-GOV-6 (12 Nov 2026): the groups start closed below 1024 px (tablets too), not only on phones.
+  const narrow = typeof matchMedia === "function" && matchMedia("(max-width: 1023px)").matches;
   const guildDisplayName229 = name => typeof name === 'string' && /^Olympus(?: I| PRIME)?$/i.test(name) ? 'OLYMPUS PRIME' : name;
   const root = h("section", { class: "org-alliance frame", id: "alliance-overview", "aria-label": "Olympus Alliance organization overview" });
   let model;

@@ -1,9 +1,11 @@
 'use strict';
 // Evergreen Stage 2 governance lane (12 Nov 2026): the reconciled R7 book and member-facing governance copy.
-// Plain Node, no dependency. Usage: node tests/evergreen1112_governance_test.cjs [repository root]
-// The optional root lets the same checks run read-only against the base tree (fail-before evidence).
+// Plain Node, no dependency. Usage: node tests/evergreen1112_governance_test.cjs [repository root] [--base <harness> --cdp <port>]
+// The optional root lets the same checks run read-only against the base tree (fail-before evidence). With --base and
+// --cdp the follow-up browser checks (INT-GOV-1, REV-GOV-5, REV-GOV-6) also run against a local QA harness.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), cp = require('node:child_process');
-const root = path.resolve(process.argv[2] || path.join(__dirname, '..', '..'));
+const argv = process.argv.slice(2), flag = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
+const root = path.resolve(argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--'))) || path.join(__dirname, '..', '..'));
 const read = rel => fs.readFileSync(path.join(root, rel), 'utf8');
 const bookBytes = fs.readFileSync(path.join(root, 'worker/public/static/governance/reconciled-book.md'));
 const book = bookBytes.toString('utf8');
@@ -220,5 +222,75 @@ check('REV-GOV-5', 'the vote board inserts the class leads right after their fam
 check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s seat (Vice Guild Master after Co-GM)', dir.keyToFamily['office_92'] === 'co_gm' && fam('co_gm').primaryKey === 'office_19'
   && /const familySeat = family\?\.group === "council" \? seatKeys1112\.indexOf\(family\.primaryKey\) : -1;/.test(orgView) && /return 1e4 \+ familySeat \+ 0\.1 \+ t\.ordinal \/ 1e4;/.test(orgView));
 
-console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
-process.exit(failed ? 1 : 0);
+// ================================================================ browser checks (only with --base and --cdp)
+// The follow-up items of 12 Nov 2026, measured in headless Edge through the audit CDP helper against a harness serving
+// the tree under test. Numbers are printed with every check.
+async function browserChecks(BASE, CDP_PORT) {
+  const os = require('node:os');
+  const H = await import('file:///C:/Users/vikto/olympus-claude-candidates/audit279/tools/cdp.mjs');
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'governance-edge-'));
+  const cdp = await H.launch({ port: CDP_PORT, profile });
+  const st = await H.instrument(cdp);
+  let persona = '';
+  const open = async (who, width, route, height = 800) => {
+    await H.viewport(cdp, width, height);
+    if (who !== persona) { await cdp.send('Page.navigate', { url: `${BASE}/__qa/${who}` }); await H.idle(st); persona = who; }
+    await cdp.send('Page.navigate', { url: `${BASE}/#/${route}` }); await H.idle(st);
+    await cdp.send('Page.reload', {}); await H.idle(st); await H.sleep(900);
+  };
+  const ev = expr => cdp.eval(`(async()=>{${expr}})()`);
+  const show = value => JSON.stringify(value);
+  // Browser checks print their measurement on PASS too, so the receipts carry numbers.
+  const bcheck = (id, name, ok, detail) => { check(id, name, ok, detail); if (ok) console.log('     ' + detail); };
+  try {
+    // INT-GOV-1 (CL2-100): navigation landmarks are the site menu and one page-contents list; per-chapter rows are groups.
+    const navs = {};
+    for (const width of [1280, 375]) for (const route of ['governance', 'roles', 'organization']) {
+      await open('member', width, route);
+      navs[route + '@' + width] = await ev(`const g=[...document.querySelectorAll('main [role=group].page-jump-list1112')];return {nav:document.querySelectorAll('nav').length,groups:g.length,unnamed:g.filter(x=>!x.getAttribute('aria-label')).length}`);
+    }
+    bcheck('INT-GOV-1', 'at 1280 and 375 px: Governance at most 8 nav landmarks, Roles at most 6, Organization at most 4',
+      [1280, 375].every(w => navs['governance@' + w].nav <= 8 && navs['roles@' + w].nav <= 6 && navs['organization@' + w].nav <= 4), show(navs));
+    bcheck('INT-GOV-1', 'the chapter "On this page" lists are named groups (each chapter keeps its list)', [1280, 375].every(w => navs['governance@' + w].groups >= 10 && navs['governance@' + w].unnamed === 0), show(navs['governance@1280']));
+    const jump = await (async () => { await open('member', 1280, 'governance/1-guild-charter-of-olympus');
+      return ev(`const g=document.querySelector('#chapter-1-guild-charter-of-olympus [role=group].page-jump-list1112');if(!g)return null;const b=g.querySelector('button');b.focus();b.click();await new Promise(r=>setTimeout(r,400));return {label:g.getAttribute('aria-label'),focused:document.activeElement.textContent===b.textContent&&document.activeElement!==b}`); })();
+    bcheck('INT-GOV-1', 'a chapter group button still moves focus to its section', !!jump && jump.focused && /^Sections of /.test(jump.label), show(jump));
+
+    // REV-GOV-5: class leads follow Class Head on the vote board; Vice Guild Master sits after Co-GM in the register.
+    await open('member', 1280, 'vote');
+    const ballots = await ev(`return [...document.querySelectorAll('nav.role-list a.role-item')].map(a=>decodeURIComponent(a.getAttribute('href').slice(7)))`);
+    const head = ballots.indexOf('office_17');
+    bcheck('REV-GOV-5', 'the nine class-lead ballots come right after the Class Head ballot', head >= 0 && ballots.slice(head + 1, head + 10).every(k => k.startsWith('class_lead:')) && ballots.filter(k => k.startsWith('class_lead:')).length === 9,
+      show(ballots.slice(Math.max(0, head - 1), head + 12)));
+    await open('member', 1280, 'organization');
+    const register = await ev(`const s=document.querySelector('.org-office-tier-group[data-catalog-group=council]');return s?[...s.querySelectorAll(':scope > ul > li')].map(li=>li.getAttribute('data-office-key')||li.dataset.officeKey||''):[]`);
+    bcheck('REV-GOV-5', 'in the register\'s Council group the Vice Guild Master (office_92) follows the Co-GM (office_19)', register.indexOf('office_92') === register.indexOf('office_19') + 1 && register.indexOf('office_19') >= 0, show(register.slice(0, 8)));
+
+    // REV-GOV-6 (a): no layout shift above 0.1 on first paint at 1440 px.
+    const { identifier } = await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__ls1112=[];try{new PerformanceObserver(l=>{for(const e of l.getEntries())if(!e.hadRecentInput)window.__ls1112.push(e.value)}).observe({type:"layout-shift",buffered:true})}catch(e){}' });
+    await open('member', 1440, 'organization', 900); await H.sleep(1500);
+    const cls = await ev(`return Math.round(window.__ls1112.reduce((a,v)=>a+v,0)*10000)/10000`);
+    await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+    bcheck('REV-GOV-6', '/#/organization at 1440 px: cumulative layout shift on first paint below 0.1', cls < 0.1, show({ cls }));
+    // (b) the long disclosures start closed below 1024 px, so the page is short at 768 px; open at 1280.
+    const heights = {};
+    for (const width of [1280, 768]) { await open('member', width, 'organization', 1024);
+      heights[width] = await ev(`const g=[...document.querySelectorAll('.org-alliance-group1112')];return {height:document.documentElement.scrollHeight,groups:g.length,open:g.filter(d=>d.open).length,over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`); }
+    bcheck('REV-GOV-6', 'at 768 px the alliance groups start closed and the page is under 8,000 px; at 1280 px they start open',
+      heights[768].open === 0 && heights[768].groups > 0 && heights[768].height < 8000 && heights[768].over <= 0 && heights[1280].open === heights[1280].groups, show(heights));
+    // (c) on phones the opened chart shows the selected office and its first children.
+    const charts = {};
+    for (const width of [390, 320]) { await open('member', width, 'organization', 800);
+      charts[width] = await ev(`const m=document.querySelector('.org-relationship-map205');m.open=true;await new Promise(r=>setTimeout(r,800));const vp=document.querySelector('.org-viewport').getBoundingClientRect();const cards=[...document.querySelectorAll('.org-stage .org-node')].filter(b=>!b.hidden);const inside=b=>{const r=b.getBoundingClientRect();return r.left>=vp.left-1&&r.right<=vp.right+1&&r.top>=vp.top-1&&r.bottom<=vp.bottom+1};const sel=cards.find(b=>b.getAttribute('aria-pressed')==='true');const vis=cards.filter(inside);return {shown:cards.length,visible:vis.length,selectedVisible:!!sel&&inside(sel),below:!!sel&&vis.some(b=>b.getBoundingClientRect().top>sel.getBoundingClientRect().bottom),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`); }
+    bcheck('REV-GOV-6', 'at 390 and 320 px the opened chart shows the selected office and at least two more offices, children below it, with no page overflow',
+      [390, 320].every(w => charts[w].selectedVisible && charts[w].below && charts[w].visible >= 3 && charts[w].over <= 0), show(charts));
+    if (st.exceptions.length) bcheck('PAGE', 'no page exceptions during the browser checks', false, show(st.exceptions.slice(0, 3)));
+  } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
+}
+
+(async () => {
+  const BASE = flag('--base'), CDP_PORT = Number(flag('--cdp'));
+  if (BASE && CDP_PORT) await browserChecks(BASE, CDP_PORT);
+  console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
+  process.exitCode = failed ? 1 : 0;
+})().catch(error => { console.error(error); process.exitCode = 2; });
