@@ -17,7 +17,7 @@ const RANKS=[['Olympus Guild Master','1554261979684933742'],['Olympus High Counc
 const LEGACY=['1561095726115725373','1561095748039221339','1561095893007073371','1561096328409251880','1561096679778947113','1568117859970842735'];
 const ALL=[...RANKS.map(r=>r[1]),...LEGACY],ID=Object.fromEntries(RANKS.map(([name,id])=>[name.replace('Olympus ','').replace(' ','').toLowerCase(),id]));
 const MEMBER=ID.member,VETERAN=ID.veteran,OFFICER=ID.officer,RAIDER=ID.raider,RETIRED=LEGACY[0],OTHER='222222222222222222',SUBJECT=seed.tables.find(t=>t.name==='pending').rows[0].discord_id;
-const kinds=['bot-veteran','member-manual','officer-manual','retired-manual','stack','none','not-member','delete-404','delete-403','delete-429','unknown','unban-reban','race-reban','race-inflight','hierarchy','budget','sweep-cost','ack-loss','ack-loss-unread','lost-unban','erasure-debt','long-card','slice'];
+const kinds=['bot-veteran','member-manual','officer-manual','retired-manual','stack','none','not-member','delete-404','delete-403','delete-429','unknown','unban-reban','race-reban','race-inflight','hierarchy','budget','sweep-cost','ack-loss','ack-loss-unread','lost-unban','erasure-debt','long-card','slice','progress','receipt-lost','receipt-lost-interrupted'];
 const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 let mf,checks=[];
 const check=(name,value,detail)=>{checks.push({name,passed:value===true,...(value===true?{}:{detail})});console.log((value===true?'PASS ':'FAIL ')+name);};
@@ -112,6 +112,7 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  check('lost DELETE answer: recorded unknown, reported unconfirmed, the independent role waits',unknownRow?.state==='unknown'&&unknownRow.reason==='ban_rank1112_delete_outcome_unknown'&&lastReply('unknown').includes('unconfirmed result: <@&'+VETERAN+'>')&&lastReply('unknown').includes('left for the role sweep: <@&'+MEMBER+'>'),{reply:lastReply('unknown'),rows:x.rows});
  const before=deletes('unknown').length;x=await sweep('unknown');
  check('the sweep never replays the unknown DELETE but continues with the independent role',deletes('unknown').slice(before).every(h=>!h.path.endsWith('/'+VETERAN))&&deletes('unknown').length===before+1&&!present('unknown').includes(MEMBER),state.get('unknown').http.slice(-6));
+ check('follow-up REV-BAN-1: a visit that removes a role while another role stays unconfirmed is still reported as failed',x.result?.failed.includes(SUBJECT)===true&&x.result.revoked.includes(SUBJECT),x.result);
  await unban('unknown');x=await ban('unknown');
  check('unban then reban still holds the unknown role and reports it',deletes('unknown').filter(h=>h.path.endsWith('/'+VETERAN)).length===1&&lastReply('unknown').includes('earlier change to this role has an unconfirmed result'),lastReply('unknown'));
  check('the unknown row stays byte-identical',!!unknownRow&&JSON.stringify(banRows(x).find(r=>r.id===unknownRow.id))===JSON.stringify(unknownRow),banRows(x));
@@ -140,6 +141,9 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  await setup('hierarchy',{present:[OFFICER,VETERAN,RAIDER,MEMBER]});const h=state.get('hierarchy');h.above.add(OFFICER);h.managed.add(VETERAN);h.renamed.add(RAIDER);x=await ban('hierarchy');
  check('held roles are never sent: only the qualifying Member role is deleted',deletes('hierarchy').length===1&&deletes('hierarchy')[0].path.endsWith('/'+MEMBER)&&present('hierarchy').includes(OFFICER)&&present('hierarchy').includes(VETERAN)&&present('hierarchy').includes(RAIDER),h.http);
  check('the officer is told each held role and why',['above the bot','integration manages','no longer match'].every(t=>lastReply('hierarchy').includes(t)),lastReply('hierarchy'));
+ // Follow-up REV-BAN-1: Member given back by hand; the next visit removes it while the three held roles stay held.
+ h.present.get(SUBJECT).add(MEMBER);x=await sweep('hierarchy');
+ check('follow-up REV-BAN-1: a visit that removes a role while other roles are held is still reported as failed',!present('hierarchy').includes(MEMBER)&&x.result?.revoked.includes(SUBJECT)===true&&x.result.failed.includes(SUBJECT)&&(x.result.remaining??0)===0,x.result);
 
  // 16. A small request budget: a bounded first pass, then one role per sweep visit.
  await setup('budget',{present:ALL.slice(),budget:10});x=await ban('budget');
@@ -147,6 +151,7 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  x=await sweep('budget');costs.sweepBudgetVisit=x.statements;
  check('one sweep visit removes exactly one more role within its own request budget',deletes('budget').length===6&&present('budget').length===12&&x.attempts<=10,{attempts:x.attempts});
  check('a standing ban that still has roles to remove stays at the head of the banned rotation',x.result?.cursor==='',x.result);
+ check('follow-up REV-BAN-1: that progressing visit is not reported as failed and counts the 12 roles still left',x.result?.revoked.includes(SUBJECT)===true&&!x.result.failed.includes(SUBJECT)&&x.result.remaining===12,x.result);
 
  // 17. A standing ban, a rank role given back by hand afterwards, and an ordinary sweep visit at the default budget.
  await setup('sweep-cost',{present:[MEMBER]});await ban('sweep-cost');state.get('sweep-cost').present.get(SUBJECT).add(MEMBER);
@@ -202,6 +207,27 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  check('every rank role held with a 400-character reason: the staff card and the log line post inside 2,000 characters',lc.posts.length===2&&lc.posts.every(p=>p.length<=2000)&&lc.posts.every(p=>p.includes('Rank roles not removed')),lc.posts.map(p=>p.length));
  check('roles that share a reason are listed once with that reason, and every held role is named',(lastReply('long-card').match(/no longer match the Olympus rank list/g)??[]).length===1&&ALL.every(id=>lastReply('long-card').includes('<@&'+id+'>'))&&lastReply('long-card').length<=2000&&deletes('long-card').length===0,lastReply('long-card'));
 
+ // 24. Follow-up REV-BAN-1, the whole scheduled role sweep: two rank roles given back by hand during a standing ban. The
+ // first run removes one and keeps the account at the head; that is progress, never "revoke failed" in the sweep audit.
+ await setup('progress',{present:[ADDON],channels:true});await ban('progress');const pg=state.get('progress');pg.present.get(SUBJECT).add(VETERAN);pg.present.get(SUBJECT).add(MEMBER);
+ let postsFrom=pg.posts.length;x=await call('rolesweep/progress');
+ const sweepAudit=y=>y.audits.filter(a=>a.action==='role.sweep').map(a=>JSON.parse(a.details)).at(-1),pgPosts=pg.posts.slice(postsFrom);
+ check('follow-up REV-BAN-1: a sweep run that removes one of two rank roles reports no failure in its result or its audit',deletes('progress').length===1&&present('progress').length===2&&x.result?.revoked.includes(SUBJECT)===true&&x.result.failed.length===0&&sweepAudit(x)?.failed===0,{result:x.result,audit:sweepAudit(x)});
+ check('follow-up REV-BAN-1: the server log says one rank role is left and never calls the run a failure',pgPosts.some(p=>p.includes('Olympus rank role removed from <@'+SUBJECT+'>')&&p.includes('1 more rank role is left; the role sweep removes one per run.'))&&!pgPosts.some(p=>/could not be checked|revoke failed/.test(p)),pgPosts);
+ postsFrom=pg.posts.length;x=await call('rolesweep/progress');
+ check('follow-up REV-BAN-1: the next run removes the last rank role, reports no failure and no roles left',deletes('progress').length===2&&present('progress').length===1&&present('progress')[0]===ADDON&&x.result?.failed.length===0&&sweepAudit(x)?.failed===0&&!pg.posts.slice(postsFrom).some(p=>p.includes('more rank role')),{result:x.result,audit:sweepAudit(x),posts:pg.posts.slice(postsFrom)});
+
+ // 25-26. Follow-up REV-BAN-2: the confirming read shows the role absent but the receipt write is lost. The reason is
+ // receipt_unknown whether or not the visit was interrupted; the row stays unknown (fail-closed).
+ await setup('receipt-lost',{present:[VETERAN]});state.get('receipt-lost').onDelete=()=>call('faild1/receipt-lost',{match:'ban_rank1112_delete_acknowledged_and_confirmed'});x=await ban('receipt-lost');
+ const rlRow=banRows(x).find(r=>r.role_id===VETERAN);
+ check('follow-up REV-BAN-2: confirmed absent but the receipt is lost: unknown with receipt_unknown and "could not be recorded"',deletes('receipt-lost').length===1&&!present('receipt-lost').includes(VETERAN)&&rlRow?.state==='unknown'&&rlRow.reason==='ban_rank1112_receipt_unknown'&&lastReply('receipt-lost').includes('unconfirmed result: <@&'+VETERAN+'> (the result could not be recorded)'),{reply:lastReply('receipt-lost'),row:rlRow});
+ await setup('receipt-lost-interrupted',{present:[VETERAN,MEMBER]});
+ state.get('receipt-lost-interrupted').onDelete=()=>call('faild1/receipt-lost-interrupted',{match:['ban_rank1112_awaiting_dispatch','ban_rank1112_delete_acknowledged_and_confirmed']});x=await ban('receipt-lost-interrupted');
+ const riRow=banRows(x).find(r=>r.role_id===VETERAN),riReply=lastReply('receipt-lost-interrupted');
+ check('follow-up REV-BAN-2: interrupted after the ACK, confirmed absent, receipt lost: unknown with receipt_unknown, never interrupted_after_ack',deletes('receipt-lost-interrupted').length===1&&!present('receipt-lost-interrupted').includes(VETERAN)&&riRow?.state==='unknown'&&riRow.reason==='ban_rank1112_receipt_unknown'&&!banRows(x).some(r=>r.role_id===MEMBER),{rows:x.rows});
+ check('follow-up REV-BAN-2: the officer reads "the result could not be recorded", not "stopped before confirming it", and the unsent Member role is named',riReply.includes('unconfirmed result: <@&'+VETERAN+'> (the result could not be recorded)')&&!riReply.includes('stopped before confirming it')&&riReply.includes('<@&'+MEMBER+'> (the command stopped before this removal was sent)')&&!riReply.includes('No rank role was removed'),riReply);
+
  check('a non-banned member holding a rank role is never read or changed in any case',otherUntouched(),kinds.map(k=>state.get(k).http.filter(h=>h.path.includes(OTHER))));
  check('no PUT is ever sent by the ban path',kinds.filter(k=>!['bot-veteran','ack-loss-unread'].includes(k)).every(k=>!state.get(k).http.some(h=>h.method==='PUT')),null);
  // 23. The whole scheduled role slice in canonical mode: a bound member in the member rotation, then the banned visit at
@@ -215,7 +241,10 @@ const lastReply=k=>state.get(k).patches.at(-1)??'';
  const visits=['sweepBudgetVisit','sweepOneRole','sweepNothingPresent','sweepUnknownStillPresent','sweepObserveAndRemove','sweepObserverUnbanned','sweep429'];
  check('every measured banned-account visit stays within scheduled-budget BAN_RANK1112_SWEEP_VISIT_STATEMENTS',Number.isSafeInteger(visitCeiling)&&visits.every(k=>Number.isSafeInteger(costs[k])&&costs[k]<=visitCeiling),{visitCeiling,costs});
  check('the ban command stays within 110 statements for one role and 460 for all 18',costs.commandOneRole<=110&&costs.commandAllRoles<=460,costs);
- check('the whole canonical role slice with the banned visit at its maximum path stays within the 120-statement role slice',Number.isSafeInteger(costs.roleSliceCanonical)&&costs.roleSliceCanonical<=120,costs);
+ // Follow-up REV-BAN-3: the bound member in case 23 does trivial member-rotation work, so this measures only that slice.
+ // The worst case (the member rotation at its own maximum path plus one banned visit at its maximum) is NOT proven here;
+ // it is Codex's to measure on the whole-schedule fixture against ADMISSION_SCHEDULED_BUDGET's sweepMemberRoles 120.
+ check('the canonical role slice with a trivial member rotation and the banned visit at its maximum path stays within 120 statements (member-rotation worst case not measured here)',Number.isSafeInteger(costs.roleSliceCanonical)&&costs.roleSliceCanonical<=120,costs);
  fs.writeFileSync(path.join(out,'costs.json'),JSON.stringify(costs,null,2));console.log('D1 statements (physical, incl. admission controls): '+JSON.stringify(costs));
  complete=true;
 }catch(error){console.error(error);check('fixture completed',false,String(error?.stack||error));}
