@@ -8,6 +8,7 @@ import { pendingPrivacyCapture, admittedPrivacySubjectWrite, privacyBoundSubject
 import { classifyKnightRoles229 } from './launch-operations229';
 import { canonicalOlympusGuildName, FLAGSHIP_GUILD_NAME } from './guild-affiliation229';
 import { createPrivacyAdmissionAlias } from './privacy-write-admission';
+import {nativeMembershipSourceSql,nativeMembershipSourceMatches} from './native-rank-schemes';
 
 export const OFFICER_INVITE_PROTOCOL233='officer-operations-v233' as const;
 export const OFFICER_INVITE_SOURCE233='native-who-unit-v233' as const;
@@ -115,9 +116,9 @@ export async function postOfficerInvite233(original:Env,body:unknown):Promise<Re
   if(!/^[1-9][0-9]{16,19}$/.test(pending.discord_id)||pending.created_at>p.whisperAt||pending.expires_at<=now())return held('original-request-unavailable');
   const capture=pendingPrivacyCapture(pending);env=privacyBoundSubjectEnv(env,pending.discord_id,capture);
   const native=await env.DB.prepare(`SELECT s.id,s.exported_at,s.source FROM roster_snapshots s WHERE (s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1)
-   AND (s.source=?1 AND s.exported_at>${DB_NOW}-600 AND s.exported_at<=${DB_NOW} AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
+   AND (${nativeMembershipSourceSql('s.source','?1')} AND s.exported_at>${DB_NOW}-600 AND s.exported_at<=${DB_NOW} AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
    AND NOT EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND (r.guid=?2 OR r.name_key=?3))`).bind(launch.scope.provenance,input.guid,normalizeCharacter(input.character)).first<{id:number;exported_at:number;source:string}>();current();
-  if(!native||!integer(native.id)||!integer(native.exported_at))return held('native-roster-required');
+  if(!native||!integer(native.id)||!integer(native.exported_at)||!nativeMembershipSourceMatches(native.source,launch.scope.guild,launch.scope.realm))return held('native-roster-required');
   const blocked=blockers(original);if(blocked===null)return held('blocking-policy-unavailable');
   const memberRoles=await roles(original,pending.discord_id,{limit:1,attempts:0,retries:0},current);current();
   if(!memberRoles)return held('discord-standing-unknown');if(classifyKnightRoles229(memberRoles)!=='knight')return held('knight-standing-required');if(blocked.some(x=>memberRoles.includes(x)))return held('blocking-role-held');
@@ -165,8 +166,9 @@ export async function readOfficerInvites233(env:Env,budget:AttemptBudget,limit=3
   const rows=await env.DB.prepare(`SELECT q.id,q.name,q.name_key,q.discord_id,q.note,s.generation,s.state FROM invite_queue q LEFT JOIN privacy_subjects s ON s.subject_id=q.discord_id
    WHERE (q.approved_by='officer233' AND q.status='queued' AND q.attempts=0 AND q.created_at<=?2) AND (${standing(0).replaceAll('?0','q.discord_id')})
     AND CASE WHEN json_valid(q.note)=1 AND length(CAST(q.note AS BLOB))<=2048 THEN
-     (json_type(q.note)='object' AND (json_type(q.note,'$.version')='integer' AND json_extract(q.note,'$.version')=233)
-      AND (json_extract(q.note,'$.source')='native-who-unit-v233' AND json_extract(q.note,'$.scopeHash')=?3)
+     (json_type(q.note)='object' AND json_type(q.note,'$.version')='integer'
+      AND ((json_extract(q.note,'$.version')=233 AND json_extract(q.note,'$.source')='native-who-unit-v233') OR (json_extract(q.note,'$.version')=242 AND json_extract(q.note,'$.source')='native-who-whisper-v242'))
+      AND json_extract(q.note,'$.scopeHash')=?3
       AND (json_type(q.note,'$.observedAt')='integer' AND json_type(q.note,'$.expiresAt')='integer')
       AND (json_extract(q.note,'$.observedAt')>${DB_NOW}-60 AND json_extract(q.note,'$.observedAt')<=?2+5)
       AND (json_extract(q.note,'$.expiresAt')>${DB_NOW} AND json_extract(q.note,'$.expiresAt')>json_extract(q.note,'$.observedAt') AND json_extract(q.note,'$.expiresAt')<=json_extract(q.note,'$.observedAt')+60))
@@ -177,15 +179,15 @@ export async function readOfficerInvites233(env:Env,budget:AttemptBudget,limit=3
    const n=stored(row.note);if(!integer(row.id)||!text(row.name)||normalizeCharacter(row.name)!==row.name_key||!/^\d{17,20}$/.test(row.discord_id)||!n||n.scopeHash!==scopeHash||n.generation!==row.generation||row.state!==null&&row.state!=='active'||n.expiresAt<=now()||n.observedAt>pageAt+5||normalizeCharacter(n.fullName)!==row.name_key){result.heldReasons.push('officer-invite-source-held');continue;}
    const fresh=await roles(env,row.discord_id,budget,check,schedule);check();if(!launch.current())throw Error('scope');
    if(!fresh||classifyKnightRoles229(fresh)!=='knight'||blocked.some(x=>fresh.includes(x))||n.expiresAt<=now()){result.heldReasons.push('officer-invite-standing-held');continue;}
-   const current=await env.DB.prepare(`SELECT 1 FROM invite_queue q WHERE (q.id=?1 AND q.discord_id=?2 AND q.name_key=?3 AND q.note=?4) AND (q.approved_by='officer233' AND q.status='queued' AND q.attempts=0)
+   const current=await env.DB.prepare(`SELECT (SELECT source FROM roster_snapshots WHERE id=(SELECT MAX(id) FROM roster_snapshots)) AS source FROM invite_queue q WHERE (q.id=?1 AND q.discord_id=?2 AND q.name_key=?3 AND q.note=?4) AND (q.approved_by='officer233' AND q.status='queued' AND q.attempts=0)
     AND (${standing(2)}) AND (${privacyGenerationFenceSql(2,5)}) AND ?6>${DB_NOW}
     AND NOT EXISTS(SELECT 1 FROM characters c WHERE (c.name_key=?3 OR c.guid=?7) AND (c.discord_id<>?2 OR c.status IN('member','left_pending')))
-    AND EXISTS(SELECT 1 FROM roster_snapshots s WHERE (s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND s.source=?8)
+    AND EXISTS(SELECT 1 FROM roster_snapshots s WHERE (s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.complete=1 AND s.trusted=1 AND ${nativeMembershipSourceSql('s.source','?8')})
      AND (s.exported_at>${DB_NOW}-600 AND s.exported_at<=${DB_NOW} AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
      AND NOT EXISTS(SELECT 1 FROM roster_members r WHERE r.snapshot_id=s.id AND (r.guid=?7 OR r.name_key=?3)))`)
 
-    .bind(row.id,row.discord_id,row.name_key,row.note,n.generation,n.expiresAt,n.guid,launch.scope.provenance).first();check();if(!launch.current())throw Error('scope');
-   if(!current){result.heldReasons.push('officer-invite-current-policy-held');continue;}
+    .bind(row.id,row.discord_id,row.name_key,row.note,n.generation,n.expiresAt,n.guid,launch.scope.provenance).first<{source:string}>();check();if(!launch.current())throw Error('scope');
+   if(!current||!nativeMembershipSourceMatches(current.source,launch.scope.guild,launch.scope.realm)){result.heldReasons.push('officer-invite-current-policy-held');continue;}
    result.invites.push(Object.freeze({queueId:row.id,proofId:n.proofId,name:row.name,guid:n.guid,fullName:n.fullName,scopeHash:n.scopeHash,observedAt:n.observedAt,expiresAt:n.expiresAt,reason:'knight-unguilded',source:n.source}));
   }
   return result;

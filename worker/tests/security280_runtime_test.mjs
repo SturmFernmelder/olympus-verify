@@ -74,6 +74,16 @@ async function run(request,bindings){
  before=await image();r=await call('POST','/admin/backfill-roles?limit=1',{headers:{Authorization:'Bearer security280-watcher-credential-only-xxxx'}});check('POST requires explicit apply confirmation',r.status===400&&before===await image(),{status:r.status});
  r=await call('POST','/admin/backfill-roles?apply=1&limit=1',{headers:{Authorization:'Bearer security280-watcher-credential-only-xxxx'}});body=await r.json().catch(()=>({}));check('explicit authenticated POST reaches the existing bounded apply writer',r.status===200&&body.apply===true&&body.selected===0,{status:r.status,selected:body.selected});
  r=await call('POST','/admin/backfill-roles?apply=1');check('POST apply retains watcher authentication',r.status===401,{status:r.status});
+ const searchPath='/api/search?q=PrivacyFixture';
+ const searchImage=await image();
+ r=await call('GET',searchPath,{cookie:member});const ordinarySearch=await r.json();
+ check('ordinary server member can still search actual Discord members',r.status===200&&ordinarySearch.results.length===2,{status:r.status});
+ check('ordinary search does not disclose site-account presence for known or absent account',ordinarySearch.results.every(row=>!Object.hasOwn(row,'onSite')),{returnedFields:ordinarySearch.results.map(row=>Object.keys(row).sort())});
+ check('ordinary search explicitly withholds the site-profile filter',ordinarySearch.siteProfilesVisible===false);
+ r=await call('GET',searchPath,{cookie:owner});const adminSearch=await r.json();
+ check('administrator retains the truthful existing site-profile filter',r.status===200&&adminSearch.siteProfilesVisible===true&&adminSearch.results.find(row=>row.id===OWNER)?.onSite===true&&adminSearch.results.find(row=>row.id===ghost)?.onSite===false,{status:r.status});
+ r=await call('GET',searchPath);check('anonymous callers cannot use member search',r.status===401,{status:r.status});
+ check('member searches add no audit or friend mutation',searchImage===await image());
  const censusEnv={...env,COMMUNITY_FEATURES:'census'};
  const censusCookie=await login(STAFF);
  for(const [id,name]of [[OWNER,'Census Owner'],[MEMBER,'Census Member'],[STAFF,'Census Other']]){
