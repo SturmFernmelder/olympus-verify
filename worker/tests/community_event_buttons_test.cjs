@@ -239,7 +239,8 @@ const ephemeral = (r) => r.status === 200 && r.body.type === 4 && r.body.data.fl
 
   // where and when the buttons do not apply
   r = await click(MEMBER, EVENT, 1, "yes", {}, undefined, [ROLE], WRONG);
-  check("a click outside the raid-signups channel is refused in words", ephemeral(r) && /#📅raid-schedule channel/.test(r.text) && signup(MEMBER).status === "no", JSON.stringify(r));
+  // Copy of 646ddd0 (intended, Codex 13 Nov 19:48 UTC): the refusal names the configured notice, not a fixed channel name.
+  check("a click outside the raid-signups channel is refused in words", ephemeral(r) && r.text === "These buttons only work under the configured Olympus raid notice. Open the calendar or ask an Olympus officer for the current notice." && signup(MEMBER).status === "no", JSON.stringify(r));
   r = await click(MEMBER, EVENT, 1, "yes", { EVENT_DISCORD_DELIVERY: "" });
   check("with publication off the buttons say so and write nothing", ephemeral(r) && /switched off/.test(r.text) && signup(MEMBER).status === "no", JSON.stringify(r));
   r = await interact({ type: 3, id: nextId(), application_id: BOT, token: "t", guild_id: GUILD, channel_id: CHANNEL, member: { user: { id: MEMBER, username: "Synthetic" }, roles: [ROLE] }, data: { custom_id: "raid:rsvp:nope:1:yes", component_type: 2 } });

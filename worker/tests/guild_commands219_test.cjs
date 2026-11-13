@@ -115,7 +115,8 @@ async function guildCommands219(){
   }
   if(name==='branches')check('CC-018 no Army snapshots gives one plain empty state and retains capacity, history and authority boundaries',
    embed?.description.includes('No published capacity snapshot for OLYMPUS PRIME / Olympus II–X yet. Live capacity is unknown.')&&
-   embed.description.includes('October Beta 1000/1000 +247 queued is historical only.')&&
+   embed.description.includes('not proof of current free guild slots or an invitation.')&&embed.description.includes('Automatic branch updates are off.')&&
+   embed.description.includes('October Beta counts are historical only.')&&
    !embed.fields?.length&&embed.footer?.text.includes('No automatic invitation, transfer, ranking or Link action.'));
   if(name==='treasury')check('Treasury identifies the Discord treasurer and the exact separate game recipient',r.answer.embeds[0].title.includes('Fernmelder')&&r.answer.embeds[0].description.includes('mail or trade to Fern Melder')&&r.answer.embeds[0].fields.some(f=>f.value.includes('100g standard bail remain available')));
   if(name==='stockades')check('Stockades offers the private MEE6 appeal while preserving the conditional bail and exact mail recipient',r.answer.embeds[0].description.includes('Ordinary appeals are free')&&r.answer.embeds[0].description.includes('private MEE6 ticket')&&r.answer.embeds[0].fields.some(f=>f.value.includes('100g standard')&&f.value.includes('Fern Melder')&&f.value.includes('Payment never guarantees an unban')));
@@ -128,11 +129,11 @@ async function guildCommands219(){
  r=await send219('branches',null,{},MEMBER);
  check('CC-018 validated snapshots retain dated branch rows, low-count suppression and unknown-capacity context',
   r.answer.embeds?.[0]?.fields?.length===10&&r.answer.embeds[0].fields[0].value.includes('fewer than 5')&&
-  r.answer.embeds[0].fields[0].value.includes('not current free-slot proof')&&!r.answer.embeds[0].description.includes('No published capacity snapshot'));
+  r.answer.embeds[0].fields[0].value.includes('This report may be out of date and does not confirm free guild slots.')&&!r.answer.embeds[0].description.includes('No published capacity snapshot'));
  await fixtureRun('UPDATE site_settings SET value=? WHERE key=?','{}',armyKey219);
  r=await send219('branches',null,{},MEMBER);
  check('CC-018 invalid stored snapshots retain validation-held disclosure without claiming no published snapshot',
-  r.answer.embeds?.[0]?.fields?.every(row=>row.value.includes('stored aggregate validation is held.'))&&
+  r.answer.embeds?.[0]?.fields?.length===10&&r.answer.embeds[0].fields.every(row=>row.value.includes('Live capacity unknown; the saved report needs review.'))&&
   !r.answer.embeds[0].description.includes('No published capacity snapshot'));
  await fixtureRun('DELETE FROM site_settings WHERE key=?',armyKey219);
  const warrior219=guide219.classes.find(c=>c.id==='warrior');
