@@ -4,8 +4,10 @@
 //    genuine SQLite engine (node:sqlite) behind a D1-shaped adapter, so their behaviour is proven, not their text.
 // 2. CI runs the directive's whole gate under the four required job names (CL2-022, CL2-023, CL2-182).
 // 3. The documents no longer state the false or stale facts the Stage 1 audit found (CL2-021, CL2-161 and others).
-const fs = require('node:fs'), path = require('node:path'), {DatabaseSync} = require('node:sqlite');
-const root = path.resolve(__dirname, '../..');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), {DatabaseSync} = require('node:sqlite');
+// DOCS_GATE_ROOT=<checkout> reads the documents and data of another checkout (read-only), for a fail-before receipt.
+// The counter module, the Worker entry and the fixtures always come from this checkout.
+const root = path.resolve(process.env.DOCS_GATE_ROOT || path.join(__dirname, '../..'));
 const read = file => fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
 let passed = 0, failed = 0;
 const check = (label, ok) => { if (ok) passed++; else failed++; console.log((ok ? 'PASS ' : 'FAIL ') + label); };
@@ -90,6 +92,30 @@ async function budget() {
   const maskedAuto = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SEARCH zz USING AUTOMATIC COVERING INDEX (x=?)'}]})} : genuine.prepare(sql)};
   const closedAuto = await mod.fullScans(maskedAuto, [{sql: 'SELECT * FROM members', values: []}]);
   check('an automatic-index target that cannot be resolved to a table is reported, so the gate fails closed', closedAuto.unresolved.length === 1 && closedAuto.scans.length === 0);
+  // Round 3 (13 Nov 2026), misc item 2: the PARTIAL form. When the join also constrains the inner table with a term no
+  // index serves, SQLite plans SEARCH <alias> USING AUTOMATIC PARTIAL COVERING INDEX (...). It still reads the whole
+  // table to build that index, and the module comment and release-qualification.md say it is counted.
+  db.exec('CREATE TABLE notes(id INTEGER PRIMARY KEY, subject TEXT, kind TEXT);');
+  const partialSql = [
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN notes n ON n.subject = m.discord_id AND n.kind IS NOT NULL', values: []},
+    {sql: 'SELECT m.banned FROM members m LEFT JOIN notes ON notes.subject = m.discord_id AND notes.kind = ?1', values: ['x']},
+    {sql: 'WITH recent AS MATERIALIZED (SELECT subject, kind FROM notes WHERE id > ?1) SELECT m.banned FROM members m LEFT JOIN recent r ON r.subject = m.discord_id AND r.kind IS NOT NULL', values: [0]},
+  ];
+  // The case is not vacuous: the engine really plans the PARTIAL form for all three statements.
+  const planned = partialSql.map(({sql, values}) => db.prepare('EXPLAIN QUERY PLAN ' + sql).all(...values).map(r => r.detail));
+  check('SQLite plans the PARTIAL form of an automatic index for a join with an unindexed constraint on the inner table',
+    planned.every(rows => rows.some(d => / USING AUTOMATIC PARTIAL (?:COVERING )?INDEX /.test(d))));
+  const partial = await mod.fullScans(genuine, partialSql);
+  const partialRows = partial.scans.filter(s => / USING AUTOMATIC PARTIAL /.test(s.detail));
+  check('a PARTIAL automatic index on a table, by alias or by name, is reported as a full scan of that table',
+    partialRows.length === 2 && partialRows.every(s => s.table === 'notes') && partialRows.some(s => /^SEARCH n USING AUTOMATIC PARTIAL /.test(s.detail)) && partialRows.some(s => /^SEARCH notes USING AUTOMATIC PARTIAL /.test(s.detail)));
+  check('a PARTIAL automatic index on a CTE is not counted as a table read, and the CTE\'s own rowid lookup is not a scan',
+    partial.unresolved.length === 0 && !partial.scans.some(s => /^SEARCH r /.test(s.detail)) && !partial.scans.some(s => /^SCAN notes\b/.test(s.detail)));
+  check('the allow-list key of a PARTIAL automatic-index scan names the table and the exact plan text',
+    mod.scanCounts(partial.scans)['notes: SEARCH n USING AUTOMATIC PARTIAL COVERING INDEX (subject=?) LEFT-JOIN'] === 1);
+  const maskedPartial = {prepare: sql => sql.startsWith('EXPLAIN QUERY PLAN SELECT * FROM members') ? {all: async () => ({results: [{detail: 'SEARCH zz USING AUTOMATIC PARTIAL COVERING INDEX (x=?)'}]})} : genuine.prepare(sql)};
+  const closedPartial = await mod.fullScans(maskedPartial, [{sql: 'SELECT * FROM members', values: []}]);
+  check('a PARTIAL automatic-index target that cannot be resolved to a table is reported, so the gate fails closed', closedPartial.unresolved.length === 1 && closedPartial.scans.length === 0);
   db.close();
   const runtime = read('worker/tests/launch_roster_pacing271_runtime.mjs'), target = read('worker/tests/launch_roster_pacing271_workerd_test.cjs');
   check('the promotions target measures the page, the strict display and a 1,000-member ingest through worker.fetch',
@@ -167,6 +193,19 @@ function docs() {
   const missing = [];
   for (let n = 229; n <= 279; n++) if (!new RegExp('^#{2,3} .*\\.' + n + '\\b', 'm').test(checklist)) missing.push(n);
   check('the deploy checklist has an entry for every build .229 to .279' + (missing.length ? ' (missing ' + missing.join(',') + ')' : ''), missing.length === 0);
+  // Round 3 (13 Nov 2026), misc item 1: the university authoring guide passes the university's own schedule rule line by
+  // line (the build applies it to every course string), and its supersededBy row describes the generator's SUPERSEDED
+  // list as the generator defines it.
+  const uniRules = (() => { const m = {exports: {}}; vm.runInNewContext(read('worker/public/static/university/validate.js'), {module: m}, {timeout: 2000}); return m.exports; })();
+  const authoring = read('docs/university-authoring.md');
+  const refusedLines = typeof uniRules.scheduleWording === 'function' ? authoring.split('\n').filter(line => uniRules.scheduleWording(line)) : ['validate.js has no scheduleWording'];
+  check('the university authoring guide uses the dated schedule wording the university build enforces' + (refusedLines.length ? ' :: ' + refusedLines.map(l => l.trim().slice(0, 90)).join(' | ') : ''),
+    refusedLines.length === 0 && /Raid unlock date: 9 December 2026/.test(authoring));
+  const literal = (read('scripts/university/generate-talent-facts.cjs').match(/^const SUPERSEDED = (\{[\s\S]*?\});$/m) || [])[1];
+  const superseded = literal ? Object.keys(vm.runInNewContext('(' + literal + ')', {}, {timeout: 1000})) : null;
+  const supersededRow = authoring.split('\n').find(line => line.startsWith('| `supersededBy` |')) || '';
+  check('the authoring guide describes the generator\'s SUPERSEDED list as it is (' + (superseded ? superseded.length + ' entries' : 'not found') + ')',
+    Array.isArray(superseded) && (superseded.length === 0 ? /The list is empty/.test(supersededRow) && !/list: Mental Dexterity and Stormstrike/.test(supersededRow) : superseded.every(id => supersededRow.includes(id))));
   const readme = read('README.md');
   check('README names the current site host', !readme.includes('guild.roachcouncil.com') || /former|legacy|old/i.test(readme.slice(Math.max(0, readme.indexOf('guild.roachcouncil.com') - 200), readme.indexOf('guild.roachcouncil.com') + 200)));
 }
@@ -200,10 +239,53 @@ async function routes() {
   }
   check('the actual Worker entry answers each talent archive case exactly as recorded (401, before any asset or database read)',
     archive.length > 0 && answers.length === archive.length && answers.every(Boolean) && archive.every(c => c.status === 401) && touched === 0);
+  // Round 3 (13 Nov 2026), misc item 3: the owner approved 90 public behaviours; the replay now expects more. Where the
+  // count is documented, the difference must be explained: which paths, why, and that each asserts an anonymous refusal.
+  const rq = read('docs/release-qualification.md'), claude = read('CLAUDE.md');
+  const para = rq.split(/\n\s*\n/).find(p => p.includes('tools/check-public-routes.cjs')) || '';
+  const added = expected - 90, paths = archive.map(c => new URL(c.url).pathname);
+  check('release qualification explains the ' + expected + ' route cases: the 90 approved behaviours plus each added archive path, named, as an anonymous 401 refusal',
+    added === archive.length && para.includes(expected + ' cases') && para.includes('the 90 public behaviours the owner approved') && paths.every(p => para.includes('`' + p + '`'))
+    && /\b401\b/.test(para) && /anonymous/.test(para) && /no public behaviour/.test(para));
+  const probes = [...claude.matchAll(/all (\d+) public probes/g)].map(m => Number(m[1]));
+  check('CLAUDE.md states the same post-deployment probe count and says what the two additions are',
+    probes.length === 1 && probes[0] === expected && /all \d+ public probes \(the 90 owner-approved behaviours plus the two anonymous refusals of the member-gated talent archive files/.test(claude));
+}
+
+// Round 3 (13 Nov 2026), misc item 4 (CL2-233): the integration documents about Daniel's Olympus Guild addon name the
+// current author release and state the activation limits as a table: what is off now, what must be true before it is
+// switched on, and who switches it. The release number is Codex's record of the author release ZIP (12 Nov 2026); the
+// site's own minimum stays 1.5.7 in resources169.json. Each document must cover the switches that concern it.
+const CURRENT_AUTHOR_RELEASE = '1.5.8';
+const INTEGRATION_DOCS = {
+  'docs/dan155-integration.md': ['ARMY_SITE_AGGREGATE_ENABLED', 'site-feed-v1', 'LINK_ENABLED', 'QueueSelf', '/olv census on'],
+  'docs/addon-guild-roster-integration.md': ['/olv olympus on', '/olv census on', 'QueueSelf'],
+  'docs/unified-addon196.md': ['ARMY_SITE_AGGREGATE_ENABLED', 'site-feed-v1'],
+  'docs/army-qr-publishing.md': ['ARMY_SITE_AGGREGATE_ENABLED', 'site-feed-v1'],
+  'docs/olympus-link.md': ['LINK_ENABLED'],
+  'docs/launch229-addon-audit.md': ['LINK_ENABLED'],
+};
+function integration() {
+  for (const [file, switches] of Object.entries(INTEGRATION_DOCS)) {
+    const text = read(file), lines = text.split('\n');
+    const start = lines.findIndex(l => /Current (?:author release|status) \(12 November 2026\)/.test(l));
+    const header = lines.findIndex((l, i) => i > start && start >= 0 && l === '| Off now | Before it is switched on | Who switches it |');
+    const rows = [];
+    for (let i = header + 2; header > 0 && i < lines.length && lines[i].startsWith('|'); i++) rows.push(lines[i].split(/(?<!\\)\|/).slice(1, -1).map(c => c.trim()));
+    const intro = start >= 0 ? lines.slice(start, header > 0 ? header : start + 1).join('\n') : '';
+    const named = new RegExp('Olympus Guild ' + CURRENT_AUTHOR_RELEASE.replace(/\./g, '\\.') + '\\b').test(intro);
+    const complete = rows.length > 0 && rows.every(r => r.length === 3 && r.every(c => c.length > 10) && /\bowner\b|\bofficer\b/i.test(r[2]));
+    const covered = switches.filter(s => !rows.some(r => r[0].includes(s)));
+    check('CL2-233 ' + file + ' names Olympus Guild ' + CURRENT_AUTHOR_RELEASE + ' and states what is off, what must be true first and who switches it' + (covered.length ? ' (missing ' + covered.join(', ') + ')' : ''),
+      start >= 0 && start < 12 && named && complete && covered.length === 0 && header > 0);
+  }
+  const main = read('docs/dan155-integration.md');
+  check('CL2-233 the integration record dates the 1.5.5 text as a record and keeps 1.5.7 and 1.5.8 unqualified',
+    /## Record of 10 November 2026 \(Olympus 1\.5\.5\)/.test(main) && /Verify has not qualified 1\.5\.7 or 1\.5\.8/.test(main) && main.indexOf('## Current status') < main.indexOf('## Record of 10 November 2026'));
 }
 
 (async () => {
-  await budget(); ci(); docs(); await routes();
+  await budget(); ci(); docs(); await routes(); integration();
   console.log(`\n${passed}/${passed + failed} docs-gate checks passed`);
   process.exitCode = failed ? 1 : 0;
 })().catch(error => { console.error(error); process.exitCode = 1; });
