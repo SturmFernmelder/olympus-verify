@@ -138,7 +138,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
    // .234: an absent prelaunch link is inert, not departure/identity/ownership.
    // Keep its exact row in the captured graph; it may not jam an independently
    // proved current character. A matching/unknown native name or GUID still holds.
-   if(canonical.mode==='enabled'&&status==='member'&&bound<cutoff&&verified<cutoff&&anchor===null&&!native&&!names.has(key))continue;
+   if(canonical.mode==='enabled'&&status==='member'&&bound<cutoff&&verified<cutoff&&(source==='whisper'||source==='mail')&&anchor===null&&!native&&!names.has(key))continue;
    // Reverification deliberately preserves a character's original link clocks.
    // Admission is established by the source-owned anchor's post-cutoff birth,
    // required in READ and at every later admission, not by rewriting those clocks.

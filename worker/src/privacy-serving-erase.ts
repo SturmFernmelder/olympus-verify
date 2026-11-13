@@ -137,7 +137,9 @@ export async function continueServingErasure(env:Env,proof:AccountErasureProof,a
   const current=await env.DB.prepare(`SELECT CASE WHEN ${CURRENT_ERASURE_SQL} AND EXISTS(SELECT 1 FROM privacy_serving_jobs j WHERE j.operation_id=?1 AND ${originalErasureJobBirthSql(proof)}) AND (${receiptSql}) AND NOT(${ambiguousAccountReferencesSql(discipline)}) THEN 1 ELSE 0 END AS current`)
    .bind(proof.operationId,proof.subject,proof.subjectGeneration,proof.requestDigest).first<{current:number}>();
   if(current?.current!==1)return held('native_current_or_reference_unconfirmed');
-  await cleanupPrivacyMessages(env,proof.subject);
+  // The terminal Native batch marks every attributable pointer for cleanup
+  // atomically with identity retirement. Existing independent debt turns drain
+  // those original pointers; keep this invocation within its196-statement slice.
   return completeServingAccount(env,proof,{state:'absent',checkedAt:cleanup.checkedAt,staffAccess:cleanup.staffAccess},receiptSql,discipline,undefined,true);
  }
  if(!await currentAccountErasureProof(env,proof))return held('request_not_current');
@@ -224,9 +226,10 @@ async function completeServingAccount(env:Env,p:AccountErasureProof,role:MemberR
  .bind(p.operationId,p.subject,p.subjectGeneration).first<{confirmed:number}>().catch(()=>null);
  if(observed?.confirmed!==1)return held('local_commit_outcome_unknown','unknown',role.staffAccess,details);
  }
- // continueServingErasure already attempted one bounded pointer page before completion.
- // Remaining known/unknown purpose custody survives and the completed-account cron lane
- // resumes it; do not spend a second provider page in this same local completion slice.
+ // Configured continuations attempted one bounded pointer page before completion;
+ // Native continuations reserve this slice for identity retirement and marker proofs.
+ // Known/unknown purpose custody survives. Existing independent debt turns resume
+ // eligible original pointers; local completion never confirms Discord-copy removal.
  return {state:'complete',reason:null,servingAccountErased:true,allCopiesErased:false,providerMessages:'unqualified',recoveryCopies:'operator-held',staffAccess:role.staffAccess,staffAccessDetails:details,messageDebt:await privacyMessageDebt(env,p.subject)};
 }
 

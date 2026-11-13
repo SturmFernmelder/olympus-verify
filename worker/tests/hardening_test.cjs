@@ -4,6 +4,11 @@
 const fs = require("fs"), path = require("path"), ts = require("typescript");
 const { DatabaseSync } = require("node:sqlite");
 const root = path.join(__dirname, "..");
+// Install one fail-closed transport before any source module captures fetch.
+// Derived transport fixtures switch the delegate, never the captured global descriptor.
+const originalTestFetch = async () => { throw new Error("no network in tests"); };
+let testFetch = originalTestFetch;
+globalThis.fetch = (...args) => testFetch(...args);
 const entry = require('./helpers/privacy129_fixture.cjs');
 
 // Capture the original fixture clock and entropy before the real modules do.
@@ -45,17 +50,9 @@ function freshDb(schemaPath = path.join(root, "schema.sql")) {
 
 let LOGS = [], ROLE_ADDS = [], ROLE_REMOVES = [], VERIFIED = [];
 const transpile = (file) => ts.transpileModule(fs.readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-// discord.ts's pure helpers (userOf, option, hasAnyRole, ...) are real; everything that would reach Discord is not.
-const realDiscord = (() => {
-  const mod = { exports: {} };
-  new Function("module", "exports", "require", transpile(path.join(root, "src", "discord.ts")))(mod, mod.exports, () => ({}));
-  return mod.exports;
-})();
-const originalTestFetch = async () => { throw new Error("no network in tests"); };
-globalThis.fetch = (...args) => originalTestFetch(...args);
+// Source Discord helpers are populated below through the same actual-module loader.
 const stubs = {
   "./discord": {
-    ...realDiscord,
     json: (body, status = 200) => ({ status, body, json: async () => body }),
     reply: (content) => ({ status: 200, body: { type: 4, data: { content } } }),
     verifyInteraction: async () => true,
@@ -73,8 +70,7 @@ const stubs = {
   "./review": { onVerified: async (_env, pending, source) => { VERIFIED.push({ ...pending, source }); } },
 };
 const cache = {};
-function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
-  if (stubs[name]) return stubs[name];
+function loadSource(name) {
   if (cache[name]) return cache[name].exports;
   const js = transpile(path.join(root, "src", name.replace("./", "") + ".ts"));
   const mod = { exports: {} };
@@ -82,6 +78,14 @@ function load(name) { if (name === "node:async_hooks" || name === "./node:async_
   new Function("module", "exports", "require", js)(mod, mod.exports, (p) => load(p));
   return mod.exports;
 }
+function load(name) { if (name === "node:async_hooks" || name === "./node:async_hooks") return require("node:async_hooks");
+  if (stubs[name]) return stubs[name];
+  return loadSource(name);
+}
+// Keep only the existing explicit Discord/DM/review I/O doubles. All imported
+// source dependencies are real; cached partial exports retain CommonJS cycles.
+const realDiscord = loadSource("./discord");
+Object.assign(stubs["./discord"], { ...realDiscord, ...stubs["./discord"] });
 const codes = load("./codes"), relays = load("./relays"), roster = load("./roster"), ingest = load("./ingest"), schema = load("./schema"), unv = load("./unverified");
 
 function directEnv(base) {
@@ -232,7 +236,10 @@ const day = (t = T) => codes.dayBucket(new Date(t * 1000));
   const broken = { prepare: () => ({ bind() { return this; }, all: async () => { throw new Error("D1_ERROR: database unavailable"); }, run: async () => { throw new Error("D1_ERROR"); }, first: async () => null }), batch: async () => { throw new Error("D1_ERROR"); } };
   const ctx = { waitUntil: (p) => Promise.resolve(p).catch(() => {}) };
   const req = () => new Request("https://verify.example/queue?officer=fern%20melder", { headers: { Authorization: "Bearer watcher-token-for-tests-only-0123456789" } });
-  const quiet = console.error;
+  const quiet = console.error, componentJson = stubs["./discord"].json;
+  // Actual Worker HTTP responses need the source JSON Response, not the component DTO double.
+  stubs["./discord"].json = realDiscord.json;
+  try {
   console.error = () => {}; // the Worker logs the failed check; expected here
   let res = await index.fetch(req(), { ...env, DB: broken, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);
   check("GET /queue answers 503 while the schema cannot be checked", res.status === 503);
@@ -248,7 +255,7 @@ const day = (t = T) => codes.dayBucket(new Date(t * 1000));
   check("  the same for a key version in a POST body", res.status === 400 && (await res.json()).error === "unsupported_protocol");
   res = await index.fetch(new Request("https://verify.example/queue/written", { method: "POST", headers: { ...bearer, "Content-Type": "application/json" }, body: JSON.stringify({ ids: [], officer: "fern melder" }) }), { ...env, WATCHER_TOKEN: "watcher-token-for-tests-only-0123456789" }, ctx);
   check("  an unversioned client is served as before", res.status === 200);
-  console.error = quiet;
+  } finally { console.error = quiet; stubs["./discord"].json = componentJson; }
 
   // ================= 9 and 7. presence that expires, and the gate on request codes =================
   console.log("\n== relays: presence expires, capability gates request codes ==");

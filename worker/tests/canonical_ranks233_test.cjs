@@ -1,6 +1,10 @@
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict'),ts=require('typescript');
 const file=path.join(__dirname,'../src/canonical-ranks233.ts'),out={exports:{}};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports:out.exports,module:out,TextEncoder},{filename:file});
+// The configuration module now imports only this pure generated ladder data.
+// Execute the actual source; do not turn a missing dependency into an empty stub.
+const constantsFile233=path.join(__dirname,'../src/native-rank-constants.ts'),constants233={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(constantsFile233,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports:constants233.exports,module:constants233},{filename:constantsFile233});
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports:out.exports,module:out,TextEncoder,require:p=>{if(p==='./native-rank-constants')return constants233.exports;throw Error('unexpected canonical configuration import '+p);}},{filename:file});
 const M=out.exports;let n=0,fail=0;function test(name,fn){n++;try{fn();console.log('PASS '+name);}catch(e){fail++;console.log('FAIL '+name+': '+e.stack);}}
 const config=()=>({version:1,enabled:true,profile:M.CANONICAL_PROFILE233,guildId:M.CANONICAL_GUILD233,ranks:Array.from(M.CANONICAL_RANKS233,r=>({...r,permissions:'0'}))}),raw=()=>JSON.stringify(config()),env=()=>({GUILD_ID:M.CANONICAL_GUILD233,CANONICAL_RANKS233:raw()}),parse=c=>M.parseCanonicalRankPolicy233(JSON.stringify(c)),policy=parse(config());
 const eq=(a,b)=>assert.equal(JSON.stringify(a),JSON.stringify(b));
