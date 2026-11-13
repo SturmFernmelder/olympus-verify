@@ -158,14 +158,16 @@ function P.Ensure(root)
  local function blank(t,key)
   if hasText(rawget(t,key))then rawset(t,key,"");changed=true;blanks=blanks+1 end
  end
- local function blankEntry(row,id)
-  if hasText(rawget(row.donation,"note"))then affected(id);blank(row.donation,"note")end
+ local function blankEntry(row,id,original)
+  local donation=type(original)=="table"and rawget(original,"donation")
+  if type(donation)=="table"and hasText(rawget(donation,"note"))then affected(id)end
+  blank(row.donation,"note")
  end
- for _,item in ipairs(entries)do blankEntry(item.row,item.key)end
+ for _,item in ipairs(entries)do blankEntry(item.row,item.key,item.original)end
  for _,item in ipairs(contexts)do
   local c=item.row;local touched=contextText(item.original)
   if c.kind=="mail"then blank(c,"body");blank(c.header,"subject")else blank(c,"note")end
-  if c.exportBody then blankEntry(c.exportBody,c.exportBody.id)end
+  if c.exportBody then blankEntry(c.exportBody,c.exportBody.id,type(item.original)=="table"and rawget(item.original,"exportBody"))end
   if touched then affected(c.transferId,true)end
  end
  for _,record in ipairs(retired)do
@@ -221,7 +223,7 @@ function P.Blocked(root,id,row)
   if currentV2(row)then return false end -- every normal source validator still runs
   local donation=type(row)=="table"and rawget(row,"donation")
   local state=type(root)=="table"and cache[root]
-  if state and state.globalHeld or not validEntry(row,id)or type(donation)=="table"and hasText(rawget(donation,"note"))then return true end
+  if not state or state.globalHeld or not validEntry(row,id)or type(donation)=="table"and hasText(rawget(donation,"note"))then return true end
  end
  return false
 end
