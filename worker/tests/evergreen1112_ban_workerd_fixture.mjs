@@ -14,6 +14,7 @@ import {runNativeSubject232} from '../src/full-release-pass.ts';
 import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admission.ts';
 import {NATIVE_RANK_NAMES232,NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
 import {CANONICAL_RANKS233,CANONICAL_PROFILE233} from '../src/canonical-ranks233.ts';
+import {DIRECTIVE_RANK_NAMES,DIRECTIVE_CANONICAL_PROFILE,qualifiedNativeSnapshotSource} from '../src/native-rank-schemes.ts';
 const OLD230_DEBT='2bc8a653168cd702a7804fc1631abc6a68ee8200c500fb1345b3087387b89f86',hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join(''),H=async x=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(x)));
 const method=(o,k)=>{for(let p=o;p;p=Object.getPrototypeOf(p)){const d=Object.getOwnPropertyDescriptor(p,k);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')throw Error('original_method');return d.value;}}throw Error('original_method');};
 // Module-level values stay unexported: Workerd treats every named export as an entrypoint.
@@ -27,16 +28,17 @@ export function fixture1112(seed){const cases=new Map();return {async fetch(requ
    const db=bindings['DB_'+kind.replaceAll('-','_')];if(!db)return new Response(null,{status:404});
    const subject=seed.tables.find(t=>t.name==='pending').rows[0].discord_id;
    const closure={...JSON.parse(seed.config.SHARED_MEMBERSHIP230_CLOSURE_JSON),debtPredicateSHA256:OLD230_DEBT,createdAt:seed.now-3600,expiresAt:seed.now-3300},closureJSON=JSON.stringify(closure),scope={version:1,...NATIVE_SCOPE232};
-   const policy=JSON.stringify({version:1,enabled:true,profile:CANONICAL_PROFILE233,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
+   const policy=JSON.stringify({version:2,enabled:true,profile:DIRECTIVE_CANONICAL_PROFILE,guildId:seed.config.GUILD_ID,ranks:CANONICAL_RANKS233.map(r=>({...r,permissions:'0'}))});
    const config={...seed.config,VERIFY_NATIVE_SCOPE:JSON.stringify(scope),NATIVE_RANK_SYNC232:'off',QR_NATIVE_ROLE_MAP:'off',FULL_RELEASE_ROLES:'off',CANONICAL_RANKS233:policy,SHARED_MEMBERSHIP230_CLOSURE_JSON:closureJSON,SHARED_MEMBERSHIP230_CLOSURE_SHA256:await H(closureJSON),DISCORD_BOT_TOKEN:seed.config.DISCORD_BOT_TOKEN+'-'+kind,...(body.budget?{ROLE_CALL_BUDGET:String(body.budget)}:{}),...(body.channels?{CHANNEL_MOD_ALERTS:'555555555555555551',CHANNEL_SERVER_LOG:'555555555555555552'}:{})};
    const create=seed.objects.filter(x=>x.type!=='trigger'&&!x.name.startsWith('sqlite_')).map(x=>db.prepare(x.sql));while(create.length)await db.batch(create.splice(0,40));
    const order=['privacy_write_admission','privacy_rejection_expiry_control','site_settings','pending','roster_snapshots','roster_members','roster_first_seen','roster_effect_runs','audit'];
    // Every case's roster is older than 600 s unless the case first verifies through the bot (it ages the roster after).
-   const fresh=body.verifyFirst===true,rank=Number.isInteger(body.rank)?body.rank:8;
+   // The positive routine uses the active ten-rank policy and a full, qualified native-v2 source; old settlement rows remain historical controls.
+   const fresh=body.verifyFirst===true,rank=Number.isInteger(body.rank)?body.rank:7;
    for(const table of [...seed.tables].sort((a,b)=>order.indexOf(a.name)-order.indexOf(b.name)))for(const original of table.rows){const row={...original};
     if(table.name==='site_settings'&&row.key==='membership230:closure:'+closure.operationId)row.value=closureJSON;
-    if(table.name==='roster_snapshots'){row.source='addon-native-v1:'+JSON.stringify(scope);if(!fresh){row.exported_at=seed.now-700;row.received_at=seed.now-700;row.first_received_at=seed.now-700;}}
-    if(table.name==='roster_members'){row.rank=NATIVE_RANK_NAMES232[rank];row.rank_index=rank;}
+    if(table.name==='roster_snapshots'){row.source=qualifiedNativeSnapshotSource(scope.guild,scope.realm);if(!fresh){row.exported_at=seed.now-700;row.received_at=seed.now-700;row.first_received_at=seed.now-700;}}
+    if(table.name==='roster_members'){row.rank=DIRECTIVE_RANK_NAMES[rank];row.rank_index=rank;}
     // Successor (12 Nov 2026): many cases verify, some late in the run; the seed's one open code keeps its 120 s TTL
     // from this case's setup instead of from seed creation. Its creation time, and so the code itself, are unchanged.
     if(table.name==='pending'&&row.consumed_at===null)row.expires_at=Math.max(row.expires_at,Math.floor(Date.now()/1000)+120);
