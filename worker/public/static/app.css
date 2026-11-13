@@ -227,6 +227,8 @@ a.card:hover { filter: brightness(1.2); }
 .btn:active:not(:disabled) { border-image-source: url("/static/wow/button-down.png"); padding-top: 5px; padding-bottom: 1px; }
 .btn:disabled, .btn[aria-disabled="true"] { border-image-source: url("/static/wow/button-disabled.png"); color: #7c7c7c; cursor: not-allowed; }
 .btn.small { min-height: 30px; padding: 1px 11px; font-size: 13px; }
+/* REV-SITEA-1 (12 Nov 2026): the read-failure "Try again" (CL2-017) is the one way out of a failed read: a 44 px target at every width. */
+.btn.small.read-retry { min-height: 44px; }
 /* Navigation stays in place while pressed; only its texture changes. */
 .nav .btn:active { padding: 1px 11px; }
 .btn.big { min-height: 48px; padding: 5px 24px; font-size: 17px; }

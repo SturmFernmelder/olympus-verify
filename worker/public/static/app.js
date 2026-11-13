@@ -6761,7 +6761,7 @@
   const retryableRead = (e) => !e || !(e.status === 401 || e.status === 403 || e.status === 404 || (e.status === 409 && codeOf(e) === "reload") || ["contributions_disabled", "feature_disabled", "not_member", "denied"].includes(codeOf(e)));
   function readRetryButton(e, retry) {
     if (typeof retry !== "function" || !retryableRead(e)) return null;
-    const button = h("button", { class: "btn small", type: "button", text: "Try again" });
+    const button = h("button", { class: "btn small read-retry", type: "button", text: "Try again" });
     button.addEventListener("click", () => { if (!button.isConnected || button.disabled) return; button.disabled = true; retry(); });
     return button;
   }

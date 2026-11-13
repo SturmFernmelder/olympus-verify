@@ -146,6 +146,60 @@ async function serverChecks() {
   check('CL2-138', 'three primary professions are refused', p2.status === 400 && p2.data && p2.data.error === 'invalid_professions', `${p2.status} ${p2.data && p2.data.error}`);
 }
 
+// ---------------------------------------------------------------- unit checks (the real Worker module, transpiled; no harness)
+/** Transpile one Worker module from SOURCE (and its relative imports) into CommonJS in memory. */
+function loadTs(rel) {
+  const ts = require(path.join(__dirname, '..', 'node_modules', 'typescript'));
+  const Module = require('node:module');
+  const cache = new Map();
+  const load = file => {
+    if (cache.has(file)) return cache.get(file).exports;
+    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    const m = new Module(file); m.filename = file; cache.set(file, m);
+    m.require = spec => spec.startsWith('.') ? load(path.resolve(path.dirname(file), spec.replace(/\.js$/, '') + (spec.endsWith('.ts') ? '' : '.ts'))) : require(spec);
+    new Function('exports', 'require', 'module', '__filename', '__dirname', code)(m.exports, m.require, m, file, path.dirname(file));
+    return m.exports;
+  };
+  return load(path.join(SOURCE, rel));
+}
+
+async function unitChecks() {
+  // REV-SITEA-2 (12 Nov 2026): the CL2-122 pre-check in saveSettings. A legacy appointment (a <@id> pointer with no stored
+  // proof key) saved without appointedCharactersConfirmed is refused with 400 confirm_appointed_characters before any
+  // account read or Discord call. The same save with the tick is the control: it does reach the account read and Discord.
+  // The Worker captures fetch when its provider module loads, so the stub is installed first and stays: it answers every
+  // Discord call with a 503 and counts it, and passes anything else (the harness requests below) to the real fetch.
+  const realFetch = globalThis.fetch;
+  let provider = [];
+  globalThis.fetch = async function fetch(input, init) {
+    const url = String(input && input.url || input);
+    if (/^https:\/\/(?:[a-z]+\.)?discord(?:app)?\.com\//.test(url)) { provider.push(url); return new Response('{"message":"stub"}', { status: 503, headers: { 'Content-Type': 'application/json' } }); }
+    return realFetch(input, init);
+  };
+  const admin = loadTs('worker/src/site-admin.ts');
+  const run = async (extra) => {
+    provider = [];
+    const statements = [];
+    const stored = { office_45: '<@300000000000000103>' };
+    const rows = sql => /^SELECT key, value FROM site_settings/.test(sql) ? [{ key: 'appointed', value: JSON.stringify(stored) }]
+      : /^SELECT wanted\.value AS id/.test(sql) ? [{ id: '300000000000000103', birth: 'a'.repeat(32), generation: null, status: 'eligible' }] : [];
+    const env = { SITE_ADMINS: '300000000000000001', SITE_GUILD_ID: '300000000000000999', DISCORD_BOT_TOKEN: 'unit-test', COOKIE_SECRET: 'unit-test-secret-unit-test-secret',
+      DB: { prepare(sql) { statements.push(sql.trim().slice(0, 40)); const st = { bind: () => st, all: async () => ({ results: rows(sql.trim()) }), first: async () => null, run: async () => ({ meta: { changes: 0 } }), raw: async () => [] }; return st; },
+        batch: async s => { statements.push('batch'); return s.map(() => ({ results: [], meta: { changes: 0 } })); } } };
+    const body = { appointed: { ...stored }, ...extra };
+    const req = new Request('https://example.test/api/admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await admin.handleAdmin(req, env, '/api/admin/settings', { discord_id: '300000000000000001' }, () => {});
+    const data = await res.json().catch(() => null);
+    return { status: res.status, error: data && data.error, provider: provider.length, reads: statements };
+  };
+  const refused = await run({});
+  check('REV-SITEA-2', 'a legacy <@id> appointment with no proof key, saved without the publication tick, is 400 confirm_appointed_characters with no provider call and no read past the settings row',
+    refused.status === 400 && refused.error === 'confirm_appointed_characters' && refused.provider === 0 && refused.reads.length === 1, JSON.stringify(refused));
+  const control = await run({ appointedCharactersConfirmed: true });
+  check('REV-SITEA-2', 'control: the same save with the tick passes the pre-check, reads the account and calls Discord (stubbed 503: nothing saved)',
+    control.provider >= 1 && control.reads.length > 1 && control.status === 409 && control.error === 'appointed_account_unavailable', JSON.stringify(control));
+}
+
 // ---------------------------------------------------------------- static copy checks (file text; used where no page shows it to a harness persona)
 function staticChecks() {
   const app = read('worker/public/static/app.js');
@@ -396,11 +450,24 @@ async function layoutChecks(cdp) {
       check(route === 'admin' ? 'CL2-014' : 'CL2-015', `/#/${route} at ${width}px: no horizontal overflow${route === 'admin' ? '' : ', holder buttons at least 44 px'}`, m.present && m.overflow <= 0 && m.small === 0, JSON.stringify(m));
     }
   }
+  // REV-SITEA-1 (12 Nov 2026): the read-failure "Try again" (CL2-017) is a 44 px target at phone and desktop widths.
+  const retrySizes = {};
+  for (const width of [1280, 390, 375, 320]) {
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: width < 768 });
+    await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/news', requestStage: 'Request' }] });
+    cdp.onPaused = p => bare500(cdp, p);
+    await open(cdp, 'member', 'news', 'document.querySelector("main .notice-box button")');
+    await cdp.send('Fetch.disable'); cdp.onPaused = null;
+    retrySizes[width] = await cdp.eval(`(() => { const b = [...document.querySelectorAll('main .notice-box button')].find(x => x.textContent === 'Try again'); if (!b) return null; const r = b.getBoundingClientRect(); return { h: Math.round(r.height), w: Math.round(r.width), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; })()`);
+  }
+  check('REV-SITEA-1', 'the read-failure "Try again" button is at least 44x44 px at 1280, 390, 375 and 320 px', Object.values(retrySizes).every(s => s && s.h >= 44 && s.w >= 44 && s.overflow <= 0), JSON.stringify(retrySizes));
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
 }
 
 (async () => {
   console.log(`evergreen1112 siteui-a against ${URL0}; static source ${SOURCE}`);
+  await unitChecks();
+  if (process.argv.includes('--unit-only')) { console.log(`RESULT ${results.length - failures}/${results.length} passed`); process.exitCode = failures ? 1 : 0; return; }
   await serverChecks();
   staticChecks();
   if (CDP_PORT) {
