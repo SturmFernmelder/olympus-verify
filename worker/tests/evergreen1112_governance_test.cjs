@@ -204,5 +204,12 @@ check('CL2-046', 'the Rosetta no longer prints the pre-.233 access text', !app.i
 // ---------------------------------------------------------------- CL2-196 rank-planner links land on their rank
 check('CL2-196', 'rank-planner links use the SPA route and the planner scrolls to the prefixed rank id', !app.includes('"/admin/ranks#current-rank-"') && app.includes('"#/admin/ranks/" + (slot + 1)') && app.includes('"#rank-planner-current-rank-" + rankAnchor'));
 
+// ---------------------------------------------------------------- INT-GOV-1 (CL2-100) per-chapter and per-card link rows are groups
+// The browser count is CL2-100 in evergreen1112_siteui-b_test.cjs; this pins the source shape the count depends on.
+check('INT-GOV-1', 'each governance chapter\'s "On this page" list is a labelled group, not a nav landmark',
+  /jumpList1112\(sectionHeadings\.map\([^\n]*\), "Sections of " \+ chapter\.title\)/.test(app) && /h\(groupLabel \? "div" : "nav", \{[^\n]*role: "group"/.test(app));
+check('INT-GOV-1', '/#/organization keeps one resources nav; its card link rows are labelled groups', count(orgView, 'h("nav"') === 1 && count(overview, 'h("nav"') === 0
+  && orgView.includes('role: "group", "aria-label": "Ordinary applications"') && overview.includes('role: "group", "aria-label": "Continue exploring the Alliance"'));
+
 console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
 process.exit(failed ? 1 : 0);

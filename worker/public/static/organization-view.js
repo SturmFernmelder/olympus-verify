@@ -407,7 +407,7 @@ export function renderOrganization(main, data, ui) {
     h("section", { class: "frame" }, h("h2", { text: "Role guides and office register" }),
       h("p", { text: "The Roles directory brings alternate titles and regional or class duties into their complete family guides. Use the chart here for lines of responsibility." }),
       h("a", { class: "btn small", href: "#/roles", text: "Explore the role directory" }),
-      applicationLinks.length ? h("nav", { class: "btn-row", "aria-label": "Ordinary applications" }, applicationLinks) : null,
+      applicationLinks.length ? h("div", { class: "btn-row", role: "group", "aria-label": "Ordinary applications" }, applicationLinks) /* INT-GOV-1: a link row, not a landmark */ : null,
       registerDetails1112)]);
   // Show the interactive map before its longer rank, Council and reading references.
   const mapReadingSections221 = [...main.children].filter(node => node.classList?.contains("org-rank-guide") || node.classList?.contains("org-council-overview") || node.classList?.contains("org-guide"));

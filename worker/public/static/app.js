@@ -195,10 +195,12 @@
   }
   function targetSize1112(el) { el.style.display = "inline-flex"; el.style.alignItems = "center"; el.style.minHeight = "44px"; return el; }
   // A short in-page jump list. Buttons scroll without changing the route, so the hash router is not re-entered.
-  function jumpList1112(items) {
+  // INT-GOV-1 (CL2-100, 12 Nov 2026): a page's one contents list is a nav landmark; a list repeated per chapter or card
+  // passes groupLabel and becomes a labelled group, so screen readers keep one landmark per page.
+  function jumpList1112(items, groupLabel) {
     const shown = items.filter(item => item && item.target);
     if (shown.length < 3) return null;
-    return h("nav", { class: "governance-quicklinks page-jump-list1112", "aria-label": "On this page" }, h("span", { class: "small muted", text: "On this page:" }),
+    return h(groupLabel ? "div" : "nav", { class: "governance-quicklinks page-jump-list1112", ...(groupLabel ? { role: "group" } : {}), "aria-label": groupLabel || "On this page" }, h("span", { class: "small muted", text: "On this page:" }),
       ...shown.map(item => targetSize1112(h("button", { type: "button", class: "btn small", text: item.label, onclick: () => {
         for (let node = item.target; node; node = node.parentElement) if (node.tagName === "DETAILS") node.open = true;
         if (!item.target.hasAttribute("tabindex")) item.target.setAttribute("tabindex", "-1");
@@ -2388,7 +2390,7 @@
             h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: family.label }))))) : null);
       // CL2-063: chapters with four or more sections open with an "On this page" list.
       const sectionHeadings = blocks.filter(node => node.tagName === "H3" && node.id && node.getAttribute("data-heading-level") === "2");
-      const jump = sectionHeadings.length >= 4 ? jumpList1112(sectionHeadings.map(node => ({ label: node.textContent, target: node }))) : null;
+      const jump = sectionHeadings.length >= 4 ? jumpList1112(sectionHeadings.map(node => ({ label: node.textContent, target: node })), "Sections of " + chapter.title) : null;
       const content = h("div", { class: "governance-prose" }, references, jump, executionFields, blocks);
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
       // Search rendered book text, including phrases spanning strong/code, without
