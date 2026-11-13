@@ -392,10 +392,13 @@ export async function reconcileBanned(env: Env, after: string, limit: number, bu
   // for a GET-only visit (observeBanRankDebt1112). Successor, 12 Nov 2026: that visit only observes. The row stays
   // unresolved and keeps fencing its role for that member until an attended resolution exists.
   const debt=central?` UNION SELECT s.subject FROM role_settlements s WHERE s.purpose='${central.BAN_RANK_PURPOSE1112}' AND s.desired=0 AND s.attempts=1 AND s.state IN('dispatching','unknown') AND s.expires_at<=CAST(strftime('%s','now') AS INTEGER)`:'';
+  // Retired subjects keep ban/debt safety rows, but cannot supply a current
+  // passive cursor reference. Skip them in the original selection, as the
+  // ordinary rotation does, rather than stalling later standing bans.
   const rows = await env.DB.prepare(
     `SELECT selected.discord_id,p.generation AS privacy_generation,p.state AS privacy_state,p.revision AS privacy_revision
       FROM (SELECT m.discord_id FROM members m WHERE m.banned = 1 UNION SELECT h.discord_id FROM rename_holds h WHERE h.state = 'reapply'${debt}) selected
-      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ORDER BY selected.discord_id LIMIT ?2`,
+      LEFT JOIN privacy_subjects p ON p.subject_id=selected.discord_id WHERE selected.discord_id > ?1 ${captureGeneration?"AND (p.state IS NULL OR p.state='active')":''} ORDER BY selected.discord_id LIMIT ?2`,
   ).bind(after, limit).all<{ discord_id: string;privacy_generation:string|null;privacy_state:string|null;privacy_revision:number|null }>();
   // Fill passive references for the complete original selection before any
   // provider await. Effect admission keeps its existing per-row checks below.
