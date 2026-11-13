@@ -44,33 +44,70 @@ export function countingD1(genuine) {
   };
 }
 
+// Words that can follow a table name in FROM/JOIN and are not an alias.
+const NOT_ALIAS = new Set(['where', 'on', 'join', 'left', 'right', 'full', 'inner', 'outer', 'cross', 'group', 'order', 'limit',
+  'using', 'natural', 'indexed', 'not', 'set', 'values', 'select', 'union', 'except', 'intersect', 'having', 'window',
+  'returning', 'default', 'as']);
+
 /**
- * Run EXPLAIN QUERY PLAN for every logged statement that names one of `tables`, with its original binds, on the genuine
- * binding (EXPLAIN never executes the statement). Returns the plan rows that read a whole table: SQLite reports those as
- * `SCAN <table>` (optionally `USING ... INDEX`) and an indexed lookup as `SEARCH <table> USING ...`.
+ * Run EXPLAIN QUERY PLAN for every logged statement that names a table, with its original binds, on the genuine binding
+ * (EXPLAIN never executes the statement), and return every plan row that reads a whole physical table. SQLite reports
+ * those as `SCAN <table or alias>` (optionally `USING [COVERING] INDEX ...`); an indexed lookup is `SEARCH ...`.
+ *
+ * `tables` limits the check to the named tables; leave it out (12 Nov review of CL2-024) to check every table in the
+ * database, so a scan of a table nobody thought to list cannot pass unseen. A `SCAN` of a common table expression, a
+ * derived table, a virtual table (json_each) or a constant row is not a table read. Any other `SCAN` target that cannot be
+ * resolved to a table is returned in `unresolved`, and the caller must fail on it, so a gap in the alias parsing fails
+ * closed instead of hiding a scan.
  */
 export async function fullScans(genuine, log, tables) {
-  const names = tables.map(t => t.toLowerCase()), seen = new Set(), scans = [];
+  const physical = tables ? tables.map(t => t.toLowerCase())
+    : (await genuine.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'").all()).results.map(r => String(r.name).toLowerCase());
+  // The schema catalogue counts as a table: the admission schema proof reads it on every request.
+  if (!tables) physical.push('sqlite_master', 'sqlite_schema');
+  const known = new Set(physical), plans = new Map(), scans = [], unresolved = [];
   let explained = 0;
+  // Every physical statement counts, a repeated one included: a request that sends the same read twice scans twice.
+  // (Deduplicating by statement and binds made the count depend on whether the clock ticked between the two sends.)
   for (const {sql, values} of log) {
     const lower = sql.toLowerCase();
-    if (!names.some(name => new RegExp('\\b' + name + '\\b').test(lower))) continue;
+    if (!physical.some(name => new RegExp('\\b' + name + '\\b').test(lower))) continue;
     const key = sql + '\u0000' + JSON.stringify(values.map(v => v instanceof ArrayBuffer ? '[blob]' : v));
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const prepared = genuine.prepare('EXPLAIN QUERY PLAN ' + sql);
-    const rows = (await (values.length ? prepared.bind(...values) : prepared).all()).results;
+    if (!plans.has(key)) {
+      const prepared = genuine.prepare('EXPLAIN QUERY PLAN ' + sql);
+      plans.set(key, (await (values.length ? prepared.bind(...values) : prepared).all()).results);
+    }
+    const rows = plans.get(key);
     explained++;
-    // An alias in the plan (SCAN rm) is resolved through the statement's own FROM/JOIN clauses.
-    const aliases = new Map(names.map(name => [name, name]));
-    for (const match of lower.matchAll(/\b(?:from|join)\s+([a-z_][a-z0-9_]*)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?/g)) {
-      if (names.includes(match[1]) && match[2] && !['where', 'on', 'join', 'left', 'inner', 'cross', 'group', 'order', 'limit', 'using', 'natural', 'indexed', 'not'].includes(match[2])) aliases.set(match[2], match[1]);
+    // An alias in the plan (SCAN rm) is resolved through the statement's own FROM, JOIN and comma-join clauses
+    // ("FROM a, roster_members rm" and "FROM a,roster_members rm" included). Common table expressions, aliases of them
+    // (FROM snapshot s) and derived tables (FROM (SELECT ...) AS x) are recorded so their scans are not counted as
+    // table reads; the table reads inside them appear as their own plan rows.
+    const aliases = new Map(physical.map(name => [name, name])), ctes = new Set();
+    for (const match of lower.matchAll(/(?:\bwith(?:\s+recursive)?\s+|,\s*)([a-z_][a-z0-9_]*)(?:\s*\([^)]*\))?\s+as\s*(?:not\s+)?(?:materialized\s*)?\(/g)) ctes.add(match[1]);
+    for (const match of lower.matchAll(/\)\s*(?:as\s+)?([a-z_][a-z0-9_]*)/g)) if (!NOT_ALIAS.has(match[1])) ctes.add(match[1]);
+    for (const match of lower.matchAll(/(?:\bfrom\s+|\bjoin\s+|,\s*)([a-z_][a-z0-9_]*)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?/g)) {
+      if (!match[2] || NOT_ALIAS.has(match[2])) continue;
+      if (known.has(match[1])) aliases.set(match[2], match[1]);
+      else if (ctes.has(match[1])) ctes.add(match[2]);
     }
     for (const row of rows) {
       const detail = String(row.detail ?? '');
-      const scan = detail.match(/^SCAN (?:TABLE )?([A-Za-z_][A-Za-z0-9_]*)/);
-      if (scan && aliases.has(scan[1].toLowerCase())) scans.push({table: aliases.get(scan[1].toLowerCase()), detail, sql: sql.slice(0, 240)});
+      const scan = detail.match(/^SCAN (?:TABLE )?(?:(?:main|temp)\.)?([A-Za-z_][A-Za-z0-9_]*)/);
+      if (!scan) continue;
+      const name = scan[1].toLowerCase();
+      // A name that is both an alias and a CTE counts as a table scan: the ambiguity fails closed.
+      if (aliases.has(name)) scans.push({table: aliases.get(name), detail, sql: sql.slice(0, 240)});
+      else if (ctes.has(name) || /VIRTUAL TABLE/.test(detail) || name === 'constant') continue;
+      else if (!tables) unresolved.push({detail, sql: sql.slice(0, 240)}); // a narrowed check ignores other tables
     }
   }
-  return {explained, scans};
+  return {explained, scans, unresolved};
+}
+
+/** Count scans as `table: detail` -> occurrences, for an exact comparison with a recorded allow-list. */
+export function scanCounts(scans) {
+  const counts = {};
+  for (const {table, detail} of scans) counts[table + ': ' + detail] = (counts[table + ': ' + detail] ?? 0) + 1;
+  return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 }

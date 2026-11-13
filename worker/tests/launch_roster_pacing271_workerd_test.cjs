@@ -309,7 +309,7 @@ async function selectedReads273(originalDiscovery){
 async function run(){
   const seed=await fixtureCall('seed');check('fixture runs inside actual local Workerd with genuine D1',seed.actualLocalWorkerdD1);
   // Evergreen 12 Nov 2026 (CL2-024): statement ceilings and query plans, measured on their own 1,000-member database.
-  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===13);
+  const budget=await fixtureCall('budget');assert(budget.actualLocalWorkerdD1&&budget.checks.length===16);
   for(const item of budget.checks){assert(item.passed);checks.push(item);}
   const budgetRecord={page:budget.page,display:budget.display,ingest:budget.ingest,ceilings:budget.ceilings,timings:budget.timings,plans:budget.plans};
   fs.writeFileSync(path.join(out,'d1-statement-budget.json'),JSON.stringify(budgetRecord,null,2)+'\n',{flag:'wx'});

@@ -33,19 +33,42 @@ says what runs today and where it still falls short of the directive's wording.
      `ROSTER_INGEST_STATEMENTS` (494), the shipped per-invocation admission model
      (134). Whether the directive's "under 100" applies to this request is an
      open owner question;
-   - `EXPLAIN QUERY PLAN` for every statement those requests sent that names
-     `roster_members` or `role_settlements`: no full scan of either table;
-   - the two Native sweep selectors add no full scan beyond the two recorded
-     `role_settlements` index walks (`KNOWN_SWEEP_SCANS`), listed exactly so any
-     new scan fails;
-   - every read statement of the page and the display, re-run alone, finishes in
-     under one second (5 and 3 statements; slowest 26 ms locally).
+   - `EXPLAIN QUERY PLAN` for every physical statement those requests sent, and
+     for both Native sweep selectors, against every table in the database: each
+     full scan must match an entry of `KNOWN_REQUEST_SCANS` or
+     `KNOWN_SWEEP_SCANS` (in `worker/tests/launch_roster_pacing271_runtime.mjs`)
+     by exact plan text and count. A new scan, a changed one or one more
+     occurrence fails the target, and so does a `SCAN` target the check cannot
+     resolve to a table. The pinned scans are the shipped plans, not a pass:
+     they are listed under "Known full scans" below;
+   - every read statement of the page and the display, and both sweep selectors,
+     re-run alone on the same data the requests read (before the ingest writes a
+     new snapshot), finishes in under one second. Locally the slowest takes tens
+     of milliseconds. The fixture holds no role settlements, so the sweep timing
+     covers the 1,000 members and characters only.
 
    Not asserted yet: the identify-only account copy's under-100 budget (it needs
    the OAuth identify-only grant flow inside Workerd; its 98-statement count is
    held only by the historical `privacy_account_coverage_test.cjs`), and the
    directive's "CTE-free" wording (the launch and strict-roster reads use
    `WITH ... AS MATERIALIZED`; how to read it is an open owner question).
+
+   **Known full scans (recorded on `dfca7a2`, 12 November 2026).** Two kinds are
+   inherent and stay: `sqlite_master`, the schema catalogue that the admission
+   schema proof reads on every request, and `privacy_write_admission`, a one-row
+   control table. The rest are defects, each handed to its runtime owner; remove
+   the entry from the allow-list in the same change that fixes the query.
+
+   | Where | Request | Scan | Count |
+   |---|---|---|---|
+   | `privacy-write-admission.ts` schema proof, `NOT EXISTS(... FROM audit WHERE action='site.settings' ...)` | page, display, ingest | `SCAN audit` | 3, 2, 5 |
+   | `site-launch229.ts` `linked_guids` CTE (`GROUP BY guid` over all characters) | page (two launch reads) | `SCAN characters` | 2 |
+   | `unverified.ts` `linked_guids` CTE | display | `SCAN characters` | 1 |
+   | `roster.ts` member insert (about lines 728-733): `EXISTS(... privacy_subjects ps ... instr(note, ps.subject_id))` for the public and the officer note of every row; no index can serve `instr()` | ingest (20 statements of 50 rows) | `SCAN ps` (privacy_subjects) | 40, so about 2,000 whole-table probes for 1,000 members |
+   | `roster.ts` `BOUND_SELECT` (every bound character joined to members) | ingest | `SCAN c` (characters), `SCAN m` (members) | 1 each |
+   | `roster.ts` latest-snapshot status read (about line 1211) | ingest | `SCAN s`, `SCAN a` (roster_snapshots); `SCAN d`, `SCAN u` (roster_effect_runs) | 1 each |
+   | `full-release-roles.ts` `CANONICAL233_SWEEP249_SELECT` | canonical sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN r USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord`, `SCAN roster_snapshots` | 1 each |
+   | `full-release-roles.ts` `NATIVE232_SWEEP249_SELECT` | Native sweep | `SCAN role_settlements USING INDEX role_settlement_subject`, `SCAN c USING INDEX characters_discord` | 1 each |
 5. **Lua addon suites:** every suite that needs no external archive, 41 of the 42
    registered (`run_lua_suites.py --all-offline`). That includes the 1,000-member
    performance benchmark (`performance235`, synthetic native APIs at 920 and
@@ -118,14 +141,15 @@ export receipt, not inferred by this local checker.
 ### Local timings (12 November 2026)
 
 Measured on the shared Windows host (Node 24.22.1, Python 3.14, Lupa 2.8) on the
-docs-gate lane head. CI runners differ; the 180-second cap applies to the whole
-qualification command.
+docs-gate lane head. These are single runs, so read each figure as "about": the
+same command varies by tens of percent with host load, and CI runners differ. The
+180-second cap applies to the whole qualification command.
 
-| Command | Result | Seconds |
+| Command | Result | Seconds (about) |
 |---|---|---|
 | `npm run typecheck` | pass | 17 |
 | `npm run qualify` (baseline) | pass | 25 |
-| `npm run qualify -- --target lease --target treasury --target reconciliation --target promotions` | pass, 196 checks | 96 of the 180-second cap |
+| `npm run qualify -- --target lease --target treasury --target reconciliation --target promotions` | pass, 197 distinct checks | about 90 to 120 of the 180-second cap, depending on host load |
 | parity checks (`check:policies`, `check:link-core`, `check:vectors`, addon ZIP) | pass | under 2 together |
 | `run_lua_suites.py --all-offline` | 41 suites pass | 23 |
 | Watcher suite with `OLYMPUS_REQUIRE_LUA=1` | 391 tests, none skipped | 61 |
