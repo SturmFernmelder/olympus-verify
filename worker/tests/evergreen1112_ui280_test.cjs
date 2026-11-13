@@ -108,9 +108,16 @@ const runUi280=String.raw`
  const page=await openPage(STAFF);await page.go('#/admin/launch-operations');
  const asked=MODULE_SRC!==null&&await supply(page);
  check('B1 the admin route loads the v234 view module as a member script',asked);
- await waitFor(()=>!!page.app.querySelector('#launch-motd229')||page.app.textContent.includes('could not be confirmed'),'real launch read settlement',8000);
+ // Round 5 build (13 Nov 2026): the real admin route answers only officer-operations-v235 now
+ // (site-launch229.ts handleDiscoveryOperations235), so the page also asks for the v235 reader; the fixture serves it.
+ const D_SRC_B=fs.readFileSync(path.join(process.env.UI280_STATIC_DIR||path.join(root,'public','static'),'launch-discovery235.js'),'utf8'),D_SEL_B='script[src="/static/launch-discovery235.js"]';
+ const supply235=pg=>{const u=pg.document.head.querySelector(D_SEL_B);if(u&&!pg.window.OlympusDiscovery235){vm.runInNewContext(D_SRC_B,{window:pg.window,Object,Array,JSON,String,Number,RegExp,Map,Set,Error},{filename:'launch-discovery235.js'});u.dispatchEvent(new Event('load'));}};
+ await waitFor(()=>{supply235(page);return !!page.app.querySelector('#launch-motd229')||page.app.textContent.includes('could not be confirmed')||!!page.app.querySelector('[data-launch234-held]');},'real launch read settlement',8000);
  const view=()=>page.app.querySelector('[data-launch234]');
- check('B2 the real Worker page (v234, held) renders: copy-only MOTD, plain holds, rank table not confirmed, no promotion',!!page.app.querySelector('#launch-motd229')&&!!view()&&!!page.app.querySelector('[data-launch234-hold="flagship-native-scope-unconfirmed"]')&&page.app.textContent.includes('The site is not set up to read the OLYMPUS PRIME roster.')&&!!page.app.querySelector('[data-launch234-ranks="unconfirmed"]')&&!page.app.querySelector('[data-launch-promotion229]'),page.app.textContent.slice(-900));
+ const realB2=await (await indexMod.default.fetch(new Request('https://guild.example/api/admin/launch-operations',{headers:{Origin:'https://guild.example','X-Olympus':'2',Cookie:await cookieFor(STAFF)}}),env({ASSETS:governanceAssets}),ctx)).json();
+ check('B2 the real Worker page (v235, held) renders through the v235 reader: copy-only MOTD, each hold once in plain words, rank table not confirmed, no promotion, no refusal',realB2.protocol==='officer-operations-v235'&&realB2.status==='held'&&!!page.document.head.querySelector(D_SEL_B)&&!!page.app.querySelector('#launch-motd229')&&!!view()&&!page.app.querySelector('[data-launch234-held]')&&!!page.app.querySelector('[data-launch234-hold="flagship-native-scope-unconfirmed"]')&&page.app.textContent.includes('The site is not set up to read the OLYMPUS PRIME roster.')
+  &&JSON.stringify(page.app.querySelectorAll('[data-launch234-hold]').map(li=>li.getAttribute('data-launch234-hold')))===JSON.stringify([...new Set(realB2.heldReasons)])&&page.app.querySelectorAll('[data-launch234-hold]').every(li=>!li.textContent.includes(li.getAttribute('data-launch234-hold'))&&!li.textContent.startsWith('Held for a reason'))
+  &&!!page.app.querySelector('[data-launch234-ranks="unconfirmed"]')&&!page.app.querySelector('[data-launch-promotion229]'),JSON.stringify({protocol:realB2.protocol,status:realB2.status,heldReasons:realB2.heldReasons}),page.app.textContent.slice(-900));
  let reads=[],dto=ready();page.intercept((url,init)=>{if(url.startsWith('/api/admin/launch-operations')){reads.push((init.method||'GET')+' '+url);return new Response(JSON.stringify(dto),{status:200});}return null;});
  await page.go('#/');await page.go('#/admin/launch-operations');
  await waitFor(()=>!!page.app.querySelector('[data-launch-promotion229]')||page.app.textContent.includes('could not be confirmed')||!!page.app.querySelector('[data-launch234-held]'),'ready page settlement',8000);
@@ -126,6 +133,10 @@ const runUi280=String.raw`
  check('B8 an unknown digest is held',await shown('unknown digest',Object.assign(ready(),{rankSchemeDigest:'d'.repeat(64)}),'unknown-digest'));
  check('B9 an unknown status is held',await shown('unknown status',Object.assign(ready(),{status:'paused'}),'unknown-status'));
  check('B10 a promotion row with an extra field is held',await shown('extra field',(()=>{const x=ready();x.promotions[0].intentToken='t.'+'0'.repeat(64);return x;})(),'unknown-row-shape'));
+ // Round 5 build: the v235 reader is loaded on this page now (B2), yet a v234 reply is still read by the strict reader
+ // alone: a v234 page in the rank-held shape (partial, no rank table) is refused, as it always was.
+ const rankHeld234=Object.assign(ready(),{status:'partial',rankProfile:null,rankSchemeDigest:null,rankNames:null,promotions:[],riskBuffer:[],heldReasons:['native-rank-scheme-unconfirmed'],held:[{guid:'Player-1-0001',name:'Synthetic Leader',reason:'native-rank-scheme-unconfirmed'}]});
+ check('B14 with the v235 reader loaded, a v234 reply is read only by the strict v234 reader: a v234 page in the rank-held shape is refused as before',!!page.window.OlympusDiscovery235&&await shown('v234 rank-held shape',rankHeld234,'malformed-rank-table')&&page.app.querySelector('[data-launch234-held]')?.textContent===page.window.OlympusLaunch234.assess(rankHeld234,null).text&&!page.app.querySelector('[data-launch235-rank-held]'),page.app.textContent.slice(-500));
  reads=[];page.intercept((url,init)=>{if(url.startsWith('/api/admin/launch-operations')){reads.push(url);return Promise.reject(new TypeError('the network dropped the answer'));}return null;});
  await page.go('#/');await page.go('#/admin/launch-operations');await waitFor(()=>page.app.textContent.includes('could not be confirmed'),'lost reply',8000);await new Promise(r=>setTimeout(r,1200));
  check('B11 a lost reply is shown as unconfirmed and is never resent on its own',page.app.textContent.includes('could not be confirmed')&&reads.length===1&&!page.app.querySelector('[data-launch-promotion229]'),String(reads.length));
@@ -674,6 +685,26 @@ const runUi280=String.raw`
    ];
    const wrongNeg=[...neg.map(([name,d,code])=>[name,admit(d),code]),...pairs].filter(([,v,code])=>v.ok!==false||v.code!==code||typeof v.text!=='string'||!v.text||/officer-operations|v23\d/.test(v.text));
    check('L3 the contract\'s negative pages (the Lua refusals, mirrored) and the cross-page cases are each refused with their own plain reason ('+(neg.length+pairs.length)+' cases)',wrongNeg.length===0,JSON.stringify(wrongNeg.map(([name,v,code])=>[name,code,v])));
+   // Review of 13 Nov 2026. Finding 1: a held v235 page (held229's shape, as held235 sends it) is admitted after a rank-held
+   // or a qualified page and ends the scan; as a first page it is a plain held page. Finding 3: a rank-held page's counts
+   // match its rows and a qualified page's space-buffer rows have the producer's shape. Finding 4: the restart sentence.
+   const heldPage=()=>Object.assign(RH(),{status:'held',snapshotId:null,snapshotAt:null,memberCount:null,guild:null,canonicalGuild:null,realm:null,scopeHash:null,held:[],invites:[],pageCursor:null,nextCursor:null,
+    scan:{id:null,startedAt:null,expiresAt:null},entitlements:{offset:0,pageSize:20,scanned:0,total:0,unscanned:0,retryAfterSeconds:null},heldReasons:['native-unguilded-proof-required','native-snapshot-unavailable','native-rank-scheme-unconfirmed','launch-read-window-exhausted']});
+   const endings=[['after a rank-held page',D.assess(heldPage(),copy('held1000-first'),20),true],['after a qualified page',D.assess(heldPage(),copy('qualified1000-first'),20),true],['as a first page',D.assess(heldPage(),null,0),false]];
+   const endWrong=endings.filter(([,v,ended])=>v.ok!==true||v.rankHeld!==null||(v.scanEnded===true)!==ended);
+   const R1000=()=>copy('held1000-offset20'),F1000=()=>copy('held1000-first'),Q1000=()=>copy('qualified1000-first');
+   const counts=[
+    ['a held row removed',(()=>{const x=R1000();x.held.pop();return x;})(),F1000()],['scanned 7 with 20 held rows',(()=>{const x=R1000();x.entitlements.scanned=7;return x;})(),F1000()],
+    ['unscanned +20',(()=>{const x=R1000();x.entitlements.unscanned+=20;return x;})(),F1000()],['member count 1001 on a first page',Object.assign(F1000(),{memberCount:1001}),null],
+    ['export id -1 on a first page',Object.assign(F1000(),{snapshotId:-1}),null],['export id missing on a first page',(()=>{const x=F1000();delete x.snapshotId;return x;})(),null],
+    ['no next-page link with members left',Object.assign(F1000(),{nextCursor:null}),null],['page size 21',(()=>{const x=F1000();x.entitlements.pageSize=21;return x;})(),null],
+   ].map(([name,d,first])=>[name,D.assess(d,first,first?20:0),'page-counts']);
+   const risks=[['a number',7],['text','x'],['a list',[]],['an empty object',{}],['level 0',r=>({...r,level:0})],['an extra field',r=>({...r,targetSlot:7})],['another reason',r=>({...r,reason:'knight-veteran'})],['slot 8',r=>({...r,currentSlot:8})],['not review-only',r=>({...r,reviewOnly:false})],['minus one day offline',r=>({...r,lastOnlineDays:-1})]]
+    .map(([name,change])=>{const x=Q1000();x.riskBuffer[0]=typeof change==='function'?change(x.riskBuffer[0]):change;return ['a space-buffer row: '+name,D.assess(x,null,0),'risk-row-shape'];});
+   const shapeWrong=[...counts,...risks].filter(([,v,code])=>v.ok!==false||v.code!==code||!v.text);
+   const restart=D.restartText?D.restartText('expired_or_invalid_launch_cursor'):'';
+   check('L3b a held v235 page ends a rank-held or qualified scan instead of being refused (and is a plain held page when read first); '+(counts.length+risks.length)+' count and space-buffer changes are refused; the expired-or-invalid link sentence names both',endWrong.length===0&&shapeWrong.length===0
+    &&restart==='The link to this page has expired or is no longer accepted. Start again from the first page.'&&D.assess(F1000(),null,0).ok===true&&D.assess(Q1000(),null,0).ok===true,JSON.stringify({endWrong,shapeWrong,restart}));
   } else for(const name of ['L1','L2','L3'])check(name+' (v235 module unavailable)',false);
 
   // The real admin route, with the page clock at each served page's fetch time (the pages are captured, not fresh).
@@ -686,6 +717,8 @@ const runUi280=String.raw`
   const outcome=(p=pg)=>{const held=p.app.querySelector('[data-launch234-held]');return held?'held:'+held.getAttribute('data-launch234-held'):p.app.textContent.includes('Current launch evidence could not be confirmed')?'unconfirmed':p.app.querySelector('#launch-motd229')?'shown':'other';};
   const nothingDrawn=()=>!pg.app.querySelector('#launch-motd229')&&!pg.app.querySelector('[data-launch-invite233]')&&!pg.app.querySelector('[data-launch-promotion229]')&&!pg.app.querySelector('[data-launch-advisory229]')&&!pg.app.querySelector('[data-launch235-rank-held]');
   const btn=t=>byText(pg.app,'button',t);
+  // Item 6 (13 Nov 2026): a rank-held page names its continuation "Load next 20 roster members"; every other page keeps the v234 label.
+  const nextBtn=()=>btn('Load next 20 role checks')||btn('Load next 20 roster members');
   const clickL=async el=>{if(!el)return false;el.click();for(let i=0;i<6;i++)await settle();await waitFor(()=>settledL(pg)&&!pg.app.textContent.includes('Reading at most 20'),'after click',4000);for(let i=0;i<3;i++)await settle();return true;};
   const singles=Object.keys(P).filter(name=>!name.endsWith('offset20'));
   const shownAll=[];for(const name of singles){await openL(copy(name));shownAll.push([name,outcome(),reads.length]);}
@@ -693,7 +726,7 @@ const runUi280=String.raw`
   const scans=[];
   for(const kind of ['qualified1000','held1000']){
    const first=copy(kind+'-first'),next=copy(kind+'-offset20');await openL(first,next);
-   const shownFirst=outcome()==='shown',more=btn('Load next 20 role checks');await clickL(more&&!more.hidden?more:null);
+   const shownFirst=outcome()==='shown',more=nextBtn();await clickL(more&&!more.hidden?more:null);
    const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
    scans.push({kind,shownFirst,second:outcome(),reads:reads.length,sameCursor:sent===first.nextCursor,pages:pg.app.querySelectorAll('button').filter(b=>b.textContent==='Recheck this page').length,progress:pg.app.querySelector('[data-launch-progress229]')?.textContent||''});
   }
@@ -728,7 +761,7 @@ const runUi280=String.raw`
   const q234=()=>as234(copy('qualified1000-first'));
   for(const [label,make,want] of [['v234 link of 4,096',()=>Object.assign(q234(),{nextCursor:shaped(4096)}),'shown'],['v234 link of 4,097',()=>Object.assign(q234(),{nextCursor:shaped(4097)}),'unconfirmed'],['v234 link with a plus sign',()=>Object.assign(q234(),{nextCursor:'A+'+shaped(300).slice(2)}),'unconfirmed'],['v234 link without a MAC',()=>Object.assign(q234(),{nextCursor:'AAAA'}),'unconfirmed'],['v234 link that is a number',()=>Object.assign(q234(),{nextCursor:4096}),'unconfirmed'],
    ['v235 link of 8,192',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8192)}),'shown'],['v235 link of 8,193',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8193)}),'unconfirmed'],['v235 link with a slash',()=>Object.assign(copy('held1000-first'),{nextCursor:'A/'+shaped(300).slice(2)}),'unconfirmed'],['v235 link with an upper-case MAC',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(300).slice(0,236)+'A'.repeat(64)}),'unconfirmed']]){
-   const d=make();await openL(d);const o=outcome(),more=btn('Load next 20 role checks'),visible=!!more&&!more.hidden;
+   const d=make();await openL(d);const o=outcome(),more=nextBtn(),visible=!!more&&!more.hidden;
    if(visible)await clickL(more);const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
    nextCases.push({label,want,o,visible,reads:reads.length,sent:sent===null?null:sent===d.nextCursor,drawn:!nothingDrawn()});
   }
