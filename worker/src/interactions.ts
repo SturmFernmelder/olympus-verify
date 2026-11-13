@@ -540,7 +540,7 @@ const BAN_RANK_REASONS: Record<string, string> = {
   never_dispatched: "the removal was stopped before it was sent",
   refused_403: "Discord refused the removal (403)",
   refused_404: "Discord reported the member or the role as missing (404)",
-  rate_limited_429: "Discord rate-limited the removal; the role sweep tries again",
+  rate_limited_429: "Discord rate-limited the removal; the role sweep tries again, about every 30 minutes",
   delete_outcome_unknown: "Discord's answer was lost",
   confirmation_unknown: "the confirming member read failed",
   effect_not_confirmed: "the role was still present after Discord accepted the removal",
@@ -566,6 +566,15 @@ const BAN_RANK_HOLDS: Record<string, string> = {
 /** Past this length the role list gives way to counts, so the reply, the staff card and the log line all stay inside
  * Discord's 2,000 characters next to a 400-character reason and the member summary (repair round, 12 Nov 2026). */
 const BAN_RANK_NOTE_MAX = 900;
+/** Successor (12 Nov 2026): the role sweep's banned lane runs about every 30 minutes and removes one rank role per run,
+ * so n deferred roles take about n half-hours through the sweep alone (18 roles: about nine hours). */
+function sweepPace1112(n: number): string {
+  const minutes = n * 30;
+  return minutes < 60 ? "about 30 minutes" : minutes === 60 ? "about an hour" : `about ${Number.isInteger(minutes / 60) ? minutes / 60 : (minutes / 60).toFixed(1)} hours`;
+}
+/** Successor (12 Nov 2026): a role whose removal got no answer stays blocked for this member, unban included, until an
+ * attended resolution exists; the reply says so instead of implying the bot will finish it. */
+const BAN_RANK_UNKNOWN_HOLD = "Nothing is sent again for these roles, and the bot will not add or remove them for this member, even after an unban, until an attended resolution exists. Check the member in Discord.";
 /** Staff-facing summary: every role removed, held, unknown or left for the sweep, and why (owner ruling, 12 Nov 2026).
  * Roles that share a reason are listed together, so the reason text appears once. */
 function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): string {
@@ -579,8 +588,9 @@ function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): st
   const lines: string[] = [];
   if (r.removed.length) lines.push(`Rank roles removed (confirmed absent): ${r.removed.map(role).join(", ")}.`);
   if (r.held.length) lines.push(`Rank roles not removed: ${grouped(r.held)}.${r.held.some((x) => !["removal_cause_withdrawn", "rate_limited_429"].includes(x.reason)) ? " Remove them in Discord by hand if they must go now." : ""}`);
-  if (r.unknown.length) lines.push(`Rank roles with an unconfirmed result: ${grouped(r.unknown)}. Nothing is sent again; check the member in Discord.`);
-  if (r.deferred.length) lines.push(`Rank roles left for the role sweep: ${r.deferred.map(role).join(", ")}. This command's Discord requests ran out or Discord asked it to wait; the role sweep removes one per run.`);
+  if (r.unknown.length) lines.push(`Rank roles with an unconfirmed result: ${grouped(r.unknown)}. ${BAN_RANK_UNKNOWN_HOLD}`);
+  // Successor (12 Nov 2026): the command removes every role it can at once; the sweep is only the safety net.
+  if (r.deferred.length) lines.push(`Rank roles left for the role sweep: ${r.deferred.map(role).join(", ")}. This command's Discord requests ran out or Discord asked it to wait. The role sweep is only a safety net: it removes one rank role per run and runs about every 30 minutes, so ${r.deferred.length === 1 ? "this role" : `these ${r.deferred.length} roles`} can take ${sweepPace1112(r.deferred.length)} or longer.`);
   if (r.raced) lines.push("The ban was lifted while a removal was in flight. Removed roles are not given back automatically.");
   if (!lines.length) {
     if (r.reason === "no_rank_role_present") lines.push("They held no Olympus rank role.");
@@ -588,7 +598,7 @@ function banRankNote1112(r: import("./role-settlements").BanRankOutcome1112): st
   }
   const note = "\n" + lines.join("\n");
   if (note.length <= BAN_RANK_NOTE_MAX) return note;
-  return `\nRank roles: ${r.removed.length} removed (confirmed absent), ${r.held.length} not removed, ${r.unknown.length} with an unconfirmed result, ${r.deferred.length} left for the role sweep (one per run). Check the member's roles in Discord for the details.`;
+  return `\nRank roles: ${r.removed.length} removed (confirmed absent), ${r.held.length} not removed, ${r.unknown.length} with an unconfirmed result, ${r.deferred.length} left for the role sweep (one per run, about every 30 minutes${r.deferred.length ? `; ${sweepPace1112(r.deferred.length)} or longer` : ""}).${r.unknown.length ? " The bot will not add or remove the unconfirmed roles for this member, even after an unban, until an attended resolution exists." : ""} Check the member's roles in Discord for the details.`;
 }
 
 async function runAdminBan(env: Env, actor: string, target: string, reason: string, lane: LaneCapture | undefined, defer: Defer | undefined, roleDispatch: BetaRoleDispatch, removalDispatch: BetaRoleDispatch['capture'], targetCapture: Awaited<ReturnType<typeof readPrivacySubject>> | undefined): Promise<Response> {
