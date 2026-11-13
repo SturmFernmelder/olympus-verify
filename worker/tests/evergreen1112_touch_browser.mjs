@@ -116,7 +116,7 @@ async function sweep() {
         if (DESKTOP.includes(w) && (who === 'member' || who === 'owner')) {
           await cdp.send('Page.navigate', { url: `${BASE}/#/` }); await idle(st); await sleep(800);
           const d = { persona: who, width: w, home: await ev(DENSITY_HOME), tables: {} };
-          if (who === 'owner') for (const t of ['admin/applications', 'admin/audit', 'admin/donation-ledger']) { await go(t, 1100); d.tables[t] = await ev(DENSITY_TABLE); }
+          if (who === 'owner') for (const t of ['admin/applications', 'admin/audit', 'admin/community']) { await go(t, 1100); d.tables[t] = await ev(DENSITY_TABLE); }
           result.density.push(d);
         }
       }
@@ -130,7 +130,10 @@ async function sweep() {
 }
 
 // ---------------------------------------------------------------- report and assertions over saved sweeps
-const load = f => JSON.parse(fs.readFileSync(f, 'utf8'));
+// 'a.json+b.json' joins sweeps: pages and errors add up; a later density row replaces an earlier one for the same persona and width
+// (a density-only run is a sweep with --routes none).
+const load = spec => spec.split('+').map(f => JSON.parse(fs.readFileSync(f, 'utf8'))).reduce((a, b) => ({ ...a, pages: [...a.pages, ...b.pages], errors: [...a.errors, ...b.errors],
+  density: [...a.density.filter(d => !b.density.some(x => x.persona === d.persona && x.width === d.width)), ...b.density] }));
 // One row per distinct control (region, selector, text): the routes, personas and widths it was seen on, and its smallest size.
 function group(sweepResult) {
   const m = new Map();
@@ -172,7 +175,7 @@ function report(beforeFile, afterFile) {
     const row = (k, x, y) => out.push(`| ${d.persona} | ${d.width} | ${k} | ${cell(x)} | ${cell(y)} | ${x === y ? 'yes' : 'NO'} |`);
     row('top bar height px', o.home.topbar, d.home.topbar);
     row('Home first screen (blocks, top+height)', `${o.home.firstScreen.length} blocks, last ${o.home.firstScreen.at(-1) || '-'}`, `${d.home.firstScreen.length} blocks, last ${d.home.firstScreen.at(-1) || '-'}`);
-    row('Home first screen identical', 'reference', JSON.stringify(o.home.firstScreen) === JSON.stringify(d.home.firstScreen) ? 'identical' : 'differs');
+    { const same = JSON.stringify(o.home.firstScreen) === JSON.stringify(d.home.firstScreen); row('Home first screen, every block (top+height)', o.home.firstScreen.length + ' blocks', same ? o.home.firstScreen.length + ' blocks' : 'differs'); }
     for (const t of Object.keys(d.tables)) {
       const x = o.tables[t], y = d.tables[t];
       row(`${t} table height px (rows)`, x ? `${x.height} (${x.rows})` : 'none', y ? `${y.height} (${y.rows})` : 'none');
