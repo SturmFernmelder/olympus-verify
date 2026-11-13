@@ -1,4 +1,9 @@
 -- .229 launch queue safety: real module, synthetic native APIs only.
+-- Fixture moved to officer-operations-v234 (Stage 2 addon280, 13 Nov 2026):
+-- discovery pages carry the 12 November rank table and a signed discovery
+-- control and stay advisory; every promotion click goes through a sealed
+-- selected Directive intent (f.directive), as the product now requires.
+local D = assert(loadfile("directive_fixture280.lua"))()
 local passed, failed = 0, 0
 local function check(label, yes)
   if yes then passed = passed + 1; print("PASS " .. label) else failed = failed + 1; print("FAIL " .. label) end
@@ -7,13 +12,13 @@ local function fixture(fallback)
   local e = setmetatable({}, { __index = _G }); e._G = e
   setfenv(assert(loadfile("wow_mock.lua")), e)()
   local f = { env = e, guild = "OLYMPUS PRIME", realm = "Native Realm", promote = 0, direct = 0, legacy = 0, restricted = 0, motd = 0, invites = 0, removals = 0 }
+  f.id, f.actor = "Player-1-0000BBBB", "Player-1-0000AAAA"
   e.OlympusVerifyConfig = { membershipOnly = true, holdNote = "hold", secret = "synthetic-never-print-secret" }
   e.GetGuildInfo = function() return f.guild, "High Council", 1 end
   e.GetRealmName = function() return f.realm end
-  e.UnitGUID = function() return "Player-1-0000AAAA" end
+  e.UnitGUID = function() return f.actor end
   e.GetGuildRosterShowOffline = function() return true end
   e.InCombatLockdown = function() return false end
-  e.GuildControlGetRankName = function(order) return order==7 and "Veteran" or order==9 and "Member" or "Other" end
   e.CanGuildPromote, e.CanEditMOTD = function() return true end, function() return true end
   e.issecretvalue = function() return false end
   e.ROSTER = {
@@ -41,23 +46,46 @@ local function fixture(fallback)
   e.C_GuildInfo.Invite = function() f.invites = f.invites + 1 end
   e.C_GuildInfo.Uninvite = function() f.removals = f.removals + 1 end
   setfenv(assert(loadfile("../OlympusVerify/Libs/OlympusHmac.lua")), e)("OlympusVerify")
-  local h = e.OlympusHmac
-  f.page = { protocol = "officer-operations-v233", fetchedAt = e.NOW, expiresAt = e.NOW + 60, status = "ready",
+  f.names = D.ranks(e)
+  f.scope = D.scope(e, f.guild, f.realm)
+  f.page = D.stamp(e, { fetchedAt = e.NOW, expiresAt = e.NOW + 60, status = "ready",
     snapshotId = 12, snapshotAt = e.NOW - 10, guild = f.guild, canonicalGuild = "OLYMPUS PRIME", realm = f.realm,
     scan = { id = string.rep("a",32), startedAt = e.NOW, expiresAt = e.NOW + 590 },
     entitlements = { offset = 0, total = 20 },
-    scopeHash = h.sha256hex("native-scope|1|" .. f.guild .. "|" .. f.realm):sub(1, 16), invites = {},
-    promotions = {{ name = "Candidate", guid = "Player-1-0000BBBB", currentSlot = 9, targetSlot = 8, targetName = "Member", reason = "verified-initiate" }},
+    scopeHash = f.scope, invites = {},
+    promotions = {{ name = "Candidate", guid = "Player-1-0000BBBB", currentSlot = 9, targetSlot = 7, targetName = "Member", reason = "verified-initiate" }},
     riskBuffer = {}, held = {}, motd = { short = "Guild rules and Discord: use Get my code.", bytes = 40, maxBytes = 128 },
-    actions = { automatic = false, roleGrants = false, removals = false, requiresNativeRecheck = true } }
+    actions = { automatic = false, roleGrants = false, removals = false, requiresNativeRecheck = true } })
   f.page.motd.bytes = #f.page.motd.short
-  e.OlympusLaunchQueue = { version = 2, controlId = "loaded", scanComplete = true, pages = { f.page } }
+  e.OlympusLaunchQueue = { version = 3, scanComplete = true, pages = { f.page } }
   e.OlympusVerifyDB = {}
+  f.discovery = D.signDiscovery(e, e.OlympusLaunchQueue, f.actor, f.scope)
   e.OlympusVerifyAPI = { Sync = function() f.syncs = (f.syncs or 0) + 1 end }
   setfenv(assert(loadfile("../OlympusVerify/OlympusVerifyLaunch229.lua")), e)("OlympusVerify")
   f.q = e.OlympusLaunch229
   f.emit = function(event, ...) f.q.Events:GetScript("OnEvent")(f.q.Events, event, ...) end
   f.emit("GUILD_ROSTER_UPDATE")
+  -- A completed selected Directive read for the Candidate (Initiate path 9>8>7,
+  -- or the Knight path to Veteran 5). o.ack>0 is a server-acknowledged next step
+  -- of the original intent; pass o.control from Q.Select for its confirmations.
+  f.directive=function(o)
+    o=o or {}
+    local spec={guid=o.guid or f.id,name=o.name or "Candidate",start=o.start or 9,final=o.knight and 5 or 7,ack=o.ack or 0,origin=o.origin,intentId=o.intentId}
+    local data,page=D.publish(e,{guild=f.guild,realm=f.realm,actor=f.actor,scopeHash=f.scope,control=o.control,
+      specs={spec},held=o.held,snapshotId=o.snapshotId or 12,snapshotAt=o.snapshotAt or e.NOW-10,ttl=o.ttl,total=o.total or 20,context=o.context})
+    f.sel,f.sp,f.srow=data,page,page.promotions[1]
+    if spec.ack==0 then f.intent=f.srow.intent end
+    return data,page,f.srow
+  end
+  -- Next owned step: Q.Select (fresh roster, confirmed record) writes the
+  -- confirmations control; the server answers with the same sealed intent.
+  f.continue=function(ack)
+    local p=f.intent
+    assert(f.q.Select(f.id),"selected continuation read")
+    return f.directive({knight=p.finalSlot==5,ack=ack,start=p.startSlot,control=e.OlympusVerifyDB.launchControl,snapshotId=p.originSnapshotId+ack,
+      snapshotAt=e.NOW,origin={snapshotId=p.originSnapshotId,snapshotAt=p.originSnapshotAt,context=p.originContext,issued=p.issuedAt,expires=p.expiresAt},
+      intentId=p.id,context=string.rep("e",31)..tostring(ack)})
+  end
   f.click=function(id)
     local before=f.promote
     local button=e.CreateFrame("Button",nil,e.UIParent,"SecureActionButtonTemplate,UIPanelButtonTemplate")
@@ -78,7 +106,7 @@ do
     for key, value in pairs(f.page) do page[key] = value end
     page.entitlements, page.promotions = {offset=(pageIndex-1)*20,total=80}, {}
     for item = 1, 2 do local n = (pageIndex-1)*2+item
-      page.promotions[item] = {name="Mixed candidate "..n,guid=string.format("Player-1-%08X",100+n),currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}
+      page.promotions[item] = {name="Mixed candidate "..n,guid=string.format("Player-1-%08X",100+n),currentSlot=9,targetSlot=7,targetName="Member",reason="verified-initiate"}
     end
     pages[pageIndex] = page
   end
@@ -102,8 +130,10 @@ do
   check("page2 one second later does not require shared action expiry", f.q.Current() ~= nil)
   f.env.NOW = f.env.NOW + 60; f.emit("GUILD_ROSTER_UPDATE")
   check("expired candidate stays visible advisory without protected action", #f.q.Current().promotions == 1 and not f.click("1") and f.promote == 0)
-  f.page.fetchedAt, f.page.expiresAt = f.env.NOW, f.env.NOW + 60
-  check("fresh candidate page admits hardware action while other page is stale", f.click("1") and f.promote == 1)
+  -- v233 renewed the discovery page to act; v234 acts only on a fresh selected intent.
+  local fetched,expires=f.page.fetchedAt,f.page.expiresAt;f.directive()
+  check("fresh selected Directive intent admits one hardware action while the discovery page stays stale", f.click("1") and f.promote == 1
+    and f.page.fetchedAt == fetched and f.page.expiresAt == expires and f.q.Current().stalePages == 1)
 end
 do
   local f = fixture(); local original, start = f.page, f.env.NOW
@@ -116,19 +146,20 @@ do
     p.entitlements, p.promotions = {offset=(index-1)*20,total=1000}, {}
     pages[index] = p
   end
-  pages[3].promotions = {{name="Candidate",guid="Player-1-0000BBBB",currentSlot=9,targetSlot=8,targetName="Member",reason="verified-initiate"}}
+  pages[3].promotions = {{name="Candidate",guid="Player-1-0000BBBB",currentSlot=9,targetSlot=7,targetName="Member",reason="verified-initiate"}}
   f.env.OlympusLaunchQueue.pages = pages; f.env.NOW = start+260; f.emit("GUILD_ROSTER_UPDATE")
   check("full 50-page discovery retains expired pages as advisory", f.q.Current() and #f.q.Current().pages == 50 and not f.click("1") and f.promote == 0)
   check("naturally partial early pages do not contradict completed discovery", f.q.Current().scanComplete and not f.q.Current().partial and f.q.Current().stalePages > 0)
-  pages[3].fetchedAt, pages[3].expiresAt = start+260, start+320
-  check("50-page scan recheck renews only selected page eligibility", f.click("1") and f.promote == 1 and pages[1].expiresAt == start+60)
+  -- v233 renewed page 3 to act; v234 acts only on the target's own selected intent.
+  f.directive()
+  check("50-page discovery: the selected intent admits its own target and renews no discovery page", f.click("1") and f.promote == 1 and pages[1].expiresAt == start+60 and pages[3].expiresAt == start+70)
 end
 do
-  local f = fixture(); f.q.Show(); f.q.tab="initiates"; f.q.Show()
+  local f = fixture(); f.directive(); f.q.Show(); f.q.tab="initiates"; f.q.Show()
   check("opening actual native queue frame is read only", f.q.window:IsShown() and f.promote == 0 and f.invites == 0)
   f.q.rowButtons[1]:Click()
   check("native queue button makes exactly one hardware request", f.promote == 1 and f.legacy == 0)
-  f = fixture()
+  f = fixture(); f.directive()
   check("explicit scan writes domain separated local control and reloads once", f.q.Control("scan") and f.syncs == 1 and f.promote == 0 and f.invites == 0)
   local c, h = f.env.OlympusVerifyDB.launchControl, f.env.OlympusHmac
   local message = table.concat({"launch-control","1",c.action,c.id,tostring(c.observedAt),c.scopeHash,c.guid,tostring(c.offset)},"|")
@@ -139,27 +170,34 @@ end
 do
   local f = fixture()
   check("dated raw-scope Prime projection is admitted without any action", f.q.Current() ~= nil and f.promote == 0 and f.legacy == 0 and f.invites == 0 and f.removals == 0)
+  check("a fresh signed discovery recommendation alone never dispatches a click", not f.q.Current().actionHeld and not f.click("Player-1-0000BBBB") and f.promote == 0
+    and f.env.OlympusVerifyDB.launchPromotionAttempts == nil)
+  f.directive()
   check("GUID hardware selection uses name-only one-rank API without restricted assignment", f.click("Player-1-0000BBBB") and f.promote == 1 and f.lastName == "Candidate-Forever" and f.env.ROSTER[2].rankIndex==8 and f.restricted==0)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed target rank cannot promote again", not f.click("Player-1-0000BBBB") and f.promote == 1)
+  check("confirmed first step cannot promote again from the same selected intent", not f.click("Player-1-0000BBBB") and f.promote == 1)
 end
 do
-  local f = fixture(); f.page.promotions[1].targetSlot, f.page.promotions[1].targetName, f.page.promotions[1].reason = 6, "Veteran", "knight-veteran"
+  local f = fixture(); f.directive({knight=true})
   check("Knight Veteran projection requests only the first rank on its named target path", f.click("1") and f.promote == 1 and f.env.ROSTER[2].rankIndex==8 and f.restricted==0)
 end
 do
-  local f = fixture(true)
+  local f = fixture(true); f.directive()
   check("missing namespaced Promote still uses the secure player command", f.click("1") and f.promote == 1 and f.legacy == 0 and f.env.ROSTER[2].rankIndex == 8)
   check("fallback waits for a newer native roster before another click", not f.click("1") and f.promote == 1 and f.legacy == 0)
   f.emit("GUILD_ROSTER_UPDATE")
-  check("confirmed Member target does not send another fallback", not f.click("1") and f.promote == 1 and f.legacy == 0 and f.env.ROSTER[2].rankIndex == 8)
-  f.emit("GUILD_ROSTER_UPDATE")
-  check("bounded fallback stops at Member and never skips further", not f.click("1") and f.promote == 1 and f.legacy == 0)
+  check("confirmed Alt step does not send another fallback without an acknowledged intent", not f.click("1") and f.promote == 1 and f.legacy == 0 and f.env.ROSTER[2].rankIndex == 8)
+  f.env.NOW=f.env.NOW+1;f.continue(1)
+  check("acknowledged second intent takes exactly one more rank, Alt to Member", f.click("1") and f.promote == 2 and f.legacy == 0 and f.env.ROSTER[2].rankIndex == 7)
+  f.env.NOW=f.env.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("confirmed Member target does not send another fallback", not f.click("1") and f.promote == 2 and f.legacy == 0 and f.env.ROSTER[2].rankIndex == 7)
+  f.env.NOW=f.env.NOW+1;f.emit("GUILD_ROSTER_UPDATE")
+  check("bounded fallback stops at Member and never skips further", not f.click("1") and f.promote == 2 and f.legacy == 0)
 end
 for _, case in ipairs({ "expiry", "future", "scope", "rank", "permission", "assignment", "guid", "duplicate", "preview", "combat", "invite" }) do
-  local f = fixture()
+  local f = fixture(); f.directive()
   if case == "expiry" then f.env.NOW = f.env.NOW + 60
-  elseif case == "future" then f.page.fetchedAt, f.page.expiresAt = f.env.NOW + 6, f.env.NOW + 66
+  elseif case == "future" then f.sp.fetchedAt, f.sp.expiresAt = f.env.NOW + 6, f.env.NOW + 66
   elseif case == "scope" then f.guild = "Olympus I"
   elseif case == "rank" then f.env.ROSTER[2].rankIndex = 8
   elseif case == "permission" then f.env.CanGuildPromote = function() return false end
@@ -168,18 +206,18 @@ for _, case in ipairs({ "expiry", "future", "scope", "rank", "permission", "assi
   elseif case == "duplicate" then f.env.ROSTER[2].guid = f.env.ROSTER[1].guid
   elseif case == "preview" then f.env.OlympusVerifyUI = { preview = {} }
   elseif case == "combat" then f.env.InCombatLockdown = function() return true end
-  elseif case == "invite" then f.page.invites = {{name="Unknown Guild"}} end
+  elseif case == "invite" then f.sp.invites = {{name="Unknown Guild"}} end
   check(case .. " holds all protected actions", not f.click("1") and f.promote == 0 and f.legacy == 0 and f.invites == 0 and f.removals == 0)
 end
 do
-  local f = fixture(); f.blockPromote = true
+  local f = fixture(); f.directive(); f.blockPromote = true
   check("known blocked name API retains unknown custody without fallback", not f.click("1") and f.promote == 1 and f.legacy == 0 and f.env.OlympusVerifyDB.launchPromotionAttempts["Player-1-0000BBBB"].state=="unknown")
   check("blocked API cannot repeat in the same native generation", not f.click("1") and f.legacy == 0)
   f.emit("GUILD_ROSTER_UPDATE")
   check("a newer roster cannot clear an unobserved blocked attempt", not f.click("1") and f.promote == 1 and f.legacy == 0)
 end
 do
-  local f = fixture(); f.unknownPromote = true
+  local f = fixture(); f.directive(); f.unknownPromote = true
   check("unknown native action outcome is held", not f.click("1") and f.promote == 1)
   f.emit("GUILD_ROSTER_UPDATE")
   check("a fresh roster does not silently retry an unknown action", not f.click("1") and f.promote == 1 and f.legacy == 0)
@@ -193,9 +231,9 @@ do
   check("unknown MOTD outcome remains spent", not f.q.Motd("set") and not f.q.Motd("set") and f.motd == 1)
 end
 do
-  local f = fixture(); f.q.Current(); f.emit("PLAYER_GUILD_UPDATE", "player")
+  local f = fixture(); f.directive(); f.q.Current(); f.emit("PLAYER_GUILD_UPDATE", "player")
   check("same native identity event invalidates roster freshness without a false scope latch", f.q.Current() ~= nil and not f.q.scopeChanged and not f.click("1") and f.promote == 0)
-  f = fixture(); f.env.NOW = f.env.NOW + 16
+  f = fixture(); f.directive(); f.env.NOW = f.env.NOW + 16
   check("stale native roster refreshes without promoting", not f.click("1") and f.env.ROSTER_ASKS == 1 and f.promote == 0)
 end
 do
@@ -218,18 +256,21 @@ do
   check("four officer tabs are present and opening them is read only",f.q.tabButtons.invites and f.q.tabButtons.knights and f.q.tabButtons.initiates and f.q.tabButtons.buffer and f.promote==0 and f.invites==0 and f.removals==0)
   f.q.tab="invites";check("unknown unguilded invite queue never dispatches",not f.q.NextAction() and f.invites==0)
   f.q.tab="buffer";check("purge Next action is native review only",not f.q.NextAction() and f.removals==0)
+  f.directive()
   f.q.tab="initiates";check("Next officer action opens a read-only secure confirmation",f.q.NextAction() and f.promote==0 and f.q.promotionConfirm:IsShown())
   f.q.promotionConfirmButton:Click()
   check("explicit confirmation requests one secure player promotion",f.promote==1 and f.lastName=="Candidate-Forever" and f.direct==0 and f.legacy==0 and f.restricted==0)
-  f.emit("GUILD_ROSTER_UPDATE");check("Next action skips confirmed completed native target",not f.q.NextAction() and f.promote==1)
+  f.emit("GUILD_ROSTER_UPDATE");check("Next action skips the confirmed step until a new acknowledged intent",not f.q.NextAction() and f.promote==1)
 end
-for _,case in ipairs({"protocol","targetName","oldSlot7","oldSlot5","wrongCurrent","nativeTargetName","missingNativeTargetName"}) do
-  local f=fixture()
-  if case=="protocol" then f.page.protocol="launch-operations-v1"
-  elseif case=="targetName" then f.page.promotions[1].targetName="Veteran"
-  elseif case=="oldSlot7" then f.page.promotions[1].targetSlot=7
-  elseif case=="oldSlot5" then f.page.promotions[1].targetSlot=5
-  elseif case=="wrongCurrent" then f.page.promotions[1].currentSlot=8
+-- The retired v233 target slots (Member 8, Veteran 6) are the neighbours of the
+-- current targets; each stays refused with a matching sealed final slot.
+for _,case in ipairs({"protocol","targetName","v233MemberSlot8","v233VeteranSlot6","wrongCurrent","nativeTargetName","missingNativeTargetName"}) do
+  local f=fixture();f.directive()
+  if case=="protocol" then f.sp.protocol="launch-operations-v1"
+  elseif case=="targetName" then f.srow.targetName="Veteran"
+  elseif case=="v233MemberSlot8" then f.srow.targetSlot=8;f.srow.intent.finalSlot=8
+  elseif case=="v233VeteranSlot6" then f.srow.targetSlot,f.srow.targetName,f.srow.reason=6,"Veteran","knight-veteran";f.srow.intent.finalSlot,f.srow.intent.reason=6,"knight-veteran"
+  elseif case=="wrongCurrent" then f.srow.currentSlot=8
   elseif case=="nativeTargetName" then f.env.GuildControlGetRankName=function() return "Officer" end
   else f.env.GuildControlGetRankName=nil end
   check(case.." holds without a protected request",not f.click("1") and f.promote==0 and f.legacy==0)
