@@ -586,6 +586,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     next.focus(); input.dispatchEvent(new Event("focusout", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 500));
     check(".177 leaving before the queued lookup cancels its debounce without a late request or popup reopen", requests.filter(([path]) => path.startsWith("/api/search?")).length === searchesBeforeLeaving && picker.querySelector(".list").hidden && staff.document.activeElement === next);
+    // CL2-014 (our a6f591d, 12 Nov 2026): the appointed-role pickers and #appointed-names-ok moved to Admin -> Appointed roles,
+    // so the .177 filter-change check is repeated there, on an appointed-role picker and against that page's own consent box.
+    const ap177 = await openPage(STAFF), ap177Requests = [];
+    ap177.before((pathname, init) => { ap177Requests.push([pathname, (init && init.method) || "GET"]); return false; });
+    await ap177.go("#/admin/appointments");
+    await waitFor(() => !!ap177.app.querySelector("#appointed-names-ok") && !!ap177.app.querySelector('.appointed-row .picker input[role="combobox"]'), ".177 Appointed roles picker");
+    ap177.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { siteProfilesVisible: true, results: [{ id: OTHER, label: "On site", shown: "On site", onSite: true, appointmentStatus: "eligible" }, { id: "123456789012345678", label: "Discord only", shown: "Discord only", onSite: false, appointmentStatus: "eligible" }] } : null);
+    const apInput177 = ap177.app.querySelector('.appointed-row .picker input[role="combobox"]'), apPicker177 = apInput177.closest(".picker"), apFilter177 = apPicker177.querySelector('.list-tools input[type="checkbox"]');
+    apInput177.value = "fixture"; apInput177.focus(); fire(apInput177, "input");
+    await waitFor(() => apPicker177.querySelectorAll('[role="option"]').length === 2, ".177 Appointed roles picker results");
+    apFilter177.focus(); apInput177.dispatchEvent(new Event("focusout", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    apFilter177.checked = true; fire(apFilter177, "change");
+    check(".177 (Appointed roles) native checkbox change filters existing results without replacing focus, ticking the page's consent box or issuing a save", apPicker177.querySelectorAll('[role="option"]').length === 1 && apPicker177.textContent.includes("On site") && !apPicker177.textContent.includes("Discord only") && ap177.document.activeElement === apFilter177 && !apPicker177.querySelector(".list").hidden && !ap177.app.querySelector("#appointed-names-ok").checked && ap177Requests.length > 0 && ap177Requests.every(([, method]) => method === "GET"));
     const formatting = APP_JS.slice(APP_JS.indexOf("  const DT ="), APP_JS.indexOf("  const M ="));
     const relative = new Function("nowSec", formatting + "\nreturn ago;")(() => 2000000000);
     check(".177 real relative-date formatter uses singular day and preserves adjacent time bands", relative(2000000000 - 86400) === "1 day ago" && relative(2000000000 - 2 * 86400) === "2 days ago" && relative(2000000000 - 60) === "1 min ago" && relative(2000000000 - 3600) === "1 h ago");
@@ -1592,6 +1606,8 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   // CL2-134 (our a6f591d, 12 Nov 2026): the directory's crafting panel is gone; the Workshop is the only crafting search, and there an
   // empty recipe box browses every listing (browse=1&mode=recipes) instead of asking what to type. The guarded property stays: a slow
   // earlier search's late reply writes nothing under the newer one, so no listing appears twice.
+  // The group-5 branch itself (the generation advances before `if (!filters) return`) is dead code on this build: the only
+  // mount is craftingPanel(true), whose filters always carry browse=1, so that return cannot be reached and has no test here.
   const cr7 = await openPage(OTHER);
   await cr7.go("#/community/workshop");
   await waitFor(() => !!byText(cr7.app, "h2", "Crafting offers"), "the Workshop");
@@ -1606,7 +1622,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   byText(craft7, "button", "Search").click(); // …then an empty query before it answers
   await new Promise((r) => setTimeout(r, 400));
   const cards7 = craft7.querySelectorAll(".card.craft").map((card) => card.textContent);
-  check("(5) an empty query after a slow search: the late reply writes no card, the empty box browses every listing once, Show more hidden", slow7 && cards7.length > 0 && cards7.some((t) => t.includes("Flask of the Titans")) && new Set(cards7).size === cards7.length && craft7.textContent.includes("Member opt-ins only. Listings are not a live recipe scan.") && !craft7.textContent.includes("Type a recipe name or choose a profession") && byText(craft7, "button", "Show more").hidden === true, JSON.stringify(texts(craft7, ".card.craft h3")));
+  check("(5) an emptied recipe box (a browse) after a slow search: the late reply writes no card, the browse lists every listing once, Show more hidden", slow7 && cards7.length > 0 && cards7.some((t) => t.includes("Flask of the Titans")) && new Set(cards7).size === cards7.length && craft7.textContent.includes("Member opt-ins only. Listings are not a live recipe scan.") && !craft7.textContent.includes("Type a recipe name or choose a profession") && byText(craft7, "button", "Show more").hidden === true, JSON.stringify(texts(craft7, ".card.craft h3")));
   cr7.delay(null);
 
   console.log("\n== .108: Codex's .105 handoff as refined at 12:11 (six items) and the receipt siblings ==");
@@ -2422,14 +2438,20 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
   const fullBoundarySeal218Rows=Object.entries(roles5.boot.meta.roleGuides201).filter(([key])=>roles5.boot.meta.roleDirectory203.keyToFamily[key]&&fullBoundarySeal218.specificKeys.includes(key)).map(([key,guide])=>[key,typeof guide?.boundaries==='string'?guide.boundaries.replaceAll(commonBoundary218,'').trim():'']).filter(([,text])=>text).sort(([a],[b])=>a<b?-1:a>b?1:0);
   check('.218 exactly40 source-specific boundary keys remain sealed', fullBoundarySeal218.specificKeys.length===40 && fullBoundarySeal218Rows.length===40 && JSON.stringify(fullBoundarySeal218Rows.map(([key])=>key))===JSON.stringify(fullBoundarySeal218.specificKeys));
   check('.218 every one of40 exact role-specific boundary texts remains sealed', require('node:crypto').createHash('sha256').update(JSON.stringify(fullBoundarySeal218Rows)).digest('hex')===fullBoundarySeal218.specificTextSHA256);
+  // CL2-037 (our 4c7b542, 12 Nov 2026): a family card states each boundary once, on the first record that carries it. The one
+  // declared case of a later record relying on that statement is guild_master, whose boundary is stated on office_43 before it
+  // in the Leader card. Only that pair may use the earlier record, and the list of placements that do is pinned below.
+  const boundaryAlias218 = { guild_master: "office_43" }, boundaryAliasUsed218 = [];
   for(const [key,familyKey,nodeKey] of fullBoundarySeal218.placements){
     const specific=roles5.boot.meta.roleGuides201[key]?.boundaries.replaceAll(commonBoundary218,'').trim();
     const card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),own=card?.querySelector('[data-role-key201="'+nodeKey+'"]') || card?.querySelector('.role-primary203');
-    // CL2-037 (our 4c7b542, 12 Nov 2026): a family card states each boundary once, on the first record that carries it, so a
-    // later record of the same card (guild_master after office_43 in the Leader card) relies on that one statement.
     const cardText218 = card?.textContent || '', ownAt218 = own ? cardText218.indexOf(own.textContent) : -1;
-    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && cardText218.split(specific).length === 2 && (own.textContent.includes(specific) || (ownAt218 >= 0 && cardText218.indexOf(specific) < ownAt218)));
+    const alias218 = Object.hasOwn(boundaryAlias218, key) && card ? card.querySelector('[data-role-key201="'+boundaryAlias218[key]+'"]') : null;
+    const onAlias218 = !!own && !own.textContent.includes(specific) && !!alias218 && alias218 !== own && !!specific && alias218.textContent.includes(specific) && ownAt218 >= 0 && cardText218.indexOf(alias218.textContent) < ownAt218;
+    if (onAlias218) boundaryAliasUsed218.push(key);
+    check('.218 '+key+' keeps its sealed boundary in its own declared source scope', !!specific && roles5.boot.meta.roleDirectory203.keyToFamily[key]===familyKey && !!own && cardText218.split(specific).length === 2 && (own.textContent.includes(specific) || onAlias218));
   }
+  check('.218 CL2-037 exactly one placement (guild_master) relies on the boundary stated on its declared earlier record (office_43)', JSON.stringify(boundaryAliasUsed218) === '["guild_master"]', JSON.stringify(boundaryAliasUsed218));
 
     const allFacts201=guideKeys201.every(key=>{
       const familyKey=roles5.boot.meta.roleDirectory203.keyToFamily[key], card=roles5.app.querySelector('[data-role-family203="'+familyKey+'"]'),guide=roles5.boot.meta.roleGuides201[key];
@@ -2929,8 +2951,13 @@ function originalTerms218(terms) {
  });
 }
       // CL2-039 (our 6162226/80db07c/44a743a, owner ruling of 13 Nov 2026): the model records its reporting-line delta in
-      // reportingLines1113; restoreReportingLines1113 undoes it exactly and refuses any other value, so the earlier seals below
+      // reportingLines1113; restoreReportingLines1113 undoes it exactly and refuses a changed recorded value, so the earlier seals below
       // still pin every other byte of the nodes, terms and mandates. The book pin follows our reconciled R7 text (5a8103c and later).
+      // The inverse refuses a recorded change whose current value differs, but it accepts a further change that the model
+      // declares in its own record. So the record itself is pinned too: exactly the twelve owner-ruled CL2-039 changes.
+      const record1113 = currentModel1113 && currentModel1113.reportingLines1113;
+      if (!record1113 || !Array.isArray(record1113.changes) || record1113.changes.length !== 12
+        || require("node:crypto").createHash("sha256").update(JSON.stringify(record1113)).digest("hex") !== "b5d676a512b13c91af596ce299d27ec27dfe002fb72edd262a5e89f9f7c8661e") return false;
       let model;
       try { model = require("../../scripts/build-governance-titles.cjs").restoreReportingLines1113(currentModel1113); } catch { return false; }
       const nodes = new Map(model.nodes.map((node) => [node.id, node]));
@@ -3476,6 +3503,11 @@ function originalTerms218(terms) {
     };
     const ready210 = async p => await waitFor(() => !!byText(p.app, "button", "Save note"), "RT16 prepared actual application controls", 8000);
     const refused210 = async p => await waitFor(() => p.app.textContent.includes("The decision result could not be confirmed."), "RT16 spent refused application view", 8000);
+    // CL2-129 (our a6f591d, 12 Nov 2026): when the same actor and target account still match and only the application moved,
+    // the Worker refuses before any write with review_changed, and the page says so instead of "could not be confirmed".
+    const changed129 = "No decision was saved: this account or application changed after you opened it. Reload it and review the current record.";
+    const refusedChanged210 = async p => await waitFor(() => p.app.textContent.includes(changed129), "RT16 CL2-129 review-changed refusal", 8000);
+    const saysChanged210 = p => p.app.textContent.includes(changed129) && !p.app.textContent.includes("The decision result could not be confirmed.");
 
     {
       const id = await seed210();
@@ -3545,9 +3577,9 @@ function originalTerms218(terms) {
       const detail = rows.findIndex(r => r.path === `/api/admin/applications/${id}`);
       check("RT16 all four route/action preparations precede the displayed detail GET", detail === 4 && preparations210(rows).length === 4 && ["status", "deny", "undeny", "delete"].every((route, i) => rows[i]?.path === `/api/admin/users/${id}/decision-target?route=${route}&decisionAction=${route === "delete" ? "partial_delete" : "business_only"}${route === "deny" || route === "undeny" ? "&decisionPolicy=permanent_denial" : ""}`));
       await fixtureRun("UPDATE site_applications SET status = 'reviewing', admin_note = 'Separate reviewed state', updated_at = updated_at + 1 WHERE discord_id = ?", id);
-      byText(p.app, "button", "Save note")?.click(); await refused210(p);
+      byText(p.app, "button", "Save note")?.click(); const worded129 = await refusedChanged210(p);
       const first = posts210(rows).length; byText(p.app, "button", "Save note")?.click(); await settle();
-      check("RT16 stale covered application proof refuses the old note/status without renewed tokens", status210(id).status === "reviewing" && status210(id).admin_note === "Separate reviewed state" && first === 1 && posts210(rows).length === 1 && preparations210(rows).length === 4);
+      check("RT16 stale covered application proof refuses the old note/status without renewed tokens", worded129 && saysChanged210(p) && status210(id).status === "reviewing" && status210(id).admin_note === "Separate reviewed state" && first === 1 && posts210(rows).length === 1 && preparations210(rows).length === 4);
     }
 
     { const id = await seed210(), { p, rows } = await open210(id); await ready210(p);
@@ -3577,8 +3609,8 @@ function originalTerms218(terms) {
         } return null;
       }); await ready210(p);
       const displayed = p.app.querySelector("textarea")?.value;
-      byText(p.app, "button", "Save note")?.click(); await refused210(p);
-      check("RT16 application replacement between preparation and final detail fails closed for covered proof fields", replaced && displayed === "New displayed application" && status210(id).status === "reviewing" && status210(id).admin_note === "New displayed application" && posts210(rows).length === 1 && preparations210(rows).length === 4);
+      byText(p.app, "button", "Save note")?.click(); const worded129 = await refusedChanged210(p);
+      check("RT16 application replacement between preparation and final detail fails closed for covered proof fields", worded129 && saysChanged210(p) && replaced && displayed === "New displayed application" && status210(id).status === "reviewing" && status210(id).admin_note === "New displayed application" && posts210(rows).length === 1 && preparations210(rows).length === 4);
     }
 
     {
@@ -3683,8 +3715,8 @@ function originalTerms218(terms) {
     { const id = await seed210(); let changed = false;
       const { p, rows } = await open210(id, async pathname => {
         if (!changed && pathname.includes("/decision-target?route=deny&")) { changed = true; await fixtureRun("UPDATE site_applications SET status = 'reviewing', updated_at = updated_at + 1 WHERE discord_id = ?", id); } return null;
-      }); await ready210(p); byText(p.app, "button", "Save note")?.click(); await refused210(p);
-      check("RT16 mixed-state route preparations never refresh an earlier stale route at click time", changed && status210(id).status === "reviewing" && posts210(rows).length === 1 && preparations210(rows).length === 4);
+      }); await ready210(p); byText(p.app, "button", "Save note")?.click(); const worded129 = await refusedChanged210(p);
+      check("RT16 mixed-state route preparations never refresh an earlier stale route at click time", worded129 && saysChanged210(p) && changed && status210(id).status === "reviewing" && posts210(rows).length === 1 && preparations210(rows).length === 4);
     }
 
     for (const action of ["status", "delete"]) {
