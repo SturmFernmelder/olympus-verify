@@ -944,22 +944,74 @@ function Q.CloseInCombat(frame,close)
   end
   return true
 end
+-- Round 5 item 1 (13 Nov 2026): without the secure handler (the client lacks RegisterStateDriver, or the handler
+-- could not be registered) nothing may hide a protected window during lockdown: not Escape, not its Close, Cancel
+-- or X button. The window stays, the officer is told once that it closes when combat ends, and at
+-- PLAYER_REGEN_ENABLED its own Close path runs once. For Escape, the window's name leaves UISpecialFrames for the
+-- fight (a plain table edit, which combat allows), so the client's Escape handler never calls Hide on it and Escape
+-- still reaches the game menu and target clearing; the name returns when combat ends. No widget method is replaced.
+local function WithdrawEscape(entry)
+  if type(UISpecialFrames)~="table" then return end
+  for index=#UISpecialFrames,1,-1 do
+    local name=UISpecialFrames[index]
+    if type(name)=="string" and _G[name]==entry.frame then
+      table.remove(UISpecialFrames,index)
+      entry.escapeNames=entry.escapeNames or {};entry.escapeNames[#entry.escapeNames+1]=name
+    end
+  end
+end
+local function RestoreEscape(entry)
+  if type(UISpecialFrames)~="table" or not entry.escapeNames then return end
+  for _,name in ipairs(entry.escapeNames) do
+    local present=false
+    for _,value in ipairs(UISpecialFrames) do if value==name then present=true end end
+    if not present then UISpecialFrames[#UISpecialFrames+1]=name end
+  end
+  entry.escapeNames=nil
+end
+local function DeferClose(entry)
+  if entry.secure or not entry.frame:IsShown() then return false end
+  entry.deferred=true
+  if not Q.combatNotice then
+    Q.combatNotice=true
+    Say("Combat lockdown began before the officer windows could close. The game allows closing them only after combat; they close when combat ends. Nothing was sent.")
+  end
+  return true
+end
+-- For a Close, Cancel or X button pressed during lockdown: record the close for the end of combat instead.
+function Q.DeferCombatClose(frame)
+  for _,entry in ipairs(Q.combatWindows) do if entry.frame==frame then return DeferClose(entry) end end
+  return false
+end
 function Q.CloseCombatWindows()
+  for _,entry in ipairs(Q.combatWindows) do WithdrawEscape(entry) end
   local shown=0
   for _,entry in ipairs(Q.combatWindows) do if entry.frame:IsShown() then shown=shown+1 end end
   if shown==0 then return 0 end
   if Read(InCombatLockdown)~=false then
-    local unguarded=false
-    for _,entry in ipairs(Q.combatWindows) do if entry.frame:IsShown() and not entry.secure then unguarded=true end end
-    if unguarded then Say("Combat lockdown began before the officer windows could close. The game allows closing them only after combat; nothing was sent.") end
+    for _,entry in ipairs(Q.combatWindows) do DeferClose(entry) end
     return 0
   end
   local closed=0
   for _,entry in ipairs(Q.combatWindows) do
     if entry.frame:IsShown() then pcall(entry.close) end
-    if not entry.frame:IsShown() then closed=closed+1 end
+    if not entry.frame:IsShown() then closed=closed+1 else DeferClose(entry) end
   end
   if closed>0 then Say("Combat started, so the officer windows were closed. Closing them sent nothing and changed no promotion record; reopen them after combat.") end
+  return closed
+end
+-- PLAYER_REGEN_ENABLED: Escape names return, and each deferred window closes once through its own Close path.
+function Q.FinishCombatWindows()
+  if Read(InCombatLockdown)~=false then return 0 end
+  Q.combatNotice=nil
+  local closed=0
+  for _,entry in ipairs(Q.combatWindows) do
+    RestoreEscape(entry)
+    if entry.deferred then
+      entry.deferred=nil
+      if entry.frame:IsShown() then pcall(entry.close);if not entry.frame:IsShown() then closed=closed+1 end end
+    end
+  end
   return closed
 end
 function Q.HardwarePromote(target)
@@ -977,7 +1029,7 @@ function Q.HardwarePromote(target)
     Q.BindPromotionButton(promote,function() return Q.confirmGuid end,function() frame:Hide() end)
     local cancel=CreateFrame("Button",nil,frame,"UIPanelButtonTemplate")
     cancel:SetSize(125,28);cancel:SetPoint("LEFT",promote,"RIGHT",12,0);cancel:SetText("Cancel")
-    local function close() if Read(InCombatLockdown)==false then frame:Hide() end end
+    local function close() if Read(InCombatLockdown)==false then frame:Hide() else Q.DeferCombatClose(frame) end end
     cancel:SetScript("OnClick",close)
     if type(frame.CloseButton)=="table" and type(frame.CloseButton.SetScript)=="function" then frame.CloseButton:SetScript("OnClick",close) end
     Q.CloseInCombat(frame,close) -- CL2-003: combat cancels exactly as the Cancel button does.
@@ -1248,8 +1300,11 @@ function Q.Show()
     button("Scan + reload",18,-134,125,function() Q.Control("scan") end)
     button("Stop + reload",150,-134,125,function() Q.Control("stop") end)
     button("Sync & reload",282,-134,125,function() if OlympusVerify_Sync then OlympusVerify_Sync() elseif OlympusVerifyAPI then OlympusVerifyAPI.Sync() end end)
-    Q.windowClose=button("Close",414,-134,125,function() frame:Hide() end)
-    Q.CloseInCombat(frame,function() frame:Hide() end) -- CL2-003: the same close as the Close button.
+    -- Round 5 item 1: in lockdown the Close and X buttons defer to the end of combat instead of calling Hide.
+    local function close() if Read(InCombatLockdown)==false then frame:Hide() else Q.DeferCombatClose(frame) end end
+    Q.windowClose=button("Close",414,-134,125,close)
+    if type(frame.CloseButton)=="table" and type(frame.CloseButton.SetScript)=="function" then frame.CloseButton:SetScript("OnClick",close) end
+    Q.CloseInCombat(frame,close) -- CL2-003: the same close as the Close button.
     for i=1,8 do local index=i
       local rowButton=CreateFrame("Button",nil,frame,"SecureActionButtonTemplate,UIPanelButtonTemplate")
       rowButton:SetSize(400,24);rowButton:SetPoint("TOPLEFT",18,-171-(i-1)*28)
@@ -1326,9 +1381,11 @@ events:RegisterEvent("PLAYER_LOGOUT")
 events:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 events:RegisterEvent("ADDON_ACTION_BLOCKED")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
+events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:SetScript("OnEvent", function(_, event, addon, functionName)
   if event == "GUILD_ROSTER_UPDATE" then Q.generation = Q.generation + 1; Q.rosterAt = time(); ReconcilePromotions()
   elseif event == "PLAYER_REGEN_DISABLED" then Q.CloseCombatWindows() -- CL2-003; display only, no action state.
+  elseif event == "PLAYER_REGEN_ENABLED" then Q.FinishCombatWindows() -- Round 5 item 1; display only, no action state.
   elseif event == "PLAYER_GUILD_UPDATE" and addon == "player" then
     Q.rosterAt=nil
     local raw=RawIdentity();local baseline=Q.loadedIdentity or Q.identityBaseline

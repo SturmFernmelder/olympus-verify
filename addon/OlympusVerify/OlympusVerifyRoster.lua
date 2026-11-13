@@ -799,7 +799,13 @@ function W.Show(text)
 end
 
 function W.Hide()
-  if InCombatLockdown and InCombatLockdown() then return end
+  if InCombatLockdown and InCombatLockdown() then
+    -- Round 5 item 1 (13 Nov 2026): the X, Toggle and the combat closer never hide this protected frame in
+    -- lockdown. Without the secure handler the launch module closes it once when combat ends.
+    local launch=OlympusLaunch229
+    if frame and type(launch)=="table" and type(launch.DeferCombatClose)=="function" then pcall(launch.DeferCombatClose,frame) end
+    return
+  end
   if frame then frame:Hide() end
   CloseMenu();if copyBox then copyBox:Hide() end
   HideTip()
