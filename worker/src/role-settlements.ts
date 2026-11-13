@@ -1,3 +1,4 @@
+import {takeOriginalDiscordRoleReply280,originalDiscordRoleReplyFacts280,type OriginalDiscordRoleReply280,type OriginalDiscordRoleReplyFacts280} from './discord';
 /** Central audited writer for new QR/rank and erasure effects. Existing legacy writers are not silently activated here.
  * Each intent is durable before HTTP, one CAS dispatch only. Unknown responses are reconciled by GET, never re-POSTed.
  */
@@ -55,6 +56,13 @@ function originalRemovalDispatch(env:Env,given?:RemovalDispatch):RemovalDispatch
 const removalHeld=(env:Env,capture:RemovalDispatch,guild:string,role:string)=>betaRoleDispatchHeld(env,capture,guild,role)||oldSharedMemberProducerHeld230(env,guild,role);
 const now=()=>Math.floor(Date.now()/1000);
 const budget=():AttemptBudget=>({limit:8,attempts:0,retries:0});
+export type OriginalRoutineDeleteReply280=Readonly<{kind:'source_original_routine_delete_reply280'}>;
+type RoutineReply280={env:Env;path:string;callback:()=>void;transport:OriginalDiscordRoleReply280;cap:OriginalRoutineDeleteReply280;spent:boolean;check:()=>void};
+const routineReplyErrors280=new WeakMap<object,RoutineReply280>(),routineReplyCaps280=new WeakMap<OriginalRoutineDeleteReply280,RoutineReply280>();
+function routineCallback280(callback:(()=>void)|undefined):(()=>void)|null{try{if(typeof callback!=='function')return null;const prototype=Object.getPrototypeOf(callback),keys=Reflect.ownKeys(callback),slots=keys.map(k=>Object.getOwnPropertyDescriptor(callback,k));return ()=>{const current=Reflect.ownKeys(callback);if(Object.getPrototypeOf(callback)!==prototype||current.length!==keys.length||keys.some((k,i)=>k!==current[i]||!slots[i]||!(['value','get','set','writable','enumerable','configurable'] as const).every(p=>Object.is(slots[i]![p],Object.getOwnPropertyDescriptor(callback,k)?.[p]))))throw Error('original_routine_reply_held');};}catch{return null;}}
+/** Consume-only bridge: request() is the sole producer and knows the actually invoked A and B callbacks. */
+export function takeOriginalRoutineDeleteReply280(error:unknown,env:Env,path:string,callback:()=>void):OriginalRoutineDeleteReply280|null{try{if(!error||typeof error!=='object')return null;const r=routineReplyErrors280.get(error);if(!r||r.spent||r.env!==env||r.path!==path||r.callback!==callback)return null;r.check();r.spent=true;return r.cap;}catch{return null;}}
+export function originalRoutineDeleteReplyFacts280(cap:OriginalRoutineDeleteReply280):OriginalDiscordRoleReplyFacts280{const r=routineReplyCaps280.get(cap);if(!r||!r.spent)throw Error('original_routine_reply_held');r.check();return originalDiscordRoleReplyFacts280(r.transport);}
 /** This path counts every network request and disables the legacy 429 retry. */
 async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,readAdmission?:()=>Promise<boolean>,beforeDispatch?:()=>void,deleteAdmission230?:object):Promise<T> {
  if(deleteAdmission230!==undefined&&deleteAdmission230!==launch230RoleOnly&&deleteAdmission230!==launch230OriginalCompensation&&deleteAdmission230!==native232RoleOnly&&deleteAdmission230!==native232OriginalDrain&&deleteAdmission230!==canonical233RoleOnly&&deleteAdmission230!==canonical233MigrationRoleOnly&&deleteAdmission230!==banRank1112RoleOnly)throw Error('role_configuration');
@@ -67,7 +75,19 @@ async function request<T>(env:Env,b:AttemptBudget,method:string,path:string,read
   if((method==='PUT'||method==='DELETE')&&target&&oldSharedMemberProducerHeld230(env,target[1],target[2])&&deleteAdmission230===undefined)throw Error('shared_member230_old_producer_held');};
  dispatch();
  if(b.attempts>=b.limit)throw new Error('role_budget');b.attempts++;if('calls' in b)(b as AttemptBudget&{calls:number}).calls++;
- return rest<T>(env,method,path,undefined,1,'Olympus verified role settlement',b,false,()=>{dispatch();beforeDispatch?.();});
+ const callbackCheck280=routineCallback280(beforeDispatch);let synchronousCallback280=false;
+ const dispatched280=()=>{dispatch();const value=beforeDispatch?.();synchronousCallback280=typeof beforeDispatch==='function'&&value===undefined;};
+ try{return await rest<T>(env,method,path,undefined,1,'Olympus verified role settlement',b,false,dispatched280);}
+ catch(error){
+  // Witness bookkeeping only. The original error still reaches the unchanged UNKNOWN catch.
+  try{if(method==='DELETE'&&callbackCheck280&&synchronousCallback280&&error&&typeof error==='object'){
+   callbackCheck280();const transport=takeOriginalDiscordRoleReply280(error,env,method,path,dispatched280);
+   if(transport){originalDiscordRoleReplyFacts280(transport);const cap=Object.freeze({kind:'source_original_routine_delete_reply280' as const});
+    const check=()=>{callbackCheck280();originalDiscordRoleReplyFacts280(transport);};
+    const record:RoutineReply280={env,path,callback:beforeDispatch!,transport,cap,spent:false,check};routineReplyErrors280.set(error,record);routineReplyCaps280.set(cap,record);}
+  }}catch{/* Withhold witness, never replace the original exception. */}
+  throw error;
+ }
 }
 async function member(env:Env,b:AttemptBudget,subject:string,readAdmission?:()=>Promise<boolean>):Promise<Member|null> {
  try{return await request<Member>(env,b,'GET',`/guilds/${env.GUILD_ID}/members/${subject}`,readAdmission);}catch(e){if(e instanceof DiscordError&&e.status===404)return null;throw e;}
@@ -2094,6 +2114,32 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   catch{try{await env.DB.prepare(`UPDATE role_settlements SET state=?${nonceAt+1},reason=?${nonceAt+2},checked_at=${DB_NOW} WHERE ${owned} AND state='dispatching'`).bind(...ownedValues,started?'unknown':'held',started?'native232_provider_outcome_unknown':canonical233?'canonical233_never_dispatched':'native232_never_dispatched').run();}catch{}return result(started?'unknown':'held',started?'native232_provider_outcome_unknown':canonical233?'canonical233_never_dispatched':'native232_never_dispatched',id);}
   let after:Member|null;
   try{after=await member(env,b,f.subject);}catch{try{await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='native232_confirmation_unknown',checked_at=${DB_NOW} WHERE ${owned} AND state='dispatching'`).bind(...ownedValues).run();}catch{}return result('unknown','native232_confirmation_unknown',id);}
+  // One historical receipt attempt for this invocation's actual canonical
+  // DELETE ACK and following valid exact-member GET showing the role absent.
+  // Null/status-only404, a caller flag or later GET is not this confirmation.
+  if(canonical233&&desired===0&&acknowledged&&started&&parent!==null&&after!==null&&launch230Member(after,f.subject)&&!after.roles.includes(role)){
+   const confirmationGraph=launch230MemberWitness(after,f.subject),reason='canonical233_delete_acknowledged_and_confirmed';
+   const originalIntegrity=()=>{
+    I.assertOriginalRoutineSourceIntegrity280(env,cap);assertRuntimeVenue230(env,venue);provider();queueCheck();claimCheck();confirmationGraph();
+    if(now()>=f.deadline||after===null||!launch230Member(after,f.subject)||after.roles.includes(role))throw Error('native232_original_delete_confirmation_held');
+   };
+   originalIntegrity();
+   // Keep every original DB source/link/table/ownership/unknown fence. Only
+   // current standing equality is omitted from this already-confirmed history.
+   const receiptAdmission=canonical239GuardFacts(ownershipFacts,[p.receiptSourceIntegritySql,g.sql,physical,ownParent,canonical239NoAmbiguousOwnership('?2','?3','?5')]);
+   const receiptTuple=canonical239And([...ownedClauses,"state='dispatching'",`created_at=?${nonceAt+2}`,`proof_id IS ?${nonceAt+3}`,`checked_at IS ?${nonceAt+4}`,...receiptAdmission.clauses]);
+   try{
+    // Exact still-dispatching claim and original clocks. This does not create
+    // a mandate, adopt an unknown row or authorize any subsequent role effect.
+    const receipt=await launch230NativeIntent(env,env.DB.prepare(`${receiptAdmission.facts}UPDATE role_settlements SET state='settled',reason=?${nonceAt+1},checked_at=${DB_NOW}
+     WHERE ${receiptTuple} RETURNING *,NULL AS beta_window_id`)
+     .bind(...ownedValues,reason,c.intent.created_at,c.intent.proof_id,c.intent.checked_at),originalIntegrity);
+    originalIntegrity();receipt.check();
+    if(receipt.intent?.id===id&&receipt.intent.state==='settled')return result('settled',reason,id,now());
+   }catch{/* An uncertain Native answer stays spent; never try this receipt again. */}
+   try{await env.DB.prepare(`UPDATE role_settlements SET state='unknown',reason='native232_receipt_unknown',checked_at=${DB_NOW} WHERE ${owned} AND state IN('dispatching','settled')`).bind(...ownedValues).run();}catch{}
+   return result('unknown','native232_receipt_unknown',id);
+  }
   allCheck();
   if(!launch230Member(after,f.subject))throw Error('native232_confirmation');
   if(desired===1&&(!await current()||launch230Blocker(env,after)))return compensateRoutine232(env,parent,venue,b);

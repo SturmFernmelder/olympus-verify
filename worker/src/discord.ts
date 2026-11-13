@@ -5,6 +5,9 @@ import { audit } from "./db";
 import {dispatchOriginalProviderFetch,captureOriginalProviderInit} from './privacy-global-serving-origin';
 import {canonicalMigrationProducerHeld233} from './canonical-migration233';
 import {botResponseHeaders280} from './bot-response280';
+import {checkOriginalNativeResponse,checkOriginalNativeHeaders,ORIGINAL_RESPONSE_DESCRIPTORS,ORIGINAL_HEADER_DESCRIPTORS} from './privacy-native-http-intrinsics';
+import {originalRecoveryClockMilliseconds} from './privacy-recovery-original-clock';
+import {uniqueJsonKeys} from './network-profile';
 
 export const API = "https://discord.com/api/v10";
 
@@ -96,6 +99,49 @@ export class DiscordError extends Error {
   }
 }
 
+/** Witness only: these private facts neither classify an effect nor acknowledge Native persistence. */
+export type OriginalDiscordRoleReply280=Readonly<{kind:'source_original_discord_delete_reply280'}>;
+export type OriginalDiscordRoleReplyFacts280=Readonly<{method:'DELETE';path:string;status:403|404|429;code:number|null;eofSeconds:number;retryAfterHeaderSeconds:number|null;retryAfterBodySeconds:number|null;global:boolean|null;rateScope:'user'|'global'|'shared'|null}>;
+type RoleReply280={error:DiscordError;cap:OriginalDiscordRoleReply280;env:Env;path:string;callback:()=>void;facts:OriginalDiscordRoleReplyFacts280;spent:boolean;check:()=>void};
+const roleReplyErrors280=new WeakMap<object,RoleReply280>(),roleReplyCaps280=new WeakMap<OriginalDiscordRoleReply280,RoleReply280>();
+const replyJson280=JSON,replyJsonParse280=JSON.parse,replyJsonSlot280=Object.getOwnPropertyDescriptor(JSON,'parse'),replyEncoder280=TextEncoder,replyEncodeSlot280=Object.getOwnPropertyDescriptor(TextEncoder.prototype,'encode'),replyErrorPrototype280=DiscordError.prototype;
+const replyErrorClassCheck280=replyGraph280(DiscordError),replyErrorPrototypeCheck280=replyGraph280(replyErrorPrototype280);
+const replySame280=(a:PropertyDescriptor|undefined,b:PropertyDescriptor|undefined)=>a===undefined?b===undefined:!!b&&(['value','get','set','writable','enumerable','configurable'] as const).every(k=>Object.is(a[k],b[k]));
+function replyGraph280(ref:object):()=>void{const prototype=Object.getPrototypeOf(ref),keys=Reflect.ownKeys(ref),slots=keys.map(k=>Object.getOwnPropertyDescriptor(ref,k));return ()=>{const current=Reflect.ownKeys(ref);if(Object.getPrototypeOf(ref)!==prototype||current.length!==keys.length||keys.some((k,i)=>k!==current[i]||!replySame280(slots[i],Object.getOwnPropertyDescriptor(ref,k))))throw Error('original_role_reply_held');};}
+function replyProvider280():()=>void{const rows:{ref:object;prototype:object|null;slot:PropertyDescriptor|undefined}[]=[];let ref:object|null=globalThis;for(let i=0;ref&&i<8;i++){const slot=Object.getOwnPropertyDescriptor(ref,'fetch'),prototype=Object.getPrototypeOf(ref);rows.push({ref,prototype,slot});if(slot){if(!Object.hasOwn(slot,'value')||typeof slot.value!=='function')throw Error('original_role_reply_held');const fn=slot.value as Function,fp=Object.getPrototypeOf(fn);return ()=>{for(const r of rows)if(Object.getPrototypeOf(r.ref)!==r.prototype||!replySame280(r.slot,Object.getOwnPropertyDescriptor(r.ref,'fetch')))throw Error('original_role_reply_held');if(Object.getPrototypeOf(fn)!==fp)throw Error('original_role_reply_held');};}ref=prototype;}throw Error('original_role_reply_held');}
+function replyParser280():void{replyErrorClassCheck280();replyErrorPrototypeCheck280();if(JSON!==replyJson280||JSON.parse!==replyJsonParse280||!replySame280(replyJsonSlot280,Object.getOwnPropertyDescriptor(JSON,'parse'))||TextEncoder!==replyEncoder280||!replySame280(replyEncodeSlot280,Object.getOwnPropertyDescriptor(TextEncoder.prototype,'encode')))throw Error('original_role_reply_held');}
+function replyText280(text:string):boolean{if(typeof text!=='string'||text.includes('\uFFFD'))return false;for(let i=0;i<text.length;i++){const n=text.charCodeAt(i);if(n>=0xd800&&n<=0xdbff){const next=text.charCodeAt(++i);if(!(next>=0xdc00&&next<=0xdfff))return false;}else if(n>=0xdc00&&n<=0xdfff)return false;}return new replyEncoder280().encode(text).byteLength<=4096;}
+function replyBody280(text:string,status:number):Readonly<{code:number|null;retryAfterBodySeconds:number|null;global:boolean|null}>|null{
+ replyParser280();if(!replyText280(text)||!uniqueJsonKeys(text))return null;const v=Reflect.apply(replyJsonParse280,replyJson280,[text]) as unknown;
+ if(!v||typeof v!=='object'||Array.isArray(v))return null;const o=v as Record<string,unknown>,keys=Object.keys(o),message=o.message;
+ // Only shallow documented scalar shapes. Complex error details remain unsupported witnesses.
+ if(typeof message!=='string'||!message.length||!replyText280(message))return null;
+ if(status===403||status===404){if(keys.length!==2||!keys.includes('code')||!keys.includes('message')||typeof o.code!=='number'||!Number.isSafeInteger(o.code)||o.code<1)return null;return Object.freeze({code:o.code,retryAfterBodySeconds:null,global:null});}
+ if(status!==429||keys.some(k=>!['code','message','retry_after','global'].includes(k))||!keys.includes('retry_after')||typeof o.retry_after!=='number'||!Number.isFinite(o.retry_after)||o.retry_after<0||typeof o.global!=='boolean'||'code'in o&&(typeof o.code!=='number'||!Number.isSafeInteger(o.code)||o.code<0))return null;
+ return Object.freeze({code:typeof o.code==='number'?o.code:null,retryAfterBodySeconds:o.retry_after,global:o.global});
+}
+function captureRoleReply280(env:Env,method:string,path:string,callback:(()=>void)|undefined){try{
+ if(method!=='DELETE'||!/^\/guilds\/[0-9]{17,20}\/members\/[0-9]{17,20}\/roles\/[0-9]{17,20}$/.test(path)||typeof callback!=='function')return null;
+ const token=Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'),guild=Object.getOwnPropertyDescriptor(env,'GUILD_ID'),ep=Object.getPrototypeOf(env),callbackCheck=replyGraph280(callback),providerCheck=replyProvider280(),credential=credentialFetch,start=originalRecoveryClockMilliseconds()/1000;
+ if(!token||!Object.hasOwn(token,'value')||typeof token.value!=='string'||!token.value.length)return null;
+ const check=()=>{providerCheck();callbackCheck();replyParser280();if(Object.getPrototypeOf(env)!==ep||!replySame280(token,Object.getOwnPropertyDescriptor(env,'DISCORD_BOT_TOKEN'))||!replySame280(guild,Object.getOwnPropertyDescriptor(env,'GUILD_ID'))||credentialFetch!==credential)throw Error('original_role_reply_held');};check();let invoked=false;
+ return {invoked(value:unknown){try{check();invoked=value===undefined;}catch{invoked=false;}},response(res:Response){try{
+   check();if(!invoked)return null;checkOriginalNativeResponse(res);const status=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[]) as number;if(status!==403&&status!==404&&status!==429)return null;
+   const headers=Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[]) as Headers;checkOriginalNativeHeaders(headers);const get=(key:string)=>Reflect.apply(ORIGINAL_HEADER_DESCRIPTORS.get!.value,headers,[key]) as string|null,contentType=get('Content-Type'),retry=get('Retry-After'),scope=get('X-RateLimit-Scope');
+   if(!/^application\/json(?:\s*;|$)/i.test(contentType??''))return null;
+   const headerRetry=retry===null?null:retry.length<=32&&/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(retry)?Number(retry):NaN;
+   if(headerRetry!==null&&(!Number.isFinite(headerRetry)||headerRetry<0)||scope!==null&&!['user','global','shared'].includes(scope))return null;
+   const responseCheck=()=>{check();checkOriginalNativeResponse(res);checkOriginalNativeHeaders(headers);if(Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.status!.get!,res,[])!==status||Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.headers!.get!,res,[])!==headers||get('Content-Type')!==contentType||get('Retry-After')!==retry||get('X-RateLimit-Scope')!==scope)throw Error('original_role_reply_held');};
+   return (text:string,error:DiscordError)=>{try{responseCheck();const eof=originalRecoveryClockMilliseconds()/1000,body=replyBody280(text,status);if(!body||eof<start||Object.getPrototypeOf(error)!==replyErrorPrototype280||error.status!==status||error.body!==text||Reflect.apply(ORIGINAL_RESPONSE_DESCRIPTORS.bodyUsed!.get!,res,[])!==true)return;
+    const errorCheck=replyGraph280(error),cap=Object.freeze({kind:'source_original_discord_delete_reply280' as const}),facts=Object.freeze({method:'DELETE' as const,path,status,code:body.code,eofSeconds:eof,retryAfterHeaderSeconds:headerRetry,retryAfterBodySeconds:body.retryAfterBodySeconds,global:body.global,rateScope:scope as 'user'|'global'|'shared'|null});
+    const current=()=>{responseCheck();errorCheck();if(Object.getPrototypeOf(error)!==replyErrorPrototype280||error.status!==status||error.body!==text||originalRecoveryClockMilliseconds()/1000<eof)throw Error('original_role_reply_held');};current();const record:RoleReply280={error,cap,env,path,callback,facts,spent:false,check:current};roleReplyErrors280.set(error,record);roleReplyCaps280.set(cap,record);
+   }catch{/* Observation failure never changes the original error. */}};
+  }catch{return null;}}};
+ }catch{return null;}}
+/** No public raw-error/Response issuer exists; a wrong original tuple cannot consume another request's witness. */
+export function takeOriginalDiscordRoleReply280(error:unknown,env:Env,method:string,path:string,callback:()=>void):OriginalDiscordRoleReply280|null{try{if(!error||typeof error!=='object')return null;const r=roleReplyErrors280.get(error);if(!r||r.spent||r.env!==env||method!=='DELETE'||r.path!==path||r.callback!==callback)return null;r.check();r.spent=true;return r.cap;}catch{return null;}}
+export function originalDiscordRoleReplyFacts280(cap:OriginalDiscordRoleReply280):OriginalDiscordRoleReplyFacts280{const r=roleReplyCaps280.get(cap);if(!r||!r.spent)throw Error('original_role_reply_held');r.check();return r.facts;}
+
 /**
  * Say what a Discord failure actually means. 401 and 403 read alike in a log line and need opposite fixes: 401 is the
  * bot's TOKEN (a Worker secret), 403 is the bot's PERMISSIONS (Discord settings). Blaming permissions for a 401 sends
@@ -154,11 +200,13 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
     "User-Agent": "olympus-verify (https://github.com/olympus, 0.1)",
   };
   if (reason) headers["X-Audit-Log-Reason"] = auditReason(reason);
+  const replyObserver280=attempt===1?captureRoleReply280(env,method,path,beforeDispatch):null;
+  const observedDispatch280=replyObserver280?()=>{const value=beforeDispatch!();replyObserver280.invoked(value);return value;}:beforeDispatch;
   const res = await credentialFetch(API + path, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
-  }, beforeDispatch);
+  }, observedDispatch280);
   if (res.status === 429 && attempt < 1) {
     const text = await res.text();
     if (budget) {
@@ -175,7 +223,12 @@ export async function rest<T = unknown>(env: Env, method: string, path: string, 
     await new Promise((r) => setTimeout(r, Math.ceil(((j.retry_after ?? 1) as number) * 1000)));
     return rest<T>(env, method, path, body, attempt + 1, reason, budget, mandatory, beforeDispatch);
   }
-  if (!res.ok) throw new DiscordError(res.status, await res.text());
+  if (!res.ok) {
+    const observeReply280=replyObserver280?.response(res)??null;
+    const text=await res.text(),error=new DiscordError(res.status,text);
+    observeReply280?.(text,error);
+    throw error;
+  }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }

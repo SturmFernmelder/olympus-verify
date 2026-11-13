@@ -19,7 +19,7 @@ export type RoutineMembership232Facts=Readonly<{subject:string;subjectGeneration
  rankQualified:boolean;rankProfile:string|null;
  cause:'eligible'|'departure'|'ban'|'rename_hold'|'blocking_role'}>;
 type Scalar=string|number|null;
-type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env};
+type Record232={facts:RoutineMembership232Facts;db:D1Database;sourceDB:D1Database;check:()=>void;close:()=>void;effectCheck:(env:Env)=>void;values:readonly Scalar[];effectEnv:Env;sourceIntegrity:(effect:Env)=>void};
 const originals=new WeakMap<RoutineMembership232,Record232>();
 const ID=/^[1-9][0-9]{16,19}$/,HEX32=/^[0-9a-f]{32}$/,GUID=/^Player-[0-9]{1,6}-[0-9A-Fa-f]{4,16}$/;
 const CONFIG=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','NATIVE_RANK_SYNC232','GUILD_ID','ROLE_GUILD_MEMBER','VERIFY_MEMBERSHIP_ONLY','VERIFY_NATIVE_SCOPE',
@@ -30,6 +30,11 @@ const CONFIG=Object.freeze(['CANONICAL_ENTITLEMENTS233','CANONICAL_RANKS233','NA
  'DISCORD_APP_ID','DISCORD_BOT_TOKEN','BLOCKING_ROLE_IDS','ROLE_OFFICER','ROLE_MODERATOR','ROLE_GUILD_LEADER','ROLE_GUILD_MASTER',
  'ROLE_RAID_LEADER','LINK_ROLE_ID','MEMBERSHIP_RETIRED_ROLE_ID','QR_NATIVE_ROLE_MAP','FULL_RELEASE_ROLES','INTROS_ROLES',
  'TREASURY_COSMETIC_ROLES','BETA_RESET_SOURCE_EPOCH','BETA_RESET_DISPATCH_SEAL_MODE','BETA_RESET_REMOVALS_ENABLED','ROLE_CALL_BUDGET']);
+// Original source integrity only. These three rank-policy slots may stop future
+// authority after an effect; they cannot erase that invocation's confirmed
+// history. Every other original configuration/provider/source witness remains.
+const ORIGINAL_SOURCE_RANK_POLICY232=new Set(['CANONICAL_RANKS233','CANONICAL_ENTITLEMENTS233','NATIVE_RANK_SYNC232']);
+const ORIGINAL_SOURCE_CONFIG232=CONFIG.filter(key=>!ORIGINAL_SOURCE_RANK_POLICY232.has(key));
 const held=():never=>{throw Error('routine_membership232_held');};
 function slots(object:object,keys:readonly string[]):()=>void{
  const proto=Object.getPrototypeOf(object),saved=keys.map(k=>Object.getOwnPropertyDescriptor(object,k));
@@ -83,7 +88,7 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   if(selection.mode!=='enabled'||!selection.policy||!selection.raw||!selection.current())return null;
   const scope='addon-native-v1:'+JSON.stringify({version:1,...NATIVE_SCOPE232});
   if(launch.mode!=='members-only'||launch.scope?.provenance!==scope||!launch.current())return null;
-  const configCheck=slots(env,[...CONFIG,'DB']),sourceDB=Object.getOwnPropertyDescriptor(env,'DB')?.value;
+  const configCheck=slots(env,[...CONFIG,'DB']),sourceIntegrityConfig=slots(env,[...ORIGINAL_SOURCE_CONFIG232,'DB']),sourceDB=Object.getOwnPropertyDescriptor(env,'DB')?.value;
   if(!sourceDB||env.GUILD_ID!==NATIVE_GUILD232||env.ROLE_GUILD_MEMBER!==SHARED_MEMBER232||env.VERIFY_MEMBERSHIP_ONLY!=='true'||env.SHARED_MEMBERSHIP230_MODE!=='enabled')return null;
   let active=true;
   const db=privacyProviderCustodyDatabase(env),check=()=>{configCheck();if(!active||!selection.current()||!canonical.current()||!launch.current()||Object.getOwnPropertyDescriptor(env,'DB')?.value!==sourceDB)return held();};check();
@@ -146,26 +151,40 @@ export async function captureRoutineMembership232(env:Env,subject:string):Promis
   const effectCheck=(effect:Env)=>{check();const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
    for(const key of CONFIG){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}};
   const cap=Object.freeze({}) as RoutineMembership232,effectEnv={...env,DB:db};check();resultCheck();effectCheck(effectEnv);
-  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv});return cap;
+  const sourceIntegrity=(effect:Env)=>{
+   sourceIntegrityConfig();resultCheck();
+   if(!active||Math.floor(Date.now()/1000)>=facts.deadline||!launch.current()||privacyProviderCustodyDatabase(env)!==db)return held();
+   const d=Object.getOwnPropertyDescriptor(effect,'DB');if(!d||!Object.hasOwn(d,'value')||d.value!==sourceDB&&d.value!==db)return held();
+   for(const key of ORIGINAL_SOURCE_CONFIG232){const a=Object.getOwnPropertyDescriptor(env,key),b=Object.getOwnPropertyDescriptor(effect,key);
+    if(a===undefined?!!b||key in effect:!b||!Object.hasOwn(b,'value')||!Object.is(a.value,b.value))return held();}
+  };
+  originals.set(cap,{facts,db,sourceDB,check:()=>{check();resultCheck();},close:()=>{active=false;},effectCheck,values,effectEnv,sourceIntegrity});return cap;
  }catch{return null;}
 }
 export function assertRoutineMembership232(env:Env,cap:RoutineMembership232):void{const r=originals.get(cap);if(!r)return held();r.check();r.effectCheck(env);if(Math.floor(Date.now()/1000)>=r.facts.deadline)return held();}
+/** Factless original-source integrity check for an existing active branded cap.
+ * No current rank/standing authority, facts, new cap or dispatch API is supplied.
+ * Only the same invocation's independently proved historical receipt may use it;
+ * all new effects still require assertRoutineMembership232 and its SQL predicate. */
+export function assertOriginalRoutineSourceIntegrity280(env:Env,cap:RoutineMembership232):void{
+ const r=originals.get(cap);if(!r)return held();r.sourceIntegrity(env);
+}
 export function routineMembership232Facts(cap:RoutineMembership232):RoutineMembership232Facts{const r=originals.get(cap);if(!r)return held();r.check();return r.facts;}
 export function routineMembership232Environment(env:Env,cap:RoutineMembership232):Env{assertRoutineMembership232(env,cap);return originals.get(cap)!.effectEnv;}
 export function closeRoutineMembership232(cap:RoutineMembership232):void{originals.get(cap)?.close();}
 /** Fixed authored JSON comparisons freeze every linked alt and the exact original
  * current Native profile. Deadline, standing and generation are checked in SQL
  * at every queue/claim/final admission, including across provider awaits. */
-export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1,rankConversion=false):Readonly<{sql:string;values:readonly Scalar[];next:number}>{
+export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,start=1,rankConversion=false):Readonly<{sql:string;receiptSourceIntegritySql:string;values:readonly Scalar[];next:number}>{
  assertRoutineMembership232(env,cap);if(!Number.isSafeInteger(start)||start<1||start>75)return held();const r=originals.get(cap)!;
  if(rankConversion&&!r.facts.rankQualified)return held();
  const q=(n:number)=>'?'+(start+n),replace=(sql:string)=>sql.replace(/\?1\b/g,q(0));
- return Object.freeze({sql:`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${directiveSnapshotSql280(q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
+ const originalSourcePredicate=(standing:boolean)=>`${privacyGenerationFenceSql(start,start+1)} AND ${q(9)}>CAST(strftime('%s','now') AS INTEGER) ${rankConversion?`AND (${directiveSnapshotSql280(q(2),NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)})`:''}
   AND EXISTS(SELECT 1 FROM roster_snapshots s LEFT JOIN privacy_subjects p ON p.subject_id=${q(0)} WHERE
   (s.id=${q(2)} AND s.id=(SELECT MAX(id) FROM roster_snapshots) AND s.exported_at=${q(3)} AND s.source=${q(4)})
   AND (s.member_count=${q(5)} AND s.complete=1 AND s.trusted=1 AND s.member_count=(SELECT COUNT(*) FROM roster_members WHERE snapshot_id=s.id))
   AND (s.exported_at>=${q(10)} AND s.exported_at>CAST(strftime('%s','now') AS INTEGER)-600 AND s.exported_at<=CAST(strftime('%s','now') AS INTEGER))
-  AND ((${ROWS})=${q(6)} AND (${replace(STANDING)})=${q(8)} AND NOT EXISTS(${replace(GUID_CONFLICTS)})
+  AND ((${ROWS})=${q(6)} ${standing?`AND (${replace(STANDING)})=${q(8)}`:''} AND NOT EXISTS(${replace(GUID_CONFLICTS)})
   AND (SELECT COUNT(*) FROM characters WHERE discord_id=${q(0)} AND status NOT IN('unbound','denied'))=json_array_length(${q(7)}))
   AND NOT EXISTS(SELECT 1 FROM json_each(${q(7)}) j
    LEFT JOIN characters c ON c.discord_id=${q(0)} AND c.name_key=json_extract(j.value,'$[0]') AND c.guid IS json_extract(j.value,'$[1]')
@@ -173,6 +192,10 @@ export function routineMembership232Predicate(env:Env,cap:RoutineMembership232,s
    WHERE CASE WHEN (c.name_key IS NOT NULL AND c.status=json_extract(j.value,'$[2]') AND c.bound_at=json_extract(j.value,'$[3]'))
    AND (c.verified_at IS json_extract(j.value,'$[4]') AND c.source IS json_extract(j.value,'$[5]'))
    AND (c.status IN('verified','queued') OR (${ANCHOR(q(12),q(13),q(10))}) OR (${INERT_LEGACY(q(13),q(10))})) THEN 0 ELSE 1 END=1)
-  AND COALESCE((SELECT member_count FROM roster_snapshots old WHERE old.id<s.id AND old.complete=1 AND old.trusted=1 AND old.source=s.source ORDER BY old.id DESC LIMIT 1),s.member_count)=${q(11)})`,
+  AND COALESCE((SELECT member_count FROM roster_snapshots old WHERE old.id<s.id AND old.complete=1 AND old.trusted=1 AND old.source=s.source ORDER BY old.id DESC LIMIT 1),s.member_count)=${q(11)})`;
+ // Both variants are captured while the full original cap is valid. The extra
+ // frozen SQL preserves all DB source/link/rank/G/deadline clauses and omits
+ // only standing equality; it is never queue/claim/future-effect authority.
+ return Object.freeze({sql:originalSourcePredicate(true),receiptSourceIntegritySql:originalSourcePredicate(false),
  values:r.values,next:start+r.values.length});
 }
