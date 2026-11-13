@@ -141,6 +141,12 @@ function docs() {
     && /frontend_check\.cjs[\s\S]{0,700}historical\s+diagnostic/.test(claude) && /Nothing in the gate enforces this now: `tests\/hosts_test\.cjs`/.test(claude));
   check('CLAUDE.md says ROLE_GUILD_MEMBER is the Member rank role with two write paths',
     !claude.includes('legacy Guild Member writer') && /ROLE_GUILD_MEMBER[\s\S]{0,200}same\s+role,\s+`1552077551839617104`/.test(claude) && claude.includes('two write paths'));
+  // MNT-RUN-001 (Codex): the scheduled budget test's preamble must state the source schedule qualifier as the source has it.
+  const budgetSrc = read('worker/src/scheduled-budget.ts'), scheduleTest = read('worker/tests/scheduled_budget_test.cjs');
+  const qualified = (budgetSrc.match(/export const EPOCH2_SCHEDULE_QUALIFIED=(true|false) as const;/) || [])[1];
+  const preamble = scheduleTest.slice(0, scheduleTest.indexOf('\nconst '));
+  check('the scheduled budget test preamble states the source schedule qualifier as the source sets it (' + qualified + ')',
+    qualified === 'true' && !/qualifier stays false/.test(preamble) && /EPOCH2_SCHEDULE_QUALIFIED has been true since \.161/.test(preamble));
   const rq = read('docs/release-qualification.md');
   check('release qualification documents the offline Lua run, the Watcher suite and the D1 assertions', rq.includes('--all-offline') && rq.includes('unittest discover -s watcher/tests') && rq.includes('ROSTER_INGEST_STATEMENTS') && rq.includes('role_settlements'));
   check('release qualification states the current D1 catalogue', rq.includes('444 live') && rq.includes('443 portable'));
