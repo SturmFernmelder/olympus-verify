@@ -53,10 +53,11 @@ async function liveOriginalTableSmoke280(env,writer,venue,check){
   ['explicit undefined',undefined],['explicit null',null],['nonstring source',7],
  ];
  for(const [label,source]of invalid)check('malformed original observation returns0 before dynamic SQL: '+label,canonicalRankSnapshotSql280(original,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm,source)==='0');
- const quoted=LIVE_NAMES280.map((name,index)=>index===1?"Steward'; DROP TABLE members;--":name);
+ const quoted=LIVE_NAMES280.map((name,index)=>index===1?"Steward'; DROP UPDATE DELETE INSERT REPLACE changes( privacy_write_admission;--":name);
  const quotedSnapshot=await publish(quoted);
  check('quoted injection-shaped unknown label remains literal source/CASE data',canonicalRankSource280(original,quotedSnapshot.source,NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)==='original-native-v2'&&await query(quotedSnapshot.source,quotedSnapshot.id)&&(await writer.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='members'").first()).n===1);
- snapshot=await publish();
+ // Keep the keyword-bearing observed table through an actual known Member
+ // grant: admission must see data, not a DDL refusal, DML charge or changes().
  const verify=async(subject,name,grant)=>{
   const native=members.find(row=>row.name===name),issued=await requestCharacterCode242(env,{id:subject,username:'live-original-smoke'},name),message=(await issued.json()).data?.content;
   const code=typeof message==='string'?/`([A-Z2-9]{6,7})`/.exec(message)?.[1]:null;
@@ -76,6 +77,7 @@ async function liveOriginalTableSmoke280(env,writer,venue,check){
   else check('unknown live rank retains neutral identity without a role effect: '+name,rows.some(r=>r.purpose===NEUTRAL_IDENTITY_PURPOSE280&&r.reason===NEUTRAL_IDENTITY_REASON280&&r.attempts===0)&&!rows.some(r=>r.attempts!==0));
  };
  await verify(LIVE_MEMBER280,'Live Member',CANONICAL_RANKS233[9].roleId);
+ snapshot=await publish();
  let cap=await captureRoutineMembership232(env,LIVE_MEMBER280);
  try{const f=cap&&routineMembership232Facts(cap);check('good main initially has current original profile while unrelated unknown rows do not block it',f?.canonicalRankProfile===CANONICAL_PROFILE233&&f.primary?.index===8&&f.rankQualified===false);}finally{if(cap)closeRoutineMembership232(cap);}
  await verify(LIVE_MEMBER280,'Live Steward',null);

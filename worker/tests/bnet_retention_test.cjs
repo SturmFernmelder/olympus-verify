@@ -417,7 +417,16 @@ const status = async (id) => (await interactions.handleInteraction(env(), { type
   await member("100000000000000016", { battletag: "Edge#16", bnet_conn_id: "c16", linked_at: T - 29 * DAY + 2 });
   const waits2 = [];
   const ictx = { waitUntil: (p) => waits2.push(Promise.resolve(p).catch(() => {})) };
-  const statusPost = () => indexMod.default.fetch(new Request("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00", "X-Signature-Timestamp": String(T) }, body: JSON.stringify({ type: 2, id: "900000000000000031", application_id: "1550176895671341076", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000016", username: "edge" }, roles: [] }, data: { name: "verify-status" } }) }), rawEnv(), ictx);
+  const statusPost = async () => {
+    // Only this actual Worker HTTP call needs a Response; direct component checks retain their reply DTO.
+    const discordModule = load("./discord"), componentReply = discordModule.reply;
+    discordModule.reply = (content) => new Response(JSON.stringify({ type: 4, data: { content } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    try {
+      return await indexMod.default.fetch(new Request("https://verify.example/interactions", { method: "POST", headers: { "Content-Type": "application/json", "X-Signature-Ed25519": "00", "X-Signature-Timestamp": String(T) }, body: JSON.stringify({ type: 2, id: "900000000000000031", application_id: "1550176895671341076", token: "t", guild_id: GUILD, member: { user: { id: "100000000000000016", username: "edge" }, roles: [] }, data: { name: "verify-status" } }) }), rawEnv(), ictx);
+    } finally {
+      discordModule.reply = componentReply;
+    }
+  };
   let sres = await statusPost();
   while (waits2.length) await waits2.shift();
   let stext = JSON.stringify(await sres.json());
