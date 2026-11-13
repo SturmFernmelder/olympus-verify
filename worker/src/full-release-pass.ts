@@ -21,7 +21,7 @@ import { identifyNativeProfile } from './native-rank-adapter';
 import { privacyCaptureFromColumns,privacyGenerationExpressionFenceSql,readPrivacySubject } from './privacy-serving-authority';
 import { DB_NOW,randomGeneration } from './account-generation-contracts';
 import { FRESH_CAUSE_CHILD_CAP,FRESH_GRANT_CHILD_CAP,FRESH_REMOVAL_CHILD_CAP,STAFF_CHILD_CAP,laneChildBudget,laneRoom } from './lane-budget';
-import {captureCanonicalRankConfig233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233,currentOriginalCanonicalPolicy233} from './canonical-ranks233';
 import { room,type Admission,type StatementCount } from './roster-effects';
 import { ROSTER_INGEST_STATEMENTS } from './scheduled-budget';
 import * as L from './full-release-roles';
@@ -577,7 +577,8 @@ async function runNative232Pass(env:Env,io:Readonly<{calls:CallBudget;adm?:Admis
     return !!await writer.DB.prepare("SELECT 1 AS recorded FROM audit WHERE actor='system' AND action='role.native232_attempt' AND subject=?1 AND json_extract(CASE WHEN json_valid(details) THEN details ELSE '{}' END,'$.walk')=?2 LIMIT 1").bind(subject,walkId).first();
    };
   const canonical=captureCanonicalRankConfig233(env);
-   const window=(await env.DB.prepare(canonical.present?L.DIRECTIVE_CANONICAL_SWEEP280_SELECT:L.NATIVE232_SWEEP249_SELECT).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
+   const rankSelector=canonical.present?(currentOriginalCanonicalPolicy233(canonical.policy)?L.ORIGINAL_CANONICAL_SWEEP280_SELECT:L.DIRECTIVE_CANONICAL_SWEEP280_SELECT):L.NATIVE232_SWEEP249_SELECT;
+   const window=(await env.DB.prepare(rankSelector).bind(cap.guild,st.g,L.FRESH_WALK_WINDOW,canonical.present?0:selected.policy.privileged?1:0,nativeSweep.id).all<{subject:string;top_rank:number|null;urgent:number}>()).results;
    const refs:PrivacyReference[]=[];let visited=0,stop='',progressHeld=false;
   // Each subject is admitted against physical SQL and HTTP room, rather than a fixed two-account quota.
   const subjectLimit=10; // Re-evaluate live SQL/HTTP room before each visit; a cheap held account must not consume a worst-case slot.

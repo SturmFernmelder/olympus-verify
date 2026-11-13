@@ -24,9 +24,9 @@ import {assertRuntimeVenue230,runtimeVenue230Facts,runtimeVenue230Predicate,oldS
 import type {OriginalConsumedMembership230} from './ingest';
 import {captureNativeRankConfig232,historicalNativeRankPolicy232,nativeRankProducerHeld232,NATIVE_RANK_PROFILE232,NATIVE_RANK_NAMES232,NATIVE_SCOPE232,SHARED_MEMBER232,NATIVE_STAFF232} from './native-rank-reconciliation232';
 import type {RoutineMembership232} from './routine-membership-authority232';
-import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,currentDirectiveCanonicalPolicy233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233,CANONICAL_GUILD233} from './canonical-ranks233';
+import {captureCanonicalRankConfig233,captureCanonicalEntitlements233,highestCanonicalRank233,canonicalNativeRole233,currentOriginalCanonicalPolicy233,currentDirectiveCanonicalPolicy233,canonicalProducerHeld233,CANONICAL_PROFILE233,CANONICAL_RANKS233,CANONICAL_MANAGED_ROLE_IDS233,LEGACY_RANK_ROLE_IDS233,NATIVE_CANONICAL_INDEX233,CANONICAL_GUILD233} from './canonical-ranks233';
 import {DIRECTIVE_CANONICAL_PROFILE,DIRECTIVE_CANONICAL_INDEX,DIRECTIVE_RANK_NAMES} from './native-rank-constants';
-import {directiveSnapshotSql280} from './directive-native-authority';
+import {canonicalRankSnapshotSql280,canonicalRankWitnessMatches280} from './canonical-native-authority280';
 import {captureCanonicalMigration233,canonicalMigrationProducerHeld233,CANONICAL_MIGRATION_PROFILE233,CANONICAL_MIGRATION_ROLE_IDS233} from './canonical-migration233';
 
 type Role={id:string;position:number;permissions:string;managed:boolean;name?:string};
@@ -1661,17 +1661,17 @@ export async function queueAndSettleLaunchMembership230(env:Env,cap:OriginalCons
   const f=issuer.consumed230Facts(cap),v=runtimeVenue230Facts(venue);
   let role:string=v.roleId,nativeRank:number|null=null,nativeName:string|null=null,sourceRankGuard='1=1',sourceIdentityGuard='1=1',rankGraph=()=>{};
   if(canonical.present){
-   if(!currentDirectiveCanonicalPolicy233(canonical.policy)||!canonical.current())return result('held','directive280_current_rank_configuration_required');
-   const native=await env.DB.prepare(`SELECT rank,rank_index FROM roster_members WHERE snapshot_id=?1 AND name_key=?2 AND guid=?3 AND ${directiveSnapshotSql280('?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)}`).bind(f.source.snapshotId,f.source.nameKey,f.source.guid).first<{rank:string;rank_index:number}>();
+   if(!(currentOriginalCanonicalPolicy233(canonical.policy)||currentDirectiveCanonicalPolicy233(canonical.policy))||!canonical.current())return result('held','directive280_current_rank_configuration_required');
+   const native=await env.DB.prepare(`SELECT rank,rank_index FROM roster_members WHERE snapshot_id=?1 AND name_key=?2 AND guid=?3 AND ${canonicalRankSnapshotSql280(canonical.policy,'?1',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)}`).bind(f.source.snapshotId,f.source.nameKey,f.source.guid).first<{rank:string;rank_index:number}>();
    issuer.assertConsumed230Original(env,cap);rankGraph=launch230GraphWitness(native);rankGraph();
    const target=native&&canonicalNativeRole233(canonical.policy,native.rank_index,native.rank);if(!target)return result('held','canonical233_native_profile_held');
    role=target.roleId;nativeRank=native!.rank_index;nativeName=native!.rank;
    // The new whisper proves this identity only. A higher current linked alt is
    // resolved by the full original routine issuer, never downgraded here.
-   sourceIdentityGuard=`${directiveSnapshotSql280('?7',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)} AND EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
+   sourceIdentityGuard=`${canonicalRankSnapshotSql280(canonical.policy,'?7',NATIVE_SCOPE232.guild,NATIVE_SCOPE232.realm)} AND EXISTS(SELECT 1 FROM roster_members cr WHERE cr.snapshot_id=?7 AND cr.guid=?8 AND cr.rank_index=${nativeRank} AND cr.rank='${nativeName.replace(/'/g,"''")}')`;
    sourceRankGuard=`${sourceIdentityGuard} AND NOT EXISTS(SELECT 1 FROM characters cc JOIN roster_members cr ON cr.guid=cc.guid AND cr.name_key=cc.name_key WHERE cc.discord_id=?2 AND cc.status='member' AND cr.snapshot_id=?7 AND cr.rank_index<${nativeRank})`;
   }
-  const grantPurpose=canonical.present?'canonical_consumed233':LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=canonical.present?DIRECTIVE_CANONICAL_PROFILE:'prime-native-230',roleAdmission=canonical.present?canonical233RoleOnly:launch230RoleOnly;
+  const grantPurpose=canonical.present?'canonical_consumed233':LAUNCH_MEMBERSHIP230_PURPOSES.grant,profile=canonical.present?canonical.policy!.profile:'prime-native-230',roleAdmission=canonical.present?canonical233RoleOnly:launch230RoleOnly;
   let queueCheck=()=>{},claimCheck=()=>{};
   const check=()=>{providerCheck();assertRuntimeVenue230(env,venue);issuer.assertConsumed230Original(env,cap);if(!canonical.current()||!entitlements.current())throw Error('canonical233_configuration_changed');rankGraph();queueCheck();claimCheck();};check();
   if(!ID.test(f.subject)||f.subjectGeneration!==null&&!TOKEN.test(f.subjectGeneration)||!/^[0-9a-f]{64}$/.test(f.fingerprint)
@@ -2124,7 +2124,7 @@ async function settleRoutineTarget232(env:Env,cap:RoutineMembership232,venue:Run
   // Rank conversion is a distinct purpose. Independent confirmed departure,
   // standing cleanup and original compensation keep their existing custody.
   const rankConversion=f.cause==='eligible'&&!restriction;
-  if(rankConversion&&(canonical233?(!currentDirectiveCanonicalPolicy233(canonical.policy)||!f.rankQualified):!base))return result('held','directive280_current_rank_authority_required');
+  if(rankConversion&&(canonical233?!canonicalRankWitnessMatches280(canonical.policy,f.canonicalRankProfile,f.rankQualified):!base))return result('held','directive280_current_rank_authority_required');
   const extra=canonical233?entitlements.manifest?.entries.filter(e=>e.subject===f.subject&&e.generation===f.subjectGeneration).map(e=>canonical.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[]:[];
   const nativeTarget=canonical233&&f.primary?canonicalNativeRole233(canonical.policy!,f.primary.index,f.primary.rank):null;
   const canonicalTarget=canonical233&&f.primary?highestCanonicalRank233(canonical.policy!,{index:f.primary.index,name:f.primary.rank},extra):null;
@@ -2325,7 +2325,7 @@ export async function reconcileCanonicalRanks233(env:Env,cap:RoutineMembership23
   const c=captureCanonicalRankConfig233(env),entitlements=captureCanonicalEntitlements233(env),old=captureNativeRankConfig232(env),historical=historicalNativeRankPolicy232(),f=I.routineMembership232Facts(cap);if(c.mode!=='enabled'||!c.policy||!c.current()||entitlements.mode==='held'||maxJobs!==1&&maxJobs!==2)return done('held','canonical233_configuration_held');
   const extra=entitlements.manifest?.entries.filter(e=>e.subject===f.subject&&e.generation===f.subjectGeneration).map(e=>c.policy!.ranks.find(r=>r.key===e.roleKey)!.roleId)??[];
   const restriction=native232Restrictions.get(cap);restriction?.check();
-  if(f.cause==='eligible'&&!restriction&&(!currentDirectiveCanonicalPolicy233(c.policy)||!f.rankQualified))return done('held','directive280_current_rank_authority_required');
+  if(f.cause==='eligible'&&!restriction&&!canonicalRankWitnessMatches280(c.policy,f.canonicalRankProfile,f.rankQualified))return done('held','directive280_current_rank_authority_required');
   const wanted=f.cause==='eligible'&&f.primary&&!restriction?highestCanonicalRank233(c.policy,{index:f.primary.index,name:f.primary.rank},extra)?.roleId:null;
   const family=[...new Set([...c.policy.ranks.map(r=>r.roleId),...historical.ranks.map(r=>r.roleId),...Object.values(NATIVE_STAFF232)])];
   const ownedFacts280=canonical239Facts('?1','?2','?3');

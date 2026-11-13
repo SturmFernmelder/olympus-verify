@@ -269,6 +269,17 @@ function boundedCanonicalSweep266(sql:string):string{
  return sql;
 }
 export const CANONICAL233_SWEEP249_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266);
+const NEUTRAL_CANONICAL_CANDIDATES280=` UNION SELECT DISTINCT c.discord_id AS subject FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.status='member'
+ AND EXISTS(SELECT 1 FROM role_settlements a WHERE (${neutralIdentityShape280('a')}) AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at)`;
+/** The original policy retains its ordinal/profile vocabulary. A new neutral
+ * identity may be a candidate, but the issuer still proves its current source. */
+function originalCanonicalSweep280():string{
+ if(CANONICAL_SWEEP_SELECT266.split(CANONICAL_CANDIDATES266).length!==2)throw Error('canonical280_original_candidate_boundary');
+ const selected=CANONICAL_SWEEP_SELECT266.replace(CANONICAL_CANDIDATES266,CANONICAL_CANDIDATES266+NEUTRAL_CANONICAL_CANDIDATES280);
+ if(selected.split(NEUTRAL_CANONICAL_CANDIDATES280).length!==2||selected.replace(NEUTRAL_CANONICAL_CANDIDATES280,'')!==CANONICAL_SWEEP_SELECT266)throw Error('canonical280_original_candidate_union');
+ return boundedCanonicalSweep266(selected);
+}
+export const ORIGINAL_CANONICAL_SWEEP280_SELECT=originalCanonicalSweep280();
 /** Current scheduling vocabulary is separate from the retained .233 selector.
  * Old receipts remain candidates/lineage, never a new ordinal's settled rank.
  * Unqualified tables admit only independent standing-cleanup candidates. The
@@ -276,8 +287,7 @@ export const CANONICAL233_SWEEP249_SELECT=boundedCanonicalSweep266(CANONICAL_SWE
 const DIRECTIVE_CANDIDATES280=CANONICAL_CANDIDATES266
  .replace("a.native_profile='olympus-canonical-ranks-20261106-v1'","a.native_profile IN('olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
  .replace("IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1')","IN('olympus-prime-live-20261105-v1','olympus-canonical-ranks-20261106-v1','olympus-canonical-ranks-directive-20261112-v2')")
- +` UNION SELECT DISTINCT c.discord_id AS subject FROM characters c LEFT JOIN privacy_subjects p ON p.subject_id=c.discord_id WHERE c.status='member'
- AND EXISTS(SELECT 1 FROM role_settlements a WHERE (${neutralIdentityShape280('a')}) AND a.subject=c.discord_id AND a.subject_generation IS p.generation AND a.native_guid=c.guid AND a.created_at>=c.bound_at AND a.created_at>=c.verified_at)`;
+  +NEUTRAL_CANONICAL_CANDIDATES280;
 const DIRECTIVE_SWEEP_WORK280=CANONICAL_SWEEP_WORK266.replace(CANONICAL_CANDIDATES266,DIRECTIVE_CANDIDATES280)
  .replace("r.native_profile='olympus-canonical-ranks-20261106-v1'","r.native_profile='olympus-canonical-ranks-directive-20261112-v2'");
 export const DIRECTIVE_CANONICAL_SWEEP280_SELECT=boundedCanonicalSweep266(CANONICAL_SWEEP_SELECT266.replace(CANONICAL_SWEEP_WORK266,
