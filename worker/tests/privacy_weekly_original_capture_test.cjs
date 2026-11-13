@@ -39,7 +39,7 @@ const suite = `
     // port's own awaited hooks - as d1() does for the original suite's races - at its logical payload: the admission bracket and the
     // materialized header are physical, not payload. (Today's policy insert is itself a two-statement batch; it is counted there.)
     const observed = { attempts: 0, policies: 0, batches: 0, beforeMutations: 0, mutationSQL: [] };
-    const logical = plan => /^UPDATE privacy_write_admission SET entry_changes=/.test(plan[0]?.statement ?? "") ? plan.slice(2, -2) : /^WITH business AS MATERIALIZED/.test(plan[0]?.statement ?? "") ? plan.slice(1) : plan;
+    const logical = plan => /^UPDATE privacy_write_admission SET entry_changes=/.test(plan[0]?.statement ?? "") ? plan.slice(2, -2) : (plan[0]?.statement ?? "") === load('./privacy-write-admission').PRIVACY_ADMISSION_SCHEMA_PROOF_SQL ? plan.slice(1) : plan;
     const port = entry.originalNativePort(db, {
       readStatement: (statement, params) => lossy(big => { statement.setReadBigInts(big); return statement.all(...params).map(asNumbers); }),
       beforeBatch: async (plan) => {
