@@ -1178,7 +1178,11 @@ html[data-stream-shield="on"] main.shell,html[data-stream-shield="on"] #app>.not
 /* .203: one card per role family; scoped duties and records stay inside native disclosures. */
 .role-ranks203 { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px 14px; list-style: none; padding: 0; margin: 14px 0 0; }
 .role-ranks203 > li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--line); }
-.role-ranks203 > li > a { display: inline-flex; align-items: baseline; gap: 7px; min-height: 32px; min-width: 0; overflow-wrap: anywhere; }
+.role-ranks203 > li > a { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 7px; min-height: 32px; min-width: 0; overflow-wrap: normal; }
+/* Round 4 (13 Nov 2026): the CL2-197 slot label takes its own line and rank names break only between words, so a
+   narrow two-column ladder no longer splits "Officer" or "Slot 0" mid-word. */
+.role-ranks203 > li > a > span:not(.role-rank-number203) { flex: 1 1 0; min-width: min-content; }
+.role-rank-slot1112 { flex-basis: 100%; white-space: nowrap; font-size: .8rem; color: var(--muted); }
 .role-rank-number203 { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); }
 .rosetta199 > summary { min-height: 44px; padding: 6px 0; font-family: var(--title); font-size: 1.2rem; line-height: 1.4; color: var(--gold); cursor: pointer; }
 .role-family-grid203 { align-items: start; }
