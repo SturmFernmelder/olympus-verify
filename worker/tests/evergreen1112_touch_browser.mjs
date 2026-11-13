@@ -8,7 +8,8 @@
 //    tables, so a run before and a run after can be compared number for number.
 // What counts as a control: a[href], button, summary, input (not hidden), select, textarea, [role=button], [role=tab].
 // Exempt (WCAG 2.5.8 inline exception), and listed separately: an a[href] without .btn or a role whose computed display is
-// `inline` and whose nearest non-inline ancestor holds text outside the link (a link inside a sentence). Text inputs,
+// `inline` and whose nearest non-inline ancestor keeps at least four words of running text once the text of every link,
+// button, tab and summary in it is removed (a link inside a sentence; separators and numbers are not words). Text inputs,
 // selects and textareas are measured for height only. A checkbox or radio is measured together with its label: the larger
 // of the box and the label that activates it.
 // Usage: node tests/evergreen1112_touch_browser.mjs --base http://127.0.0.1:63685 --cdp 63686 --out <file.json>
@@ -36,7 +37,12 @@ const MEASURE = String.raw`(() => {
   const sel = e => { const p = e.parentElement; const pd = p ? p.tagName.toLowerCase() + cls(p) : ''; let s = e.tagName.toLowerCase(); if (e.type && e.tagName === 'INPUT') s += '[type=' + e.type + ']'; if (e.getAttribute('role')) s += '[role=' + e.getAttribute('role') + ']'; return (pd ? pd + ' > ' : '') + s + cls(e); };
   const region = e => e.closest('header.topbar') ? 'header' : e.closest('main') ? 'main' : e.closest('footer') ? 'footer' : e.closest('.toasts') ? 'toasts' : 'page';
   const blockOf = e => { let p = e.parentElement; while (p && /^inline/.test(getComputedStyle(p).display) && p !== document.body) p = p.parentElement; return p; };
-  const inline = e => { if (e.tagName !== 'A' || e.classList.contains('btn') || e.getAttribute('role')) return false; if (getComputedStyle(e).display !== 'inline') return false; const b = blockOf(e); if (!b) return false; const own = (e.textContent || '').trim(); const all = (b.textContent || '').replace(/\s+/g, ' ').trim(); return all.length > own.length + 2 && /[A-Za-z]{2}/.test(all.replace(own, '')); };
+  // Running text of a block: its text without the text of every link, button, tab and summary inside it; separators and
+  // numbers are not words. A link counts as inside a sentence only when its block keeps at least four words of running text,
+  // so a strip or list of links ("Raider · Raider guide · Organization chart", "Leader (Guild Master) Rank 1 · Slot 0") is
+  // standalone (round 5 review, 13 Nov 2026).
+  const runningWords = b => { const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n, t = ''; while ((n = w.nextNode())) { const c = n.parentElement && n.parentElement.closest('a[href], button, summary, [role=button], [role=tab]'); if (c && b.contains(c)) continue; t += ' ' + n.textContent; } return (t.match(/\p{L}{2,}/gu) || []).length; };
+  const inline = e => { if (e.tagName !== 'A' || e.classList.contains('btn') || e.getAttribute('role')) return false; if (getComputedStyle(e).display !== 'inline') return false; const b = blockOf(e); if (!b) return false; return runningWords(b) >= 4; };
   const out = [], inl = [];
   for (const e of document.querySelectorAll('a[href], button, summary, input:not([type=hidden]), select, textarea, [role=button], [role=tab]')) {
     let r = shown(e); if (!r) continue;

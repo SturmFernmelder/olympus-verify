@@ -542,9 +542,13 @@ async function browserChecks() {
       // Round 5, area touch (13 Nov 2026): Codex asked for the phone-control gap to be closed before signatures. On phones every
       // standalone control on these pages is at least 44 by 44 CSS px (fields: height; a check box counts with its label; links
       // inside a sentence are exempt, WCAG 2.5.8). The whole-site sweep with route tables is tests/evergreen1112_touch_browser.mjs.
+      // A link is inside a sentence only when its block keeps at least four words once the text of every link, button, tab and
+      // summary is removed; a strip or list of links is standalone (round 5 review, 13 Nov 2026: the earlier rule counted the
+      // other links' text as running text, so every strip of two links passed).
       const small = `const MIN=44;const shown=e=>{if(!e.getClientRects().length)return null;const r=e.getBoundingClientRect();if(r.width<2&&r.height<2)return null;const c=getComputedStyle(e);if(c.visibility==='hidden'||+c.opacity===0||e.closest('[inert],[aria-hidden="true"]'))return null;return r};
         const blockOf=e=>{let p=e.parentElement;while(p&&/^inline/.test(getComputedStyle(p).display)&&p!==document.body)p=p.parentElement;return p};
-        const inline=e=>{if(e.tagName!=='A'||e.classList.contains('btn')||e.getAttribute('role')||getComputedStyle(e).display!=='inline')return false;const b=blockOf(e);if(!b)return false;const own=(e.textContent||'').trim(),all=(b.textContent||'').replace(/\\s+/g,' ').trim();return all.length>own.length+2&&/[A-Za-z]{2}/.test(all.replace(own,''))};
+        const words=b=>{const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT);let n,t='';while((n=w.nextNode())){const c=n.parentElement&&n.parentElement.closest('a[href],button,summary,[role=button],[role=tab]');if(c&&b.contains(c))continue;t+=' '+n.textContent}return (t.match(/\\p{L}{2,}/gu)||[]).length};
+        const inline=e=>{if(e.tagName!=='A'||e.classList.contains('btn')||e.getAttribute('role')||getComputedStyle(e).display!=='inline')return false;const b=blockOf(e);return !!b&&words(b)>=4};
         for(const d of document.querySelectorAll('main details:not([open])'))d.open=true;await new Promise(r=>setTimeout(r,400));
         const out=[];for(const e of document.querySelectorAll('main :is(a[href],button,summary,input:not([type=hidden]),select,textarea,[role=button],[role=tab]), footer :is(a[href],button)')){let r=shown(e);if(!r||inline(e))continue;
           const check=e.matches('input[type=checkbox],input[type=radio]'),field=!check&&e.matches('input:not([type=button]):not([type=submit]),select,textarea');let w=r.width,h=r.height;
@@ -552,13 +556,25 @@ async function browserChecks() {
           if(field?h<MIN-0.5:(h<MIN-0.5||w<MIN-0.5))out.push(e.tagName.toLowerCase()+[...e.classList].slice(0,2).map(c=>'.'+c).join('')+' "'+(e.getAttribute('aria-label')||e.textContent||'').trim().slice(0,24)+'" '+Math.round(w)+'x'+Math.round(h))}
         return {count:out.length,first:out.slice(0,8),over:document.documentElement.scrollWidth-document.documentElement.clientWidth}`;
       const seen = {};
-      for (const w of [390, 320]) for (const [who, route] of [['member', ''], ['member', 'apply'], ['member', 'roles'], ['member', 'organization'], ['member', 'talents'], ['owner', 'admin/settings'], ['owner', 'admin/names'], ['owner', 'admin/ranks']]) {
+      for (const w of [390, 320]) for (const [who, route] of [['member', ''], ['member', 'apply'], ['member', 'vote'], ['member', 'roles'], ['member', 'organization'], ['member', 'talents'], ['member', 'legal/privacy'], ['owner', 'admin/settings'], ['owner', 'admin/names'], ['owner', 'admin/ranks']]) {
         await open(who, w, route); await sleep(route.startsWith('admin') || route === 'talents' ? 900 : 400);
         seen[`${route || 'home'}@${w}`] = await ev(small);
       }
       const bad = Object.entries(seen).filter(([, x]) => x.count > 0 || x.over > 0);
-      check('R5-TOUCH', 'at 390 and 320 px every standalone control on Home, Apply, Roles, Organization, Talents and three admin pages is at least 44 by 44 px, with no page overflow',
+      check('R5-TOUCH', 'at 390 and 320 px every standalone control on Home, Apply, Vote, Roles, Organization, Talents, the member privacy view and three admin pages is at least 44 by 44 px (link strips and link lists count as standalone), with no page overflow',
         bad.length === 0, bad.length ? Object.fromEntries(bad.slice(0, 6)) : Object.keys(seen));
+      // The availability grid scrolls inside its own box on a phone; a fade on its right edge shows that more days lie beyond,
+      // lets taps through, and at the end of the week covers no day (round 5 review, 13 Nov 2026).
+      const fade = {};
+      for (const w of [390, 320]) {
+        await open('member', w, 'apply'); await sleep(400);
+        fade[w] = await ev(`const wrap=document.querySelector('main .avail-wrap');const g=wrap&&wrap.querySelector('.grid-avail');if(!g)return null;const a=getComputedStyle(wrap,'::after');
+          const box=()=>wrap.getBoundingClientRect();const start=wrap.scrollLeft;wrap.scrollLeft=wrap.scrollWidth;await new Promise(r=>setTimeout(r,80));
+          const cells=[...g.querySelectorAll('tr')].map(r=>r.lastElementChild).filter(Boolean);const lastRight=Math.max(...cells.map(c=>c.getBoundingClientRect().right));const end=box().right-parseFloat(a.width||'0');
+          const res={hidden:Math.round(wrap.scrollWidth-wrap.clientWidth),content:a.content,position:a.position,right:a.right,width:a.width,events:a.pointerEvents,gradient:/gradient/.test(a.backgroundImage),lastDayClearOfFadeAtEnd:lastRight<=end+0.5,lastRight:Math.round(lastRight),fadeStart:Math.round(end)};wrap.scrollLeft=start;return res`);
+      }
+      check('R5-TOUCH', 'at 390 and 320 px the scrolling availability grid shows a right-edge fade that lets taps through and covers no day at the end of the week',
+        [390, 320].every(w => { const f = fade[w]; return f && f.hidden > 0 && f.content === '""' && f.position === 'sticky' && f.right === '0px' && f.width === '24px' && f.events === 'none' && f.gradient && f.lastDayClearOfFadeAtEnd; }), fade);
       // Desktop density is unchanged: at 1280 px with a mouse the same controls keep their compact sizes.
       await open('member', 1280, 'apply'); await sleep(400);
       const desk = await ev(`const hgt=s=>{const e=[...document.querySelectorAll(s)].find(x=>x.getClientRects().length);return e?Math.round(e.getBoundingClientRect().height*10)/10:null};const g=document.querySelector('.grid-avail button');return {btnSmall:hgt('main .btn.small'),select:hgt('main select'),text:hgt('main input[type=text]'),prof:hgt('main .prof'),summary:hgt('main details.zone > summary'),grid:g?[Math.round(g.getBoundingClientRect().width),Math.round(g.getBoundingClientRect().height)]:null}`);

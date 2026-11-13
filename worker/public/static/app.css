@@ -1366,6 +1366,11 @@ main.shell:focus-visible { outline: none; }
   /* The availability grid keeps seven 44 px days; its own box scrolls sideways (.avail-wrap) and the hours stay in view. */
   #app .grid-avail button { width: 44px; height: 44px; }
   #app .grid-avail th.t { position: sticky; left: 0; z-index: 1; background: #0b0d0a; }
+  /* A fade on the right edge shows that more days lie beyond it (round 5 review, 13 Nov 2026). It sits after the grid, so at the
+     end of the week it covers nothing, and taps pass through it. */
+  #app .avail-wrap { display: flex; }
+  #app .avail-wrap > .grid-avail { flex: none; }
+  #app .avail-wrap::after { content: ""; flex: 0 0 24px; position: sticky; right: 0; z-index: 2; pointer-events: none; background: linear-gradient(to right, rgba(11, 13, 10, 0), #0b0d0a); }
   /* Fields: height only. */
   #app :is(input:not([type]), input[type="text"], input[type="search"], input[type="url"], input[type="number"], input[type="email"],
     input[type="tel"], input[type="datetime-local"], input[type="password"], input[type="date"], select) { min-height: 44px; }
@@ -1384,9 +1389,16 @@ main.shell:focus-visible { outline: none; }
   #app .org-alliance-council-references li > a, .card.event .card-head h3 > a, .launch-notice218 > p:only-child > a:only-child,
   .launch-notice218 > p:not([class]) > a:only-child, td > a:is(.summary-role-open, .prof-tag, .application-open),
   #application-track-chooser228 > p.small > a:only-child, #app section.frame > ul > li > a:only-child, #app .tp207-source-links li > a,
-  #app .tp207-chapter-section h3 > a, #app .olympus-rank-planner .reference-note a[href*="GuildControlUI"] {
+  #app .tp207-chapter-section h3 > a, #app .olympus-rank-planner .reference-note a[href*="GuildControlUI"],
+  /* Link strips and link lists whose other text is a separator or a short label (round 5 review, 13 Nov 2026): the track
+     chooser's guide links, the Vote strip, the rank lists on Organization and in the rank planner, the planner's Council
+     list and its reference strip, and the member legal view's account strip. */
+  #app #application-track-chooser228 li > a:not(.btn), #app section.frame > p.small > a:is([href="#/roles"], [href="#/apply"]),
+  #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a, #app .current-council218 li > a,
+  #app .current-council218 details > p > a, #app .legal-view196 .data-controls p > a {
     display: inline-flex; align-items: center; min-height: 44px;
   }
+  #app .org-rank-guide .organization-ranks li > a, #app .current-rank-guide li > a { min-width: 44px; }
   .role-see-also1112 > a, .role-reference-links228 a, .rosetta199 li:is([data-rosetta-family1112], [data-rosetta-key1112]) > a,
   .rosetta199 tr[data-rank-crosswalk] > td:last-child a { min-width: 44px; justify-content: center; }
 }
