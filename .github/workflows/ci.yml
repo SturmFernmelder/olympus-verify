@@ -66,6 +66,7 @@ jobs:
           node tests/neutral_existing_followup280_workerd_test.cjs --out "$RUNNER_TEMP/neutral-existing"
           node tests/neutral_lineage_followup280_workerd_test.cjs --out "$RUNNER_TEMP/neutral-lineage"
           node tests/note_first_verification280_workerd_test.cjs --out "$RUNNER_TEMP/note-first-verification"
+          node tests/rank_effect_depth280_workerd_test.cjs --ci --out "$RUNNER_TEMP/rank-effect-depth"
         working-directory: worker
       - name: Install the hash-pinned LuaJIT bridge for the Watcher's Lua round trips
         run: python3 -m pip install --user --require-hashes --no-deps -r addon/tests/requirements-lupa.txt

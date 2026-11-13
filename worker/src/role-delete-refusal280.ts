@@ -9,24 +9,25 @@ import {NATIVE_RANK_NAMES232} from './native-rank-reconciliation232';
 
 export const MANAGED_RANK_COOLDOWN280='role.managed.cooldown280';
 export const CANONICAL_DELETE_REFUSAL280='canonical-routine-refusal-v1';
-export const BAN_DELETE_REFUSAL280='ban-rank-refusal-v1';
+export const BAN_DELETE_REFUSAL280='ban-rank-refusal-v2';
 const BAN_PROFILE='olympus-ban-rank-removal-20261112-v1';
 const SAFE=9_007_199_254_740_991;
 const REASON_KEYS=['version','type','status','code','retryAfterSeconds'] as const;
-export type RoleDeleteRefusal280=Readonly<{version:1;type:typeof CANONICAL_DELETE_REFUSAL280|typeof BAN_DELETE_REFUSAL280;status:403|404|429;code:number|null;retryAfterSeconds:number}>;
+export type RoleDeleteRefusal280=Readonly<{version:1|2;type:typeof CANONICAL_DELETE_REFUSAL280|typeof BAN_DELETE_REFUSAL280;status:403|404|429;code:number|null;retryAfterSeconds:number;mandate?:string}>;
 const integer=(v:unknown,low:number,high:number):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=low&&v<=high;
 function object(v:unknown):v is Record<string,unknown>{return !!v&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;}
 /** Decode stored data, never a source-proof constructor. Unsupported data remains held. */
 export function readRoleDeleteRefusal280(raw:unknown):RoleDeleteRefusal280|null{
  try{
   if(typeof raw!=='string'||raw.includes('\0')||new TextEncoder().encode(raw).length>512||!uniqueJsonKeys(raw))return null;
-  const v:unknown=JSON.parse(raw);if(!object(v)||Object.keys(v).length!==5||Object.keys(v).some(k=>!REASON_KEYS.includes(k as typeof REASON_KEYS[number]))
-    ||v.version!==1||(v.type!==CANONICAL_DELETE_REFUSAL280&&v.type!==BAN_DELETE_REFUSAL280)||!integer(v.retryAfterSeconds,0,86401))return null;
+  const v:unknown=JSON.parse(raw);if(!object(v))return null;const ban=v.type===BAN_DELETE_REFUSAL280,keys:readonly string[]=ban?[...REASON_KEYS,'mandate']:REASON_KEYS;
+  if(Object.keys(v).length!==keys.length||Object.keys(v).some(k=>!keys.includes(k))||v.version!==(ban?2:1)||(v.type!==CANONICAL_DELETE_REFUSAL280&&!ban)||!integer(v.retryAfterSeconds,0,86401)
+   ||ban&&(typeof v.mandate!=='string'||v.mandate.length!==32||!/^([0-9a-f]{32})$/.test(v.mandate)))return null;
   if(v.status===403){if(![50001,50013].includes(v.code as number)||v.retryAfterSeconds!==0)return null;}
   else if(v.status===404){if(![10007,10011].includes(v.code as number)||v.retryAfterSeconds!==0)return null;}
   else if(v.status===429){if(v.code!==null&&!integer(v.code,0,SAFE))return null;}
   else return null;
-  return Object.freeze({version:1,type:v.type,status:v.status,code:v.code as number|null,retryAfterSeconds:v.retryAfterSeconds});
+  return Object.freeze({version:ban?2:1,type:v.type as typeof CANONICAL_DELETE_REFUSAL280|typeof BAN_DELETE_REFUSAL280,status:v.status,code:v.code as number|null,retryAfterSeconds:v.retryAfterSeconds,...ban?{mandate:v.mandate as string}:{}});
  }catch{return null;}
 }
 export function readManagedRankCooldown280(raw:unknown):Readonly<{version:1;due:number}>|null{
@@ -64,7 +65,8 @@ function validJson(value:string,maximum:number):string{return all([`typeof(${val
  * booleans/reals, embedded NUL and unsupported codes never classify a role effect. */
 function reasonSql(a:string,type:string):string{
  const r=a+'.reason',j=(k:string)=>`json_extract(${r},'$.${k}')`,t=(k:string)=>`json_type(${r},'$.${k}')`;
- const shape=all([`json_type(${r})='object'`,closedKeys(r,REASON_KEYS),`${t('version')}='integer'`,`${j('version')}=1`,`${t('type')}='text'`,`${j('type')}='${type}'`,`${t('status')}='integer'`,`${t('retryAfterSeconds')}='integer'`,`${j('retryAfterSeconds')} BETWEEN 0 AND 86401`,
+ const ban=type===BAN_DELETE_REFUSAL280;
+ const shape=all([`json_type(${r})='object'`,closedKeys(r,ban?[...REASON_KEYS,'mandate']:REASON_KEYS),`${t('version')}='integer'`,`${j('version')}=${ban?2:1}`,...ban?[hex(j('mandate'),32)]:[],`${t('type')}='text'`,`${j('type')}='${type}'`,`${t('status')}='integer'`,`${t('retryAfterSeconds')}='integer'`,`${j('retryAfterSeconds')} BETWEEN 0 AND 86401`,
   any([all([`${j('status')}=403`,`${t('code')}='integer'`,`${j('code')} IN(50001,50013)`,`${j('retryAfterSeconds')}=0`]),all([`${j('status')}=404`,`${t('code')}='integer'`,`${j('code')} IN(10007,10011)`,`${j('retryAfterSeconds')}=0`]),all([`${j('status')}=429`,any([`${t('code')}='null'`,all([`${t('code')}='integer'`,`${j('code')} BETWEEN 0 AND ${SAFE}`])])])]),
   `${a}.checked_at<=${SAFE}-${j('retryAfterSeconds')}`]);
  return `(CASE WHEN ${validJson(r,512)} THEN CASE WHEN ${shape} THEN 1 ELSE 0 END ELSE 0 END=1)`;
@@ -100,7 +102,7 @@ export function manualRankRefusalSql280(name:string):string{
 export function managedRankTargetAllowedSql280(subject:string,guild:string,role:string,binding:Readonly<{kind:'routine';generation:string;parent:string}|{kind:'ban';generation:string;mandate:string}>):string{
  const original=binding.kind==='routine'?binding.parent:binding.mandate;
  for(const v of [subject,guild,role,binding.generation,original])if(!/^\?[1-9]\d*$/.test(v))throw Error('role_refusal_parameter_held');
- const mandate=binding.kind==='routine'?all(["manual280.purpose='canonical_routine233'",`manual280.request_digest=${original}`]):all(["manual280.purpose='canonical_ban_remove_v1'",`manual280.proof_id=${original}`]);
+ const mandate=binding.kind==='routine'?all(["manual280.purpose='canonical_routine233'",`manual280.request_digest=${original}`]):all(["manual280.purpose='canonical_ban_remove_v1'",`(CASE WHEN json_valid(manual280.reason) THEN json_extract(manual280.reason,'$.mandate') ELSE NULL END)=${original}`]);
  return `NOT EXISTS(SELECT 1 FROM role_settlements manual280 WHERE ${all([`manual280.subject=${subject}`,`manual280.guild_id=${guild}`,`manual280.role_id=${role}`,`manual280.subject_generation IS ${binding.generation}`,mandate,manualRankRefusalSql280('manual280')])})`;
 }
 /** Data-only Native status for an original pacing read; never effect authority. */
