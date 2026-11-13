@@ -155,8 +155,52 @@
   }
   const nativeRankDisplayName = (slot, name) => slot === 0 ? "Leader (Guild Master)" : name;
   const guildDisplayName229 = name => typeof name === 'string' && /^Olympus(?: I| PRIME)?$/i.test(name) ? 'OLYMPUS PRIME' : name;
+  // Evergreen 12 Nov 2026 (CL2-310, CL2-197): rank and slot appear once, in this badge, as "Rank 8 Member · Slot 7 · Title IV";
+  // the tier is already the section heading.
+  const rankSlotText1112 = row => `Rank ${row.nativeRankOrdinal} ${nativeRankDisplayName(row.nativeSlot, row.nativeRankName)} · Slot ${row.nativeSlot}`;
   function officeBadge199(row) {
-    return row?.nativeRankOrdinal ? h("span", { class: "badge rank-office199", text: `${row.tierLabel} · Rank ${row.nativeRankOrdinal} ${nativeRankDisplayName(row.nativeSlot, row.nativeRankName)} (Slot ${row.nativeSlot}) · Title ${(row.codexTitles || []).join(" / ")}` }) : null;
+    return row?.nativeRankOrdinal ? h("span", { class: "badge rank-office199", text: `${rankSlotText1112(row)} · Title ${(row.codexTitles || []).join(" / ")}` }) : null;
+  }
+  // Evergreen 12 Nov 2026 (CL2-034, CL2-036): the directory serves the directive's six catalogue groups in page order and one
+  // eligibility value per family, computed from the Worker's own application checks. Every role surface reads them here.
+  const ELIGIBILITY_LABELS_1112 = Object.freeze({ open_application: "Applications accepted", reserved_seat: "Reserved leadership seat", appointed: "Appointed",
+    activity: "Optional activity", standing: "Standing", gold_writ: "Gold Writ" });
+  function catalogGroups1112(directory) {
+    const groups = directory?.groups;
+    if (!Array.isArray(groups) || groups.length !== 6) return null;
+    const byKey = new Map(directory.families.map(family => [family.key, family]));
+    const sections = groups.map(group => ({ key: group.key, label: group.label, families: (group.familyKeys || []).map(key => byKey.get(key)).filter(Boolean) }));
+    return sections.reduce((n, group) => n + group.families.length, 0) === directory.families.length ? sections : null;
+  }
+  const familyOf1112 = (directory, key) => directory?.families.find(family => family.key === directory.keyToFamily[key] || family.key === key) || null;
+  const familyEligibility1112 = family => ELIGIBILITY_LABELS_1112[family?.eligibility] || ELIGIBILITY_LABELS_1112.standing;
+  // Evergreen 12 Nov 2026 (CL2-035): one See-also strip for a role key, used on role cards, Rosetta rows, chart panels and vote plaques.
+  // Each link lands on its own target: the role card, the chart office, the governing Title, the Rosetta row, the rank planner
+  // slot (site admins), the vote board and the application track.
+  function seeAlso1112({ family = null, officeKey = "", nodeId = "", titles = [], slot = null, ballotKey = "", intent = null, omit = [] } = {}) {
+    const skip = new Set(omit), links = [];
+    if (family && !skip.has("role")) links.push(h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: "Role guide" }));
+    if ((officeKey || nodeId) && !skip.has("organization")) links.push(h("a", { href: "#/organization/" + encodeURIComponent(officeKey || nodeId), text: "Organization chart" }));
+    for (const title of titles) if (governanceTitleRoutes228[title]) links.push(titleLink228(title));
+    if (Number.isInteger(slot) && !skip.has("rosetta")) links.push(h("a", { href: "#/roles/rosetta-rank-" + (slot + 1), text: "Rosetta Stone · Rank " + (slot + 1) }));
+    if (Number.isInteger(slot) && !skip.has("planner")) { const planner = rankPlannerLink228(slot); if (planner) links.push(planner); }
+    if (ballotKey && !skip.has("vote")) links.push(h("a", { href: "#/vote/" + encodeURIComponent(ballotKey), text: "Vote board" }));
+    if (intent && !skip.has("apply")) links.push(h("a", { href: `#/vote/${intent.applicationTrack}/${encodeURIComponent(intent.targetOffice || "new")}`, text: "Apply" }));
+    // The strip is a row of standalone links, so each gets a 44 px target (app.css is outside this lane; CSSOM styles pass the CSP).
+    for (const link of links) targetSize1112(link);
+    return links.length ? h("div", { class: "role-reference-links228 role-see-also1112", role: "group", "aria-label": "See also" }, h("span", { class: "small muted", text: "See also:" }), ...links) : null;
+  }
+  function targetSize1112(el) { el.style.display = "inline-flex"; el.style.alignItems = "center"; el.style.minHeight = "44px"; return el; }
+  // A short in-page jump list. Buttons scroll without changing the route, so the hash router is not re-entered.
+  function jumpList1112(items) {
+    const shown = items.filter(item => item && item.target);
+    if (shown.length < 3) return null;
+    return h("nav", { class: "governance-quicklinks page-jump-list1112", "aria-label": "On this page" }, h("span", { class: "small muted", text: "On this page:" }),
+      ...shown.map(item => targetSize1112(h("button", { type: "button", class: "btn small", text: item.label, onclick: () => {
+        for (let node = item.target; node; node = node.parentElement) if (node.tagName === "DETAILS") node.open = true;
+        if (!item.target.hasAttribute("tabindex")) item.target.setAttribute("tabindex", "-1");
+        scrollToSection(item.target); item.target.focus({ preventScroll: true });
+      } }))));
   }
   function applicationBadges199(intent) {
     const t = track199(intent?.applicationTrack), o = office199(intent?.targetOffice);
@@ -198,11 +242,11 @@
       directory ? h("ol", { class: "role-ranks203" }, directory.ranks.map(rank => {
         const source = offices199().find(row => row.group === "native" && row.nativeSlot === rank.nativeSlot);
         return h("li", null, h("a", { href: "#/roles/" + encodeURIComponent(rank.familyKey), "data-rank-family203": rank.familyKey, "data-native-slot": String(rank.nativeSlot) },
-          posIcon(source?.key || familyPrimary203(directory,rank.familyKey),"s"), h("span", { class: "role-rank-number203", text: String(rank.nativeRankOrdinal) }), h("span", { text: nativeRankDisplayName(rank.nativeSlot, rank.label) })));
+          posIcon(source?.key || familyPrimary203(directory,rank.familyKey),"s"), h("span", { class: "role-rank-number203", text: String(rank.nativeRankOrdinal) }), h("span", { text: nativeRankDisplayName(rank.nativeSlot, rank.label) }),
+          // CL2-197: the game slot sits in the one ladder instead of a second "technical metadata" list.
+          h("small", { class: "role-rank-slot1112", text: "Slot " + rank.nativeSlot })));
       })) : h("p", { class: "muted", text: "The linked rank directory is unavailable. No rank or appointment has been changed." }),
-      directory ? h("details", {class:"technical-profile199"},h("summary",{text:"Rank Slot & Technical Metadata"}),
-        h("p",{text:"The exact 10-rank Olympus In-Game Hierarchy uses the following zero-based game slots. The in-game name for slot 0 is Guild Master."}),
-        h("ul",null,directory.ranks.map(rank=>h("li",{text:`Rank ${rank.nativeRankOrdinal} ${nativeRankDisplayName(rank.nativeSlot, rank.label)} · slot ${rank.nativeSlot}`})))) : null);
+      directory ? h("p", { class: "small muted", text: "Slots are the game's zero-based rank positions; the in-game name for slot 0 is Guild Master." }) : null);
   }
   const governanceTitleRoutes228 = Object.freeze({
     I: "title-i-the-sovereign-royal-decrees",
@@ -215,46 +259,58 @@
   const compareCouncilFamilies228 = order => (a, b) => (order.get(a.key) ?? order.size) - (order.get(b.key) ?? order.size);
   const titleLink228 = title => h("a", { href: "#/governance/" + governanceTitleRoutes228[title], text: "Title " + title });
   const rankPlannerLink228 = slot => S.user?.isAdmin === true
-    ? h("a", { href: "/admin/ranks#current-rank-" + (slot + 1), text: "Rank planner" }) : null;
-  function roleReferenceLinks228(office, fallback, ballotKey) {
-    // CL2-100 (12 Nov 2026): per-card link rows are plain groups; navigation landmarks are kept for the site menu and page contents.
-    return h("div", { class: "role-reference-links228" },
-      h("a", { href: "#/organization/" + encodeURIComponent(office?.key || fallback), text: "Organization" }),
-      ...(office?.codexTitles || ["IV"]).map(titleLink228), office ? rankPlannerLink228(office.nativeSlot) : null,
-      ballotKey ? h("a", { href: "#/vote/" + encodeURIComponent(ballotKey), text: "Leadership board" }) : null);
+    ? h("a", { href: "#/admin/ranks/" + (slot + 1), text: "Rank planner · Rank " + (slot + 1) }) : null;
+  // CL2-035: role cards and their drawers use the shared See-also strip (organization, Titles, Rosetta row, planner, vote).
+  function roleReferenceLinks228(office, fallback, ballotKey, family = null) {
+    return seeAlso1112({ officeKey: office?.key || fallback, titles: office?.codexTitles || ["IV"], slot: Number.isInteger(office?.nativeSlot) ? office.nativeSlot : null, ballotKey, family, omit: ["role"] });
   }
+  // Evergreen 12 Nov 2026 (CL2-046, CL2-199): the access column follows the .233 one-role-per-rank model served from
+  // CANONICAL_RANKS233; each role family appears once per rank, in catalogue order, with its other titles inline.
   function rosettaPanel199(open = false) {
-    const directory = roleDirectory203();
+    const directory = roleDirectory203(), discord = M().rankDiscordRoles1112;
+    const rankRoles = Array.isArray(discord?.ranks) && discord.ranks.length === 10 ? discord.ranks : null;
     const headings = ["In-Game Rank Number & Name", "Tier & Statutory Codex Title", "Organization Department & Branch Offices", "Discord Role & Portal Access", "How to Attain It"];
+    const familyOrder = new Map((directory?.families || []).map((family, index) => [family.key, index]));
+    const targetSlot = target => Number.isInteger(office199(target.targetOffice)?.nativeSlot) ? office199(target.targetOffice).nativeSlot : null;
     return h("details", { class: "card rosetta199", id: "role-rosetta-stone", tabindex: "-1", open }, h("summary", { text: "Olympus Role & Rank Rosetta Stone" }),
-      h("p", { text: "103 stable offices and 139 assignable keys share this bridge. Display classification and an application do not confer an office, game rank, Discord role or portal access. Olympus Link remains OFF; /oly discord is a future qualified verification path, not a currently active admission shortcut." }),
+      h("p", { text: "Each in-game rank, the offices associated with it, its Discord role and how to reach it. The office register has 103 offices and 139 assignment keys; with Guild Member, Raider and PvP Team, the role directory groups those 142 records into " + (directory?.families.length || "its") + " role families. A listing or an application grants no office, rank, Discord role or access." }),
       h("table", { class: "rosetta-table199" }, h("thead", null, h("tr", null, headings.map(text => h("th", { scope: "col", text })))), h("tbody", null, ranks199().map(rank => {
         const rows = offices199().filter(row => row.nativeSlot === rank.nativeSlot), tiers = [...new Set(rows.map(row => row.tierLabel))], titleOrder = ["I", "II", "III", "IV", "V"], titles = [...new Set(rows.flatMap(row => row.codexTitles || []))].sort((a,b) => titleOrder.indexOf(a) - titleOrder.indexOf(b));
         const familyKey = directory?.ranks[rank.nativeSlot]?.familyKey;
         const rankLabel = "Rank " + rank.nativeRankOrdinal + " " + nativeRankDisplayName(rank.nativeSlot, rank.name);
+        const byFamily = new Map();
+        for (const row of rows) {
+          const key = directory?.keyToFamily[row.key] || row.key;
+          if (!byFamily.has(key)) byFamily.set(key, []);
+          byFamily.get(key).push(row);
+        }
+        const familyRows = [...byFamily.entries()].sort((a, b) => (familyOrder.get(a[0]) ?? 1e3) - (familyOrder.get(b[0]) ?? 1e3));
+        const role = rankRoles?.[rank.nativeSlot];
+        const opens = (directory?.families || []).flatMap(family => (family.applicationTargets || []).filter(target => (target.targetOffice ? targetSlot(target) : family.nativeSlot) === rank.nativeSlot)
+          .map(target => ({ family, target })));
         const cells = [h("div", { class: "role-reference-links228" },
           familyKey ? h("a", { href: "#/roles/" + encodeURIComponent(familyKey), text: rankLabel }) : h("strong", { text: rankLabel }),
-          rankPlannerLink228(rank.nativeSlot)), h("div", null, tiers.join(" / "),
+          h("small", { text: "Slot " + rank.nativeSlot }), rankPlannerLink228(rank.nativeSlot)), h("div", null, tiers.join(" / "),
           h("div", { class: "role-reference-links228" }, ...titles.map(titleLink228))),
-          h("details", null, h("summary", { text: `${rows.length} mapped office / assignment keys` }), h("ul", null, rows.map(row => {
-            const family = directory?.families.find(item => item.key === directory.keyToFamily[row.key]);
-            return h("li", null, h("a", { href: "#/organization/" + encodeURIComponent(row.key), text: family?.kind === "institution" ? family.label : row.applicationLabel || row.label }), " · ", row.ministry || row.department,
-              roleReporting218(row,family,{includeMinistry:false}) ? " · " + roleReporting218(row,family,{includeMinistry:false}) : "");
+          h("details", null, h("summary", { text: `${familyRows.length} role families · ${rows.length} office keys` }), h("ul", null, familyRows.map(([key, own]) => {
+            const family = directory?.families.find(item => item.key === key);
+            const label = family?.label || own[0].applicationLabel || own[0].label;
+            const others = [...new Set(own.filter(row => row.group !== "native").map(row => row.applicationLabel || row.label))].filter(text => text !== label);
+            return h("li", { "data-rosetta-family1112": key }, family ? h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: label }) : h("span", { text: label }),
+              others.length ? h("span", { class: "small muted", text: " — " + others.join(" · ") }) : null, " · ",
+              h("a", { href: "#/organization/" + encodeURIComponent(own[0].key), text: "Chart" }));
           }))),
-          h("p", { text: rankPortalSummary221(rank.nativeSlot) }),
-          h("p", null, rank.nativeSlot < 5 ? "Reserved appointment; no public application." : "Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ", rank.nativeSlot >= 5 ? h("a", {href:"#/roles",text:"Explore the role directory"}) : null)];
-        return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal) }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
-      }))));
-  }
-  function rankPortalSummary221(slot) {
-    const summaries = [
-      "Olympus Guild Leader; administrative, bank and signing capabilities follow the Guild Master’s explicit delegation.",
-      "High Council access requires a current verified appointment and the permission for the task. Co-GM and Treasurer have separately checked Treasury access.",
-      "Olympus Officer; calendar organization and officer-tier Treasury access use current server-side permission checks.",
-      "Officer Alt records an officer’s alternate character under that officer’s existing account and delegated remit.",
-      "Olympus Raid Leader; raid organization and officer-tier Treasury access use current server-side permission checks."
-    ];
-    return summaries[slot] || "Olympus Guild Member after verification. Cosmetic Tithe Tiers and the consented Broadcaster / Stream Shield capability are separate from native rank.";
+          h("p", { class: "rosetta-access1112" }, role ? h("strong", { text: role.roleName }) : h("span", { class: "muted", text: "Discord role unavailable" }),
+            role?.granted === "verified_alt" ? " · given from the verified-alt record, not from the in-game rank." : role ? " · follows this rank on the verified roster." : "",
+            role?.treasuryPlan ? h("span", { class: "small", text: " Opens the officer Treasury plan." }) : null),
+          h("p", null, rank.nativeSlot < 5 ? "Reserved appointment; no public application." : opens.length ? "Apply: " : "Through officer review; there is no application for this rank.",
+            ...opens.flatMap(({ family, target }, i) => [i ? " · " : "", h("a", { href: `#/vote/${target.applicationTrack}/${encodeURIComponent(target.targetOffice || "new")}`,
+              text: target.targetOffice ? office199(target.targetOffice)?.applicationLabel || office199(target.targetOffice)?.label || family.label : family.label })]))];
+        return h("tr", { "data-rank-crosswalk": String(rank.nativeRankOrdinal), id: "rosetta-rank-" + rank.nativeRankOrdinal, tabindex: "-1" }, cells.map((cell, i) => h("td", { "data-column": headings[i] }, cell)));
+      }))),
+      h("p", { class: "small muted rosetta-note1112", text: "One Discord role per rank. The officer Treasury plan opens for Ranks 1–5, read from the latest verified roster or the matching Discord rank role, for published Co-Guild Master and Treasurer appointments, and for site admins. "
+        + (discord?.branchRoles?.length ? "Branch Guild Masters and branch officers have their own roles: " + discord.branchRoles.join(" and ") + ". " : "")
+        + "Cosmetic Tithe tiers and the Broadcaster / Stream Shield choice are separate from rank." }));
   }
   function officeTierPanels199() {
     return [["leader", "Leader & Royal Appointments"], ["high_council", "High Council Roles"], ["officer_corps", "Officer Corps Roles"], ["member_specialist", "Member & Specialist Roles"]].map(([tier, label]) => frame(label, null,
@@ -316,24 +372,36 @@
   const standingNotice218 = "This label records current guild standing, rather than an open position. Ask the responsible officer to review a change in status.";
   const standingIntro218 = "These labels record a member’s current guild standing; they are not open positions. Ask the responsible officer to review a change in status.";
   const roleDepartment218 = office => office?.department === "Ten native rank slots" ? "In-game rank reference" : office?.department;
-  function guideBody201(guide, fallback, { notesOnly = false, includeEligibility = false, includeDefinition = true } = {}) {
+  // Evergreen 12 Nov 2026 (CL2-037, CL2-188): a family card states each boundary, bullet and fact once. `seen` collects the
+  // boundaries already shown on the card; `omitItems` and `omitFacts` drop text the card already carries.
+  function guideBody201(guide, fallback, { notesOnly = false, includeEligibility = false, includeDefinition = true, seen = null, omitItems = null, omitFacts = false } = {}) {
     if (!guide) return fallback ? roleInfo(fallback) : h("p", {class:"muted",text:"The detailed guide is unavailable. Ask leadership for the current remit before taking on this duty."});
-    const list = rows => h("ul", null, (rows || []).map(text => h("li", {text})));
-    const boundary = guide.boundaries?.replaceAll("This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process.", "").trim();
+    const keep = rows => (rows || []).filter(text => !omitItems?.has(text));
+    const list = rows => h("ul", null, keep(rows).map(text => h("li", {text})));
+    let boundary = guide.boundaries?.replaceAll("This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process.", "").trim();
+    if (boundary && seen) { if (seen.has(boundary)) boundary = ""; else seen.add(boundary); }
     const notes = [boundary ? h("p", {class:"small",text:boundary}) : null,
       includeEligibility && guide.eligibilityNote && guide.eligibilityNote !== standingNotice218 && guide.eligibility !== "reserved" ? h("p", {class:"small muted",text:guide.eligibilityNote}) : null];
     if (notesOnly) return h("div", {class:"role-scope-notes218"}, ...notes);
     return h("div", {class:"parchment role-info role-guide201"},
       includeDefinition ? h("p", {class:"about",text:guide.definition}) : null,
       // A role guide sits under its role's H2 (Vote, Roles, dialogs), so its parts are H3s styled as small caps.
-      h("h3", {class:"role-subhead",text:"Responsibilities"}), list(guide.responsibilities),
-      h("h3", {class:"role-subhead",text:"Expectations"}), list(guide.expectations),
-      h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:guide.commitment}),
+      keep(guide.responsibilities).length ? [h("h3", {class:"role-subhead",text:"Responsibilities"}), list(guide.responsibilities)] : null,
+      keep(guide.expectations).length ? [h("h3", {class:"role-subhead",text:"Expectations"}), list(guide.expectations)] : null,
+      omitFacts ? null : h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:guide.commitment}),
         h("dt", {text:"Works with"}), h("dd", {text:guide.worksWith})),
       ...notes);
   }
-  function canonicalFamilyGuide219(family, guides) {
-    return guideBody201(guides[family.primaryKey],positionOf(family.primaryKey));
+  function canonicalFamilyGuide219(family, guides, seen = null) {
+    return guideBody201(guides[family.primaryKey],positionOf(family.primaryKey),{seen});
+  }
+  /** Bullets and facts every regional or class assignment of a family shares, so the card states them once (CL2-037). */
+  function sharedVariantGuide1112(family, guides, presentation) {
+    const own = family.variants.filter(variant => variant.presentation === presentation).map(variant => guides[variant.key]).filter(Boolean);
+    if (own.length < 2) return null;
+    const common = field => (own[0][field] || []).filter(text => own.every(guide => (guide[field] || []).includes(text)));
+    const same = field => own.every(guide => guide[field] === own[0][field]) ? own[0][field] : "";
+    return { responsibilities: common("responsibilities"), expectations: common("expectations"), commitment: same("commitment"), worksWith: same("worksWith") };
   }
   function roleReporting218(office, family, {includeMinistry = true} = {}) {
     if (!office?.councilSeat || ["leader","high_council"].includes(family?.tier) && family?.kind === "role" && family.label === office.councilSeat) return "";
@@ -348,11 +416,13 @@
     const owner = peers.find(variant => variant.presentation === "native") || peers[0];
     return owner?.key === key ? note : "";
   }
+  // CL2-036: one rule. The directory's applicationTargets are the intents the Worker accepts (validateApplicationIntent199
+  // with reservedApplication201); the page offers the first of them and never a reserved key.
   function familyApplicationChoice201(family) {
-    const reserved = ["leader","high_council","officer_corps"].includes(family.tier) || family.sourceKeys.some(reservedKey201);
-    const intent = family.application;
-    return { reserved, intent: intent && !reserved && family.kind === "role" && ["member","raider","artisan"].includes(intent.applicationTrack)
-      && (!intent.targetOffice || !reservedKey201(intent.targetOffice)) ? intent : null };
+    const reserved = family.eligibility ? family.eligibility === "reserved_seat" : ["leader","high_council","officer_corps"].includes(family.tier) || family.sourceKeys.some(reservedKey201);
+    const targets = Array.isArray(family.applicationTargets) ? family.applicationTargets : family.application && family.kind === "role" ? [family.application] : [];
+    const intent = reserved ? null : targets.find(target => ["member","raider","artisan"].includes(target.applicationTrack) && (!target.targetOffice || !reservedKey201(target.targetOffice))) || null;
+    return { reserved, intent };
   }
   function applicationRoleDirectory201(onChoose = null, initial = {}, options = {}) {
     const directory = roleDirectory203(), guides = M().roleGuides201 || {}, sections = [], entries = [];
@@ -369,26 +439,9 @@
     const currentFamily = directory.keyToFamily[currentKey] || (directory.families.some(family => family.key === currentKey) ? currentKey : "");
     const search = h("input", {type:"search",id:"application-role-search201",maxlength:"160",placeholder:"Find a role, rank or title…","aria-label":"Search all roles, ranks and titles"});
     const count = h("p", {class:"small muted","aria-live":"polite"});
-    const raidFamilies = new Set(["class_leadership", "chief_strategist", "loot_council", "pvp_leadership", "raid_leader", "raid_assist", "pvp_team", "marshall"]);
-    const workshopFamilies = new Set(["profession_coordinator", "artisan"]);
-    const royalFamilies = new Set(["founder", "emeritus", "tithe", "vip"]);
-    const sectionsByRole = [
-      ["council", "Sovereign & High Council"],
-      ["officers", "Officer Corps & Branch Command"],
-      ["raid", "Raid, PvP & Class Leadership"],
-      ["workshop", "Guild Workshop & Master Artisans"],
-      ["members", "Sworn Members, Raiders, Veterans, Alts & Initiates"],
-      ["royal", "Royal Patrons & Ceremonial Writs"]
-    ];
-    function groupForFamily(family) {
-      if (royalFamilies.has(family.key)) return "royal";
-      if (family.tier === "leader" || family.tier === "high_council") return "council";
-      if (raidFamilies.has(family.key)) return "raid";
-      if (workshopFamilies.has(family.key)) return "workshop";
-      return family.tier === "officer_corps" ? "officers" : "members";
-    }
+    // CL2-034, CL2-214: sections and their order come from the directory's catalogue groups.
+    const catalogue = catalogGroups1112(directory) || [];
     const councilOrder = councilFamilyOrder228(directory);
-    const rankOrder = new Map(directory.ranks.map(rank => [rank.familyKey, rank.nativeSlot]));
     const ballotKeys = new Set(M().ballots.map(ballot => ballot.key));
     const sourceLabel = key => directory.families.find(family => family.primaryKey === key && family.kind === "institution")?.label
       || office199(key)?.applicationLabel || office199(key)?.label || positionOf(key)?.label || guides[key]?.label || key;
@@ -402,23 +455,48 @@
         h("p", {class:"small"}, h("strong", {text:sourceLabel(key) + " — "}), appointmentLabelNode(key,text,false,true)),
         options.showCharacters === true && S.signedIn && !S.denied && communityReader() ? h("div", {"data-appointment-characters":key}) : null);
     };
-    for (const [id, label] of sectionsByRole) {
-      const families = directory.families.filter(family => groupForFamily(family) === id);
-      if (id === "council") families.sort(compareCouncilFamilies228(councilOrder));
-      if (id === "members") families.sort((a, b) => (rankOrder.get(a.key) ?? directory.ranks.length) - (rankOrder.get(b.key) ?? directory.ranks.length));
+    for (const { key: id, label, families } of catalogue) {
       if (!families.length) continue;
       const grid = h("div", {class:"role-directory-grid201 role-family-grid203"});
       const section = h("details", {class:"role-section201","data-role-section201":id,open:id === "members" || families.some(family => family.key === currentFamily)},
         h("summary", null, h("span", {text:label}), h("span", {class:"badge muted",text:String(families.length)})),
         id === "council" ? h("p", {class:"small muted",text:"The Guild Master chairs the Council. The Co-Guild Master and twelve numbered portfolios have separate appointments. Collective institutions retain their own guides below."}) : null,
-        id === "members" ? h("p", {class:"role-standing-scope218 small muted",text:"Guild Member and Raider accept applications. For a change in your guild standing, ask the responsible officer to review your record."}) : null, grid);
+        id === "members" ? h("p", {class:"role-standing-scope218 small muted",text:(() => {
+          const open = families.map(family => familyApplicationChoice201(family).intent && (familyApplicationChoice201(family).intent.targetOffice && !family.application ? office199(familyApplicationChoice201(family).intent.targetOffice)?.applicationLabel : family.label)).filter(Boolean);
+          return (open.length ? open.slice(0, -1).join(", ") + (open.length > 1 ? " and " : "") + open.at(-1) + " accept applications. " : "") + "For a change in your guild standing, ask the responsible officer to review your record.";
+        })()}) : null, grid);
       section.open = id === "members" || families.some(family => family.key === currentFamily);
       for (const family of families) {
         const row = office199(family.primaryKey), { reserved, intent } = familyApplicationChoice201(family);
         const chosen = family.key === currentFamily;
-        const badge = family.kind === "status" ? "Standing or recognition — not an application" : family.kind === "institution" ? "Governance body — not an application"
-          : reserved ? "Reserved seat — no applications" : intent ? "Applications accepted" : family.kind === "activity" ? "Optional Member activity" : "Standing or recognition — not an application";
-        const variants = family.variants.filter(variant => !["alias","native","historical"].includes(variant.presentation)).map(variant => {
+        const badge = familyEligibility1112(family);
+        // CL2-037, CL2-188: every bullet, fact and boundary appears once on the card. The primary guide comes first; what
+        // all regional (or all class) assignments share is stated once beside it; each drawer keeps only what is its own.
+        const seen = new Set(), primaryGuide = guides[family.primaryKey];
+        const listed = family.variants.filter(variant => !["alias","native","historical"].includes(variant.presentation));
+        // A purely regional family (Regional Raid Leader, Raid Assist) has one job specification: the duty sheet its NA and EU
+        // seats share. The family guide keeps its definition; its shorter restatement of the same duties is not repeated.
+        const regionalFamily = listed.length > 1 && listed.every(variant => variant.presentation === "region") && !!sharedVariantGuide1112(family, guides, "region");
+        const primaryItems = [...(primaryGuide?.responsibilities || []), ...(primaryGuide?.expectations || [])];
+        const shownItems = new Set(regionalFamily ? [] : primaryItems);
+        const sharedBlocks = ["region","class"].map(presentation => {
+          const shared = sharedVariantGuide1112(family, guides, presentation);
+          if (!shared) return null;
+          const resp = shared.responsibilities.filter(text => !shownItems.has(text)), exp = shared.expectations.filter(text => !shownItems.has(text));
+          for (const text of [...shared.responsibilities, ...shared.expectations]) shownItems.add(text);
+          const facts = shared.commitment && shared.worksWith;
+          if (!resp.length && !exp.length && !facts) return null;
+          const merged = presentation === "region" && regionalFamily;
+          return { presentation, facts, node: h("section", {class:"role-shared1112" + (merged ? " parchment role-info role-guide201" : ""),"data-role-shared1112":presentation},
+            merged ? null : h("h4", {text:presentation === "region" ? "Shared by every regional assignment" : "Shared by every class assignment"}),
+            resp.length ? [merged ? h("h4", {text:"Responsibilities"}) : null, h("ul", null, resp.map(text => h("li", {text})))] : null,
+            exp.length ? [h(merged ? "h4" : "h5", {text:"Expectations"}), h("ul", null, exp.map(text => h("li", {text})))] : null,
+            facts ? h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:shared.commitment}), h("dt", {text:"Works with"}), h("dd", {text:shared.worksWith})) : null) };
+        }).filter(Boolean);
+        const sharedFacts = new Set(sharedBlocks.filter(block => block.facts).map(block => block.presentation));
+        const primaryNode = regionalFamily ? guideBody201(primaryGuide, positionOf(family.primaryKey), {seen, omitItems:new Set(primaryItems), omitFacts:sharedFacts.has("region")})
+          : canonicalFamilyGuide219(family, guides, seen);
+        const variants = [...listed.filter(variant => !["region","class"].includes(variant.presentation)), ...listed.filter(variant => ["region","class"].includes(variant.presentation))].map(variant => {
           const source = office199(variant.key), native = source?.group === "native";
           const presentation = variant.presentation || (["region","class"].includes(variant.kind) ? variant.kind : native ? "native" : "office");
           const metadata = ["alias","native","historical"].includes(presentation);
@@ -433,8 +511,9 @@
               !metadata && source?.department && source.department !== row?.department ? h("p", {class:"small muted",text:source.department}) : null,
               !metadata && reporting && reporting !== primaryReporting ? h("p", {class:"role-reporting218",text:reporting}) : null,
               metadata && roleStanding218(family,guides,variant.key) ? h("p", {class:"small role-standing218",text:roleStanding218(family,guides,variant.key)}) : null,
-              !metadata ? guideBody201(guides[variant.key],positionOf(variant.key))
-                : ownBoundary ? guideBody201(guides[variant.key],positionOf(variant.key), {notesOnly:true,includeEligibility:false}) : null,
+              !metadata ? (() => { const node = guideBody201(guides[variant.key],positionOf(variant.key),{seen,omitItems:new Set(shownItems),omitFacts:sharedFacts.has(presentation)});
+                  for (const text of [...(guides[variant.key]?.responsibilities || []), ...(guides[variant.key]?.expectations || [])]) shownItems.add(text); return node; })()
+                : ownBoundary ? guideBody201(guides[variant.key],positionOf(variant.key), {notesOnly:true,includeEligibility:false,seen}) : null,
               roleReferenceLinks228(source, row?.key || "council"), ownHolder(variant.key)));
           disclosure.open = variant.key === currentKey;
           return {variant,presentation,disclosure};
@@ -465,11 +544,11 @@
             h("section", {class:"role-primary203",id:"role-"+family.primaryKey,"data-role-key201":family.primaryKey},
               row?.department ? h("p", {class:"small muted",text:roleDepartment218(row)}) : null,
               roleReporting218(row,family) ? h("p", {class:"role-reporting218",text:roleReporting218(row,family)}) : null,
-              canonicalFamilyGuide219(family,guides), roleReferenceLinks228(row || family.sourceKeys.map(office199).find(Boolean), "activity",
-                family.sourceKeys.find(key => ballotKeys.has(key))), ownHolder(family.primaryKey),
+              primaryNode, ...sharedBlocks.map(block => block.node), roleReferenceLinks228(row || family.sourceKeys.map(office199).find(Boolean), "activity",
+                family.sourceKeys.find(key => ballotKeys.has(key)), family), ownHolder(family.primaryKey),
               ...family.variants.filter(variant => ["alias","native","historical"].includes(variant.presentation)).map(variant => ownHolder(variant.key))),
             intent && onChoose ? h("button", {type:"button",class:"btn small","data-apply-role201":intent.targetOffice || family.primaryKey,"data-family-apply203":family.key,disabled:!!appointedTo(intent.targetOffice || family.primaryKey) || admissionClosed219,
-              text:appointedTo(intent.targetOffice || family.primaryKey) ? "Appointment recorded" : admissionClosed219 ? "Applications closed" : "Apply for this role",
+              text:appointedTo(intent.targetOffice || family.primaryKey) ? "Appointment recorded" : admissionClosed219 ? "Applications closed" : intent.targetOffice && !family.application ? "Apply as " + (office199(intent.targetOffice)?.applicationLabel || family.label) : "Apply for this role",
               onclick:() => onChoose({applicationTrack:intent.applicationTrack,targetOffice:intent.targetOffice})}) : null,
             family.kind === "activity" && family.sourceKeys.includes("pvp_team") && onChoose ? h("button", {type:"button",class:"btn small","data-activity-member203":family.key,disabled:!!appointedTo("member") || admissionClosed219,
               text:appointedTo("member") ? "Member appointment recorded" : "Choose Member and mention PvP interests",onclick:() => onChoose({applicationTrack:"member",targetOffice:null})}) : null,
@@ -516,9 +595,13 @@
     filter();
     const chooser = frame("Explore Olympus roles, ranks and titles", h("a", {href:"#/roles/rosetta-stone",text:"Role & Rank Rosetta Stone"}),
       h("p", {text:"Find your place in Olympus. Each role brings its duties, expectations and working relationships into one guide. Regional and class assignments keep their own detailed commitments."}),
-      h("p", {class:"role-scope218 small muted",text:"This is a descriptive website guide. A title or application changes no game rank, Discord role, bank limit, signing authority or addon permission; actual access requires its separate authorized process."}),
-      noticeBox("info","pos-officer",h("p",{text:reservedNotice201}),h("p",{text:"Membership, Raider and Artisan applications remain available. A rank, title or unfilled listing never grants access, promotion or an appointment."})),
-      h("label", {class:"field"},h("span", {class:"lab",text:"Find a role"}),search),count,h("div",{class:"role-sections203"},...sections));
+      // Evergreen 12 Nov 2026 (CL2-045): the page's scope rule is stated once, in one box.
+      noticeBox("info","pos-officer",h("p",{text:"Member, Raider and Artisan are open for applications. "+reservedNotice201}),
+        h("p",{class:"role-scope218 small",text:"A title, listing or application grants no access, promotion or appointment and changes no game rank, Discord role, bank limit, signing authority or addon permission. Each of those has its own authorized process."})),
+      h("label", {class:"field"},h("span", {class:"lab",text:"Find a role"}),search),count,
+      // CL2-063: a jump list to the six catalogue groups.
+      jumpList1112(sections.map(section => ({ label: section.querySelector("summary > span")?.textContent, target: section }))),
+      h("div",{class:"role-sections203"},...sections));
     chooser.id = "application-directory201"; chooser.classList.add("application-directory201");
     chooser.setAttribute("data-role-directory-version", "203");
     if (currentKey) chooser.setAttribute("data-initial-role203", currentKey);
@@ -535,7 +618,10 @@
     };
     const ordinary = directory?.families.flatMap(family => {
       const { intent } = familyApplicationChoice201(family);
-      if (intent) return [h("li", null, choice(family.label,intent,intent.targetOffice || family.primaryKey,{"data-family-apply203":family.key}), " · ", guide(family.key,family.label+" guide"))];
+      // CL2-035/036: a track named after its accepted target (Core Raider) links to that office's chart entry too.
+      const label = intent?.targetOffice && !family.application ? office199(intent.targetOffice)?.applicationLabel || family.label : family.label;
+      if (intent) return [h("li", null, choice(label,intent,intent.targetOffice || family.primaryKey,{"data-family-apply203":family.key}), " · ", guide(family.key,family.label+" guide"),
+        " · ", h("a", {href:"#/organization/" + encodeURIComponent(intent.targetOffice || family.sourceKeys.find(key => office199(key)) || family.primaryKey), text:"Organization chart"}))];
       if (family.kind === "activity" && family.sourceKeys.includes("pvp_team")) return [h("li", null,
         choice("Choose Member and mention PvP interests",{applicationTrack:"member"},"member",{"data-activity-member203":family.key}), " · ", guide(family.key,"PvP activity guide"))];
       return [];
@@ -2064,16 +2150,20 @@
       ["Review an application fairly", "Read the applicant's answers and current role choices. Follow the recorded decision and reasons; a recommendation or board vote is not an invitation or permission grant.", "#/vote", "Open voting board"],
       ["Verify in game", "Use the guild's verification workflow and the current officer-exported roster. A Discord nickname, third-party census or talent plan does not establish character ownership or membership.", "#/roles", "Review role responsibilities"],
       ["Keep information current", "Use source dates on guild figures and roster records. Correct a reported error through the normal officer process. Do not turn a stale export or an unsigned Census preview into a membership decision.", "#/community", "Open community hub"],
-      ["Respect access and privacy", "Only controls your account is actually allowed to use can perform an action. Use normal consent checks for named officeholders; do not publish someone else's private information or assume an appointment changes site access.", "#/guide/member", "Read member guidance"],
+      ["Respect access and privacy", "An action works only through controls your account is allowed to use. Check consent before naming an officeholder, keep other members' private information private, and remember that an appointment does not change site access by itself.", "#/guide/member", "Read member guidance"],
     ] : [
-      ["Enter the guild hall", "Sign in with Discord and complete membership screening in Asmongold's server. If the site cannot confirm membership, follow its explanation and try again after the Discord state is corrected.", "#/", "Go home"],
-      ["Choose how to help", "Read a role's responsibilities, apply with accurate answers and keep your availability current. Applying and voting do not bypass an appointment, eligibility rule or launch gate.", "#/roles", "Explore roles"],
-      ["Verify your character", "Follow the guild's in-game verification instructions. A character label you type is different from a roster-confirmed character. Directory listing is optional.", "#/community", "Open community hub"],
-      ["Prepare for the raids", "Use the talent calculator, source-labelled class guides and addon directory. Check each source's date and whether its advice was tested in Forever, taken from Classic or is still provisional.", "#/guides", "Browse guides"],
-      ["Keep control of your data", "Use your own account and privacy controls. Withdrawing an application removes it from the voting board; the privacy pages explain erasure and its remaining copy limitations.", "/privacy/account", "Open my account"],
+      // Evergreen 12 Nov 2026 (CL2-040): concrete steps, merged with the Member Quick Guide (Royal Codex RC8).
+      ["Sign in with Discord", "Sign in with the Discord account you use in Asmongold's server and complete that server's membership screening. If the site cannot confirm your membership, it says why; fix that in Discord and sign in again.", "#/", "Go to the home page"],
+      ["Read the guild rules", "The Guild Statute sets out your rights and duties and how complaints and appeals work. Dues are one gold a week, and new members are exempt for their first fourteen days. Extra tithes are optional and never buy rank, admission or raid priority.", "#/governance/the-guild-statute-of-olympus", "Read the Guild Statute"],
+      ["Choose a role", "Member, Raider and Artisan are open for applications. Read the role's duties and expectations before you apply.", "#/roles", "Explore roles"],
+      ["Apply", "Answer the questions accurately and give the hours you can really play. Your application, any board vote and the in-game invite are separate steps, and officers send the invite in game. You can withdraw your application from its page, which also removes it from the voting board.", "#/apply", "Open my application"],
+      ["Link your character", "In Discord, open #⚡olympus-verify and choose Get my code, or type /verify. Send the line it shows from the character you want linked: an officer's addon checks it, and the next roster export confirms your membership. Type /verify-status to see your progress, and keep your code private.", "#/verify", "Verify my character"],
+      ["Get ready to play", "Plan your build in the talent calculator and read the class and profession guides. Each guide says whether its advice was tested on Forever, comes from Classic or is still provisional." + (Date.now() / 1000 < FOREVER_SCHEDULE.raidDayEndAt ? ` The first raids open on ${FOREVER_SCHEDULE.firstRaids}.` : ""), "#/guides", "Open the guides"],
+      ["Choose what others see", "The role-holder directory lists eligible members by default, and you can opt out. Extra profile details and Workshop crafting offers appear only if you add them.", "#/community/leadership", "Open the directory"],
+      ["Manage your data", "Download your data or erase your account from My account. Erasure runs automatically; the privacy policy explains which backup copies age out later. If a record about you is wrong, ask the responsible officer to correct it.", "/privacy/account", "Open my account"],
     ];
     add(main, frame(officer ? "Officer Operational Guide" : "Member guide", h("a", { class: "btn small", href: officer ? "#/guide/member" : "#/guide/officer", text: officer ? "Member guide" : "Officer guide" }),
-      h("p", { class: "muted small", text: officer ? "The canonical Officer Operational Guide: practical steps drawn from the current charter and site workflows. Royal Codex RC9 records its underlying mandate and safeguards; current server permissions and decisions govern every action." : "Source: Olympus's current charter and site workflows. This guide explains the process; permissions and current server decisions remain authoritative." }),
+      h("p", { class: "muted small", text: officer ? "The canonical Officer Operational Guide: practical steps drawn from the current charter and site workflows. Royal Codex RC9 records its underlying mandate and safeguards; current server permissions and decisions govern every action." : "These steps follow the current guild rules, including the Member Quick Guide in Royal Codex RC8. Current permissions and server decisions take precedence over this summary." }),
       h("div", { class: "guide-steps" }, steps.map(([title, text, href, label], index) => h("section", { class: "card" }, h("h2", { text: `${index + 1}. ${title}` }), h("p", { text }), h("a", { href, text: label })))),
       officer && S.user && S.user.isAdmin ? h("p", null, h("a", { class: "btn", href: "#/admin", text: "Open Admin" })) : null));
   };
@@ -2082,7 +2172,9 @@
   // Fixed public assets only: this reader never asks a member/leadership API for identities or permissions.
   const GOVERNANCE_BOOK = "/static/governance/reconciled-book.md";
   const GOVERNANCE_MODEL = "/static/governance/organization.json";
-  const GOVERNANCE_SHA256 = "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac";
+  // Evergreen 12 Nov 2026: reconciled R7 text (docs/governance-evergreen1112.json via scripts/build-governance-titles.cjs).
+  const GOVERNANCE_SHA256 = "187f2390aaec1278d687f3a6ed351bce91ce5a36a39d8d45d6130d1bd584824d";
+  const GOVERNANCE_BYTES = 266335;
   let governanceBookPromise = null, governanceModelPromise = null;
   async function publicGovernanceBytes(path, cap) {
     const res = await fetch(path, { credentials: "same-origin", redirect: "error" });
@@ -2094,7 +2186,7 @@
   function governanceBook() {
     if (!governanceBookPromise) governanceBookPromise = (async () => {
       const bytes = await publicGovernanceBytes(GOVERNANCE_BOOK, 524288);
-      if (bytes.length !== 273507) throw new Error("The R7 book has an unexpected size.");
+      if (bytes.length !== GOVERNANCE_BYTES) throw new Error("The R7 book has an unexpected size.");
       const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) => b.toString(16).padStart(2, "0")).join("");
       if (digest !== GOVERNANCE_SHA256) throw new Error("The R7 book does not match the reviewed text.");
       return parseGovernanceBook(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
@@ -2106,7 +2198,7 @@
       const bytes = await publicGovernanceBytes(GOVERNANCE_MODEL, 524288);
       const data = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (data.schema !== "olympus-public-organization-v1" || data.revision !== "R7" || data.draft !== false || data.ratified !== true || data.appointmentsIssued !== false ||
-          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== 273507 || data.book.sha256 !== GOVERNANCE_SHA256 ||
+          !data.book || data.book.path !== GOVERNANCE_BOOK || data.book.bytes !== GOVERNANCE_BYTES || data.book.sha256 !== GOVERNANCE_SHA256 ||
           !Array.isArray(data.nodes) || data.nodes.length > 64 || !Array.isArray(data.terms) || data.terms.length !== 103 ||
           !Array.isArray(data.nativeRanks) || data.nativeRanks.length !== 10 || !Array.isArray(data.guildPlaceholders) || data.guildPlaceholders.length !== 10 ||
           !Array.isArray(data.termGroups) || data.directoryRoute !== "#/community/leadership") throw new Error("The organization model has an unexpected shape.");
@@ -2149,7 +2241,7 @@
   }
   function governanceBlocks(chapter) {
     const lines = chapter.lines;
-    const out = []; let i = 0;
+    const out = [], usedKeys = new Set(); let i = 0;
     const special = (line) => !line.trim() || /^(#{2,6} |\|.*\||[-*] |\d+[.)] |---+$)/.test(line) || line.trim() === "[[OVERVIEW]]";
     while (i < lines.length) {
       const line = lines[i];
@@ -2163,8 +2255,12 @@
       if (heading) {
         const article = /^Article ([IVXS0-9.a-z]+)(?= )/.exec(heading[2]);
         const key = article ? "article-" + article[1].toLowerCase().replaceAll(".", "-") : "";
-        const id = key ? "governance-" + chapter.id + "-" + key : null;
-        out.push(h(heading[1].length < 4 ? "h3" : "h4", { id, tabindex: id ? "-1" : null }, governanceInline(heading[2])));
+        // CL2-063: every section heading gets a stable id too, so the chapter's jump list and a deep link can land on it.
+        let sectionKey = key || (heading[1].length < 4 ? "section-" + governanceSlug(heading[2]).slice(0, 60) : "");
+        if (sectionKey && usedKeys.has(sectionKey)) { let n = 2; while (usedKeys.has(sectionKey + "-" + n)) n++; sectionKey += "-" + n; }
+        if (sectionKey) usedKeys.add(sectionKey);
+        const id = sectionKey ? "governance-" + chapter.id + "-" + sectionKey : null;
+        out.push(h(heading[1].length < 4 ? "h3" : "h4", { id, tabindex: id ? "-1" : null, "data-heading-level": String(heading[1].length) }, governanceInline(heading[2])));
         if (key) out.push(h("div", { class: "governance-article-links228" }, // CL2-100: one per article, so not a landmark
           h("a", { href: "#/governance/" + chapter.id + "/" + key, text: "Link to this article" }),
           h("a", { href: "#/governance/" + chapter.id, text: "Chapter references" })));
@@ -2194,7 +2290,9 @@
     return out;
   }
   function governanceDraftNotice() {
-    return h("details", { class: "governance-draft" }, h("summary", null, h("strong", { text: "R7 • Guild rules adopted 13 October 2026" }), " — scope of adoption"),
+    // Evergreen 12 Nov 2026 (CL2-044): the edition is still R7; later owner decisions are dated in the register.
+    return h("details", { class: "governance-draft" }, h("summary", null, h("strong", { text: "Edition R7 • adopted 13 October 2026, with later owner decisions" }), " — scope of adoption"),
+      h("p", null, "Each later decision is listed with its date in the ", h("a", { href: "#/governance/source-and-decision-register", text: "Source and Decision Register" }), "."),
       h("p", { text: "Adopted by the authorized guild administration. Adoption issues no individual appointment or named signature and changes no native rank, bank limit or platform permission. Dated archives retain their historical status; actual appointments and implementation are separately recorded." }));
   }
   ROUTES.governance = async (main, parts) => {
@@ -2266,7 +2364,10 @@
         related.length ? h("details", null, h("summary", { text: "Roles referenced by Title " + title }),
           h("ul", null, related.map(family => h("li", null,
             h("a", { href: "#/roles/" + encodeURIComponent(family.key), text: family.label }))))) : null);
-      const content = h("div", { class: "governance-prose" }, references, executionFields, blocks);
+      // CL2-063: chapters with four or more sections open with an "On this page" list.
+      const sectionHeadings = blocks.filter(node => node.tagName === "H3" && node.id && node.getAttribute("data-heading-level") === "2");
+      const jump = sectionHeadings.length >= 4 ? jumpList1112(sectionHeadings.map(node => ({ label: node.textContent, target: node }))) : null;
+      const content = h("div", { class: "governance-prose" }, references, jump, executionFields, blocks);
       const section = h("details", { class: "governance-chapter", id: "chapter-" + chapter.id, "data-chapter": chapter.id }, summary, content);
       // Search rendered book text, including phrases spanning strong/code, without
       // counting generated notes, chart invitations or duplicate contents links.
@@ -2415,7 +2516,8 @@
     });
     add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null,
       h("h1", { text: "The Governance of Olympus" }), h("p", { text: "The guild code covers sovereign decrees, Council and Court procedure, Treasury stewardship, the Grand Alliance Concordat, and the Artisans' and Heralds' accords." }))), governanceDraftNotice(),
-      noticeBox("info", "pos-officer", h("p", { text: reservedNotice201 }), h("p", null, "The adopted book retains its constitutional and historical procedures. For current eligibility and the individual duties of every office, see the ", h("a", { href: "#/roles", text: "complete role directory" }), ".")),
+      // Evergreen 12 Nov 2026 (CL2-045): the reserved-seat rule is stated once, in the book's reading guide.
+      noticeBox("info", "pos-officer", h("p", null, "The adopted book keeps its constitutional and historical procedures. Current eligibility and the duties of every office are in the ", h("a", { href: "#/roles", text: "complete role directory" }), ".")),
       h("nav", { class: "governance-quicklinks", "aria-label": "Start reading" },
         h("a", { class: "btn", href: "#/governance/reading-and-adopting-this-book", text: "Start here" }),
         h("a", { class: "btn", href: "#/governance/adoption-and-office-registers", text: "Adoption checklist" }),
@@ -2683,8 +2785,18 @@
   ROUTES.organization = async (main, parts) => {
     const user = S.user, settings = S.settings, context = COM(), route = currentRoute(), view = main.dataset.viewRequest;
     const current = () => app.contains(main) && main.dataset.viewRequest === view && S.user === user && S.settings === settings && COM() === context && currentRoute() === route;
-    add(main, h("p", { role: "status", text: "Opening the organization…" }));
-    const data = await governanceModel();
+    // Evergreen 12 Nov 2026 (layout shift, sweep-bolt-palette#04): the page's stylesheet widens the shell, so it is loaded
+    // before the first render, and the placeholder reserves the viewport until the module draws.
+    // The page's wide shell (organization-view.css: .shell:has(.org-alliance)) is applied before the first paint; this main
+    // element is created for this route, so the width does not leak to other pages.
+    main.style.maxWidth = "1480px";
+    const placeholder = h("p", { role: "status", class: "org-loading1112", text: "Opening the organization…" });
+    placeholder.style.minHeight = "100vh";
+    add(main, placeholder);
+    let sheet = document.getElementById("organization-view-style");
+    if (!sheet) { sheet = document.createElement("link"); sheet.id = "organization-view-style"; sheet.rel = "stylesheet"; sheet.href = "/static/organization-view.css"; document.head.append(sheet); }
+    const styled = sheet.sheet ? Promise.resolve() : new Promise(resolve => { sheet.addEventListener("load", resolve, { once: true }); sheet.addEventListener("error", resolve, { once: true }); setTimeout(resolve, 4000); });
+    const [data] = await Promise.all([governanceModel(), styled]);
     if (!current()) return;
     // .214: independent renderers load together; the overview's context import no longer waits for the main renderer.
     const [{ renderOrganization }, { renderAllianceOverview205 }] = await Promise.all([
@@ -2700,6 +2812,7 @@
       roleGuides201:M().roleGuides201, officeFor219:office199, reservedNotice201, standingIntro218,
       allianceOverview205:renderAllianceOverview205,
       roleDirectory203:M().roleDirectory203,
+      eligibilityLabel:familyEligibility1112, jumpList:jumpList1112, titleRoutes:governanceTitleRoutes228,
       officeAvailability: Object.fromEntries(offices199().map(row => [row.key, reservedKey201(row.key) || S.settings?.applicationsOpen === false || displayHolder(row.key) ? false : true])) });
     add(main, writsPanel199("organization"));
   };
@@ -3957,12 +4070,23 @@
       progressRows.set(b.key, a);
       return a;
     };
-    const lead = meta.ballots.filter((b) => b.group === "leadership");
-    const classes = meta.ballots.filter((b) => b.group === "class").sort(byDisplayLabel);
+    // Evergreen 12 Nov 2026 (CL2-034): the board lists its ballots under the same six catalogue groups, in the same family
+    // order, as Roles and Organization; class leads close the Raid group alphabetically.
+    const ballotGroups = (() => {
+      const directory = roleDirectory203(), catalogue = catalogGroups1112(directory);
+      const lead = meta.ballots.filter((b) => b.group === "leadership"), classes = meta.ballots.filter((b) => b.group === "class").sort(byDisplayLabel);
+      if (!catalogue) return [{ label: "Leadership", ballots: lead }, { label: "Class leads", ballots: classes }];
+      const familyIndex = new Map(directory.families.map((family, index) => [family.key, index]));
+      const familyFor = (b) => directory.families.find((family) => family.key === directory.keyToFamily[b.key]);
+      const placed = catalogue.map((group) => ({ label: group.label, ballots: [
+        ...lead.filter((b) => familyFor(b)?.group === group.key).sort((a, b) => familyIndex.get(familyFor(a).key) - familyIndex.get(familyFor(b).key)),
+        ...classes.filter((b) => (familyFor(b)?.group || "raid") === group.key)] }));
+      const rest = lead.filter((b) => !familyFor(b));
+      return [...placed, ...(rest.length ? [{ label: "Other roles", ballots: rest }] : [])].filter((group) => group.ballots.length);
+    })();
     const roleList = shell ? shell.roleList : h("nav", { class: "role-list", "aria-label": "Roles" },
       h("p", { class: "role-list-hint small muted", text: "Scroll this list for every role." }),
-      h("div", { class: "group-label", text: "Leadership" }), lead.map(item),
-      h("div", { class: "group-label", text: "Class leads" }), classes.map(item));
+      ballotGroups.map((group) => [h("div", { class: "group-label", text: group.label }), group.ballots.map(item)]));
     if (shell) for (const b of meta.ballots) {
       const link = roleList.querySelector(`a[href="#/vote/${encodeURIComponent(b.key)}"]`);
       if (b.key === role) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
@@ -3970,8 +4094,7 @@
     }
     const pickText = (b) => (appointedTo(b.key) ? `${b.label} (appointed)` : noVoteFor(b.key) ? `${b.label} (no public vote)` : counts[b.key] ? `${b.label} (${counts[b.key].applicants})` : b.label);
     const rolePick = shell ? shell.rolePick : h("select", { class: "role-pick", "aria-label": "Role" },
-      h("optgroup", { label: "Leadership" }, lead.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))),
-      h("optgroup", { label: "Class leads" }, classes.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role }))));
+      ballotGroups.map((group) => h("optgroup", { label: group.label }, group.ballots.map((b) => h("option", { value: b.key, text: pickText(b), selected: b.key === role })))));
     if (!shell) rolePick.addEventListener("change", () => { const key = rolePick.value; rolePick.value = V.role; go(key); });
     rolePick.value = role;
     const boardBox = h("div", { class: "board-results", "aria-busy": "true" },
@@ -3990,7 +4113,10 @@
           holder ? h("span", { class: "aside", text: "Appointed" })
             : quiet ? h("span", { class: "aside", text: "No public vote" })
             : h("span", { class: "aside", id: "role-applicants", text: counts[role] ? plural(counts[role].applicants, "applicant") : "Applicant count unavailable" })),
-        roleAbout(role), guideFamily ? h("a", { href: "#/roles/" + encodeURIComponent(guideFamily), text: "Role guide" }) : null,
+        roleAbout(role), (() => {
+          const directory = roleDirectory203(), family = directory?.families.find((row) => row.key === guideFamily) || null, office = office199(role) || office199(family?.primaryKey);
+          return seeAlso1112({ family, officeKey: office?.key || "", titles: office?.codexTitles || [], slot: Number.isInteger(office?.nativeSlot) ? office.nativeSlot : null, omit: ["vote"] });
+        })(),
         holder
           ? appointedNote(ballot, holder)
           : quiet
@@ -4331,11 +4457,12 @@
     const directory = applicationRoleDirectory201(next => {
       location.hash = `#/vote/${next.applicationTrack}/${encodeURIComponent(next.targetOffice || "new")}`;
     }, {targetOffice:target}, {showCharacters:true});
-    add(main, [hierarchyPanel199(), rosettaPanel199(target === "rosetta-stone"), directory, writsPanel199("roles"),
+    const rosettaRow = /^rosetta-rank-(?:[1-9]|10)$/.test(target); // CL2-035: a Rosetta row is a link target
+    add(main, [hierarchyPanel199(), rosettaPanel199(target === "rosetta-stone" || rosettaRow), directory, writsPanel199("roles"),
       h("details", {class:"card technical-profile199"}, h("summary", {text:"Technical & Historical Profile Notes"}),
         h("p", {class:"muted small",text:"The ten-rank guide is the current website classification. Historical beta-five, signing profiles, applications and ballots remain separate records. Reserved seats do not become open because a name is absent. Original scoped records remain searchable through their canonical family; grouping does not combine appointments or permissions. Publication installs no addon, activates no Link service, and applies no game rank or permission."}))]);
     if (target) {
-      const node = document.getElementById(target === "rosetta-stone" ? "role-rosetta-stone" : "role-"+target) || document.getElementById("role-family-"+(M().roleDirectory203?.keyToFamily[target] || target));
+      const node = document.getElementById(target === "rosetta-stone" ? "role-rosetta-stone" : rosettaRow ? target : "role-"+target) || document.getElementById("role-family-"+(M().roleDirectory203?.keyToFamily[target] || target));
       if (node) setTimeout(() => { scrollToSection(node); node.setAttribute("tabindex","-1"); node.focus({preventScroll:true}); },0);
       else if (!(M().positions || []).some(p => p.key === target) && !offices199().some(row => row.key === target) && !(M().roleDirectory203?.families || []).some(f => f.key === target)) main.prepend(addressNotice("No role matches this address, so the whole Roles page is shown. Search the directory below for the role you want.")); // CL2-105
     }
@@ -4424,7 +4551,7 @@
       "donation-ledger": adminDonationLedger242,
       "directory-visibility": adminDirectoryVisibility,
       'approved-guilds': adminApprovedGuilds,
-      ranks: adminRankPlanner,
+      ranks: (b) => adminRankPlanner(b, dec(parts[1] || "")),
       renames: adminRenames, // .114
       news: (b) => adminNews(b), // .115
       audit: adminAudit, // .125: the safe projection of the dated staff log
@@ -4451,7 +4578,7 @@
     }
     return document.importNode(node, true);
   }
-  async function adminRankPlanner(body) {
+  async function adminRankPlanner(body, rankAnchor = "") {
     const owner = S.user, context = COM(), route = currentRoute(), controller = new AbortController();
     let instance = null, disposed = false;
     const live = () => !disposed && S.user === owner && owner && owner.isAdmin && COM() === context && currentRoute() === route && app.contains(body);
@@ -4469,6 +4596,9 @@
       clear(body); add(body, node);
       instance = window.OlympusRankPlanner.mount(node, {owner:owner.id, isCurrent:live});
       if (!live()) instance?.destroy();
+      // Evergreen 12 Nov 2026 (CL2-196): #/admin/ranks/<rank> lands on that rank in the embedded planner, whose ids carry its prefix.
+      const slotRow = /^(?:[1-9]|10)$/.test(rankAnchor) ? node.querySelector("#rank-planner-current-rank-" + rankAnchor) : null;
+      if (slotRow) { slotRow.setAttribute("tabindex", "-1"); scrollToSection(slotRow); slotRow.focus({ preventScroll: true }); }
     } catch (error) { if (live()) { clear(body); add(body, noticeBox("warn", "icon-warning", h("p", {text:explain(error,"The rank planner could not be opened.")}))); } }
   }
 
@@ -4829,14 +4959,17 @@
     const displayedAppointments = [...appointed].sort(([a], [b]) => byClassDisplayLabel(a, b));
     const appointedGrid = group => h("div", { class: "appointed-grid" }, displayedAppointments.filter(([b]) => b.group === group).map(appointedRow));
     const appointmentDirectory203 = roleDirectory203();
-    const appointmentFamilies203 = appointmentDirectory203
-      ? [...appointmentDirectory203.families].sort(compareCouncilFamilies228(councilFamilyOrder228(appointmentDirectory203))) : [];
-    const appointmentControls203 = appointmentDirectory203 ? appointmentFamilies203.map(family => {
+    // Evergreen 12 Nov 2026 (CL2-034): the admin appointment families sit under the same six catalogue groups as /#/roles.
+    const appointmentCatalogue1112 = catalogGroups1112(appointmentDirectory203);
+    const appointmentFamily203 = family => {
       const rows = displayedAppointments.filter(([office]) => family.sourceKeys.includes(office.key));
       return rows.length ? h("details", {class:"appointment-family203", "data-appointment-family203":family.key},
         h("summary", null,h("span",{text:family.label}),h("span",{class:"badge muted",text:`${rows.length} separate display ${rows.length === 1 ? "record" : "records"}`})),
         h("div",{class:"appointed-grid"},rows.map(appointedRow))) : null;
-    }) : [h("p",{class:"muted small",text:"Family grouping is unavailable. The original scoped controls below remain unchanged."}),
+    };
+    const appointmentControls203 = appointmentDirectory203 ? (appointmentCatalogue1112
+      ? appointmentCatalogue1112.map(group => h("section", {"data-catalog-group":group.key}, h("h4", {class:"group-label",text:group.label}), group.families.map(appointmentFamily203)))
+      : [...appointmentDirectory203.families].sort(compareCouncilFamilies228(councilFamilyOrder228(appointmentDirectory203))).map(appointmentFamily203)) : [h("p",{class:"muted small",text:"Family grouping is unavailable. The original scoped controls below remain unchanged."}),
       h("div",{class:"group-label",text:"Leadership"}),appointedGrid("leadership"),h("div",{class:"group-label",text:"Class leads"}),appointedGrid("class"),
       h("details",{class:"mt"},h("summary",{text:"Ten native rank display assignments"}),appointedGrid("native")),
       h("details",{class:"mt"},h("summary",{text:"All 103 extended offices and historical aliases"}),appointedGrid("office"))];

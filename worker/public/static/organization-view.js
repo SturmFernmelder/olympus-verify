@@ -9,7 +9,16 @@ export function renderOrganization(main, data, ui) {
   const { h, add, clear, posIcon, parts } = ui;
   const nativeRankDisplayName = (slot, name) => slot === 0 ? "Leader (Guild Master)" : name;
   const guildDisplayName229 = name => typeof name === 'string' && /^Olympus(?: I| PRIME)?$/i.test(name) ? 'OLYMPUS PRIME' : name;
-  const nodeTitle218 = node => node.id === "native" && node.title === "Ten native rank slots" ? "In-game rank reference" : node.title;
+  // Evergreen 12 Nov 2026 (CL2-047): a chart node that holds a current Council seat shows that seat's Cabinet title, so the
+  // superseded "War Head" and "core portfolio" names leave the chart. The model's parentage is unchanged.
+  const seats1112 = data.councilComposition?.currentSeats || [];
+  const seatNode1112 = new Map(seats1112.map((seat, index) => [seat.nodeId, { seat, index }]).filter(([id]) => !["founder", "council", "justice"].includes(id)));
+  const nodeTitle218 = node => node.id === "native" && node.title === "Ten native rank slots" ? "In-game rank reference" : seatNode1112.get(node.id)?.seat.label || node.title;
+  const nodeKind1112 = node => { const held = seatNode1112.get(node.id); return held ? (held.index === 1 ? "High Council · Co-Guild Master" : "High Council portfolio " + (held.index - 1)) : node.kind === "core portfolio" ? "department" : node.kind; };
+  // A note repeated on three or more titles is boilerplate; only a note specific to its title is shown (CL2-041, CL2-220).
+  const noteCounts1112 = new Map();
+  for (const term of data.terms) noteCounts1112.set(term.note, (noteCounts1112.get(term.note) || 0) + 1);
+  const specificNote1112 = text => !!text && (noteCounts1112.get(text) || 0) < 3;
   clear(main);
   if (!document.getElementById("organization-view-style")) {
     const link = document.createElement("link"); link.id = "organization-view-style";
@@ -17,7 +26,13 @@ export function renderOrganization(main, data, ui) {
   }
   const byId = new Map(data.nodes.map(n => [n.id, n])), buttons = new Map(), rows = new Map();
   const position = new Map(), visible = data.nodes.filter(n => n.relation !== "classification");
-  const children = id => visible.filter(n => n.parent === id);
+  // CL2-062: the High Council's children follow the seat protocol order (a department ranks by the first seat it holds);
+  // units without a seat keep their model order after them.
+  const seatRank1112 = id => { let best = Infinity;
+    seats1112.forEach((seat, index) => { for (let n = byId.get(seat.nodeId); n; n = n.parent ? byId.get(n.parent) : null) if (n.id === id) { best = Math.min(best, index); break; } });
+    return best; };
+  const bySeat1112 = list => list.map((node, index) => [node, seatRank1112(node.id), index]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(row => row[0]);
+  const children = id => { const own = visible.filter(n => n.parent === id); return id === "council" ? bySeat1112(own) : own; };
   const levels = [];
   function collect(node, depth) {
     (levels[depth] ||= []).push(node);
@@ -66,11 +81,13 @@ export function renderOrganization(main, data, ui) {
   const detailDrawer = h("details", { class: "org-detail-drawer" }, detailSummary, detail);
   detailDrawer.open = true;
   const status = h("p", { class: "small muted", role: "status", "aria-live": "polite" });
-  const chartHelp = h("details", { class: "org-chart-help" }, h("summary", { text: "Chart guide and status" }), status,
-    h("p", { class: "small muted", text: "Drag to pan. Pinch with two fingers, use +/−, or hold Ctrl/⌘ while scrolling to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, and Home or 0 to fit the selected branch. Escape closes full screen. List includes every office and group." }));
-  chartHelp.open = true;
+  // CL2-220: the controls are explained once, here; the status line stays visible above the chart.
+  const chartHelp = h("details", { class: "org-chart-help" }, h("summary", { text: "How to use the chart" }),
+    h("p", { class: "small muted", text: "Fit branch keeps the selected office and its direct connections readable; Full map shows every chart office. Drag to pan. Pinch with two fingers, use +/−, or hold Ctrl/⌘ while scrolling to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, and Home or 0 to fit the selected branch. Escape closes full screen. List includes every office and group." }));
+  chartHelp.open = false;
   const search = h("input", { type: "search", id: "organization-search", maxlength: "160", placeholder: "Find an office, rank or duty…", "aria-label": "Search all offices and " + data.terms.length + " labels" });
-  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = false, disposed = false, relationshipMap205 = null;
+  // CL2-042: the chart opens on the High Council branch at a readable scale; Full map is one click away.
+  let scale = 1, x = 0, y = 0, selected = "council", dragging = null, isList = false, suppressClick = false, branchMode = true, disposed = false, relationshipMap205 = null;
   const pointers = new Map();
   let pinch = null;
   const zoomStatus = h("output", { class: "org-zoom", "aria-label": "Chart zoom" });
@@ -105,11 +122,13 @@ export function renderOrganization(main, data, ui) {
   function branchLayout() {
     const n = byId.get(selected); if (!n || !fullPosition.has(selected)) return null;
     const parent = n.parent && fullPosition.has(n.parent) ? byId.get(n.parent) : null;
-    const related = visible.filter(o => o.id !== selected && o.id !== parent?.id && (o.parent === selected || n.coordinates.includes(o.id) || o.coordinates.includes(selected)));
+    const related = bySeat1112(visible.filter(o => o.id !== selected && o.id !== parent?.id && (o.parent === selected || n.coordinates.includes(o.id) || o.coordinates.includes(selected))));
     // Only presentation changes: relationship direction, kind and mandate text still come from the unchanged model.
     const pitch = cardHeight() + 42, chartWidth = parent ? 1020 : 680;
     const count = Math.max(1, related.length), chartHeight = count * pitch + 60;
-    const centerY = (chartHeight - cardHeight()) / 2;
+    // CL2-042: a tall branch (the Council has thirteen children) starts at the top, so the first paint shows the office,
+    // its parent and its first children rather than the middle of the list.
+    const centerY = chartHeight > 900 ? 30 : (chartHeight - cardHeight()) / 2;
     position.clear(); if (parent) position.set(parent.id, { x: 145, y: centerY });
     const selectedX = parent ? 485 : 145;
     position.set(selected, { x: selectedX, y: centerY });
@@ -134,22 +153,22 @@ export function renderOrganization(main, data, ui) {
     overviewButton.setAttribute("aria-pressed", "true"); branchButton.setAttribute("aria-pressed", "false"); status.textContent = chartSummary(); transform();
   }
   function focusNode(id) { if (branchMode) branchLayout(); const p = position.get(id); if (!p) return; scale = Math.max(.85, scale); x = viewport.clientWidth / 2 - p.x * scale; y = Math.max(50, viewport.clientHeight / 3) - p.y * scale; transform(); }
-  const termPlacement = term => Number.isInteger(term.nativeSlot)
-    ? `Rank ${term.nativeRankOrdinal} ${nativeRankDisplayName(term.nativeSlot, term.nativeRankName)} · zero-based slot ${term.nativeSlot}. Display association; no rank or permission is applied.`
-    : "No native rank placement or promotion follows from this title or status.";
   const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
   const termFamily218 = term => ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
-  const applicationLink = (family, label) => {
-    const app = family?.application;
-    if (!app || ui.officeAvailability?.[family.primaryKey] === false) return null;
-    return h("a", { class: "btn small org-seat-apply", href: "#/vote/" + app.applicationTrack + "/" + encodeURIComponent(app.targetOffice || "new"), "data-office-application": family.primaryKey, "data-application-track": app.applicationTrack, text: label });
+  // CL2-036: one eligibility rule with /#/roles. A link appears exactly where the directory lists an intent the Worker
+  // accepts (validateApplicationIntent199); Core Raider (office_25) is such a target on the Raider track.
+  const targetLabel1112 = (family, target) => target.targetOffice ? (ui.officeFor219?.(target.targetOffice)?.applicationLabel || family.label) : family.label;
+  const applicationLink = (family, target, label) => {
+    if (!target || ui.officeAvailability?.[target.targetOffice || family.primaryKey] === false) return null;
+    return h("a", { class: "btn small org-seat-apply", href: "#/vote/" + target.applicationTrack + "/" + encodeURIComponent(target.targetOffice || "new"), "data-office-application": target.targetOffice || family.primaryKey, "data-application-track": target.applicationTrack, text: label });
   };
-  const seatLink = term => reservedTerm201(term) ? null : applicationLink(termFamily218(term), "Review ordinary role application");
-  const applicationLinks = (ui.roleDirectory203?.families || []).filter(family => family.application)
-    .map(family => applicationLink(family, "Apply as " + family.label)).filter(Boolean);
+  const termTarget1112 = term => { const family = termFamily218(term), targets = family?.applicationTargets || [];
+    return reservedTerm201(term) ? null : targets.find(target => target.targetOffice === term.officeKey) || (targets.every(target => target.targetOffice === null) ? targets[0] : null) || null; };
+  const seatLink = term => { const target = termTarget1112(term), family = termFamily218(term); return target ? applicationLink(family, target, "Apply as " + targetLabel1112(family, target)) : null; };
+  const applicationLinks = (ui.roleDirectory203?.families || []).flatMap(family => (family.applicationTargets || []).map(target => applicationLink(family, target, "Apply as " + targetLabel1112(family, target)))).filter(Boolean);
   const officeBadges = term => h("p", { class: "org-office-badges" },
     h("span", { class: "org-tier-badge org-tier-" + term.tier, text: termFamily218(term)?.kind === "institution" ? "Governance institution" : term.tierLabel }),
-    termFamily218(term)?.kind === "institution" ? null : h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " · " + nativeRankDisplayName(term.nativeSlot, term.nativeRankName) }),
+    termFamily218(term)?.kind === "institution" || !Number.isInteger(term.nativeSlot) ? null : h("span", { class: "small", text: "Rank " + term.nativeRankOrdinal + " " + nativeRankDisplayName(term.nativeSlot, term.nativeRankName) + " · Slot " + term.nativeSlot }),
     h("span", { class: "small", text: term.codexTitles.map(title => "Title " + title).join(" · ") }));
   function select(id, move = false, focus = false, term = null) {
     const n = byId.get(id); if (!n) return; selected = id; detailSummary.textContent = "Office details · " + nodeTitle218(n);
@@ -160,21 +179,25 @@ export function renderOrganization(main, data, ui) {
     const roleTerm = term || data.terms.find(entry => entry.nodeId === id && ui.roleDirectory203?.keyToFamily[entry.officeKey]);
     const roleKey = id === "activity" ? "pvp_team" : ui.roleDirectory203?.keyToFamily[roleTerm?.officeKey];
     const family = term ? termFamily218(term) : null, institution = family?.kind === "institution";
-    clear(detail); add(detail, [h("p", { class: "eyebrow", text: n.kind }), h("h2", { text: nodeTitle218(n) }),
-      term ? h("p", { text: institution ? family.label + ": a collective institution or retained historical mandate, separate from its current individual Council portfolio." : term.label + ": " + term.note }) : null,
-      term && !institution ? h("p", { class: "small", "data-native-placement": String(term.ordinal), text: termPlacement(term) }) : null,
-      institution ? h("details", {class:"org-register-context218"}, h("summary", {text:"Earlier register wording & rank associations"}),
-        h("p", {text:term.label + ": " + term.note}), h("p", {class:"small",text:termPlacement(term)}),
-        term.nativeMappingNote ? h("p", {class:"small muted",text:term.nativeMappingNote}) : null)
-        : term?.nativeMappingNote ? h("p", { class: "small muted", text: term.nativeMappingNote }) : null,
+    const nodeTerms = data.terms.filter(t => t.nodeId === id), titleSet = [...new Set((term ? [term] : nodeTerms).flatMap(t => t.codexTitles || []))];
+    const slotTerm = term || nodeTerms.find(t => Number.isInteger(t.nativeSlot));
+    clear(detail); add(detail, [h("p", { class: "eyebrow", text: nodeKind1112(n) }), h("h2", { text: nodeTitle218(n) }),
+      term ? h("p", { text: institution ? family.label + ": a collective institution, separate from the individual Council portfolios." : specificNote1112(term.note) ? term.label + ": " + term.note : term.label }) : null,
       term ? officeBadges(term) : null,
       term ? seatLink(term) : null,
       h("h3", { text: "Purpose" }), h("p", { text: n.remit }), h("h3", { text: "Authority and boundaries" }), h("p", { text: n.limits }),
       h("p", { class: "org-relation", text: n.parent ? `${n.relation === "accountability" ? "Accountable to" : n.relation === "independence" ? "Independent review remit connected to" : "Coordinates through"}: ${nodeTitle218(byId.get(n.parent))}.` : "Constitutional root; no reporting parent in this model." }),
-      offices.length ? h("div", null, h("h3", { text: "Offices and working mandates" }), offices.map(o => h("article", { class: "org-mandate" }, h("h4", { text: o.title }), h("p", { text: o.duty }), h("p", { class: "small", text: "Record of work: " + o.output }), h("p", { class: "small muted", text: "Appointment and limits: " + o.boundary })))) : null,
+      // CL2-041: a long mandate list (the ten Class Heads) is collapsed behind one summary line.
+      offices.length ? (() => { const cards = offices.map(o => h("article", { class: "org-mandate" }, h("h4", { text: o.title }), h("p", { text: o.duty }), h("p", { class: "small", text: "Record of work: " + o.output }), h("p", { class: "small muted", text: "Appointment and limits: " + o.boundary })));
+        return offices.length > 3 ? h("details", { class: "org-mandates1112" }, h("summary", { text: offices.length + " offices and working mandates" }), cards) : h("div", null, h("h3", { text: "Offices and working mandates" }), cards); })() : null,
       n.coordinates.length ? h("div", null, h("h3", { text: "Working relationships" }), n.coordinates.map(key => h("button", { type: "button", class: "btn small", text: nodeTitle218(byId.get(key)), onclick: () => select(key, true) }))) : null,
-      h("h3", { text: "Related titles and vocabulary" }), h("ul", null, data.terms.filter(t => t.nodeId === id).map(t => h("li", { text: t.label + " — " + t.note }))),
-      h("a", { class: "btn small", href: "#/governance/" + n.chapter, text: "Read the complete charter" }), roleKey ? h("a", { class: "btn small", href: "#/roles/" + encodeURIComponent(roleKey), text: "Role guide" }) : null, h("a", { class: "btn small", href: "#/organization/" + id, text: "Link to this office" })]);
+      nodeTerms.length ? [h("h3", { text: "Titles in this office" }), h("ul", null, nodeTerms.map(t => h("li", null, h("a", { href: "#/roles/" + encodeURIComponent(t.officeKey), text: t.applicationLabel || t.label }), specificNote1112(t.note) ? " — " + t.note : "")))] : null,
+      h("div", { class: "role-reference-links228 role-see-also1112", role: "group", "aria-label": "See also" }, h("span", { class: "small muted", text: "See also:" }),
+        roleKey ? h("a", { href: "#/roles/" + encodeURIComponent(term?.officeKey || roleKey), text: "Role guide" }) : null,
+        h("a", { href: "#/governance/" + n.chapter, text: "Organisation and Offices (governance)" }),
+        ...titleSet.filter(title => ui.titleRoutes?.[title]).map(title => h("a", { href: "#/governance/" + ui.titleRoutes[title], text: "Title " + title })),
+        slotTerm && Number.isInteger(slotTerm.nativeSlot) ? h("a", { href: "#/roles/rosetta-rank-" + (slotTerm.nativeSlot + 1), text: "Rosetta Stone · Rank " + (slotTerm.nativeSlot + 1) }) : null,
+        h("a", { href: "#/organization/" + encodeURIComponent(term?.officeKey || id), text: "Link to this office" }))]);
     if (branchMode && fullPosition.has(id)) fit();
     if (move) focusNode(id); if (focus) {
       detailDrawer.open = true; detail.focus();
@@ -182,12 +205,12 @@ export function renderOrganization(main, data, ui) {
     }
   }
   for (const node of visible) {
-    const p = position.get(node.id), button = h("button", { type: "button", class: "org-node org-node-" + node.relation, "data-organization-node": node.id, "aria-pressed": "false", onclick: () => select(node.id, false, true) }, posIcon(node.icon), h("span", null, h("strong", { text: nodeTitle218(node) }), h("small", { text: node.kind })));
+    const p = position.get(node.id), button = h("button", { type: "button", class: "org-node org-node-" + node.relation, "data-organization-node": node.id, "aria-pressed": "false", onclick: () => select(node.id, false, true) }, posIcon(node.icon), h("span", null, h("strong", { text: nodeTitle218(node) }), h("small", { text: nodeKind1112(node) })));
     button.style.left = (p.x - 115) + "px"; button.style.top = p.y + "px"; stage.append(button); buttons.set(node.id, button);
   }
   const list = h("section", { class: "org-list", "aria-label": "All offices in reading order" });
   for (const n of data.nodes) {
-    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: n.kind }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${nodeTitle218(byId.get(n.parent))}` : "Separate root" }));
+    const row = h("article", { class: "org-list-row" }, h("button", { type: "button", class: "org-list-title", onclick: () => select(n.id, true, true) }, posIcon(n.icon), h("span", null, h("strong", { text: nodeTitle218(n) }), h("small", { text: nodeKind1112(n) }))), h("p", { text: n.remit }), h("p", { class: "small muted", text: n.parent ? `${n.relation}: ${nodeTitle218(byId.get(n.parent))}` : "Separate root" }));
     rows.set(n.id, row); list.append(row);
   }
   const chartButton = h("button", { type: "button", class: "btn small", "aria-pressed": "true", text: "Chart", onclick: () => view(false) });
@@ -208,18 +231,18 @@ export function renderOrganization(main, data, ui) {
     fullScreen.textContent = "Exit full screen"; fullScreen.setAttribute("aria-expanded", "true");
     requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !disposed) { present(); viewport.focus(); } });
   } });
-  const branchButton = h("button", { type: "button", class: "btn small", text: "Fit branch", "aria-pressed": "false", onclick: fit });
-  const overviewButton = h("button", { type: "button", class: "btn small", text: "Full map", "aria-pressed": "true", onclick: overview });
+  const branchButton = h("button", { type: "button", class: "btn small", text: "Fit branch", "aria-pressed": "true", onclick: fit });
+  const overviewButton = h("button", { type: "button", class: "btn small", text: "Full map", "aria-pressed": "false", onclick: overview });
   const chartControls = h("div", { class: "org-chart-tools" }, h("button", { type: "button", class: "btn small", text: "−", "aria-label": "Zoom out", onclick: () => zoom(scale / 1.25) }), zoomStatus, h("button", { type: "button", class: "btn small", text: "+", "aria-label": "Zoom in", onclick: () => zoom(scale * 1.25) }), branchButton, overviewButton, h("button", { type: "button", class: "btn small org-center-selected", text: "Center selected", onclick: () => focusNode(selected) }), fullScreen);
   const chartShell = h("section", { class: "org-chart-shell", "aria-label": "Explore the organization" },
-    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), chartHelp,
+    h("div", { class: "org-toolbar" }, h("label", { for: "organization-search", text: "Find a duty" }), search, chartButton, listButton, chartControls), status, chartHelp,
     h("div", { class: "org-workspace" }, h("div", { class: "org-explorer" }, viewport, list), detailDrawer));
   chartLocation.append(chartShell);
   for (const disclosure of [detailDrawer, chartHelp]) disclosure.addEventListener("toggle", () => {
     requestAnimationFrame(() => { if (chartDialog.open && main.isConnected && !isList) present(); });
   });
   chartDialog.addEventListener("close", () => {
-    stop(); chartLocation.append(chartShell); detailDrawer.open = true; chartHelp.open = true;
+    stop(); chartLocation.append(chartShell); detailDrawer.open = true; chartHelp.open = false;
     fullScreen.textContent = "Full screen"; fullScreen.setAttribute("aria-expanded", "false");
     requestAnimationFrame(() => { if (main.isConnected && !disposed) { if (!isList) present(); (isList ? listButton : fullScreen).focus(); } });
   });
@@ -288,31 +311,57 @@ export function renderOrganization(main, data, ui) {
   viewport.addEventListener("selectstart", e => e.preventDefault());
   viewport.addEventListener("wheel", e => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = viewport.getBoundingClientRect(); zoom(scale * (e.deltaY < 0 ? 1.12 : .89), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
   const termList = h("div", { class: "organization-terms" }), termRows = [];
-  for (const [tier, title] of [["leader", "Leader & Reserved Royal Authority"], ["high_council", "High Council Roles"], ["officer_corps", "Officer Corps Roles"], ["member_specialist", "Member & Specialist Roles"]]) {
-    const terms = data.terms.filter(t => t.tier === tier), group = h("ul", { class: "org-office-grid", "aria-label": title });
+  // Evergreen 12 Nov 2026 (CL2-034, CL2-062, CL2-198): the register uses the directory's six catalogue groups in family order;
+  // within the Council group the Leader's titles come first, then the thirteen seats in protocol order, then the
+  // institutions and aliases. Each card names its own title; an institution's family is its subtitle.
+  const directory1112 = ui.roleDirectory203, catalog1112 = Array.isArray(directory1112?.groups) && directory1112.groups.length === 6 ? directory1112.groups : null;
+  const familyIndex1112 = new Map((directory1112?.families || []).map((family, index) => [family.key, index]));
+  const seatKeys1112 = seats1112.filter(seat => seat.id !== "gm-chair").map(seat => seat.officeKeys[0]);
+  const termSort1112 = t => {
+    const family = termFamily218(t), seat = seatKeys1112.indexOf(t.officeKey), own = family?.primaryKey === t.officeKey ? 0 : 1;
+    if (family?.key === "leader") return own * 1e3 + t.ordinal;
+    if (family?.group === "council" && seat >= 0) return 1e4 + seat;
+    return 1e5 + (familyIndex1112.get(family?.key) ?? 999) * 1e3 + own * 500 + t.ordinal;
+  };
+  const registerGroups1112 = catalog1112 ? catalog1112.map(group => ({ key: group.key, title: group.label, terms: data.terms.filter(t => termFamily218(t)?.group === group.key).sort((a, b) => termSort1112(a) - termSort1112(b)) }))
+    : [["leader", "Leader & Reserved Royal Authority"], ["high_council", "High Council Roles"], ["officer_corps", "Officer Corps Roles"], ["member_specialist", "Member & Specialist Roles"]].map(([key, title]) => ({ key, title, terms: data.terms.filter(t => t.tier === key) }));
+  const unplaced1112 = catalog1112 ? data.terms.filter(t => !registerGroups1112.some(group => group.terms.includes(t))) : [];
+  if (unplaced1112.length) registerGroups1112.push({ key: "other", title: "Other titles", terms: unplaced1112 });
+  for (const { key: groupKey, title, terms } of registerGroups1112) {
+    const group = h("ul", { class: "org-office-grid", "aria-label": title });
     for (const t of terms) {
       const closed = ui.officeAvailability?.[t.officeKey] === false;
-      const family = termFamily218(t);
+      const family = termFamily218(t), target = termTarget1112(t);
       const aliasLabels = t.applicationAliases?.length ? h("p", { class: "small", text: "Retained portfolio labels: " + t.applicationAliases.join(" · ") }) : null;
       const historicalAliases = aliasLabels && (family?.kind === "institution" || t.applicationMetadataScope) ? h("details", {class:"org-register-context218", "data-historical-application-labels218":t.officeKey},
         h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
       const historicalOfficeLabels = t.historicalOfficeLabels?.length ? h("details", { class: "org-register-context218", "data-historical-office-labels": t.officeKey },
         h("summary", { text: "Historical office labels" }), h("p", { class: "small", text: t.historicalOfficeLabels.join(" · ") })) : null;
-      const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier }, h("button", { type: "button", class: "organization-term", text: family?.kind === "institution" ? family.label : t.label, onclick: () => select(t.nodeId, true, true, t) }), officeBadges(t), historicalAliases, historicalOfficeLabels,
-        h("p", { class: "small", text: t.department === "Ten native rank slots" ? "In-game rank reference" : t.department }), h("p", { class: "small", text: t.note }), family?.kind === "institution" ? null : h("p", { class: "small muted", text: termPlacement(t) }),
-        reservedTerm201(t) ? null : h("p", { class: "small muted", text: closed ? "This seat is occupied or closed to applications." : t.applicationEligible ? "Ordinary role application available; admission and any later standing are reviewed separately." : t.acquisition }),
-        h("a", { class: "btn small", href: family ? "#/roles/" + encodeURIComponent(family.key) : "#/roles",
-          "aria-label": "Read the full role guide for " + (family?.label || t.label), text: "Read the full role guide" }));
+      const eligibility = reservedTerm201(t) || family?.eligibility === "reserved_seat" ? null
+        : target ? (closed ? h("p", { class: "small muted", text: "This seat is occupied or closed to applications." }) : seatLink(t))
+        : h("p", { class: "small muted", text: (ui.eligibilityLabel?.(family) || "Standing") + (t.acquisition && !/^Apply\b/.test(t.acquisition) ? ". " + t.acquisition : ".") });
+      const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier },
+        h("button", { type: "button", class: "organization-term", text: t.applicationLabel || t.label, onclick: () => select(t.nodeId, true, true, t) }),
+        family?.kind === "institution" ? h("p", { class: "small muted", text: family.label }) : null, officeBadges(t), historicalAliases, historicalOfficeLabels,
+        h("p", { class: "small", text: t.department === "Ten native rank slots" ? "In-game rank reference" : t.department }), specificNote1112(t.note) ? h("p", { class: "small", text: t.note }) : null,
+        eligibility,
+        h("a", { class: "btn small", href: "#/roles/" + encodeURIComponent(t.officeKey),
+          "aria-label": "Read the full role guide for " + (t.applicationLabel || t.label), text: "Read the full role guide" }));
       group.append(li); termRows.push({t,li});
     }
-    termList.append(h("section", { class: "org-office-tier-group", "data-tier-group": tier }, h("h3", { text: title + " · " + terms.length + " stable titles" }), group));
+    termList.append(h("section", { class: "org-office-tier-group", "data-catalog-group": groupKey }, h("h3", { text: title + " · " + terms.length + " offices" }), group));
   }
+  // CL2-190: one index per title (labels, aliases, historical labels, key and department) serves the chart and the register.
+  const termIndex1112 = t => [t.label, t.applicationLabel, ...(t.applicationAliases || []), ...(t.historicalOfficeLabels || []), t.officeKey, t.department, t.tierLabel, termFamily218(t)?.label].filter(Boolean).join(" ").toLowerCase();
   search.addEventListener("input", () => {
-    const q = search.value.trim().toLowerCase(); let count = 0;
-    if (q) chartHelp.open = true;
-    for (const n of data.nodes) { const matches = !q || [nodeTitle218(n), n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(t => t.applicationLabel || t.label)].join(" ").toLowerCase().includes(q); rows.get(n.id).hidden = !matches; buttons.get(n.id)?.classList.toggle("org-node-match", !!q && matches); if (matches) count++; }
-    for (const { t, li } of termRows) li.hidden = !!q && ![t.label,t.note,t.applicationLabel,...(t.applicationAliases||[]),t.department,t.tierLabel].join(" ").toLowerCase().includes(q);
-    status.textContent = q ? `${count} offices or groups match. Use Full map for all chart matches, or List for a filtered reading view.` : chartSummary();
+    const q = search.value.trim().toLowerCase(); let count = 0, outside = 0;
+    for (const n of data.nodes) {
+      const matches = !q || [nodeTitle218(n), n.title, n.remit, n.limits, ...data.terms.filter(t => t.nodeId === n.id).map(termIndex1112)].join(" ").toLowerCase().includes(q);
+      rows.get(n.id).hidden = !matches; buttons.get(n.id)?.classList.toggle("org-node-match", !!q && matches);
+      if (matches) { count++; if (q && buttons.get(n.id)?.hidden) outside++; }
+    }
+    for (const { t, li } of termRows) li.hidden = !!q && !termIndex1112(t).includes(q);
+    status.textContent = q ? `${count} offices or groups match${outside ? `; ${outside} are outside this branch. Choose Full map to see them, or List for a filtered reading view` : ""}.` : chartSummary();
   });
   const allianceOverview205 = ui.allianceOverview205?.(data, ui, id => {
     relationshipMap205.open = true;
@@ -320,21 +369,19 @@ export function renderOrganization(main, data, ui) {
     fit();
     ui.scrollToSection?.(detail);
   });
-  relationshipMap205 = h("details", { class: "org-relationship-map205 frame", open: true },
-    h("summary", { text: "Explore exact reporting & coordination lines" }));
-  relationshipMap205.open = true;
+  // CL2-043: on a phone the map starts closed (one tap opens it) and the alliance groups start collapsed.
+  const narrow1112 = typeof matchMedia === "function" && matchMedia("(max-width: 760px)").matches;
+  relationshipMap205 = h("details", { class: "org-relationship-map205 frame", open: !narrow1112 },
+    h("summary", { text: "Organization chart · reporting & coordination lines" }));
+  relationshipMap205.open = !narrow1112;
   relationshipMap205.addEventListener("toggle", () => { if (relationshipMap205.open) requestAnimationFrame(present); });
-  add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null, h("p", { class: "eyebrow", text: "The administration of Olympus" }), h("h1", { text: "Many guilds. One Olympus." }), h("p", { text: "Follow a line of responsibility, find the people a duty serves, and understand where an office’s authority ends." }))),
-    h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }), h("p", { text: "Adopted by the authorized guild administration. An office shown here does not appoint a holder, grant a Council vote or alter game, Discord, website or bank permissions. Individual appointments and actual access remain separately recorded." }),
-      h("p", {class:"small",text:(ui.reservedNotice201 || "Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed.") + " Collective institutions and their case panels are not additional individual seats."})),
-    h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" }, h("a", { class: "btn", href: "#/roles/rosetta-stone", text: "Olympus Role & Rank Rosetta Stone" }), h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Read the operational charter" }), h("a", { class: "btn", href: data.directoryRoute, text: "Current appointed leadership" }), h("a", { class: "btn small", href: "#/governance", text: "Complete governance book" })),
-    h("p", {class:"role-standing-scope218 small muted",text:ui.standingIntro218 || "These labels record a member’s current guild standing; they are not open positions. Ask the responsible officer to review a change in status."}),
-    relationshipMap205,
-    allianceOverview205,
-    h("section", { class: "frame org-rank-guide" }, h("h2", { text: "The Ten In-Game Ranks of Olympus" }), h("p", { text: "The in-game name for slot 0 is Guild Master. High Council is Rank 2 (slot 1). The Officer Corps occupies Ranks 3–5: Officer, Officer Alt and Raid Leader. Co-Guild Master and Treasurer are Council appointments, not extra native ranks." }),
-      h("ol", { class: "organization-ranks" }, data.nativeRanks.map(r => h("li", { "data-native-rank": String(r.order) }, h("a", { href:"#/roles/" + encodeURIComponent(ui.roleDirectory203?.ranks?.find(rank=>rank.nativeSlot===r.nativeSlot)?.familyKey || "rosetta-stone"), text:nativeRankDisplayName(r.nativeSlot, r.name) }), h("small", { text: "Rank " + r.order + " · zero-based slot " + r.nativeSlot })))),
-      h("p", { class: "small muted", text: "The owner-directed hierarchy is a planning and application guide. Current native installation, signing profiles, accepted appointments, Council votes and actual access require their own records." })),
-    h("section", { class: "org-council-overview frame", "aria-label": "High Council offices" }, h("h2", { text: "The High Council at a glance" }),
+  const adoption1112 = h("aside", { class: "org-adoption", role: "note" }, h("strong", { text: "Guild rules adopted · 13 October 2026" }),
+    h("p", { text: "An office shown here appoints no holder, grants no Council vote and changes no game, Discord, website or bank permission; appointments and access are recorded separately. " + (ui.reservedNotice201 || "Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them, including when no holder is listed.") + " Collective institutions and their case panels are not additional seats." }));
+  const registerDetails1112 = h("details", { class:"org-catalogue-history203" }, h("summary", { text:"Office register · " + data.roleRank199.officeCount + " offices / " + data.roleRank199.assignableKeyCount + " assignment keys" }), h("p", { class:"small muted", text:"The register keeps original identifiers for existing links. See Roles for current definitions and application options." }), termList);
+  const rankGuide1112 = h("section", { class: "frame org-rank-guide" }, h("h2", { text: "The Ten In-Game Ranks of Olympus" }), h("p", { text: "The in-game name for slot 0 is Guild Master. High Council is Rank 2 (slot 1). The Officer Corps occupies Ranks 3–5: Officer, Officer Alt and Raid Leader. Co-Guild Master and Treasurer are Council appointments, not extra native ranks." }),
+      h("ol", { class: "organization-ranks" }, data.nativeRanks.map(r => h("li", { "data-native-rank": String(r.order) }, h("a", { href:"#/roles/" + encodeURIComponent(ui.roleDirectory203?.ranks?.find(rank=>rank.nativeSlot===r.nativeSlot)?.familyKey || "rosetta-stone"), text:nativeRankDisplayName(r.nativeSlot, r.name) }), h("small", { text: "Rank " + r.order + " · Slot " + r.nativeSlot })))),
+      h("p", { class: "small muted", text: "The owner-directed hierarchy is a planning and application guide. Current native installation, signing profiles, accepted appointments, Council votes and actual access require their own records." }));
+  const councilGlance1112 = h("section", { class: "org-council-overview frame", "aria-label": "High Council offices" }, h("h2", { text: "The High Council at a glance" }),
       data.councilComposition ? h("p", { text: data.councilComposition.summary }) : null,
       h("ul", { class: "org-council-offices" }, (data.councilComposition?.offices || []).map(title => h("li", null, h("strong", { text: title })))),
       data.councilComposition ? h("p", { class: "org-composition-status", role: "note", text: data.councilComposition.formalStatus }) : null,
@@ -342,17 +389,26 @@ export function renderOrganization(main, data, ui) {
       h("p", { class: "small muted", text: "Systems & Heraldry sets stewardship and heraldic standards. Technical operators remain responsible for their own systems. The Herald directs campaigns and the Seneschal directs court protocol. Advisers are not automatically voting councillors. This current composition does not itself issue an eligible vote, individual warrant, native rank or permission. One person still has one vote, subject to recusal." }),
       h("div", { class: "org-composition-links" }, data.councilComposition ? h("a", { href: data.councilComposition.sourcePath, text: "Read the current Council reference" }) : null,
       data.councilComposition?.previousDirection ? h("a", { href: data.councilComposition.previousDirection.sourcePath, text: "Historical Council direction (19–23 October 2026)" }) : null,
-      h("a", { href: "#/governance/operational-charter-the-work-of-olympus", text: "Read Operational Charter O3 — The High Council and its offices" }))),
-    h("div", { class: "org-guide" }, h("h2", { text: "How to read the chart" }), h("p", { text: "Solid gold arrows point from an office toward the authority it answers to. Dashed blue two-way lines connect partners who coordinate. Dotted violet lines show independent review, never command by the person under review. Select a card to read its mandate. The rank and status groupings below carry no command arrows." }),
-      h("p", { class: "small muted", text: "Fit branch keeps the selected office and its direct connections readable. Drag the chart or a card to pan; click or tap a card to read its mandate. Full map gives an overview of every chart office. Pinch with two fingers, use +/−, or hold Ctrl/⌘ while scrolling to zoom. Focus the chart and use arrow keys to pan, Shift for larger steps, Home or 0 to fit the selected branch. Full screen gives the chart more room; Escape returns to this page. Every office is also available in List view." })),
+      h("a", { href: "#/governance/operational-charter-the-work-of-olympus", text: "Read Operational Charter O3 — The High Council and its offices" })));
+  add(main, [h("section", { class: "governance-hero" }, posIcon("guild_master"), h("div", null, h("p", { class: "eyebrow", text: "The administration of Olympus" }), h("h1", { text: "Organization" }), h("p", { text: "Follow a line of responsibility, find the people a duty serves, and understand where an office’s authority ends." }))),
+    // CL2-063: a jump list for the page's main parts.
+    ui.jumpList?.([{ label: "Chart", target: relationshipMap205 }, { label: "High Council", target: councilGlance1112 }, { label: "Alliance overview", target: allianceOverview205 }, { label: "Ranks", target: rankGuide1112 }, { label: "Office register", target: registerDetails1112 }]),
+    h("nav", { class: "governance-quicklinks", "aria-label": "Organization resources" }, h("a", { class: "btn", href: "#/roles/rosetta-stone", text: "Rosetta Stone" }), h("a", { class: "btn", href: "#/governance/operational-charter-the-work-of-olympus", text: "Operational charter" }), h("a", { class: "btn", href: data.directoryRoute, text: "Current appointed leadership" }), h("a", { class: "btn", href: "#/governance", text: "Governance book" })),
+    relationshipMap205,
+    adoption1112,
+    allianceOverview205,
+    rankGuide1112,
+    councilGlance1112,
+    h("div", { class: "org-guide" }, h("h2", { text: "How to read the chart" }), h("p", { text: "Solid gold arrows point from an office toward the authority it answers to. Dashed blue two-way lines connect partners who coordinate. Dotted violet lines show independent review, never command by the person under review. Select a card to read its mandate. The rank and status groupings below carry no command arrows. The controls are under “How to use the chart” above the map." })),
     chartLocation, chartDialog,
     h("details", { class: "frame org-profile-notes" }, h("summary", { text: "Technical & Historical Profile Notes" }), h("p", { text: data.roleRank199.historicalProfileNote }), h("p", { text: "Older drafts that gave Treasurer a separate native slot are superseded. The historical beta-five client observation and the addon’s second-rank Captain assumption remain evidence to review before real native adoption; this page performs no in-game rank write or key-profile activation. Officer Alt is now the fourth native rank, while the Treasurer key is an appointment alias. No title alone grants bank withdrawal, invitations, key signing or confidential access." })),
-    h("section", { class: "frame" }, h("h2", { text: "OLYMPUS PRIME / Olympus II–X · affiliation and succession" }), h("p", { text: "These are directory places for affiliated guilds, not assertions that ten guilds are formed or that their Guild Masters have been appointed. A local Guild Master retains local command while accepting the common charter. Each guild names five correspondents: PvP, Raiding, Finance, Artisanry and Heraldry." }), h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map(g => h("li", null, h("strong", { text: guildDisplayName229(g.name) }), h("small", { text: g.state }))))),
+    // CL2-043: the ten directory places are a disclosure, closed on phones.
+    h("details", { class: "frame org-alliance-group1112", open: !narrow1112 }, h("summary", null, h("h2", { text: "OLYMPUS PRIME / Olympus II–X · affiliation and succession" })), h("p", { text: "These are directory places for affiliated guilds, not assertions that ten guilds are formed or that their Guild Masters have been appointed. A local Guild Master retains local command while accepting the common charter. Each guild names five correspondents: PvP, Raiding, Finance, Artisanry and Heraldry." }), h("ul", { class: "organization-guilds" }, data.guildPlaceholders.map(g => h("li", null, h("strong", { text: guildDisplayName229(g.name) }), h("small", { text: g.state }))))),
     h("section", { class: "frame" }, h("h2", { text: "Role guides and office register" }),
       h("p", { text: "The Roles directory brings alternate titles and regional or class duties into their complete family guides. Use the chart here for lines of responsibility." }),
       h("a", { class: "btn small", href: "#/roles", text: "Explore the role directory" }),
       applicationLinks.length ? h("nav", { class: "btn-row", "aria-label": "Ordinary applications" }, applicationLinks) : null,
-      h("details", { class:"org-catalogue-history203" }, h("summary", { text:"Office register · " + data.roleRank199.officeCount + " stable offices / " + data.roleRank199.assignableKeyCount + " stored keys" }), h("p", { class:"small muted", text:"The register keeps original identifiers and scoped records for existing links. See Roles for current definitions and application options." }), termList))]);
+      registerDetails1112)]);
   // Show the interactive map before its longer rank, Council and reading references.
   const mapReadingSections221 = [...main.children].filter(node => node.classList?.contains("org-rank-guide") || node.classList?.contains("org-council-overview") || node.classList?.contains("org-guide"));
   for (const node of [chartLocation, chartDialog, ...mapReadingSections221]) relationshipMap205.append(node);

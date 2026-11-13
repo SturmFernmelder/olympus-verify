@@ -23,6 +23,7 @@ import { TALENT_BUILD_COLLECTION_LIMITS } from "./talent-build-attachment";
 import { reservedApplication201 } from './application-track199';
 import { OFFICE_ROLE_GUIDES_201, NATIVE_RANK_GUIDES_201, roleGuides201 } from './site-role-guides201';
 import { ROLE_DIRECTORY_203 } from './site-role-directory203';
+import { CANONICAL_RANKS233 } from './canonical-ranks233';
 
 /**
  * What a role is and what taking it on means (.44, 30 Sep 2026): the page shows it on the application form (each
@@ -818,6 +819,19 @@ export async function loadSiteState(env: Env): Promise<{ settings: SiteSettings;
   return { settings: settingsFrom(env, rows.results), ruleset: await resolveRulesetSnapshot(rows.results, env) };
 }
 
+/** Evergreen 12 Nov 2026 (CL2-046): the Discord role for each in-game rank under the .233 one-role-per-rank model,
+ * taken from CANONICAL_RANKS233 so the Rosetta Stone cannot drift from the role reconciliation. `granted` says how the
+ * role follows: from the rank on the verified roster, or (Alt) from the verified-alt record, never from the rank ordinal.
+ * `treasuryPlan` mirrors the officer-tier rank gate of site-treasury-access.ts (Leader to Raid Leader; owner ruling of
+ * 31 Oct 2026); evergreen1112_governance_test checks it against officerRank. Display text only: it grants nothing. */
+const RANK_ROLE_KEYS_1112 = Object.freeze(['guild-master', 'high-council', 'officer', 'officer-alt', 'raid-leader', 'veteran', 'raider', 'member', 'alt', 'initiate']);
+export const RANK_DISCORD_ROLES_1112 = Object.freeze(NATIVE_RANKS_199.map(rank => {
+  const role = CANONICAL_RANKS233.find(row => row.key === RANK_ROLE_KEYS_1112[rank.nativeSlot]);
+  if (!role) throw new Error('rank_discord_role_1112');
+  return Object.freeze({ nativeSlot: rank.nativeSlot, roleName: role.name, granted: role.key === 'alt' ? 'verified_alt' as const : 'roster_rank' as const, treasuryPlan: rank.nativeSlot <= 4 });
+}));
+export const BRANCH_DISCORD_ROLES_1112 = Object.freeze(CANONICAL_RANKS233.filter(row => row.key.startsWith('branch-')).map(row => row.name));
+
 /** Everything the page needs to draw the forms; sent with /api/me and in the page's boot data. */
 export function meta(ruleset?: RulesetSnapshot) {
   return {
@@ -849,6 +863,7 @@ export function meta(ruleset?: RulesetSnapshot) {
     applicationTracks: APPLICATION_TRACKS_199,
     roleGuides201: roleGuides201(POSITIONS),
     roleDirectory203: ROLE_DIRECTORY_203,
+    rankDiscordRoles1112: { ranks: RANK_DISCORD_ROLES_1112, branchRoles: BRANCH_DISCORD_ROLES_1112 },
     nativeRankGuides201: NATIVE_RANK_GUIDES_201,
     applicationPolicy201: { reservedTiers:['leader','high_council','officer_corps'],
       notice:'Leader, High Council and Officer Corps seats are reserved appointments. You cannot apply for them. An empty listing is not an open vacancy.' },
