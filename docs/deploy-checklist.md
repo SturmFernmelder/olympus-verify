@@ -7698,6 +7698,15 @@ Addon0.6.15 and Watcher0.6.12 prepare unclassified incoming trade/collected-mail
 
 Release requires focused/local Native/Lua checks, exact-head review, original13 PR jobs, one final qualification, main CI and a fresh443-live442-portable restored backup before a single protected deployment. Preserve all original rollout and OFF gates. Install public host/client files separately with hashes and protected configuration readback; do not replay old outboxes or infer native acceptance from an install. See docs/launch227-feed-contract.md and docs/launch227-verification-readiness.md for blockers.
 
+**Configuration and rollback (docs-only note added 12 November 2026).** This entry first recorded neither. From the
+committed configuration: `worker/wrangler.toml` at `36c3dfd` (.227) sets `VERIFY_MEMBERSHIP_ONLY = "true"` (no new
+link, role or invite without a fresh native roster and a matching GUID) and `REQUEST_CODES = "on"` (Get my code always
+hands out request codes); the .226 file at `4035063` had no `VERIFY_MEMBERSHIP_ONLY` and `REQUEST_CODES = "auto"`.
+These are the committed source values, not a readback of the deployed variables. Rollback is the .226 Worker from
+`4035063` through `bash scripts/deploy-commit.sh 4035063 --keep-vars` by Codex Root after a fresh restore-verified backup;
+it switches membership-only verification off again, so prefer a roll-forward unless .227 itself is the fault. No DDL
+was added, so no schema step is needed; keep the local receipt outboxes on officer hosts, and never replay them.
+
 ## Worker .228 — Evergreen guild site and raid tools (prepared 4 November 2026)
 
 The starting point is .227 at `36c3dfd`. Qualify the final integrated commit and tree through independent Claude Code and Codex review, matching primary and counter-signatures, the full local suites, browser and native acceptance, all thirteen hosted PR checks, and the current automated review. Keep the Stage 2 finding and receipt register with the exact candidate.

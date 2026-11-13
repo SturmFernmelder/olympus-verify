@@ -1004,8 +1004,10 @@ The site's block remains until replay and all reads pass and no old admitted wri
 If these conditions cannot be proved, restoration remains unavailable. Capture equality and asking staff to stop
 are cross-checks/precautions only, never terminal-state proof.
 
-`ensureSchema` still checks once per isolate, so recovery needs the newly served version's schema path; a redeploy
-receipt is not cancellation evidence for old invocations. A recovery request must preserve writer exclusion, rather
+`ensureSchema` now runs on every request, and it no longer migrates: it only consumes the current admitted schema
+proof and refuses otherwise (correction of 12 November 2026; this paragraph first said it checked once per isolate),
+so recovery needs the newly served version's admitted schema; a redeploy receipt is not cancellation evidence for old
+invocations. A recovery request must preserve writer exclusion, rather
 than silently reopening the bot host or cron. A future authoritative epoch must fence commits and audit seams,
 survive replacement, cover old versions and refuse stale work after reopening. That runtime epoch barrier is
 **not implemented**; proposed .116 work supplies no current guarantee.

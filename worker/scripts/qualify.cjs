@@ -9,7 +9,7 @@ for(let i=2;i<process.argv.length;i++){
   if(arg==='--output'&&output===undefined){output=process.argv[++i];if(!output)throw Error('--output requires a directory');}
   else if(arg==='--target')targets.push(process.argv[++i]);
   else if(arg==='--help'){
-    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation] [--target promotions]\nRuns tsc --noEmit and genuine local Workerd/D1 behavior once. Promotions traverses bounded real cursor requests in its own fixture. Whole-run cap:180 seconds; no retries.');
+    console.log('npm run qualify -- [--output <new absolute directory>] [--target lease] [--target treasury] [--target reconciliation] [--target promotions]\nRuns tsc --noEmit and genuine local Workerd/D1 behavior once. Promotions traverses bounded real cursor requests in its own fixture and, on a separate 1,000-member database, asserts per-request physical D1 statement ceilings, sub-second reads and query plans (every full scan of any table must match the recorded allow-list in docs/release-qualification.md). Whole-run cap:180 seconds; no retries.');
     process.exit(0);
   }else throw Error('unknown qualification argument: '+arg);
 }

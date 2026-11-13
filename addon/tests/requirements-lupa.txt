@@ -1,0 +1,10 @@
+# The one Python package the offline Lua suites and the Watcher's Lua round trips need (Evergreen 12 Nov 2026).
+# CI installs it with --require-hashes. Hashes are the published PyPI SHA-256 digests of lupa 2.8 (uploaded
+# 15 Apr 2026): the Linux x86_64 wheels for CPython 3.10-3.14 and the source archive. Bump all of them together.
+lupa==2.8 \
+    --hash=sha256:097e7d0f1719a88020b67c82e05d53d7973c166952393afcecfd8434c7e19a15 \
+    --hash=sha256:9f6f41c91366e7d0d474f87d81c1274af861f40812bf729c9f97ab4c8f3c7ac8 \
+    --hash=sha256:8cf4f064a0e5531afce2d7d750120c10c10f9529139af6ca6150d13151034398 \
+    --hash=sha256:fc47f536ac13a79cef47d29a2b205576a22841f042a2bcec1676b95806e7706a \
+    --hash=sha256:a591b9947ca347b41a63370e121d6e2b1458fe6dde9ae065029ec10a37f25ff4 \
+    --hash=sha256:d8022641b9ec8ecf2c5ecbe9f47e5a70e0b87c4b5ae921b92cb02a638e0acd08

@@ -6,6 +6,10 @@ import {createPrivacyWriteAdmissionDatabase} from '../src/privacy-write-admissio
 import {strictRosterDisplay} from '../src/unverified.ts';
 import {CANONICAL_GUILD233,CANONICAL_PROFILE233,CANONICAL_RANKS233} from '../src/canonical-ranks233.ts';
 import {NATIVE_SCOPE232} from '../src/native-rank-reconciliation232.ts';
+import worker from '../src/index.ts';
+import {countingD1, fullScans, scanCounts} from './d1_statement_budget.mjs';
+import {CANONICAL233_SWEEP249_SELECT, NATIVE232_SWEEP249_SELECT} from '../src/full-release-roles.ts';
+import {ROSTER_INGEST_STATEMENTS} from '../src/scheduled-budget.ts';
 
 const EPOCH = 'a'.repeat(32);
 const MODES = new Set(['full', 'partial-recover', 'credential-change', 'slow-read', '429-body', '429-header', '429-reset', '429-persistent',
@@ -120,7 +124,9 @@ async function reviewRecords275(action, input) {
   throw Error('unknown review action');
 }
 
-async function seed(db) {
+// `record` receives the seed checks: the promotion fixture's go to the module list, the budget database's to its own
+// list under their own names, so neither is counted twice (12 Nov review of CL2-024).
+async function seed(db, record = check) {
   const catalogue = JSON.parse(ADMISSION_EXPECTED_JSON);
   const install = [...catalogue.tables, ...catalogue.indexes].map(row => db.prepare(row.sql));
   install.push(db.prepare(catalogue.slotSQL));
@@ -133,7 +139,7 @@ async function seed(db) {
     PRIVACY_WRITE_ADMISSION_ENABLED: 'true', PRIVACY_WRITE_ADMISSION_LAYOUT: 'canonical',
     PRIVACY_WRITE_ADMISSION_EPOCH: EPOCH};
   const launch = captureLaunchVerification(env);
-  check('actual exact native capture admits only the synthetic fixture scope', launch.mode === 'members-only' && launch.current());
+  record('actual exact native capture admits only the synthetic fixture scope', launch.mode === 'members-only' && launch.current());
   const rows = Array.from({length: 1000}, (_, i) => ({
     name: 'Pacing Member ' + String(i).padStart(4, '0'),
     key: 'pacing member ' + String(i).padStart(4, '0'),
@@ -160,12 +166,126 @@ async function seed(db) {
   const originalEffects = JSON.stringify(await db.prepare(effectSQL).first());
   const native = await db.prepare('SELECT COUNT(*) n,COUNT(DISTINCT guid) guids FROM roster_members WHERE snapshot_id=1').first();
   const linked = await db.prepare('SELECT COUNT(*) n,COUNT(DISTINCT guid) guids FROM characters').first();
-  check('genuine D1 holds exactly 1000 distinct native GUIDs and original fresh links',
+  record('genuine D1 holds exactly 1000 distinct native GUIDs and original fresh links',
     native.n === 1000 && native.guids === 1000 && linked.n === 1000 && linked.guids === 1000);
   return {env, db, at, rows, originalProofs, originalEffects};
 }
 
-export default {async fetch(request, bindings) {
+// Evergreen 12 Nov 2026 (CL2-024): per-request physical D1 statement ceilings and query plans on a separate 1,000-member
+// genuine D1 database, so the measurement cannot disturb the paced promotion fixture above. Each measured request goes
+// through the actual Worker entry (host routing, watcher bearer, members-only protocol, ensureSchema and the admission
+// layer) with the counter in the place of the genuine binding, so every physical statement that reaches D1 is counted.
+// Ceilings: the directive's "<100 statements" for the officer launch-operations page and the strict roster display; the
+// shipped per-invocation admission model (scheduled-budget.ts ROSTER_INGEST_STATEMENTS) for a 1,000-member roster ingest,
+// whose "<100" reading is an open owner question (CL2-030).
+// Plans: every statement each request sent, and both Native sweep selectors, are explained against EVERY table in the
+// database (12 Nov review: a fixed list of two tables let scans of audit, characters, members and privacy_subjects pass
+// unreported). The scans the shipped code already does are pinned below with their exact plan text and count, so the
+// gate stays green on the shipped plans and turns red on any new scan, any changed one or any extra occurrence. Counts
+// are per physical statement (a read sent twice scans twice). Two kinds are inherent and stay: sqlite_master (the
+// schema catalogue, which the admission schema proof reads on every request) and privacy_write_admission (a one-row
+// control table). Every other entry is a defect recorded on dfca7a2 on 12 Nov 2026 and handed to its runtime owner (see
+// docs/release-qualification.md, "Known full scans"); remove the entry when its query is fixed.
+const DIRECTIVE_STATEMENT_LIMIT = 100;
+// Statements that begin with the admission catalogue CTE (privacy-write-admission.ts CATALOGUE_CTE) read sqlite_master
+// ten times and privacy_write_admission once each. The full schema proof among them also scans audit, through its
+// NOT EXISTS(... FROM audit WHERE action='site.settings' ...) clause, which no index serves.
+const CATALOGUE_SCANS = (statements, proofs) => ({'audit: SCAN audit': proofs,
+  'privacy_write_admission: SCAN privacy_write_admission': statements,
+  'sqlite_master: SCAN main.sqlite_master': 3 * statements, 'sqlite_master: SCAN sqlite_master': 7 * statements});
+const KNOWN_REQUEST_SCANS = Object.freeze({
+  // site-launch229.ts linked_guids CTE: GROUP BY guid over the whole characters table, in each of the two launch reads.
+  page: {...CATALOGUE_SCANS(3, 3), 'characters: SCAN characters': 2},
+  // unverified.ts linked_guids CTE: the same whole-table GROUP BY.
+  display: {...CATALOGUE_SCANS(2, 2), 'characters: SCAN characters': 1},
+  ingest: {...CATALOGUE_SCANS(29, 5),
+    // Plus 24 post-write checks (SELECT CASE WHEN changes()=1 AND (SELECT COUNT(*) FROM privacy_write_admission)=1 ...).
+    'privacy_write_admission: SCAN privacy_write_admission': 29 + 24,
+    // roster.ts:728-733: per member row, EXISTS(... privacy_subjects ps ... instr(note, ps.subject_id)) for the public and
+    // the officer note; no index can serve instr(), so each 50-row statement scans privacy_subjects twice per row.
+    'privacy_subjects: SCAN ps': 40,
+    // roster.ts:153 BOUND_SELECT: every bound character, joined to members, read in full.
+    'characters: SCAN c': 1, 'members: SCAN m': 1,
+    // roster.ts:1211: the latest-snapshot status read walks roster_snapshots and roster_effect_runs.
+    'roster_snapshots: SCAN s': 1, 'roster_snapshots: SCAN a': 1, 'roster_effect_runs: SCAN d': 1, 'roster_effect_runs: SCAN u': 1},
+});
+const KNOWN_SWEEP_SCANS = Object.freeze({
+  // full-release-roles.ts CANONICAL233_SWEEP249_SELECT: role_settlements walked twice through its subject index, the
+  // distinct linked subjects through characters_discord, and the latest266 subquery over roster_snapshots.
+  canonical: {'role_settlements: SCAN role_settlements USING INDEX role_settlement_subject': 1, 'role_settlements: SCAN r USING INDEX role_settlement_subject': 1,
+    'characters: SCAN c USING INDEX characters_discord': 1, 'roster_snapshots: SCAN roster_snapshots': 1},
+  // full-release-roles.ts NATIVE232_SWEEP249_SELECT: the candidates CTE walks role_settlements and characters by index.
+  native: {'role_settlements: SCAN role_settlements USING INDEX role_settlement_subject': 1, 'characters: SCAN c USING INDEX characters_discord': 1},
+});
+const TIMING_CEILING_MS = 1000;
+const BUDGET_WATCHER_TOKEN = 'synthetic-budget-watcher-only-' + 'b'.repeat(40);
+let budgeted = false;
+async function budget(genuine, ctx) {
+  const local = [], own = (name, value) => { if (!value) throw Error(name); local.push({name, passed: true}); };
+  // The budget database's seed checks are this target's own, named apart from the promotion fixture's.
+  const seeded = await seed(genuine, (name, value) => own('budget database: ' + name, value)), counter = countingD1(genuine);
+  const env = {...seeded.env, DB: counter.native, PUBLIC_BASE_URL: 'https://verify.example', WATCHER_TOKEN: BUDGET_WATCHER_TOKEN,
+    DISCORD_BOT_TOKEN: 'synthetic-roster-pacing-budget'};
+  const call = async (method, path, body) => {
+    const request = new Request('https://verify.example' + path, {method, body: body ? JSON.stringify(body) : undefined,
+      headers: {Authorization: 'Bearer ' + BUDGET_WATCHER_TOKEN, ...(body ? {'Content-Type': 'application/json'} : {})}});
+    const started = performance.now();
+    counter.start();
+    let response, text, log;
+    try { response = await worker.fetch(request, env, ctx); text = await response.text(); } finally { log = counter.stop(); }
+    return {status: response.status, json: JSON.parse(text), statements: log.length, milliseconds: Math.round(performance.now() - started), log};
+  };
+  const plans = {}, timings = {};
+  // `known` maps 'table: plan detail' to its exact number of occurrences.
+  const pinned = async (name, log, known) => {
+    const result = await fullScans(genuine, log), found = scanCounts(result.scans);
+    const expected = Object.fromEntries(Object.entries(known).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+    const ok = result.explained > 0 && result.unresolved.length === 0 && JSON.stringify(found) === JSON.stringify(expected);
+    plans[name] = {explained: result.explained, scans: found, unresolved: result.unresolved, statements: result.scans};
+    own(name + ' query plans, explained against every table, add no full scan beyond the recorded ones'
+      + (ok ? '' : ' -- found ' + JSON.stringify(found) + ' unresolved ' + JSON.stringify(result.unresolved)), ok);
+  };
+  // Sub-second plans (directive Pillar 7): each read statement is run again, alone, on the genuine 1,000-member database
+  // and timed, on the same data state the request saw (before the ingest writes a new snapshot). Writes are never re-run.
+  // One second is a ceiling against a runaway plan on a shared CI host, not a latency target.
+  const timed = async (name, log) => {
+    let slowest = 0, count = 0;
+    for (const {sql, values} of log) {
+      if (!/^\s*(?:WITH|SELECT)\b/i.test(sql) || /\b(?:INSERT\s+(?:OR\s+\w+\s+)?INTO|REPLACE\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/i.test(sql)) continue;
+      const prepared = genuine.prepare(sql), started = performance.now();
+      await (values.length ? prepared.bind(...values) : prepared).all();
+      slowest = Math.max(slowest, performance.now() - started); count++;
+    }
+    timings[name] = {timed: count, slowestMilliseconds: Math.round(slowest)};
+    own(name + ' read statements each run in under one second on the 1,000-member fixture', count > 0 && slowest < TIMING_CEILING_MS);
+  };
+  const page = await call('GET', '/queue/launch-operations?keyVersion=officer-operations-v233');
+  own('launch-operations page answers for the 1,000-member roster through the actual Worker', page.status === 200 && page.json.memberCount === 1000 && page.json.entitlements?.total === 1000);
+  own('launch-operations page stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', page.statements > 0 && page.statements < DIRECTIVE_STATEMENT_LIMIT);
+  const display = await call('GET', '/queue/unverified?keyVersion=launch-roster-display-v2');
+  own('strict roster display answers for the 1,000-member roster through the actual Worker', display.status === 200 && display.json.verified?.length + display.json.unverified?.length + display.json.unknown?.length === 1000);
+  own('strict roster display stays under ' + DIRECTIVE_STATEMENT_LIMIT + ' physical D1 statements', display.statements > 0 && display.statements < DIRECTIVE_STATEMENT_LIMIT);
+  // Both reads, and the sweep selectors, are planned and timed before the ingest changes the data they read.
+  await pinned('page', page.log, KNOWN_REQUEST_SCANS.page);
+  await pinned('display', display.log, KNOWN_REQUEST_SCANS.display);
+  await timed('page', page.log);
+  await timed('display', display.log);
+  const sweepBinds = ['800000000000000001', '', 50, 0, 'f'.repeat(32)];
+  const sweeps = {canonical: CANONICAL233_SWEEP249_SELECT, native: NATIVE232_SWEEP249_SELECT};
+  for (const [name, sql] of Object.entries(sweeps)) await pinned(name + 'Sweep', [{sql, values: sweepBinds}], KNOWN_SWEEP_SCANS[name]);
+  await timed('sweeps', Object.values(sweeps).map(sql => ({sql, values: sweepBinds})));
+  const members = seeded.rows.map((row, i) => ({name: row.name, guid: row.guid, rank: i === 0 ? 'Leader' : 'Initiate', rankIndex: i === 0 ? 0 : 9, level: 60, class: 'WARRIOR', online: i % 7 === 0}));
+  const exportedAt = (await genuine.prepare("SELECT CAST(strftime('%s','now') AS INTEGER) n").first()).n - 5;
+  const ingest = await call('POST', '/ingest/roster?keyVersion=launch-membership-v1', {exportedAt, members, nativeGuild: 'OLYMPUS PRIME', nativeRealm: 'Fixture Realm'});
+  own('a changed 1,000-member roster export is stored whole through the actual Worker', ingest.status === 200 && ingest.json.members === 1000 && ingest.json.trusted === true && ingest.json.unchanged === false);
+  own('the 1,000-member roster ingest stays within the shipped per-invocation admission model of ' + ROSTER_INGEST_STATEMENTS + ' physical D1 statements', ingest.statements > 0 && ingest.statements <= ROSTER_INGEST_STATEMENTS);
+  await pinned('ingest', ingest.log, KNOWN_REQUEST_SCANS.ingest);
+  const brief = r => ({status: r.status, statements: r.statements, milliseconds: r.milliseconds});
+  return {complete: true, actualLocalWorkerdD1: true, checks: local, page: brief(page), display: brief(display), ingest: brief(ingest),
+    ceilings: {directive: DIRECTIVE_STATEMENT_LIMIT, rosterIngestModel: ROSTER_INGEST_STATEMENTS, readMilliseconds: TIMING_CEILING_MS}, timings, plans};
+}
+
+export default {async fetch(request, bindings, ctx) {
   const url = new URL(request.url);
   if (request.method !== 'POST') return new Response(null, {status: 404});
   try {
@@ -173,6 +293,7 @@ export default {async fetch(request, bindings) {
       fixture = await seed(bindings.DB);
       return Response.json({complete: true, actualLocalWorkerdD1: true, at: fixture.at, checks});
     }
+    if (url.pathname === '/budget' && !budgeted) { budgeted = true; return Response.json(await budget(bindings.DB_BUDGET, ctx)); }
     if (!fixture) return new Response(null, {status: 404});
     const {env, db} = fixture;
     if (url.pathname === '/review-records275') {

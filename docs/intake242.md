@@ -10,7 +10,7 @@ Donation receipts are unclassified observations in the existing audit JSON ledge
 
 Queue verification cache records expire within 300 seconds and are advisory only. Delivery receipts are not current identity or role authority. The strict original invite protocol also accepts version 242 / `native-who-whisper-v242`, preserving its original MAC recipe and changed-WHO unguilded evidence.
 
-Postdeployment regression source: `watcher/test_intake242.py`. It has not been run before deployment. Run it after the live-first deployment using the installed runtime and repository test conventions.
+Regression source: `watcher/tests/test_intake242.py` (moved there on 12 November 2026 so the Watcher suite in CI runs it with every other Watcher test).
 
 Legacy captured proofs retain their original bytes until an explicit server no-effect expiry receipt. Exact private seen-claim ownership and uniqueness are required before dispatch and claim release. Expiry settlement removes only its own claim in the same atomic local save; an uncertain save restores the original queue and claims and permits local ACK persistence only, never another request.
 
