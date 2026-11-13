@@ -1188,9 +1188,18 @@
     if (event.relatedTarget) return;
     setTimeout(() => { if (lastFocus === el && el.isConnected && (!document.activeElement || document.activeElement === document.body)) lastFocus = null; }, 0);
   });
+  // RC-097 (round 3, 12 Nov 2026): a flow that detaches the focused control and puts it back itself (the Treasury plan's
+  // suspend-and-reverify) holds it here, so the global restore cannot move focus first and defeat the flow's own restore,
+  // as it did after CL2-097. The returned release lets the global restore act once the flow gives the node up.
+  const focusHeld = new WeakSet();
+  function holdFocus(el) {
+    if (!(el instanceof Element)) return () => {};
+    focusHeld.add(el);
+    return () => { focusHeld.delete(el); queueMicrotask(() => { if (lastFocus === el && !el.isConnected) restoreFocus(); }); };
+  }
   function restoreFocus() {
     const lost = lastFocus;
-    if (!lost || lost.isConnected || document.activeElement && document.activeElement !== document.body) return;
+    if (!lost || lost.isConnected || focusHeld.has(lost) || document.activeElement && document.activeElement !== document.body) return;
     lastFocus = null;
     const sig = focusSignature.get(lost);
     const usable = el => el.isConnected && !el.disabled && !el.closest("[hidden], [inert]") && el.getClientRects().length > 0;
@@ -2607,6 +2616,7 @@
       timer = null;
       const cleanup = disposePlan;
       disposePlan = null;
+      suspendedPlan?.release();
       suspendedPlan = null;
       mounted = false;
       clear(main);
@@ -2649,11 +2659,8 @@
         // At expiry, detach the presentation until a fresh answer confirms this view.
         clearTimeout(timer);
         timer = null;
-        suspendedPlan = {
-          nodes: [...main.childNodes],
-          focus: main.contains(document.activeElement) ? document.activeElement : null,
-          x: window.scrollX, y: window.scrollY
-        };
+        const focus = main.contains(document.activeElement) ? document.activeElement : null;
+        suspendedPlan = { nodes: [...main.childNodes], focus, release: holdFocus(focus), x: window.scrollX, y: window.scrollY };
         clear(main);
       } else removePlan();
       waiting();
@@ -2666,13 +2673,14 @@
         if (!current()) return;
         if (suspendedPlan) {
           if (!treasuryPlanAllowed218()) throw new ApiError(0, { error: "access_unconfirmed" });
-          const { nodes, focus, x, y } = suspendedPlan;
+          const { nodes, focus, release, x, y } = suspendedPlan;
           suspendedPlan = null;
           const restoreScroll = Number.isFinite(y) && window.scrollX === waitingX && window.scrollY === waitingY;
           clear(main);
           add(main, nodes);
           if (restoreScroll) window.scrollTo(x, y);
           if (focus && document.activeElement === document.body) focus.focus({ preventScroll: true });
+          release();
           arm();
           return;
         }
