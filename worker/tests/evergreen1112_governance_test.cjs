@@ -264,6 +264,19 @@ check('REV-GOV-1', 'the Rank 1 (Leader) guide describes a Guild Master leading a
 check('REV-GOV-1', 'every native-rank guide carries the text of its rank\'s own source office', ['office_43', 'office_45', 'office_62', 'office_63', 'office_74', 'office_90', 'office_75', 'office_55', 'office_04', 'office_48']
   .every((key, slot) => { const r = publicMeta.roleGuides201['rank_' + ['guild_master', 'high_council', 'officer', 'officer_alt', 'raid_leader', 'veteran', 'raider', 'member', 'alt', 'initiate'][slot]]; return r && r.definition === publicMeta.roleGuides201[key].definition; }));
 
+// REV-GOV-1 at the source (round 3 item 6a): the editorial pass is the last rule. A spy on the pass shows roleGuides201
+// returns exactly what the pass produced (no later override replaces editorial text for the ten ranks), and the pass
+// itself gives Rank 1 the branch Guild Master's guide.
+{
+  const editorial = load('site-role-editorial219'), guideModule = load('site-role-guides201'), real = editorial.editorialRoleGuides219;
+  let produced = null;
+  editorial.editorialRoleGuides219 = (...args) => (produced = real(...args));
+  let served = null;
+  try { served = guideModule.roleGuides201(siteData.POSITIONS); } finally { editorial.editorialRoleGuides219 = real; }
+  check('REV-GOV-1', 'the editorial pass is the only rule: roleGuides201 returns its output unchanged, and that output gives Rank 1 the office_43 guide',
+    !!produced && served === produced && produced.rank_guild_master.definition === produced.office_43.definition && produced.rank_guild_master.definition !== produced.office_81.definition);
+}
+
 // ---------------------------------------------------------------- CL2-046 the Rosetta access column follows the .233 model
 const canonical = load('canonical-ranks233').CANONICAL_RANKS233, treasury = load('site-treasury-access');
 const ladder = offices.NATIVE_RANKS_199.map(r => r.nativeSlot === 0 ? 'Guild Master' : r.name);
@@ -367,7 +380,33 @@ async function browserChecks(BASE, CDP_PORT) {
   } finally { await Promise.race([cdp.close(), H.sleep(2000)]); try { if (cdp.proc.exitCode === null) cdp.proc.kill(); } catch { /* already gone */ } try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* Edge may still hold the profile. */ } }
 }
 
+// ---------------------------------------------------------------- RC-034 the overview's lane and independent-review views
+// Behaviour check on the served overview module (its one static import pointed at the file on disk): every branch role
+// family is listed under the department lane it reports into, or under independent review when it reports through
+// justice or audit, as the live build placed them; the lists are links to the family cards, not a second set of cards.
+async function overviewChecks() {
+  const os = require('node:os'), { pathToFileURL } = require('node:url');
+  const ctxUrl = pathToFileURL(path.join(root, 'worker/public/static/organization-context205.js')).href;
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'overview1112-')), 'overview.mjs');
+  fs.writeFileSync(tmp, overview.replace('"/static/organization-context205.js"', JSON.stringify(ctxUrl)));
+  const mod = await import(pathToFileURL(tmp).href), { ORGANIZATION_LANES205 } = await import(ctxUrl);
+  const built = mod.buildAllianceOverview205(model, dir);
+  const nodes = new Map(model.nodes.map(n => [n.id, n])), terms = new Map(model.terms.map(t => [t.officeKey, t]));
+  const expected = { independent: [], lanes: Object.fromEntries(ORGANIZATION_LANES205.map(l => [l.key, []])) };
+  for (const f of dir.families.filter(f => f.kind !== 'institution' && f.tier === 'officer_corps')) {
+    const anc = new Set(); for (let n = nodes.get((terms.get(f.primaryKey) || {}).nodeId); n; n = n.parent ? nodes.get(n.parent) : null) anc.add(n.id);
+    const lane = ORGANIZATION_LANES205.find(l => anc.has(l.rootId));
+    if (anc.has('justice') || anc.has('auditor')) expected.independent.push(f.key); else if (lane) expected.lanes[lane.key].push(f.key);
+  }
+  const got = built.contexts ? { independent: built.contexts.independent.map(f => f.key), lanes: Object.fromEntries(Object.entries(built.contexts.lanes).map(([k, v]) => [k, v.map(f => f.key)])) } : null;
+  check('RC-034', 'each branch role family is placed under its department lane or under independent review, as on the live build', !!got && JSON.stringify(got) === JSON.stringify(expected)
+    && ['war', 'artisanry', 'propaganda', 'systems'].every(k => got.lanes[k].length > 0) && got.independent.includes('bank_auditor'), JSON.stringify(got));
+  check('RC-034', 'the lane and independent-review views are link lists to the family cards, not duplicate cards', /function familyContext\(list, title, key\)/.test(overview)
+    && /familyContext\(model\.contexts\.lanes\[lane\.key\]/.test(overview) && /familyContext\(model\.contexts\.independent/.test(overview) && !/familyContext[^\n]*familyCard/.test(overview));
+}
+
 (async () => {
+  await overviewChecks();
   const BASE = flag('--base'), CDP_PORT = Number(flag('--cdp'));
   if (BASE && CDP_PORT) await browserChecks(BASE, CDP_PORT);
   console.log(failed ? failed + ' check(s) failed' : 'all checks passed');
