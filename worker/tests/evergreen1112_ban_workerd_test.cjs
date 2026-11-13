@@ -32,7 +32,23 @@ const SUCCESSOR_KINDS=['late-delete','known-ack','known-migrate','known-nd','kno
 const REPAIR_KINDS=['oldlane-retired','oldlane-veteran','oldlane-getonly','legacy-removed','legacy-absent','lane-failed','lane-held','watcher-nolane','deferred-429'];
 // Round 4 item 8 (13 Nov 2026): the unban reply for a removal in flight and for rows of other purposes.
 const ROUND4_KINDS=['unban-inflight','unban-other-inflight','unban-mixed','unban-old-getonly','unban-attempted-pending'];
-const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS,...ROUND4_KINDS];
+// Round 5 gate2 (13 Nov 2026). Complete closed refusal bodies (Codex's fdf2158 contract, verified against discord.ts
+// replyBody280 and role-settlements.ts captureDeleteRefusal280): 403 with code 50013 or 50001, 404 with 10007 or 10011,
+// 429 with a finite retry_after (0 to 86400) and a boolean global. Everything else stays an unknown outcome; the
+// negative controls below are the ban lane's own copies of those shapes (a lost answer is the 'unknown' case).
+const REFUSALS={403:{body:{message:'Missing Permissions',code:50013}},404:{body:{message:'Unknown Role',code:10011}},429:{body:{message:'You are being rate limited.',retry_after:60,global:true}}};
+const NEGATIVE_REPLIES=[
+ ['neg-403-status','a 403 whose body has no message',{status:403,text:'{"code":50013}'}],
+ ['neg-404-10004','a 404 with code 10004 (Unknown Guild)',{status:404,text:'{"message":"Unknown Guild","code":10004}'}],
+ ['neg-404-extra','a 404 whose body carries an extra, complex field',{status:404,text:'{"message":"Unknown Role","code":10011,"errors":{}}'}],
+ ['neg-403-duplicate','a 403 whose body repeats a key',{status:403,text:'{"message":"Missing Permissions","code":50013,"code":50013}'}],
+ ['neg-429-header','a header-only 429 (Retry-After and scope, no body)',{status:429,text:'',headers:{'Retry-After':'60','X-RateLimit-Scope':'global'}}],
+ ['neg-429-delay','a 429 with an unsupported delay (86400.5 seconds)',{status:429,text:'{"message":"You are being rate limited.","retry_after":86400.5,"global":true}'}],
+ ['neg-429-global','a 429 whose global flag is not a boolean',{status:429,text:'{"message":"You are being rate limited.","retry_after":60,"global":"true"}'}],
+ ['neg-500','a 500',{status:500,text:'{"message":"Internal Server Error","code":0}'}]];
+// Round 5 gate2: a genuinely malformed ban cursor (outside the closed cursor contract) must still be held.
+const GATE2_KINDS=[...NEGATIVE_REPLIES.map(n=>n[0]),'lane-malformed'];
+const kinds=[...ORIGINAL_KINDS,...SUCCESSOR_KINDS,...REPAIR_KINDS,...ROUND4_KINDS,...GATE2_KINDS];
 const state=new Map(kinds.map(k=>[k,{present:new Map([[SUBJECT,new Set()],[OTHER,new Set([VETERAN])]]),del:{},held:[],member404:false,above:new Set(),managed:new Set(),renamed:new Set(),perm:new Set(),memberGetFail:0,onDelete:null,onFirstGet:null,patches:[],posts:[],http:[]}]));
 // Round 5 gate (13 Nov 2026), stage time. The cases are independent (each kind has its own D1 database, its own
 // synthetic Discord state and its own bot token), so they run as ordered blocks on BAN1112_RUNTIMES Workerd runtimes
@@ -93,7 +109,11 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
     if(mode==='hold'){delete s.del[role];s.held.push({subject:r[2],role});throw Error('synthetic lost DELETE answer; effect delayed');}
     // Discord acknowledges the DELETE but the role stays (the confirming read then shows it present).
     if(mode==='ack-no-effect'){delete s.del[role];return new Response(null,{status:204});}
-    if(typeof mode==='number'){delete s.del[role];return Response.json({message:'synthetic',retry_after:0},{status:mode});}
+    // Round 5 gate2 (13 Nov 2026): a refusal meant as real is Discord's complete closed body, the only shape the product
+    // records as a known refusal since fdf2158 (discord.ts replyBody280, role-settlements.ts captureDeleteRefusal280).
+    if(typeof mode==='number'){delete s.del[role];const r=REFUSALS[mode];return Response.json(r.body,{status:mode,headers:r.headers});}
+    // Negative controls: a reply that is not a complete closed refusal, sent as raw text so malformed JSON is possible.
+    if(mode&&typeof mode==='object'){delete s.del[role];return new Response(mode.text,{status:mode.status,headers:{'Content-Type':'application/json',...mode.headers}});}
     set.delete(role);return new Response(null,{status:204});
    }
    set.add(role);return new Response(null,{status:204});
@@ -112,7 +132,23 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  const routineFenced=y=>y.result?.state==='held'&&y.result.reason==='native232_intent_held'&&y.result.requests===0;
  const migrateFenced=y=>y.result?.state==='held'&&y.result.reason==='canonical239_reservation_held';
  const freshVerify=async k=>{const c=await call('newcode/'+k);return call('verify/'+k,{code:c.code,at:c.at});};
- const rolesweep=(k,lane)=>call('rolesweep/'+k,lane===undefined?{}:{lane}),sweepAudit=y=>y.audits.filter(a=>a.action==='role.sweep').map(a=>JSON.parse(a.details)).at(-1);
+ const rolesweep=(k,lane)=>call('rolesweep/'+k,lane===undefined?{}:{lane});
+ // Round 5 gate2 (13 Nov 2026): the role-sweep progress is lane-owned (Codex's 42e36b7, restore.ts relevant280 and
+ // headId280). A lane's head is its newest RELEVANT role.sweep row: a row whose lane is the text 'ordinary' or 'ban'
+ // belongs to that lane only; a row without a lane, with any other lane value, or whose details are not a JSON object
+ // is relevant to both. The ordinary lane's cursors are a and c of its head, the ban lane's is b of its head. (The
+ // product also treats an object with a repeated key as relevant to both; no case here writes one.)
+ const laneHead=(y,lane)=>{for(const a of y.audits.filter(r=>r.action==='role.sweep').reverse()){let d=null;try{d=JSON.parse(a.details);}catch{}
+  const object=!!d&&typeof d==='object'&&!Array.isArray(d);if(!object||typeof d.lane!=='string'||!['ordinary','ban'].includes(d.lane)||d.lane===lane)return {id:a.id,details:object?d:null};}return null;};
+ const cursors=y=>{const o=laneHead(y,'ordinary'),b=laneHead(y,'ban');return {a:o?.details?.a,c:o?.details?.c,b:b?.details?.b,ordinaryHead:o?.id??null,banHead:b?.id??null,ordinaryLane:o?.details?.lane,banLane:b?.details?.lane,banDetails:b?.details??null};};
+ // Every seeded cursor is a value the closed contract admits (restore.ts cursor280: '' or 17 to 20 digits). B0 is a
+ // real-shaped ID below the banned subject, so a kept cursor (B0), a wrapped one ('') and an advanced one (SUBJECT) differ.
+ const B0='100000000000000000';
+ // The closed refusal reason exactly as captureDeleteRefusal280 writes it (fixed key order, ASCII literals only). For a
+ // 429 the stored delta is due-floor(EOF) with due=ceil(EOF+60), so 60 or 61 seconds for retry_after 60.
+ const refusalReason=(status,code,delta)=>'{"version":1,"type":"ban-rank-delete-refusal-v1","status":'+status+',"code":'+(code===null?'null':code)+',"retryAfterSeconds":'+delta+'}';
+ const isRefusal=(row,status)=>status===429?[60,61].some(d=>row?.reason===refusalReason(429,null,d)):row?.reason===refusalReason(status,REFUSALS[status].body.code,0);
+ const seedSweep=async(k,details)=>{const y=await call('sweepstate/'+k,{details});return laneHead(y,'ordinary')?.id;};
  // A well-formed earlier row (32/64-hex identity fields, a closed 300 s window in the past), for synthetic controls.
  let rowSeq=0;const synthetic=async(k,o)=>{const now=(await call('clock/'+k)).now,n=(++rowSeq).toString(16);return {id:n.padStart(32,'a'),subject:SUBJECT,purpose:o.purpose,proof_id:o.purpose===BAN?n.padStart(32,'b'):null,guild_id:G,role_id:o.role??VETERAN,desired:o.desired,state:o.state,reason:o.reason,attempts:1,claim_nonce:n.padStart(32,'c'),subject_generation:o.generation??null,request_digest:n.padStart(64,'d'),native_profile:o.profile,created_at:now-1000,expires_at:now-700,checked_at:now-690};};
  const otherUntouched=()=>kinds.every(k=>!state.get(k).http.some(h=>h.path.includes('/members/'+OTHER)));
@@ -192,9 +228,15 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  });
  block(async()=>{let x;
  await setup('known-404',{present:[VETERAN,ADDON],rank:5});state.get('known-404').del[VETERAN]=404;x=await ban('known-404');
- check('known-positive: setup, a DELETE answered 404 is held with no effect',banRows(x)[0]?.state==='held'&&banRows(x)[0].reason==='ban_rank1112_refused_404',x.rows);
+ // Round 5 gate2 (13 Nov 2026): since fdf2158 a complete closed refusal is stored as its closed JSON reason
+ // (role-settlements.ts captureDeleteRefusal280 and persistDeleteRefusal280), no longer as ban_rank1112_refused_404.
+ const k404=banRows(x).find(r=>r.role_id===VETERAN);
+ check('known-positive: setup, a DELETE answered 404 is held with no effect',k404?.state==='held'&&isRefusal(k404,404)&&k404.attempts===1,x.rows);
  state.get('known-404').present.get(SUBJECT).delete(VETERAN);await unban('known-404');await call('refresh/known-404');x=await freshVerify('known-404');
- check('known-positive: a proved no-effect 404 stays known: after an unban fresh verification grants the rank (one PUT)',putsTo('known-404',VETERAN)===1&&present('known-404').includes(VETERAN),{verify:x.verify});
+ // Round 5 gate2: a 403/404 refusal is known (it does not fence as unresolved) but "Known permission/missing-member/role
+ // refusals require attended resolution" (role-delete-refusal280.ts manualRankRefusalSql280, applied to the grant by
+ // managedRankTargetAllowedSql280 in queueAndSettleLaunchMembership230): the fresh grant of that role is held.
+ check('known-positive: a proved no-effect 404 is a known refusal that waits for attended resolution: after an unban fresh verification binds the member but sends no PUT for that role, and the refusal row is never changed',putsTo('known-404',VETERAN)===0&&!present('known-404').includes(VETERAN)&&x.verify?.body?.result==='member'&&x.verify.body.roleGranted===false&&same(banRows(x).find(r=>r.id===k404?.id),k404),{verify:x.verify,row:banRows(x).find(r=>r.id===k404?.id)});
  });
  // A malformed or unrelated observation reason on an otherwise well-formed ban row cannot open the fence; the same row
  // with the acknowledgement reason can (inserted-ack-control), so only the reason differs.
@@ -244,23 +286,23 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  // S5. Lanes (agreed plan): in canonical mode one lane per invocation, chosen by the caller; no fall-through; each lane's
  // cursor survives the other lane's visit.
  await setup('lanes',{present:[ADDON]});await ban('lanes');state.get('lanes').present.get(SUBJECT).add(MEMBER);
- await call('sweepstate/lanes',{details:{a:7,c:OTHER,b:'0',checked:0}});
- laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes');
- check('a canonical role sweep without a lane holds before any lane-specific read or Discord request and is audited as failed',x.result===null&&String(x.failedAudit).includes('role_sweep_lane_required')&&state.get('lanes').http.length===laneFrom&&sweepAudit(x)?.b==='0',{result:x.result,failedAudit:x.failedAudit});
- x=await rolesweep('lanes','ordinary');costs.ordinaryLaneBannedOnly=x.statements;const ordinaryAudit=sweepAudit(x);
- check('the ordinary lane never visits a banned account\'s removal: no request for the banned member and the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes').http.slice(laneFrom).every(h=>!h.path.includes('/members/'+SUBJECT))&&present('lanes').includes(MEMBER)&&ordinaryAudit?.b==='0',{result:x.result,audit:ordinaryAudit,http:state.get('lanes').http.slice(laneFrom)});
- laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes','ban');costs.banLaneOneRole=x.statements;const banAudit=sweepAudit(x);
- check('the ban lane removes the banned member\'s rank role and leaves the ordinary cursors exactly as the ordinary lane wrote them',x.result?.lane==='ban'&&!present('lanes').includes(MEMBER)&&deletes('lanes',laneFrom).length===1&&banAudit?.a===ordinaryAudit?.a&&banAudit?.c===ordinaryAudit?.c&&banAudit?.b===SUBJECT,{result:x.result,audit:banAudit,ordinaryAudit});
- x=await rolesweep('lanes','ordinary');
- check('the banned cursor survives a later ordinary visit',sweepAudit(x)?.b===SUBJECT&&x.result?.lane==='ordinary',{audit:sweepAudit(x)});
+ const lanesSeed=await seedSweep('lanes',{a:7,c:OTHER,b:B0,checked:0});
+ laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes');let cur=cursors(x);
+ check('a canonical role sweep without a lane holds before any lane-specific read or Discord request and is audited as failed',x.result===null&&String(x.failedAudit).includes('role_sweep_lane_required')&&state.get('lanes').http.length===laneFrom&&cur.b===B0&&cur.banHead===lanesSeed&&cur.ordinaryHead===lanesSeed,{result:x.result,failedAudit:x.failedAudit,cursors:cur});
+ x=await rolesweep('lanes','ordinary');costs.ordinaryLaneBannedOnly=x.statements;const ordinaryCur=cursors(x);
+ check('the ordinary lane never visits a banned account\'s removal: no request for the banned member and the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes').http.slice(laneFrom).every(h=>!h.path.includes('/members/'+SUBJECT))&&present('lanes').includes(MEMBER)&&ordinaryCur.b===B0&&ordinaryCur.banHead===lanesSeed,{result:x.result,cursors:ordinaryCur,http:state.get('lanes').http.slice(laneFrom)});
+ laneFrom=state.get('lanes').http.length;x=await rolesweep('lanes','ban');costs.banLaneOneRole=x.statements;const banCur=cursors(x);
+ check('the ban lane removes the banned member\'s rank role and leaves the ordinary cursors exactly as the ordinary lane wrote them',x.result?.lane==='ban'&&!present('lanes').includes(MEMBER)&&deletes('lanes',laneFrom).length===1&&ordinaryCur.ordinaryLane==='ordinary'&&banCur.ordinaryHead===ordinaryCur.ordinaryHead&&banCur.a===ordinaryCur.a&&banCur.c===ordinaryCur.c&&banCur.b===SUBJECT&&banCur.banLane==='ban',{result:x.result,cursors:banCur,ordinaryCur});
+ x=await rolesweep('lanes','ordinary');cur=cursors(x);
+ check('the banned cursor survives a later ordinary visit',cur.b===SUBJECT&&cur.banHead===banCur.banHead&&x.result?.lane==='ordinary',{cursors:cur});
  });
  block(async()=>{let x,laneFrom;
  await setup('lanes-walk',{verifyFirst:true,rank:5});await call('verify/lanes-walk');await call('age/lanes-walk');
- await call('sweepstate/lanes-walk',{details:{a:0,c:'',b:'0',checked:0}});
- laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ban');costs.banLaneEmpty=x.statements;
- check('an empty ban lane does nothing else: no request, no ordinary walk, the ordinary cursors unchanged',x.result?.lane==='ban'&&x.result.checked===0&&state.get('lanes-walk').http.length===laneFrom&&sweepAudit(x)?.a===0&&sweepAudit(x)?.c===''&&sweepAudit(x)?.lane==='ban',{result:x.result,audit:sweepAudit(x)});
- const emptyBanCursor=sweepAudit(x)?.b;laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ordinary');costs.ordinaryLaneOneMember=x.statements;
- check('the ordinary lane walks the bound member and never runs the banned rotation; the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes-walk').http.slice(laneFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT)&&sweepAudit(x)?.b===emptyBanCursor,{result:x.result,audit:sweepAudit(x),http:state.get('lanes-walk').http.slice(laneFrom)});
+ const walkSeed=await seedSweep('lanes-walk',{a:0,c:'',b:B0,checked:0});
+ laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ban');costs.banLaneEmpty=x.statements;const emptyBan=cursors(x);
+ check('an empty ban lane does nothing else: no request, no ordinary walk, the ordinary cursors unchanged',x.result?.lane==='ban'&&x.result.checked===0&&state.get('lanes-walk').http.length===laneFrom&&emptyBan.ordinaryHead===walkSeed&&emptyBan.a===0&&emptyBan.c===''&&emptyBan.banLane==='ban'&&emptyBan.banHead!==walkSeed,{result:x.result,cursors:emptyBan});
+ laneFrom=state.get('lanes-walk').http.length;x=await rolesweep('lanes-walk','ordinary');costs.ordinaryLaneOneMember=x.statements;const walkCur=cursors(x);
+ check('the ordinary lane walks the bound member and never runs the banned rotation; the banned cursor is untouched',x.result?.lane==='ordinary'&&state.get('lanes-walk').http.slice(laneFrom).some(h=>h.method==='GET'&&h.path==='/guilds/'+G+'/members/'+SUBJECT)&&walkCur.banHead===emptyBan.banHead&&walkCur.b===emptyBan.b,{result:x.result,cursors:walkCur,http:state.get('lanes-walk').http.slice(laneFrom)});
  });
 
  // ---- Repair round (13 Nov 2026, independent review of the successor at 4951e61).
@@ -295,17 +337,30 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  // R-B. A ban lane whose one banned visit fails (the member read answers 500) or is held by its request budget never
  // falls through to the ordinary walk (the independent reviewer's R2 and R3 cases, 13 Nov 2026).
  await setup('lane-failed',{present:[ADDON]});await ban('lane-failed');state.get('lane-failed').present.get(SUBJECT).add(MEMBER);
- await call('sweepstate/lane-failed',{details:{a:7,c:OTHER,b:'0',checked:0}});
- const lf=state.get('lane-failed');lf.memberGetFail=1;const lfFrom=lf.http.length;x=await rolesweep('lane-failed','ban');const lfAudit=sweepAudit(x);
- check('a failed ban-lane visit sends no DELETE, does not run the ordinary walk (only the four reads of the one banned visit) and copies a and c exactly',x.result?.lane==='ban'&&deletes('lane-failed',lfFrom).length===0&&lf.http.slice(lfFrom).length===4&&lf.http.slice(lfFrom).every(h=>h.method==='GET')&&!lf.http.slice(lfFrom).some(h=>h.path.includes('/members/'+OTHER))&&lfAudit?.a===7&&lfAudit?.c===OTHER&&lfAudit?.lane==='ban'&&present('lane-failed').includes(MEMBER),{result:x.result,audit:lfAudit,http:lf.http.slice(lfFrom)});
- x=await rolesweep('lane-failed','ordinary');
- check('the next ordinary visit leaves the banned member alone and keeps the ban lane\'s cursor',x.result?.lane==='ordinary'&&sweepAudit(x)?.b===lfAudit?.b&&present('lane-failed').includes(MEMBER),{audit:sweepAudit(x)});
+ const lfSeed=await seedSweep('lane-failed',{a:7,c:OTHER,b:B0,checked:0});
+ const lf=state.get('lane-failed');lf.memberGetFail=1;const lfFrom=lf.http.length;x=await rolesweep('lane-failed','ban');const lfCur=cursors(x);
+ // Round 5 gate2: the ban lane no longer copies a and c (lane-owned progress); it leaves the ordinary head as it was.
+ check('a failed ban-lane visit sends no DELETE, does not run the ordinary walk (only the four reads of the one banned visit) and leaves the ordinary lane\'s a and c exactly as they were',x.result?.lane==='ban'&&deletes('lane-failed',lfFrom).length===0&&lf.http.slice(lfFrom).length===4&&lf.http.slice(lfFrom).every(h=>h.method==='GET')&&!lf.http.slice(lfFrom).some(h=>h.path.includes('/members/'+OTHER))&&lfCur.ordinaryHead===lfSeed&&lfCur.a===7&&lfCur.c===OTHER&&lfCur.banLane==='ban'&&present('lane-failed').includes(MEMBER),{result:x.result,cursors:lfCur,http:lf.http.slice(lfFrom)});
+ x=await rolesweep('lane-failed','ordinary');const lfNext=cursors(x);
+ check('the next ordinary visit leaves the banned member alone and keeps the ban lane\'s cursor',x.result?.lane==='ordinary'&&lfNext.banHead===lfCur.banHead&&lfNext.b===lfCur.b&&present('lane-failed').includes(MEMBER),{cursors:lfNext});
  });
  block(async()=>{let x;
  await setup('lane-held',{present:[ADDON],budget:5});await ban('lane-held');state.get('lane-held').present.get(SUBJECT).add(MEMBER);
- await call('sweepstate/lane-held',{details:{a:9,c:OTHER,b:'0',checked:0}});
- const lh=state.get('lane-held'),lhFrom=lh.http.length;x=await rolesweep('lane-held','ban');const lhAudit=sweepAudit(x);
- check('a ban lane held by its budget (ROLE_CALL_BUDGET=5, under the visit\'s 6-request minimum) makes no request, does not run the ordinary walk and keeps a, c and b',x.result?.lane==='ban'&&lh.http.length===lhFrom&&lhAudit?.a===9&&lhAudit?.c===OTHER&&lhAudit?.b==='0'&&lhAudit?.lane==='ban'&&present('lane-held').includes(MEMBER),{result:x.result,audit:lhAudit,http:lh.http.slice(lhFrom)});
+ const lhSeed=await seedSweep('lane-held',{a:9,c:OTHER,b:B0,checked:0});
+ const lh=state.get('lane-held'),lhFrom=lh.http.length;x=await rolesweep('lane-held','ban');const lhCur=cursors(x);
+ check('a ban lane held by its budget (ROLE_CALL_BUDGET=5, under the visit\'s 6-request minimum) makes no request, does not run the ordinary walk and keeps a, c and b',x.result?.lane==='ban'&&lh.http.length===lhFrom&&lhCur.ordinaryHead===lhSeed&&lhCur.a===9&&lhCur.c===OTHER&&lhCur.b===B0&&lhCur.banLane==='ban'&&present('lane-held').includes(MEMBER),{result:x.result,cursors:lhCur,http:lh.http.slice(lhFrom)});
+ });
+ block(async()=>{let x;
+ // Round 5 gate2 (13 Nov 2026): a genuinely malformed ban cursor stays malformed and is held. '0' is outside the closed
+ // cursor contract (restore.ts cursor280), so the ban lane's head is invalid: the run publishes no role.sweep progress
+ // and writes one id-free role.sweep_failed row instead (Codex's 27d2e55); the ordinary lane, whose own a and c are
+ // valid, still records its progress, and neither lane overwrites the malformed row.
+ await setup('lane-malformed',{present:[ADDON]});await ban('lane-malformed');state.get('lane-malformed').present.get(SUBJECT).add(MEMBER);
+ const mSeed=await seedSweep('lane-malformed',{a:7,c:OTHER,b:'0',checked:0});
+ x=await rolesweep('lane-malformed','ban');let mCur=cursors(x);
+ check('malformed ban cursor: a ban-lane run over b "0" (outside the closed cursor contract) publishes no progress, keeps that row as both lanes\' head and writes one id-free role.sweep_failed row',x.result?.lane==='ban'&&x.result.progress?.state==='held'&&mCur.banHead===mSeed&&mCur.ordinaryHead===mSeed&&mCur.b==='0'&&x.sweepFailed.length===1&&x.sweepFailed[0]===JSON.stringify({lane:'ban',reason:'original_progress_or_reference_held'}),{result:x.result,cursors:mCur,sweepFailed:x.sweepFailed,http:state.get('lane-malformed').http.slice(-8)});
+ x=await rolesweep('lane-malformed','ordinary');mCur=cursors(x);
+ check('malformed ban cursor: the ordinary lane still records its own progress and the malformed ban head stays as it was',x.result?.lane==='ordinary'&&x.result.progress?.state==='recorded'&&mCur.ordinaryLane==='ordinary'&&mCur.ordinaryHead!==mSeed&&mCur.banHead===mSeed&&mCur.b==='0'&&x.sweepFailed.length===1,{result:x.result,cursors:mCur,sweepFailed:x.sweepFailed});
  });
 
  block(async()=>{
@@ -350,14 +405,37 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
 
  block(async()=>{let x;
  // 8-10. Discord's explicit refusals on the DELETE are known no-effect outcomes.
- for(const [k,status,reason] of [['delete-404',404,'ban_rank1112_refused_404'],['delete-403',403,'ban_rank1112_refused_403'],['delete-429',429,'ban_rank1112_rate_limited_429']]){
-  await setup(k,{present:[MEMBER]});state.get(k).del[MEMBER]=status;x=await ban(k);
-  check('DELETE '+status+': one DELETE, recorded as held with no effect',deletes(k).length===1&&banRows(x).length===1&&banRows(x)[0].state==='held'&&banRows(x)[0].reason===reason&&banRows(x)[0].attempts===1,x.rows);
+ // Round 5 gate2 (13 Nov 2026): each reply is Discord's complete closed body (REFUSALS), and the stored reason is the
+ // closed JSON reason of fdf2158 instead of ban_rank1112_refused_<status> / ban_rank1112_rate_limited_429.
+ for(const [k,status] of [['delete-404',404],['delete-403',403],['delete-429',429]]){
+  await setup(k,{present:[MEMBER]});state.get(k).del[MEMBER]=status;x=await ban(k);const refused=banRows(x)[0];
+  check('DELETE '+status+': one DELETE, recorded as held with no effect',deletes(k).length===1&&banRows(x).length===1&&refused.state==='held'&&isRefusal(refused,status)&&refused.attempts===1&&present(k).includes(MEMBER),x.rows);
   check('DELETE '+status+': the officer is told the role was not removed and why',lastReply(k).includes('Rank roles not removed: <@&'+MEMBER+'>')&&lastReply(k).includes('('+status+')')===(status!==429),lastReply(k));
   if(status===429)check('DELETE 429: the reply makes no per-member "every 30 minutes" promise; the sweep tries again when its banned rotation reaches this account',lastReply(k).includes('the role sweep can try again when its banned rotation reaches this account')&&!lastReply(k).includes('every 30 minutes'),lastReply(k));
+  // Round 5 gate2: a 403/404 refusal waits for attended resolution (role-delete-refusal280.ts manualRankRefusalSql280);
+  // a later visit holds the role and never sends a second DELETE.
+  if(status!==429){const from=deletes(k).length;x=await sweep(k);
+   check('DELETE '+status+': a later sweep visit sends no second DELETE for the refused role, which waits for attended resolution, and the refusal row is never changed',deletes(k).length===from&&present(k).includes(MEMBER)&&same(banRows(x).find(r=>r.id===refused.id),refused),{result:x.result,rows:banRows(x),http:state.get(k).http.slice(-6)});}
  }
+ // Round 5 gate2: a complete 429 stores one guild-wide cooldown at the reply's own deadline (role-delete-refusal280.ts
+ // roleDeletePacing280, role-settlements.ts persistDeleteRefusal280) and paces managed rank writes until it passes.
+ x=await call('rows/delete-429');const r429=banRows(x)[0],retry429=(()=>{try{return JSON.parse(r429.reason).retryAfterSeconds;}catch{return null;}})(),paceFrom=deletes('delete-429').length;
+ x=await sweep('delete-429');
+ check('DELETE 429: inside Discord\'s retry window the banned sweep sends no DELETE, and one guild-wide cooldown is stored at the reply\'s own deadline',deletes('delete-429').length===paceFrom&&present('delete-429').includes(MEMBER)&&banRows(x).length===1&&Number.isSafeInteger(retry429)&&x.cooldown===JSON.stringify({version:1,due:r429.checked_at+retry429}),{cooldown:x.cooldown,row:r429,result:x.result,http:state.get('delete-429').http.slice(-6)});
+ await call('cooldownpass/delete-429',{seconds:62});
  x=await sweep('delete-429');costs.sweep429=x.statements;
- check('after a 429 the banned sweep continues with a new DELETE that removes the role',deletes('delete-429').length===2&&!present('delete-429').includes(MEMBER)&&banRows(x).length===2&&banRows(x)[1].state==='settled'&&banRows(x)[0].reason==='ban_rank1112_rate_limited_429',x.rows);
+ check('after a 429 the banned sweep continues with a new DELETE that removes the role',deletes('delete-429').length===2&&!present('delete-429').includes(MEMBER)&&banRows(x).length===2&&banRows(x)[1].state==='settled'&&isRefusal(banRows(x)[0],429),x.rows);
+ });
+
+ // Round 5 gate2 (13 Nov 2026): negative controls for the ban lane. None of these replies is a complete closed refusal,
+ // so each stays an unknown outcome: recorded unknown, never replayed, no cooldown (owner ruling for bans: an unknown
+ // outcome is never released without proof). A constructed or mutated DiscordError cannot be produced from outside the
+ // Worker; the product consumes only the witness its own request() recorded (discord.ts takeOriginalDiscordRoleReply280).
+ for(const [k,label,reply] of NEGATIVE_REPLIES)block(async()=>{let x;
+  await setup(k,{present:[MEMBER]});state.get(k).del[MEMBER]=reply;x=await ban(k);const row=banRows(x)[0];
+  check('negative control, '+label+': not a complete closed refusal, so the one DELETE is recorded unknown, reported unconfirmed and no guild cooldown is stored',deletes(k).length===1&&banRows(x).length===1&&row?.state==='unknown'&&row.reason==='ban_rank1112_delete_outcome_unknown'&&row.attempts===1&&present(k).includes(MEMBER)&&lastReply(k).includes('unconfirmed result: <@&'+MEMBER+'>')&&x.cooldown===null,{reply:lastReply(k),rows:x.rows,cooldown:x.cooldown});
+  await call('expire/'+k);x=await call('rows/'+k);const aged=banRows(x).find(r=>r.id===row?.id);x=await sweep(k);
+  check('negative control, '+label+': after the claim window the sweep never sends that DELETE again and the unknown row stays byte-identical',deletes(k).length===1&&present(k).includes(MEMBER)&&aged?.state==='unknown'&&same(banRows(x).find(r=>r.id===row?.id),aged)&&x.cooldown===null,{rows:banRows(x),cooldown:x.cooldown,http:state.get(k).http.slice(-6)});
  });
 
  block(async()=>{let x;
@@ -495,11 +573,13 @@ const release=k=>{const s=state.get(k);for(const h of s.held.splice(0))s.present
  // first run removes one and keeps the account at the head; that is progress, never "revoke failed" in the sweep audit.
  await setup('progress',{present:[ADDON],channels:true});await ban('progress');const pg=state.get('progress');pg.present.get(SUBJECT).add(VETERAN);pg.present.get(SUBJECT).add(MEMBER);
  postsFrom=pg.posts.length;x=await rolesweep('progress','ban');
- const pgPosts=pg.posts.slice(postsFrom);
- check('follow-up REV-BAN-1: a sweep run that removes one of two rank roles reports no failure in its result or its audit',deletes('progress').length===1&&present('progress').length===2&&x.result?.revoked.includes(SUBJECT)===true&&x.result.failed.length===0&&sweepAudit(x)?.failed===0,{result:x.result,audit:sweepAudit(x)});
+ // Round 5 gate2: "its audit" is the ban lane's own new head row (lane-owned progress), never an older row.
+ const pgPosts=pg.posts.slice(postsFrom),pgFirst=cursors(x);
+ check('follow-up REV-BAN-1: a sweep run that removes one of two rank roles reports no failure in its result or its audit',deletes('progress').length===1&&present('progress').length===2&&x.result?.revoked.includes(SUBJECT)===true&&x.result.failed.length===0&&pgFirst.banLane==='ban'&&pgFirst.banDetails?.failed===0,{result:x.result,cursors:pgFirst});
  check('follow-up REV-BAN-1: the server log says one rank role is left, the sweep pace, and never calls the run a failure',pgPosts.some(p=>p.includes('Olympus rank role removed from <@'+SUBJECT+'>')&&p.includes('1 more rank role is left; the role sweep removes one per run, about every 30 minutes.'))&&!pgPosts.some(p=>/could not be checked|revoke failed/.test(p)),pgPosts);
  postsFrom=pg.posts.length;x=await rolesweep('progress','ban');
- check('follow-up REV-BAN-1: the next run removes the last rank role, reports no failure and no roles left',deletes('progress').length===2&&present('progress').length===1&&present('progress')[0]===ADDON&&x.result?.failed.length===0&&sweepAudit(x)?.failed===0&&!pg.posts.slice(postsFrom).some(p=>p.includes('more rank role')),{result:x.result,audit:sweepAudit(x),posts:pg.posts.slice(postsFrom)});
+ const pgSecond=cursors(x);
+ check('follow-up REV-BAN-1: the next run removes the last rank role, reports no failure and no roles left',deletes('progress').length===2&&present('progress').length===1&&present('progress')[0]===ADDON&&x.result?.failed.length===0&&pgSecond.banLane==='ban'&&pgSecond.banHead!==pgFirst.banHead&&pgSecond.banDetails?.failed===0&&!pg.posts.slice(postsFrom).some(p=>p.includes('more rank role')),{result:x.result,cursors:pgSecond,posts:pg.posts.slice(postsFrom)});
  });
 
  block(async()=>{let x;
