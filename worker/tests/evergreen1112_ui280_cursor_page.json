@@ -1,0 +1,223 @@
+{
+  "protocol": "officer-operations-v234",
+  "fetchedAt": 1794560177,
+  "expiresAt": 1794560236,
+  "status": "partial",
+  "snapshotId": 1,
+  "snapshotAt": 1794560056,
+  "memberCount": 1000,
+  "guild": "OLYMPUS PRIME",
+  "canonicalGuild": "OLYMPUS PRIME",
+  "realm": "Fixture Realm",
+  "scopeHash": "ff69a325e1c0a073",
+  "rankProfile": "olympus-prime-directive-20261112-v1",
+  "rankSchemeDigest": "84be4203598ba7bf6c506547c681ba6b7338414ae00add5d64055eeeea98bd29",
+  "rankNames": [
+    "Guild Master",
+    "High Council",
+    "Officer",
+    "Officer Alt",
+    "Raid Leader",
+    "Veteran",
+    "Raider",
+    "Member",
+    "Alt",
+    "Initiate"
+  ],
+  "entitlements": {
+    "offset": 0,
+    "pageSize": 20,
+    "scanned": 20,
+    "total": 1000,
+    "unscanned": 980,
+    "retryAfterSeconds": 1
+  },
+  "scan": {
+    "id": "cc33184256923e1a4dc43d067f636f84",
+    "startedAt": 1794560176,
+    "expiresAt": 1794560656
+  },
+  "pageCursor": "eyJ2ZXJzaW9uIjozLCJzbmFwc2hvdElkIjoxLCJzbmFwc2hvdEF0IjoxNzk0NTYwMDU2LCJzY29wZUhhc2giOiJmZjY5YTMyNWUxYzBhMDczIiwicm93c0RpZ2VzdCI6IjE4Nzc2OGYxYmE0ZDVlY2M3YmYxMjY0ZGFhOGVjYTc3MTZkYWQ0MTcyZDQ3MjhjODQzMjUxNjEwMjc5MmEzYjkiLCJpc3N1ZWRBdCI6MTc5NDU2MDE3NiwiZXhwaXJlc0F0IjoxNzk0NTYwNjU2LCJyb2xlU2NvcGUiOiJjMjJmN2YzZGNkYzBlYjVjMWRjNmZmZDg2N2E1MjY2ODQxY2EyNWM1NTNiMmQ1YmE4YTUxMzkwM2ZhMWJkNmM4Iiwicm9sZVJlYWRzIjpbWyJQbGF5ZXItNjkzMy0wMDAwMDAwMSIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsIjg0NTIyNzY4MTQ5N2RjMTJjOGNiZDg0NTc4Y2RkM2QwMTQ2YzE3NjI5YWZhMzY3MGY3YTZkNDYyZTZiYzc0NjQiXSxbIlBsYXllci02OTMzLTAwMDAwMDAyIiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiYTZkODE2ZjhkYjA5ZDQ4YjU1Mjk0ZmQ5ZWViNjkzNGZiZWQ3M2NlY2U5NmZjOTRjYmE1ZDI2MDI3NGY4NWE4ZSJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMDMiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCJmYTcxYzE1NTI4ZjQ2Mjk5NGM2YTdjZjVlMzk3NGYzYTdmNWY0M2ZhMmUyZDFiYmI0Y2Q2ZGM0ZmU2M2M1ZDY1Il0sWyJQbGF5ZXItNjkzMy0wMDAwMDAwNCIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsImZhOWNhMmZhMjQ2YjM2MjIwM2FkNTNlODA4NjhmNWFmOWE4YmMzMDc5NzM4YzFmMDQ3ZWM0MzE3OGVkM2IyNzEiXSxbIlBsYXllci02OTMzLTAwMDAwMDA1Iiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiY2ZiZjYzYWMzODBmYWIxN2RhMzQ2ZWM4OTc1MzAxNDAwNDI0YWYzOGE0YTE2OGQ5NDk5M2I5ZDQ5MzkyMDIxMyJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMDYiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCJiODFmYzk1YzRjZDFhYzllYjBiODYxNGFhNmE4MDE3NmZiZmZkM2VjYTIyNjAxZjJmMDUyZTcxZjcyMzc5OWZkIl0sWyJQbGF5ZXItNjkzMy0wMDAwMDAwNyIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsImExOGYwMjQ0ZGI3YTQwNjY3YjQzYTM1NzYyYThhZWU0NWVmNzg3NGY1ODA5Njc2YzcxMDAxMTY3OGQyZTJmNjQiXSxbIlBsYXllci02OTMzLTAwMDAwMDA4Iiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiM2FmN2I0YmMxMjI3YjA2YjAwMTNiYjg2NmVmNTQ0ZDgyNTIyOTZkOTcxNTRkOTUxOGQ2YTk2Zjk5OTJhNGRiNyJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMDkiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCI4YmExNDRhZWM0NmNiMzQ0MjkwYWIwYWRlMjFjNWQ3ZTZiNTkwYzQ5MzliNTg4N2ViMDNkM2I3ODRjOGFjYzc1Il0sWyJQbGF5ZXItNjkzMy0wMDAwMDAwYSIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsIjMzZmRiZDgxNDk5NTY2MjM1OTRhMDkwNDU1MjBjYWNmMTkwZWNiNGY2YjZlN2ZhNmJlMWU2NjQ1ODhkZGI1MTIiXSxbIlBsYXllci02OTMzLTAwMDAwMDBiIiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiMTZkZDRmMGMyYmNkNmMyZGQ3ZTY0N2I2NTI2Njg0YzU2MzViZjAxMmVjYzBkNWRkOGJiZWU3OTE4ZjQ0YjZhYSJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMGMiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCJkYzcyMjBlOTZjYTMxOWQ1Y2QwYzIwZGM5YjY4ZmRjMzY3N2VhZmRlYTM5OTQ1YzJlYWQ2ZWNiM2RjYTZiZmZlIl0sWyJQbGF5ZXItNjkzMy0wMDAwMDAwZCIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsIjBlMTA4NzQzMzBkYmI2YjRjZGY0NWM3MDk3ZTQ4MTRiNWIzNjI2ZjUwNGI5NzY1NmY0MzJjOGQxMTY5MjIxNDkiXSxbIlBsYXllci02OTMzLTAwMDAwMDBlIiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiZmUzNDIyYTYyNDc2MTQ4YzAzNTUxYmMzOWQ3MzY1NDc0MmQ0NzQ4Nzg1NDNkYWEzMTYyMWI2NWJjY2EyYmEzYiJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMGYiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCIyZTNhNGM0OGQ1NmNkZDY5NWE1MmViOGVjMDNlODlhMjY5NmI0NjBhY2YzNzYzM2E4YTg4Yjk4Y2QxMmViZTc0Il0sWyJQbGF5ZXItNjkzMy0wMDAwMDAxMCIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsIjNjZGUzZTBhMTYzYTc2MDhhMjUyOWE3YWM1YTAwZmJkY2NmNzQ1YTA5Nzg3ZGExODZiZjFlNDA3NTg0ZjM5ODQiXSxbIlBsYXllci02OTMzLTAwMDAwMDExIiwibm9uLWtuaWdodCIsMTc5NDU2MDE3NywiODdlODljM2UwYmQxMmNhNmE1NzVlOTc2Mjc0ODRjMmYxNjUyNzVkZWFhYjlkMmJhMzhiZTI0ZjVmZGFiNzc0YyJdLFsiUGxheWVyLTY5MzMtMDAwMDAwMTIiLCJub24ta25pZ2h0IiwxNzk0NTYwMTc3LCI0ZDEzZWNiMTNkYjgyNzEzY2Q4ZWI0NWM5YzZhZTEzOTVlMzYwMzM5YzY4MDQ0M2IyOTM5MWMwZjg1YjU2MDdjIl0sWyJQbGF5ZXItNjkzMy0wMDAwMDAxMyIsIm5vbi1rbmlnaHQiLDE3OTQ1NjAxNzcsIjlmZTY2NzI2NGVlZDhmZWY2MTAyODQwYTE1OWJjNTQzNGQ3NTVjNzgxYjg2NmZlZmI0MzQ5YzJmODY5OThiODQiXV0sIm9mZnNldCI6MH0.c9ac0292fa5e2734d7a9389ed973d03dda0ef7554ba611443942e4c34b6056ad",
+  "nextCursor": null,
+  "invites": [],
+  "promotions": [
+    {
+      "name": "Pacing Member 0000",
+      "guid": "Player-6933-00000001",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0001",
+      "guid": "Player-6933-00000002",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0002",
+      "guid": "Player-6933-00000003",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0003",
+      "guid": "Player-6933-00000004",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0004",
+      "guid": "Player-6933-00000005",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0005",
+      "guid": "Player-6933-00000006",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0006",
+      "guid": "Player-6933-00000007",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0007",
+      "guid": "Player-6933-00000008",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0008",
+      "guid": "Player-6933-00000009",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0009",
+      "guid": "Player-6933-0000000a",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0010",
+      "guid": "Player-6933-0000000b",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0011",
+      "guid": "Player-6933-0000000c",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0012",
+      "guid": "Player-6933-0000000d",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0013",
+      "guid": "Player-6933-0000000e",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0014",
+      "guid": "Player-6933-0000000f",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0015",
+      "guid": "Player-6933-00000010",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0016",
+      "guid": "Player-6933-00000011",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0017",
+      "guid": "Player-6933-00000012",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    },
+    {
+      "name": "Pacing Member 0018",
+      "guid": "Player-6933-00000013",
+      "currentSlot": 9,
+      "targetSlot": 7,
+      "targetName": "Member",
+      "reason": "verified-initiate"
+    }
+  ],
+  "riskBuffer": [],
+  "held": [
+    {
+      "name": "Pacing Member 0019",
+      "guid": "Player-6933-00000014",
+      "reason": "discord-entitlement-unknown"
+    }
+  ],
+  "heldReasons": [
+    "native-unguilded-proof-required",
+    "officer-invite-read-deferred",
+    "discord-rate-limited"
+  ],
+  "motd": {
+    "short": "olympus.roachcouncil.com: link Discord, then use /verify-status in Discord. Ask an officer about guild ranks.",
+    "bulletin": "OLYMPUS PRIME is the flagship; OLYMPUS and Olympus I are its aliases.\n\nLink Discord on olympus.roachcouncil.com or ask an Olympus officer. Current Knight-or-higher entitlement is checked from the exact Discord role ladder.\n\nA Knight invite requires a fresh native observation that the same whispering GUID is actually unguilded. Missing or ambiguous guild information is unknown and stays held.\n\nLinked Knights below Veteran are recommended for Veteran. Other verified Initiates are recommended for Member through Alt. Each rank step needs a separate confirmed in-game button press. The full current guild rank list, character, guild, realm and your permission are checked again for each step.\n\nUnverified Initiates are shown separately for human space review, longest offline and then lowest level first. Pending and unknown verification stay held. No automatic purge, role grant or rank change is performed.",
+    "characters": 109,
+    "bytes": 109,
+    "maxBytes": 128
+  },
+  "actions": {
+    "automatic": false,
+    "roleGrants": false,
+    "removals": false,
+    "requiresNativeRecheck": true
+  }
+}

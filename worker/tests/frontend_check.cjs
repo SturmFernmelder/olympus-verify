@@ -560,7 +560,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
     await staff.go("#/admin/settings");
     await waitFor(() => !!staff.app.querySelector(".picker") && !!staff.app.querySelector("#lead-gm-0"), ".177 appointment search");
-    staff.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { results: [{ id: OTHER, label: "On site", shown: "On site", onSite: true, appointmentStatus: "eligible" }, { id: "123456789012345678", label: "Discord only", shown: "Discord only", onSite: false, appointmentStatus: "eligible" }] } : null);
+    staff.answer(pathname => pathname.startsWith("/api/search?purpose=appointment") ? { siteProfilesVisible: true, results: [{ id: OTHER, label: "On site", shown: "On site", onSite: true, appointmentStatus: "eligible" }, { id: "123456789012345678", label: "Discord only", shown: "Discord only", onSite: false, appointmentStatus: "eligible" }] } : null);
     const input = staff.app.querySelector('.picker input[role="combobox"]'), picker = input.closest(".picker"), checkbox = picker.querySelector('.list-tools input[type="checkbox"]');
     input.value = "fixture"; input.focus(); fire(input, "input");
     await waitFor(() => picker.querySelectorAll('[role="option"]').length === 2, ".177 picker results");
@@ -2348,7 +2348,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
     await fig1.go("#/community/news");
     await waitFor(() => !!byText(fig1.app, "h2", "The guild in figures"), "the figures");
     const fBox = frameOf(fig1, "The guild in figures");
-    check("  the figures before a day of roster history: 'Not enough roster history yet; counting began', applications with 'fewer than 5' for 1 to 4", fBox.textContent.includes("Not enough roster history yet; counting began") && kvOf(fBox, "Last day") === "fewer than 5" && fBox.textContent.includes("New applications (first saved)") && fBox.textContent.includes("Decisions saved") && fBox.querySelectorAll("dd").map((x) => x.textContent).join() === "fewer than 5,6,0,fewer than 5" && fBox.textContent.includes("As of "));
+    check("  the figures before a day of roster history: 'Not enough roster history yet; counting began', applications with 'fewer than 5' for 1 to 4", fBox.textContent.includes("Not enough roster history yet; counting began") && kvOf(fBox, "Last day") === "fewer than 5" && fBox.textContent.includes("New applications (first saved)") && fBox.textContent.includes("Decisions saved") && fBox.querySelectorAll("dd").map((x) => x.textContent).join() === "fewer than 5,6,0,fewer than 5" && ((m) => !!m && fBox.textContent.split(m[1]).length === 2)(/Counted (.+?); refreshed/.exec(fBox.querySelector("[data-source-strip]")?.textContent || ""))); // 13 Nov 2026: the time is stated once, in the source strip
     await figures({ day: { joined: 2, left: 1 }, week: null }, now - 90000);
     const fig2 = await openPage(MEMBER);
     await fig2.go("#/community/news");
