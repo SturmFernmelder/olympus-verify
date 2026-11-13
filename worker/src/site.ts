@@ -44,6 +44,7 @@ import { rankPlannerFragmentPage } from "./site-ranks";
 import { attendedBetaWindowPage } from "./site-beta-window";
 import { communityContext, contextDto } from "./community-context";
 import { siteSignInWithMedia } from './site-access';
+import { memberDocument } from './member-transport';
 import { olympusSocialMetadata } from './site-brand';
 import { siteEntryReturn, siteLoginLocation, siteLoginReturn, siteReturnFromVerifiedState, siteReturnLocation } from './site-return';
 
@@ -192,7 +193,7 @@ ${olympusSocialMetadata()}
 </html>`;
   const h = securityHeaders(new Headers({ "Content-Type": "text/html; charset=utf-8" }), true);
   for (const c of cookies) h.append("Set-Cookie", c);
-  return new Response(request.method === "HEAD" ? null : html, { status, headers: h });
+  return memberDocument(request, html, status, h); // CL2-076: gzip by the Worker, no-transform kept
 }
 
 const joinUrl = (env: Env) => {

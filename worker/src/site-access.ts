@@ -98,6 +98,11 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   return new Response(JSON.stringify(body), { status, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
 }
 
+/** The routes memberSiteGate lets through before it admits a member (sign-in, privacy rights, own-data export and
+ * erasure, sign-out). Their responses keep their headers exactly (CL2-076, owner ruling of 13 Nov 2026). */
+export const memberGateExempt = (path: string): boolean => AUTH_PATHS.has(path) || PRIVACY_PATHS.has(path) ||
+  path === '/api/me/export' || path === '/api/me/erasure/status' || path === '/api/me/erasure' || path === '/auth/logout';
+
 export function privateSiteAsset(response: Response): Response {
   const headers = securityHeaders(new Headers(response.headers));
   headers.set('Cache-Control', 'private, no-store, no-transform');

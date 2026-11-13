@@ -3,6 +3,7 @@
 // concurrent REQUESTS of one isolate. A single Node process cannot prove that, because Workerd runs each request in
 // its own I/O context and a promise started by one request is awaited by another. Ten concurrent requests whose check
 // is due call the actual site-api.ts stillMember against a real D1 binding; Discord is the only synthetic HTTP.
+// CL2-076 (13 Nov 2026): a second Workerd instance checks the Worker-made gzip of the page on the wire (see cl2076).
 // Run from worker/: node tests/evergreen1112_perf_workerd_test.cjs [--root <another worker folder, read-only>]
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 const { buildSync } = require('esbuild'), { Miniflare, Log, LogLevel, convertV4MiniflareOptions } = require('miniflare');
@@ -62,7 +63,65 @@ const calls = new Map();
     const down = await burst(DOWN);
     const r3 = await row(DOWN);
     check('Workerd: Discord unavailable: one read, all 10 held (503), nothing written', calls.get(DOWN) === 1 && down.every(s => s === 503) && r3.checked_at === 1, { calls: calls.get(DOWN), statuses: down, row: r3 });
-  } finally { await mf.dispose(); fs.rmSync(work, { recursive: true, force: true }); }
+  } finally { await mf.dispose(); }
+  try { await cl2076(); } finally { fs.rmSync(work, { recursive: true, force: true }); }
   console.log(`${ok}/${n} checks passed`);
   process.exit(ok === n ? 0 : 1);
 })().catch(e => { console.error(e); process.exit(2); });
+// CL2-076 (owner ruling of 13 Nov 2026), genuine Workerd: the page's gzip is made by the Worker (memberDocument) and
+// must reach the browser encoded exactly once (encodeBody 'manual'), with no-store, no-transform and the CSP intact;
+// HEAD carries no body; a browser that does not take gzip gets the page as is. Read over a raw socket (node:http
+// does not decode), so the bytes are what a browser receives from Workerd. The page is the site's own organization
+// catalogue (366 KB as compact JSON) in a boot script, two thirds of the signed-in page.
+async function cl2076() {
+  const http = require('node:http'), zlib = require('node:zlib');
+  const names = ['Workerd CL2-076: the page goes out gzip once and decodes to the same bytes, with its Content-Length',
+    'Workerd CL2-076: no-store, no-transform, the exact CSP and Vary: Accept-Encoding reach the browser',
+    'Workerd CL2-076: Accept-Encoding identity gets the page as is',
+    'Workerd CL2-076: HEAD carries the same encoding header and no body',
+    'Workerd CL2-076: this build\'s app.js keeps its private immutable policy through Workerd, an old build\'s is not kept'];
+  const src = file => path.join(ROOT, ...file.split('/')).replace(/\\/g, '/');
+  if (!fs.existsSync(src('src/member-transport.ts'))) { for (const name of names) check(name, false, 'no src/member-transport.ts in this tree'); return; }
+  const entry2 = path.join(work, 'transport.mjs');
+  fs.writeFileSync(entry2, `import { memberDocument, memberSiteAsset } from ${JSON.stringify(src('src/member-transport.ts'))};
+import { CSP, securityHeaders } from ${JSON.stringify(src('src/site-core.ts'))};
+import organization from ${JSON.stringify(src('public/static/governance/organization.json'))};
+const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Olympus</title><script type="application/json" id="boot">' + JSON.stringify({ meta: organization }) + '</script><script src="/static/app.js?v=B1" defer></script></head><body></body></html>';
+export default { async fetch(request) {
+  const url = new URL(request.url);
+  if (url.pathname === '/plain') return new Response(html);
+  if (url.pathname === '/csp') return new Response(CSP);
+  if (url.pathname === '/') return memberDocument(request, html, 200, securityHeaders(new Headers({ 'Content-Type': 'text/html; charset=utf-8' }), true));
+  if (url.pathname === '/static/app.js') return memberSiteAsset(request, new Response('/* app */', { headers: { 'Content-Type': 'text/javascript; charset=utf-8' } }), 'B1');
+  return new Response('not found', { status: 404 });
+} };
+`);
+  const bundle2 = buildSync({ entryPoints: [entry2], absWorkingDir: ROOT, bundle: true, write: false, format: 'esm', platform: 'browser', target: 'es2022', external: ['node:async_hooks'], tsconfig: path.join(ROOT, 'tsconfig.json'), logLevel: 'silent' }).outputFiles[0].text;
+  const mf2 = new Miniflare(convertV4MiniflareOptions({ rootPath: work, script: bundle2, modules: true, name: 'evergreen1112-perf-transport', compatibilityDate: '2026-09-01', compatibilityFlags: ['nodejs_compat'], host: '127.0.0.1', port: 0, cf: false, log: new Log(LogLevel.NONE),
+    resourceTmpPath: path.join(work, 'tmp2'), resourcePersistencePath: path.join(work, 'persist2'), isolatedResourcePersistencePath: path.join(work, 'isolated2') }));
+  try {
+    const base = await mf2.ready;
+    const wire = (pathname, headers = {}, method = 'GET') => new Promise((resolve, reject) => {
+      const started = performance.now();
+      const req = http.request(new URL(pathname, base), { method, headers }, res => { const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => resolve({ status: res.statusCode, h: res.headers, body: Buffer.concat(chunks), ms: performance.now() - started })); });
+      req.on('error', reject); req.end();
+    });
+    const plain = await wire('/plain', { 'Accept-Encoding': 'identity' }), csp = (await wire('/csp', { 'Accept-Encoding': 'identity' })).body.toString('utf8');
+    const gz = await wire('/', { 'Accept-Encoding': 'gzip, deflate, br' });
+    let once = null; try { once = zlib.gunzipSync(gz.body); } catch { /* not gzip */ }
+    const measure = { pageBytes: plain.body.length, wireBytes: gz.body.length, contentLength: gz.h['content-length'] ?? null };
+    console.log('MEASURE Workerd CL2-076 page', JSON.stringify(measure));
+    check(names[0], gz.status === 200 && gz.h['content-encoding'] === 'gzip' && !!once && once.equals(plain.body) && Number(gz.h['content-length']) === gz.body.length, measure);
+    check(names[1], gz.h['cache-control'] === 'no-store, no-transform' && gz.h['content-security-policy'] === csp && gz.h['vary'] === 'Accept-Encoding', { cacheControl: gz.h['cache-control'], vary: gz.h['vary'] });
+    const id = await wire('/', { 'Accept-Encoding': 'identity' });
+    check(names[2], id.status === 200 && !id.h['content-encoding'] && id.body.equals(plain.body) && id.h['vary'] === 'Accept-Encoding');
+    const head = await wire('/', { 'Accept-Encoding': 'gzip' }, 'HEAD');
+    check(names[3], head.status === 200 && head.h['content-encoding'] === 'gzip' && head.body.length === 0 && head.h['cache-control'] === 'no-store, no-transform');
+    const cur = await wire('/static/app.js?v=B1'), old = await wire('/static/app.js?v=B0');
+    check(names[4], cur.h['cache-control'] === 'private, max-age=31536000, immutable' && !cur.h['vary'] && old.h['cache-control'] === 'private, no-store' && old.h['vary'] === 'Cookie', { current: cur.h['cache-control'], old: old.h['cache-control'] });
+    // Wall time per page in this local Workerd: gzip made by the Worker against the same page sent as is (median of 9).
+    const median = async headers => { const t = []; for (let i = 0; i < 9; i++) t.push((await wire('/', headers)).ms); t.sort((a, b) => a - b); return +t[4].toFixed(1); };
+    const timing = { gzipMs: await median({ 'Accept-Encoding': 'gzip' }), identityMs: await median({ 'Accept-Encoding': 'identity' }) };
+    console.log('MEASURE Workerd CL2-076 timing', JSON.stringify(timing));
+  } finally { await mf2.dispose(); }
+}
