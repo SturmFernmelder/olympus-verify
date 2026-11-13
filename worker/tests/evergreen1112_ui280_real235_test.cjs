@@ -16,6 +16,10 @@
 // Review of 13 Nov 2026 (findings 1-3): a held later page of a scan (the server's clock passes the page window during a
 // rank-held read; the export changes between the inner reader's two reads of a qualified page) ends the scan with its own
 // holds; the default export and rank codes of a held reply are worded as not reported; a page's counts match its rows.
+// Item 6 (13 Nov 2026, Codex's reading of the reader): a rank-held page's own words (badge, page sentence, scan line,
+// continuation, read status, introduction) name the roster page and never role evidence or role checks, through first,
+// next, recheck, current and stale pages; a qualified page keeps the v234 words; a held page says no confirmed rows are
+// available; a qualified page's member count and page size are tied to its scan.
 // Run from worker/: node tests/evergreen1112_ui280_real235_test.cjs  (UI280_APP_JS / UI280_STATIC_DIR: another page script
 // or static folder, for the fail-before run on the base).
 const fsR=require('node:fs'),pathR=require('node:path'),{Module:ModuleR}=require('node:module');
@@ -58,10 +62,11 @@ const runR=String.raw`
  const pg=await openPage(STAFF,{},{clockNow:()=>Date.now()+jump});
  pg.intercept(async(url,init)=>{
   if(!url.startsWith('/api/admin/launch-operations'))return null;
+  const readingNow=pg.app.querySelector('[data-launch234] [role=status]')?.textContent||'';
   const r=await indexMod.default.fetch(new Request('https://guild.example'+url,{method:init.method||'GET',headers:{Origin:'https://guild.example',...(init.headers||{}),Cookie:pg.cookie}}),env({ASSETS:governanceAssets,...LAUNCH}),ctx);
   const text=await r.text();let json=null;try{json=JSON.parse(text);}catch{}
   skew=0;stmtHook=null;
-  const cursor=new URL('https://fixture.invalid'+url).searchParams.get('cursor');replies.push({url,cursor,status:r.status,json});
+  const cursor=new URL('https://fixture.invalid'+url).searchParams.get('cursor');replies.push({url,cursor,status:r.status,json,reading:readingNow});
   const o=override&&json?override(JSON.parse(text),cursor):null;
   return new Response(o?JSON.stringify(o):text,{status:o?200:r.status,headers:{'Content-Type':'application/json; charset=utf-8'}});
  });
@@ -71,7 +76,9 @@ const runR=String.raw`
  const calm=async()=>{for(let i=0;i<6;i++)await settle();await waitFor(settled,'launch page settlement',10000);for(let i=0;i<4;i++)await settle();};
  const open=async()=>{replies.length=0;await pg.go('#/');await pg.go('#/admin/launch-operations');await calm();};
  const btn=t=>byText(pg.app,'button',t);
- const press=async t=>{const b=btn(t);if(!b||b.disabled||b.hidden)return false;replies.length=0;b.click();await calm();return true;};
+ // Item 6: the continuation is "Load next 20 role checks" on a qualified page and "Load next 20 roster members" on a rank-held one; 'next' presses whichever the page shows.
+ const NEXT234='Load next 20 role checks',NEXT_ROSTER='Load next 20 roster members',nextBtn=()=>btn(NEXT234)||btn(NEXT_ROSTER);
+ const press=async t=>{const b=t==='next'?nextBtn():btn(t);if(!b||b.disabled||b.hidden)return false;replies.length=0;b.click();await calm();return true;};
  const outcome=()=>{const r=pg.app.querySelector('[data-launch235-restart]');if(r)return 'restart:'+r.getAttribute('data-launch235-restart');const h=pg.app.querySelector('[data-launch234-held]');if(h)return 'refused:'+h.getAttribute('data-launch234-held');if(app().includes('could not be confirmed'))return 'unconfirmed';return pg.app.querySelector('#launch-motd229')?'shown':'other';};
  const frameOf=title=>pg.app.querySelectorAll('h2').find(x=>x.textContent===title)?.closest('section')||null;
  const holds=()=>pg.app.querySelectorAll('[data-launch234-hold]').map(li=>[li.getAttribute('data-launch234-hold'),li.textContent]);
@@ -80,6 +87,13 @@ const runR=String.raw`
  const invites=()=>pg.app.querySelectorAll('[data-launch-invite233]').map(tr=>({source:tr.getAttribute('data-launch234-invite-source'),cells:tr.querySelectorAll('td').map(td=>td.textContent)}));
  const badges=()=>pg.app.querySelectorAll('h2').filter(x=>/^Examined page /.test(x.textContent)).map(x=>x.textContent+' = '+(x.parentNode.querySelector('.badge')?.textContent||''));
  const last=()=>replies[replies.length-1]||{};
+ const viewText=()=>pg.app.querySelector('[data-launch234]')?.textContent||'';
+ const words=()=>{const v=pg.app.querySelector('[data-launch234]');return {intro:v?.querySelectorAll('p')[0]?.textContent||'',status:pg.app.querySelector('[data-launch234] [role=status]')?.textContent||'',scanLine:frameOf('Discovery and current eligibility')?.querySelectorAll('p')[2]?.textContent||'',
+  next:nextBtn()?{label:nextBtn().textContent,shown:!nextBtn().hidden&&!nextBtn().disabled}:null,
+  pages:pg.app.querySelectorAll('h2').filter(x=>/^Examined page /.test(x.textContent)).map(x=>{const sec=x.closest('section');return {title:x.textContent,badge:x.parentNode.querySelector('.badge')?.textContent||'',sentence:sec?.querySelectorAll('p')[0]?.textContent||''};})};};
+ // Words of a role read. The invite table's own "Stale advisory · fresh native proof required" (launch-operations234.js) is about
+ // the invite's native proof, the independent invite handling, so it is not in this list; the page badges are checked by name.
+ const ROLE_WORDS=/Role evidence|role evidence|role-evidence|role checks|Discord role records|currently eligible/;
  const plainHolds=list=>list.length>0&&list.every(([code,text])=>!!text&&!text.includes(code)&&!text.startsWith('Held for a reason')&&!/does not recognise/.test(text));
  const D=()=>pg.window.OlympusDiscovery235,L=()=>pg.window.OlympusLaunch234;
  const table=[];const record=(name,r)=>table.push({name,status:r.status,protocol:r.json?.protocol??null,pageStatus:r.json?.status??null,error:r.json?.error??null,heldReasons:r.json?.heldReasons??null,rowReasons:r.json?.held?[...new Set(r.json.held.map(x=>x.reason))]:null,offset:r.json?.entitlements?.offset??null,nextCursor:typeof r.json?.nextCursor==='string'?r.json.nextCursor.length+' chars':null,shown:outcome()});
@@ -91,7 +105,7 @@ const runR=String.raw`
  check('R1 the real held page of an unconfigured site (v235, held) is read and shown with plain sentences: each hold once, no rank or refusal wording',unconfigured.o==='shown'&&unconfigured.r.status===200&&unconfigured.r.json.protocol==='officer-operations-v235'&&unconfigured.r.json.status==='held'
   &&JSON.stringify(unconfigured.holds.map(x=>x[0]))===JSON.stringify(uniq(unconfigured.r))&&plainHolds(unconfigured.holds)&&unconfigured.holds.some(([c,t])=>c==='flagship-native-scope-unconfirmed'&&t==='The site is not set up to read the OLYMPUS PRIME roster.')
   &&!app().includes('Ranks are held because')&&!!pg.app.querySelector('[data-launch234-ranks="unconfirmed"]')&&!pg.app.querySelector('[data-launch-promotion229]')&&!pg.app.querySelector('[data-launch235-scan-ended]'),JSON.stringify(unconfigured));
- check('R2 the held page says that it carries nothing from a roster export and that nothing was examined (not "flagship scope not confirmed", not "Discovery partial")',unconfigured.scope==='This reply carries nothing from a roster export. The holds below say why.'&&unconfigured.progress==='Nothing was examined on this read.',JSON.stringify({scope:unconfigured.scope,progress:unconfigured.progress}));
+ check('R2 the held page says that it carries nothing from a roster export and that no confirmed rows are available from the read (not "nothing was examined", not "flagship scope not confirmed", not "Discovery partial")',unconfigured.scope==='This reply carries nothing from a roster export. The holds below say why.'&&unconfigured.progress==='No confirmed rows are available from this read.',JSON.stringify({scope:unconfigured.scope,progress:unconfigured.progress}));
  LAUNCH={...CONFIGURED};await open();
  const noExport={o:outcome(),r:last(),holds:holds()};record('configured site, no export',noExport.r);
  check('R3 the real held page of a configured site without a roster export (the harness reply: native-snapshot-unavailable listed twice) shows that hold once, in plain words',noExport.o==='shown'&&noExport.r.json.status==='held'&&noExport.r.json.heldReasons.filter(c=>c==='native-snapshot-unavailable').length===2
@@ -110,13 +124,13 @@ const runR=String.raw`
  const seed=async(id,source,rows,exportedAt=at-120)=>{await fixtureRun("INSERT INTO roster_snapshots(id,exported_at,received_at,first_received_at,source,member_count,complete,trusted) VALUES(?1,?2,?2,?2,?3,?4,1,1)",id,exportedAt,source,rows.length);
   await fixtureRun("INSERT INTO roster_members(snapshot_id,name_key,name,guid,rank,rank_index,level) SELECT ?1,json_extract(value,'$.key'),json_extract(value,'$.name'),json_extract(value,'$.guid'),CASE json_extract(value,'$.slot') WHEN 0 THEN 'Guild Master' ELSE 'Initiate' END,json_extract(value,'$.slot'),60 FROM json_each(?2)",id,JSON.stringify(rows));};
  await seed(1,schemes.qualifiedNativeSnapshotSource(SCOPE.guild,SCOPE.realm),members(1000,'Discovery Member'));
- await open();const q1={o:outcome(),r:last(),progress:progress(),risks:frameOf('Initiate space buffer · review only')?.querySelectorAll('tbody tr').length??0};record('qualified first page',q1.r);
+ await open();const q1={o:outcome(),r:last(),progress:progress(),words:words(),risks:frameOf('Initiate space buffer · review only')?.querySelectorAll('tbody tr').length??0};record('qualified first page',q1.r);
  check('R4 a real qualified first page (v235, rank table pinned) is shown: the rank table in force, 20 of 1000 examined, its 19 unverified Initiates in the space buffer',q1.o==='shown'&&q1.r.json.protocol==='officer-operations-v235'&&q1.r.json.status==='partial'&&q1.r.json.rankProfile===L().PROFILE&&!!pg.app.querySelector('[data-launch234-ranks="current"]')&&q1.progress.startsWith('Discovery partial: 20 of 1000')&&q1.risks===19&&typeof q1.r.json.nextCursor==='string',JSON.stringify({o:q1.o,progress:q1.progress,risks:q1.risks}));
- const q1next=q1.r.json.nextCursor;await press('Load next 20 role checks');const q2={o:outcome(),r:last(),progress:progress()};record('qualified later page',q2.r);
+ const q1next=q1.r.json.nextCursor;await press('next');const q2={o:outcome(),r:last(),progress:progress(),words:words()};record('qualified later page',q2.r);
  check('R5 its later page, read through the real nextCursor sent unchanged, is shown as page 2 of the same scan (40 of 1000)',q2.o==='shown'&&q2.r.cursor===q1next&&q2.r.json.entitlements.offset===20&&q2.r.json.scan.id===q1.r.json.scan.id&&q2.progress.startsWith('Discovery partial: 40 of 1000')&&badges().length===2,JSON.stringify({o:q2.o,progress:q2.progress,badges:badges()}));
 
  console.log('\n== Part R3: the real errors of a later page are a restart ==');
- const restartCase=async(label,before,after)=>{await open();const first=outcome();await before();const pressed=await press('Load next 20 role checks');const r=last(),o=outcome(),notice=pg.app.querySelector('[data-launch235-restart]')?.textContent||'',status=pg.app.querySelector('[data-launch234] [role=status]')?.textContent||'';record(label,r);await after();
+ const restartCase=async(label,before,after)=>{await open();const first=outcome();await before();const pressed=await press('next');const r=last(),o=outcome(),notice=pg.app.querySelector('[data-launch235-restart]')?.textContent||'',status=pg.app.querySelector('[data-launch234] [role=status]')?.textContent||'';record(label,r);await after();
   const shown=pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229],[data-launch-invite233]').length;const refresh=btn('Refresh first page');const refreshOk=!!refresh&&!refresh.disabled&&!refresh.hidden;await press('Refresh first page');return {first,pressed,status:r.status,error:r.json?.error,o,notice,statusLine:status,rowsLeft:shown,refreshOk,again:outcome()};};
  const secret=CONFIGURED.VERIFY_SECRET;
  const invalid=await restartCase('invalid_discovery_cursor (VERIFY_SECRET rotated)',async()=>{LAUNCH={...LAUNCH,VERIFY_SECRET:secret+'-rotated'};},async()=>{LAUNCH={...CONFIGURED};});
@@ -129,17 +143,17 @@ const runR=String.raw`
 
  console.log('\n== Part R3b: a held later page ends the scan with its own holds (review of 13 Nov 2026, finding 1) ==');
  const ENDED_STATUS='The site held this page, so the scan stopped. Start again from the first page.';
- const heldLater=async(label,arm,disarm)=>{await open();const first=outcome();arm();const pressed=await press('Load next 20 role checks');const r=last();await disarm();
+ const heldLater=async(label,arm,disarm)=>{await open();const first=outcome();arm();const pressed=await press('next');const r=last();await disarm();
   const text=app(),v={first,pressed,status:r.status,protocol:r.json?.protocol??null,pageStatus:r.json?.status??null,heldReasons:r.json?.heldReasons??null,o:outcome(),
    ended:pg.app.querySelector('[data-launch235-scan-ended]')?.textContent||'',endedFirst:text.indexOf('This scan stopped')>=0&&text.indexOf('This scan stopped')<text.indexOf('Guild message of the day'),
    statusLine:pg.app.querySelector('[data-launch234] [role=status]')?.textContent||'',holds:holds(),pages:badges().length,rows:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229],[data-launch-invite233]').length,
-   more:!!btn('Load next 20 role checks')&&!btn('Load next 20 role checks').hidden,refreshOk:!!btn('Refresh first page')&&!btn('Refresh first page').disabled,scope:scopeText(),progress:progress(),
+   more:!!nextBtn()&&!nextBtn().hidden,refreshOk:!!btn('Refresh first page')&&!btn('Refresh first page').disabled,scope:scopeText(),progress:progress(),
    wrongSentence:/Ranks were held on one page|The rank table changed between pages|Ranks are held because/.test(text)};record(label,r);
   await press('Refresh first page');v.again=outcome();v.endedAgain=!!pg.app.querySelector('[data-launch235-scan-ended]');return v;};
  const endedOk=(v,code,sentence)=>v.first==='shown'&&v.pressed&&v.status===200&&v.protocol==='officer-operations-v235'&&v.pageStatus==='held'&&Array.isArray(v.heldReasons)&&v.heldReasons.includes(code)
   &&v.o==='shown'&&/the scan stopped here/.test(v.ended)&&/Start again from the first page/.test(v.ended)&&v.endedFirst&&v.statusLine===ENDED_STATUS&&holdOf(v.holds,code)===sentence
   &&holdOf(v.holds,'native-snapshot-unavailable')===NOT_SNAPSHOT&&holdOf(v.holds,'native-rank-scheme-unconfirmed')===NOT_RANKS&&plainHolds(v.holds)&&v.pages===0&&v.rows===0&&!v.more&&v.refreshOk
-  &&v.scope==='This reply carries nothing from a roster export. The holds below say why.'&&v.progress==='Nothing was examined on this read.'&&!v.wrongSentence&&v.again==='shown'&&!v.endedAgain;
+  &&v.scope==='This reply carries nothing from a roster export. The holds below say why.'&&v.progress==='No confirmed rows are available from this read.'&&!v.wrongSentence&&v.again==='shown'&&!v.endedAgain;
  // The export changes after the inner reader's first roster read (sourceRows229) and before its check (readLaunchPage229).
  const innerChanged=await heldLater('qualified later page, export changed during the inner read (native-snapshot-changed)',()=>{let count=0;stmtHook=sql=>{if(/FROM roster_snapshots/.test(sql)&&/roster_members/.test(sql)&&!/'unknown' AS verification/.test(sql)&&++count===1){stmtHook=null;pendingWrite=fixtureRun("UPDATE roster_members SET level=58 WHERE snapshot_id=1 AND name_key='discovery member 0030'");}};},
   async()=>{await pendingWrite;pendingWrite=null;await fixtureRun("UPDATE roster_members SET level=60 WHERE snapshot_id=1 AND name_key='discovery member 0030'");});
@@ -151,15 +165,17 @@ const runR=String.raw`
  await queueInvite();LAUNCH={...CONFIGURED,CANONICAL_RANKS233:undefined};await open();
  const policySentence='Ranks are held because the site’s Discord rank settings do not use the 12 November ladder yet.';
  const h1={o:outcome(),r:last(),rank:pg.app.querySelector('[data-launch235-rank-held]')?.textContent||'',also:!!pg.app.querySelector('[data-launch235-rank-also]'),invites:invites(),badge:frameOf('Unguilded Knight+ invite queue')?.querySelector('.badge')?.textContent,
-  enabled:['Refresh first page','Scan entire roster','Copy MOTD','Copy expanded bulletin','Recheck this page','Load next 20 role checks'].map(t=>[t,!!btn(t)&&!btn(t).disabled&&!btn(t).hidden]),progress:progress(),note:pg.app.querySelector('[data-launch235-no-promotions]')?.textContent||'',rankFrame:frameOf('Ranks held on this read')?.textContent||'',holds:holds()};record('rank-held first page (policy off)',h1.r);
+  enabled:['Refresh first page','Scan entire roster','Copy MOTD','Copy expanded bulletin','Recheck this page',NEXT_ROSTER].map(t=>[t,!!btn(t)&&!btn(t).disabled&&!btn(t).hidden]),progress:progress(),words:words(),view:viewText(),note:pg.app.querySelector('[data-launch235-no-promotions]')?.textContent||'',rankFrame:frameOf('Ranks held on this read')?.textContent||'',holds:holds()};record('rank-held first page (policy off)',h1.r);
  check('R9 a real rank-held first page (partial, rank fields null, reason directive-rank-policy-held) is shown and says why in one sentence, with the export check named as still to come',h1.o==='shown'&&h1.r.json.status==='partial'&&h1.r.json.rankProfile===null&&h1.r.json.heldReasons.includes('directive-rank-policy-held')&&h1.r.json.held.length===20&&h1.rank===policySentence&&h1.also&&!h1.holds.some(([c])=>c==='directive-rank-policy-held')&&!pg.app.querySelector('[data-launch234-ranks]'),JSON.stringify({o:h1.o,rank:h1.rank,also:h1.also,holds:h1.holds}));
  check('R10 the reply qualifies its v242 invite on its own, and the page shows it current with the read, copy, recheck and next-page controls enabled',h1.r.json.invites.length===1&&h1.invites.length===1&&h1.invites[0].source==='native-who-whisper-v242'&&h1.invites[0].cells[3]==='Recheck and invite in-game'&&h1.badge==='1'&&h1.enabled.every(([,on])=>on),JSON.stringify({invites:h1.invites,badge:h1.badge,enabled:h1.enabled}));
  check('R11 "no promotions" on a rank-held page is worded as recommendations being held, never as nobody being due (no "0 currently eligible", no empty promotion table)',/Promotion recommendations for this page are held/.test(h1.note)&&/Promotion recommendations are held until ranks are confirmed\. This does not mean that nobody is due/.test(h1.rankFrame)&&/Promotion recommendations are held while ranks are held, so none are counted\./.test(h1.progress)&&!/currently eligible recommendations/.test(app())&&!app().includes('None on this page.')&&!pg.app.querySelector('[data-launch-promotion229],[data-launch-advisory229]'),JSON.stringify({note:h1.note,progress:h1.progress}));
  // A minute later (page clock +61 s; the server's clock is real): the first page's 60 second window is over, the scan's is not.
- jump=61000;const h1next=h1.r.json.nextCursor;await press('Load next 20 role checks');
- const h2={o:outcome(),r:last(),badges:badges(),invites:invites(),badge:frameOf('Unguilded Knight+ invite queue')?.querySelector('.badge')?.textContent,scanLine:frameOf('Discovery and current eligibility')?.querySelectorAll('p')[2]?.textContent||'',progress:progress()};record('rank-held later page',h2.r);
+ jump=61000;const h1next=h1.r.json.nextCursor;await press('next');
+ const h2={o:outcome(),r:last(),badges:badges(),words:words(),view:viewText(),invites:invites(),badge:frameOf('Unguilded Knight+ invite queue')?.querySelector('.badge')?.textContent,scanLine:frameOf('Discovery and current eligibility')?.querySelectorAll('p')[2]?.textContent||'',progress:progress()};record('rank-held later page',h2.r);
  check('R12 the rank-held later page is read through the real nextCursor and shown; a minute after the first page, that page is stale while the 600 second scan is still current',h2.o==='shown'&&h2.r.cursor===h1next&&h2.r.json.entitlements.offset===20&&h2.r.json.scan.expiresAt-h2.r.json.fetchedAt>120
-  &&JSON.stringify(h2.badges)===JSON.stringify(['Examined page 1 = Stale advisory','Examined page 2 = Role evidence current'])&&h2.invites.length===1&&h2.invites[0].cells[3]!=='Recheck and invite in-game'&&h2.badge==='0'&&/^Scan witness expires /.test(h2.scanLine),JSON.stringify(h2));
+  &&JSON.stringify(h2.badges)===JSON.stringify(['Examined page 1 = Roster page stale','Examined page 2 = Roster page current'])&&h2.invites.length===1&&h2.invites[0].cells[3]!=='Recheck and invite in-game'&&h2.badge==='0'&&/^This scan is current until [^.]+[.] Recheck a page to read its roster members again[.]$/.test(h2.scanLine),JSON.stringify(h2));
+ // Item 6: a recheck of the stale first page, a minute on (the page clock still +61 s), sends that page's own link.
+ replies.length=0;pg.app.querySelector('#launch-recheck229-0')?.click();await calm();const h3={o:outcome(),r:last(),words:words(),view:viewText()};record('rank-held first page rechecked',h3.r);
  jump=0;
  // The server's clock passes the page's 60 second window between the page's two membership reads (readDiscoveryOperations235).
  const windowOut=await heldLater('rank-held later page, server clock +61 s during the read (launch-read-window-exhausted)',()=>{let count=0;stmtHook=sql=>{if(/'unknown' AS verification/.test(sql)&&++count===2){stmtHook=null;skew=61000;}};},async()=>{skew=0;});
@@ -168,17 +184,34 @@ const runR=String.raw`
  console.log('\n== Part R5: a rank-held last page (partial, nextCursor null) ==');
  await seed(2,'addon-native-v1:'+JSON.stringify(SCOPE),members(45,'Held Member'));LAUNCH={...CONFIGURED};await queueInvite();await open();
  const n1={o:outcome(),r:last(),rank:pg.app.querySelector('[data-launch235-rank-held]')?.textContent||''};record('rank-held first page (export ranks)',n1.r);
- await press('Load next 20 role checks');const n2={o:outcome(),r:last()};record('rank-held middle page',n2.r);
- await press('Load next 20 role checks');const n3={o:outcome(),r:last(),more:btn('Load next 20 role checks'),progress:progress(),heldRows:frameOf('Held evidence')?.querySelectorAll('tbody tr').length??0};record('rank-held last page',n3.r);
+ await press('next');const n2={o:outcome(),r:last()};record('rank-held middle page',n2.r);
+ await press('next');const n3={o:outcome(),r:last(),more:nextBtn(),progress:progress(),words:words(),view:viewText(),heldRows:frameOf('Held evidence')?.querySelectorAll('tbody tr').length??0};record('rank-held last page',n3.r);
  check('R13 a real rank-held scan of an export without the ten ranks (reason native-rank-scheme-unconfirmed) is read to its last page: partial with nextCursor null, no next-page control, 45 of 45 examined, every member held',n1.o==='shown'&&n1.rank==='Ranks are held because the latest roster export does not show the ten ranks of the 12 November ladder, or a member’s rank does not match its slot.'
   &&n2.o==='shown'&&n3.o==='shown'&&n3.r.json.status==='partial'&&n3.r.json.nextCursor===null&&n3.r.json.entitlements.offset===40&&n3.r.json.entitlements.scanned===5&&n3.r.json.held.every(r=>r.reason==='native-rank-scheme-unconfirmed')&&!!n3.more&&n3.more.hidden&&n3.progress.startsWith('Discovery complete: 45 of 45 roster members examined')&&n3.heldRows===45,JSON.stringify({n1:n1.o,n2:n2.o,n3:{o:n3.o,status:n3.r.json?.status,next:n3.r.json?.nextCursor,progress:n3.progress,held:n3.heldRows}}));
+ // Item 6 (13 Nov 2026, Codex's reading of the reader): the per-page words of real rank-held and qualified pages.
+ const INTRO234='Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.';
+ const INTRO_ROSTER='Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. While ranks are held, each page lists roster members without promotion recommendations and is current for a short time. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.';
+ const DONE_ROSTER='Read complete. While ranks are held, this page lists roster members and invites only.',READING_ROSTER='Reading at most 20 roster members…',READING234='Reading at most 20 current Discord role records…';
+ const rosterCurrent=(from,to,total)=>new RegExp('^Roster members '+from+' to '+to+' of '+total+', read from the roster export[.] This page is current until [^.]+[.]$');
+ const rosterStale=(from,to,total)=>new RegExp('^Roster members '+from+' to '+to+' of '+total+', read from the roster export[.] This page was current until [^.]+[.] Recheck it to read it again[.]$');
+ const pageIs=(p,title,badge,re)=>!!p&&p.title===title&&p.badge===badge&&re.test(p.sentence);
+ const rh=[h1,h2,h3,n3];
+ check('R18 a real rank-held scan speaks of roster pages, never of role evidence or role checks: first page current with "Load next 20 roster members", the next page read under that label and the first page then stale, a recheck of that page sending its own link and making it current again, the last page of 45 members; a qualified page keeps the v234 words',
+  pageIs(h1.words.pages[0],'Examined page 1','Roster page current',rosterCurrent(1,20,1000))&&h1.words.pages.length===1&&h1.words.next?.label===NEXT_ROSTER&&h1.words.next.shown&&h1.words.intro===INTRO_ROSTER&&h1.words.status===DONE_ROSTER&&/^This scan is current until [^.]+[.] Recheck a page to read its roster members again[.]$/.test(h1.words.scanLine)&&h1.r.reading===READING234
+  &&h2.r.reading===READING_ROSTER&&pageIs(h2.words.pages[0],'Examined page 1','Roster page stale',rosterStale(1,20,1000))&&pageIs(h2.words.pages[1],'Examined page 2','Roster page current',rosterCurrent(21,40,1000))&&h2.words.next?.label===NEXT_ROSTER&&h2.words.status===DONE_ROSTER
+  &&h3.o==='shown'&&h3.r.cursor===h1.r.json.pageCursor&&h3.r.json?.entitlements?.offset===0&&h3.r.reading===READING_ROSTER&&pageIs(h3.words.pages[0],'Examined page 1','Roster page current',rosterCurrent(1,20,1000))&&pageIs(h3.words.pages[1],'Examined page 2','Roster page current',rosterCurrent(21,40,1000))
+  &&pageIs(n3.words.pages[2],'Examined page 3','Roster page current',rosterCurrent(41,45,45))&&n3.words.next?.label===NEXT_ROSTER&&!n3.words.next.shown
+  &&rh.every(v=>!ROLE_WORDS.test(v.view)&&v.words.intro===INTRO_ROSTER)
+  &&pageIs(q1.words.pages[0],'Examined page 1','Role evidence current',/^Role evidence expires [^.]+[.] Each rank step needs its own attended click or key press in the addon[.]$/)&&q1.words.next?.label===NEXT234&&q1.words.next.shown&&q1.words.intro===INTRO234&&/^Scan witness expires [^.]+[.] Recheck an examined page to refresh only its role evidence[.]$/.test(q1.words.scanLine)
+  &&q1.words.status==='Read complete. Discovery and current action eligibility are shown separately.'&&q2.r.reading===READING234&&q2.words.pages.length===2&&q2.words.pages.every(p=>p.badge==='Role evidence current'&&/^Role evidence expires /.test(p.sentence)),
+  JSON.stringify({h1:h1.words,h1reading:h1.r.reading,h2:h2.words,h2reading:h2.r.reading,h3:{o:h3.o,sameLink:h3.r.cursor===h1.r.json.pageCursor,reading:h3.r.reading,words:h3.words},n3:n3.words,roleWords:rh.map(v=>(v.view.match(ROLE_WORDS)||[null])[0]),q1:q1.words,q2:{reading:q2.r.reading,pages:q2.words.pages}}));
  const changedHeld=await restartCase('launch_cursor_source_changed (rank-held scan, export changed)',async()=>{await fixtureRun("UPDATE roster_members SET level=59 WHERE snapshot_id=2 AND name_key='held member 0030'");},async()=>{await fixtureRun("UPDATE roster_members SET level=60 WHERE snapshot_id=2 AND name_key='held member 0030'");});
  check('R14 the same real 409 on a rank-held scan is a restart too',restartOk(changedHeld,'launch_cursor_source_changed',409),JSON.stringify(changedHeld));
 
  console.log('\n== Part R6: single-field changes of real pages that one scan must refuse ==');
  // Each case reads a real first page, then asks for the next (or the same) page; the real reply to that read is changed in
  // one field before the page sees it. The scan must be refused as a whole, with its own plain reason.
- const mutated=async(label,mutate,action='Load next 20 role checks')=>{if(action==='first'){override=(d,cursor)=>cursor?null:mutate(d);await open();override=null;return {label,first:'shown',pressed:true,o:outcome(),drawn:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229],[data-launch-invite233]').length+(pg.app.querySelector('#launch-motd229')?1:0)};}await open();const first=outcome();override=(d,cursor)=>cursor?mutate(d):null;const pressed=action==='recheck'?!!pg.app.querySelector('#launch-recheck229-0')&&(replies.length=0,pg.app.querySelector('#launch-recheck229-0').click(),await calm(),true):await press(action);override=null;
+ const mutated=async(label,mutate,action='next')=>{if(action==='first'){override=(d,cursor)=>cursor?null:mutate(d);await open();override=null;return {label,first:'shown',pressed:true,o:outcome(),drawn:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229],[data-launch-invite233]').length+(pg.app.querySelector('#launch-motd229')?1:0)};}await open();const first=outcome();override=(d,cursor)=>cursor?mutate(d):null;const pressed=action==='recheck'?!!pg.app.querySelector('#launch-recheck229-0')&&(replies.length=0,pg.app.querySelector('#launch-recheck229-0').click(),await calm(),true):await press(action);override=null;
   return {label,first,pressed,o:outcome(),drawn:pg.app.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229],[data-launch-invite233]').length+(pg.app.querySelector('#launch-motd229')?1:0)};};
  const M=[];
  M.push([await mutated('offset 40 in answer to the link for offset 20',d=>{d.entitlements.offset=40;return d;}),'refused:page-offset']);
@@ -219,6 +252,14 @@ const runR=String.raw`
  K.push([await mutated('a space-buffer row without a name on page 2',d=>{delete d.riskBuffer[0].name;return d;}),'refused:risk-row-shape']);
  const badK=K.filter(([c,want])=>c.first!=='shown'||!c.pressed||c.o!==want||c.drawn!==0);
  check('R16c the unchanged real qualified page shows its space buffer, and '+K.length+' changes of one of its rows are each refused as a whole',riskControl.o==='shown'&&riskControl.risks>0&&badK.length===0,JSON.stringify({riskControl,bad:badK.map(([c,want])=>({...c,want}))}));
+ // Our review of 13 Nov 2026 (LOW a): a qualified page ties its member count and page size to its scan, as a rank-held page does.
+ const Q=[];
+ Q.push([await mutated('member count one more than the roster size on a qualified first page',d=>{d.memberCount+=1;return d;},'first'),'refused:page-counts']);
+ Q.push([await mutated('page size 21 on a qualified first page',d=>{d.entitlements.pageSize=21;return d;},'first'),'refused:page-counts']);
+ Q.push([await mutated('page size 21 on qualified page 2',d=>{d.entitlements.pageSize=21;return d;}),'refused:page-counts']);
+ Q.push([await mutated('member count 41 on qualified page 2',d=>{d.memberCount=41;return d;}),'refused:scan-changed']);
+ const badQ=Q.filter(([c,want])=>c.first!=='shown'||!c.pressed||c.o!==want||c.drawn!==0);
+ check('R16d a real qualified page whose member count is not its roster size, or whose page size is not 20, is refused as a whole (first page and page 2); a member count that changes between pages is a changed scan',riskControl.o==='shown'&&badQ.length===0,JSON.stringify(badQ.map(([c,want])=>({...c,want}))));
  const src235=SRC235,launchFn=fs.readFileSync(process.env.UI280_APP_JS||path.join(root,'public','static','app.js'),'utf8').split('async function adminLaunchOperations229')[1]?.split('async function adminOverview')[0]||'';
  check('R17 the page never decodes a cursor body: neither the v235 reader nor the launch view decodes base64 or parses a cursor',launchFn.length>1000&&!/atob\(|base64|\.split\('\.'\)|JSON\.parse\(/.test(src235)&&!/atob\(|JSON\.parse\(/.test(launchFn));
 

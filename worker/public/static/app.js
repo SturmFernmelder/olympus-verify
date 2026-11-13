@@ -4785,12 +4785,17 @@
     const refresh = h('button', {type:'button', class:'btn', text:'Refresh first page', onclick:() => {scanning=false; load(null);}});
     const scan = h('button', {type:'button',class:'btn',text:'Scan entire roster',onclick:() => {scanning=true; load(null);}});
     const stop = h('button', {type:'button',class:'btn',text:'Stop scan',disabled:true,onclick:() => {scanning=false;stop.disabled=true;status.textContent=busy?'Stopping after the current bounded page; no further page will be read.':'Scan stopped. Unscanned and stale evidence stays held.';}});
-    const more = h('button', {type:'button', class:'btn', text:'Load next 20 role checks', hidden:true, onclick:() => nextCursor && load(nextCursor,lastOffset+20)});
+    const MORE234 = 'Load next 20 role checks', INTRO234 = 'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.';
+    const more = h('button', {type:'button', class:'btn', text:MORE234, hidden:true, onclick:() => nextCursor && load(nextCursor,lastOffset+20)});
+    const intro = h('p', {text:INTRO234});
+    // Item 6 (13 Nov 2026, Codex's reading of the reader): a rank-held v235 page names its roster page in the view's own
+    // words (launch-discovery235.js rosterPage); every other page, and a cleared view, keeps the v234 words.
+    const wording = words => {intro.textContent=words?.intro||INTRO234;more.textContent=words?.more||MORE234;};
     const dispose = () => {if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;sequence++;scanning=false;model=null;pages.clear();clear(output);if(disposeTool===dispose)disposeTool=null;};
     disposeTool = dispose;
     body.setAttribute('data-launch234',''); // v234 rank view (owner ladder 12 Nov 2026): /static/launch-operations234.js
     clear(body); add(body, [h('h1', {text:'Launch operations & MOTD'}),
-      h('p', {text:'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. Each page has its own short role-evidence window: discovery complete does not mean every recommendation is still actionable. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.'}),
+      intro,
       h('div', {class:'btn-row'}, refresh, scan, stop, more), status, output]);
     const identity = d => JSON.stringify([d.snapshotId,d.snapshotAt,d.guild,d.canonicalGuild,d.realm,d.scopeHash,d.scan?.id,d.scan?.startedAt,d.scan?.expiresAt]);
     // Round 5 (13 Nov 2026, Codex's discovery contract CONTRACT-01): the family a reply declares picks its reader. Only
@@ -4805,8 +4810,8 @@
       }});
     }
     function draw(d) {
-      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=launchView235(d), ui234={h,frame};
-      clear(output);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
+      const focused=output.contains(document.activeElement)?document.activeElement.id:null, clock=monotonic(), scanExpired=!!d.scan?.expiresAt&&nowSec()>=d.scan.expiresAt, L234=launchView235(d), ui234={h,frame}, words=L234.rosterPage?.(d)||null;
+      clear(output);wording(words);if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;
       if(endedOn===d&&L234.scanEndedNotice)add(output,L234.scanEndedNotice(ui234)); // review of 13 Nov 2026: a held later page ends a v235 scan
       const short=h('textarea',{id:'launch-motd229',rows:'2',value:d.motd.short}),bulletin=h('textarea',{id:'launch-bulletin229',rows:'8',value:d.motd.bulletin});
       short.readOnly=true;bulletin.readOnly=true;short.setAttribute('readonly','');bulletin.setAttribute('readonly','');
@@ -4818,7 +4823,7 @@
       add(output,frame('Discovery and current eligibility',null,
         h('p',{text:L234.scopeLine?.(d)||(d.guild?d.canonicalGuild+' · native “'+d.guild+'” · '+d.realm+' · snapshot '+d.snapshotId+' at '+fmtDateTime(d.snapshotAt):'Native flagship scope is not confirmed.')}),
         h('p',{role:'status','data-launch-progress229':'',text:L234.progressLine?.(d,{complete,examined,total})||((complete?'Discovery complete':'Discovery partial')+': '+examined+' of '+total+' role-evidence rows examined; '+Math.max(0,total-examined)+' unscanned. '+fresh+' currently eligible recommendations; '+stale+' stale advisory recommendations. Unknown reads stay held.')}),
-        h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.':'No confirmed native scan.'}),
+        h('p',{class:'muted small',text:scanExpired?'The original scan/native snapshot window expired. Start a new scan.':d.scan?.expiresAt?(words?words.scan(fmtDateTime(d.scan.expiresAt)):'Scan witness expires '+fmtDateTime(d.scan.expiresAt)+'. Recheck an examined page to refresh only its role evidence.'):'No confirmed native scan.'}),
         L234.holdList(d.heldReasons||[],ui234,d)));
       add(output,L234.rankFrame(d,ui234));
       const table=(head,rows)=>h('div',{class:'table-wrap'},h('table',null,h('thead',null,h('tr',null,head.map(text=>h('th',{scope:'col',text})))),h('tbody',null,rows)));
@@ -4827,9 +4832,9 @@
         h('p',{text:'An invite requires explicit current native unguilded evidence and the same character identity. Use Next Officer Action in-game; unknown evidence stays held.'}),
         L234.inviteTable(inviteRows,fmtDateTime,ui234)));
       for(const [offset,p] of [...pages].sort((a,b)=>a[0]-b[0])){
-        const eligible=p.deadline>clock&&!scanExpired,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor,offset);}});
-        add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:eligible?'Role evidence current':'Stale advisory'}),
-          h('p',{text:'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
+        const eligible=p.deadline>clock&&!scanExpired,pw=L234.rosterPage?.(p.dto)||null,recheck=h('button',{id:'launch-recheck229-'+offset,type:'button',class:'btn small',text:'Recheck this page',disabled:busy||scanExpired||!p.dto.pageCursor,onclick:()=>{scanning=false;load(p.dto.pageCursor,offset);}});
+        add(output,frame('Examined page '+(offset/20+1),h('span',{class:'badge',text:pw?pw.badge(eligible):eligible?'Role evidence current':'Stale advisory'}),
+          h('p',{text:pw?pw.page(p.dto.entitlements,fmtDateTime(p.dto.expiresAt),eligible,!scanExpired):'Role evidence expires '+fmtDateTime(p.dto.expiresAt)+'. Each rank step needs its own attended click or key press in the addon.'}),recheck,
           L234.promotionGroups(p.dto,eligible,ui234)));
       }
       const risks=[...pages.values()].flatMap(p=>p.dto.riskBuffer),held=[...pages.values()].flatMap(p=>p.dto.held);
@@ -4838,7 +4843,7 @@
         table(['Character','Level','Last online'],risks.sort((a,b)=>(b.lastOnlineDays??-1)-(a.lastOnlineDays??-1)||(a.level??Infinity)-(b.level??Infinity)||a.name.localeCompare(b.name)).map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:r.level??'Unknown'}),h('td',{text:r.lastOnlineDays===null?'Unknown':Math.round(r.lastOnlineDays*10)/10+' days'}))))));
       if(held.length)add(output,frame('Held evidence',null,table(['Character','Reason'],held.map(r=>h('tr',null,h('td',{text:r.name}),h('td',{text:L234.rowHoldText(r.reason)}))))));
       const remaining=[...pages.values()].map(p=>p.deadline-clock).filter(n=>n>0);for(const {r,current}of inviteRows)if(current)remaining.push((r.expiresAt-nowSec())*1000);if(d.scan?.expiresAt&&!scanExpired)remaining.push((d.scan.expiresAt-nowSec())*1000);
-      if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent='A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
+      if(remaining.length)expiryTimer=setTimeout(()=>{if(live()&&model){draw(model);status.textContent=words?words.expired:'A role-evidence window expired. Stale advisory rows require an explicit page recheck; no read or action was retried.';}},Math.max(1,Math.min(...remaining)));
       if(focused){const field=document.getElementById(focused);if(field)field.focus({preventScroll:true});}
     }
     async function load(cursor,expectedOffset=0) { // round 5 build: where the link points (v235 checks each page starts there)
@@ -4847,7 +4852,7 @@
       busy=true;refresh.disabled=true;scan.disabled=true;more.disabled=true;stop.disabled=!scanning;
       const serial=++sequence,started=monotonic(),focused=output.contains(document.activeElement)?document.activeElement.id:null,current=()=>live()&&serial===sequence;
       if(!cursor){model=null;pages.clear();nextCursor=null;lastOffset=-1;clear(output);if(expiryTimer)clearTimeout(expiryTimer);}
-      status.textContent='Reading at most 20 current Discord role records…';
+      status.textContent=cursor&&model&&launchView235(model).rosterPage?.(model)?.reading||'Reading at most 20 current Discord role records…';
       try {
         await loadMemberScript('OlympusLaunch234','/static/launch-operations234.js');if(!current())return;
         const d=await api('GET','/api/admin/launch-operations'+(cursor?'?cursor='+encodeURIComponent(cursor):''),undefined,{live:current});
@@ -4857,7 +4862,7 @@
         // A continued page must keep the family of the page it continues (a v234 scan never continues as v235, or back).
         if(cursor&&model&&(model.protocol===DISCOVERY235)!==(d?.protocol===DISCOVERY235))throw Error('launch_family_changed');
         const verdict234=view.assess(d,cursor&&model?model:null,expectedOffset);
-        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
+        if(!verdict234.ok){model=null;scanning=false;pages.clear();nextCursor=null;if(expiryTimer)clearTimeout(expiryTimer);expiryTimer=null;clear(output);more.hidden=true;wording(null);add(output,view.heldNotice(verdict234,{h,frame}));status.textContent='Recommendations held. This reply was not shown and nothing was sent.';return;}
         // Round 5 item 2: a next-page link gets the continuation link's shape check (its family's bound) before any request is built from it.
         if(d.nextCursor!==null&&!view.pageCursorShape(d.nextCursor))throw Error('launch_next_cursor_unconfirmed');
         if(!d||d.protocol!==view.PROTOCOL||!['ready','partial','held'].includes(d.status)||!d.motd||typeof d.motd.short!=='string'||d.motd.short.length>128||!/^[\x20-\x7e]+$/.test(d.motd.short)
@@ -4882,8 +4887,8 @@
           if(e.offset>=lastOffset){nextCursor=d.nextCursor;lastOffset=e.offset;}
         }
         model=d;retryAt=d.entitlements.retryAfterSeconds?nowSec()+d.entitlements.retryAfterSeconds:0;if(retryAt)scanning=false;
-        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=endedOn===d?view.SCAN_ENDED_STATUS:d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':'Read complete. Discovery and current action eligibility are shown separately.';
-      } catch(error){if(current()){const family=model?model.protocol:DISCOVERY235;model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';
+        draw(d);more.hidden=!nextCursor||!!retryAt;status.textContent=endedOn===d?view.SCAN_ENDED_STATUS:d.status==='held'?'Recommendations held; copy-only guidance remains available.':scanning?'Scan progressing through bounded pages; Stop prevents the next page.':view.rosterPage?.(d)?.done||'Read complete. Discovery and current action eligibility are shown separately.';
+      } catch(error){if(current()){const family=model?model.protocol:DISCOVERY235;model=null;scanning=false;pages.clear();nextCursor=null;clear(output);more.hidden=true;wording(null);status.textContent='Current launch evidence could not be confirmed. Refresh deliberately; no replacement or action was sent.';
         // Round 5 build (13 Nov 2026, codex-reviews-r5/discovery235.md section 5): on the v235 route a page link the server
         // no longer accepts means "start again from the first page", said plainly. A v234 scan keeps its message.
         if(family===DISCOVERY235&&(error?.status===400||error?.status===409)&&/^[a-z_]{1,64}$/.test(codeOf(error))){try{await loadMemberScript('OlympusDiscovery235','/static/launch-discovery235.js');}catch{}

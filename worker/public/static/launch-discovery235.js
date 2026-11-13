@@ -187,6 +187,10 @@
     const misfit = fits();
     if (misfit) return misfit;
     if (!Number.isSafeInteger(d.snapshotId) || d.snapshotId < 1) return refuse('page-counts');
+    // Our review of 13 Nov 2026 (LOW a): a qualified page ties its counts to the scan as a rank-held page does. The roster
+    // size is the export's member count (readLaunchPage229 holds a page whose roster rows do not number that count) and
+    // the page is 20 members (LAUNCH_ROLE_PAGE229); scanFits already keeps both the same on every page of the scan.
+    if (d.memberCount !== d.entitlements.total || d.entitlements.pageSize !== 20) return refuse('page-counts');
     if (!Array.isArray(d.riskBuffer) || d.riskBuffer.some(r => !riskShape(r))) return refuse('risk-row-shape');
     return {ok: true, rankHeld: null};
   }
@@ -229,15 +233,34 @@
     return d.status === 'held' && !d.guild ? 'This reply carries nothing from a roster export. The holds below say why.' : null;
   }
   function progressLine(d, c) {
-    if (d.status === 'held') return 'Nothing was examined on this read.';
+    // Codex's reading of 13 Nov 2026: a held reply can follow a read that did run (the read window ran out, the export
+    // changed during it), so the line says what the reply offers, not that nothing was done.
+    if (d.status === 'held') return 'No confirmed rows are available from this read.';
     if (!rankHeldReason(d)) return null;
     return (c.complete ? 'Discovery complete' : 'Discovery partial') + ': ' + c.examined + ' of ' + c.total + ' roster members examined; ' + Math.max(0, c.total - c.examined)
       + ' unscanned. Promotion recommendations are held while ranks are held, so none are counted.';
   }
+  // Codex's reading of 13 Nov 2026 (item 6): a rank-held page lists native roster members and reads no Discord role for
+  // them (projectRankHeldDiscovery235; the first page's invites are read on their own), so its per-page words name the
+  // roster page and how long it is current, never role evidence or role checks. null keeps the v234 words: a qualified
+  // v235 page is a v234 page, and a held page has no examined page.
+  const ROSTER_PAGE = Object.freeze({
+    intro: 'Read-only discovery for up to 1,000 roster members. Scan follows at most 50 bounded pages when you ask. While ranks are held, each page lists roster members without promotion recommendations and is current for a short time. The addon rechecks GUID, guild, realm, rank and permission before each hardware action.',
+    more: 'Load next 20 roster members',
+    reading: 'Reading at most 20 roster members…',
+    badge: current => current ? 'Roster page current' : 'Roster page stale',
+    // e is the page's entitlements; until is its own expiry, already formatted; recheck says whether its scan still allows one.
+    page: (e, until, current, recheck) => (e.scanned === 1 ? 'Roster member ' + (e.offset + 1) : 'Roster members ' + (e.offset + 1) + ' to ' + (e.offset + e.scanned)) + ' of ' + e.total + ', read from the roster export. '
+      + (current ? 'This page is current until ' + until + '.' : 'This page was current until ' + until + '.' + (recheck ? ' Recheck it to read it again.' : '')),
+    scan: until => 'This scan is current until ' + until + '. Recheck a page to read its roster members again.',
+    expired: 'A roster page is no longer current. Recheck that page to read it again; nothing was read again or sent.',
+    done: 'Read complete. While ranks are held, this page lists roster members and invites only.',
+  });
+  const rosterPage = d => rankHeldReason(d) ? ROSTER_PAGE : null;
 
   window.OlympusDiscovery235 = Object.freeze({
     PROTOCOL, PAGE_CURSOR_MAX, pageCursorShape, RANK_HELD_REASONS: Object.freeze(Object.keys(RANK_HELD)), assess, rankHeldReason,
-    holdText, rowHoldText, holdList, rankFrame, promotionGroups, scopeLine, progressLine, restartCode, restartText, restartNotice,
+    holdText, rowHoldText, holdList, rankFrame, promotionGroups, scopeLine, progressLine, rosterPage, restartCode, restartText, restartNotice,
     scanEndedNotice, SCAN_ENDED_STATUS, riskShape,
     // The rest of the view is the v234 view's own, unchanged.
     heldNotice: (verdict, ui) => v234().heldNotice(verdict, ui),

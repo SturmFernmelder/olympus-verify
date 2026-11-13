@@ -64,6 +64,9 @@ const MEASURE = `(() => {
     rankHeld: held ? { code: held.dataset.launch235RankHeld, text: held.textContent, shown: visible(held) } : null,
     invites: [...view.querySelectorAll('[data-launch-invite233]')].map(tr => ({ source: tr.dataset.launch234InviteSource, cells: [...tr.children].map(c => c.innerText.replace(/\\s+/g, ' ').trim()), shown: visible(tr) })),
     enabled: ['Refresh first page', 'Scan entire roster', 'Copy MOTD', 'Copy expanded bulletin', 'Recheck this page'].map(t => [t, !!button(t) && !button(t).disabled && visible(button(t))]),
+    // Item 6 (13 Nov 2026): the words of each examined page and of the continuation.
+    pageWords: [...view.querySelectorAll('h2')].filter(h => /^Examined page /.test(h.textContent)).map(h => ({ badge: h.parentNode.querySelector('.badge')?.textContent || '', sentence: h.closest('section').querySelector('p')?.textContent || '' })),
+    next: [...view.querySelectorAll('button')].filter(b => /^Load next 20 /.test(b.textContent)).map(b => b.textContent),
     promotions: view.querySelectorAll('[data-launch-promotion229],[data-launch-advisory229]').length, refused: !!view.querySelector('[data-launch234-held]') || view.textContent.includes('could not be confirmed') };
 })()`;
 const SENTENCE = 'Ranks are held because the latest roster export does not show the ten ranks of the 12 November ladder, or a member’s rank does not match its slot.';
@@ -84,6 +87,8 @@ try {
   check('its v242 invite is shown as current and the read and copy controls are enabled at all six widths', layout.every(x => x.invites.length === 1 && x.invites[0].source === 'native-who-whisper-v242' && x.invites[0].shown && x.invites[0].cells[3] === 'Recheck and invite in-game' && x.enabled.every(([, on]) => on)), layout.map(x => ({ w: x.width, invites: x.invites, enabled: x.enabled })));
   check('no horizontal page overflow, nothing outside the viewport and no sideways scrolling inside its tables at 1440, 1280, 768, 390, 375 and 320 px', layout.every(x => x.docOverflowPx <= 0 && x.outside.length === 0 && x.wraps.every(t => t.inner <= 0)), layout.map(x => ({ w: x.width, overflow: x.docOverflowPx, outside: x.outside, wraps: x.wraps })));
   check('every control in the view is at least 44 by 44 px at all six widths', layout.every(x => x.small.length === 0), layout.map(x => ({ w: x.width, small: x.small })));
+  // Item 6 (13 Nov 2026, Codex's reading of the reader): a rank-held page names its roster page, not role evidence.
+  check('the rank-held page speaks of its roster page at all six widths: badge "Roster page current", "Roster members 1 to 2 of 2, read from the roster export. This page is current until …", continuation "Load next 20 roster members"', layout.every(x => x.pageWords.length === 1 && x.pageWords[0].badge === 'Roster page current' && /^Roster members 1 to 2 of 2, read from the roster export[.] This page is current until [^.]+[.]$/.test(x.pageWords[0].sentence) && JSON.stringify(x.next) === '["Load next 20 roster members"]'), layout.map(x => ({ w: x.width, pageWords: x.pageWords, next: x.next })));
 
   // 2. Keyboard at 390 px: Tab reaches the read and copy controls with a visible focus ring; Enter on Recheck reads that page.
   await viewport(cdp, 390, 900);
@@ -131,13 +136,15 @@ try {
     await viewport(cdp, w, 900);
     const first = current('held1000-first'), held = heldNow();
     await go(() => first); serve = () => reads.length > 1 ? held : first;
-    await cdp.eval(`[...document.querySelectorAll('[data-launch234] button')].find(b => b.textContent === 'Load next 20 role checks').click(); true`);
+    const before5 = await cdp.eval(MEASURE);
+    await cdp.eval(`[...document.querySelectorAll('[data-launch234] button')].find(b => b.textContent === 'Load next 20 roster members')?.click(); true`);
     for (let i = 0; i < 40 && !(await cdp.eval(`!!document.querySelector('[data-launch235-scan-ended]') || !!document.querySelector('[data-launch234-held]')`)); i++) await sleep(100);
     await sleep(300);
     const m = await cdp.eval(MEASURE), notice = await cdp.eval(`(() => { const el = document.querySelector('[data-launch235-scan-ended]'), r = el && el.getBoundingClientRect(); return { shown: !!el && r.width > 0 && r.height > 0, status: document.querySelector('[data-launch234] [role=status]')?.textContent || '', pages: [...document.querySelectorAll('[data-launch234] h2')].filter(h => /^Examined page /.test(h.textContent)).length }; })()`);
-    ended.push({ width: w, reads: reads.length, notice, refused: m.refused, overflow: m.docOverflowPx, outside: m.outside, small: m.small, wraps: m.wraps });
+    ended.push({ width: w, firstWords: before5.pageWords, firstNext: before5.next, firstSmall: before5.small, reads: reads.length, notice, refused: m.refused, overflow: m.docOverflowPx, outside: m.outside, small: m.small, wraps: m.wraps });
     if (w === 390 || w === 320) await screenshot(cdp, path.join(OUT, `scan-ended-${w}.png`), true);
   }
+  check('the rank-held 1,000-member first page shows "Load next 20 roster members" (at least 44 px) and "Roster members 1 to 20 of 1000" at all six widths', ended.every(x => JSON.stringify(x.firstNext) === '["Load next 20 roster members"]' && x.firstSmall.length === 0 && x.firstWords.length === 1 && x.firstWords[0].badge === 'Roster page current' && x.firstWords[0].sentence.startsWith('Roster members 1 to 20 of 1000, read from the roster export. This page is current until ')), ended.map(x => ({ w: x.width, next: x.firstNext, words: x.firstWords, small: x.firstSmall })));
   check('a held later page ends the scan: the notice is shown above it at all six widths after two reads, with no page of the scan left, no overflow and no control under 44 px', ended.every(x => x.reads === 2 && x.notice.shown && x.notice.pages === 0 && /scan stopped/.test(x.notice.status) && !x.refused && x.overflow <= 0 && x.outside.length === 0 && x.small.length === 0 && x.wraps.every(t => t.inner <= 0)), ended);
 
   check('no script errors on the page', state.exceptions.length === 0, state.exceptions);

@@ -717,6 +717,8 @@ const runUi280=String.raw`
   const outcome=(p=pg)=>{const held=p.app.querySelector('[data-launch234-held]');return held?'held:'+held.getAttribute('data-launch234-held'):p.app.textContent.includes('Current launch evidence could not be confirmed')?'unconfirmed':p.app.querySelector('#launch-motd229')?'shown':'other';};
   const nothingDrawn=()=>!pg.app.querySelector('#launch-motd229')&&!pg.app.querySelector('[data-launch-invite233]')&&!pg.app.querySelector('[data-launch-promotion229]')&&!pg.app.querySelector('[data-launch-advisory229]')&&!pg.app.querySelector('[data-launch235-rank-held]');
   const btn=t=>byText(pg.app,'button',t);
+  // Item 6 (13 Nov 2026): a rank-held page names its continuation "Load next 20 roster members"; every other page keeps the v234 label.
+  const nextBtn=()=>btn('Load next 20 role checks')||btn('Load next 20 roster members');
   const clickL=async el=>{if(!el)return false;el.click();for(let i=0;i<6;i++)await settle();await waitFor(()=>settledL(pg)&&!pg.app.textContent.includes('Reading at most 20'),'after click',4000);for(let i=0;i<3;i++)await settle();return true;};
   const singles=Object.keys(P).filter(name=>!name.endsWith('offset20'));
   const shownAll=[];for(const name of singles){await openL(copy(name));shownAll.push([name,outcome(),reads.length]);}
@@ -724,7 +726,7 @@ const runUi280=String.raw`
   const scans=[];
   for(const kind of ['qualified1000','held1000']){
    const first=copy(kind+'-first'),next=copy(kind+'-offset20');await openL(first,next);
-   const shownFirst=outcome()==='shown',more=btn('Load next 20 role checks');await clickL(more&&!more.hidden?more:null);
+   const shownFirst=outcome()==='shown',more=nextBtn();await clickL(more&&!more.hidden?more:null);
    const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
    scans.push({kind,shownFirst,second:outcome(),reads:reads.length,sameCursor:sent===first.nextCursor,pages:pg.app.querySelectorAll('button').filter(b=>b.textContent==='Recheck this page').length,progress:pg.app.querySelector('[data-launch-progress229]')?.textContent||''});
   }
@@ -759,7 +761,7 @@ const runUi280=String.raw`
   const q234=()=>as234(copy('qualified1000-first'));
   for(const [label,make,want] of [['v234 link of 4,096',()=>Object.assign(q234(),{nextCursor:shaped(4096)}),'shown'],['v234 link of 4,097',()=>Object.assign(q234(),{nextCursor:shaped(4097)}),'unconfirmed'],['v234 link with a plus sign',()=>Object.assign(q234(),{nextCursor:'A+'+shaped(300).slice(2)}),'unconfirmed'],['v234 link without a MAC',()=>Object.assign(q234(),{nextCursor:'AAAA'}),'unconfirmed'],['v234 link that is a number',()=>Object.assign(q234(),{nextCursor:4096}),'unconfirmed'],
    ['v235 link of 8,192',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8192)}),'shown'],['v235 link of 8,193',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(8193)}),'unconfirmed'],['v235 link with a slash',()=>Object.assign(copy('held1000-first'),{nextCursor:'A/'+shaped(300).slice(2)}),'unconfirmed'],['v235 link with an upper-case MAC',()=>Object.assign(copy('held1000-first'),{nextCursor:shaped(300).slice(0,236)+'A'.repeat(64)}),'unconfirmed']]){
-   const d=make();await openL(d);const o=outcome(),more=btn('Load next 20 role checks'),visible=!!more&&!more.hidden;
+   const d=make();await openL(d);const o=outcome(),more=nextBtn(),visible=!!more&&!more.hidden;
    if(visible)await clickL(more);const sent=reads[1]?new URL('https://fixture.invalid'+reads[1]).searchParams.get('cursor'):null;
    nextCases.push({label,want,o,visible,reads:reads.length,sent:sent===null?null:sent===d.nextCursor,drawn:!nothingDrawn()});
   }
