@@ -479,11 +479,14 @@
         // all regional (or all class) assignments share is stated once beside it; each drawer keeps only what is its own.
         const seen = new Set(), primaryGuide = guides[family.primaryKey];
         const listed = family.variants.filter(variant => !["alias","native","historical"].includes(variant.presentation));
-        // A purely regional family (Regional Raid Leader, Raid Assist) has one job specification: the duty sheet its NA and EU
-        // seats share. The family guide keeps its definition; its shorter restatement of the same duties is not repeated.
-        const regionalFamily = listed.length > 1 && listed.every(variant => variant.presentation === "region") && !!sharedVariantGuide1112(family, guides, "region");
+        // A purely regional family (Regional Raid Leader, Raid Assist) states the duty sheet its NA and EU seats share once.
+        // RC-037 (round 3, 12 Nov 2026): the family guide's own lines stay unless the regional sheet has them verbatim; only
+        // exact matches are de-duplicated (Codex: the general guides carry duties no regional sheet repeats).
+        const regionalSheet = listed.length > 1 && listed.every(variant => variant.presentation === "region") ? sharedVariantGuide1112(family, guides, "region") : null;
+        const regionalFamily = !!regionalSheet, regionalItems = new Set(regionalSheet ? [...regionalSheet.responsibilities, ...regionalSheet.expectations] : []);
         const primaryItems = [...(primaryGuide?.responsibilities || []), ...(primaryGuide?.expectations || [])];
-        const shownItems = new Set(regionalFamily ? [] : primaryItems);
+        const primaryOwnItems = primaryItems.filter(text => !regionalItems.has(text));
+        const shownItems = new Set(regionalFamily ? primaryOwnItems : primaryItems);
         const sharedBlocks = ["region","class"].map(presentation => {
           const shared = sharedVariantGuide1112(family, guides, presentation);
           if (!shared) return null;
@@ -491,7 +494,7 @@
           for (const text of [...shared.responsibilities, ...shared.expectations]) shownItems.add(text);
           const facts = shared.commitment && shared.worksWith;
           if (!resp.length && !exp.length && !facts) return null;
-          const merged = presentation === "region" && regionalFamily;
+          const merged = presentation === "region" && regionalFamily && !primaryOwnItems.length;
           return { presentation, facts, node: h("section", {class:"role-shared1112" + (merged ? " parchment role-info role-guide201" : ""),"data-role-shared1112":presentation},
             merged ? null : h("h4", {text:presentation === "region" ? "Shared by every regional assignment" : "Shared by every class assignment"}),
             resp.length ? [merged ? h("h4", {text:"Responsibilities"}) : null, h("ul", null, resp.map(text => h("li", {text})))] : null,
@@ -499,7 +502,7 @@
             facts ? h("dl", {class:"role-facts"}, h("dt", {text:"Time & commitment"}), h("dd", {text:shared.commitment}), h("dt", {text:"Works with"}), h("dd", {text:shared.worksWith})) : null) };
         }).filter(Boolean);
         const sharedFacts = new Set(sharedBlocks.filter(block => block.facts).map(block => block.presentation));
-        const primaryNode = regionalFamily ? guideBody201(primaryGuide, positionOf(family.primaryKey), {seen, omitItems:new Set(primaryItems), omitFacts:sharedFacts.has("region")})
+        const primaryNode = regionalFamily ? guideBody201(primaryGuide, positionOf(family.primaryKey), {seen, omitItems:regionalItems, omitFacts:sharedFacts.has("region")})
           : canonicalFamilyGuide219(family, guides, seen);
         const variants = [...listed.filter(variant => !["region","class"].includes(variant.presentation)), ...listed.filter(variant => ["region","class"].includes(variant.presentation))].map(variant => {
           const source = office199(variant.key), native = source?.group === "native";
