@@ -16,7 +16,7 @@
 </style>
 <main>
 <h1>Privacy Policy</h1>
-<p class="meta">Olympus Verify and the Olympus guild site · last updated 4 November 2026</p>
+<p class="meta">Olympus Verify and the Olympus guild site · last updated 13 November 2026</p>
 
 <p>Olympus Verify and the Olympus guild site are administered by Olympus officers, moderators and administrators on behalf of Asmongold and Rich Campbell. The bot serves the Olympus channels in Asmongold's Discord server and is not offered for installation in other servers. It links a Discord account to an in-game character using verification codes, officer attestations and roster checks, so guild channels can be opened to confirmed guild members. These checks are evidence of account and character control, not proof of a person's real-world identity.</p>
 
@@ -197,26 +197,6 @@ recognition can transiently read a whisper or mail text and bind its existing pr
 surrounding text as a financial declaration. The game client's chat log remains on that officer's computer. This describes
 the Olympus software, not every chat or addon the game client may record.</p>
 
-<p><strong>Native gold receipt observations.</strong> New financial capture is limited to gold actually received by the
-in-game character <strong>Fern Melder</strong> with one canonical <code>TITHE-XXXX-XXXX</code> reference. A mail receipt uses
-the header reference, inbox gold depletion and matching wallet change, without reading its body for financial capture.
-A trade requires an explicit reference for that open trade, native completion and the matching wallet change; the
-reference is not carried to the next trade. These observations contain the original transfer identifier and time, full
-sender name and native GUID when available, collector and guild/realm identity, reference, positive copper amount,
-native transfer kind and integrity/delivery evidence. They contain no item list, raw subject, mail body, arbitrary note
-or general whisper text. A reference is a matching aid, not ownership or payment proof. Staff review the minimized
-private observation; it does not automatically credit dues or contributions, grant a role or approve a case.</p>
-<p>Receipt observations are accepted only within thirty days of their original observation, and staff ledger availability
-ends at that original deadline. Physical removal is bounded housekeeping and can occur later; retries do not renew the
-deadline. Collector-local pending originals and delivery custody can remain until acknowledgement or attended review,
-including across reloads. New complete receipts use the existing SavedVariables exchange, which reaches disk at client
-reload or logout; they are not relayed to guild peers. Earlier local originals may still contain legacy correspondence:
-the narrowed importer holds them instead of rewriting, re-signing or uploading them. A separately checked serving-D1
-cleanup can blank covered legacy note text while retaining the row, structured fields, original payload commitment and
-deadline. That original commitment is not a new hash of the redacted text and may permit guessing a short old note until
-its original retention ends. This cleanup does not erase local journals, addon mirrors, private backups or provider
-recovery history. Own-account copy and erasure retain their separate scope and safeguards.</p>
-
 <p><strong>Launch roster advice.</strong> Site administrators and the officer's local addon can compare the current
 native roster and verified character links with current Discord eligibility. The resulting advice includes
 character names and GUIDs, native rank, verification category, promotion target, level and known offline duration for
@@ -247,6 +227,51 @@ Guild Member role is removed and held unless another of your characters is in th
 tells you why; an administrator approves once your new application was accepted and the character verified again, or
 withdraws the decision. The record is deleted thirty days after it was approved or withdrawn; while it is open it
 stays.</p>
+
+<h2>Gold receipts and captured game text</h2>
+<p><strong>What is captured now.</strong> The officers' addon records gold only when the in-game character
+<strong>Fern Melder</strong> receives it with one <code>TITHE-XXXX-XXXX</code> reference. For mail, the addon reads the
+reference from the subject line and records the receipt when the gold is taken from the inbox and Fern Melder's gold
+rises by the same amount. It does not read the mail's text for this, and it does not keep the subject line. For a
+trade, the reference is entered for that open trade only, and the receipt is recorded when the trade completes and the
+gold rises by the same amount.</p>
+<p>A receipt holds its transfer ID and time, whether it came by mail or trade, the amount, the sender's character name,
+the sender's in-game character ID for a trade (mail does not show one), Fern Melder's character ID, guild and realm,
+the reference, the addon version and a signature the server checks. It holds no mail text, subject line, whisper text,
+note or item list. A reference helps staff match a payment; it does not prove who paid. Staff review each receipt. A
+receipt does not credit dues, grant a role or settle a case by itself.</p>
+<p><strong>How long receipts are kept.</strong> The server accepts a receipt only within 30 days of when the gold was
+received. Staff can see it until that deadline, and routine cleanup deletes the row afterwards. Retrying an upload does
+not extend the deadline. On the collecting officer's computer, the addon keeps a receipt in its saved file until the
+server confirms it, and removes a confirmed receipt once it is 30 days old. The game writes that file when the officer
+reloads or logs out. Receipts are not passed to other players in game.</p>
+<p><strong>Older captured text.</strong> Earlier versions of the addon also kept text with some receipts: the text or
+subject line of a mail, a note typed for a trade, and whispers offering gold. That text is no longer uploaded: the
+Watcher and the server refuse receipts in the old format. On the server, a one-time cleanup blanks that text in the
+stored receipts and keeps the rows. The sender's name and any character ID, the amount, the time, the source, the item
+names and counts, and the record IDs stay.</p>
+<p>Copies of the older text can still be in the collecting officer's addon file and in the Watcher's local file on that
+computer. They are held there and are not uploaded.</p>
+<p><strong>The kept checksum.</strong> Each stored receipt on the server keeps a checksum made from the original record,
+including the old text. A checksum cannot be turned back into the text. Once the text is blanked, the checksum no longer
+matches the record, so it proves nothing about what the text said. Someone who can read the rest of a record could
+still test a guessed short text against it. The server deletes the checksum with the row after the receipt's 30-day
+deadline.</p>
+<p><strong>Backups.</strong> The cleanup does not reach copies made before it ran, such as the database backups and
+Cloudflare recovery history described under Recovery copies, or a backup of an officer's computer. It does not touch
+the game's own chat log or other addons' saved files.</p>
+<p><strong>Gold receipts in your data download.</strong> The download from Account data controls lists a gold receipt
+only when it carries the in-game character ID of one of your linked characters and no other account is linked to that
+ID. For each receipt it gives the time, the amount, how it was sent, that character ID, and the receipt's ID and
+expiry. It leaves out names, the reference, any text, item lists and the checksum. Mail receipts carry only the sender's
+name, and a name can later belong to another player, so mail receipts are left out. The copy from the separate privacy
+connection contains no gold receipts. To get your mail receipts, ask an Olympus officer in Asmongold's Discord server
+and name your character. The officer looks up that character's receipts by hand and shares them with you.</p>
+<p><strong>After an account erasure.</strong> Erasing your account deletes the gold receipts tied to your characters.
+For a receipt still within its 30 days, the server may keep only the receipt's ID and its original expiry, so the same
+receipt cannot be uploaded again. That marker holds no account, name, character ID, amount, text, item or checksum, and
+the server keeps no link from it to your account. It stops counting at the receipt's original 30-day deadline and is
+then deleted by routine cleanup.</p>
 
 <h2>Where it goes</h2>
 <p>Data lives in a Cloudflare D1 database owned by the guild's officers, in Cloudflare's infrastructure, together with
@@ -324,7 +349,8 @@ copy outlives signing out and any deletion on the server until the administrator
 <p>With an existing site session, open <a href="https://olympus.roachcouncil.com/privacy/account">Account data controls</a> to download the current
 curated JSON copy through <code>/api/me/export</code>. It contains selected account, application, vote, friend and
 reserved-name records; selected bot status, character, pending-request and queue fields without verification codes;
-and the registered community sections. Names you chose as labels and your own free text are copied as supplied and
+and the registered community sections. Which gold receipts it lists, and how to ask for mail receipts, is said under
+Gold receipts and captured game text. Names you chose as labels and your own free text are copied as supplied and
 can name other people. Legacy Battle.net freshness flags in this copy are not evidence of Forever ownership.
 Dated actions are a paginated list of time and action name, beginning with the earliest thousand. Account data controls
 provide a script-free history view with a Next page button and a separate download for the displayed page. A traversal
