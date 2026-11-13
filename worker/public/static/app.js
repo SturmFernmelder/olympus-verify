@@ -6982,7 +6982,9 @@
         add(result, h("pre", {class:"small",text:data.message || data.content || "Your verification request was received."}));
         if (typeof data.code === "string") add(result, h("p", {class:"small",text:"Whisper this private code from that character to Fern Melder:"}), h("code", {text:data.code}));
       } catch (error) {
-        if (live()) add(result, h("p", {class:"err",text:explain(error,"Verification could not be refreshed. Try again or ask High Council to use /olympus check.")}));
+        // RC-017 (round 3, 12 Nov 2026): since CL2-017 a bare failure shows this fallback, and a lost answer may already have
+        // issued a code, so it asks for a status check before a second request instead of inviting a retry.
+        if (live()) add(result, h("p", {class:"err",text:explain(error,"The answer did not arrive, so it is not known whether a code was issued. Check My status or /verify-status in Discord before asking again, or ask High Council to use /olympus check.")}));
       } finally { if (live()) submit.disabled = false; }
     });
   };
