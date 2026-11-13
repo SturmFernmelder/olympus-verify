@@ -174,3 +174,158 @@ paths = [
 ]
 regexTarget = "secret"
 regexes = ['''^officer-operations-v233$''']
+
+
+# .280: independently source-reviewed public identifiers from the full-history scan.
+# Every exception requires exact rule AND path AND anchored complete value; no file/rule/history exclusion.
+
+[[allowlists]]
+description = "Exact public officer read-protocol identifiers in the bounded launch pacing fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/launch_roster_pacing271_runtime\.mjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^officer\-operations\-v234$''',
+  '''^officer\-operations\-v235$''',
+]
+
+[[allowlists]]
+description = "Exact public officer read-protocol identifier in the Watcher consumer and its contract test"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^watcher/launch_operations229\.py$''',
+  '''^watcher/tests/test_launch_operations229\.py$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^officer\-operations\-v234$''',
+]
+
+[[allowlists]]
+description = "Exact public officer-action protocol identifier in the historical documentation gate assertion"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/evergreen1112_docs\-gate_test\.cjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^officer\-operations\-v233$''',
+]
+
+[[allowlists]]
+description = "Exact public browser localStorage key in the University reader and its guide fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/public/static/university/university\.js$''',
+  '''^worker/tests/evergreen1112_guides_test\.cjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^olympus\.university\.v1$''',
+]
+
+[[allowlists]]
+description = "Exact public editorial catalogue heading identifiers in the governance reconciliation data"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^docs/governance\-evergreen1112\.json$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^heading\-2\-1\-preamble\-and\-foundation$''',
+  '''^heading\-2\-2\-liberties\-and\-obligations$''',
+  '''^heading\-3\-2\-appointment\-patent$''',
+  '''^heading\-3\-3\-deputy\-or\-acting\-warrant$''',
+  '''^heading\-3\-6\-revocation\-and\-acknowledgement\-record$''',
+  '''^heading\-bylaw\-b4\-minutes\-and\-reserved\-decisions$''',
+  '''^heading\-bylaw\-b5\-emergency\-measures$''',
+  '''^heading\-bylaw\-b9\-operational\-cadence\-and\-continuity$''',
+]
+
+[[allowlists]]
+description = "Exact fixed synthetic receipt marker ID in the local erased-replay fixture driver"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/erased_replay280_workerd_test\.cjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^0123456789abcdef01234567$''',
+]
+
+[[allowlists]]
+description = "Exact public v235 read-protocol identifier in the two UI reader fixtures"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/evergreen1112_ui280_browser_real235\.mjs$''',
+  '''^worker/tests/evergreen1112_ui280_browser\.mjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^officer\-operations\-v235$''',
+]
+
+[[allowlists]]
+description = "Exact historical public v234 read-protocol identifier in the UI reader fixture"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/evergreen1112_ui280_browser\.mjs$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^officer\-operations\-v234$''',
+]
+
+
+# Exact local-only values: genuine local Workerd/D1 fixtures replace all provider HTTP.
+# These exceptions do not match a changed value, another path, or another scanner rule.
+[[allowlists]]
+description = "Exact synthetic local header and protocol fixture assignments"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/native_protocol280_runtime_test\.mjs$''',
+  '''^worker/tests/bot_headers_successor280_runtime_test\.mjs$''',
+]
+regexTarget = "match"
+regexes = [
+  '''^DISCORD_BOT_TOKEN:'header280-synthetic-bot'$''',
+  '''^VERIFY_SECRET:'header280-synthetic-secret'$''',
+]
+
+[[allowlists]]
+description = "Exact synthetic local verification, note and security fixture assignments"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^worker/tests/receipt_notes280_runtime_test\.mjs$''',
+  '''^worker/tests/verification280_runtime_test\.mjs$''',
+  '''^worker/tests/verification_coalesce280_runtime_test\.mjs$''',
+  '''^worker/tests/security280_runtime_test\.mjs$''',
+]
+regexTarget = "match"
+regexes = [
+  '''^DISCORD_BOT_TOKEN:'verification280-bot'$''',
+  '''^VERIFY_SECRET:'verification280-secret'$''',
+]
+
+[[allowlists]]
+description = "Exact synthetic local soft-limiter fixture assignments"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^worker/tests/soft_limiter280_workerd_fixture\.mjs$''']
+regexTarget = "match"
+regexes = [
+  '''^DISCORD_BOT_TOKEN:'limiter280-bot'$''',
+  '''^VERIFY_SECRET:'limiter280-verify'$''',
+]
