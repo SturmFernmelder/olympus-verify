@@ -17,6 +17,7 @@ import type { PendingRow } from './db';
 import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson } from './site-core';
 import {inactiveBetaRetentionSatisfiedSql} from './privacy-retention-clocks';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
+import {heldCause,isHeldCause,elapsedClass,clockMs,type HeldCause} from './log';
 
 export const PRIVACY_DB_NOW = "CAST(strftime('%s','now') AS INTEGER)";
 export const PRIVACY_YEAR = 365 * 86400;
@@ -60,7 +61,8 @@ export function privacyGenerationLiteralFenceSql(subjectExpression:string,genera
  if(!HEX32.test(generation))throw Error('privacy_generation_invalid');
  return `EXISTS(SELECT 1 FROM privacy_subjects WHERE subject_id=${subjectExpression} AND generation='${generation}' AND state='active')`;
 }
-export class PrivacySiteRequestHeld extends Error{constructor(){super('privacy_site_request_held');}}
+/** 14 Nov 2026: heldCause is a read-only own label of log.ts's closed list (default authority); the message and class are unchanged. */
+export class PrivacySiteRequestHeld extends Error{declare readonly heldCause:HeldCause;constructor(cause:HeldCause='authority'){super('privacy_site_request_held');Object.defineProperty(this,'heldCause',{value:isHeldCause(cause)?cause:'authority',enumerable:false,writable:false,configurable:false});}}
 type AuthorityBind=string|number|null|Readonly<{blob:readonly number[]}>;
 type AuthorityPlan=Readonly<{sql:string;values:readonly AuthorityBind[]|null}>;
 type AuthorityMethod=Readonly<{receiver:object;owner:object;fn:Function}>;
@@ -85,7 +87,7 @@ function originalAuthorityArrayWitness(plan:D1PreparedStatement[]):()=>void{
 
 const ownedCounted=new WeakMap<D1Database,{parent:D1Database;native:D1Database;overhead:number;check:()=>void;registered:boolean}>();
 const privacyDatabaseOverheads=new WeakMap<D1Database,number>(),privacyBoundActors=new WeakMap<D1Database,string>();
-const authorityHeld=():never=>{throw new PrivacySiteRequestHeld();};
+const authorityHeld=():never=>{throw new PrivacySiteRequestHeld();};/* 14 Nov 2026: only the innermost bound layer logs its batch's closed label; an inner PrivacySiteRequestHeld passes its label up unlogged. The log line sits in its own try and cannot change what is thrown. */const boundBatchHeld=(purpose:'site_session'|'subject_generation',e:unknown,began:number,shape=false):never=>{let label:HeldCause='other',inner=false;try{inner=!shape&&e instanceof PrivacySiteRequestHeld;label=shape?'shape':heldCause(e);}catch{}if(!inner)try{console.error('privacy request held',purpose,label,elapsedClass(clockMs()-began));}catch{}throw new PrivacySiteRequestHeld(label);};
 function authorityData(object:object,key:string):unknown{const d=Object.getOwnPropertyDescriptor(object,key);if(!d||!Object.hasOwn(d,'value'))return authorityHeld();return d.value;}
 function authoritySlot(receiver:object,name:string):AuthorityMethod|null{let owner:object|null=receiver;for(let i=0;i<4&&owner&&owner!==Object.prototype;i++){const d=Object.getOwnPropertyDescriptor(owner,name);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')return authorityHeld();return Object.freeze({receiver,owner,fn:d.value});}owner=Object.getPrototypeOf(owner);}return null;}
 function authorityMethod(receiver:object,name:string):AuthorityMethod{const slot=authoritySlot(receiver,name);if(!slot)return authorityHeld();return slot;}
@@ -127,7 +129,7 @@ export function privacyBoundSubjectEnv(env:Env,subject:string,capture:PrivacySub
 function privacyBoundDbEnv(env:Env,guard:AuthorityPlan,purpose:'site_session'|'subject_generation',authority:()=>void):Env{
  const original=authorityBase(env),records=new WeakMap<object,AuthorityPlan>();const check=()=>{original.check();authority();original.check();};check();
  const materialize=(plan:AuthorityPlan):D1PreparedStatement=>{check();const raw=Reflect.apply(original.prepare.fn,original.prepare.receiver,[plan.sql]) as D1PreparedStatement;check();if(plan.values===null)return raw;const bind=authorityMethod(raw,'bind'),out=Reflect.apply(bind.fn,bind.receiver,authorityValues(plan.values)) as D1PreparedStatement;check();authoritySame(bind,'bind');return out;};
- const batch=async<T=unknown>(statements:D1PreparedStatement[]):Promise<D1Result<T>[]>=>{check();const selected=authorityOwnPlan(statements,records);const projection=originalPrivacyStatementGroupProjection(db,statements),native=[materialize(guard),...selected.map(materialize)],arrayCheck=originalAuthorityArrayWitness(native),derived=originalPrivacyStatementGroupProjection(original.base,native);const current=()=>{check();projection.check();arrayCheck();derived.check();};current();originalAuthorityBatchLineages.set(originalPrivacyAdmissionOpaqueReference(native),Object.freeze({kind:'ordinary',parent:originalPrivacyAdmissionOpaqueReference(statements),guardCount:1,check:current}));check();let out:D1Result<T>[];try{out=await Reflect.apply(original.batch.fn,original.batch.receiver,[native]) as D1Result<T>[];check();}catch{return authorityHeld();}if(out.length!==selected.length+1||(out[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)return authorityHeld();return out.slice(1);};
+ const batch=async<T=unknown>(statements:D1PreparedStatement[]):Promise<D1Result<T>[]>=>{check();const selected=authorityOwnPlan(statements,records);const projection=originalPrivacyStatementGroupProjection(db,statements),native=[materialize(guard),...selected.map(materialize)],arrayCheck=originalAuthorityArrayWitness(native),derived=originalPrivacyStatementGroupProjection(original.base,native);const current=()=>{check();projection.check();arrayCheck();derived.check();};current();originalAuthorityBatchLineages.set(originalPrivacyAdmissionOpaqueReference(native),Object.freeze({kind:'ordinary',parent:originalPrivacyAdmissionOpaqueReference(statements),guardCount:1,check:current}));check();let out:D1Result<T>[];const began=clockMs();try{out=await Reflect.apply(original.batch.fn,original.batch.receiver,[native]) as D1Result<T>[];check();}catch(e){return boundBatchHeld(purpose,e,began);}if(out.length!==selected.length+1||(out[0]?.results[0] as {admitted?:number}|undefined)?.admitted!==1)return boundBatchHeld(purpose,null,began,true);return out.slice(1);};
  const make=(sql:string,values:readonly AuthorityBind[]|null):D1PreparedStatement=>{check();if(typeof sql!=='string'||sql.includes('\0'))return authorityHeld();const plan=Object.freeze({sql,values}),statement={
   bind(...values:unknown[]){check();return make(sql,Object.freeze(values.map(copyPrivacyAdmissionBind)));},
   async all<T=unknown>(){return(await batch<T>([statement as unknown as D1PreparedStatement]))[0]!;},
