@@ -107,7 +107,7 @@ function renderer(fetcher) {
 
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'public/static/resources169.json'), 'utf8'));
   // Evergreen 12 Nov 2026 (siteui-b): the beta development-notes thread stays as an eighth, archive news source (CL2-171), and
-  // Olympus Guild names only its 1.5.7 floor with no pinned release metadata (CL2-071).
+  // Olympus Guild names no version or floor and carries no pinned release metadata (CL2-071).
   check('catalog covers29 curated addons,12 guide sources and8 news/discovery sources', catalog.version === 1 && catalog.addons.length === 29 && catalog.guides.length === 12 && catalog.newsSources.length === 8);
   check('catalog explicitly disclaims exhaustive inventory and independent compatibility qualification', /not every addon/.test(catalog.viewNotes.addons) && /not.*guarantee of in-game compatibility/.test(catalog.disclaimer));
   // CL2-071 (our 1d3d046, e30a85e): Olympus Guild now names no version at all, not even the unverified 1.5.7 floor;
@@ -155,7 +155,7 @@ function renderer(fetcher) {
   const olympus185 = catalog.addons.find(x => x.id === 'olympus-guild');
   check('.185 exactly one Olympus Guild card leads the complete filtered addon catalog', featured185.length === 1 && walk(holder).filter(x => x.tagName === 'ARTICLE')[0] === featured185[0] && textOf(featured185[0]).includes('For Olympus players'));
   check('.185 the prominent install link stays on the official project with a safe external target', walk(featured185[0]).some(x => x.tagName === 'A' && x.textContent === 'Get Olympus Guild on CurseForge' && x.href === 'https://www.curseforge.com/wow/addons/olympus-guild' && x.target === '_blank' && x.rel === 'noopener noreferrer'));
-  // Evergreen 12 Nov 2026 (siteui-b, CL2-071): the card names the 1.5.7 floor and links only the project page, no pinned file.
+  // Evergreen 12 Nov 2026 (siteui-b, CL2-071): the card names no version or floor and links only the project page, no pinned file.
   // CL2-071 (our 1d3d046, e30a85e): no version or file claim is made, not even the unverified 1.5.7 floor; the card
   // links only the project page and says no file was reviewed.
   check('.210/1112 Olympus Guild names no version and links no pinned release file', !olympus185.minimumVersion && !olympus185.version && !olympus185.releasedAt && !olympus185.fileUrl && olympus185.status === 'Linked to its project page; no file reviewed' && olympus185.sourceKind.includes('addon API reviewed 2026-10-21') && !textOf(featured185[0]).includes('Minimum version') && !textOf(featured185[0]).includes('1.5.7') && !textOf(featured185[0]).includes('Published file') && !walk(featured185[0]).some(x => x.tagName === 'A' && x.href.includes('/files/')));
