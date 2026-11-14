@@ -14,16 +14,22 @@ const all = cls => cls.trees.flatMap(tree => tree.talents);
 const find = name => all(data.classes[0]).find(t => t.name === name);
 const setRank = (build, name, rank) => { const next = clone(build); next.ranks[all(data.classes.find(c => c.id === build.className)).findIndex(t => t.name === name)] = rank; return next; };
 const initialJSON = JSON.stringify(data);
-check('the actual nine-class snapshot is structurally complete', api.validateData(data).ok && api.validateData(data).talents === 466 && api.validateData(data).ranks === 1313);
-check('coverage is the recorded 27 trees and 466 current talents, not a placeholder', data.counts.classes === 9 && data.counts.trees === 27 && data.classes.map(c => all(c).length).join(',') === '52,50,50,53,52,50,55,52,52');
-check('source bytes and normalized snapshot are pinned in the shipped provenance', (() => { const p = JSON.parse(fs.readFileSync(path.join(folder, 'provenance.json'))); return p.normalizedBytes === raw.length && p.normalizedSHA256 === crypto.createHash('sha256').update(raw).digest('hex') && p.source.rawSHA256 === '260cf99b52db5fd0085043d4d3c2d5dde1b47dffe88b9696c94caccc9fb03588' && p.source.rawBytes === 1734440; })());
-check('source build, generation and CC BY attribution remain explicit', data.source.clientBuilds.join() === '1.60.1.70425' && data.source.upstreamGenerated === '2026-10-16' && data.source.license === 'CC-BY-4.0' && data.source.url === 'https://talentsforever.com/data.json');
+// CL2-087 (our 2848069): the 10 November export 02e1e101d1a5 has 467 talents and 1,297 ranks.
+check('the actual nine-class snapshot is structurally complete', api.validateData(data).ok && api.validateData(data).talents === 467 && api.validateData(data).ranks === 1297);
+// CL2-087 (our 2848069): per-class talent counts of the 10 November export.
+check('coverage is the recorded 27 trees and 467 current talents, not a placeholder', data.counts.classes === 9 && data.counts.trees === 27 && data.classes.map(c => all(c).length).join(',') === '53,51,50,54,52,50,53,52,52');
+// CL2-087 (our 2848069): the raw source is the 10 November export, 1,756,078 bytes, SHA-256 02e1e101d1a5....
+check('source bytes and normalized snapshot are pinned in the shipped provenance', (() => { const p = JSON.parse(fs.readFileSync(path.join(folder, 'provenance.json'))); return p.normalizedBytes === raw.length && p.normalizedSHA256 === crypto.createHash('sha256').update(raw).digest('hex') && p.source.rawSHA256 === '02e1e101d1a5695e5c4d687b19cd74bc11bd82b9123d8386d6a1cdc1a0387a60' && p.source.rawBytes === 1756078; })());
+// CL2-087 (our 2848069): the export was generated 2026-11-10 from beta client 1.60.1.70755.
+check('source build, generation and CC BY attribution remain explicit', data.source.clientBuilds.join() === '1.60.1.70755' && data.source.upstreamGenerated === '2026-11-10' && data.source.license === 'CC-BY-4.0' && data.source.url === 'https://talentsforever.com/data.json');
 check('Classic and Blizzard limits are disclosed alongside the data', data.source.limits.some(x => /rank-one/.test(x)) && data.source.limits.some(x => /no exact Classic client build/.test(x)) && data.source.limits.some(x => /Blizzard/.test(x)) && data.source.limits.some(x => /Legacy Talented/.test(x)));
 check('every talent includes comparison metadata and every current rank text', data.classes.every(c => all(c).every(t => t.classic && t.descriptions.length === t.maxRank)));
 const status = {}; for (const cls of data.classes) for (const t of all(cls)) status[t.classic.status] = (status[t.classic.status] || 0) + 1;
-check('all original comparison categories are retained', status.new === 117 && status.changed === 271 && status.moved === 25 && status.same === 53);
+// CL2-087 (our 2848069): comparison status counts of the 10 November export.
+check('all original comparison categories are retained', status.new === 121 && status.changed === 268 && status.moved === 30 && status.same === 48);
 check('changed and moved can both be visible; one does not hide the other', api.comparisonBadges({ classic: { status: 'changed', moved: true } }).join() === 'Changed,Moved' && api.comparisonBadges({ classic: { status: 'moved' } }).join() === 'Moved');
-check('all 82 supplied Classic-only rows remain available', data.classes.flatMap(c => c.trees).reduce((sum, tree) => sum + tree.removedClassic.length, 0) === 82);
+// CL2-087 (our 2848069): the 10 November export supplies 85 Classic-only rows.
+check('all 85 supplied Classic-only rows remain available', data.classes.flatMap(c => c.trees).reduce((sum, tree) => sum + tree.removedClassic.length, 0) === 85);
 check('the normal point budget is one at level10 and 51 at level60', api.pointsAtLevel(10) === 1 && api.pointsAtLevel(60) === 51 && api.pointsAtLevel(30) === 21 && api.pointsAtLevel(9) === null && api.pointsAtLevel(61) === null);
 for (const cls of data.classes) {
   const empty = api.emptyBuild(data, cls.id), first = all(cls).find(t => t.row === 1), applied = api.allocate(data, empty, first.id, 1);
@@ -39,11 +45,13 @@ const noTier = api.allocate(data, five, deflection.id, -1);
 check('refund succeeds when no higher row depends on those points', noTier.ok && noTier.points === 4);
 const ten = setRank(setRank(five, 'Improved Heroic Strike', 3), 'Improved Rend', 2);
 check('a prerequisite is still required even when the row point gate is met', !api.allocate(data, ten, anger.id, 1).ok);
-const ready = setRank(ten, 'Improved Tactical Mastery', 5), linked = api.allocate(data, ready, anger.id, 1);
-check('maxed actual prerequisite plus tier gate permits its child', linked.ok && linked.points === 16);
+// CL2-087/CL2-090 (our 2848069): Improved Tactical Mastery has three ranks (2 November notes), so the linked build has 14 points.
+const ready = setRank(ten, 'Improved Tactical Mastery', 3), linked = api.allocate(data, ready, anger.id, 1);
+check('maxed actual prerequisite plus tier gate permits its child', linked.ok && linked.points === 14);
 check('refund cannot unmax the parent of an invested prerequisite child', !api.allocate(data, linked.build, tactical.id, -1).ok);
 check('removing the child then its parent is a valid refund sequence', (() => { const child = api.allocate(data, linked.build, anger.id, -1); return child.ok && api.allocate(data, child.build, tactical.id, -1).ok; })());
-for (const [className, targetName] of [['paladin', 'Divine Precision'], ['priest', 'Improved Mind Flay']]) {
+// CL2-087 (our 2848069): in the 10 November export Divine Precision has no prerequisite; the Paladin same-row pair is Holy Shock -> Boundless Light.
+for (const [className, targetName] of [['paladin', 'Boundless Light'], ['priest', 'Improved Mind Flay']]) {
   let build = api.emptyBuild(data, className), cls = data.classes.find(c => c.id === className), tree = cls.trees.find(t => t.talents.some(n => n.name === targetName));
   const target = tree.talents.find(t => t.name === targetName), parent = tree.talents.find(t => t.id === target.requires), needed = 5 * (target.row - 1);
   while (api.validateBuild(data, build).points < needed) {
@@ -61,7 +69,8 @@ const code = api.serializeBuild(data, linked.build);
 check('share codes bind the reviewed data revision', !api.parseBuild(data, code.replace(data.revision, '0'.repeat(12))).ok);
 check('invalid class, rank encoding, level and trailing data refuse', !api.parseBuild(data, code.replace('.warrior.', '.monk.')).ok && !api.parseBuild(data, code + 'x').ok && !api.parseBuild(data, code.replace('.60.', '.09.')).ok && !api.parseBuild(data, 'x'.repeat(257)).ok);
 check('oversized talent ranks cannot be imported through a syntactically valid code', !api.parseBuild(data, api.serializeBuild(data, empty).slice(0, -empty.ranks.length) + '9'.repeat(empty.ranks.length)).ok);
-check('reset is a true empty vector and does not rewrite the imported build', api.emptyBuild(data, 'warrior', 30).ranks.every(x => x === 0) && api.validateBuild(data, linked.build).points === 16);
+// CL2-087/CL2-090 (our 2848069): the linked build has 14 points (Improved Tactical Mastery 3 ranks).
+check('reset is a true empty vector and does not rewrite the imported build', api.emptyBuild(data, 'warrior', 30).ranks.every(x => x === 0) && api.validateBuild(data, linked.build).points === 14);
 for (const mutate of [d => d.classes.pop(), d => d.classes[0].trees[0].talents[0].descriptions.pop(), d => d.classes[0].trees[0].talents[0].requires = 'missing', d => d.classes[0].trees[0].talents[0].column = 8, d => { const row = d.classes[0].trees[0].talents; row[0].requires = row[1].id; row[1].requires = row[0].id; }]) {
   const broken = clone(data); mutate(broken); check('corrupt coverage/ranks/prerequisite/grid data refuses before rendering', !api.validateData(broken).ok);
 }
@@ -74,7 +83,8 @@ check('the compact desktop core retains three trees, 48px icon targets and 66px 
 const art = JSON.parse(fs.readFileSync(path.join(folder, 'art.json'), 'utf8'));
 const artProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'art-provenance.json'), 'utf8'));
 const dataProvenance = JSON.parse(fs.readFileSync(path.join(folder, 'provenance.json'), 'utf8'));
-check('the actual artwork map is closed over all 9 classes, 27 trees and 466 unchanged talent identities', api.validateArt(data, art).ok && api.validateArt(data, art).classes === 9 && api.validateArt(data, art).trees === 27 && api.validateArt(data, art).talents === 466);
+// CL2-087 (our 2848069): 17 talents whose official icon is not on file are listed in art.json and drawn as a plain tile.
+check('the actual artwork map is closed over all 9 classes, 27 trees and 467 talent identities, 450 drawn and 17 listed without art', api.validateArt(data, art).ok && api.validateArt(data, art).classes === 9 && api.validateArt(data, art).trees === 27 && api.validateArt(data, art).talents === 450 && api.validateArt(data, art).unavailable === 17);
 check('all 396 recorded game-art distributions retain exact downloaded bytes and honest fan-source limits', artProvenance.assets.length === 396 && artProvenance.sourceDataSHA256 === data.source.rawSHA256 && artProvenance.mappingRevision === data.revision && artProvenance.assets.every(row => { const bytes = fs.readFileSync(path.join(__dirname, '../..', row.path)); return row.path.startsWith('worker/public/static/wow/talents/') && /^https:\/\/talentsforever\.com\/assets\//.test(row.sourceURL) && row.conversion === 'none; exact downloaded JPEG bytes' && bytes.length === row.bytes && crypto.createHash('sha256').update(bytes).digest('hex') === row.sha256; }) && artProvenance.limits.some(text => text.includes('not a Blizzard-hosted download or publisher-signed byte attestation')) && artProvenance.limits.some(text => text.includes('does not grant rights to Blizzard artwork')));
 check('the new art import is declared separately without changing data bytes or copying the source website code', dataProvenance.artCopied === true && dataProvenance.siteCodeCopied === false && dataProvenance.artProvenance === '/static/talents/art-provenance.json' && dataProvenance.normalizedSHA256 === crypto.createHash('sha256').update(raw).digest('hex') && source.includes('World of Warcraft artwork © Blizzard Entertainment.') && source.includes('Unofficial guild tool; not affiliated with Blizzard.'));
 check('a different snapshot revision cannot supply artwork for this calculator', !api.validateArt(data, { ...art, revision: '0'.repeat(12) }).ok);
@@ -172,7 +182,8 @@ async function detailRenderRegression() {
       .all(node => node.tagName === 'OPTION').map(node => node.getAttribute('value')).join() === displayClassIds.join()
     && byClass(container, 'talents-class-banner')[0].textContent.includes('Warrior')
     && byClass(container, 'talents-spec-bars')[0].all(node => node.tagName === 'METER').length === 3);
-  check('the compact tree uses all 52 real talent icons, three header images and three painted backdrops without fake sigils or extra point rows', byClass(container, 'talents-pick').length === 52 && byClass(container, 'talents-pick').every((button, index) => button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.talentIcons[all(data.classes[0])[index].id]) && byClass(container, 'talents-tree-header').every((header, index) => header.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.treeIcons['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-backdrop').every((image, index) => image.getAttribute('src') === art.treeBackgrounds['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-point-controls').length === 0 && !source.includes('talents-sigil'));
+  // CL2-087 (our 2848069): Warrior has 53 talents; Reckless Swings has no official icon on file and is a plain tile.
+  check('the compact tree shows all 53 Warrior talents, 52 with their real icons and the one listed without art as a plain tile, three header images and three painted backdrops without fake sigils or extra point rows', byClass(container, 'talents-pick').length === 53 && all(data.classes[0]).filter(talent => art.talentIconsUnavailable.includes(talent.id)).length === 1 && byClass(container, 'talents-pick').every((button, index) => art.talentIconsUnavailable.includes(all(data.classes[0])[index].id) ? button.all(node => node.tagName === 'IMG').length === 0 && byClass(button, 'talents-noart').length === 1 : button.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.talentIcons[all(data.classes[0])[index].id]) && byClass(container, 'talents-tree-header').every((header, index) => header.all(node => node.tagName === 'IMG')[0].getAttribute('src') === art.treeIcons['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-backdrop').every((image, index) => image.getAttribute('src') === art.treeBackgrounds['warrior-' + data.classes[0].trees[index].id]) && byClass(container, 'talents-point-controls').length === 0 && !source.includes('talents-sigil'));
   const requirements = all(data.classes[0]).filter(talent => talent.requires), edges = byClass(container, 'talents-link');
   check('every real prerequisite has a behind-grid connection bound to its actual parent row and child position', edges.length === requirements.length && edges.every((edge, index) => { const child = requirements[index], prior = all(data.classes[0]).find(talent => talent.id === child.requires); return edge.className.includes('from-r' + prior.row) && edge.className.includes('to-r' + child.row) && edge.className.includes('to-c' + child.column) && edge.className.includes('span-r' + (child.row - prior.row)); }) && css.includes('.talents-links{position:absolute;z-index:1;') && css.includes('.talents-node{position:relative;z-index:2;'));
   pick(heroic.name).dispatch('pointerenter');
@@ -214,7 +225,8 @@ async function detailRenderRegression() {
   comparison.dispatch('change', { target: { checked: true } }); pick(mortal.name).focus();
   advance(250);
   check('a rebuild cancels the detached tooltip timer and preserves the newly focused detail', pendingBeforeRender && timers.size === 0 && !detail().hidden && detail().textContent.includes(mortal.name) && detailOwners().length === 1);
-  check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 52 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
+  // CL2-087 (our 2848069): Warrior has 53 talents in the 10 November export, so 53 nodes carry badges.
+  check('actual Compare to Classic retains badges,current rank controls and the supplied Classic reference text', detail().textContent.includes('Classic comparison') && detail().textContent.includes(mortal.classic.text) && byClass(container, 'talents-node-badges').length === 53 && byClass(container, 'talents-comparison-legend').length === 1 && byClass(detail(), 'talents-detail-controls')[0].all(node => node.tagName === 'BUTTON').length === 2);
   check('.179 Classic toggle retains all original talent buttons and detail container without an extra build callback', initialButtons179.every((button, index) => byClass(container, 'talents-pick')[index] === button) && detail() === initialDetail179 && byClass(container, 'talents-toolbar')[0] === initialToolbar179 && changes.at(-1).points === 3);
   pick(heroic.name).dispatch('keydown', { key: '-' }); pick(heroic.name).dispatch('keydown', { key: '+' });
   check('keyboard refund and allocation preserve the exact versioned share code and original point rules', changes.at(-2).points === 2 && changes.at(-1).points === 3 && api.validateBuild(data, api.parseBuild(data, byClass(container, 'talents-share-code')[0].getAttribute('value')).build).points === 3);
@@ -240,10 +252,12 @@ async function detailRenderRegression() {
   check('the actual Reset control clears an invested build while retaining class and snapshot data', changes.at(-2).points === 1 && changes.at(-1).points === 0 && changes.at(-1).className === 'paladin' && initialJSON === JSON.stringify(data));
   const importedContainer = document.createElement('main');
   const imported = await browserModule.exports.mount(importedContainer, { className: 'warrior', build: code });
-  check('a shared build identifies the beta snapshot and links the newer Blizzard notes', importedContainer.textContent.includes('16 October beta talent snapshot')
+  // CL2-087 (our 2848069): the calculator runs on the 10 November talent data, which follows the 2 November notes.
+  check('a shared build identifies the 10 November talent data and links the Blizzard notes it follows', importedContainer.textContent.includes('This calculator uses the 10 November talent data, which follows ')
     && importedContainer.all(node => node.tagName === 'A').some(link => link.textContent === "Blizzard's 2 November notes"
       && link.getAttribute('href') === 'https://us.forums.blizzard.com/en/wow/t/2360696/9'));
-  check('the real image renderer imports the unchanged exact build without re-reading or mutating its data', byClass(importedContainer, 'talents-share-code')[0].getAttribute('value') === code && api.validateBuild(data, api.parseBuild(data, code).build).points === 16 && reads === 2 && initialJSON === JSON.stringify(data));
+  // CL2-087/CL2-090 (our 2848069): the imported linked build has 14 points (Improved Tactical Mastery 3 ranks).
+  check('the real image renderer imports the unchanged exact build without re-reading or mutating its data', byClass(importedContainer, 'talents-share-code')[0].getAttribute('value') === code && api.validateBuild(data, api.parseBuild(data, code).build).points === 14 && reads === 2 && initialJSON === JSON.stringify(data));
   imported.destroy();
   pick(paladinFirst.name).dispatch('pointerenter'); pick(paladinFirst.name).parentNode.dispatch('pointerleave', { relatedTarget: null });
   const pendingBeforeDestroy = timers.size === 1;
@@ -267,16 +281,19 @@ async function detailRenderRegression() {
     compare179.dispatch('change', { target: { checked: true } }); compare179.dispatch('change', { target: { checked: false } });
     const comparisonDidNotWrite179 = matrixChanges179.length === changesBeforeCompare179;
     toolbar179.all(node => node.tagName === 'BUTTON').find(button => button.textContent === 'Reset').click();
-    check('.179 ' + cls.name + ': level, rapid rejected point, comparison and reset retain every mounted grid/button and strict share budget', rejected179 && exactTwo179 && comparisonDidNotWrite179 && matrixChanges179.at(-1).points === 0 && byClass(matrixContainer179, 'talents-toolbar')[0] === toolbar179 && grid179.every((grid, index) => byClass(matrixContainer179, 'talents-grid')[index] === grid) && buttons179.every((button, index) => byClass(matrixContainer179, 'talents-pick')[index] === button) && buttons179.every(button => button.all(node => node.tagName === 'IMG')[0].srcAssignments === 1));
+    // CL2-087 (our 2848069): a talent listed in art.json without an official icon is a plain tile with no image.
+    check('.179 ' + cls.name + ': level, rapid rejected point, comparison and reset retain every mounted grid/button and strict share budget', rejected179 && exactTwo179 && comparisonDidNotWrite179 && matrixChanges179.at(-1).points === 0 && byClass(matrixContainer179, 'talents-toolbar')[0] === toolbar179 && grid179.every((grid, index) => byClass(matrixContainer179, 'talents-grid')[index] === grid) && buttons179.every((button, index) => byClass(matrixContainer179, 'talents-pick')[index] === button) && buttons179.every((button, index) => art.talentIconsUnavailable.includes(all(cls)[index].id) ? button.all(node => node.tagName === 'IMG').length === 0 : button.all(node => node.tagName === 'IMG')[0].srcAssignments === 1));
     matrix179.destroy();
   }
   check('.179 decorative feedback is limited to icon controls and explicitly disabled for reduced motion', css.includes('.talents-node[data-feedback="learn-a"]>.talents-pick') && css.includes('@media(prefers-reduced-motion:reduce){.talents-tool *{animation:none!important;transition:none!important}}') && !/\.talents-node\[data-feedback[^}]+\{[^}]*transform:/.test(css));
   const guideContext179 = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(folder, 'guide-builds179.js'), 'utf8'), guideContext179, { filename: 'guide-builds179.js', timeout: 1000 });
   const guideData179 = guideContext179.window.OlympusTalentGuides;
-  check('.179 guide inventory has fourteen allocations from seven classes and original guide sources for all nine', guideData179.revision === data.revision && guideData179.records.length === 14 && new Set(guideData179.records.map(r => r.className)).size === 7 && data.classes.every(c => guideData179.sources.filter(s => s.className === c.id).length === 1));
+  // CL2-087 (our b4065db): on the 10 November data only the three Warlock allocations stay legal; the other eleven are omitted unaltered.
+  check('.179 guide inventory has three allocations from one class and original guide sources for all nine', guideData179.revision === data.revision && guideData179.records.length === 3 && new Set(guideData179.records.map(r => r.className)).size === 1 && data.classes.every(c => guideData179.sources.filter(s => s.className === c.id).length === 1));
   const currentMage185 = guideData179.records.filter(record => record.className === 'mage');
-  check('.185 current Method Mage allocations retain both independently decoded 21 October vectors and matching source dates', currentMage185.length === 2 && currentMage185[0].code === 'ot1.260cf99b52db.mage.60.0000000000000000000000000000000000000525003001001300100' && currentMage185[0].treePoints.join('/') === '0/0/21' && currentMage185[1].code === 'ot1.260cf99b52db.mage.60.0002000000000000000000000000000000000525003201001300200' && currentMage185[1].treePoints.join('/') === '2/0/24' && currentMage185.every(record => record.author === 'Celz' && record.updatedAt === '21st October 2026') && guideData179.sources.filter(source => ['hunter', 'mage'].includes(source.className)).every(source => source.updatedAt === '21st October 2026'));
+  // CL2-087 (our b4065db): both 21 October Mage allocations are omitted on the 10 November data; the source keeps its author and date.
+  check('.185 the two 21 October Method Mage allocations are omitted on the 10 November data while the Mage and Hunter sources keep their 21 October dates', currentMage185.length === 0 && guideData179.sources.filter(source => source.className === 'mage').every(source => source.author === 'Celz' && source.accepted === 0 && source.omitted === 2) && guideData179.sources.filter(source => ['hunter', 'mage'].includes(source.className)).length === 2 && guideData179.sources.filter(source => ['hunter', 'mage'].includes(source.className)).every(source => source.updatedAt === '21st October 2026'));
   for (const record of guideData179.records) {
     const decoded179 = api.parseBuild(data, record.code), checked179 = decoded179.ok && api.validateBuild(data, decoded179.build), source179 = guideData179.sources.find(s => s.className === record.className);
     check('.179 exact published guide vector stays valid without changing ranks: ' + record.id, checked179?.ok && decoded179.build.className === record.className && checked179.points === record.points && checked179.treePoints.join('/') === record.treePoints.join('/') && api.serializeBuild(data, decoded179.build) === record.code && record.url === source179.url && record.author === source179.author && record.updatedAt === source179.updatedAt);
@@ -305,28 +322,31 @@ async function detailRenderRegression() {
   }
   // .196 TG4: checked guide allocations cannot silently change the selected point budget.
   const budgetHost196=document.createElement('main'),budgetChanges196=[];
-  const budgetMount196=await browserModule.exports.mount(budgetHost196,{className:'mage',guideBuilds:clone(guideData179),onBuildChange:value=>budgetChanges196.push(value)});
+  // CL2-087 (our b4065db): the Mage allocations are omitted on the 10 November data; the remaining Warlock allocations (31 and 35 points) test the same rule at level 40 (31 points).
+  const budgetMount196=await browserModule.exports.mount(budgetHost196,{className:'warlock',guideBuilds:clone(guideData179),onBuildChange:value=>budgetChanges196.push(value)});
   const budgetPreset196=value=>budgetHost196.all(node=>node.tagName==='BUTTON'&&node.getAttribute('data-level-preset')===String(value))[0];
   const budgetPanel196=byClass(budgetHost196,'talents-guides')[0],budgetSelect196=budgetPanel196.all(node=>node.tagName==='SELECT')[0],budgetLoad196=budgetPanel196.all(node=>node.tagName==='BUTTON')[0];
-  const mageRecords196=guideData179.records.filter(record=>record.className==='mage'),smallGuide196=mageRecords196.find(record=>record.points===21),largeGuide196=mageRecords196.find(record=>record.points>21);
-  budgetPreset196(30).click();const beforeGuide196=budgetChanges196.length,emptyCode196=byClass(budgetHost196,'talents-share-code')[0].value;
+  const warlockRecords196=guideData179.records.filter(record=>record.className==='warlock'),smallGuide196=warlockRecords196.find(record=>record.points===31),largeGuide196=warlockRecords196.find(record=>record.points>31),budgetLevel196=budgetHost196.all(node=>node.tagName==='SELECT'&&node.getAttribute('aria-label')==='Character level')[0];
+  budgetLevel196.value='40';budgetLevel196.dispatch('change');const beforeGuide196=budgetChanges196.length,emptyCode196=byClass(budgetHost196,'talents-share-code')[0].value;
   budgetSelect196.value=largeGuide196.id;budgetSelect196.dispatch('change');budgetLoad196.click();
-  check('.196 oversized guide stays disabled and cannot silently switch level30 to60 or publish ranks',budgetLoad196.disabled&&budgetPanel196.textContent.includes('choose Level 60 first')&&budgetChanges196.length===beforeGuide196&&byClass(budgetHost196,'talents-share-code')[0].value===emptyCode196&&api.parseBuild(data,emptyCode196).build.level===30);
+  check('.196 oversized guide stays disabled and cannot silently switch level40 to60 or publish ranks',budgetLoad196.disabled&&budgetPanel196.textContent.includes('choose Level 60 first')&&budgetChanges196.length===beforeGuide196&&byClass(budgetHost196,'talents-share-code')[0].value===emptyCode196&&api.parseBuild(data,emptyCode196).build.level===40);
   budgetSelect196.value=smallGuide196.id;budgetSelect196.dispatch('change');budgetLoad196.click();
   const loadedGuide196=api.parseBuild(data,byClass(budgetHost196,'talents-share-code')[0].value),originalGuide196=api.parseBuild(data,smallGuide196.code);
-  check('.196 fitting 21-point guide keeps selected level30 and every exact published rank',loadedGuide196.ok&&loadedGuide196.build.level===30&&loadedGuide196.points===21&&JSON.stringify(loadedGuide196.build.ranks)===JSON.stringify(originalGuide196.build.ranks)&&budgetChanges196.length===beforeGuide196+1&&budgetHost196.textContent.includes('selected level 30'));
+  check('.196 fitting 31-point guide keeps selected level40 and every exact published rank',loadedGuide196.ok&&loadedGuide196.build.level===40&&loadedGuide196.points===31&&JSON.stringify(loadedGuide196.build.ranks)===JSON.stringify(originalGuide196.build.ranks)&&budgetChanges196.length===beforeGuide196+1&&budgetHost196.textContent.includes('selected level 40'));
   budgetSelect196.value=largeGuide196.id;budgetSelect196.dispatch('change');const heldGuide196=budgetLoad196.disabled;budgetPreset196(60).click();
-  check('.196 explicit Level60 change re-evaluates the selected guide without automatically loading it',heldGuide196&&!budgetLoad196.disabled&&api.parseBuild(data,byClass(budgetHost196,'talents-share-code')[0].value).points===21);
+  check('.196 explicit Level60 change re-evaluates the selected guide without automatically loading it',heldGuide196&&!budgetLoad196.disabled&&api.parseBuild(data,byClass(budgetHost196,'talents-share-code')[0].value).points===31);
   check('.196 selected level has visible normal and forced-colour CSS states',css.includes('.talents-level-presets button[aria-pressed="true"]')&&css.includes('@media(forced-colors:active)')&&css.includes('outline:1px solid Highlight'));
   budgetMount196.destroy();
   const staleGuides179 = clone(guideData179), staleGuideContainer179 = document.createElement('main'), staleGuideChanges179 = [];
-  const staleGuide179 = await browserModule.exports.mount(staleGuideContainer179, { guideBuilds: staleGuides179, onBuildChange: change => staleGuideChanges179.push(change) });
+  // CL2-087 (our b4065db): the first remaining allocation is a Warlock one, so the fixture opens the Warlock class.
+  const staleGuide179 = await browserModule.exports.mount(staleGuideContainer179, { className: 'warlock', guideBuilds: staleGuides179, onBuildChange: change => staleGuideChanges179.push(change) });
   const stalePanel179 = byClass(staleGuideContainer179, 'talents-guides')[0], staleSelect179 = stalePanel179.all(node => node.tagName === 'SELECT')[0], staleLoad179 = stalePanel179.all(node => node.tagName === 'BUTTON')[0];
   staleSelect179.value = staleGuides179.records[0].id; staleSelect179.dispatch('change'); staleGuides179.records[0].code = 'ot1.invalid'; staleLoad179.click();
   check('.179 guide Load rechecks the exact code and refuses a changed or invalid allocation without altering the plan', staleGuideChanges179.length === 0 && stalePanel179.textContent.includes('Your plan was not changed') && api.parseBuild(data, byClass(staleGuideContainer179, 'talents-share-code')[0].getAttribute('value')).points === 0);
   staleGuide179.destroy();
   const detachedGuideContainer179 = document.createElement('main'), detachedGuideChanges179 = [], detachedGuides179 = clone(guideData179);
-  const detachedGuide179 = await browserModule.exports.mount(detachedGuideContainer179, { guideBuilds: detachedGuides179, onBuildChange: change => detachedGuideChanges179.push(change) });
+  // CL2-087 (our b4065db): the first remaining allocation is a Warlock one, so the fixture opens the Warlock class.
+  const detachedGuide179 = await browserModule.exports.mount(detachedGuideContainer179, { className: 'warlock', guideBuilds: detachedGuides179, onBuildChange: change => detachedGuideChanges179.push(change) });
   const detachedPanel179 = byClass(detachedGuideContainer179, 'talents-guides')[0], detachedSelect179 = detachedPanel179.all(node => node.tagName === 'SELECT')[0], detachedLoad179 = detachedPanel179.all(node => node.tagName === 'BUTTON')[0];
   detachedSelect179.value = detachedGuides179.records[0].id; detachedSelect179.dispatch('change');
   byClass(detachedGuideContainer179, 'talents-class-button').find(button => button.textContent === 'Druid').click();
@@ -453,7 +473,8 @@ async function detailRenderRegression() {
   const imagesOf188 = (host, name) => byClass(host, name).map(owner => owner.all(node => node.tagName === 'IMG')[0]);
   const drain188 = () => { let settled = 0; while (pending188.size) { if (++settled > 200) throw Error('Image queue did not drain within the finite artwork inventory'); settleImage188([...pending188.keys()][0]); } return settled; };
   const layoutHost188 = delayedDocument188.createElement('main'), layout188 = await browserModule.exports.mount(layoutHost188);
-  const layoutImages188 = layoutHost188.querySelectorAll('img'), navIcons188 = imagesOf188(layoutHost188, 'talents-class-button'), talentIcons188 = imagesOf188(layoutHost188, 'talents-pick');
+  // CL2-087 (our 2848069): a Warrior talent listed in art.json without an official icon is a plain tile with no image to request.
+  const layoutImages188 = layoutHost188.querySelectorAll('img'), navIcons188 = imagesOf188(layoutHost188, 'talents-class-button'), talentIcons188 = imagesOf188(layoutHost188, 'talents-pick').filter((node, index) => !art.talentIconsUnavailable.includes(all(data.classes[0])[index].id));
   const portrait188 = byClass(layoutHost188, 'talents-portrait')[0], backdrops188 = byClass(layoutHost188, 'talents-backdrop');
   const layoutFirst188 = [...imagesOf188(layoutHost188, 'talents-tree-header'), ...backdrops188, portrait188, imagesOf188(layoutHost188, 'talents-tooltip-heading')[0]];
   check('.188 queued and loading artwork keeps its CSS-sized layout box: every image carries the pending class, none has the hidden attribute, and the stylesheet hides it by visibility only',
@@ -485,7 +506,8 @@ async function detailRenderRegression() {
     && switchNav188.filter(node => !node.srcAssignments).length === 5 && switchNav188.every(node => isPending188(node) && !node.hidden) && attempts188.length === beforeSwitch188
     && switchHost188.querySelectorAll('img').every(node => isPending188(node) && !node.hidden));
   drain188();
-  const switchOrder188 = attempts188.slice(beforeSwitch188).map(attempt => attempt.node), paladinTalents188 = imagesOf188(switchHost188, 'talents-pick'), firstPaladinTalent188 = switchOrder188.findIndex(node => paladinTalents188.includes(node));
+  // CL2-087 (our 2848069): the six Paladin talents listed in art.json without an official icon are plain tiles with no image to request.
+  const switchOrder188 = attempts188.slice(beforeSwitch188).map(attempt => attempt.node), paladinTalents188 = imagesOf188(switchHost188, 'talents-pick').filter((node, index) => !art.talentIconsUnavailable.includes(all(data.classes[1])[index].id)), firstPaladinTalent188 = switchOrder188.findIndex(node => paladinTalents188.includes(node));
   const paladinFirst188 = [...imagesOf188(switchHost188, 'talents-tree-header'), ...byClass(switchHost188, 'talents-backdrop'), byClass(switchHost188, 'talents-portrait')[0], imagesOf188(switchHost188, 'talents-tooltip-heading')[0]];
   check('.188 after that switch the new portrait, tree header icons, backdrops and tooltip icon still load ahead of every new talent icon, including still-queued Warrior tree icons reused as Paladin talent icons, and discarded Warrior artwork never starts',
     paladinTalents188.filter(node => warriorHeaders188.includes(node)).length === 2 && firstPaladinTalent188 === 5 + paladinFirst188.length && paladinFirst188.every(node => { const at = switchOrder188.indexOf(node); return at >= 5 && at < firstPaladinTalent188; })
