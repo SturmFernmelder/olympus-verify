@@ -38,10 +38,10 @@ import { STRICT_ROSTER_DISPLAY_PROTOCOL, STRICT_ROSTER_DISPLAY_PROTOCOL_V2, stri
 import { handleLaunchOperations229,handleDiscoveryOperations235 } from './site-launch229';
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
-import { errorRef, idNamespace, heldCause, heldGroup, readUnavailable, routeClass } from "./log";
+import { errorRef, idNamespace, heldCause, readUnavailable, routeClass } from "./log";
 import { audit, now } from "./db";
 import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
-import { PrivacySiteRequestHeld, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
+import { PrivacySiteRequestHeld, privacySiteFailure, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
 import { guildMap } from "./guildmap";
 import { backfillOptions, backfillRoles } from "./backfill";
 import { sweepMemberRoles } from "./restore";
@@ -147,6 +147,11 @@ function originalScheduledCallback(cap:OriginalScheduledCallback,controller:unkn
 export function originalScheduledCallbackObservation(controller:object,ctx:ExecutionContext):Readonly<{scope:'original_scheduled_callback';cron:string;scheduledTime:number;createdAt:number;expiresAt:number;serial:number;normalScheduledEntryQualified:false;providerOrDeploymentQualified:false}>{const cap=scheduledControllers.get(controller);if(!cap)return scheduledHeld();const s=originalScheduledCallback(cap,controller,ctx);return scheduledFreeze({scope:'original_scheduled_callback' as const,cron:s.cron,scheduledTime:s.scheduledTime,createdAt:s.createdAt,expiresAt:s.expiresAt,serial:s.serial,normalScheduledEntryQualified:false as const,providerOrDeploymentQualified:false as const});}
 /** Readonly costs require this exact callback's private cap and exact retained entry restriction. */
 export function originalScheduledCallbackPhysicalCostObservation(controller:object,ctx:ExecutionContext){const cap=scheduledControllers.get(controller);if(!cap)return scheduledHeld();const s=originalScheduledCallback(cap,controller,ctx),constraint=scheduledCostConstraints.get(cap);if(!constraint)return scheduledHeld();const facts=originalGlobalScheduledPhysicalCostObservation(ctx,constraint);if(facts.binding!==s.binding)return scheduledHeld();return scheduledFreeze({...facts,scope:'original_scheduled_callback_physical_cost' as const,createdAt:s.createdAt,expiresAt:s.expiresAt,serial:s.serial});}
+
+// Unknown thrown values may be hostile Proxies; class testing must not replace their 500 response.
+function caughtErrorIs(e:unknown,kind:typeof RecoveryFloorHeld|typeof PrivacyWriteAdmissionHeld|typeof PrivacySiteRequestHeld):boolean{
+ try{return e instanceof kind;}catch{return false;}
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -309,11 +314,11 @@ export default {
       }
       return botResponse280(res);
     } catch (e) {
-      if(e instanceof RecoveryFloorHeld)throw e;
+      if(caughtErrorIs(e,RecoveryFloorHeld))throw e;
       // 14 Nov 2026: one line of fixed labels per held request (log.ts); the line cannot change the answer.
-      if(e instanceof PrivacyWriteAdmissionHeld){try{console.error('request held','write_admission',errorRef(e),heldCause(e),routeClass(path));}catch{}return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);}
-      if(e instanceof PrivacySiteRequestHeld){
-        const label=heldCause(e),group=heldGroup(e);try{console.error('request held','site',errorRef(e),label,group,routeClass(path));}catch{}
+      if(caughtErrorIs(e,PrivacyWriteAdmissionHeld)){try{console.error('request held','write_admission',errorRef(e),heldCause(e),routeClass(path));}catch{}return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);}
+      if(caughtErrorIs(e,PrivacySiteRequestHeld)){
+        const failure=privacySiteFailure(e),label=failure?.cause??'authority',group=failure?.group??'unknown';try{console.error('request held','site',errorRef(e),label,group,routeClass(path));}catch{}
         // Only a GET or HEAD whose failed group was a read, refused by a storage class Cloudflare lists as retryable, is
         // said to be a read failure; every other hold, every group that wrote and every other method answers as before.
         if(readUnavailable(label,group,request.method))return json({error:'read_unavailable',message:'The site could not read its data for a moment. Please try again.'},503);
@@ -325,7 +330,7 @@ export default {
       try { console.error("unhandled", requestId, routeClass(path), errorRef(e), heldCause(e)); } catch {} // .51: class, never the message; 14 Nov 2026: route family, never a path segment, and the line never changes the answer
       return json({ error: "internal", requestId }, 500);
     }
-    });}catch(e){if(e instanceof RecoveryFloorHeld)return json({error:'original_serving_held'},503);throw e;}
+    });}catch(e){if(caughtErrorIs(e,RecoveryFloorHeld))return json({error:'original_serving_held'},503);throw e;}
   },
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

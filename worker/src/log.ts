@@ -12,16 +12,18 @@
 export type ErrorCategory = "upstream" | "d1" | "timeout" | "aborted" | "type" | "syntax" | "range" | "error" | "thrown";
 
 export function errorRef(e: unknown): string {
-  const status = (e as { status?: unknown })?.status;
-  const bounded = typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599 ? `(${status})` : "";
-  return `${categorize(e)}${bounded}`;
+  try {
+    const status = (e as { status?: unknown })?.status;
+    const bounded = typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599 ? `(${status})` : "";
+    return `${categorize(e)}${bounded}`;
+  } catch { return "thrown"; } // A hostile getter or Proxy cannot replace the caller's response.
 }
 
 /** The category is decided by the error's kind, never by copying any of its text. */
 function categorize(e: unknown): ErrorCategory {
   if (!(e instanceof Error)) return "thrown";
   if (typeof (e as { status?: unknown }).status === "number") return "upstream"; // DiscordError and any fetch-shaped failure
-  if (e.message.startsWith("D1_")) return "d1"; // D1_ERROR, D1_TYPE_ERROR, D1_EXEC_ERROR: a prefix test, the text is dropped
+  if (typeof e.message === "string" && e.message.startsWith("D1_")) return "d1"; // D1_ERROR, D1_TYPE_ERROR, D1_EXEC_ERROR: a prefix test, the text is dropped
   switch (e.name) {
     case "TimeoutError":
       return "timeout";
@@ -77,7 +79,7 @@ export const HELD_CAUSES: readonly string[] = Object.freeze([...BASE_CAUSES, ...
 export type HeldCause = string;
 const heldCauseSet = new Set<string>(HELD_CAUSES);
 export const isHeldCause = (value: unknown): value is HeldCause => typeof value === "string" && heldCauseSet.has(value);
-/** Whether the failed database group wrote: carried on a held site request beside its label. */
+/** Whether the actual failed database group wrote; provenance is private to the bound database module. */
 export const HELD_GROUPS = Object.freeze(["read", "write", "unknown"] as const);
 export type HeldGroup = (typeof HELD_GROUPS)[number];
 export const isHeldGroup = (value: unknown): value is HeldGroup => value === "read" || value === "write" || value === "unknown";
@@ -126,14 +128,6 @@ function causeOf(value: unknown): unknown {
     return (value as { cause?: unknown }).cause;
   } catch { return undefined; }
 }
-/** An own data property of a held site request; an accessor is never called. */
-function ownData(value: unknown, key: "heldCause" | "heldGroup"): unknown {
-  try {
-    if (value === null || typeof value !== "object") return undefined;
-    const d = Object.getOwnPropertyDescriptor(value, key);
-    return d && Object.hasOwn(d, "value") ? d.value : undefined;
-  } catch { return undefined; }
-}
 function textRule(message: string | null, cause: string | null): HeldCause | null {
   const m = message === null ? null : afterD1Prefix(message), c = cause === null ? null : afterD1Prefix(cause);
   for (const [label, starts] of TEXT_RULES) {
@@ -146,7 +140,7 @@ function textRule(message: string | null, cause: string | null): HeldCause | nul
 export function heldCause(e: unknown): HeldCause {
   try {
     const message = textOf(e, "message");
-    if (message === "privacy_site_request_held") { const own = ownData(e, "heldCause"); return isHeldCause(own) ? own : "authority"; }
+    if (message === "privacy_site_request_held") return "authority"; // Trusted bound-failure facts live only in their owning module.
     if (message !== null && message.startsWith("privacy_write_admission_held:")) {
       return admissionLabels.get(message.slice("privacy_write_admission_held:".length)) ?? "admission";
     }
@@ -154,14 +148,6 @@ export function heldCause(e: unknown): HeldCause {
     if (message === "privacy_original_user_held") return "user_held";
     return textRule(message, textOf(causeOf(e), "message")) ?? "other";
   } catch { return "other"; }
-}
-/** read, write or unknown: only a held site request carries the fact; everything else is unknown. */
-export function heldGroup(e: unknown): HeldGroup {
-  try {
-    if (textOf(e, "message") !== "privacy_site_request_held") return "unknown";
-    const own = ownData(e, "heldGroup");
-    return isHeldGroup(own) ? own : "unknown";
-  } catch { return "unknown"; }
 }
 
 export type ElapsedClass = "under_100ms" | "under_500ms" | "under_2s" | "2s_or_more" | "unknown";

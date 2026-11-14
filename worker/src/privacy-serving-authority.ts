@@ -17,7 +17,7 @@ import type { PendingRow } from './db';
 import { readSession, sameOrigin, PAGE_VERSION, sign, verify, b64u, apiJson } from './site-core';
 import {inactiveBetaRetentionSatisfiedSql} from './privacy-retention-clocks';
 import {assertOriginalSiteSessionRead,type OriginalSiteSession} from './privacy-site-session-incarnation';
-import {heldCause,heldGroup,isHeldCause,isHeldGroup,elapsedClass,clockMs,type HeldCause,type HeldGroup} from './log';
+import {heldCause,elapsedClass,clockMs,type HeldCause,type HeldGroup} from './log';
 
 export const PRIVACY_DB_NOW = "CAST(strftime('%s','now') AS INTEGER)";
 export const PRIVACY_YEAR = 365 * 86400;
@@ -61,8 +61,13 @@ export function privacyGenerationLiteralFenceSql(subjectExpression:string,genera
  if(!HEX32.test(generation))throw Error('privacy_generation_invalid');
  return `EXISTS(SELECT 1 FROM privacy_subjects WHERE subject_id=${subjectExpression} AND generation='${generation}' AND state='active')`;
 }
-/** 14 Nov 2026: heldCause and heldGroup are read-only, non-enumerable own values of log.ts's closed lists (default authority and unknown); the message and class are unchanged. */
-export class PrivacySiteRequestHeld extends Error{declare readonly heldCause:HeldCause;declare readonly heldGroup:HeldGroup;constructor(cause:HeldCause='authority',group:HeldGroup='unknown'){super('privacy_site_request_held');Object.defineProperty(this,'heldCause',{value:isHeldCause(cause)?cause:'authority',enumerable:false,writable:false,configurable:false});Object.defineProperty(this,'heldGroup',{value:isHeldGroup(group)?group:'unknown',enumerable:false,writable:false,configurable:false});}}
+export class PrivacySiteRequestHeld extends Error{constructor(){super('privacy_site_request_held');}}
+/** Only this module records facts of an actual failed owned group. Public error properties are never evidence. */
+export type PrivacySiteFailure = Readonly<{cause:HeldCause;group:HeldGroup}>;
+const privacySiteFailures=new WeakMap<object,PrivacySiteFailure>();
+export function privacySiteFailure(e:unknown):PrivacySiteFailure|undefined{
+ try{return e!==null&&(typeof e==='object'||typeof e==='function')?privacySiteFailures.get(e):undefined;}catch{return undefined;}
+}
 type AuthorityBind=string|number|null|Readonly<{blob:readonly number[]}>;
 type AuthorityPlan=Readonly<{sql:string;values:readonly AuthorityBind[]|null}>;
 type AuthorityMethod=Readonly<{receiver:object;owner:object;fn:Function}>;
@@ -87,7 +92,20 @@ function originalAuthorityArrayWitness(plan:D1PreparedStatement[]):()=>void{
 
 const ownedCounted=new WeakMap<D1Database,{parent:D1Database;native:D1Database;overhead:number;check:()=>void;registered:boolean}>();
 const privacyDatabaseOverheads=new WeakMap<D1Database,number>(),privacyBoundActors=new WeakMap<D1Database,string>();
-const authorityHeld=():never=>{throw new PrivacySiteRequestHeld();};/* 14 Nov 2026: a bound batch's failure is logged once, by the first layer that catches it, with closed labels only (cause, whether the group wrote, elapsed class). An error this function already threw passes its labels up unlogged; any other one, a fresh witness refusal included, is logged. Classification and the line sit in tries; the throw is unconditional. */const boundBatchLogged=new WeakSet<object>();const boundBatchHeld=(purpose:'site_session'|'subject_generation',e:unknown,began:number,plans:readonly AuthorityPlan[],shape=false):never=>{let label:HeldCause='other',group:HeldGroup='unknown',inner=false;try{inner=!shape&&typeof e==='object'&&e!==null&&boundBatchLogged.has(e);label=shape?'shape':heldCause(e);group=inner?heldGroup(e):plans.some(p=>admissionPlanWrites(p.sql))?'write':'read';}catch{}if(!inner)try{console.error('privacy request held',purpose,label,group,elapsedClass(clockMs()-began));}catch{}const held=new PrivacySiteRequestHeld(label,group);boundBatchLogged.add(held);throw held;};
+const authorityHeld=():never=>{throw new PrivacySiteRequestHeld();};
+// Preserve the exact innermost refusal. Classification and logging add no database work and grant no authority.
+const boundBatchLogged=new WeakSet<object>();
+const boundBatchHeld=(purpose:'site_session'|'subject_generation',e:unknown,began:number,plans:readonly AuthorityPlan[],shape=false):never=>{
+ if(!shape&&privacySiteFailure(e)&&e!==null&&(typeof e==='object'||typeof e==='function')&&boundBatchLogged.has(e))throw e;
+ let label:HeldCause='other',group:HeldGroup='unknown';
+ try{
+  label=shape?'shape':e instanceof PrivacySiteRequestHeld?'authority':heldCause(e);
+  group=plans.some(p=>admissionPlanWrites(p.sql))?'write':'read';
+ }catch{label='other';group='unknown';}
+ try{console.error('privacy request held',purpose,label,group,elapsedClass(clockMs()-began));}catch{}
+ const held=new PrivacySiteRequestHeld();
+ privacySiteFailures.set(held,Object.freeze({cause:label,group}));boundBatchLogged.add(held);throw held;
+};
 function authorityData(object:object,key:string):unknown{const d=Object.getOwnPropertyDescriptor(object,key);if(!d||!Object.hasOwn(d,'value'))return authorityHeld();return d.value;}
 function authoritySlot(receiver:object,name:string):AuthorityMethod|null{let owner:object|null=receiver;for(let i=0;i<4&&owner&&owner!==Object.prototype;i++){const d=Object.getOwnPropertyDescriptor(owner,name);if(d){if(!Object.hasOwn(d,'value')||typeof d.value!=='function')return authorityHeld();return Object.freeze({receiver,owner,fn:d.value});}owner=Object.getPrototypeOf(owner);}return null;}
 function authorityMethod(receiver:object,name:string):AuthorityMethod{const slot=authoritySlot(receiver,name);if(!slot)return authorityHeld();return slot;}

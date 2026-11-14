@@ -105,16 +105,15 @@ check('an error from another realm (vm) is classified by its message alone', L.h
 console.log('\n== heldCause: the held classes ==');
 const A = load('./privacy-serving-authority'), W = load('./privacy-write-admission');
 const Held = A.PrivacySiteRequestHeld;
-const plain = new Held(), labelled = new Held('storage_reset'), bogus = new Held('Tag#1234 SELECT'), d = Object.getOwnPropertyDescriptor(labelled, 'heldCause');
-check('PrivacySiteRequestHeld keeps its message and class', plain instanceof Held && plain instanceof Error && plain.message === 'privacy_site_request_held' && labelled.message === 'privacy_site_request_held' && labelled instanceof Held);
-check('  heldCause is a read-only, non-enumerable own data property, default authority', d && d.value === 'storage_reset' && !d.writable && !d.enumerable && !d.configurable && plain.heldCause === 'authority' && JSON.stringify(labelled) === '{}' && Object.keys(labelled).length === 0);
-check('  a value outside the closed list becomes authority', bogus.heldCause === 'authority' && new Held(undefined).heldCause === 'authority' && new Held({ toString: () => 'storage_reset' }).heldCause === 'authority');
-check('  heldCause passes the own label through unchanged', L.heldCause(labelled) === 'storage_reset' && L.heldCause(new Held('admission:read_epoch_unconfirmed')) === 'admission:read_epoch_unconfirmed' && L.heldCause(new Held('shape')) === 'shape' && L.heldCause(new Held('session')) === 'session');
-check('  without a label (a witness failed) it is authority', L.heldCause(plain) === 'authority' && L.heldCause(new Error('privacy_site_request_held')) === 'authority');
+const plain = new Held(), labelled = new Held('storage_reset', 'read');
+check('PrivacySiteRequestHeld keeps its original message and zero-argument constructor', plain instanceof Held && plain instanceof Error && plain.message === 'privacy_site_request_held' && labelled.message === 'privacy_site_request_held' && Held.length === 0);
+check('  public constructor arguments carry no failure facts', A.privacySiteFailure(plain) === undefined && A.privacySiteFailure(labelled) === undefined && Object.keys(labelled).length === 0 && !Object.hasOwn(labelled, 'heldCause') && !Object.hasOwn(labelled, 'heldGroup'));
 const getterCalls = [];
-const accessor = Object.defineProperty(new Error('privacy_site_request_held'), 'heldCause', { get() { getterCalls.push(1); return 'storage_reset'; } });
-const forged = Object.defineProperty(new Error('privacy_site_request_held'), 'heldCause', { value: 'Tag#1234' });
-check('  an accessor is never called and an unlisted value is never returned', L.heldCause(accessor) === 'authority' && getterCalls.length === 0 && L.heldCause(forged) === 'authority');
+const accessor = Object.defineProperties(new Held(), {heldCause:{get(){getterCalls.push(1);return 'storage_reset';}},heldGroup:{get(){getterCalls.push(1);return 'read';}}});
+const forged = Object.defineProperties(new Held(), {heldCause:{value:'storage_reset'},heldGroup:{value:'read'}});
+check('  descriptors and accessors cannot forge private provenance or select a storage label', A.privacySiteFailure(accessor) === undefined && A.privacySiteFailure(forged) === undefined && L.heldCause(accessor) === 'authority' && L.heldCause(forged) === 'authority' && getterCalls.length === 0);
+const revokedFailure = Proxy.revocable(new Held(), {}); revokedFailure.revoke();
+check('  the private reader accepts unknown and hostile values without inspecting properties', [null,undefined,42,Symbol('synthetic'),{},Object.create(Held.prototype),new Proxy(plain,{get(){throw Error('trap');},getPrototypeOf(){throw Error('trap');}}),revokedFailure.proxy].every(v=>A.privacySiteFailure(v)===undefined));
 const AdmissionHeld = W.PrivacyWriteAdmissionHeld;
 check('admission:<reason> for every listed reason of the real class', L.ADMISSION_REASONS.every((r) => L.heldCause(new AdmissionHeld(r)) === 'admission:' + r));
 check('  an unlisted or extended reason is admission alone, its text dropped', L.heldCause(new AdmissionHeld('pre_seal_compatibility_requires_off')) === 'admission' && L.heldCause(new AdmissionHeld('read_epoch_unconfirmed Tag#1234')) === 'admission' && L.heldCause(new AdmissionHeld('Tag#1234')) === 'admission' && L.heldCause(new AdmissionHeld('')) === 'admission');
@@ -124,11 +123,7 @@ check('  an admission reason with digits or outside the list is admission alone'
 const heldWithCause = new Held('authority'); heldWithCause.cause = 'storage_reset';
 check('  a held error is never classified by a cause value of its own', L.heldCause(heldWithCause) === 'authority');
 
-console.log('\n== heldGroup and the answer rule ==');
-const wrote = new Held('storage_reset', 'write'), read = new Held('storage_reset', 'read'), dg = Object.getOwnPropertyDescriptor(wrote, 'heldGroup');
-check('heldGroup is a read-only, non-enumerable own value, default unknown', dg && dg.value === 'write' && !dg.writable && !dg.enumerable && !dg.configurable && plain.heldGroup === 'unknown' && new Held('storage_reset', 'Tag#1234').heldGroup === 'unknown' && JSON.stringify(wrote) === '{}');
-check('  the reader returns read, write or unknown only', L.heldGroup(wrote) === 'write' && L.heldGroup(read) === 'read' && L.heldGroup(plain) === 'unknown' && L.heldGroup(new Error('D1_ERROR: x')) === 'unknown' && L.heldGroup(thrower0()) === 'unknown' && L.heldGroup(Object.defineProperty(new Error('privacy_site_request_held'), 'heldGroup', { get() { throw Error('x'); } })) === 'unknown');
-function thrower0() { return new Proxy({}, { get() { throw Error('trap'); } }); }
+console.log('\n== the answer rule (facts come only from the private bound-group reader) ==');
 const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'get', '', undefined], GROUPS = ['read', 'write', 'unknown', undefined, 'READ'];
 let ruleBad = [];
 for (const label of [...L.HELD_CAUSES, 'storage_', 'Tag#1234', undefined]) for (const group of GROUPS) for (const m of METHODS) {
@@ -161,6 +156,17 @@ check('  a cyclic cause is read one level only', results[5] === 'other' && resul
 check('  a frozen error is classified', results[7] === 'storage_overloaded');
 check('  only the first 2,048 characters are read', results[9] === 'other' && results[10] === 'storage_network');
 check('  a thrown string is other; a plain object with a documented message is classified by its message', results[16] === 'other' && results[20] === 'storage_reset');
+
+console.log('\n== errorRef never replaces a failed request with another exception ==');
+const throwsOnStatus = Object.defineProperty(new Error('synthetic'), 'status', {get(){throw Error('synthetic');}});
+const throwsOnName = Object.defineProperty(new Error('synthetic'), 'name', {get(){throw Error('synthetic');}});
+const badMessage = Object.defineProperty(new Error('synthetic'), 'message', {value:{toString(){throw Error('synthetic');}}});
+const errorRefs = [];
+let refThrew = false;
+for (const v of [...hostile,throwsOnStatus,throwsOnName,badMessage]) {try{errorRefs.push(L.errorRef(v));}catch{refThrew=true;}}
+check('hostile status/message/name getters, revoked Proxies and non-string messages never throw', !refThrew && errorRefs.every(v=>/^(upstream|d1|timeout|aborted|type|syntax|range|error|thrown)(\([1-5][0-9]{2}\))?$/.test(v)));
+check('  throwing property reads use the fixed fallback thrown', [throwsOnStatus,throwsOnName,throwsOnMessage,revocable.proxy,thrower].every(v=>L.errorRef(v)==='thrown'));
+check('  ordinary error categories and bounded upstream statuses are preserved', L.errorRef(new TypeError('synthetic'))==='type' && L.errorRef(Object.assign(new Error('synthetic'),{status:403}))==='upstream(403)' && L.errorRef(Object.assign(new Error('synthetic'),{status:99999}))==='upstream' && L.errorRef(new Error('D1_ERROR: synthetic'))==='d1');
 
 console.log('\n== property check: heldCause over generated hostile text ==');
 let seed = 1402; const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
@@ -235,9 +241,9 @@ check('  duration and rows classes stay in their closed lists', [0, 9.9, 10, 49,
 console.log('\n== source: every argument of the held-request console lines is closed ==');
 // Stricter than the errorRef( rule of hosts_test.cjs for these lines: each argument is a string literal, a call of a
 // closed-label function of log.ts, or one of the named locals that only ever hold such a value (purpose: the two
-// literals of privacyBoundDbEnv; label and group: heldCause/heldGroup results or 'shape'; requestId: 8 random hex).
-const CLOSED_CALLS = new Set(['errorRef', 'heldCause', 'heldGroup', 'routeClass', 'elapsedClass', 'durationClass', 'rowsReadClass']);
-const CLOSED_LOCALS = { 'privacy-serving-authority.ts': ['purpose', 'label', 'group'], 'index.ts': ['label', 'group', 'requestId'], 'site-access.ts': [], 'log.ts': [] };
+// literals of privacyBoundDbEnv; label and group: private failure facts or raw closed classification; requestId: 8 random hex).
+const CLOSED_CALLS = new Set(['errorRef', 'heldCause', 'routeClass', 'elapsedClass', 'durationClass', 'rowsReadClass']);
+const CLOSED_LOCALS = { 'privacy-serving-authority.ts': ['purpose', 'label', 'group'], 'index.ts': ['label', 'group', 'requestId'], 'site-access.ts': ['label'], 'log.ts': [] };
 const HELD_FIRST = new Set(['privacy request held', 'request held', 'site access unavailable', 'unhandled', 'schema check failed', 'proof cost']);
 const EXPECTED_CALLS = { 'privacy-serving-authority.ts': 1, 'index.ts': 4, 'site-access.ts': 2, 'log.ts': 1 };
 const sourceBad = [], found = {};
