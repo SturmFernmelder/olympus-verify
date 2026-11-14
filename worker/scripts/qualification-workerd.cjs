@@ -1,6 +1,6 @@
 'use strict';
 // One local Workerd process, genuine D1 bindings, synthetic Discord HTTP only.
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto'),cp=require('node:child_process');
 const {buildSync}=require('esbuild'),{Miniflare,Log,LogLevel,convertV4MiniflareOptions}=require('miniflare');
 const root=path.resolve(__dirname,'..'),out=process.argv[2],targets=process.argv.slice(3);
 if(!out||!path.isAbsolute(out)||!fs.statSync(out).isDirectory()||targets.some(x=>!['lease','treasury','reconciliation'].includes(x))||new Set(targets).size!==targets.length)throw Error('invalid_runtime_arguments');
@@ -60,6 +60,15 @@ async function run(){
       const observation=JSON.parse(raw);observations.push({...observation,elapsedSeconds:(performance.now()-started)/1000});
       assert.equal(observation.complete,true);assert.equal(observation.actualLocalWorkerdD1,true);assert(observation.checks.length>0&&observation.checks.every(x=>x.passed===true));
       for(const check of observation.checks)console.log('PASS '+target+': '+check.name);
+      if(target==='baseline'){
+        const cache=observation.checks.find(x=>x.name==='current authenticated cache retires the officer-signed wake capability')?.observed;
+        assert(cache,'actual Workerd queue response is required for the Watcher round trip');
+        const probe=cp.spawnSync(process.env.OLYMPUS_LUA_PYTHON||'python',[path.join(root,'../watcher/tests/queue_capability281_probe.py')],{input:JSON.stringify(cache),encoding:'utf8',windowsHide:true,timeout:20000});
+        fs.writeFileSync(path.join(out,'watcher-cache281.stdout.log'),probe.stdout||'',{flag:'wx'});
+        fs.writeFileSync(path.join(out,'watcher-cache281.stderr.log'),probe.stderr||'',{flag:'wx'});
+        assert.equal(probe.status,0,'actual cache to actual Watcher failed: '+(probe.stderr||probe.error||probe.stdout));
+        console.log(probe.stdout.trim());
+      }
     }
     const fixtureControl=x=>x.method==='POST'&&x.path==='/__fixture/strip-member'&&x.fixtureControl==='strip-member';
     assert.deepEqual(calls.filter(x=>Object.hasOwn(x,'fixtureControl')),targets.includes('reconciliation')?[{method:'POST',path:'/__fixture/strip-member',fixtureControl:'strip-member'}]:[],'only the exact synthetic Member-strip control is excluded from provider effects');

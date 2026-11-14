@@ -60,6 +60,14 @@ export default {async fetch(request,bindings,ctx){
       check('unknown host is refused',unknown.status===404);
       const queue=await worker.fetch(new Request('https://verify.example/queue'),{...config,DB:db},ctx);
       check('watcher queue requires authentication',queue.status===401);
+      const watcherEnv={...config,DB:db,VERIFY_MEMBERSHIP_ONLY:'true',VERIFY_NATIVE_SCOPE:JSON.stringify({version:1,guild:'Olympus',realm:'Fixture Live Realm'})};
+      const cacheResponse=await worker.fetch(new Request('https://verify.example/queue?cacheOnly242=1&keyVersion=launch-membership-v1',{headers:{Authorization:'Bearer '+config.WATCHER_TOKEN}}),watcherEnv,ctx),cache=await cacheResponse.json();
+      check('current authenticated cache retires the officer-signed wake capability',cacheResponse.status===200&&!Object.hasOwn(cache,'independentRoleWake264')&&cache.presenceOnly===true&&cache.setGuildNote===false&&Array.isArray(cache.entries)&&Array.isArray(cache.verificationResults),cache);
+      const oldText=JSON.stringify({kind:'sweep',at:Math.floor(Date.now()/1000),nonce:crypto.randomUUID(),independent:true});
+      const oldKey=await crypto.subtle.importKey('raw',new TextEncoder().encode(config.VERIFY_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+      const oldSignature=Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',oldKey,new TextEncoder().encode('role-continuation242\n'+oldText))),b=>b.toString(16).padStart(2,'0')).join('');
+      const obsoleteWake=await worker.fetch(new Request('https://verify.example/internal/roles242/continue',{method:'POST',headers:{Authorization:'Bearer '+config.WATCHER_TOKEN,'Content-Type':'application/json','X-Olympus-Role-Continuation':oldSignature},body:oldText}),watcherEnv,ctx);
+      check('server-only receiver still refuses the real obsolete officer-signed request',obsoleteWake.status===401);
       const policy=await worker.fetch(new Request('https://guild.example/legal/privacy'),{...config,DB:db},ctx);
       check('public privacy policy is served by actual Worker',policy.status===200&&(await policy.text()).length>0);
       check('D1 foreign-key integrity holds',(await db.prepare('PRAGMA foreign_key_check').all()).results.length===0);

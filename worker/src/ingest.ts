@@ -1048,7 +1048,7 @@ export async function getQueue(env: Env, officer = "", presenceOnly = false, cac
   // Explicit, version-fenced members-only cache reads never enter invitation or relay dispatch.
   if (cacheOnly242) {
     if (launch.mode !== 'members-only') return json({ error: 'unsupported_protocol' }, 400);
-    return json({ presenceOnly: true, entries: [], setGuildNote: false, independentRoleWake264: true, verificationResults: await (await import('./role-reconcile242')).verificationResults242(env) });
+    return json({ presenceOnly: true, entries: [], setGuildNote: false, verificationResults: await (await import('./role-reconcile242')).verificationResults242(env) });
   }
   const who = officer.trim().slice(0, 64);
   const ttl = Math.max(1, intVar(env.QUEUE_CLAIM_TTL_MINUTES, 15)) * 60;
