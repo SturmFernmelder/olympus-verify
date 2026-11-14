@@ -334,11 +334,13 @@ async function frontendOwner197() {
   const entries201=sourceGuides203(guided199),families203=familyCards203(guided199),model203=directoryModel203(guided199);
   check('.203 replaces the dropdowns and duplicate alias cards with exactly one disclosure per canonical family while retaining all139 plus three ordinary source keys',!guided199.app.querySelector('#application-track199')&&!guided199.app.querySelector('#application-office199')&&directoryComplete203(guided199)&&families203.every(row=>!!row.querySelector('summary')));
   check('.203 separates job families, optional activities, standing and institutions into descriptive collapsible groups plus the gated Patron reference',JSON.stringify(guided199.app.querySelectorAll('[data-role-section201]').map(row=>row.getAttribute('data-role-section201')))===JSON.stringify(['council','officers','raid','workshop','members','royal'])&&guided199.app.querySelector('[data-role-section201="members"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="officers"]').hasAttribute('open')&&!guided199.app.querySelector('[data-role-section201="council"]').hasAttribute('open'));
+  // CL2-037 (our 4c7b542, 4b406f6): a purely regional family states the time guidance its NA and EU seats share once, in
+  // the primary's "Shared by every regional assignment" sheet, so its own guide omits the repeated facts.
   check('.203 each canonical family retains local art and substantial duties, expectations and time guidance',families203.every(row=>{
     const family=model203.families.find(item=>item.key===row.getAttribute('data-role-family203')),primary=row.querySelector('.role-primary203'),guide=primary?.querySelector('.role-info');
     return row.querySelector('summary img')?.getAttribute('src')?.startsWith('/static/wow/')&&fs.existsSync(path.join(root,'public',row.querySelector('summary img').getAttribute('src')))
       &&!!family&&!!primary&&(family.kind==='institution'?!primary.querySelector('.rank-office199'):(row.querySelector('summary .rank-office199')||['member','raider','pvp_team'].includes(family.primaryKey)))
-      &&guide?.textContent.includes('Responsibilities')&&guide.textContent.includes('Expectations')&&guide.textContent.includes('Time')&&guide.querySelectorAll('li').length>=4;
+      &&guide?.textContent.includes('Responsibilities')&&guide.textContent.includes('Expectations')&&(guide.textContent.includes('Time')||family.variants.some(variant=>variant.presentation==='region')&&!!primary.querySelector('[data-role-shared1112="region"]')?.textContent.includes('Time'))&&guide.querySelectorAll('li').length>=4;
   }));
   const institutionFamiliesP2 = ['court','high_council','justice','loot_council','privy_council','war_head'];
   check('.218 all six institutions keep their primary free of rank claims and attribute every retained rank badge to its own source',
@@ -356,22 +358,25 @@ async function frontendOwner197() {
   check('.203 exactly three ordinary job families offer applications while optional activities, standings and institutions do not become application tracks',JSON.stringify(guided199.app.querySelectorAll('[data-family-apply203]').map(button=>button.getAttribute('data-family-apply203')).sort())===JSON.stringify(['artisan','member','raider'])&&guided199.app.querySelectorAll('.role-variant203').length===model203.families.reduce((n,f)=>n+f.variants.filter(v=>['office','region','class'].includes(v.presentation)).length,0)&&new Set(families203.map(card=>card.querySelector('summary .role-entry-name201').textContent)).size===72);
   const reservedRows201=allRows201.filter(row=>row.reservedSeat201);
   const leadershipKeys203 = new Set(guided199.boot.meta.ballots.map(ballot => ballot.key));
+  // CL2-036 (our 4c7b542): one eligibility vocabulary (Reserved leadership seat, Appointed, Standing); CL2-035 (same commit):
+  // the ballot reference is the See-also strip's "Vote board" link.
   check('.203 every reserved source key retains its badge and offers only a reference to an existing ballot, where applicable', reservedRows201.length > 70 && reservedRows201.every(row => {
     const card = familyForKey203(guided199, row.key);
     const family = model203.families.find(item => item.key === model203.keyToFamily[row.key]);
-    const badge = family.kind === 'status' ? 'Standing or recognition — not an application'
-      : family.kind === 'institution' ? 'Governance body — not an application' : 'Reserved seat — no applications';
+    const badge = family.kind === 'status' ? 'Standing'
+      : family.kind === 'institution' ? 'Appointed' : 'Reserved leadership seat';
     if (card?.querySelector('summary .badge')?.textContent !== badge || family.application
       || card.querySelector('[data-apply-role201]') || card.querySelector('[data-family-apply203]')) return false;
     const ballotKey = family.sourceKeys.find(key => leadershipKeys203.has(key));
     const boardLinks = card.querySelectorAll('a').filter(link => link.getAttribute('href')?.startsWith('#/vote'));
     return ballotKey
-      ? boardLinks.length === 1 && boardLinks[0].textContent === 'Leadership board'
+      ? boardLinks.length === 1 && boardLinks[0].textContent === 'Vote board'
         && boardLinks[0].getAttribute('href') === '#/vote/' + encodeURIComponent(ballotKey)
       : boardLinks.length === 0;
   }));
   const tradingFamily208 = familyForKey203(guided199, 'office_96'), tradingGuide208 = guided199.boot.meta.roleGuides201.office_96;
-  check('.208 canonical directory gives Trading its own detailed reserved Council family without a purchase or application action', tradingFamily208?.getAttribute('data-role-family203') === 'head_trading' && tradingFamily208.querySelector('summary .role-entry-name201')?.textContent === 'Lord High Factor · Minister of Trading & Markets' && tradingFamily208.textContent.includes(tradingGuide208.definition) && tradingGuide208.responsibilities.every(text => tradingFamily208.textContent.includes(text)) && tradingFamily208.querySelector('summary .badge')?.textContent==='Reserved seat — no applications' && !tradingFamily208.querySelector('[data-apply-role201]') && !tradingFamily208.querySelector('[data-family-apply203]') && !tradingFamily208.querySelectorAll('a').some(link=>link.getAttribute('href')?.startsWith('#/vote/')));
+  // CL2-036 (our 4c7b542): a reserved seat's badge reads "Reserved leadership seat".
+  check('.208 canonical directory gives Trading its own detailed reserved Council family without a purchase or application action', tradingFamily208?.getAttribute('data-role-family203') === 'head_trading' && tradingFamily208.querySelector('summary .role-entry-name201')?.textContent === 'Lord High Factor · Minister of Trading & Markets' && tradingFamily208.textContent.includes(tradingGuide208.definition) && tradingGuide208.responsibilities.every(text => tradingFamily208.textContent.includes(text)) && tradingFamily208.querySelector('summary .badge')?.textContent==='Reserved leadership seat' && !tradingFamily208.querySelector('[data-apply-role201]') && !tradingFamily208.querySelector('[data-family-apply203]') && !tradingFamily208.querySelectorAll('a').some(link=>link.getAttribute('href')?.startsWith('#/vote/')));
   check('.208 Trading keeps its complete limits visible without absorbing the Treasurer, Artisanry or Auditor families', ['office_86', 'office_58', 'office_08'].every(key => familyForKey203(guided199, key) !== tradingFamily208) && tradingFamily208.textContent.includes('Treasurer retains financial custody') && tradingFamily208.textContent.includes('auditor remains independent') && !guided199.app.querySelector('form'));
   for(const [label,keys] of [['Officer',['office_62','officer','rank_officer']],['Raider',['office_75','raider','rank_raider']],['Treasurer',['office_86','treasurer','rank_treasurer']]]){
     const familyKeys=keys.map(key=>model203.keyToFamily[key]);
@@ -379,7 +384,10 @@ async function frontendOwner197() {
   }
   for(const [key,region,times] of [['raid_leader_na','North American','7 pm to midnight (4 to 9 pm Pacific)'],['raid_leader_eu','European','7 pm to midnight (6 to 11 pm UK)']]){
     const card=guided199.app.querySelector('[data-role-key201="'+key+'"]');
-    check('.203 '+key+' remains a nested regional guide with its full schedule, preparation, calls, loot and conduct mandate',card?.classList.contains('role-variant203')&&familyForKey203(guided199,key).contains(card)&&card.textContent.includes(region)&&card.textContent.includes(times)&&card.textContent.includes('2 to 3 hours of preparation')&&card.textContent.includes('strategy, positions, assignments')&&card.textContent.includes('pulls, wipes, pace and breaks')&&card.textContent.includes('Loot Council')&&card.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
+    // CL2-037 (our 4c7b542, 4b406f6): the NA and EU drawers keep only their own region and times; the preparation, calls,
+    // loot and conduct mandate both share is stated once on the family, in "Shared by every regional assignment".
+    const sharedSheet1112=familyForKey203(guided199,key)?.querySelector('.role-primary203 [data-role-shared1112="region"]');
+    check('.203 '+key+' remains a nested regional guide with its full schedule, and its family states the shared preparation, calls, loot and conduct mandate',card?.classList.contains('role-variant203')&&familyForKey203(guided199,key).contains(card)&&card.textContent.includes(region)&&card.textContent.includes(times)&&!!sharedSheet1112?.textContent.includes('2 to 3 hours of preparation')&&sharedSheet1112.textContent.includes('strategy, positions, assignments')&&sharedSheet1112.textContent.includes('pulls, wipes, pace and breaks')&&sharedSheet1112.textContent.includes('Loot Council')&&sharedSheet1112.textContent.includes('No flaming after a wipe')&&!card.querySelector('button'));
   }
   const classKeys203=['warrior','paladin','hunter','rogue','priest','shaman','mage','warlock','druid'].map(key=>'class_lead:'+key);
   check('.203 all nine class leads retain distinct nested duties and expectations under one class leadership family',new Set(classKeys203.map(key=>model203.keyToFamily[key])).size===1&&classKeys203.every(key=>{const card=guided199.app.querySelector('[data-role-key201="'+key+'"]'),guide=guided199.boot.meta.roleGuides201[key];return card?.classList.contains('role-variant203')&&card.textContent.includes(guide.definition)&&guide.responsibilities.every(text=>card.textContent.includes(text))&&guide.expectations.every(text=>card.textContent.includes(text))&&!card.querySelector('[data-apply-role201]');}));
@@ -436,13 +444,19 @@ async function frontendOwner197() {
   const roles199=await openPage(APPLICANT199,{},writsOn200);await roles199.go('#/roles/rosetta-stone');
   const exactNames199=['Leader (Guild Master)','High Council','Officer','Officer Alt','Raid Leader','Veteran','Raider','Member','Alt','Initiate'];
   const nativeCards199=roles199.app.querySelectorAll('.role-ranks203 [data-native-slot]');
-  check('.203 role guide fronts exactly ten compact links with the rank display names and owner-confirmed slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.tagName==='A'&&card.getAttribute('data-native-slot')===String(index)&&card.querySelector('.role-rank-number203').textContent===String(index+1)&&card.textContent.endsWith(exactNames199[index])&&card.getAttribute('data-rank-family203')===directoryModel203(roles199).ranks[index].familyKey&&card.getAttribute('href')==='#/roles/'+encodeURIComponent(directoryModel203(roles199).ranks[index].familyKey)&&!card.querySelector('.role-info')));
+  // CL2-197, CL2-310 (our 4c7b542): each link of the one ladder ends with its game slot, "Slot N", after the rank name.
+  check('.203 role guide fronts exactly ten compact links with the rank display names and owner-confirmed slots',nativeCards199.length===10&&nativeCards199.every((card,index)=>card.tagName==='A'&&card.getAttribute('data-native-slot')===String(index)&&card.querySelector('.role-rank-number203').textContent===String(index+1)&&card.textContent.endsWith(exactNames199[index]+'Slot '+index)&&card.getAttribute('data-rank-family203')===directoryModel203(roles199).ranks[index].familyKey&&card.getAttribute('href')==='#/roles/'+encodeURIComponent(directoryModel203(roles199).ranks[index].familyKey)&&!card.querySelector('.role-info')));
   const table199=roles199.app.querySelector('.rosetta-table199'),headings199=['In-Game Rank Number & Name','Tier & Statutory Codex Title','Organization Department & Branch Offices','Discord Role & Portal Access','How to Attain It'];
   const rows199=table199.querySelectorAll('[data-rank-crosswalk]');
   check('.199 Rosetta Stone has five named columns and ten complete individually labelled rank rows',JSON.stringify(table199.querySelectorAll('th').map(th=>th.textContent))===JSON.stringify(headings199)&&rows199.length===10&&rows199.every((row,index)=>row.getAttribute('data-rank-crosswalk')===String(index+1)&&row.querySelectorAll('td').length===5&&row.querySelectorAll('td').every((td,column)=>td.getAttribute('data-column')===headings199[column])));
+  // CL2-046 (our 4c7b542): ranks 6 to 10 state their own way in instead of one shared sentence; the apply links are the
+  // three choices of the owner ruling of 14 Nov 2026 (our 111867e), each in the row of its rank, in catalogue order.
   check('.218 all five leadership rank rows use reserved rather than royal appointment wording and offer no public application',
     rows199.slice(0,5).every(row=>{const cell=row.querySelectorAll('td')[4];return cell.querySelector('p')?.textContent==='Reserved appointment; no public application.'&&!cell.textContent.includes('Royal appointment')&&!cell.querySelector('a[href^="#/vote"]');})
-    &&rows199.slice(5).every(row=>row.querySelectorAll('td')[4].textContent.startsWith('Membership, raiding and artisan work use the role directory; other standing and titles require their own review. ')&&row.querySelectorAll('td')[4].querySelector('a[href="#/roles"]')?.textContent==='Explore the role directory'));
+    &&JSON.stringify(rows199.slice(5).map(row=>{const cell=row.querySelectorAll('td')[4];return [cell.textContent,cell.querySelectorAll('a').map(link=>[link.textContent,link.getAttribute('href')])];}))===JSON.stringify([
+      ['Through officer review; there is no application for this rank.',[]],['Apply: Raider',[['Raider','#/vote/raider/new']]],
+      ['Apply: Artisan · Guild Member',[['Artisan','#/vote/artisan/office_07'],['Guild Member','#/vote/member/new']]],
+      ['Through officer review; there is no application for this rank.',[]],['Through officer review; there is no application for this rank.',[]]]));
   // CL2-035/CL2-046 (our 4c7b542): each rank row also links its role guide. The per-key organization links, the bridge,
   // come from our 8f031a9 (RC-199): every stored key keeps its own register link under its family.
   const bridgeLinks199=rows199.flatMap(row=>row.querySelectorAll('li a')),bridgeKeys199=bridgeLinks199.filter(link=>link.getAttribute('href').startsWith('#/organization/')).map(link=>decodeURIComponent(link.getAttribute('href').slice('#/organization/'.length)));
@@ -650,7 +664,23 @@ async function frontendOwner197() {
       const loader = instantiate199(actualStaticFetch, globalThis.crypto, TextDecoder, (object,key)=>Object.prototype.hasOwnProperty.call(object,key));
       return {read:()=>loader.governanceModel(),reads,override:bytes=>{bodyOverride=bytes;}};
     };
-    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',modelBytes199.length===454392&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
+    // CL2-039 (our 6162226, 80db07c, 44a743a; owner ruling of 13 Nov 2026) and the owner rulings of 14 Nov 2026 (our 111867e,
+    // 3c8abee) changed the model. Two finite inverses undo exactly those declared changes and refuse any other value of the
+    // fields they touch (the 14 Nov values as in evergreen1112_governance_test.cjs; reportingLines1113 through the generator's
+    // restoreReportingLines1113, its record pinned as in frontend_check.cjs). The model is the generator's exact
+    // JSON.stringify(model, null, 2) + "\n", so the restored model has the .199 body length again.
+    const OLD1114_199='Apply on /#/vote; acceptance, appointment and access require separate officer review.';
+    const RULING1114_199={office_25:{applicationEligible:[true,false],applicationRoleKeys:[['raider'],[]],acquisition:[OLD1114_199,'Granted by the raid leads. There is no separate application: apply as Raider.']},
+      office_27:{applicationEligible:[true,false],applicationRoleKeys:[['member'],[]],acquisition:[OLD1114_199,'There is no separate application: apply as Artisan.']}};
+    const undo1114_199=current=>{const out=structuredClone(current);
+      for(const [list,keyField] of [['terms','officeKey'],['appointments','key']])for(const [key,fields] of Object.entries(RULING1114_199)){const rows=(out[list]||[]).filter(row=>row[keyField]===key);if(rows.length!==1)throw Error('ruling1114_row '+list+' '+key);
+        for(const [field,[before,after]] of Object.entries(fields)){if(JSON.stringify(rows[0][field])!==JSON.stringify(after))throw Error('ruling1114_value '+list+' '+key+' '+field);rows[0][field]=structuredClone(before);}}
+      const tracks=(out.applicationTracks||[]).filter(row=>row.id==='raider');if(tracks.length!==1||tracks[0].label!=='Raider & PvE Progression Track')throw Error('label1114_value raider');tracks[0].label='Core Raider & PvE Progression Track';
+      return out;};
+    const earlierBytes199=(()=>{try{const current=JSON.parse(modelBytes199),record=current.reportingLines1113;
+      if(!record||!Array.isArray(record.changes)||record.changes.length!==12||require('node:crypto').createHash('sha256').update(JSON.stringify(record)).digest('hex')!=='b5d676a512b13c91af596ce299d27ec27dfe002fb72edd262a5e89f9f7c8661e')return -1;
+      return Buffer.byteLength(JSON.stringify(require(path.join(root,'../scripts/build-governance-titles.cjs')).restoreReportingLines1113(undo1114_199(current)),null,2)+'\n');}catch{return -1;}})();
+    check('.199 regression uses the actual expanded Organization body above128KiB within its finite512KiB model cap',earlierBytes199===454392&&modelBytes199.equals(Buffer.from(JSON.stringify(JSON.parse(modelBytes199),null,2)+'\n'))&&modelBytes199.length>131072&&modelBytes199.length<=524288&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_MODEL, 524288)')&&actualLoaderSource199.includes('publicGovernanceBytes(GOVERNANCE_BOOK, 524288)'));
     const currentClient199=loadClient199(),model199=await currentClient199.read();
     check('.199 actual authenticated Worker HTTP and current app loader accept every source byte with103 terms and exact book pins',currentClient199.reads.length===1&&currentClient199.reads[0].status===200&&currentClient199.reads[0].bytes===modelBytes199.length&&currentClient199.reads[0].credentials==='same-origin'&&currentClient199.reads[0].redirect==='error'&&JSON.stringify(model199)===JSON.stringify(JSON.parse(modelBytes199))&&model199.terms.length===103&&model199.appointments.length===139);
     // Reuse the existing Organization DOM fixture definitions, not its test body.
@@ -671,11 +701,15 @@ async function frontendOwner197() {
     rendererExecution199._compile(rendererPrefix199.replace(dataBinding199,'const data = module.loadedModel199;')+'\nmodule.exports = open;',rendererFixturePath199);
     const rendered199=rendererExecution199.exports({overview205:false});
     check('.199 the actual focused Organization renderer paints the model returned by the real app HTTP loader',!rendered199.one('org-alliance')&&rendered199.one('org-relationship-map205').open&&rendered199.main.all(node=>node.classList.contains('organization-term')).length===103&&rendered199.main.all(node=>!!node.getAttribute('data-office-key')).length===103&&rendered199.main.all(node=>!!node.getAttribute('data-native-rank')).length===10&&rendered199.main.textContent.includes('Technical & Historical Profile Notes'));
-    // Follow the canonical Artisan link through the real app and Worker. The
-    // former Crafter/Core Raider URLs below remain explicit historical intent
-    // compatibility, not additional publicly offered jobs or canonical aliases.
+    // Follow the canonical Artisan link through the real app and Worker. Since the owner ruling of 14 Nov 2026 ("No, three
+    // choices only"; our 111867e) the former Crafter/Core Raider URLs below read "Application track unavailable"; they are
+    // not additional publicly offered jobs or canonical aliases.
     const publicChoices203=rendered199.main.all(node=>!!node.getAttribute('data-office-application'));
-    check('.203 Organization offers only the three canonical ordinary choices from its shared family contract',publicChoices203.length===3&&JSON.stringify(publicChoices203.map(node=>node.getAttribute('href')).sort())===JSON.stringify(['#/vote/artisan/office_07','#/vote/member/new','#/vote/raider/new']));
+    // CL2-036 (our 4c7b542): the register offers each accepted intent in its link row and on the card of each office whose
+    // family it belongs to (Artisan office_07, Raider office_75, Member office_55); the same three addresses on both surfaces.
+    const rowChoices203=publicChoices203.filter(node=>node.parentNode?.classList.contains('btn-row')),cardChoices203=publicChoices203.filter(node=>!!node.parentNode?.getAttribute('data-office-key'));
+    check('.203 Organization offers only the three canonical ordinary choices from its shared family contract',publicChoices203.length===6&&rowChoices203.length===3&&cardChoices203.length===3&&JSON.stringify(rowChoices203.map(node=>node.getAttribute('href')).sort())===JSON.stringify(['#/vote/artisan/office_07','#/vote/member/new','#/vote/raider/new'])
+      &&JSON.stringify(cardChoices203.map(node=>[node.parentNode.getAttribute('data-office-key'),node.getAttribute('href')]).sort())===JSON.stringify([['office_07','#/vote/artisan/office_07'],['office_55','#/vote/member/new'],['office_75','#/vote/raider/new']]));
     const nonleadLinks199 = [['office_07','artisan','member','730000000000001990','Artisan One'],['office_27','artisan','member','730000000000001991','Crafter One'],['office_25','raider','raider','730000000000001992','Raider One']];
     for (const [target,track,canonical,id,name] of nonleadLinks199) {
       const links=rendered199.main.all(node=>node.getAttribute('data-office-application')===target),legacyHref203='#/vote/'+track+'/'+target;
@@ -686,8 +720,13 @@ async function frontendOwner197() {
       const seeded=await request('PUT','/api/application',seed,id);if(seeded.response.status!==200)throw Error('nonleadership original form seed refused');
       const linked=await openPage(id),sent=[];linked.before((url,init)=>{if(url==='/api/application'&&init.method==='PUT')sent.push(JSON.parse(init.body));return false;});
       await linked.go(href);const form=linked.app.querySelector('form');
-      check((target==='office_07'?'.203 actual canonical Organization link':'.203 explicit historical '+target+' URL')+' opens its matching form and exact target badge',!!form&&!!linked.app.querySelector('#application-track-chooser228')&&!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked);
-      if(!form){await linked.go('#/');continue;}
+      // Owner ruling of 14 Nov 2026 (our 111867e): office_27 and office_25 are no longer application targets, so their typed
+      // addresses read "Application track unavailable" (app.js route check on applicationEligible) and open no form. Only the
+      // form-bound checks below are skipped for them; the exact link validation after them still runs for every target.
+      check(target==='office_07'?'.203 actual canonical Organization link opens its matching form and exact target badge':'.203 former '+target+' URL reads Application track unavailable and opens no form or target badge',target==='office_07'?!!form&&!!linked.app.querySelector('#application-track-chooser228')&&!linked.app.querySelector('#application-directory201')&&!!linked.app.querySelector('[data-target-office="'+target+'"]')&&linked.app.querySelectorAll('input[name="position"]').find(input=>input.value===canonical)?.checked
+        :!form&&!linked.app.querySelector('[data-target-office]')&&!linked.app.querySelector('button[type="submit"]')&&linked.app.textContent.includes('Application track unavailable'));
+      if(!form&&target==='office_07'){await linked.go('#/');continue;}
+      if(form){
       check('.199 '+target+' link grants no public-intent or portrait consent',!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
       form.querySelector('[data-field="ack"] input').checked=true;fire(form,'submit');
       const saved=()=>{const row=one('SELECT answers FROM site_applications WHERE discord_id=?',id);return row&&JSON.parse(row.answers);};
@@ -703,6 +742,7 @@ async function frontendOwner197() {
         const artisanChoice203=linked.app.querySelector('[data-family-apply203="artisan"]');
         await linked.go(artisanChoice203.getAttribute('href'));await must(()=>!!linked.app.querySelector('form')&&!!linked.app.querySelector('[data-target-office="office_07"]'),'.203 explicit canonical Artisan local choice');
         check('.203 only an explicit new Artisan choice changes local intent while the stored Crafter record and consents stay untouched',linked.location.hash==='#/vote/artisan/office_07'&&saved().targetOffice==='office_27'&&sent.length===1&&JSON.stringify(one('SELECT * FROM site_applications WHERE discord_id=?',id))===priorCrafter203&&!linked.app.querySelector('#board-application-intent199').checked&&!linked.app.querySelector('#board-portrait-opt-in').checked&&!linked.app.querySelector('#board-talent-builds-opt-in').checked);
+      }
       }
       for(const route of ['#/vote/member/'+target,'#/vote/'+track+'/office_999','#/vote/'+track+'/office_43','#/vote/officer/new']) {
         await linked.go(route);check('.199 exact non-leadership link validation refuses '+route+' without a stale form',!linked.app.querySelector('form')&&!linked.app.querySelector('[data-target-office]')&&(linked.app.textContent.includes('Application track unavailable')||linked.app.textContent.includes('Reserved seat — no applications')));
