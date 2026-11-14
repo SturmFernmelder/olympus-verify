@@ -96,8 +96,9 @@ check('.221 the chart controls precede the rank and Council reading sections',wi
 const deepOffice205=open({overview205:true,parts:['office_27']});
 check('.205 an existing office deep link reveals its complete mandate inside the outer map',deepOffice205.one('org-relationship-map205').open&&deepOffice205.doc.activeElement===deepOffice205.detail&&deepOffice205.detail.textContent.includes('Crafter'));
 const deepNode205=open({overview205:true,parts:['treasury']});
-// CL2-047 (our 4c7b542): the treasury node holds the treasurer seat and shows that seat's Cabinet title, not "Federal Treasury".
-check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.textContent.includes('Lord High Treasurer · Minister of the Imperial Exchequer'));
+// CL2-047 (our 4c7b542): the treasury node holds the treasurer seat; the mandate's heading is that seat's Cabinet title, not
+// "Federal Treasury".
+check('.205 an existing department deep link reveals and focuses the requested mandate',deepNode205.one('org-relationship-map205').open&&deepNode205.doc.activeElement===deepNode205.detail&&deepNode205.detail.children.some(n=>n.tagName==='H2'&&n.textContent==='Lord High Treasurer · Minister of the Imperial Exchequer'));
 wide205.main.all(n=>n.getAttribute('data-office-key')==='office_08')[0].children[0].click(0);
 check('.205 historical catalogue selections reveal the outer map before focusing its reader',wide205.one('org-relationship-map205').open&&wide205.doc.activeElement===wide205.detail);
 // CL2-034 (our 4c7b542; directive line 45): the register uses the directory's six catalogue groups, each once and in order,
@@ -105,11 +106,13 @@ check('.205 historical catalogue selections reveal the outer map before focusing
 check(".218 exact ten ranks and all103 current office records are visible", p.main.all(n=>!!n.getAttribute('data-native-rank')).map(n=>n.children[0].textContent).join('|') === 'Leader (Guild Master)|High Council|Officer|Officer Alt|Raid Leader|Veteran|Raider|Member|Alt|Initiate' && p.main.all(n=>!!n.getAttribute('data-office-key')).length === 103 && p.main.all(n=>n.getAttribute('data-catalog-group')).map(n=>n.getAttribute('data-catalog-group')).join('|')==='council|officers|raid|workshop|members|royal');
 const leader118 = open({ parts: ['office_43'] });
 // CL2-041, CL2-197, CL2-310 (our 4c7b542; directive line 52): the panel's placement sentence is gone; rank and slot are
-// stated once, in the badge, as "Rank 1 Leader (Guild Master) · Slot 0".
+// stated once, in the badge, as "Rank 1 Leader (Guild Master) · Slot 0": one badge part names a rank, and the mandate
+// names the slot-0 display name once.
 check('CC-118 the relationship map explains the exact in-game name and labels the rank-one mandate once in its badge without changing the data',
   leader118.one('org-rank-guide').textContent.includes('The in-game name for slot 0 is Guild Master.')
   && leader118.detail.all(node => node.getAttribute('data-native-placement') !== null).length === 0
-  && leader118.detail.all(node => node.classList.contains('org-office-badges')).some(node => node.children.some(part => part.textContent === 'Rank 1 Leader (Guild Master) · Slot 0'))
+  && leader118.detail.all(node => node.classList.contains('org-office-badges')).flatMap(node => node.children.map(part => part.textContent)).filter(text => text.startsWith('Rank ')).join('|') === 'Rank 1 Leader (Guild Master) · Slot 0'
+  && leader118.detail.textContent.split('Leader (Guild Master)').length === 2
   && data.nativeRanks[0].name === 'Leader' && data.nativeRanks[0].nativeSlot === 0);
 leader118.dispose();
 // Current labels describe these five standing records without rewriting the historical model.
@@ -125,8 +128,10 @@ check(".218 the five native-standing office cards use a rank-reference label whi
   && nativeDepartmentKeys218.every(key => { const card = rawOfficeCard218(key); return card && card.children.some(n => n.tagName === 'P' && n.textContent === 'In-game rank reference') && !card.children.some(n => n.tagName === 'P' && n.textContent === 'Ten native rank slots'); })
   && JSON.stringify(data) === originalDataCount208);
 function modelNativeDepartmentKeys218() { return data.terms.filter(term => term.department === 'Ten native rank slots').map(term => term.officeKey).sort().join('|'); }
-// CL2-041, CL2-220 (our 4c7b542): a note shared by several titles is boilerplate and leaves the cards; a note that belongs
-// to one title alone is still shown on that title's card.
+// CL2-041, CL2-220 (our 4c7b542) and owner directive line 51 (every role card deduplicated, zero repetition): a note shared
+// by several titles is boilerplate and leaves the cards; a note that belongs to one title alone is still shown on that
+// title's card. This rule (one title) is deliberately stricter than the product's (fewer than three); in organization.json
+// no note is used by exactly two titles, so both select the same notes.
 const noteUses218 = note => data.terms.filter(term => term.note === note).length;
 check(".218 all other office departments and every title-specific source note remain visible without a broad relabel",
   data.terms.every(term => { const card = rawOfficeCard218(term.officeKey); return card && card.children.some(n => n.tagName === 'P' && n.textContent === term.note) === (noteUses218(term.note) === 1)
@@ -152,10 +157,11 @@ check("all reserved tiers have no application link even with the historical cata
 const occupied199=open({officeAvailability:{office_03:false,office_62:false,office_74:true,office_07:true,office_27:false},parts:['office_27']});
 check("old Crafter inspector links explicitly to the canonical Artisan choice without rewriting its old record",!occupied199.main.all(n=>['office_03','office_62','office_74','office_27'].includes(n.getAttribute('data-office-application'))).length&&occupied199.main.all(n=>n.getAttribute('data-office-application')==='office_07').some(n=>n.getAttribute('href')==='#/vote/artisan/office_07'));
 const reserved203=open({officeAvailability:{office_74:true},parts:['raid_leader_na']});
-// Our 4c7b542 (CL2-036): apply links appear exactly where the Worker accepts the intent (validateApplicationIntent199),
-// which adds the Crafter (office_27, artisan) and Core Raider (office_25, raider) targets. The reserved office_74 with
-// its stale open flag still has no link, and no officer or High Council track is offered.
-check("historical regional leadership inspector remains reserved despite a stale open flag",reserved203.main.all(n=>n.getAttribute('data-office-application')).length>0&&reserved203.main.all(n=>n.getAttribute('data-office-application')).every(n=>['member','raider','office_07','office_27','office_25'].includes(n.getAttribute('data-office-application'))&&!['officer','high_council'].includes(n.getAttribute('data-application-track')))&&!reserved203.main.all(n=>n.getAttribute('data-office-application')==='office_74').length);
+// Our 4c7b542 (CL2-036): apply links appear exactly where the Worker accepts the intent (validateApplicationIntent199).
+// Owner rulings of 14 Nov 2026 (claude/entry-140 "No, three choices only", entry-143; our 111867e, aee8cfc):
+// those are Guild Member, Raider and Artisan (office_07) only; Core Raider (office_25) and Crafter (office_27) are not
+// offered. The reserved office_74 with its stale open flag still has no link, and no officer or High Council track is offered.
+check("historical regional leadership inspector remains reserved despite a stale open flag",[...new Set(reserved203.main.all(n=>n.getAttribute('data-office-application')).map(n=>n.getAttribute('data-office-application')))].sort().join('|')==='member|office_07|raider'&&reserved203.main.all(n=>n.getAttribute('data-office-application')).every(n=>!['officer','high_council'].includes(n.getAttribute('data-application-track')))&&!reserved203.main.all(n=>n.getAttribute('data-office-application')==='office_74').length);
 check("historical profiles are collapsed behind the named technical disclosure and the crosswalk is linked",p.main.all(n=>n.tagName==='DETAILS'&&n.classList.contains('org-profile-notes')).some(n=>!n.open&&n.children[0].textContent==='Technical & Historical Profile Notes')&&p.main.all(n=>n.tagName==='A').some(n=>n.getAttribute('href')==='#/roles/rosetta-stone'));
 check("all non-classification offices retain chart cards", p.main.all(n => !!n.getAttribute("data-organization-node")).length === data.nodes.filter(n => n.relation !== "classification").length);
 check("the Council remains initially selected", p.node("council").getAttribute("aria-pressed") === "true");
@@ -356,7 +362,8 @@ before = k.stage.style.transform;
 check("ordinary wheel scrolling is left to the page", !k.viewport.dispatch("wheel", { deltaY: -1 }).defaultPrevented && k.stage.style.transform === before);
 check("Ctrl-wheel still zooms within the chart", k.viewport.dispatch("wheel", { ctrlKey: true, deltaY: -1, clientX: 100, clientY: 100 }).defaultPrevented && k.stage.style.transform !== before);
 const mobile = open({ mobile: true, width: 315 });
-check("small screens open the full map", !mobile.viewport.hidden && mobile.one("org-list").hidden);
+// CL2-042 (our 4c7b542): a phone opens the chart (on the branch, see below), not the list; renamed, the map is no longer full.
+check("small screens open the chart rather than the list", !mobile.viewport.hidden && mobile.one("org-list").hidden);
 mobile.button("Chart").click();
 // CL2-042 (our 4c7b542): the chart opens on the High Council branch at a readable scale, on phones too; Full map is one
 // click away.
@@ -364,9 +371,14 @@ check("mobile Chart keeps the fitted branch when selected", mobile.button("Fit b
 mobile.button("Full map").click();
 check("opening Chart on mobile starts with all offices in a fitted complete overview", visibleIds(mobile).length === chartNodes.length && mobile.button("Full map").getAttribute("aria-pressed") === "true" && wholeMapFits(mobile));
 mobile.button("Fit branch").click();
-// REV-GOV-6 (our 1b893d5): below 600 px the branch stacks in one column (parent, office, children), lines on the right:
-// every shown card has the same left edge, and the canvas is that one 230 px card column plus its line gutter (274 px).
-check("a narrow chart keeps connected offices readable on its contained pannable canvas", parseFloat(mobile.stage.style.width) === 274 && new Set(mobile.main.all(n => n.getAttribute("data-organization-node") && !n.hidden).map(n => n.style.left)).size === 1 && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
+// REV-GOV-6 (our 1b893d5): below 600 px the branch stacks in one column (parent, office, children) with every line on the
+// right, so the office and its first children share the first screen. As a property: more than one card shown, all on one
+// left edge, each 230 px card and each line inside the canvas, every line right of the column, the canvas within the phone.
+check("a narrow chart keeps connected offices readable on its contained pannable canvas", (() => {
+  const width = parseFloat(mobile.stage.style.width), cards = mobile.main.all(n => n.getAttribute("data-organization-node") && !n.hidden), left = parseFloat(cards[0]?.style.left);
+  const xs = mobile.main.all(n => n.classList.contains("org-edge") && n.style.display !== "none").flatMap(n => [...(n.getAttribute("d") || "").matchAll(/[ML] (-?[\d.]+) (-?[\d.]+)/g)].map(m => Number(m[1])));
+  return cards.length > 1 && cards.every(n => parseFloat(n.style.left) === left) && left >= 0 && left + 230 <= width && xs.length > 0 && xs.every(x => x >= left + 230 && x <= width) && width * scaleOf(mobile) <= mobile.viewport.clientWidth;
+})() && scaleOf(mobile) >= .85 && !mobile.viewport.hidden);
 mobile.button("Full map").click();
 check("the narrow full map contains every office within the pannable stage", visibleIds(mobile).length === chartNodes.length && parseFloat(mobile.stage.style.width) >= 680 && boxes(mobile).every(b => b.left >= 0 && b.left + 230 <= parseFloat(mobile.stage.style.width)));
 mobile.button("List").click();
