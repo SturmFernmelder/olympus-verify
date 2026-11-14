@@ -47,7 +47,8 @@ for (const { tree } of trees) for (const t of tree.talents) {
     else { textChanged++; if (text.length === 1) textTags++; }
   }
 }
-check('NEW IN FOREVER appears exactly on the 117 talents without a Classic counterpart', newTags === 117);
+// CL2-087 (our 2848069): 121 talents of the 10 November export have no Classic counterpart.
+check('NEW IN FOREVER appears exactly on the 121 talents without a Classic counterpart', newTags === 121);
 check('a MOVED tag appears exactly when the Classic tree, tier or column differs', movedTags === expectedMoved && movedTags > 0);
 check('every reworded talent carries exactly one text tag, and identical rank-one texts carry none', textTags === textChanged && sameTagged === 0 && sameText > 0);
 const d = api.classicDiff;
