@@ -65,6 +65,19 @@ const toasts503 = page => page.document.body.querySelectorAll(".toast").map(t =>
     const digest = byText(staff.app, "h2", "Officer digest")?.closest("section")?.querySelector(".notice-box.warn p");
     check("explainAdmin (officer digest), " + label + ": exactly the page's sentence", !!digest && digest.textContent === SENTENCE503 && !staff.app.textContent.includes("PRIVATE_UPSTREAM_TEXT_503"), digest && digest.textContent);
   }
+  // Review round: another 503 answer to a read keeps its own words; only read_unavailable gets the page's sentence.
+  for (const code of ["erasure_held", "write_admission_held"]) {
+    const own = "PRIVATE_OWN_WORDS_" + code;
+    S503.fail = pathname => pathname.startsWith("/api/admin/audit-log?") ? json503(503, { error: code, message: own }) : null;
+    await staff.go("#/"); await staff.go("#/admin/audit");
+    await waitFor(() => !!staff.app.querySelector("p.err"), "sync503 audit failure " + code);
+    const line = staff.app.querySelector("p.err");
+    S503.fail = pathname => pathname.startsWith("/api/admin/applications?") ? json503(503, { error: code, message: own }) : null;
+    await staff.go("#/"); await staff.go("#/admin/applications");
+    await waitFor(() => !!byText(staff.app, "h2", "Something went wrong"), "sync503 list failure " + code);
+    const said = byText(staff.app, "h2", "Something went wrong")?.closest("section")?.querySelector("p");
+    check("a GET answered 503 " + code + " keeps its own words through explain (audit log) and showError (applications list), not the read sentence", line?.textContent === own && said?.textContent === own && !staff.app.textContent.includes(SENTENCE503), (line && line.textContent) + " | " + (said && said.textContent));
+  }
   S503.fail = null;
   // explainRead (readFailureBox): a member's own profile.
   const member = await openPage(MEMBER);
@@ -114,6 +127,8 @@ const toasts503 = page => page.document.body.querySelectorAll(".toast").map(t =>
   check("the view no longer says \"No changes were made.\" nor the old sentence", !staff.app.textContent.includes("No changes were made.") && !staff.app.textContent.includes("This application could not be read."));
   check("the box keeps its warning picture (the notice box is drawn as before)", !!box()?.querySelector("img") && APP_JS.includes('  const noticeBox = (kind, iconName, ...body) => h("div", { class: "notice-box " + kind }, iconName ? icon(iconName, "l") : null, h("div", null, ...body));'));
   check("exactly one Try again and no other button in the failed view", staff.app.querySelectorAll("button").filter(b => b.closest("section") === box()?.closest("section")).map(b => b.textContent).join("|") === "Try again", staff.app.querySelectorAll("button").map(b => b.textContent).join("|"));
+  const shown503 = byText(staff.app, "button", "Try again");
+  check("Try again is a native button of type button with its visible label: not hidden, not disabled, no tabindex", !!shown503 && shown503.tagName === "BUTTON" && shown503.getAttribute("type") === "button" && shown503.textContent === "Try again" && !shown503.hidden && !shown503.hasAttribute("hidden") && !shown503.disabled && !shown503.hasAttribute("disabled") && shown503.getAttribute("tabindex") === null && shown503.classList.contains("read-retry"), shown503 && JSON.stringify(shown503.attributes));
   check("the first load read the decision targets and the application once each, then stopped at the refused read", firstLoad.length >= 2 && firstLoad.filter(e => e.pathname === DETAIL503).length === 1 && firstLoad[firstLoad.length - 1].pathname === DETAIL503, JSON.stringify(firstLoad));
   check("no request after the refused answer while the box is drawn", answered >= 0 && fetchesSince(answered).length === 0, JSON.stringify(log503.slice(answered)));
   mark = log503.length; await pause503(1500);
@@ -134,8 +149,18 @@ const toasts503 = page => page.document.body.querySelectorAll(".toast").map(t =>
   mark = log503.length; button.click(); await pause503(300);
   check("the earlier, replaced button does nothing", fetchesSince(mark).length === 0, JSON.stringify(fetchesSince(mark)));
   await waitFor(() => !!byText(staff.app, "button", "Try again"), "sync503 view settled");
-  mark = log503.length; await pause503(1500);
-  check("after the reloads nothing repeats by itself", fetchesSince(mark).length === 0, JSON.stringify(fetchesSince(mark)));
+  mark = log503.length; await pause503(3500);
+  check("after the reloads nothing repeats by itself (3.5 s)", fetchesSince(mark).length === 0, JSON.stringify(fetchesSince(mark)));
+  // Review round, live(): a Try again still attached when the view is no longer current (the route has changed and the
+  // redraw has not run yet) asks for nothing of the view.
+  const stale503 = byText(staff.app, "button", "Try again");
+  mark = log503.length; staff.location.hash = "#/";
+  const attached503 = !!stale503 && stale503.isConnected && !stale503.disabled;
+  stale503.click();
+  await pause503(300);
+  check("a Try again clicked while still attached but no longer current (route changed) reads nothing of the view", attached503 && viewReads503(fetchesSince(mark)).length === 0, JSON.stringify(fetchesSince(mark)));
+  await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened") && !!byText(staff.app, "button", "Try again"), "sync503 failed view reopened");
   S503.fail = null;
   mark = log503.length; byText(staff.app, "button", "Try again").click();
   await waitFor(() => !!byText(staff.app, "button", "Save note"), "sync503 recovered application");
@@ -162,6 +187,16 @@ const toasts503 = page => page.document.body.querySelectorAll(".toast").map(t =>
   await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
   await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened"), "sync503 403 view");
   check("403 on the read: the sentence and no Try again", box()?.querySelector("p")?.textContent === VIEW_TEXT503 && !byText(staff.app, "button", "Try again"));
+  // Review round: 404 offers no Try again; 429 is a failed read the existing retryableRead rule allows, so it offers one.
+  S503.fail = pathname => pathname === DETAIL503 ? json503(404, { error: "not_found" }) : null;
+  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened"), "sync503 404 view");
+  check("404 on the read: the sentence and no Try again", box()?.querySelector("p")?.textContent === VIEW_TEXT503 && !byText(staff.app, "button", "Try again"));
+  S503.fail = pathname => pathname === DETAIL503 ? new Response(JSON.stringify({ error: "slow_down" }), { status: 429, headers: { "Content-Type": "application/json; charset=utf-8", "Retry-After": "30" } }) : null;
+  await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
+  await waitFor(() => !!byText(staff.app, "h2", "Application could not be opened"), "sync503 429 view");
+  mark = log503.length; await pause503(500);
+  check("429 on the read: the sentence and a Try again, and nothing by itself", box()?.querySelector("p")?.textContent === VIEW_TEXT503 && !!byText(staff.app, "button", "Try again") && fetchesSince(mark).length === 0, JSON.stringify(fetchesSince(mark)));
   // A held decision: its own heading and words, no Try again.
   S503.fail = pathname => pathname === DETAIL503 ? json503(409, { error: "original_membership_decision_held" }) : null;
   await staff.go("#/admin/applications"); await staff.go("#/admin/applications/" + OTHER);
@@ -186,6 +221,16 @@ const toasts503 = page => page.document.body.querySelectorAll(".toast").map(t =>
   await waitFor(() => signedOut.document.body.textContent.includes("You were signed out"), "sync503 401");
   await pause503(200);
   check("401 on the read signs out and the view draws no failure box and no Try again", signedOut.document.body.textContent.includes("You were signed out") && !signedOut.app.textContent.includes("Application could not be opened") && !byText(signedOut.app, "button", "Try again"));
+
+  console.log("\n== 6. by source: the view has no path to a repeat without a click ==");
+  const start503 = APP_JS.indexOf("  async function adminApplication(body, id, draft = null) {");
+  const catch503 = start503 < 0 ? -1 : APP_JS.indexOf("    catch (err) {\n      if (!live() || err && err.status === 401) return;", start503);
+  const end503 = catch503 < 0 ? -1 : APP_JS.indexOf("\n      return;\n    }", catch503);
+  const branch503 = start503 >= 0 && catch503 > start503 && end503 > catch503 ? APP_JS.slice(catch503, end503) : "";
+  check("the view's failure branch schedules and listens to nothing: no timer, frame, microtask, then or listener", branch503.includes("readRetryButton(err, () => { if (live()) adminApplication(body, id); })") && !/setTimeout|setInterval|requestAnimationFrame|queueMicrotask|addEventListener|\.then\(/.test(branch503), branch503.length);
+  const retry503 = APP_JS.slice(APP_JS.indexOf("  function readRetryButton(e, retry) {"), APP_JS.indexOf("  const readFailureBox = "));
+  check("readRetryButton has exactly one listener, a click, and schedules nothing", retry503.length > 0 && (retry503.match(/addEventListener\(/g) || []).length === 1 && retry503.includes('button.addEventListener("click", ') && !/setTimeout|setInterval|requestAnimationFrame|queueMicrotask|\.then\(/.test(retry503));
+  check("the view is opened from its eight existing places only (the route, its own buttons and its receipts), so no new caller can reload it by itself", (APP_JS.match(/adminApplication\(/g) || []).length === 8, (APP_JS.match(/adminApplication\(/g) || []).length);
 
   console.log("\n" + ok + "/" + n + " sync503 page checks passed");
   process.exit(ok === n ? 0 : 1);
