@@ -80,6 +80,16 @@ async function liveOriginalTableSmoke280(env,writer,venue,check){
  snapshot=await publish();
  let cap=await captureRoutineMembership232(env,LIVE_MEMBER280);
  try{const f=cap&&routineMembership232Facts(cap);check('good main initially has current original profile while unrelated unknown rows do not block it',f?.canonicalRankProfile===CANONICAL_PROFILE233&&f.primary?.index===8&&f.rankQualified===false);}finally{if(cap)closeRoutineMembership232(cap);}
+  const priorMemberRows=(await writer.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY id').bind(LIVE_MEMBER280).all()).results;
+  // This exact endpoint is implemented only by the runner's synthetic provider;
+  // it removes mock state without fabricating a Native role receipt or issuer.
+  const stripResponse=await fetch('https://discord.com/__fixture/strip-member',{method:'POST'}),stripped=await stripResponse.json();
+  check('synthetic provider strips only the already-granted Member400 role',stripResponse.status===200&&stripped.fixtureControl==='strip-member'&&stripped.subject===LIVE_MEMBER280&&stripped.role===CANONICAL_RANKS233[9].roleId&&stripped.wasPresent===true&&stripped.present===false);
+  const restored=await runNativeSubject232(env,LIVE_MEMBER280,callBudget(env),2);
+  check('active original-policy subject-sweep visitor restores Member after actual provider absence',restored.state==='settled'&&restored.base===null&&restored.rank?.state==='settled'&&restored.requests>0,restored);
+  const afterMemberRows=(await writer.prepare('SELECT * FROM role_settlements WHERE subject=?1 ORDER BY id').bind(LIVE_MEMBER280).all()).results,priorIds=new Set(priorMemberRows.map(row=>row.id)),newMemberRows=afterMemberRows.filter(row=>!priorIds.has(row.id));
+  check('actual restore records one current original-profile canonical routine Member ACK',newMemberRows.length===1&&newMemberRows[0].purpose==='canonical_routine233'&&newMemberRows[0].native_profile===CANONICAL_PROFILE233&&newMemberRows[0].role_id===CANONICAL_RANKS233[9].roleId&&newMemberRows[0].native_rank===8&&newMemberRows[0].native_rank_name==='Member'&&newMemberRows[0].native_guid==='Player-4613-ABCDEF13'&&newMemberRows[0].roster_id===snapshot.id&&newMemberRows[0].desired===1&&newMemberRows[0].attempts===1&&newMemberRows[0].state==='settled'&&newMemberRows[0].reason==='canonical233_put_acknowledged_and_confirmed',newMemberRows);
+  check('canonical sweep preserves original consumed history and creates no legacy settlement purpose',JSON.stringify(afterMemberRows.filter(row=>priorIds.has(row.id)))===JSON.stringify(priorMemberRows)&&!afterMemberRows.some(row=>/^(?:verified|roster)_(?:membership|(?:native|privileged)_rank)$/.test(row.purpose)||row.purpose==='launch_membership230'));
  await verify(LIVE_MEMBER280,'Live Steward',null);
  cap=await captureRoutineMembership232(env,LIVE_MEMBER280);try{check('an unknown linked Steward alt holds its own otherwise-good main',cap===null);}finally{if(cap)closeRoutineMembership232(cap);}
  const mixed=await runNativeSubject232(env,LIVE_MEMBER280,callBudget(env),2);check('unknown linked alt routine remains held rather than lowering/removing current main',mixed.state==='held'&&mixed.requests===0,mixed);
