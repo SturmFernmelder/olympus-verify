@@ -19,7 +19,7 @@ const ALLOWED='800000000000000101', BANNED='800000000000000102', BLOCKED='800000
 const BLOCK='800000000000000011', ONCE=new Set();
 const config={PUBLIC_BASE_URL:'https://verify.example',SITE_HOST:'guild.example',SITE_LEGACY_HOSTS:'old.example',
   GUILD_ID:GUILD,ROLE_GUILD_MEMBER:ROLE,BLOCKING_ROLE_IDS:BLOCK,DISCORD_BOT_TOKEN:'qualification-discord-only',
-  DISCORD_APP_ID:'800000000000000002',WATCHER_TOKEN:'qualification-watcher-only',VERIFY_SECRET:'qualification-secret-only',
+  DISCORD_APP_ID:'800000000000000002',WATCHER_TOKEN:'qualification-watcher-only-0123456789',VERIFY_SECRET:'qualification-secret-only',
   COOKIE_SECRET:'qualification-cookie-only',PRIVACY_WRITE_ADMISSION_ENABLED:'true',PRIVACY_WRITE_ADMISSION_LAYOUT:'canonical',PRIVACY_WRITE_ADMISSION_EPOCH:EPOCH};
 
 async function provision(db,layout='canonical'){
