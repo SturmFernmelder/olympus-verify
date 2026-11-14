@@ -99,8 +99,9 @@ check('level boundaries and point budgets match the actual calculator', () => {
   for (const level of [0, 9, 10, 11, 30, 60, 61, 69]) {
     const build = { ...valid, level }; sameAcceptance(build);
   }
-  // CL2-087 (our b4065db, 2848069): no remaining guide allocation spends all 51 points, so the rewritten level-60
-  // presets in guides218.json (the same source the calculator lists) also supply candidates for the full build.
+  // CL2-087 (our b4065db, 2848069): no remaining guide allocation in guide-builds179.js spends all 51 points, so the
+  // level-60 presets in guides218.json, rewritten on the 10 November data by our e0f7077 (CL2-089, CL2-090), also supply
+  // candidates for the full build.
   const presetCodes = fs.readFileSync(path.join(worker, 'public/static/guides218.json'), 'utf8').match(/ot1\.[0-9a-f]{12}\.[a-z]+\.60\.[0-9]+/g) || [];
   const full = [...guides.map(g => g.code), ...presetCodes].map(code => calculator.parseBuild(data, code)).find(p => p.ok && p.points === 51);
   assert.ok(full); sameAcceptance({ ...full.build, level: 30 }); assert.equal(attachment(wire({ ...full.build, level: 30 })), null);
