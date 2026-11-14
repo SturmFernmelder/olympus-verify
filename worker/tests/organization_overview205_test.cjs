@@ -132,8 +132,9 @@ check('the Herald leads official communications and the Seneschal retains court 
 const rankNames = ['Leader', 'High Council', 'Officer', 'Officer Alt', 'Raid Leader', 'Veteran', 'Raider', 'Member', 'Alt', 'Initiate'];
 check('the overview preserves the exact ten native ranks and zero-based slots', overview.ranks.length === 10 && overview.ranks.every((rank, slot) => rank.nativeSlot === slot && rank.nativeRankOrdinal === slot + 1 && (rank.label || rank.name) === rankNames[slot]));
 // CL2-197 (our 4c7b542): the overview's second ladder is gone; the page's one ladder keeps its ten rows (organization_view_test
-// ".218 exact ten ranks and all103 current office records are visible"). The overview's rank filter is its one rank list.
-check('rendered overview has no second rank ladder and its rank filter has slots0–9 once with no eleventh native rank', !page.section.all(node => node.getAttribute('data-alliance-rank') !== null).length && same(page.document.getElementById('org-alliance-rank205').children.map(node => node.value), ['', ...rankNames.map((_, slot) => String(slot))]) && !page.section.all(node => node.getAttribute('data-native-rank') !== null).length);
+// ".218 exact ten ranks and all103 current office records are visible"). The overview's rank filter is its one rank list;
+// a list naming all ten ranks counts as a second ladder also without the old data-alliance-rank marker.
+check('rendered overview has no second rank ladder and its rank filter has slots0–9 once with no eleventh native rank', !page.section.all(node => node.getAttribute('data-alliance-rank') !== null).length && !page.section.all(list => ['OL', 'UL'].includes(list.tagName) && rankNames.every((name, slot) => list.children.some(item => item.textContent.includes(slot === 0 ? 'Leader (Guild Master)' : name)))).length &&same(page.document.getElementById('org-alliance-rank205').children.map(node => node.value), ['', ...rankNames.map((_, slot) => String(slot))]) && !page.section.all(node => node.getAttribute('data-native-rank') !== null).length);
 // CL2-197, CL2-310 (our 4c7b542; directive line 52): no ladder row any more; the badge reads "Rank 1 Leader (Guild Master) · Slot 0".
 check('CC-118 the Alliance rank filter and rank-one role badge share the display name and retain their original slot',
   page.document.getElementById('org-alliance-rank205').children[1].textContent === 'Rank 1 · Leader (Guild Master)'
@@ -174,11 +175,20 @@ check('the trading Council seat links one reserved office to its own market node
 check('market lane states sole trading and custody boundaries without absorbing a core historic ministry', page.context.ORGANIZATION_LANES205.find(row => row.key === 'trading').boundary.includes('This portfolio does trading only') && page.context.ORGANIZATION_HISTORY205.find(row => row.key === 'core-portfolios').text.includes('War, Treasury, Artisanry and Heraldry') && model.nodes.find(node => node.id === 'trading').coordinates.includes('treasury'));
 const reserved = directory.families.filter(family => ['leader', 'high_council', 'officer_corps'].includes(family.tier));
 check('every reserved Leader Council and Officer family has its actual tier badge', reserved.every(family => page.families().find(node => node.getAttribute('data-alliance-family') === family.key).all(node => node.getAttribute('data-tier') === family.tier).length > 0));
-// CL2-036 (our 4c7b542): one eligibility vocabulary; a reserved seat reads "Reserved leadership seat".
-check('reserved individual offices cannot become vacancies when no holder is supplied', reserved.filter(family => family.kind === 'role').every(family => /Reserved leadership seat/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
+// CL2-036 (our 4c7b542): one eligibility vocabulary; a reserved seat reads "Reserved leadership seat". The live route passes
+// app.js familyEligibility1112 as the card label (ROUTES.organization), so the directory value and that label are read too.
+const eligibility1112 = (() => {
+  const appSource = fs.readFileSync(path.join(staticRoot, 'app.js'), 'utf8'), marker = '\n  const ELIGIBILITY_LABELS_1112 = ', start = appSource.indexOf(marker), end = appSource.indexOf('});', start);
+  const label = appSource.split(/\r?\n/).filter(line => line.startsWith('  const familyEligibility1112 = '));
+  if (start < 0 || appSource.indexOf(marker, start + 1) >= 0 || end < 0 || label.length !== 1) return null;
+  return vm.runInNewContext(appSource.slice(start, end + 3) + '\n' + label[0] + '\nfamilyEligibility1112', {}, { filename: 'actual-eligibility-labels1112.js' });
+})();
+check('reserved individual offices cannot become vacancies when no holder is supplied', !!eligibility1112 && reserved.filter(family => family.kind === 'role').every(family => family.eligibility === 'reserved_seat' && eligibility1112(family) === 'Reserved leadership seat' && /Reserved leadership seat/.test(page.families().find(node => node.getAttribute('data-alliance-family') === family.key).textContent)) && !page.section.textContent.includes('Open seat'));
+// CL2-036 (our 4c7b542): the reserved-seat wording is "Reserved leadership seat" (it was "Reserved appointment"); neither an
+// institution card nor the label the live route passes for an institution uses it.
 check('.218 institutions are not presented as additional individual Council appointments', directory.families.filter(family => family.kind === 'institution').every(family => {
   const card = page.families().find(node => node.getAttribute('data-alliance-family') === family.key);
-  return card.textContent.includes('Governance institution') && !card.textContent.includes('Reserved appointment') && !card.textContent.includes('Rank 2 High Council');
+  return card.textContent.includes('Governance institution') && !card.textContent.includes('Reserved leadership seat') && !!eligibility1112 && eligibility1112(family) !== 'Reserved leadership seat' && !card.textContent.includes('Rank 2 High Council');
 }) && page.families().find(node => node.getAttribute('data-alliance-family') === 'justice').textContent.includes('Council of Justice — institution'));
 check('overview exposes no application or appointment action and no request', page.section.all(node => node.tagName === 'A').every(node => !/^#\/vote(?:\/|$)/.test(node.getAttribute('href') || '')) && !page.section.all(node => node.getAttribute('data-apply-role201') !== null || node.getAttribute('data-office-application') !== null).length && page.requests.length === 0);
 const auditorCard = page.families().find(node => node.getAttribute('data-alliance-family') === 'bank_auditor');
