@@ -10,6 +10,7 @@
 // (transpiled as evergreen1112_governance_test.cjs loads them), the real generator in --check mode, and the pages drawn
 // by the real app.js and organization-view.js on the authenticated Worker/SQLite page fixture of frontend_check.cjs.
 // Checks tagged RULING fail on the tree before the ruling (main f8ac52a4); checks tagged INVARIANT pass on both.
+// Checks tagged ANSWER cover the owner's two text answers of 14 Nov 2026 (section (f) and the pages) and fail on 6d5e744.
 // A self-check rebuilds the Worker modules from an in-memory copy of governance-offices.ts in which office_25 is made
 // eligible again, and requires the ruling predicates to fail on it.
 // Usage, from the worker folder: node tests/apply_three1114_test.cjs
@@ -119,6 +120,35 @@ check('INVARIANT', 'the Member guide step says "Member, Raider and Artisan are o
 const familyLabel = key => real.directory.families.find(f => f.key === key)?.label || '';
 check('INVARIANT', 'the three names in that sentence are the families that accept applications (Guild Member, Raider, Artisan / Crafter)', /Member/.test(familyLabel('member')) && /Raider/.test(familyLabel('raider')) && /Artisan/.test(familyLabel('artisan')));
 
+// ---------------------------------------------------------------- (f) the owner's two text answers of 14 Nov 2026
+// 1. "Drop "Core" (Recommended)": the raider track's label becomes "Raider & PvE Progression Track". Nothing else changes.
+// 2. "Artisan only (Recommended)": the overview sentence becomes "Profession coordination and the Artisan application."
+// Not covered, so not tested: the Artisan track's label, the standing introduction, the Core Raider term note, any other
+// wording. Checks tagged ANSWER fail on 6d5e744 (the branch before these two answers). That no other field of the
+// application tracks changed is checked by evergreen1112_governance_test.cjs (CL2-039 digest 6d20757d, with a finite inverse).
+const NEW_RAIDER_LABEL = 'Raider & PvE Progression Track', OLD_RAIDER_LABEL = 'Core Raider & PvE Progression Track';
+const NEW_WORKSHOP_TEXT = 'Profession coordination and the Artisan application.', OLD_WORKSHOP_TEXT = 'Profession coordination and the Artisan / Crafter application.';
+// The six labels at 6d5e744, with only the raider label replaced as answered.
+const LABELS1114 = [['member', 'Sworn Guild Member'], ['raider', NEW_RAIDER_LABEL], ['artisan', 'Master Artisan & Guild Workshop Crafter'],
+  ['officer', 'Officer Corps & Branch Leadership Application'], ['high_council', 'High Council Application'], ['patron', 'Royal Patron & Flagship Olympus I Charter']];
+const browserTracks = () => { const context = vm.createContext({}); vm.runInContext(read('worker/public/static/role-rank199.js'), context, { filename: 'role-rank199.js' }); return JSON.parse(JSON.stringify(context.OlympusRoleRank199.tracks)); };
+const trackSources = { 'server module (governance-offices.ts)': JSON.parse(JSON.stringify(real.offices.APPLICATION_TRACKS_199)), 'browser module (role-rank199.js)': browserTracks(), 'organization.json applicationTracks': model.applicationTracks };
+const raiderLabels = Object.entries(trackSources).map(([where, rows]) => [where, rows.filter(t => t.id === 'raider').map(t => t.label)]);
+check('ANSWER', 'the raider track\'s label is exactly "' + NEW_RAIDER_LABEL + '" in the server module, the browser module and organization.json',
+  raiderLabels.every(([, labels]) => same(labels, [NEW_RAIDER_LABEL])), JSON.stringify(raiderLabels));
+const oldLabelFiles = ['scripts/build-governance-offices.cjs', 'worker/src/governance-offices.ts', 'worker/public/static/role-rank199.js', 'worker/public/static/governance/organization.json'].filter(rel => read(rel).includes(OLD_RAIDER_LABEL));
+check('ANSWER', 'the old label "' + OLD_RAIDER_LABEL + '" occurs in none of the three generated files nor in the generator', oldLabelFiles.length === 0, oldLabelFiles.join(','));
+const labelRows = Object.entries(trackSources).map(([where, rows]) => [where, rows.map(t => [t.id, t.label])]);
+check('ANSWER', 'the six track labels are exactly those of 6d5e744 with only the raider label changed (member, artisan, officer, high_council, patron unchanged), in all three files',
+  labelRows.every(([, rows]) => same(rows, LABELS1114)), JSON.stringify(labelRows.filter(([, rows]) => !same(rows, LABELS1114))));
+const overviewSource = read('worker/public/static/organization-overview205.js');
+const workshopCall = 'groupSection("workshop", "org-alliance-independent", "' + NEW_WORKSHOP_TEXT + '")';
+check('ANSWER', 'the overview\'s workshop group sentence is exactly "' + NEW_WORKSHOP_TEXT + '" (organization-overview205.js, one workshop groupSection)',
+  overviewSource.split('groupSection("workshop"').length === 2 && overviewSource.split(workshopCall).length === 2);
+const staticFiles = (dir => { const out = []; (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.isFile()) out.push(p); } })(dir); return out; })(path.join(worker, 'public', 'static'));
+const oldSentenceFiles = staticFiles.filter(file => fs.readFileSync(file).includes(Buffer.from(OLD_WORKSHOP_TEXT, 'utf8'))).map(file => path.relative(repo, file).replace(/\\/g, '/'));
+check('ANSWER', 'the old sentence "' + OLD_WORKSHOP_TEXT + '" occurs in no file under worker/public/static (' + staticFiles.length + ' files read as bytes)', staticFiles.length > 100 && oldSentenceFiles.length === 0, oldSentenceFiles.join(','));
+
 // ---------------------------------------------------------------- self-check: an in-memory mutant makes office_25 eligible again
 {
   const source = read('worker/src/governance-offices.ts');
@@ -203,6 +233,12 @@ async function pages1114() {
   verdict('RULING', 'the Bench card starts its standing line with "Standing."', drawn && cardTexts('office_11').some(t => t.startsWith('Standing.')) && !card('office_11').textContent.includes('Applications accepted'), cardTexts('office_11').join(' | '));
   const row = org?.querySelector('[aria-label="Ordinary applications"]'), rowLinks = row ? row.querySelectorAll('a').map(a => a.getAttribute('href')) : [];
   verdict('RULING', 'the "Ordinary applications" row has exactly #/vote/artisan/office_07, #/vote/raider/new and #/vote/member/new', same([...rowLinks].sort(), ['#/vote/artisan/office_07', '#/vote/member/new', '#/vote/raider/new']), rowLinks.join(','));
+  // Owner's answer of 14 Nov 2026, "Artisan only": the Alliance overview (drawn on this page by the real organization-overview205.js).
+  const WORKSHOP_NEW = 'Profession coordination and the Artisan application.', WORKSHOP_OLD = 'Profession coordination and the Artisan / Crafter application.';
+  const workshopGroups = org ? org.querySelectorAll('details[data-catalog-group="workshop"]') : [];
+  const workshopTexts = workshopGroups.length === 1 ? (workshopGroups[0].children || []).filter(c => c.tagName === 'P').map(c => c.textContent) : [];
+  verdict('ANSWER', 'the Alliance overview\'s workshop group prints exactly "' + WORKSHOP_NEW + '" and the old sentence appears nowhere on the Organization page',
+    drawn && workshopGroups.length === 1 && same(workshopTexts, [WORKSHOP_NEW]) && !org.textContent.includes(WORKSHOP_OLD), workshopGroups.length + ' group(s): ' + workshopTexts.join(' | '));
   // Roles
   await page.go('#/roles');
   await waitFor(() => !!mainOf()?.querySelector('[data-role-family203="raid_standing"]'), 'roles directory', 4000);
@@ -228,10 +264,19 @@ async function pages1114() {
     await page.go(route); await waitFor(() => !!mainOf()?.textContent.includes('Application track unavailable') || !!mainOf()?.querySelector('form'), route, 4000);
     verdict('RULING', route + ' opens no form and reads "Application track unavailable"', !mainOf()?.querySelector('form') && !mainOf()?.querySelector('[data-target-office]') && mainOf()?.textContent.includes('Application track unavailable'));
   }
+  const trackBadges = {};
   for (const [route, office] of [['#/vote/raider/new', null], ['#/vote/artisan/office_07', 'office_07']]) {
     await page.go(route); await waitFor(() => !!mainOf()?.querySelector('form'), route, 4000);
     verdict('INVARIANT', route + ' opens the application form' + (office ? ' with its exact target' : ''), !!mainOf()?.querySelector('form') && (!office || !!mainOf()?.querySelector('[data-target-office="' + office + '"]')));
+    const boxes = mainOf() ? mainOf().querySelectorAll('[data-application-track]') : [];
+    trackBadges[route] = { boxes: boxes.length, track: boxes[0]?.getAttribute('data-application-track') || null, badges: boxes.length ? (boxes[0].children || []).filter(c => c.tagName === 'SPAN' && /\bbadge\b/.test(c.getAttribute('class') || '') && /\bblue\b/.test(c.getAttribute('class') || '')).map(c => c.textContent) : [] };
+    if (mainOf()) texts.push([route, mainOf().textContent]);
   }
+  // Owner's answer of 14 Nov 2026, "Drop "Core"": the application view's track badge (applicationBadges199 in the real app.js).
+  verdict('ANSWER', 'the raider application view prints the track badge "Raider & PvE Progression Track"; the artisan view keeps "Master Artisan & Guild Workshop Crafter"',
+    same(trackBadges['#/vote/raider/new'], { boxes: 1, track: 'raider', badges: ['Raider & PvE Progression Track'] }) && same(trackBadges['#/vote/artisan/office_07'], { boxes: 1, track: 'artisan', badges: ['Master Artisan & Guild Workshop Crafter'] }), JSON.stringify(trackBadges));
+  const oldLabelPages = texts.filter(([, t]) => t.includes('Core Raider & PvE Progression Track')).map(([p]) => p);
+  verdict('ANSWER', 'the old label "Core Raider & PvE Progression Track" appears on no rendered page (Organization, Roles, Apply, both application views)', texts.length === 5 && oldLabelPages.length === 0, 'on: ' + oldLabelPages.join(','));
   return local;
 }
 

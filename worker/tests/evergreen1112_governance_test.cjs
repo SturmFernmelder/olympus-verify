@@ -362,25 +362,50 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
     }
     return out;
   };
-  const earlier1114 = (() => { try { return undoRuling1114(model); } catch { return null; } })();
+  // Owner's answer of 14 Nov 2026 ("Drop "Core" (Recommended)"): the raider application track's label changed, and nothing
+  // else. This second finite inverse undoes exactly that one value and refuses any other value of that label.
+  const LABEL1114 = Object.freeze({ raider: ['Core Raider & PvE Progression Track', 'Raider & PvE Progression Track'] });
+  const undoLabel1114 = m => {
+    const out = structuredClone(m);
+    for (const [id, [before, after]] of Object.entries(LABEL1114)) {
+      const rows = (out.applicationTracks || []).filter(row => row.id === id);
+      if (rows.length !== 1) throw Error('label1114_row ' + id);
+      if (rows[0].label !== after) throw Error('label1114_value ' + id);
+      rows[0].label = before;
+    }
+    return out;
+  };
+  // Both 14 Nov inverses; each touches only its own declared values.
+  const undo1114 = m => undoLabel1114(undoRuling1114(m));
+  const earlier1114 = (() => { try { return undo1114(model); } catch { return null; } })();
   check('CL2-039', 'seats, seat numbers, office keys, terms, appointments and application tracks are unchanged (apart from the 14 Nov ruling, undone exactly); the model names no person',
     !!earlier1114 && digest(model.councilComposition.currentSeats.map(({ nodeId, ...s }) => s)) === 'eb27436254d4efeeae741b062683a6103fe1ef28e243006ceb766c267272ebdb'
     && digest(earlier1114.terms.map(({ nodeId, ...t }) => t)) === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'
     && digest([earlier1114.appointments, earlier1114.applicationTracks, earlier1114.roleRank199, earlier1114.nativeRanks]) === '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34'
     && model.councilComposition.cabinetSeatCount === 13 && model.cabinet218.seatCount === 13 && !/richwcampbell/i.test(JSON.stringify(model)));
   {
-    const termsDigest1114 = m => { try { return digest(undoRuling1114(m).terms.map(({ nodeId, ...t }) => t)); } catch (error) { return 'refused: ' + error.message; } };
-    const variant = fn => { const m = structuredClone(model); fn(m); return termsDigest1114(m); };
+    const TERMS_PIN = 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68', CATALOGUE_PIN = '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34';
+    const termsDigest1114 = m => { try { return digest(undo1114(m).terms.map(({ nodeId, ...t }) => t)); } catch (error) { return 'refused: ' + error.message; } };
+    // The application tracks are covered by the second pin (appointments, applicationTracks, roleRank199, nativeRanks).
+    const catalogueDigest1114 = m => { try { const e = undo1114(m); return digest([e.appointments, e.applicationTracks, e.roleRank199, e.nativeRanks]); } catch (error) { return 'refused: ' + error.message; } };
+    const variant = (fn, pin = TERMS_PIN) => { const m = structuredClone(model); fn(m); const d = (pin === TERMS_PIN ? termsDigest1114 : catalogueDigest1114)(m); return d === pin ? 'PINNED' : d; };
+    const track = (m, id) => m.applicationTracks.find(t => t.id === id);
     const outcomes = {
       'a ruled field with another value (term office_25 acquisition)': variant(m => { m.terms.find(t => t.officeKey === 'office_25').acquisition += ' '; }),
       'a ruled field with the old value (appointment office_27 still eligible)': variant(m => { m.appointments.find(t => t.key === 'office_27').applicationEligible = true; }),
       'role keys kept on an ineligible row (term office_27)': variant(m => { m.terms.find(t => t.officeKey === 'office_27').applicationRoleKeys = ['member']; }),
       'the same fields changed on a third office (term office_07)': variant(m => { m.terms.find(t => t.officeKey === 'office_07').applicationEligible = false; }),
       'another field changed on a ruled office (term office_25 applicationTrack)': variant(m => { m.terms.find(t => t.officeKey === 'office_25').applicationTrack = 'member'; }),
+      'the raider track label with another value': variant(m => { track(m, 'raider').label = 'Raider & PvE Progression'; }, CATALOGUE_PIN),
+      'the raider track label with the old value': variant(m => { track(m, 'raider').label = 'Core Raider & PvE Progression Track'; }, CATALOGUE_PIN),
+      'another track\'s label changed (artisan)': variant(m => { track(m, 'artisan').label = 'Master Artisan & Guild Workshop'; }, CATALOGUE_PIN),
+      'another field of the raider track changed (rankPath)': variant(m => { track(m, 'raider').rankPath = 'Rank 7 Core Raider'; }, CATALOGUE_PIN),
     };
+    // The unmutated model must still meet both pins through the same functions (guards against a vacuous pass).
+    const baseline = { terms: termsDigest1114(structuredClone(model)) === TERMS_PIN, catalogue: catalogueDigest1114(structuredClone(model)) === CATALOGUE_PIN };
     check('CL2-039', 'the 14 Nov ruling inverse refuses any other value of the three fields, and any other change still alters the pinned digest',
-      Object.values(outcomes).every(d => d !== 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'),
-      JSON.stringify(Object.entries(outcomes).filter(([, d]) => d === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68').map(([k]) => k)));
+      Object.values(outcomes).every(d => d !== 'PINNED') && baseline.terms && baseline.catalogue,
+      JSON.stringify({ baseline, pinned: Object.entries(outcomes).filter(([, d]) => d === 'PINNED').map(([k]) => k) }));
   }
   // Every current seat except the Council chair sits on the node of its own office (the chair's office_43 placement is the
   // separate open question on the branch Guild Master term, not covered by this ruling).
@@ -416,8 +441,8 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
   // on the earlier edition. Every way of breaking the record or the model must refuse or change the result.
   const BASE_MODEL1113 = 'af1f62cd8ca391277abbbad1f8c92f925a851077068c65653c36ab729e48ad9e';
   const restore = (() => { try { return require(path.join(root, 'scripts/build-governance-titles.cjs')).restoreReportingLines1113; } catch { return undefined; } })();
-  // The 14 Nov 2026 ruling inverse (above) runs first; it changes no node and refuses any other value of its fields.
-  const restoredDigest = m => { try { return sha256(JSON.stringify({ ...restore(undoRuling1114(m)), book: null })); } catch (error) { return 'refused: ' + error.message; } };
+  // The two 14 Nov 2026 inverses (above) run first; they change no node and refuse any other value of their fields.
+  const restoredDigest = m => { try { return sha256(JSON.stringify({ ...restore(undo1114(m)), book: null })); } catch (error) { return 'refused: ' + error.message; } };
   check('CL2-039', 'undoing reportingLines1113 restores the b631136 organization model exactly (book pin aside)', typeof restore === 'function' && restoredDigest(model) === BASE_MODEL1113,
     typeof restore === 'function' ? restoredDigest(model) : 'no restoreReportingLines1113 export');
   if (typeof restore === 'function') {
