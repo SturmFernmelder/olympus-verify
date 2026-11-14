@@ -12,7 +12,7 @@ let tabPreference196=null;
  await fixtureRun("INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn','true',?)ON CONFLICT(key)DO UPDATE SET value='true'",now);
  const staff=await openPage(STAFF),shield=staff.app.querySelector(".stream-shield-toggle");
  // CL2-071 (our e1076a7, 1d3d046): Home names no unverified Olympus Guild version and points to its CurseForge project page.
- check('unified addon promo names its CurseForge project page with separate website setup and availability',staff.app.textContent.includes('Olympus Guild, from its CurseForge project page, is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.')&&!staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
+ check('unified addon promo names its CurseForge project page with separate website setup and availability',staff.app.textContent.includes('Olympus Guild, from its CurseForge project page, is the optional unified guild addon for census and Army reporting. Website snapshot reporting has separate setup and availability. Verification remains separate.')&&!!staff.app.querySelector('[data-addon-promotion="olympus-guild"]')&&!/\d+\.\d+/.test(staff.app.querySelector('[data-addon-promotion="olympus-guild"]').textContent)&&!staff.app.textContent.includes('publisher adoption')&&!staff.app.textContent.includes('separate from verification and Army QR reporting'));
  check('Stream Shield control sits outside both navigation and the private identity area',!!shield&&!shield.closest('nav')&&!shield.closest('.who')&&!!shield.closest('.topbar-actions'));
  // .210 Master QA: bind the shared content-link rule to actual rendered panels.
  // This minimal DOM checks scope/wiring only; real viewport geometry is separate.
@@ -34,9 +34,10 @@ let tabPreference196=null;
  const wrappingPage210=await openPage(STAFF),treasuryText210='Open the treasury programme & financial model';
  for(const route210 of ['#/admin','#/admin/treasury']){
    await wrappingPage210.go(route210);
+   if(route210==='#/admin')await waitFor(()=>!!byText(wrappingPage210.app,'th','First choice'),'.210 Admin Overview roster');
    const link210=byText(wrappingPage210.app,'a',treasuryText210);
    // CL2-014 (our a6f591d): the Admin Overview opens with the roster; the Treasury frames live under Imperial Treasury only.
-   if(route210==='#/admin')check('.210 #/admin Overview has no Treasury programme frame or CTA',!link210&&!wrappingPage210.app.textContent.includes(treasuryText210)&&!wrappingPage210.app.textContent.includes('Treasury programme · officer operating plan'));
+   if(route210==='#/admin')check('.210 #/admin Overview leads with the roster figures and has no Treasury programme frame, Royal Writs panel or CTA',!!byText(wrappingPage210.app,'h1','Admin')&&!!byText(wrappingPage210.app,'h3','Signed up')&&!!byText(wrappingPage210.app,'th','First choice')&&!link210&&!wrappingPage210.app.textContent.includes(treasuryText210)&&!wrappingPage210.app.textContent.includes('Treasury programme · officer operating plan')&&!wrappingPage210.app.querySelector('[data-royal-writ-page="admin"]'));
    else check('.210 '+route210+' retains the complete Treasury CTA and selects shared content wrapping',!!link210&&link210.textContent===treasuryText210&&link210.getAttribute('href')==='#/treasury-plan'&&contentWrapped210(link210));
    const navLinks210=wrappingPage210.app.querySelectorAll('nav a.btn'),currentShield210=wrappingPage210.app.querySelector('.stream-shield-toggle');
    check('.210 '+route210+' keeps all header/section navigation and Shield outside content wrapping',navLinks210.length>0&&navLinks210.every(link=>!contentWrapped210(link))&&!!currentShield210&&!contentWrapped210(currentShield210));
