@@ -243,9 +243,11 @@ async function launchTransition228(){
  await guard('copy',async()=>{
   const utilities=load('./guild-utilities219'),preset=JSON.parse(fs.readFileSync(path.join(root,'public','static','guides218.json'),'utf8')).presets[0].code;
   const talent=await utilities.guideLookup219(directEnv(BOT_ENV),null,'talent',{build:preset});
-  check('the talent preview dates its beta snapshot and points to current in-game talents and Blizzard notes',talent.description.includes('16 October beta talent snapshot')&&talent.description.includes('Check the talents on your character in game')&&talent.fields.some(field=>field.name==='Blizzard’s 2 November notes'&&field.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'),talent.description);
+  // CL2-087 (our df7e646): the talent data is the 10 November export, and the preview names it.
+  check('the talent preview dates its 10 November talent data and points to current in-game talents and Blizzard notes',talent.description.includes('encoded against the 10 November talent data.')&&talent.description.includes('Check the talents on your character in game')&&talent.fields.some(field=>field.name==='Blizzard’s 2 November notes'&&field.value==='https://us.forums.blizzard.com/en/wow/t/2360696/9'),talent.description);
   const util=source('guild-utilities219'),hub=source('olympus-hub224');
-  check('  the guide replies’ evidence footer is tense-neutral',!util.includes('Launch may change beta details')&&util.includes('Pinned data comes from the beta; the released game can differ.'));
+  // REV-UNI-3 (our 8593bac): the footer lists the site's six grades, with A as the 10 November 2026 export, and no beta caveat.
+  check('  the guide replies’ evidence footer is tense-neutral',!util.includes('Launch may change beta details')&&util.includes("const evidence='Grades: A talent data, 10 November 2026 export · B official Blizzard source · C published Forever guide or community · D derived from Classic · E Classic reference · U unavailable.';"));
   check('  the /olympus guides section is tense-neutral',!hub.includes('launch behavior is not inferred')&&hub.includes('the released game can differ'));
   const intro=load('./intros').INTROS.find(x=>x.key==='olympus-info'),reservation=intro.embeds[1].fields.find(f=>f.name==='Early name reservation'),guides=intro.embeds[2].description;
   // Evergreen 12 Nov 2026 (CL2-174): after launch the reservation field is retired and the intro leads with the launch.
