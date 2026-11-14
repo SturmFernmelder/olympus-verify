@@ -195,7 +195,8 @@ export function renderOrganization(main, data, ui) {
   const reservedTerm201 = term => term.reservedSeat201 || ["leader", "high_council", "officer_corps"].includes(term.tier);
   const termFamily218 = term => ui.roleDirectory203?.families?.find(row => row.key === ui.roleDirectory203.keyToFamily[term.officeKey]);
   // CL2-036: one eligibility rule with /#/roles. A link appears exactly where the directory lists an intent the Worker
-  // accepts (validateApplicationIntent199); Core Raider (office_25) is such a target on the Raider track.
+  // accepts (validateApplicationIntent199). Since the owner's ruling of 14 Nov 2026 those are Guild Member, Raider and
+  // Artisan (office_07) only; Core Raider (office_25) and Crafter (office_27) are not targets.
   const targetLabel1112 = (family, target) => target.targetOffice ? (ui.officeFor219?.(target.targetOffice)?.applicationLabel || family.label) : family.label;
   const applicationLink = (family, target, label) => {
     if (!target || ui.officeAvailability?.[target.targetOffice || family.primaryKey] === false) return null;
@@ -379,9 +380,13 @@ export function renderOrganization(main, data, ui) {
         h("summary", {text:"Historical application & ballot labels"}), h("p", {class:"small muted",text:t.applicationMetadataScope || "Earlier application vocabulary is retained for record compatibility; it does not open this institution to applications."}), aliasLabels) : aliasLabels;
       const historicalOfficeLabels = t.historicalOfficeLabels?.length ? h("details", { class: "org-register-context218", "data-historical-office-labels": t.officeKey },
         h("summary", { text: "Historical office labels" }), h("p", { class: "small", text: t.historicalOfficeLabels.join(" · ") })) : null;
+      // Owner ruling 14 Nov 2026: a card without a target of its own in a family that has one (Crafter) is not an
+      // application, so it prints its acquisition text alone instead of the family's "Applications accepted.".
+      const ownText = t.acquisition && !/^Apply\b/.test(t.acquisition) ? t.acquisition : "";
       const eligibility = reservedTerm201(t) || family?.eligibility === "reserved_seat" ? null
         : target ? (closed ? h("p", { class: "small muted", text: "This seat is occupied or closed to applications." }) : seatLink(t))
-        : h("p", { class: "small muted", text: (ui.eligibilityLabel?.(family) || "Standing") + (t.acquisition && !/^Apply\b/.test(t.acquisition) ? ". " + t.acquisition : ".") });
+        : family?.applicationTargets?.length ? (ownText ? h("p", { class: "small muted", text: ownText }) : null)
+        : h("p", { class: "small muted", text: (ui.eligibilityLabel?.(family) || "Standing") + (ownText ? ". " + ownText : ".") });
       const li = h("li", { class: "org-office-card", "data-office-key": t.officeKey, "data-office-tier": t.tier },
         h("button", { type: "button", class: "organization-term", text: t.applicationLabel || t.label, onclick: () => select(t.nodeId, true, true, t) }),
         family?.kind === "institution" ? h("p", { class: "small muted", text: family.label }) : null, officeBadges(t), historicalAliases, historicalOfficeLabels,
