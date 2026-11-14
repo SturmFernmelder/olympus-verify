@@ -199,6 +199,69 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), clean)
         self.assertEqual(self.archives(), [])
 
+    def test_exponent_overflow_is_ineligible_in_preview_and_apply_before_archive(self):
+        for nested, number in [(False, "1e309"), (True, "-1e309"), (True, "1E309")]:
+            with self.subTest(nested=nested, number=number):
+                state = {**self.state, "other": {"nested": ["OVERFLOW"]}} if nested else {**self.state, "overflow": "OVERFLOW"}
+                raw = json.dumps(state).replace('"OVERFLOW"', number).encode()
+                self.path.write_bytes(raw)
+                preview = recovery.inspect(self.path)["quarantineUnknown"]
+                self.assertFalse(preview["eligible"])
+                self.assertIsNone(preview["manifestSha256"])
+                with self.assertRaises(ValueError):
+                    self.quarantine((hashlib.sha256(raw).hexdigest(), "a" * 64, 3))
+                self.assertEqual(self.path.read_bytes(), raw)
+                self.assertEqual(self.archives(), [])
+        self.save({**self.state, "other": {"finite": 1.25}})
+        self.assertTrue(recovery.inspect(self.path)["quarantineUnknown"]["eligible"])
+        self.quarantine()
+        self.assertEqual(json.loads(self.path.read_bytes())["other"], {"finite": 1.25})
+
+    def test_oversized_preview_is_rejected_before_open_read_or_parse(self):
+        before = self.path.read_bytes()
+        with patch.object(recovery, "QUARANTINE_MAX_BYTES", 16), \
+                patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded state read")) as read, \
+                patch.object(Path, "open", side_effect=AssertionError("oversized state opened")) as opened, \
+                patch.object(recovery.json, "loads", side_effect=AssertionError("oversized state parsed")) as parsed:
+            with self.assertRaises(ValueError):
+                recovery.inspect(self.path)
+            read.assert_not_called()
+            opened.assert_not_called()
+            parsed.assert_not_called()
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_preview_read_is_bounded_if_file_grows_after_the_size_check(self):
+        stat, opened = Path.stat, Path.open
+        sizes = []
+        class ReadScope:
+            def __init__(self, stream):
+                self.stream = stream
+            def __enter__(self):
+                self.stream.__enter__()
+                return self
+            def __exit__(self, *args):
+                return self.stream.__exit__(*args)
+            def read(self, size):
+                sizes.append(size)
+                return self.stream.read(size)
+        def old_size(path, *args, **kwargs):
+            info = stat(path, *args, **kwargs)
+            if path == self.path:
+                fields = list(info)
+                fields[6] = 64
+                return os.stat_result(fields)
+            return info
+        def bounded_open(path, *args, **kwargs):
+            return ReadScope(opened(path, *args, **kwargs))
+        with patch.object(recovery, "QUARANTINE_MAX_BYTES", 64), \
+                patch.object(Path, "stat", new=old_size), patch.object(Path, "open", new=bounded_open), \
+                patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded state read")), \
+                patch.object(recovery.json, "loads", side_effect=AssertionError("oversized state parsed")) as parsed:
+            with self.assertRaises(ValueError):
+                recovery.inspect(self.path)
+            parsed.assert_not_called()
+        self.assertEqual(sizes, [65])
+
     def test_archive_output_bound_and_review_counter_overflow_preserve_original(self):
         before = self.path.read_bytes()
         pins = self.pins()
@@ -326,23 +389,23 @@ class AttendedQuarantineTests(unittest.TestCase):
 
     def test_failed_readback_is_not_a_success_and_is_not_automatically_repeated(self):
         pins = self.pins()
-        read = Path.read_bytes
+        read = recovery._read_state
         reads = 0
-        def lost_readback(path):
+        def lost_readback(path, max_bytes=None):
             nonlocal reads
             if path == self.path:
                 reads += 1
                 if reads == 4:
                     raise OSError("synthetic unreadable replacement")
-            return read(path)
-        with patch.object(Path, "read_bytes", new=lost_readback), self.assertRaises(OSError):
+            return read(path, max_bytes)
+        with patch.object(recovery, "_read_state", new=lost_readback), self.assertRaises(OSError):
             self.quarantine(pins)
         self.assertEqual(json.loads(self.path.read_bytes())["outbox"], [])
         self.assertEqual(len(self.archives()), 1)
         with self.assertRaises(ValueError):
             self.quarantine(pins)
 
-    def test_quarantined_old_proofs_are_not_reenqueued_on_watcher_restart(self):
+    def test_restarted_empty_box_does_not_dispatch_archive_files(self):
         result = self.quarantine()
         (self.root / "Logs").mkdir()
         import watcher
@@ -354,6 +417,47 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(w.state.d["outbox"], [])
         self.assertEqual(w.state.d["seen"], self.state["seen"])
         self.assertEqual(json.loads(Path(result["archive"]).read_bytes())["originals"], self.rows)
+
+    def test_reobserved_signed_chat_and_savedvars_proof_stay_deduplicated_after_quarantine(self):
+        # Reuse the existing real parser/native file/roster-ACK fixture rather
+        # than installing private internal witnesses or bypassing admission.
+        import test_verification_source_witness280 as native_fixture
+        import watcher
+        fixture = native_fixture.VerificationSourceWitness280Tests(methodName="runTest")
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.admit()
+        old_line, old_body = fixture.line(), fixture.body()
+        fixture.unknown_verify = True
+        fixture.w.handle_chat_line(old_line)
+        self.assertEqual(len(fixture.verify_paths()), 1)
+        self.assertEqual(len(fixture.w.state.d["outbox"]), 1)
+        path = fixture.w.state.path
+        pins = recovery.inspect(path)
+        result = recovery.quarantine_unknown(path, pins["stateSha256"],
+            pins["quarantineUnknown"]["manifestSha256"], 1, "Synthetic original proof re-observation review")
+        archive = Path(result["archive"]).read_bytes()
+        restarted = watcher.Watcher(fixture.w.cfg)
+        calls = []
+        def transport(method, route, body=None, retries=3):
+            calls.append((method, route))
+            if route == "/ingest/roster":
+                return True, {"snapshot": 8, "trusted": True, "members": len(body["members"])}
+            raise AssertionError("old proof was dispatched after quarantine")
+        restarted.worker.call = transport
+        fixture.at += 1
+        fixture.db["roster"]["exportedAt"] = fixture.at
+        fixture.write()
+        restarted.check_savedvars()
+        self.assertTrue(restarted.verification_roster_ready(old_body))
+        self.assertTrue(restarted.state.was_seen(restarted.code_key("w", native_fixture.NAME, fixture.code)))
+        restarted.handle_chat_line(old_line)
+        restarted.forward_events([{"type": "whisper", "name": native_fixture.NAME, "guid": native_fixture.GUID,
+                                   "code": fixture.code, "ok": True, "ts": old_body["ts"],
+                                   "nativeMembership": old_body["nativeMembership"]}])
+        self.assertEqual(calls, [("POST", "/ingest/roster")])
+        self.assertEqual(restarted.state.d["outbox"], [])
+        self.assertEqual(Path(result["archive"]).read_bytes(), archive)
 
     def test_cli_runs_without_network_or_watcher_imports_and_rejects_queue_lane(self):
         script = Path(recovery.__file__).resolve()

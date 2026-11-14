@@ -5,6 +5,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import stat
@@ -188,10 +189,22 @@ def retained(item: Any) -> bool:
         return False
 
 
-def load(path: Path) -> tuple[bytes, dict[str, Any]]:
+def _read_state(path: Path, max_bytes: int | None = None) -> bytes:
+    if max_bytes is None:
+        return path.read_bytes()
+    if path.stat().st_size > max_bytes:
+        raise ValueError("attended state size limit exceeded")
+    with path.open("rb") as stream:
+        raw = stream.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ValueError("attended state size limit exceeded")
+    return raw
+
+
+def load(path: Path, *, max_bytes: int | None = None) -> tuple[bytes, dict[str, Any]]:
     path = reviewed_path(path)
     regular_identity(path)
-    raw = path.read_bytes()
+    raw = _read_state(path, max_bytes)
     value = json.loads(raw)
     if not isinstance(value, dict) or not isinstance(value.get("outbox", []), list):
         raise ValueError("invalid state; original retained")
@@ -289,8 +302,14 @@ def _strict_quarantine_state(raw: bytes) -> dict[str, Any]:
         return out
     def constant(_):
         raise ValueError("nonfinite state refused")
+    def finite_float(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError("nonfinite state refused")
+        return number
     try:
-        state = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=constant)
+        state = json.loads(raw.decode("utf-8"), object_pairs_hook=pairs, parse_constant=constant,
+                           parse_float=finite_float)
     except RecursionError as error:
         raise ValueError("state depth limit exceeded") from error
     if type(state) is not dict:
@@ -318,7 +337,7 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
         identity = regular_identity(path)
         if path.stat().st_size > QUARANTINE_MAX_BYTES:
             raise ValueError("attended state size limit exceeded")
-        raw = path.read_bytes()
+        raw = _read_state(path, QUARANTINE_MAX_BYTES)
         if digest(raw) != state_sha:
             raise ValueError("state changed; inspect again, no mutation")
         state = _strict_quarantine_state(raw)
@@ -354,10 +373,10 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
             stream.flush()
             os.fsync(stream.fileno())
         if (regular_identity(archive) != archived_identity or archive.stat().st_size != len(archive_raw)
-                or archive.read_bytes() != archive_raw):
+                or _read_state(archive, QUARANTINE_MAX_BYTES) != archive_raw):
             raise ValueError("private archive readback differs; original state not replaced")
         if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
-                or digest(path.read_bytes()) != state_sha):
+                or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
             raise ValueError("state changed after archive; original state not replaced")
         tmp = path.with_name(path.name + ".custody-recovery.tmp")
         with private_create(tmp) as stream:
@@ -366,13 +385,13 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
             stream.flush()
             os.fsync(stream.fileno())
         replacement = regular_identity(tmp)
-        if tmp.stat().st_size != len(after) or tmp.read_bytes() != after:
+        if tmp.stat().st_size != len(after) or _read_state(tmp, QUARANTINE_MAX_BYTES) != after:
             raise ValueError("private replacement readback differs; original state not replaced")
         if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
-                or digest(path.read_bytes()) != state_sha):
+                or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
             raise ValueError("state changed before replace; original state not replaced")
         os.replace(tmp, path)
-        if regular_identity(path) != replacement or path.read_bytes() != after:
+        if regular_identity(path) != replacement or _read_state(path, QUARANTINE_MAX_BYTES) != after:
             raise ValueError("state replacement readback differs; inspect, never repeat blindly")
         return {"action": "quarantined-unresolved", "stateSha256": digest(after), "archive": str(archive),
                 "manifestSha256": manifest_sha, "quarantinedCount": count, "deliveryAcknowledged": False,
@@ -381,7 +400,7 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
 
 
 def inspect(path: Path) -> dict[str, Any]:
-    raw, state = load(path)
+    raw, state = load(path, max_bytes=QUARANTINE_MAX_BYTES)
     # Output does not disclose payloads, names, codes, tokens or provider response bodies.
     result: dict[str, Any] = {"stateSha256": digest(raw), "outboxCount": len(state.get("outbox", [])), "network": False}
     for lane in ("outbox", "queue-written"):
