@@ -334,8 +334,9 @@ class AttendedQuarantineTests(unittest.TestCase):
                 self.assertFalse(self.path.with_name(self.path.name + ".custody-recovery.tmp").exists())
 
     def test_private_protection_rejects_actual_broad_inherited_and_wrong_dacls(self):
-        # Zero-data scratch files only. Validate real OS descriptors, rather
-        # than replacing the readback function with an exception in this case.
+        # Zero-data scratch files only. Each Windows case is CREATED with its
+        # descriptor, exactly as private_create does: SetNamedSecurityInfo adds
+        # AI to an otherwise correct DACL and would mask the ACE under test.
         if os.name != "nt":
             path = self.root / "zero-data"
             with recovery.private_create(path):
@@ -351,42 +352,83 @@ class AttendedQuarantineTests(unittest.TestCase):
             return
         import ctypes
         from ctypes import wintypes
+        class SecurityAttributes(ctypes.Structure):
+            _fields_ = [("nLength", wintypes.DWORD), ("lpSecurityDescriptor", wintypes.LPVOID),
+                        ("bInheritHandle", wintypes.BOOL)]
         advapi = ctypes.WinDLL("advapi32", use_last_error=True)
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
         convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(wintypes.LPVOID),
                             ctypes.POINTER(wintypes.DWORD)]
         convert.restype = wintypes.BOOL
-        get_dacl = advapi.GetSecurityDescriptorDacl
-        get_dacl.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.BOOL),
-                            ctypes.POINTER(wintypes.LPVOID), ctypes.POINTER(wintypes.BOOL)]
-        get_dacl.restype = wintypes.BOOL
-        set_security = advapi.SetNamedSecurityInfoW
-        set_security.argtypes = [wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD,
-                                wintypes.LPVOID, wintypes.LPVOID, wintypes.LPVOID, wintypes.LPVOID]
-        set_security.restype = wintypes.DWORD
+        create_file = kernel.CreateFileW
+        create_file.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                ctypes.POINTER(SecurityAttributes), wintypes.DWORD,
+                                wintypes.DWORD, wintypes.HANDLE]
+        create_file.restype = wintypes.HANDLE
+        create_directory = kernel.CreateDirectoryW
+        create_directory.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(SecurityAttributes)]
+        create_directory.restype = wintypes.BOOL
+        get_security = advapi.GetNamedSecurityInfoW
+        get_security.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                wintypes.LPVOID, wintypes.LPVOID, ctypes.POINTER(wintypes.LPVOID),
+                                wintypes.LPVOID, ctypes.POINTER(wintypes.LPVOID)]
+        get_security.restype = wintypes.DWORD
+        to_text = advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW
+        to_text.argtypes = [wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                           ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(wintypes.DWORD)]
+        to_text.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
         kernel.LocalFree.argtypes = [wintypes.LPVOID]
         kernel.LocalFree.restype = wintypes.LPVOID
-        cases = [("broad", "D:P(A;;FA;;;SY)(A;;FA;;;OW)(A;;FR;;;WD)", 0x80000004),
-                 ("inherited", "D:(A;;FA;;;SY)(A;;FA;;;OW)", 0x20000004),
-                 ("wrong", "D:P(A;;FA;;;OW)", 0x80000004)]
-        for name, sddl, flags in cases:
+        def created_with(path, sddl, directory=False):
+            descriptor = wintypes.LPVOID()
+            self.assertTrue(convert(sddl, 1, ctypes.byref(descriptor), None))
+            try:
+                attrs = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, False)
+                if directory:
+                    self.assertTrue(create_directory(str(path), ctypes.byref(attrs)))
+                else:
+                    handle = create_file(str(path), 0x40000000, 0, ctypes.byref(attrs), 1, 0x80, None)
+                    self.assertNotEqual(handle, wintypes.HANDLE(-1).value)
+                    self.assertTrue(kernel.CloseHandle(handle))
+            finally:
+                kernel.LocalFree(descriptor)
+        def actual_sddl(path):
+            descriptor, dacl, text = wintypes.LPVOID(), wintypes.LPVOID(), wintypes.LPWSTR()
+            self.assertEqual(get_security(str(path), 1, 0x4, None, None, ctypes.byref(dacl),
+                                          None, ctypes.byref(descriptor)), 0)
+            try:
+                self.assertTrue(to_text(descriptor, 1, 0x4, ctypes.byref(text), None))
+                return text.value
+            finally:
+                if text:
+                    kernel.LocalFree(text)
+                kernel.LocalFree(descriptor)
+        control = "D:P(A;;FA;;;SY)(A;;FA;;;OW)"
+        # This parent has no inheritable ACEs, so the unprotected negative
+        # differs only in its protection flag, not in extra parent principals.
+        parent = self.root / "zero-data-acl-parent"
+        created_with(parent, control, directory=True)
+        cases = [("exact", control, True),
+                 ("broad", "D:P(A;;FA;;;SY)(A;;FA;;;OW)(A;;FR;;;WD)", False),
+                 ("missing-system", "D:P(A;;FA;;;OW)", False),
+                 ("inherited", "D:(A;;FA;;;SY)(A;;FA;;;OW)", False)]
+        for name, sddl, accepted in cases:
             with self.subTest(dacl=name):
-                path = self.root / ("zero-data-" + name)
-                with recovery.private_create(path):
-                    pass
-                self.assertEqual(recovery.private_protection(path), "windows-protected-owner-system")
-                descriptor, dacl = wintypes.LPVOID(), wintypes.LPVOID()
-                present, defaulted = wintypes.BOOL(), wintypes.BOOL()
-                self.assertTrue(convert(sddl, 1, ctypes.byref(descriptor), None))
-                try:
-                    self.assertTrue(get_dacl(descriptor, ctypes.byref(present), ctypes.byref(dacl), ctypes.byref(defaulted)))
-                    self.assertTrue(present.value)
-                    self.assertEqual(set_security(str(path), 1, flags, None, None, dacl, None), 0)
-                finally:
-                    kernel.LocalFree(descriptor)
-                with self.assertRaises(ValueError):
-                    recovery.private_protection(path)
+                path = parent / name
+                created_with(path, sddl)
+                actual = actual_sddl(path)
+                if name == "inherited":
+                    self.assertIn(actual, (sddl, sddl.replace("D:", "D:AI", 1)))
+                else:
+                    self.assertEqual(actual, sddl)  # no PAI masking another defect
+                if accepted:
+                    self.assertEqual(recovery.private_protection(path), "windows-protected-owner-system")
+                else:
+                    with self.assertRaises(ValueError):
+                        recovery.private_protection(path)
                 self.assertEqual(path.read_bytes(), b"")
 
     def test_same_size_archive_corruption_stops_before_state_replacement(self):
@@ -422,6 +464,41 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(self.archives()[0].read_bytes(), corrupt)
         self.assertEqual(self.path.read_bytes(), before)
         self.assertFalse(self.path.with_name(self.path.name + ".custody-recovery.tmp").exists())
+
+    def test_same_size_temporary_state_corruption_stops_before_replacement(self):
+        before, pins = self.path.read_bytes(), self.pins()
+        create, corrupted = recovery.private_create, []
+        class CorruptAfterClose:
+            def __init__(self, stream, path):
+                self.stream, self.path = stream, path
+            def __enter__(self):
+                return self.stream.__enter__()
+            def __exit__(self, *args):
+                result = self.stream.__exit__(*args)
+                original = self.path.read_bytes()
+                raw = bytearray(original)
+                raw[raw.index(b'"outbox"') + 1] ^= 1
+                self.path.write_bytes(raw)
+                corrupted.append((original, bytes(raw)))
+                return result
+        def corrupt_create(path):
+            stream = create(path)
+            return CorruptAfterClose(stream, path) if path.name.endswith(".custody-recovery.tmp") else stream
+        with patch.object(recovery, "private_create", side_effect=corrupt_create), \
+                patch.object(recovery.os, "replace", side_effect=AssertionError("corrupt replacement reached replace")) as replaced:
+            with self.assertRaises(ValueError) as held:
+                self.quarantine(pins)
+            replaced.assert_not_called()
+        self.assertEqual(held.exception.custody_phase, "archive-verified")
+        self.assertEqual(len(corrupted), 1)
+        original, corrupt = corrupted[0]
+        self.assertEqual(len(original), len(corrupt))
+        self.assertEqual(sum(a != b for a, b in zip(original, corrupt)), 1)
+        tmp = self.path.with_name(self.path.name + ".custody-recovery.tmp")
+        self.assertEqual(tmp.read_bytes(), corrupt)
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual(len(self.archives()), 1)
+        self.assertEqual(json.loads(self.archives()[0].read_bytes())["originals"], self.rows)
 
     def test_existing_temp_paths_are_preserved_before_archive_creation(self):
         for kind in ("regular", "directory", "alias"):
@@ -723,6 +800,79 @@ class AttendedQuarantineTests(unittest.TestCase):
             self.assertTrue(restarted.state.was_seen(restarted.code_key("w", native_fixture.NAME, fixture.code)))
             self.assertEqual(json.dumps(fixture.db["events"][0], sort_keys=True).encode(), old_event_bytes)
             self.assertEqual(Path(result["archive"]).read_bytes(), archived)
+
+    def test_savedvariables_note_claim_stays_retired_without_events_resend_and_new_note_works(self):
+        import test_verification_source_witness280 as native_fixture
+        import watcher
+        fixture = native_fixture.VerificationSourceWitness280Tests(methodName="runTest")
+        self.addCleanup(fixture.doCleanups)
+        fixture.setUp()
+        fixture.admit()
+        old_event = {"type": "note", "name": native_fixture.NAME, "ts": fixture.at,
+                     "detail": "Synthetic original note", "ok": True}
+        captures = []
+        def first_transport(method, route, body=None, retries=3):
+            if route == "/ingest/roster":
+                return True, {"snapshot": 10, "trusted": True, "members": len(body["members"])}
+            self.assertEqual((method, route), ("POST", "/ingest/events"))
+            captures.append(copy.deepcopy(body))
+            return False, "synthetic unresolved event outcome"
+        fixture.w.worker.call = first_transport
+        def write_next_file(consumer):
+            fixture.write()
+            stamp = max(fixture.w.sv_file.stat().st_mtime, consumer.state.d["sv_mtime"]) + 1
+            os.utime(fixture.w.sv_file, (stamp, stamp))
+            return fixture.w.sv_file.stat().st_mtime
+        fixture.db["events"] = [copy.deepcopy(old_event)]
+        write_next_file(fixture.w)
+        fixture.w.check_savedvars()
+        self.assertEqual(len(captures), 1)
+        path = fixture.w.state.path
+        before = json.loads(path.read_bytes())
+        self.assertEqual(len(before["outbox"]), 1)
+        self.assertEqual(before["outbox"][0]["path"], "/ingest/events")
+        old_key = "e:note:" + watcher.codes.normalize_character(native_fixture.NAME) + ":" + str(old_event["ts"])
+        self.assertTrue(fixture.w.state.was_seen(old_key))
+        pins = recovery.inspect(path)
+        result = recovery.quarantine_unknown(path, pins["stateSha256"],
+            pins["quarantineUnknown"]["manifestSha256"], 1, "Synthetic file-event claim review")
+        self.assertEqual(json.loads(path.read_bytes()), {**before, "outbox": []})
+        archived = Path(result["archive"]).read_bytes()
+        restarted = watcher.Watcher(fixture.w.cfg)
+        calls = []
+        def transport(method, route, body=None, retries=3):
+            calls.append((method, route, copy.deepcopy(body)))
+            if route == "/ingest/roster":
+                return True, {"snapshot": 11, "trusted": True, "members": len(body["members"])}
+            self.assertEqual((method, route), ("POST", "/ingest/events"))
+            self.assertEqual(len(body["events"]), 1)
+            self.assertEqual(body["events"][0]["ts"], new_event["ts"])
+            self.assertEqual(body["events"][0]["detail"], new_event["detail"])
+            return True, {"recorded": 1}
+        restarted.worker.call = transport
+        old_seen = list(restarted.state.d["seen"])
+        fixture.at += 1
+        fixture.db["roster"]["exportedAt"] = fixture.at
+        write_next_file(restarted)
+        restarted.check_savedvars()
+        self.assertEqual([(m, r) for m, r, _ in calls], [("POST", "/ingest/roster")])
+        self.assertFalse(any(route == "/ingest/events" for _, route, _ in calls))
+        self.assertEqual(restarted.state.d["seen"], old_seen)
+        self.assertEqual(restarted.state.d["outbox"], [])
+        self.assertEqual(Path(result["archive"]).read_bytes(), archived)
+        fixture.at += 1
+        new_event = {**old_event, "ts": fixture.at, "detail": "Synthetic genuinely new note"}
+        fixture.db["events"] = [copy.deepcopy(old_event), copy.deepcopy(new_event)]
+        fixture.db["roster"]["exportedAt"] = fixture.at
+        write_next_file(restarted)
+        restarted.check_savedvars()
+        events_calls = [body for _, route, body in calls if route == "/ingest/events"]
+        self.assertEqual(len(events_calls), 1)
+        self.assertTrue(restarted.state.was_seen(old_key))
+        self.assertTrue(all(claim in restarted.state.d["seen"] for claim in old_seen))
+        self.assertEqual(restarted.state.d["outbox"], [])
+        self.assertEqual(fixture.db["events"][0], old_event)
+        self.assertEqual(Path(result["archive"]).read_bytes(), archived)
 
     def test_plain_whisper_kept_claim_blocks_capture_with_fresh_native_source_and_new_ticket_works(self):
         import codes
