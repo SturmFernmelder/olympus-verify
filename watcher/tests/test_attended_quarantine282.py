@@ -418,7 +418,7 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(w.state.d["seen"], self.state["seen"])
         self.assertEqual(json.loads(Path(result["archive"]).read_bytes())["originals"], self.rows)
 
-    def test_reobserved_signed_chat_and_savedvars_proof_stay_deduplicated_after_quarantine(self):
+    def test_old_source_stays_deduplicated_and_a_new_signed_ticket_delivers_after_quarantine(self):
         # Reuse the existing real parser/native file/roster-ACK fixture rather
         # than installing private internal witnesses or bypassing admission.
         import test_verification_source_witness280 as native_fixture
@@ -456,6 +456,35 @@ class AttendedQuarantineTests(unittest.TestCase):
                                    "code": fixture.code, "ok": True, "ts": old_body["ts"],
                                    "nativeMembership": old_body["nativeMembership"]}])
         self.assertEqual(calls, [("POST", "/ingest/roster")])
+        self.assertEqual(restarted.state.d["outbox"], [])
+        self.assertEqual(Path(result["archive"]).read_bytes(), archive)
+        # A new real request has a different valid ticket and native signature.
+        # It must remain usable without clearing the old source's seen claim or
+        # changing its archived body/clock. External HTTP alone is substituted.
+        import codes
+        from datetime import datetime, timezone
+        old_seen = list(restarted.state.d["seen"])
+        old_key = restarted.code_key("w", native_fixture.NAME, fixture.code)
+        fixture.at += 1
+        fixture.code = codes.ticket_for(native_fixture.SECRET, "ABC",
+                                       codes.day_bucket(datetime.fromtimestamp(fixture.at, timezone.utc)))
+        self.assertNotEqual(fixture.code, old_body["code"])
+        self.assertTrue(restarted.verification_roster_ready(fixture.body()))
+        new_requests = []
+        def new_transport(method, route, body=None, retries=3):
+            self.assertEqual((method, route), ("POST", "/ingest/verify"))
+            self.assertEqual(body, fixture.body())
+            new_requests.append(copy.deepcopy(body))
+            return True, {"result": "member", "pendingConsumed": True}
+        restarted.worker.call = new_transport
+        restarted.handle_chat_line(fixture.line())
+        restarted.forward_events([{"type": "whisper", "name": native_fixture.NAME, "guid": native_fixture.GUID,
+                                   "code": fixture.code, "ok": True, "ts": fixture.at,
+                                   "nativeMembership": fixture.body()["nativeMembership"]}])
+        self.assertEqual(new_requests, [fixture.body()])
+        self.assertTrue(restarted.state.was_seen(old_key))
+        self.assertTrue(all(claim in restarted.state.d["seen"] for claim in old_seen))
+        self.assertTrue(restarted.state.was_seen(restarted.code_key("w", native_fixture.NAME, fixture.code)))
         self.assertEqual(restarted.state.d["outbox"], [])
         self.assertEqual(Path(result["archive"]).read_bytes(), archive)
 
