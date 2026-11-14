@@ -261,7 +261,10 @@ for (const row of offices.OFFICE_APPOINTMENTS) for (const track of ['member', 'r
 const offered = new Set(dir.families.flatMap(f => (f.applicationTargets || []).filter(t => t.targetOffice).map(t => t.applicationTrack + '/' + t.targetOffice)));
 check('CL2-036', 'the directory offers exactly the office targets the Worker accepts', accepted.size > 0 && [...accepted].every(k => offered.has(k)) && [...offered].every(k => accepted.has(k)),
   'worker ' + [...accepted].join(',') + ' · directory ' + [...offered].join(','));
-check('CL2-036', 'Core Raider (office_25) is an accepted Raider-track target and its family says so', accepted.has('raider/office_25') && fam('raid_standing')?.eligibility === 'open_application');
+// Owner ruling of 14 Nov 2026 ("No, three choices only"): Core Raider and Crafter are no longer application targets.
+check('CL2-036', 'Core Raider (office_25) and Crafter (office_27) are not accepted targets, and Raid Team Standing is a standing with no target',
+  !accepted.has('raider/office_25') && !accepted.has('artisan/office_27') && fam('raid_standing')?.eligibility === 'standing' && (fam('raid_standing')?.applicationTargets || []).length === 0,
+  JSON.stringify({ accepted: [...accepted], raidStanding: fam('raid_standing')?.eligibility }));
 check('CL2-036', 'reserved leadership families have no target and the reserved eligibility', dir.families.filter(f => f.kind === 'role' && f.tier !== 'member_specialist').every(f => f.eligibility === 'reserved_seat' && f.applicationTargets.length === 0));
 const orgView = read('worker/public/static/organization-view.js'), overview = read('worker/public/static/organization-overview205.js');
 check('CL2-036', 'the register and the alliance overview read the directory rule, not term.applicationEligible or a second label set',
@@ -339,11 +342,46 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
   // Not covered by the ruling, so identical to b631136: seats (labels, families, office keys, order), the 13-seat count,
   // every term except its node, appointments, application tracks and the native ranks. No person's name in the model.
   const digest = v => sha256(JSON.stringify(v));
-  check('CL2-039', 'seats, seat numbers, office keys, terms, appointments and application tracks are unchanged; the model names no person',
-    digest(model.councilComposition.currentSeats.map(({ nodeId, ...s }) => s)) === 'eb27436254d4efeeae741b062683a6103fe1ef28e243006ceb766c267272ebdb'
-    && digest(model.terms.map(({ nodeId, ...t }) => t)) === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'
-    && digest([model.appointments, model.applicationTracks, model.roleRank199, model.nativeRanks]) === '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34'
+  // Owner ruling of 14 Nov 2026 ("No, three choices only"; "Raid leads grant it"): office_25 (Core Raider) and office_27
+  // (Crafter) changed in exactly three fields, in terms and in appointments. This finite inverse undoes exactly that delta
+  // and refuses any other value of those fields, so the earlier pins below keep covering every other byte of the model.
+  const OLD_ACQUISITION1114 = 'Apply on /#/vote; acceptance, appointment and access require separate officer review.';
+  const RULING1114 = Object.freeze({
+    office_25: { applicationEligible: [true, false], applicationRoleKeys: [['raider'], []], acquisition: [OLD_ACQUISITION1114, 'Granted by the raid leads. There is no separate application: apply as Raider.'] },
+    office_27: { applicationEligible: [true, false], applicationRoleKeys: [['member'], []], acquisition: [OLD_ACQUISITION1114, 'There is no separate application: apply as Artisan.'] },
+  });
+  const undoRuling1114 = m => {
+    const out = structuredClone(m);
+    for (const [list, keyField] of [['terms', 'officeKey'], ['appointments', 'key']]) for (const [key, fields] of Object.entries(RULING1114)) {
+      const rows = (out[list] || []).filter(row => row[keyField] === key);
+      if (rows.length !== 1) throw Error('ruling1114_row ' + list + ' ' + key);
+      for (const [field, [before, after]] of Object.entries(fields)) {
+        if (JSON.stringify(rows[0][field]) !== JSON.stringify(after)) throw Error('ruling1114_value ' + list + ' ' + key + ' ' + field);
+        rows[0][field] = structuredClone(before);
+      }
+    }
+    return out;
+  };
+  const earlier1114 = (() => { try { return undoRuling1114(model); } catch { return null; } })();
+  check('CL2-039', 'seats, seat numbers, office keys, terms, appointments and application tracks are unchanged (apart from the 14 Nov ruling, undone exactly); the model names no person',
+    !!earlier1114 && digest(model.councilComposition.currentSeats.map(({ nodeId, ...s }) => s)) === 'eb27436254d4efeeae741b062683a6103fe1ef28e243006ceb766c267272ebdb'
+    && digest(earlier1114.terms.map(({ nodeId, ...t }) => t)) === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'
+    && digest([earlier1114.appointments, earlier1114.applicationTracks, earlier1114.roleRank199, earlier1114.nativeRanks]) === '6d20757dc440a3292dc462594c00a927b2f99056670ad1d05accf13e64533c34'
     && model.councilComposition.cabinetSeatCount === 13 && model.cabinet218.seatCount === 13 && !/richwcampbell/i.test(JSON.stringify(model)));
+  {
+    const termsDigest1114 = m => { try { return digest(undoRuling1114(m).terms.map(({ nodeId, ...t }) => t)); } catch (error) { return 'refused: ' + error.message; } };
+    const variant = fn => { const m = structuredClone(model); fn(m); return termsDigest1114(m); };
+    const outcomes = {
+      'a ruled field with another value (term office_25 acquisition)': variant(m => { m.terms.find(t => t.officeKey === 'office_25').acquisition += ' '; }),
+      'a ruled field with the old value (appointment office_27 still eligible)': variant(m => { m.appointments.find(t => t.key === 'office_27').applicationEligible = true; }),
+      'role keys kept on an ineligible row (term office_27)': variant(m => { m.terms.find(t => t.officeKey === 'office_27').applicationRoleKeys = ['member']; }),
+      'the same fields changed on a third office (term office_07)': variant(m => { m.terms.find(t => t.officeKey === 'office_07').applicationEligible = false; }),
+      'another field changed on a ruled office (term office_25 applicationTrack)': variant(m => { m.terms.find(t => t.officeKey === 'office_25').applicationTrack = 'member'; }),
+    };
+    check('CL2-039', 'the 14 Nov ruling inverse refuses any other value of the three fields, and any other change still alters the pinned digest',
+      Object.values(outcomes).every(d => d !== 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68'),
+      JSON.stringify(Object.entries(outcomes).filter(([, d]) => d === 'd80b5f7e7763858a2614fc77a9dbd821442167d0a2629896f6b836cdc634da68').map(([k]) => k)));
+  }
   // Every current seat except the Council chair sits on the node of its own office (the chair's office_43 placement is the
   // separate open question on the branch Guild Master term, not covered by this ruling).
   const misplaced = model.councilComposition.currentSeats.filter(s => s.id !== 'gm-chair' && (model.terms.find(t => t.officeKey === s.officeKeys[0]) || {}).nodeId !== s.nodeId).map(s => s.id);
@@ -378,7 +416,8 @@ check('REV-GOV-5', 'the register sorts a Council alias right after its family\'s
   // on the earlier edition. Every way of breaking the record or the model must refuse or change the result.
   const BASE_MODEL1113 = 'af1f62cd8ca391277abbbad1f8c92f925a851077068c65653c36ab729e48ad9e';
   const restore = (() => { try { return require(path.join(root, 'scripts/build-governance-titles.cjs')).restoreReportingLines1113; } catch { return undefined; } })();
-  const restoredDigest = m => { try { return sha256(JSON.stringify({ ...restore(m), book: null })); } catch (error) { return 'refused: ' + error.message; } };
+  // The 14 Nov 2026 ruling inverse (above) runs first; it changes no node and refuses any other value of its fields.
+  const restoredDigest = m => { try { return sha256(JSON.stringify({ ...restore(undoRuling1114(m)), book: null })); } catch (error) { return 'refused: ' + error.message; } };
   check('CL2-039', 'undoing reportingLines1113 restores the b631136 organization model exactly (book pin aside)', typeof restore === 'function' && restoredDigest(model) === BASE_MODEL1113,
     typeof restore === 'function' ? restoredDigest(model) : 'no restoreReportingLines1113 export');
   if (typeof restore === 'function') {

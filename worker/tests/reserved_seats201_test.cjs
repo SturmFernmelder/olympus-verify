@@ -66,9 +66,14 @@ async function worker201(){
  }
  let result=await send({...base,position:'pvp_team'});
  check('legacy non-leadership PvP Team membership remains available before any selected track',result.response.status===200&&row().position==='pvp_team');
- for(const [track,position,targetOffice]of [['member','member',null],['raider','raider','office_25'],['artisan','member','office_27']]){
+ // Owner ruling of 14 Nov 2026 ("No, three choices only"): Guild Member, Raider and Artisan (office_07) are the choices.
+ for(const [track,position,targetOffice]of [['member','member',null],['raider','raider',null],['artisan','member','office_07']]){
   const result=await send({...base,position,applicationTrack:track,targetOffice});
   check(track+' current eligible application saves through the original Worker',result.response.status===200&&JSON.parse(row().answers).applicationTrack===track&&JSON.parse(row().answers).targetOffice===targetOffice,result.response.status,result.body);
+ }
+ for(const [track,position,targetOffice]of [['raider','raider','office_25'],['artisan','member','office_27']]){
+  const before=state(),result=await send({...base,position,applicationTrack:track,targetOffice});
+  check(track+'/'+targetOffice+' (no separate application since 14 Nov 2026) is refused with field targetOffice and changes no row',result.response.status===400&&result.body?.field==='targetOffice'&&state()===before,result.response.status,result.body);
  }
  result=await send({...base,backups:['raider','pvp_team']});
  check('ordinary membership retains both non-leadership backups',result.response.status===200&&row().backup1==='raider'&&row().backup2==='pvp_team');
