@@ -46,7 +46,7 @@ const treasurer = offices.find(o => o.key === 'office_86');
 offices.push({key:'rank_treasurer',label:'Treasurer (appointment; historical rank key)',group:'office',aliasOf:'office_86',...metadata(treasurer),recommendedNativeSlots:treasurer.recommendedNativeSlots,nativeMappingNote:'Historical assignable key retained for the Treasurer appointment at High Council slot 1; it is not a native rank.',mappingApplies:false});
 const tracks = [
   {id:'member',label:'Sworn Guild Member',rankPath:'Rank 10 Initiate → Rank 8 Member',description:'Olympus I–X PvE / social membership; admission and verified standing remain reviewed.'},
-  {id:'raider',label:'Core Raider & PvE Progression Track',rankPath:'Rank 7 Raider',description:'Progression readiness and event eligibility are reviewed separately from membership.'},
+  {id:'raider',label:'Raider & PvE Progression Track',rankPath:'Rank 7 Raider',description:'Progression readiness and event eligibility are reviewed separately from membership.'},
   {id:'artisan',label:'Master Artisan & Guild Workshop Crafter',rankPath:'Title V profession specialist',description:'Opt-in professional service and rare-recipe stewardship; no officer permission follows.'},
   {id:'officer',label:'Officer Corps & Branch Leadership Application',rankPath:'Ranks 3, 4 & 5 · Officer, Officer Alt, Raid Leader',description:'Branch officers, class leads, recruitment, auditing, heraldry, events and moderators.'},
   {id:'high_council',label:'High Council Application',rankPath:'Rank 2 High Council',description:'Reserved historical category; not open for applications. '+organization.councilComposition.currentSeats.filter(s=>s.id!=='gm-chair').map(s=>s.label).join('; ')+'. Every appointment and permission requires separate review.'},

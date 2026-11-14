@@ -4735,7 +4735,7 @@ export const APPLICATION_TRACKS_199 = Object.freeze([
   },
   {
     "id": "raider",
-    "label": "Core Raider & PvE Progression Track",
+    "label": "Raider & PvE Progression Track",
     "rankPath": "Rank 7 Raider",
     "description": "Progression readiness and event eligibility are reviewed separately from membership."
   },
