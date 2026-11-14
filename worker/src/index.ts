@@ -38,7 +38,7 @@ import { STRICT_ROSTER_DISPLAY_PROTOCOL, STRICT_ROSTER_DISPLAY_PROTOCOL_V2, stri
 import { handleLaunchOperations229,handleDiscoveryOperations235 } from './site-launch229';
 import { handleInteraction, USER_MENU_LOOKUP } from "./interactions";
 import { DiscordError, INTERACTION_FAILED, json, readInteractionBody, reply, verifyInteraction, type Interaction } from "./discord";
-import { errorRef, idNamespace, logPath } from "./log";
+import { errorRef, idNamespace, heldCause, routeClass } from "./log";
 import { audit, now } from "./db";
 import { getQueue, postEvents, postQueueWritten, postRoster, postVerify, sweepInviteQueue, watcherAuthorized } from "./ingest";
 import { PrivacySiteRequestHeld, readPrivacySubject, privacyBoundSubjectEnv } from './privacy-serving-authority';
@@ -274,7 +274,7 @@ export default {
       const schemaReady = await ensureSchema(env).then(
         () => true,
         (e) => {
-          console.error("schema check failed", errorRef(e));
+          console.error("schema check failed", errorRef(e), heldCause(e));
           if(isPrivacyWriteAdmissionDatabase(env.DB))throw new PrivacyWriteAdmissionHeld('current_schema_unconfirmed');
           return false;
         },
@@ -310,12 +310,18 @@ export default {
       return botResponse280(res);
     } catch (e) {
       if(e instanceof RecoveryFloorHeld)throw e;
-      if(e instanceof PrivacyWriteAdmissionHeld)return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);
-      if(e instanceof PrivacySiteRequestHeld)return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
+      // 14 Nov 2026: one line of fixed labels per held request (log.ts); the line cannot change the answer.
+      if(e instanceof PrivacyWriteAdmissionHeld){try{console.error('request held','write_admission',errorRef(e),heldCause(e),routeClass(path));}catch{}return json({error:'write_admission_held',message:'The current source installation or transaction outcome is not confirmed.'},503);}
+      if(e instanceof PrivacySiteRequestHeld){
+        const label=heldCause(e);try{console.error('request held','site',errorRef(e),label,routeClass(path));}catch{}
+        // A read that the storage itself refused is said to be one; every other hold, and every non-read, answers exactly as before.
+        if(label.startsWith('storage_')&&(request.method==='GET'||request.method==='HEAD'))return json({error:'read_unavailable',message:'The site could not read its data for a moment. Please try again.'},503);
+        return json({error:'erasure_held',message:'The original request is no longer admitted or its database outcome was not confirmed. Refresh the account state before proceeding.'},503);
+      }
       // .49: the message goes to the log with a short id; the caller gets the id and nothing else (a D1 or upstream
       // error text can name tables, hosts or codes).
       const requestId = crypto.randomUUID().slice(0, 8);
-      console.error("unhandled", requestId, logPath(path), errorRef(e)); // .51: class and digest, never the message
+      console.error("unhandled", requestId, routeClass(path), errorRef(e), heldCause(e)); // .51: class, never the message; 14 Nov 2026: route family, never a path segment
       return json({ error: "internal", requestId }, 500);
     }
     });}catch(e){if(e instanceof RecoveryFloorHeld)return json({error:'original_serving_held'},503);throw e;}
