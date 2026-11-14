@@ -196,6 +196,16 @@ The workflow has three bounded jobs and the existing required `check` collector:
 | `backup` | Genuine valid/corrupt/foreign-key backup-checker cases and a local restore of the tracked schema SQL |
 | `check` | Requires all three jobs to report actual success; missing, skipped, cancelled and failed dependencies fail |
 
+The Worker job also runs the focused held-read regression added on 14 November:
+`held_cause_labels_test.cjs`, `sync503_held_workerd_test.cjs` and
+`sync503_page_test.cjs`. The runtime uses a genuine local D1 with labelled transport
+faults, including a committed mutation whose reply is lost. It checks actual sends,
+unchanged uncertainty/authority guards and fixed diagnostic labels. The page check
+covers the explicit retry action. These are current changed-path checks, not a
+return to the historical aggregate. The runtime has its own whole-command deadline;
+the combined CI step is limited to four minutes. Synthetic failures do not establish
+the cause of a past production refusal.
+
 CI has no production credentials. Its schema SQL restore is a local integrity
 sanity check, **not a fresh production backup**. The actual pre-deployment export
 and verification remain required for every authorized production deployment.
