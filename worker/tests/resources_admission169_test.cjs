@@ -14,6 +14,15 @@ const FEEDS = new Set([
   'https://www.wowhead.com/news/rss/all', 'https://www.wowhead.com/forever/blue-tracker?rss',
 ]);
 const compiled = new Map();
+const closedLogsOnly = process.argv.includes('--focus=closed-logs');
+const closedLogCases = new Set([
+  'signed out', 'actual consuming standing fence: denied', 'actual consuming standing fence: departed',
+  'component preserves original Native refusal', 'actual fetch maps original Native refusal',
+  'actual API dispatcher positive read', 'changed during provider I/O: session-version',
+  'changed during provider I/O: replacement-incarnation', 'changed during provider I/O: retiring',
+  'changed during provider I/O: expiry', 'fresh public cache still requires post-cache original session admission',
+]);
+let closedLogCasesRun = 0;
 let n = 0;
 function check(name, condition) { assert.ok(condition, name); n++; console.log('PASS ' + name); }
 function graph(state) {
@@ -105,24 +114,37 @@ async function fresh() {
     const body = response ? await response.json() : null;
     check('actual route executes SELECT/WITH only outside explicit fixture changes', trace.every(row => /^\s*(SELECT|WITH)\b/.test(row.sql)));
     check('actual route leaves all synthetic application/control tables unchanged', snapshot() === state.expectedSnapshot);
-    const heldCauses = ['authority', 'sql_json_refused', 'sql_trigger_refused'];
-    const fixedHoldLog = line => Array.isArray(line) && (
-      line.length === 5 && line[0] === 'privacy request held' && line[1] === 'site_session' && heldCauses.includes(line[2]) &&
-        line[3] === 'read' && ['under_100ms', 'under_500ms', 'under_2s', '2s_or_more', 'unknown'].includes(line[4]) ||
-      line.length === 6 && line[0] === 'request held' && line[1] === 'site' && line[2] === 'error' && heldCauses.includes(line[3]) &&
-        ['read', 'unknown'].includes(line[4]) && line[5] === 'api_other');
-    check('actual route logs no session, account or provider payload, only fixed refused-read diagnostics',
-      state.logs.length === 0 || (held || response?.status === 503) && state.logs.length <= 2 && state.logs.every(fixedHoldLog));
+    // Each fixture names its one actual refusal path. A normal/401/403 response
+    // requires silence; a held component requires one bound line; the real fetch
+    // additionally requires its exact outer line. Missing/extra/wrong-cause lines fail.
+    const cause = options.refusalCause;
+    const boundLine = state.logs[0], entryLine = state.logs[1];
+    const exactBoundLine = Array.isArray(boundLine) && boundLine.length === 5 && boundLine[0] === 'privacy request held' &&
+      boundLine[1] === 'site_session' && boundLine[2] === cause && boundLine[3] === 'read' &&
+      ['under_100ms', 'under_500ms', 'under_2s', '2s_or_more', 'unknown'].includes(boundLine[4]);
+    const exactEntryLine = Array.isArray(entryLine) && entryLine.length === 6 && entryLine[0] === 'request held' &&
+      entryLine[1] === 'site' && entryLine[2] === 'error' && entryLine[3] === cause && entryLine[4] === 'read' && entryLine[5] === 'api_other';
+    check('actual route has the exact per-case refusal log count and cause, without payload', cause === undefined
+      ? !held && response?.status !== 503 && state.logs.length === 0
+      : ['sql_trigger_refused', 'sql_json_refused'].includes(cause) && exactBoundLine && (options.entry
+        ? response?.status === 503 && state.logs.length === 2 && exactEntryLine
+        : held instanceof authority.PrivacySiteRequestHeld && state.logs.length === 1));
     if (pathname === '/api/resource-updates') check('public updates never read guild characters, member facts, notices, figures or leadership data', !trace.some(row => /\b(?:FROM|JOIN)\s+(?:characters|members|site_news_notices|site_leadership|roster_snapshots)\b/i.test(row.sql)));
     return { response, body, held, trace, before };
   }
   async function news(on) { await write("INSERT INTO site_settings(key,value,updated_at)VALUES('newsOn',?,?) ON CONFLICT(key)DO UPDATE SET value=excluded.value", on ? '1' : '0', now); }
   return { db, now, state, hooks, load, env, write, news, issued, snapshot, invoke, close() { db.close(); } };
 }
-async function caseWith(name, work) { const f = await fresh(); try { await work(f); console.log('CASE ' + name); } finally { f.close(); } }
+async function caseWith(name, work) {
+  if (closedLogsOnly && !closedLogCases.has(name)) return;
+  const f = await fresh();
+  try { await work(f); closedLogCasesRun++; console.log('CASE ' + name); } finally { f.close(); }
+}
 const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources') && !Object.prototype.hasOwnProperty.call(body, 'items');
 
 (async () => {
+  if (closedLogsOnly) console.log('FOCUSED current closed-log contracts; not the full historical resources suite');
+  if (!closedLogsOnly) {
   // .176 deliberately adds a separate Community viewing boundary. Preserve the
   // original whole-News invariant after reversing ONLY these exact authorized
   // reader/annotation deltas; writes, lifetimes, private fields and clocks still
@@ -903,6 +925,7 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
     originalNews = originalNews.replace(current, prior);
   }
   check('outside exact authorized .176 reader changes, original whole Guild News safeguards remain unchanged', require('node:crypto').createHash('sha256').update(originalNews).digest('hex') === '6d9bd0840df3840675bac021a7835c5e7865fe4200c52986a46bbedc16a167a1');
+  }
   await caseWith('Guild News absent or OFF does not disable public Game updates', async f => {
     const absent = await f.invoke();
     check('absent Guild News switch still permits signed-in public publisher headlines', absent.response.status === 200 && absent.body.sources.length === 3 && f.state.fetches.length === 3);
@@ -976,7 +999,8 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
         try { f.db.prepare("UPDATE characters SET status='verified' WHERE discord_id=?").run(SUBJECT); }
         catch (error) { nativeError = error; throw error; }
       };
-      const out = await f.invoke(outer ? { entry: true } : { typedHeld: true });
+      const out = await f.invoke(outer ? { entry: true, refusalCause: 'sql_trigger_refused' }
+        : { typedHeld: true, refusalCause: 'sql_trigger_refused' });
       check('raw competing write is refused by the original installed Native trigger', fired && nativeError?.message === 'privacy_write_admission_required');
       check(outer ? 'real index fetch maps original typed held to503 without headlines' : 'component throws only the original PrivacySiteRequestHeld type/marker',
         outer ? out.response.status === 503 && out.body.error === 'erasure_held' && noPayload(out.body)
@@ -1009,7 +1033,8 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
       };
       // The actual outer fetch owns the established503 projection when an
       // original session version/birth disappears during provider I/O.
-      const out = await f.invoke({ entry: true });
+      const sessionGuardHeld = ['session-version', 'replacement-incarnation', 'retiring'].includes(change);
+      const out = await f.invoke({ entry: true, ...(sessionGuardHeld ? { refusalCause: 'sql_json_refused' } : {}) });
       if (change === 'news-off' || change === 'roster-lost') check('public post-provider read remains200 despite unrelated private Guild News/roster change: ' + change, f.state.mutated && f.state.fetches.length === 3 && out.response.status === 200 && out.body.sources.length === 3);
       else {
         const expected = change === 'denied' ? [403, 'denied'] : change === 'departed' ? [403, 'not_member'] : change === 'expiry' ? [401, 'signed_out'] : [503, 'erasure_held'];
@@ -1035,9 +1060,10 @@ const noPayload = body => !Object.prototype.hasOwnProperty.call(body, 'sources')
       },
       async put() { throw Error('fresh public cache must not be rewritten'); },
     };
-    const out = await f.invoke({ entry: true });
+    const out = await f.invoke({ entry: true, refusalCause: 'sql_json_refused' });
     check('valid fresh cache does zero provider HTTP and contains only fixed public source keys', matched.length === 3 && matched.every(url => url.startsWith('https://olympus.roachcouncil.com/__public-publisher-headlines169/')) && f.state.fetches.length === 0);
     check('cached headlines cannot escape after original session supersession', changed && out.response.status === 503 && out.body.error === 'erasure_held' && noPayload(out.body));
   });
-  console.log(`\n${n}/${n} passed`);
+  if (closedLogsOnly) check('all11 focused current read/refusal log cases completed', closedLogCasesRun === 11);
+  console.log(`\n${n}/${n}${closedLogsOnly ? ' FOCUSED closed-log checks' : ''} passed`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

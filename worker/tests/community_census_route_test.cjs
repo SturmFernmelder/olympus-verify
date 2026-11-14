@@ -10,13 +10,18 @@ const root = path.resolve(__dirname, '..');
 const SUBJECT = '300000000000000002';
 const URL_BASE = 'https://guild.example/api/community/census/preview';
 const encoder = new TextEncoder();
+const closedLogsOnly = process.argv.includes('--focus=closed-logs');
+const closedLogCases = new Set(['native receipt failure remains a failure', ...[
+  'session revocation', 'standing loss', 'ban', 'roster loss', 'generation replacement', 'incarnation replacement',
+].flatMap(label => ['body', 'receipt'].map(boundary => label + ' at ' + boundary))]);
+let closedLogCasesRun = 0;
 let checks = 0;
 function check(name, condition) { assert.ok(condition, name); checks++; console.log('PASS ' + name); }
 // A refused native read may log its fixed boundary/cause, never the supplied body or error text.
 const elapsedLabels = new Set(['under_100ms', 'under_500ms', 'under_2s', '2s_or_more', 'unknown']);
-function fixedReadHold(line, causes) {
+function fixedReadHold(line, cause) {
   return Array.isArray(line) && line.length === 5 && line[0] === 'privacy request held' &&
-    line[1] === 'site_session' && causes.includes(line[2]) && line[3] === 'read' && elapsedLabels.has(line[4]);
+    line[1] === 'site_session' && line[2] === cause && line[3] === 'read' && elapsedLabels.has(line[4]);
 }
 
 function sourceGraph(logs) {
@@ -104,11 +109,13 @@ function chunks(parts, onPull) {
   } }, { highWaterMark: 0 });
 }
 async function caseWith(name, run) {
+  if (closedLogsOnly && !closedLogCases.has(name)) return;
   const f = await fresh();
-  try { await run(f); console.log('CASE ' + name); } finally { f.db.close(); }
+  try { await run(f); closedLogCasesRun++; console.log('CASE ' + name); } finally { f.db.close(); }
 }
 
 (async () => {
+  if (closedLogsOnly) console.log('FOCUSED current closed-log contracts; not the full historical census suite');
   await caseWith('valid and maximum-width DTO', async f => {
     const names = Array.from({ length: 300 }, (_, i) => String(i).padStart(3, '0') + '\\"'.repeat(62) + 'x');
     const guilds = names.map(name => ({ name, reportedCharacters: 1000, receivedAt: f.now,
@@ -219,7 +226,7 @@ async function caseWith(name, run) {
       error => error instanceof f.load('privacy-serving-authority').PrivacySiteRequestHeld);
     check('unknown native receipt is not converted into local success or ordinary JSON', fired);
     check('receipt failure logs only the fixed read boundary and cause, without payload',
-      f.logs.length === 1 && fixedReadHold(f.logs[0], ['other']));
+      f.logs.length === 1 && fixedReadHold(f.logs[0], 'other'));
   });
   for (const [label, sql, args] of [
     ['session revocation', 'UPDATE site_users SET session_version=session_version+1 WHERE discord_id=?', [SUBJECT]],
@@ -327,8 +334,13 @@ async function caseWith(name, run) {
         responseNull: response === null, returnedNull: returned === null }));
     }
     check('no census response was adopted on changed authority', !returned || !Object.hasOwn(returned, 'snapshot'));
-    check('custody refusal logs no input, only a fixed read refusal when the native group fails',
-      f.logs.length <= 1 && f.logs.every(line => fixedReadHold(line, ['sql_json_refused', 'authority', 'shape'])));
+    // Standing/ban/roster loss returns the community fence's403 without a failed
+    // native group. Session/generation/birth loss fails the original session
+    // guard's json_extract refusal, so exactly one bound read line is required.
+    const sessionGuardHeld = ['session revocation', 'generation replacement', 'incarnation replacement'].includes(label);
+    check('custody refusal has the exact per-case log count and cause, without input', sessionGuardHeld
+      ? failure instanceof Held && f.logs.length === 1 && fixedReadHold(f.logs[0], 'sql_json_refused')
+      : response?.status === 403 && returned?.error === 'guild_access_changed' && f.logs.length === 0);
   });
   await caseWith('subject and header replacement while body waits', async f => {
     let ctx;
@@ -359,5 +371,6 @@ async function caseWith(name, run) {
       check('late packet cannot append or produce a second preview', !Object.hasOwn(out.body, 'snapshot'));
     }
   });
-  console.log(checks + '/' + checks + ' census component checks passed');
+  if (closedLogsOnly) check('all13 focused receipt/authority log cases completed', closedLogCasesRun === 13);
+  console.log(checks + '/' + checks + (closedLogsOnly ? ' FOCUSED closed-log checks passed' : ' census component checks passed'));
 })().catch(error => { console.error(error.stack); process.exitCode = 1; });
