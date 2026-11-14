@@ -63,7 +63,7 @@ async function fixture(generation=null,over={}){
  // (synthetic realm, Normal, Horde); no real future identity exists anywhere in this suite.
  const FIX={schema:'olympus-ruleset-profile-v1',revision:'forever-release-fixture-v1',phase:'full_release',game:'World of Warcraft: Forever',guild:'Olympus',realm:'Synthetic Future Realm',ruleset:'Normal',faction:'Horde'};
  const SECRET=JSON.stringify(FIX),beta=profile.currentRulesetProfile(),settings=f=>Object.fromEntries(f.db.prepare("SELECT key,value FROM site_settings WHERE key LIKE 'ruleset%' ORDER BY key").all().map(r=>[r.key,r.value]));
- // The site is a login wall since .154: /api/public is read with the admin's session cookie and the fixture's raw env (the Worker wraps the DB itself).
+ // The site is a login wall since .154: the page and /api/public are both read with the admin's session cookie and the fixture's raw env (the Worker wraps the DB itself).
  // CL2-072/CL2-249 (our 5d36707): the catalogue (meta) rides in the page's boot only; /api/public is the settings alone.
  // The public projection is read where the page reads it, from the signed page's boot, and /api/public must carry none.
  const publicRead=async(f,over={})=>{const env={...f.rawEnv,...over},res=await index.default.fetch(new Request('https://guild.example/',{headers:{Cookie:f.cookie}}),env,{waitUntil:()=>{}}),boot=/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/.exec(await res.text()),api=await index.default.fetch(new Request('https://guild.example/api/public',{headers:{Cookie:f.cookie}}),env,{waitUntil:()=>{}}),apiBody=await api.json();if(api.status!==200||'meta' in apiBody)throw Error('/api/public must be the settings alone');return {status:res.status,meta:boot?JSON.parse(boot[1]).meta:undefined};};
