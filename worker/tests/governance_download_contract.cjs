@@ -128,8 +128,22 @@ function runChecks(workerRoot = path.join(__dirname, "..")) {
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "downloads-manifest.json"), "utf8"));
   check("historical PDF manifest retains its original R6 source and unratified/unissued status", manifest.schema === "olympus-governance-downloads-v1" && manifest.sourceSHA256 === PDF.sha256 && manifest.ratified === false && manifest.appointmentsIssued === false && manifest.artifacts.length === 4 && EXTRA_DOWNLOADS.every(([, file, , bytes, hash]) => manifest.artifacts.filter((entry) => entry.file === file && entry.bytes === bytes && entry.sha256 === hash).length === 1));
   const currentBook = fs.readFileSync(path.join(dir, "reconciled-book.md"));
-  check("current R7 plus199five-Title and rank-bridge source is exact and distinct from preserved R6", currentBook.length === 273507 && sha(currentBook) === "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac" && !currentBook.equals(book));
-  check("current R7 adoption notice separates appointments, signatures, permissions and historical status", app.includes("R7 • Guild rules adopted 13 October 2026") && app.includes("Adoption issues no individual appointment or named signature") && app.includes("changes no native rank, bank limit or platform permission") && app.includes("Dated archives retain their historical status"));
+  // CL2-032/033/038/044/193 (our 5a8103c) and the later pairs of the same manifest: the 12 Nov editorial reconciliation is one
+  // finite manifest of whole-paragraph pairs (pinned as in the generator); undoing exactly those pairs gives back the earlier bytes.
+  const editorial1112 = fs.readFileSync(path.join(workerRoot, "../docs/governance-evergreen1112.json"));
+  const priorBook = (() => {
+    if (sha(editorial1112) !== "b55224c6240cea33dc36de1ce272d17a955b97faedf304c6ef880620238d8a4e") return null;
+    let text = currentBook.toString("utf8");
+    for (const change of JSON.parse(editorial1112).changes.filter((c) => c.scope.includes("book")).reverse()) {
+      const before = "\n\n" + change.before + "\n\n", after = "\n\n" + change.after + "\n\n";
+      if (text.split(after).length !== 2 || text.split(before).length !== 1) return null;
+      text = text.replace(after, () => before);
+    }
+    return Buffer.from(text, "utf8");
+  })();
+  check("current R7 plus199five-Title and rank-bridge source is exact through the finite 12 Nov editorial inverse and distinct from preserved R6", priorBook !== null && priorBook.length === 273507 && sha(priorBook) === "fb6816b77507c2855f45511a32d1b46fbdcab804965e78a3650eb6f071684cac" && !currentBook.equals(book));
+  // CL2-044 (our 5a8103c): the edition label now reads "Edition R7 • adopted 13 October 2026, with later owner decisions".
+  check("current R7 adoption notice separates appointments, signatures, permissions and historical status", app.includes("Edition R7 • adopted 13 October 2026, with later owner decisions") && app.includes("Adoption issues no individual appointment or named signature") && app.includes("changes no native rank, bank limit or platform permission") && app.includes("Dated archives retain their historical status"));
   check("current governance loader sends same-origin credentials for private book/model delivery", app.includes('fetch(path, { credentials: "same-origin", redirect: "error" })'));
   const bad = Buffer.from(zip); bad.writeUInt32LE((bad.readUInt32LE(entries[0].centralOffset + 16) ^ 1) >>> 0, entries[0].centralOffset + 16);
   let crcRejected = false; try { inspectZip(bad); } catch { crcRejected = true; }
