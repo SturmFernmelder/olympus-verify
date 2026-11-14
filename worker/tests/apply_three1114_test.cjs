@@ -123,9 +123,10 @@ check('INVARIANT', 'the three names in that sentence are the families that accep
 // ---------------------------------------------------------------- (f) the owner's two text answers of 14 Nov 2026
 // 1. "Drop "Core" (Recommended)": the raider track's label becomes "Raider & PvE Progression Track". Nothing else changes.
 // 2. "Artisan only (Recommended)": the overview sentence becomes "Profession coordination and the Artisan application."
-// Not covered, so not tested: the Artisan track's label, the standing introduction, the Core Raider term note, any other
-// wording. Checks tagged ANSWER fail on 6d5e744 (the branch before these two answers). That no other field of the
-// application tracks changed is checked by evergreen1112_governance_test.cjs (CL2-039 digest 6d20757d, with a finite inverse).
+// Not covered, so not changed: the Artisan track's label, the standing introduction, the Core Raider term note, any other
+// wording. The other five track labels are checked here only to be unchanged. Checks tagged ANSWER fail on 6d5e744 (the
+// branch before these two answers). That no other field of the application tracks changed is checked by
+// evergreen1112_governance_test.cjs (CL2-039 digest 6d20757d, with a finite inverse).
 const NEW_RAIDER_LABEL = 'Raider & PvE Progression Track', OLD_RAIDER_LABEL = 'Core Raider & PvE Progression Track';
 const NEW_WORKSHOP_TEXT = 'Profession coordination and the Artisan application.', OLD_WORKSHOP_TEXT = 'Profession coordination and the Artisan / Crafter application.';
 // The six labels at 6d5e744, with only the raider label replaced as answered.
