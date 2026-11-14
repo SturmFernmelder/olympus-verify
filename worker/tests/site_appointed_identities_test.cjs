@@ -307,6 +307,19 @@ async function fixture() {
     f.close();
   }
   {
+    // CL2-122, site-admin.ts after prepareAppointmentPublication: an unchanged pointer whose stored proof no longer verifies
+    // (here the holder's site birth changed, as in the .176 recreated-incarnation case) gets a new proof inside prepare,
+    // after its Discord member read, so a save without the publication tick is refused there and nothing is written.
+    const f = await fixture(), next = { co_gm: '<@' + HOLDER + '>', treasurer: '<@' + SECOND + '>' };
+    await f.publish(next);
+    const rawPublished = f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value;
+    await f.write('DELETE FROM site_users WHERE discord_id=?', HOLDER);
+    await f.write('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,account_incarnation)VALUES(?,?,?,?,?,1,0,?)', HOLDER, 'holder-one', T, T, T, 'e'.repeat(32));
+    const readsBefore = discordReads, stale = await f.call('PUT', '/api/admin/settings', ADMIN, { appointed: next });
+    check('CL2-122 an unchanged pointer whose stored proof no longer verifies still needs the publication tick', stale.status === 400 && stale.body.error === 'confirm_appointed_characters' && stale.body.field === 'appointed' && discordReads === readsBefore + 1 && f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawPublished, stale);
+    f.close();
+  }
+  {
     const f = await fixture(); await f.setting({ co_gm: 'Typed one', treasurer: 'Typed two' });
     let r = await f.call('GET', '/api/appointed-identities', VIEWER);
     check('typed labels never cause fuzzy matching or automatic character disclosure', r.status === 200 && r.body.identities.length === 0);
