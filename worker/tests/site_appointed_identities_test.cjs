@@ -274,7 +274,9 @@ async function fixture() {
     const safe = settings => JSON.stringify(settings) === JSON.stringify(expected) && ![HOLDER, SECOND, VIEWER, ':publication:'].some(v => JSON.stringify(settings).includes(v));
     for (const [label, id] of [['anonymous', null], ['unconfirmed', STRANGER], ['confirmed member', VIEWER], ['admin', ADMIN]]) {
       const r = await f.call('GET', '/api/public', id);
-      check(label + ' public HTTP settings retain closed offices and all ordinary values without account pointers or proofs', r.status === 200 && safe(r.body.settings) && !('identities' in r.body) && JSON.stringify(r.body.meta) === JSON.stringify(load('./site-data').meta(state.ruleset)) && r.body.now === T);
+      // CL2-072/CL2-249 (5d36707, 12 Nov 2026): /api/public is the settings and the time alone; the catalogue (meta)
+      // rides only in the page's boot. The body must be exactly those two keys, so nothing else can ride along.
+      check(label + ' public HTTP settings retain closed offices and all ordinary values without account pointers or proofs', r.status === 200 && safe(r.body.settings) && !('identities' in r.body) && JSON.stringify(Object.keys(r.body)) === '["settings","now"]' && r.body.now === T);
     }
     for (const [label, id] of [['unconfirmed', STRANGER], ['confirmed member', VIEWER], ['admin', ADMIN]]) {
       const r = await f.call('GET', '/api/me', id), p = await f.page(id);
@@ -305,6 +307,19 @@ async function fixture() {
     f.close();
   }
   {
+    // CL2-122, site-admin.ts after prepareAppointmentPublication: an unchanged pointer whose stored proof no longer verifies
+    // (here the holder's site birth changed, as in the .176 recreated-incarnation case) gets a new proof inside prepare,
+    // after its Discord member read, so a save without the publication tick is refused there and nothing is written.
+    const f = await fixture(), next = { co_gm: '<@' + HOLDER + '>', treasurer: '<@' + SECOND + '>' };
+    await f.publish(next);
+    const rawPublished = f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value;
+    await f.write('DELETE FROM site_users WHERE discord_id=?', HOLDER);
+    await f.write('INSERT INTO site_users(discord_id,username,first_login,last_login,checked_at,in_server,denied,account_incarnation)VALUES(?,?,?,?,?,1,0,?)', HOLDER, 'holder-one', T, T, T, 'e'.repeat(32));
+    const readsBefore = discordReads, stale = await f.call('PUT', '/api/admin/settings', ADMIN, { appointed: next });
+    check('CL2-122 an unchanged pointer whose stored proof no longer verifies still needs the publication tick', stale.status === 400 && stale.body.error === 'confirm_appointed_characters' && stale.body.field === 'appointed' && discordReads === readsBefore + 1 && f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawPublished, stale);
+    f.close();
+  }
+  {
     const f = await fixture(); await f.setting({ co_gm: 'Typed one', treasurer: 'Typed two' });
     let r = await f.call('GET', '/api/appointed-identities', VIEWER);
     check('typed labels never cause fuzzy matching or automatic character disclosure', r.status === 200 && r.body.identities.length === 0);
@@ -330,8 +345,11 @@ async function fixture() {
     check('client-forged or replayed internal proof fields are refused rather than accepted', forged.status === 400 && forged.body.error === 'internal_appointed_fields');
     const details = f.db.prepare("SELECT details FROM audit WHERE action='site.settings' ORDER BY id DESC LIMIT 1").get().details;
     check('the audit records the confirmation and role keys, never identities or characters', JSON.parse(details).appointedCharactersConfirmed === true && JSON.parse(details).appointedNames === 3 && !details.includes(HOLDER) && !details.includes(SECOND) && !details.includes('First Nick') && !details.includes(':publication:'));
+    // CL2-122 (a6f591d, owner ruling 13 Nov 2026 "Only when a link changes"): resubmitting the same pointers, each with its
+    // stored proof, needs no new tick; it saves by reusing the exact original proofs and mints none.
+    const rawBeforeResubmit = f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value;
     r = await f.call('PUT', '/api/admin/settings', ADMIN, { appointed: next });
-    check('unchanged submitted pointers also require explicit publication review', r.status === 400 && r.body.error === 'confirm_appointed_characters');
+    check('unchanged submitted pointers keep their original publication review without a new tick', r.status === 200 && r.body.ok === true && JSON.stringify(r.body.settings.appointed) === JSON.stringify(next) && !JSON.stringify(r.body).includes(':publication:') && f.db.prepare("SELECT value FROM site_settings WHERE key='appointed'").get().value === rawBeforeResubmit);
     r = await f.call('GET', '/api/appointed-identities', VIEWER);
     const one = r.body.identities.find(x => x.role === 'co_gm'), two = r.body.identities.find(x => x.role === 'treasurer');
     check('a confirmed member reads exactly the three separately consented supported offices', r.status === 200 && r.body.scope === 'qualified_community_readers' && r.body.identities.length === 3 && JSON.stringify(r.body.identities.map(x=>x.role).sort())===JSON.stringify(Object.keys(next).sort()) && r.body.identities.every(x=>x.appointment===next[x.role]));

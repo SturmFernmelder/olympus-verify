@@ -214,8 +214,10 @@ const status = async (id, over = {}) => (await J(await interactions.handleIntera
   out = await J(res);
   check("a confirmed member reads the directory and the Council's Discord link", res.status === 200 && out.guilds[0].gm === directoryHolder && out.councilUrl === "https://discord.com/channels/236932545793490944/1555636857621188669");
   out = await J(await http("GET", "/api/public", { who: MEMBER }));
+  // CL2-072/CL2-249 (our 5d36707): the catalogue (meta) rides in the page's boot only; /api/public is the settings alone.
+  const writBoot = (await (await http("GET", "/", { who: MEMBER })).text()).match(/<script type="application\/json" id="boot">([\s\S]*?)<\/script>/);
   check("public Writ metadata retains the game recipient while member settings keep the directory and Battle.net switch private",
-    out.meta.royalWritPolicy.recipient === "Fern Melder" && !JSON.stringify(out).includes(directoryHolder) && !("leadership" in out.settings) && !("bnetLogin" in out.settings));
+    !!writBoot && JSON.parse(writBoot[1]).meta.royalWritPolicy.recipient === "Fern Melder" && !("meta" in out) &&!JSON.stringify(out).includes(directoryHolder) && !("leadership" in out.settings) && !("bnetLogin" in out.settings));
   const anonymousPublic = await http("GET", "/api/public"), anonymousSettings = await J(anonymousPublic);
   const anonymousPage = await http("GET", "/"), anonymousHtml = await anonymousPage.text();
   check("anonymous entry sends only sign-in, with no settings or application bootstrap", anonymousPublic.status === 401 && anonymousSettings.error === "signed_out" && !("settings" in anonymousSettings) && anonymousPage.status === 200 && anonymousHtml.includes('href="/auth/login"') && !anonymousHtml.includes('id="boot"') && !anonymousHtml.includes('/static/app.js') && !anonymousHtml.includes(directoryHolder) && !anonymousHtml.includes("Fern Melder"));

@@ -456,6 +456,19 @@ async function part1b() {
       if (name === 'denied') check('CL2-073', '  denied: the fixture row is denied, and the answer has no seat state', deniedSet && original.dto.denied === true && original.dto.seats === null, original.dto.seats);
     }
     await testWriter().prepare('UPDATE site_users SET denied = 0 WHERE discord_id = ?').bind(VICE).run();
+    { // A published Lead Correspondent (office_50): another signed-in, confirmed account of this fixture (COUNCIL45, no
+      // Discord roles and no current appointment). The Broadcaster stays published, so office_12 is read once, then the
+      // holder's own office_50 read and its repeat directly after it, then the rename hold (14 Nov 2026).
+      r = await appoint({ office_19: BOTH, office_86: TREAS, co_gm: BOTH, office_12: JUSTICE, office_50: COUNCIL45 });
+      check('CL2-073', 'setup: the admin publishes a Lead Correspondent (office_50) beside the Broadcaster', r.status === 200 && !!userRow(COUNCIL45) && !userRow(COUNCIL45).denied, r);
+      const leadExpected = [...own, 'guildSeats:batch', 'office_12:all', 'office_50:all', 'office_50:all', 'reapply:first'];
+      const original = await read(COUNCIL45, true), batched = await read(COUNCIL45, false);
+      check('CL2-073', 'lead correspondent: the original-order path issues exactly the wrapper\'s sequence, one read at a time, with its own office_50 repeat directly after its first read', JSON.stringify(original.order) === JSON.stringify(leadExpected), original.order);
+      check('CL2-073', '  lead correspondent: the batched path still sends the account\'s rows as one batch of 8 first, and both paths send the same statements with the same binds',
+        batched.order[0] === 'own:batch:8' && !original.order.some(x => x.startsWith('own:batch')) && JSON.stringify(original.statements) === JSON.stringify(batched.statements), { batched: batched.order, n: [original.statements.length, batched.statements.length] });
+      check('CL2-073', '  lead correspondent: both paths give the same answer', JSON.stringify(original.dto) === JSON.stringify(batched.dto) && original.dto.signedIn === true && !('meta' in original.dto), Object.keys(original.dto));
+      check('CL2-073', '  lead correspondent: the published Lead Correspondent may edit the Town Crier on both paths', original.dto.user.canEditTownCrier === true && batched.dto.user.canEditTownCrier === true, { original: original.dto.user, batched: batched.dto.user });
+    }
     const siteApi = fs.readFileSync(path.join(ROOT, 'src/site-api.ts'), 'utf8'), site = fs.readFileSync(path.join(ROOT, 'src/site.ts'), 'utf8');
     check('CL2-073', 'only the wrapper takes the original order: it calls meDataInOriginalOrder for the full view, and the ordinary /api/me route and the page boot keep the batch',
       wrapper.includes(':await meDataInOriginalOrder(producer,o.user);') && !/await meData\(producer/.test(wrapper) && (wrapper.match(/meDataInOriginalOrder/g) || []).length === 3

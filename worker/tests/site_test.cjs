@@ -628,8 +628,12 @@ async function legacySchemaHeld(old) {
     const beforeThin = port.nativeTrace.length, thinResponse = await call('GET', '/api/me?view=seats', {who});
     const thinText = await thinResponse.text(), thin = JSON.parse(thinText), thinTrace = port.nativeTrace.slice(beforeThin);
     check('.217 same original authenticated entry returns only the caller seat projection', thinResponse.status === 200 && thin.signedIn === true && thin.denied === false && thin.user.id === who && Object.keys(thin).sort().join(',') === 'denied,myQueue,now,seats,signedIn,user' && Object.keys(thin.user).join(',') === 'id' && JSON.stringify(thin.seats) === JSON.stringify(full.seats) && JSON.stringify(thin.myQueue) === JSON.stringify(full.myQueue));
-    check('.217 fresh seat projection removes unrelated private/settings/meta reads and most response bytes', thinText.length < fullText.length / 10 && thinTrace.length < fullTrace.length && thinTrace.length <= 10 && !thinTrace.some(row => /SELECT (?:key, value FROM site_settings|\* FROM site_applications|ballot, slot|friend_kind|old_name, new_name)/i.test(row.sql)));
-    check('.217 unrecognized projection query retains the original full contract', 'meta' in await J(await call('GET', '/api/me?view=other', {who})));
+    // CL2-072 (5d36707, 12 Nov 2026): the catalogue (meta) left /api/me and rides in the boot only, so the full reply is
+    // about 1 KB, not 578 KB, and a tenfold byte cut is no longer possible. The projection must still drop most bytes:
+    // measured on the .281 source (14 Nov 2026), full 1,022 bytes and projection 208, a ratio of 4.9, so a quarter holds.
+    check('.217 fresh seat projection removes unrelated private/settings/meta reads and most response bytes', !('meta' in full) && thinText.length < fullText.length / 4 && thinTrace.length < fullTrace.length && thinTrace.length <= 10 && !thinTrace.some(row => /SELECT (?:key, value FROM site_settings|\* FROM site_applications|ballot, slot|friend_kind|old_name, new_name)/i.test(row.sql)));
+    // CL2-072: the full contract no longer carries meta; an unrecognized query must still get exactly the full key set.
+    check('.217 unrecognized projection query retains the original full contract', (other => !('meta' in other) && Object.keys(other).join(',') === Object.keys(full).join(',') && Object.keys(other).length > Object.keys(thin).length)(await J(await call('GET', '/api/me?view=other', {who}))));
     console.log('.217 seat projection measurement', JSON.stringify({fullBytes:Buffer.byteLength(fullText), thinBytes:Buffer.byteLength(thinText), fullNative:fullTrace.length, thinNative:thinTrace.length}));
   }
   // Flip a character in the middle of the signature: the last one can sit in base64's padding bits, where a change
