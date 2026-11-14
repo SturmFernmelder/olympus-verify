@@ -858,7 +858,9 @@ const quiet = async (fn) => { const real = console.error, lines = []; console.er
   check("/verify-status answers without the paragraph", typeof q.value.content === "string" && q.value.content.includes("Queue Quinn") && !q.value.content.includes("OLYMPUS PRIME"), q.value.content);
   // The current ordinary subject batch converts Native failure to its held error;
   // the operational website read below still retains the D1 classification.
-  check("  one bounded ordinary-admission log line: the category only, no SQL, no message", q.lines.length === 1 && q.lines[0] === "guild seats failed error", q.lines);
+  check("  bounded ordinary-admission and handler log lines: fixed cause/category only, no SQL, no message",
+    q.lines.length === 2 && /^privacy request held subject_generation d1_other read (under_100ms|under_500ms|under_2s|2s_or_more|unknown)$/.test(q.lines[0]) &&
+    q.lines[1] === "guild seats failed error", q.lines);
   q = await quiet(async () => bootOf(await site("GET", "/", { who: QUINN })));
   check("the signed-in boot still has signedIn true (seats unknown, no places)", q.value.signedIn === true && q.value.seats.state === "unknown" && q.value.myQueue.length === 0 && q.lines.filter((l) => l === "guild seats failed d1").length === 1, q.lines);
   q = await quiet(() => gs.guildSeats(env(), T, QUINN));

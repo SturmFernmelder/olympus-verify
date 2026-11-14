@@ -776,7 +776,10 @@ const planOf = (call) => all("EXPLAIN QUERY PLAN " + call.sql, ...call.params).m
     console.error = consoleError;
   }
   check("the admission statement fails: 503 unavailable with nothing of the page (fail closed), after the page was read", c.r.status === 503 && bare(c.r, "unavailable") && c.at === c.last && c.page >= 0, c.r.status, c.r.body);
-  check("  logged as a fixed label and sanitized native facade category only, never the error's text", logged.length === 1 && logged[0].length === 2 && logged[0][0] === "admin audit log admission" && logged[0][1] === "error", logged);
+  check("  logged as a fixed bound-read cause and sanitized native facade category only, never the error's text",
+    logged.length === 2 && logged[0].length === 5 && logged[0][0] === "privacy request held" && logged[0][1] === "site_session" &&
+    logged[0][2] === "d1_other" && logged[0][3] === "read" && ["under_100ms", "under_500ms", "under_2s", "2s_or_more", "unknown"].includes(logged[0][4]) &&
+    logged[1].length === 2 && logged[1][0] === "admin audit log admission" && logged[1][1] === "error", logged);
   check("  nothing changed, so the same cookie's next request is 200 again", (await http("GET", "/api/admin/audit-log?window=all", { cookie: adminCookie })).status === 200);
 
   // the binding, through handleAdmin as site-api.ts calls it, with an account the cookie does or does not match

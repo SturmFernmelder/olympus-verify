@@ -175,7 +175,7 @@ function sourceInventory(){
  check('source unowned descriptor guards precede native method invocation',true);
  const minute=declaration(sf,'runSourceBetaResetScheduledBody');assert.ok(!minute.modifiers?.some(mod=>mod.kind===ts.SyntaxKind.ExportKeyword));
  assert.equal(minute.parameters.length,3);exactSyntax(minute.parameters[2],'originalDispatch?:BetaRoleDispatch','private minute original entry pair parameter');
- const minuteExpected=["const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);","assertGlobalServingDispatch(env);","if(!resetGuardEnabled(env))return;","try{env=writeAdmissionEnv(env);await ensureSchema(env);}catch(e){console.error('beta reset schema check held',errorRef(e));return;}","deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));"];
+ const minuteExpected=["const roleDispatch=originalDispatch??captureBetaRoleDispatch(env);","assertGlobalServingDispatch(env);","if(!resetGuardEnabled(env))return;","try{env=writeAdmissionEnv(env);await ensureSchema(env);}catch(e){try{console.error('beta reset schema check held',errorRef(e),heldCause(e));}catch{}return;}","deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));"];
  assert.equal(minute.body.statements.length,minuteExpected.length);minuteExpected.forEach((text,i)=>exactSyntax(minute.body.statements[i],text,'private minute body '+i));
  check('private minute source retains dispatch guard schema and one reset defer',true);
  const ordinary=declaration(sf,'runSourceEpoch2ScheduledBody');

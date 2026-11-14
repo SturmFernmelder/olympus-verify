@@ -79,6 +79,12 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    build: ".282", date: "2026-11-14", lines: [
+      "Application reviews explain failed reads more clearly and offer a deliberate retry. A lost answer to a change still requires checking the current record before repeating it.",
+      "Watcher 0.6.39 shows local queue capacity and held outcomes more clearly. Existing privacy, verification and promotion safeguards remain in place.",
+    ],
+  },
+  {
     build: ".280", date: "2026-11-13", lines: [
       "Guild tools keep verification, roster checks and promotion controls consistent with the current rank rules. Promotions still require fresh evidence and a deliberate officer click.",
       "Roster discovery remains useful while rank evidence is held. The addon and Watcher must be updated together to 0.6.38.",

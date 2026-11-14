@@ -10,7 +10,7 @@ Olympus Verify is the officer verification addon. The separate **Olympus Guild**
 
 Exit the game before updating. Extract the `OlympusVerify` folder into `Interface/AddOns`, merging the public files. Keep your existing private `Config.lua`, the generated exchange files (`OlympusQueue.lua`, `OlympusLaunchQueue.lua`, `OlympusLaunchSelected.lua`, `OlympusVerifyLists.lua`) and your SavedVariables: the ZIP never contains them. A new officer installation still needs its separately authorized private configuration and Watcher setup; `Config.example.lua` is an example, not an active configuration. Downloading the addon grants no membership, invite or role authority.
 
-Update Olympus Verify and the Watcher together to **0.6.38**. The current discovery reader uses `officer-operations-v235`; an older addon cannot load those pages. Selected promotion checks keep their separate protocol. A loaded projection reports the evidence it loaded, not a live bridge or permission to act after its source expires.
+Use **Olympus Verify 0.6.38** with **Watcher 0.6.39**. The Watcher update adds local custody diagnostics and an attended offline recovery utility; the addon package and exchange protocols are unchanged. Copy the complete public Watcher source package while retaining its existing private configuration and state. The current discovery reader uses `officer-operations-v235`; an older addon cannot load those pages. Selected promotion checks keep their separate protocol. A loaded projection reports the evidence it loaded, not a live bridge or permission to act after its source expires.
 
 ## How the package is built
 

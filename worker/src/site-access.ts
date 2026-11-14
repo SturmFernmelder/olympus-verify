@@ -2,9 +2,9 @@
 import type { Env } from './env';
 import { currentUser, originalUserSession, rememberGateUser, securityHeaders } from './site-core';
 import { membershipRecheckDue, stillMember } from './site-api';
-import { privacyBoundSiteEnv } from './privacy-serving-authority';
+import { privacyBoundSiteEnv, privacySiteFailure } from './privacy-serving-authority';
 import { loginHeaders, policyShell } from './policy-render';
-import { errorRef } from './log';
+import { errorRef, heldCause } from './log';
 import { siteEntryReturn, siteLoginLocation } from './site-return';
 
 const AUTH_PATHS = new Set(['/auth/login', '/auth/callback']);
@@ -72,7 +72,8 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
   try { user = await currentUser(env, request); }
   catch (e) {
     // .177: identify the failed boundary without retaining request, account or error text.
-    console.error('site access unavailable', 'current_user', errorRef(e));
+    const label=privacySiteFailure(e)?.cause??heldCause(e);
+    try { console.error('site access unavailable', 'current_user', errorRef(e), label); } catch { /* the line never changes the answer */ }
     return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
   }
   // Preserve the existing signed-in own-record reads, including a departed or denied identity.
@@ -86,7 +87,8 @@ export async function memberSiteGate(request: Request, env: Env, path: string): 
       if (unchanged) rememberGateUser(request, user);
       return null;
     } catch (e) {
-      console.error('site access unavailable', 'membership', errorRef(e));
+      const label=privacySiteFailure(e)?.cause??heldCause(e);
+      try { console.error('site access unavailable', 'membership', errorRef(e), label); } catch { /* the line never changes the answer */ }
       return new Response(JSON.stringify({ error: 'site_access_unavailable' }), { status: 503, headers: securityHeaders(new Headers({ 'Content-Type': 'application/json; charset=utf-8' })) });
     }
   }

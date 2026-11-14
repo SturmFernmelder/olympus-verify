@@ -40,5 +40,6 @@ docs/probe-results/2026-*
 
 # Private attended custody receipts and cooperating-writer locks
 *.custody-archive-*.json
+*.custody-quarantine-*.json
 *.custody-lock
 *.custody-recovery.tmp
