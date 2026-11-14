@@ -126,9 +126,12 @@ const ROSTER_SQL = `SELECT r.rank AS rank, r.rank_index AS rank_index, s.source 
  * valid officer do not disqualify the first, while every candidate still has its own unique exported and bound GUID. */
 function rosterOfficerStatement(env: Env, discordId: string, ladder: TreasuryLadder): D1PreparedStatement {
   const officers = ladder.names.flatMap((rank, index) => officerRank(rank, index, ladder.names, ladder.policy) ? [{ rank, index }] : []);
-  const pairs = officers.map((_, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2})`).join(" OR ") || "0";
   const values=[discordId,ladder.cutoff,ROSTER_CURRENT_FOR,...officers.flatMap(({rank,index})=>[rank,index])];
-  const sourceParameter=`?${values.length+1}`,source=ladder.policy==='original233'?nativeMembershipSourceSql('s.source',sourceParameter):`s.source=${sourceParameter}`;
+  const sourceParameter=`?${values.length+1}`,body="CASE WHEN json_valid(substr(s.source,17)) THEN substr(s.source,17) ELSE '{}' END";
+  // Necessary own-row filtering precedes LIMIT; only the unchanged exact factory validator below can admit it.
+  // Each JSON path is a fixed historical index, and the exact v1 source bypass preserves its original semantics.
+  const pairs = officers.map(({index}, i) => `(r.rank=?${4 + i * 2} AND r.rank_index=?${5 + i * 2}${ladder.policy==='original233'?` AND (s.source=${sourceParameter} OR json_extract(${body},'$.rankNames[${index}]')=?${4 + i * 2})`:''})`).join(" OR ") || "0";
+  const source=ladder.policy==='original233'?nativeMembershipSourceSql('s.source',sourceParameter):`s.source=${sourceParameter}`;
   return env.DB.prepare(`${ROSTER_SQL} AND (${pairs}) AND (${source}) LIMIT 1`)
     .bind(...values,ladder.source);
 }
