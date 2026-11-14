@@ -73,7 +73,7 @@ export const TRIGGER_REFUSALS = Object.freeze([
   "rejection_tuple_held", "surviving_rejection_owner_held",
 ] as const);
 const BASE_CAUSES = Object.freeze(["authority", "shape", "admission", "session", "user_held", "sql_json_refused", "sql_trigger_refused",
-  "storage_limit", "storage_reset", "storage_network", "storage_transient", "storage_overloaded", "storage_other", "other"] as const);
+  "storage_limit", "storage_reset", "storage_network", "storage_transient", "storage_overloaded", "d1_other", "other"] as const);
 const admissionLabels = new Map<string, string>(ADMISSION_REASONS.map((r) => [r, `admission:${r}`]));
 export const HELD_CAUSES: readonly string[] = Object.freeze([...BASE_CAUSES, ...admissionLabels.values()]);
 export type HeldCause = string;
@@ -133,7 +133,7 @@ function textRule(message: string | null, cause: string | null): HeldCause | nul
   for (const [label, starts] of TEXT_RULES) {
     for (const start of starts) if (m?.startsWith(start) || c?.startsWith(start)) return label;
   }
-  if (message?.startsWith("D1_")) return "storage_other";
+  if (message?.startsWith("D1_")) return "d1_other";
   return null;
 }
 

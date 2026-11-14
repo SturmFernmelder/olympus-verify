@@ -405,7 +405,7 @@ async function runSourceBetaResetScheduledBody(env:Env,ctx:ExecutionContext,orig
   assertGlobalServingDispatch(env);
   if(!resetGuardEnabled(env))return;
   try{env=writeAdmissionEnv(env);await ensureSchema(env);}
-  catch(e){console.error('beta reset schema check held',errorRef(e));return;}
+  catch(e){try{console.error('beta reset schema check held',errorRef(e),heldCause(e));}catch{}return;}
   deferOriginalServing(ctx,'runBetaResetSlice',()=>runBetaResetSlice(env,roleDispatch).catch(e=>console.error('beta reset continuation held',errorRef(e))));
 }
 
@@ -424,7 +424,7 @@ export async function runSourceEpoch2ScheduledBody(env: Env, ctx: ExecutionConte
       env=writeAdmissionEnv(env);
       await ensureSchema(env);
     } catch (e) {
-      console.error("schema check failed; skipping this run", errorRef(e)); // the sweeps read the new columns too
+      try { console.error("schema check failed; skipping this run", errorRef(e), heldCause(e)); } catch {} // the sweeps read the new columns too; logging cannot change the hold
       return;
     }
     deferOriginalServing(ctx,'sweepInviteQueue',()=>sweepInviteQueue(env)); // re-queues invites nobody accepted, retires the hopeless ones

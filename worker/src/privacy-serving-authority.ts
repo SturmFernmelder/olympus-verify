@@ -100,7 +100,7 @@ const boundBatchHeld=(purpose:'site_session'|'subject_generation',e:unknown,bega
  let label:HeldCause='other',group:HeldGroup='unknown';
  try{
   label=shape?'shape':e instanceof PrivacySiteRequestHeld?'authority':heldCause(e);
-  group=plans.some(p=>admissionPlanWrites(p.sql))?'write':'read';
+  group=plans.length===0?'unknown':plans.some(p=>admissionPlanWrites(p.sql))?'write':'read';
  }catch{label='other';group='unknown';}
  try{console.error('privacy request held',purpose,label,group,elapsedClass(clockMs()-began));}catch{}
  const held=new PrivacySiteRequestHeld();

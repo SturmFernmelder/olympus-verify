@@ -25,7 +25,7 @@ const SECRETS = ['Tag#1234', 'abc.def.ghi', '300000000000000093', 'site_users', 
 const leaks = (value) => typeof value !== 'string' || SECRETS.some((s) => value.includes(s));
 
 console.log('\n== the closed lists themselves ==');
-check('every held label is a fixed lower-case word, optionally admission:<reason>', L.HELD_CAUSES.every((x) => /^[a-z_]+(?::[a-z0-9_]+)?$/.test(x)) && L.HELD_CAUSES.length === 14 + L.ADMISSION_REASONS.length && LABELS.size === L.HELD_CAUSES.length);
+check('every held label is a fixed lower-case word, optionally admission:<reason>', L.HELD_CAUSES.every((x) => /^[a-z0-9_]+(?::[a-z0-9_]+)?$/.test(x)) && L.HELD_CAUSES.length === 14 + L.ADMISSION_REASONS.length && LABELS.size === L.HELD_CAUSES.length);
 check('the read_unavailable causes are the three retryable storage classes only', JSON.stringify(L.READ_UNAVAILABLE_CAUSES) === JSON.stringify(['storage_reset', 'storage_network', 'storage_transient']) && Object.isFrozen(L.READ_UNAVAILABLE_CAUSES));
 check('every route class is a fixed lower-case word', L.ROUTE_CLASSES.every((x) => /^[a-z_]+$/.test(x)) && ROUTES.has('page') && ROUTES.has('other'));
 check('the lists are frozen', Object.isFrozen(L.HELD_CAUSES) && Object.isFrozen(L.ADMISSION_REASONS) && Object.isFrozen(L.ROUTE_CLASSES));
@@ -96,10 +96,10 @@ for (const [text, label] of DOCUMENTED) {
   check(label + ': ' + text, got.every((x) => x === label), JSON.stringify(got));
 }
 check('a guard or proof refusal through its JSON sentinel is sql_json_refused', L.heldCause(new Error('D1_ERROR: malformed JSON: SQLITE_ERROR')) === 'sql_json_refused' && L.heldCause(new Error('D1_ERROR: malformed JSON', { cause: new Error('malformed JSON') })) === 'sql_json_refused');
-check('any other D1_ message is storage_other, its text dropped', L.heldCause(new Error('D1_ERROR: no such table: site_users Tag#1234')) === 'storage_other' && L.heldCause(new Error('D1_EXEC_ERROR')) === 'storage_other' && L.heldCause(new Error('D1_TYPE_ERROR: x')) === 'storage_other');
-check('a D1_ prefix only on the cause does not make storage_other', L.heldCause(new Error('wrapped', { cause: new Error('D1_ERROR: x') })) === 'other');
+check('any other D1_ message is d1_other, its text dropped', L.heldCause(new Error('D1_ERROR: no such table: site_users Tag#1234')) === 'd1_other' && L.heldCause(new Error('D1_EXEC_ERROR')) === 'd1_other' && L.heldCause(new Error('D1_TYPE_ERROR: x')) === 'd1_other');
+check('a D1_ prefix only on the cause does not make d1_other', L.heldCause(new Error('wrapped', { cause: new Error('D1_ERROR: x') })) === 'other');
 check('anything else is other', L.heldCause(new Error('boom Tag#1234')) === 'other' && L.heldCause(new TypeError('x')) === 'other');
-check('text quoted later in a message never selects a label (anchored after the D1 prefix)', L.heldCause(new Error('D1_ERROR: Failed to parse body as JSON, got: D1 DB reset because its code was updated.')) === 'storage_other' && L.heldCause(new Error('upstream said Network connection lost.')) === 'other' && L.heldCause(new Error('D1_ERROR: x malformed JSON')) === 'storage_other' && L.heldCause(new Error('D1_ERROR:Network connection lost.')) === 'storage_other' && L.heldCause(new Error('D1_error: Network connection lost.')) === 'storage_other');
+check('text quoted later in a message never selects a label (anchored after the D1 prefix)', L.heldCause(new Error('D1_ERROR: Failed to parse body as JSON, got: D1 DB reset because its code was updated.')) === 'd1_other' && L.heldCause(new Error('upstream said Network connection lost.')) === 'other' && L.heldCause(new Error('D1_ERROR: x malformed JSON')) === 'd1_other' && L.heldCause(new Error('D1_ERROR:Network connection lost.')) === 'd1_other' && L.heldCause(new Error('D1_error: Network connection lost.')) === 'd1_other');
 check('an error from another realm (vm) is classified by its message alone', L.heldCause(require('node:vm').runInNewContext('new Error("D1_ERROR: Network connection lost.")')) === 'storage_network' && L.heldCause(require('node:vm').runInNewContext('({message:"privacy_site_request_held"})')) === 'authority');
 
 console.log('\n== heldCause: the held classes ==');
@@ -131,7 +131,7 @@ for (const label of [...L.HELD_CAUSES, 'storage_', 'Tag#1234', undefined]) for (
   if (L.readUnavailable(label, group, m) !== want) ruleBad.push([label, group, m]);
 }
 check('read_unavailable exactly for GET or HEAD, a read group and a retryable storage class (' + (L.HELD_CAUSES.length + 3) * GROUPS.length * METHODS.length + ' combinations)', ruleBad.length === 0, JSON.stringify(ruleBad.slice(0, 10)));
-check('  overload, limits, other D1 text, refusals and writes are not read_unavailable', !L.readUnavailable('storage_overloaded', 'read', 'GET') && !L.readUnavailable('storage_limit', 'read', 'GET') && !L.readUnavailable('storage_other', 'read', 'GET') && !L.readUnavailable('sql_json_refused', 'read', 'GET') && !L.readUnavailable('storage_reset', 'write', 'GET') && !L.readUnavailable('storage_reset', 'read', 'POST'));
+check('  overload, limits, other D1 text, refusals and writes are not read_unavailable', !L.readUnavailable('storage_overloaded', 'read', 'GET') && !L.readUnavailable('storage_limit', 'read', 'GET') && !L.readUnavailable('d1_other', 'read', 'GET') && !L.readUnavailable('sql_json_refused', 'read', 'GET') && !L.readUnavailable('storage_reset', 'write', 'GET') && !L.readUnavailable('storage_reset', 'read', 'POST'));
 
 console.log('\n== heldCause never throws ==');
 const thrower = new Proxy({}, { get() { throw Error('trap Tag#1234'); }, getOwnPropertyDescriptor() { throw Error('trap'); }, getPrototypeOf() { throw Error('trap'); }, has() { throw Error('trap'); } });
