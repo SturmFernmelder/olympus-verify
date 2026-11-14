@@ -26,7 +26,11 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.state = {"outbox": self.rows, "seen": ["retired-proof-claim", "other-claim"],
                       "queue_written_pending": [7], "queue_written_original": {"opaque": "unchanged"},
                       "worker_retry_at": 123456, "worker_retry_status": 401,
-                      "chat_offset": 77, "roster_sent": 11,
+                      "chat_offset": 77, "chat_fp": "opaque-chat-fingerprint", "roster_sent": 11,
+                      "sv_mtime": 1234567.125,
+                      "tickets": {"opaque-ticket-digest": ["Synthetic Holder", 1234567]},
+                      "identities": {"synthetic holder": ["Player-1-ABCDEF12", 1234567]},
+                      "future_opaque": {"nested": [None, False, 0, "é", {"untouched": [1, 2, 3]}]},
                       "other": {"privateFinancialState": "do not duplicate", "nested": [1, None, False]}}
         self.save(self.state)
 
@@ -100,6 +104,8 @@ class AttendedQuarantineTests(unittest.TestCase):
         after = json.loads(self.path.read_bytes())
         self.assertEqual(after, {**self.state, "outbox": []})
         self.assertEqual(after["seen"], ["retired-proof-claim", "other-claim"])
+        for field in ("tickets", "identities", "chat_fp", "sv_mtime", "future_opaque"):
+            self.assertEqual(after[field], self.state[field])
         archive = json.loads(Path(result["archive"]).read_bytes())
         self.assertEqual(archive["originals"], self.rows)
         self.assertEqual(archive["beforeStateSha256"], hashlib.sha256(before).hexdigest())
@@ -291,6 +297,9 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(sizes, [65])
 
     def test_archive_output_bound_and_review_counter_overflow_preserve_original(self):
+        # Keep only the selected rows here: this input fits while the archive
+        # adds its manifest/review metadata, independent of other fixture fields.
+        self.path.write_bytes(json.dumps({"outbox": self.rows}, separators=(",", ":")).encode())
         before = self.path.read_bytes()
         pins = self.pins()
         # Input is permitted, but its archive plus manifest does not fit.
@@ -308,6 +317,111 @@ class AttendedQuarantineTests(unittest.TestCase):
             self.quarantine(pins)
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(self.archives(), [])
+
+    def test_unknown_outcome_cannot_use_legacy_ack_settlement_with_correct_pins(self):
+        for row in self.rows:
+            with self.subTest(path=row["path"]):
+                self.save({**self.state, "outbox": [row]})
+                before = self.path.read_bytes()
+                pins = recovery.inspect(self.path)
+                self.assertEqual(pins["outbox"]["classification"], "unknown-outcome-held")
+                with self.assertRaises(ValueError):
+                    recovery.recover(self.path, "outbox", "settle-acknowledged", pins["stateSha256"],
+                                     pins["outbox"]["itemSha256"], "Synthetic unknown outcome must stay held")
+                self.assertEqual(self.path.read_bytes(), before)
+                self.assertEqual(list(self.root.glob("*.custody-archive-*.json")), [])
+                self.assertEqual(self.archives(), [])
+                self.assertFalse(self.path.with_name(self.path.name + ".custody-recovery.tmp").exists())
+
+    def test_private_protection_rejects_actual_broad_inherited_and_wrong_dacls(self):
+        # Zero-data scratch files only. Validate real OS descriptors, rather
+        # than replacing the readback function with an exception in this case.
+        if os.name != "nt":
+            path = self.root / "zero-data"
+            with recovery.private_create(path):
+                pass
+            self.assertEqual(recovery.private_protection(path), "posix-owner-only")
+            for mode in (0o640, 0o604, 0o660):
+                with self.subTest(mode=mode):
+                    path.chmod(mode)
+                    with self.assertRaises(ValueError):
+                        recovery.private_protection(path)
+                    self.assertEqual(path.read_bytes(), b"")
+            path.chmod(0o600)
+            return
+        import ctypes
+        from ctypes import wintypes
+        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        convert = advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW
+        convert.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(wintypes.LPVOID),
+                            ctypes.POINTER(wintypes.DWORD)]
+        convert.restype = wintypes.BOOL
+        get_dacl = advapi.GetSecurityDescriptorDacl
+        get_dacl.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.BOOL),
+                            ctypes.POINTER(wintypes.LPVOID), ctypes.POINTER(wintypes.BOOL)]
+        get_dacl.restype = wintypes.BOOL
+        set_security = advapi.SetNamedSecurityInfoW
+        set_security.argtypes = [wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD,
+                                wintypes.LPVOID, wintypes.LPVOID, wintypes.LPVOID, wintypes.LPVOID]
+        set_security.restype = wintypes.DWORD
+        kernel.LocalFree.argtypes = [wintypes.LPVOID]
+        kernel.LocalFree.restype = wintypes.LPVOID
+        cases = [("broad", "D:P(A;;FA;;;SY)(A;;FA;;;OW)(A;;FR;;;WD)", 0x80000004),
+                 ("inherited", "D:(A;;FA;;;SY)(A;;FA;;;OW)", 0x20000004),
+                 ("wrong", "D:P(A;;FA;;;OW)", 0x80000004)]
+        for name, sddl, flags in cases:
+            with self.subTest(dacl=name):
+                path = self.root / ("zero-data-" + name)
+                with recovery.private_create(path):
+                    pass
+                self.assertEqual(recovery.private_protection(path), "windows-protected-owner-system")
+                descriptor, dacl = wintypes.LPVOID(), wintypes.LPVOID()
+                present, defaulted = wintypes.BOOL(), wintypes.BOOL()
+                self.assertTrue(convert(sddl, 1, ctypes.byref(descriptor), None))
+                try:
+                    self.assertTrue(get_dacl(descriptor, ctypes.byref(present), ctypes.byref(dacl), ctypes.byref(defaulted)))
+                    self.assertTrue(present.value)
+                    self.assertEqual(set_security(str(path), 1, flags, None, None, dacl, None), 0)
+                finally:
+                    kernel.LocalFree(descriptor)
+                with self.assertRaises(ValueError):
+                    recovery.private_protection(path)
+                self.assertEqual(path.read_bytes(), b"")
+
+    def test_same_size_archive_corruption_stops_before_state_replacement(self):
+        before, pins = self.path.read_bytes(), self.pins()
+        create = recovery.private_create
+        corrupted = []
+        class CorruptAfterClose:
+            def __init__(self, stream, path):
+                self.stream, self.path = stream, path
+            def __enter__(self):
+                return self.stream.__enter__()
+            def __exit__(self, *args):
+                result = self.stream.__exit__(*args)
+                original = self.path.read_bytes()
+                raw = bytearray(original)
+                raw[raw.index(b'"unknown"') + 1] ^= 1
+                self.path.write_bytes(raw)
+                corrupted.append((original, bytes(raw)))
+                return result
+        def corrupt_create(path):
+            stream = create(path)
+            return CorruptAfterClose(stream, path) if ".custody-quarantine-" in path.name else stream
+        with patch.object(recovery, "private_create", side_effect=corrupt_create), \
+                patch.object(recovery.os, "replace", side_effect=AssertionError("corrupt archive reached replacement")) as replaced:
+            with self.assertRaises(ValueError) as held:
+                self.quarantine(pins)
+            replaced.assert_not_called()
+        self.assertEqual(held.exception.custody_phase, "archive-started")
+        self.assertEqual(len(corrupted), 1)
+        original, corrupt = corrupted[0]
+        self.assertEqual(len(original), len(corrupt))
+        self.assertEqual(sum(a != b for a, b in zip(original, corrupt)), 1)
+        self.assertEqual(self.archives()[0].read_bytes(), corrupt)
+        self.assertEqual(self.path.read_bytes(), before)
+        self.assertFalse(self.path.with_name(self.path.name + ".custody-recovery.tmp").exists())
 
     def test_existing_temp_paths_are_preserved_before_archive_creation(self):
         for kind in ("regular", "directory", "alias"):
@@ -523,6 +637,148 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(w.state.d["outbox"], [])
         self.assertEqual(w.state.d["seen"], self.state["seen"])
         self.assertEqual(json.loads(Path(result["archive"]).read_bytes())["originals"], self.rows)
+
+    def native_quarantine_fixture(self):
+        import test_verification_source_witness280 as native_fixture
+        import watcher
+        fixture = native_fixture.VerificationSourceWitness280Tests(methodName="runTest")
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.admit()
+        old_body = fixture.body()
+        fixture.unknown_verify = True
+        fixture.w.handle_chat_line(fixture.line())
+        self.assertEqual(len(fixture.verify_paths()), 1)
+        self.assertEqual(len(fixture.w.state.d["outbox"]), 1)
+        path = fixture.w.state.path
+        pins = recovery.inspect(path)
+        result = recovery.quarantine_unknown(path, pins["stateSha256"],
+            pins["quarantineUnknown"]["manifestSha256"], 1, "Synthetic actual source replay review")
+        return fixture, watcher.Watcher(fixture.w.cfg), result, old_body
+
+    def test_two_day_old_savedvariables_file_row_stays_retired_while_a_new_ticket_delivers(self):
+        import codes
+        import test_verification_source_witness280 as native_fixture
+        from datetime import datetime, timezone
+        fixture, restarted, result, old_body = self.native_quarantine_fixture()
+        archived = Path(result["archive"]).read_bytes()
+        old_seen = list(restarted.state.d["seen"])
+        old_key = restarted.code_key("w", native_fixture.NAME, fixture.code)
+        old_event = {"type": "whisper", "name": native_fixture.NAME, "guid": native_fixture.GUID,
+                     "code": fixture.code, "ok": True, "ts": old_body["ts"],
+                     "nativeMembership": copy.deepcopy(old_body["nativeMembership"])}
+        old_event_bytes = json.dumps(old_event, sort_keys=True).encode()
+        fixture.at += 2 * 86400
+        class SourceClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.fromtimestamp(fixture.at, tz)
+        calls = []
+        def transport(method, route, body=None, retries=3):
+            calls.append((method, route, copy.deepcopy(body)))
+            if route == "/ingest/roster":
+                return True, {"snapshot": 9, "trusted": True, "members": len(body["members"])}
+            self.assertEqual((method, route), ("POST", "/ingest/verify"))
+            self.assertEqual(body, fixture.body())
+            return True, {"result": "member", "pendingConsumed": True}
+        restarted.worker.call = transport
+        def write_next_file():
+            fixture.write()
+            stamp = max(fixture.w.sv_file.stat().st_mtime, restarted.state.d["sv_mtime"]) + 1
+            os.utime(fixture.w.sv_file, (stamp, stamp))
+            return fixture.w.sv_file.stat().st_mtime
+        with patch.object(codes, "datetime", SourceClock):
+            self.assertIsNone(codes.code_kind(native_fixture.SECRET, native_fixture.NAME, fixture.code))
+            fixture.db["events"] = [copy.deepcopy(old_event)]
+            fixture.db["roster"]["exportedAt"] = fixture.at
+            mtime = write_next_file()
+            restarted.check_savedvars()
+            self.assertEqual([(m, r) for m, r, _ in calls], [("POST", "/ingest/roster")])
+            self.assertEqual(restarted._verification_roster["exportedAt"], fixture.at)
+            self.assertTrue(restarted.verification_roster_ready(fixture.body()))
+            self.assertEqual(restarted.state.d["sv_mtime"], mtime)
+            self.assertEqual(restarted.state.d["outbox"], [])
+            self.assertEqual(restarted.state.d["seen"], old_seen)
+            self.assertEqual(Path(result["archive"]).read_bytes(), archived)
+            # Keep the old row in the actual Lua file while adding a genuinely
+            # new request. This positive path catches collectors dropping every
+            # SavedVariables event instead of honoring only the retained claim.
+            fixture.at += 1
+            fixture.code = codes.ticket_for(native_fixture.SECRET, "XYZ",
+                codes.day_bucket(datetime.fromtimestamp(fixture.at, timezone.utc)))
+            self.assertEqual(codes.code_kind(native_fixture.SECRET, native_fixture.NAME, fixture.code), "ticket")
+            new_body = fixture.body()
+            fixture.db["events"] = [copy.deepcopy(old_event), {"type": "whisper", "name": native_fixture.NAME,
+                "guid": native_fixture.GUID, "code": fixture.code, "ok": True, "ts": fixture.at,
+                "nativeMembership": copy.deepcopy(new_body["nativeMembership"])}]
+            fixture.db["roster"]["exportedAt"] = fixture.at
+            mtime = write_next_file()
+            restarted.check_savedvars()
+            verified = [body for method, route, body in calls if route == "/ingest/verify"]
+            self.assertEqual(verified, [new_body])
+            self.assertEqual(restarted.state.d["sv_mtime"], mtime)
+            self.assertEqual(restarted.state.d["outbox"], [])
+            self.assertTrue(restarted.state.was_seen(old_key))
+            self.assertTrue(all(claim in restarted.state.d["seen"] for claim in old_seen))
+            self.assertTrue(restarted.state.was_seen(restarted.code_key("w", native_fixture.NAME, fixture.code)))
+            self.assertEqual(json.dumps(fixture.db["events"][0], sort_keys=True).encode(), old_event_bytes)
+            self.assertEqual(Path(result["archive"]).read_bytes(), archived)
+
+    def test_plain_whisper_kept_claim_blocks_capture_with_fresh_native_source_and_new_ticket_works(self):
+        import codes
+        import test_verification_source_witness280 as native_fixture
+        from datetime import datetime, timezone
+        fixture, restarted, result, old_body = self.native_quarantine_fixture()
+        class SourceClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.fromtimestamp(fixture.at, tz)
+        clock = patch.object(codes, "datetime", SourceClock)
+        clock.start()
+        self.addCleanup(clock.stop)
+        archived = Path(result["archive"]).read_bytes()
+        old_seen = list(restarted.state.d["seen"])
+        old_key = restarted.code_key("w", native_fixture.NAME, fixture.code)
+        calls = []
+        def transport(method, route, body=None, retries=3):
+            calls.append((method, route, copy.deepcopy(body)))
+            if route == "/ingest/roster":
+                return True, {"snapshot": 10, "trusted": True, "members": len(body["members"])}
+            self.assertEqual((method, route), ("POST", "/ingest/verify"))
+            self.assertEqual(body, fixture.body())
+            return True, {"result": "member", "pendingConsumed": True}
+        restarted.worker.call = transport
+        fixture.at += 1
+        fixture.db["roster"]["exportedAt"] = fixture.at
+        fixture.write()
+        stamp = max(fixture.w.sv_file.stat().st_mtime, restarted.state.d["sv_mtime"]) + 1
+        os.utime(fixture.w.sv_file, (stamp, stamp))
+        restarted.check_savedvars()
+        self.assertTrue(restarted.verification_roster_ready(fixture.body()))
+        self.assertIsNotNone(codes.code_kind(native_fixture.SECRET, native_fixture.NAME, fixture.code))
+        self.assertIsNotNone(restarted.read_native_membership(fixture.line()))
+        self.assertIn(old_key, restarted._native_membership)
+        self.assertTrue(restarted.state.was_seen(old_key))
+        # This sentinel distinguishes the early kept-claim guard from a later
+        # claim-ownership or transport refusal that could also suppress a POST.
+        with patch.object(restarted, "_post_claimed", side_effect=AssertionError("kept plain-whisper claim recaptured")) as captured:
+            restarted.handle_chat_line(f"11/6 01:00:00.000  {native_fixture.NAME} whispers: !verify {fixture.code}")
+            captured.assert_not_called()
+        self.assertEqual([(m, r) for m, r, _ in calls], [("POST", "/ingest/roster")])
+        self.assertEqual(restarted.state.d["seen"], old_seen)
+        self.assertEqual(restarted.state.d["outbox"], [])
+        fixture.at += 1
+        fixture.code = codes.ticket_for(native_fixture.SECRET, "XYZ",
+            codes.day_bucket(datetime.fromtimestamp(fixture.at, timezone.utc)))
+        self.assertEqual(codes.code_kind(native_fixture.SECRET, native_fixture.NAME, fixture.code), "ticket")
+        self.assertIsNotNone(restarted.read_native_membership(fixture.line()))
+        self.assertTrue(restarted.verification_roster_ready(fixture.body()))
+        restarted.handle_chat_line(f"11/6 01:00:00.000  {native_fixture.NAME} whispers: !verify {fixture.code}")
+        self.assertEqual([body for _, route, body in calls if route == "/ingest/verify"], [fixture.body()])
+        self.assertEqual(restarted.state.d["outbox"], [])
+        self.assertTrue(restarted.state.was_seen(old_key))
+        self.assertTrue(all(claim in restarted.state.d["seen"] for claim in old_seen))
+        self.assertEqual(Path(result["archive"]).read_bytes(), archived)
 
     def test_old_source_stays_deduplicated_and_a_new_signed_ticket_delivers_after_quarantine(self):
         # Reuse the existing real parser/native file/roster-ACK fixture rather
