@@ -653,7 +653,11 @@ async function part2round3(cdp, go, size) {
 (async () => {
   try { await part1(); } catch (e) { check('setup', 'part 1 completed without an exception: ' + (e && e.stack || e), false); }
   if (!args.only || args.only === 'round3') { try { await part1b(); } catch (e) { check('setup', 'part 1b (CL2-016, CL2-091) completed without an exception: ' + (e && e.stack || e), false); } }
-  if (URL0) { try { await part2(); } catch (e) { check('setup', 'part 2 completed without an exception: ' + (e && e.stack || e), false); } }
+  // Part 2 talks to a separate test site and a real browser, both on the real clock. Parts 1 and 1b run on a frozen Date
+  // (set at the top of this file); it is put back here, or every time part 2 computes is part one's 12 November. That
+  // made the event of the CL2-016 page section start in the past: accepted until it was a day old (13 Nov 2026 22:00
+  // UTC), refused with 400 invalid_starts_at since (found in the final gate, 14 Nov 2026).
+  if (URL0) { globalThis.Date = RealDate; try { await part2(); } catch (e) { check('setup', 'part 2 completed without an exception: ' + (e && e.stack || e), false); } }
   console.log(`\n${failures} failure(s)`);
   process.exit(Math.min(failures, 99));
 })();

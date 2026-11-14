@@ -1,9 +1,20 @@
 'use strict';
-// Evidence-only three-line inverse. Every consumer still compiles its ACTUAL current prefix.
+// Evidence-only inverse edits. Every consumer still compiles its ACTUAL current prefix.
+// The first two (14 Nov 2026) are the lines our frontend_check.cjs migration 390f337/d92d021 added for the candidate's
+// pages: ParentNode.append and requestAnimationFrame/cancelAnimationFrame in the page sandbox. They are removed first,
+// which gives the prefix pinned before that migration (29,319 bytes, a885f7f5...); the three older edits follow.
 const {createHash}=require('node:crypto');
-const CURRENT217='a885f7f5fed706ce783adc3cee9700e8c44d8190cdfea488491194ef33531635';
+const CURRENT217='078e1b3ae5d4ba1e79cc04cbc0c213ac544c479d6ba8645ac85abd7214c8d5f8';
 const HISTORICAL217='bd05ccad75ca07e71647d20b9169636ed1d73d33ee2bbb3a7c1e763a8121c1c5';
 const EDITS217=Object.freeze([
+  {
+    "current": "  append(...nodes) { for (const c of nodes) this.appendChild(typeof c === \"string\" ? new Text(c) : c); } // ParentNode.append, as a browser has it (our 4c7b542 uses it)\n",
+    "historical": ""
+  },
+  {
+    "current": "  // RC-272 (our 925a505, 12 Nov 2026): the Community section row now schedules its sideways scroll with\n  // requestAnimationFrame, which every browser has; the minimal window gets it as one later frame.\n  sandbox.requestAnimationFrame = (callback) => setTimeout(() => callback(Date.now()), 0);\n  sandbox.cancelAnimationFrame = (handle) => clearTimeout(handle);\n",
+    "historical": ""
+  },
   {
     "current": "  const re = /^([a-zA-Z][\\w-]*)|#([\\w-]+)|\\.([\\w-]+)|\\[([\\w-]+)(?:=(?:\"([^\"]*)\"|([^\\]\\s\"\\']+)))?\\]/g;\n",
     "historical": "  const re = /^([a-zA-Z][\\w-]*)|#([\\w-]+)|\\.([\\w-]+)|\\[([\\w-]+)(?:=\"([^\"]*)\")?\\]/g;\n"
@@ -25,7 +36,7 @@ function historicalFrontendPrefix217(current){
   if(historical.split(edit.current).length!==2)throw Error('frontend217_prefix_context_not_unique');
   historical=historical.replace(edit.current,edit.historical);
  }
- if(Buffer.byteLength(current,'utf8')!==29319||hash217(current)!==CURRENT217)throw Error('frontend217_current_prefix_drift');
+ if(Buffer.byteLength(current,'utf8')!==29851||hash217(current)!==CURRENT217)throw Error('frontend217_current_prefix_drift');
  if(Buffer.byteLength(historical,'utf8')!==29077||hash217(historical)!==HISTORICAL217)throw Error('frontend217_historical_prefix_drift');
  return historical;
 }
