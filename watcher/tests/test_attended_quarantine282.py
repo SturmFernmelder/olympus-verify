@@ -58,6 +58,18 @@ class AttendedQuarantineTests(unittest.TestCase):
         q = inspected["quarantineUnknown"]
         return inspected["stateSha256"], q["manifestSha256"], q["count"]
 
+    @staticmethod
+    def unchecked_pins(raw):
+        # Intentionally independent of the production eligibility/strict parser:
+        # a correct pin must not mask the particular guard under test.
+        rows = json.loads(raw)["outbox"]
+        manifest = {"schema": "watcher-unresolved-manifest-v1", "count": len(rows), "items": [
+            {"index": index, "path": row["path"], "itemSha256": hashlib.sha256(
+                json.dumps(row, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()).hexdigest()}
+            for index, row in enumerate(rows)]}
+        return (hashlib.sha256(raw).hexdigest(), hashlib.sha256(json.dumps(
+            manifest, sort_keys=True, allow_nan=False, separators=(",", ":")).encode()).hexdigest(), len(rows))
+
     def quarantine(self, pins=None):
         state_sha, manifest_sha, count = pins or self.pins()
         return recovery.quarantine_unknown(self.path, state_sha, manifest_sha, count,
@@ -152,7 +164,8 @@ class AttendedQuarantineTests(unittest.TestCase):
                    lambda r: r.update(refusal_status=400), lambda r: r.update(refusal_status=409),
                    lambda r: r.update(server_expired=True), lambda r: r.pop("custody"),
                    lambda r: r.update(custody=True), lambda r: r.update(path="/ingest/intake242"),
-                   lambda r: r.update(body=[]),
+                   lambda r: r.update(body=[]), lambda r: r.update(at=0),
+                   lambda r: r.update(at=True), lambda r: r.update(binding="invalid"),
                    lambda r: r["body"].update(donation={"copper": 15}),
                    lambda r: r["body"].update(entries=[{"type": "donation"}]),
                    lambda r: r["body"].update(source="tithe-gold-v2")]
@@ -169,7 +182,9 @@ class AttendedQuarantineTests(unittest.TestCase):
                 before = self.path.read_bytes()
                 self.assertFalse(recovery.inspect(self.path)["quarantineUnknown"]["eligible"])
                 with self.assertRaises(ValueError):
-                    self.quarantine((hashlib.sha256(before).hexdigest(), "a" * 64, 3))
+                    recovery._quarantine_manifest(json.loads(before))
+                with self.assertRaises(ValueError):
+                    self.quarantine(self.unchecked_pins(before))
                 self.assertEqual(self.path.read_bytes(), before)
                 self.assertEqual(self.archives(), [])
 
@@ -181,37 +196,50 @@ class AttendedQuarantineTests(unittest.TestCase):
             before = self.path.read_bytes()
             self.assertFalse(recovery.inspect(self.path)["quarantineUnknown"]["eligible"])
             with self.assertRaises(ValueError):
-                self.quarantine((hashlib.sha256(before).hexdigest(), "a" * 64, max(1, len(box))))
-            self.assertEqual(self.path.read_bytes(), before)
-
-    def test_duplicate_keys_and_nonfinite_or_over_limit_state_are_refused(self):
-        clean = self.path.read_bytes()
-        for malformed in [b'{"outbox":[],"outbox":' + json.dumps(self.rows).encode() + b'}',
-                          b'{"outbox":' + json.dumps(self.rows).encode() + b',"other":NaN}']:
-            self.path.write_bytes(malformed)
+                recovery._quarantine_manifest(json.loads(before))
+            pins = self.unchecked_pins(before)
             with self.assertRaises(ValueError):
-                self.quarantine((hashlib.sha256(malformed).hexdigest(), "a" * 64, 3))
-            self.assertEqual(self.path.read_bytes(), malformed)
+                self.quarantine((pins[0], pins[1], max(1, len(box))))
+            self.assertEqual(self.path.read_bytes(), before)
+            self.assertEqual(self.archives(), [])
+
+    def test_strict_json_guards_cannot_hide_behind_manifest_or_later_serialization(self):
+        clean = self.path.read_bytes()
+        # Corrupt only unrelated state. Every outbox row and its real ordered
+        # manifest remain valid, including for NaN that later serialization
+        # would also refuse if the strict parser were accidentally removed.
+        body = json.dumps(self.state).encode()
+        cases = [body[:-1] + b',"metadata":1,"metadata":2}',
+                 body[:-1] + b',"metadata":{"nested":1,"nested":2}}',
+                 body[:-1] + b',"metadata":NaN}',
+                 body[:-1] + b',"metadata":Infinity}',
+                 body[:-1] + b',"metadata":-Infinity}',
+                 body[:-1] + b',"metadata":1e309}',
+                 body[:-1] + b',"metadata":{"nested":[-1e309]}}',
+                 body[:-1] + b',"metadata":{"nested":[1E309]}}']
+        for raw in cases:
+            with self.subTest(raw=raw[-50:]):
+                self.path.write_bytes(raw)
+                pins = self.unchecked_pins(raw)
+                preview = recovery.inspect(self.path)["quarantineUnknown"]
+                self.assertFalse(preview["eligible"])
+                self.assertIsNone(preview["manifestSha256"])
+                with self.assertRaises(ValueError):
+                    recovery._strict_quarantine_state(raw)
+                # Must stop before eligibility. An overflow refused much later
+                # by allow_nan=False does not prove strict parsing happened.
+                with patch.object(recovery, "_quarantine_manifest", side_effect=AssertionError("strict parser bypassed")) as reached:
+                    with self.assertRaises(ValueError):
+                        self.quarantine(pins)
+                    reached.assert_not_called()
+                self.assertEqual(self.path.read_bytes(), raw)
+                self.assertEqual(self.archives(), [])
         self.path.write_bytes(clean)
         pins = self.pins()
         with patch.object(recovery, "QUARANTINE_MAX_BYTES", len(clean) - 1), self.assertRaises(ValueError):
             self.quarantine(pins)
         self.assertEqual(self.path.read_bytes(), clean)
         self.assertEqual(self.archives(), [])
-
-    def test_exponent_overflow_is_ineligible_in_preview_and_apply_before_archive(self):
-        for nested, number in [(False, "1e309"), (True, "-1e309"), (True, "1E309")]:
-            with self.subTest(nested=nested, number=number):
-                state = {**self.state, "other": {"nested": ["OVERFLOW"]}} if nested else {**self.state, "overflow": "OVERFLOW"}
-                raw = json.dumps(state).replace('"OVERFLOW"', number).encode()
-                self.path.write_bytes(raw)
-                preview = recovery.inspect(self.path)["quarantineUnknown"]
-                self.assertFalse(preview["eligible"])
-                self.assertIsNone(preview["manifestSha256"])
-                with self.assertRaises(ValueError):
-                    self.quarantine((hashlib.sha256(raw).hexdigest(), "a" * 64, 3))
-                self.assertEqual(self.path.read_bytes(), raw)
-                self.assertEqual(self.archives(), [])
         self.save({**self.state, "other": {"finite": 1.25}})
         self.assertTrue(recovery.inspect(self.path)["quarantineUnknown"]["eligible"])
         self.quarantine()
@@ -281,13 +309,88 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(self.archives(), [])
 
+    def test_existing_temp_paths_are_preserved_before_archive_creation(self):
+        for kind in ("regular", "directory", "alias"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "state.json"
+                path.write_bytes(self.path.read_bytes())
+                before = path.read_bytes()
+                inspected = recovery.inspect(path)
+                tmp = path.with_name(path.name + ".custody-recovery.tmp")
+                target = Path(folder) / "alias-target"
+                if kind == "regular":
+                    tmp.write_bytes(b"prior private replacement evidence")
+                elif kind == "directory":
+                    tmp.mkdir()
+                elif os.name == "nt":
+                    target.mkdir()
+                    made = subprocess.run(["cmd", "/d", "/c", "mklink", "/J", str(tmp), str(target)],
+                                          capture_output=True, timeout=10)
+                    self.assertEqual(made.returncode, 0, "synthetic junction creation failed")
+                    self.assertTrue(tmp.is_junction())
+                else:
+                    tmp.symlink_to(target)  # deliberately dangling
+                with patch.object(recovery, "private_create", side_effect=AssertionError("archive created before temp preflight")) as created:
+                    with self.assertRaises(FileExistsError) as held:
+                        recovery.quarantine_unknown(path, inspected["stateSha256"],
+                            inspected["quarantineUnknown"]["manifestSha256"], 3, "Synthetic prior temporary evidence")
+                    created.assert_not_called()
+                self.assertEqual(held.exception.custody_phase, "pre-archive")
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(list(Path(folder).glob("*.custody-quarantine-*.json")), [])
+                self.assertTrue(os.path.lexists(tmp))
+                if kind == "regular":
+                    self.assertEqual(tmp.read_bytes(), b"prior private replacement evidence")
+                elif kind == "directory":
+                    self.assertTrue(tmp.is_dir())
+                elif os.name == "nt":
+                    self.assertTrue(tmp.is_junction())
+                else:
+                    self.assertTrue(tmp.is_symlink())
+
+    def test_private_protection_is_read_back_in_order_and_failures_hold(self):
+        protection = recovery.private_protection
+        for failure, phase in [("archive", "archive-started"), ("temp", "archive-verified"),
+                               ("state", "state-replaced-readback-unconfirmed"), (None, None)]:
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "state.json"
+                path.write_bytes(self.path.read_bytes())
+                before = path.read_bytes()
+                pins = recovery.inspect(path)
+                calls = []
+                def checked(given):
+                    kind = "archive" if ".custody-quarantine-" in given.name else "temp" if given.name.endswith(".tmp") else "state"
+                    calls.append(kind)
+                    if kind == failure:
+                        raise ValueError("synthetic private protection readback failure")
+                    return protection(given)
+                with patch.object(recovery, "private_protection", side_effect=checked):
+                    if failure:
+                        with self.assertRaises(ValueError) as held:
+                            recovery.quarantine_unknown(path, pins["stateSha256"],
+                                pins["quarantineUnknown"]["manifestSha256"], 3, "Synthetic private protection review")
+                        self.assertEqual(held.exception.custody_phase, phase)
+                    else:
+                        result = recovery.quarantine_unknown(path, pins["stateSha256"],
+                            pins["quarantineUnknown"]["manifestSha256"], 3, "Synthetic private protection review")
+                        self.assertEqual(result["protection"], "windows-protected-owner-system" if os.name == "nt" else "posix-owner-only")
+                expected = ["archive", "temp", "state"]
+                self.assertEqual(calls, expected[:expected.index(failure) + 1] if failure else expected)
+                self.assertEqual(len(list(Path(folder).glob("*.custody-quarantine-*.json"))), 1)
+                if failure in ("archive", "temp"):
+                    self.assertEqual(path.read_bytes(), before)
+                else:
+                    self.assertEqual(json.loads(path.read_bytes()), {**self.state, "outbox": []})
+                self.assertEqual(path.with_name(path.name + ".custody-recovery.tmp").exists(), failure == "temp")
+
     def test_archive_write_failure_preserves_state_and_partial_archive_blocks_retry(self):
         before, pins = self.path.read_bytes(), self.pins()
         # Initialise the stable lease before injecting archive failure.
         with recovery.StateLease(self.path):
             pass
-        with patch.object(recovery.os, "fsync", side_effect=OSError("synthetic archive fsync failure")), self.assertRaises(OSError):
+        with patch.object(recovery.os, "fsync", side_effect=OSError("synthetic archive fsync failure")), self.assertRaises(OSError) as held:
             self.quarantine(pins)
+        self.assertEqual(held.exception.custody_phase, "archive-started")
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(len(self.archives()), 1)
         with self.assertRaises(FileExistsError):
@@ -352,8 +455,9 @@ class AttendedQuarantineTests(unittest.TestCase):
 
     def test_replace_failure_preserves_original_archive_and_refuses_blind_repeat(self):
         before, pins = self.path.read_bytes(), self.pins()
-        with patch.object(recovery.os, "replace", side_effect=OSError("synthetic replace failure")), self.assertRaises(OSError):
+        with patch.object(recovery.os, "replace", side_effect=OSError("synthetic replace failure")), self.assertRaises(OSError) as held:
             self.quarantine(pins)
+        self.assertEqual(held.exception.custody_phase, "replace-attempted-unconfirmed")
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(json.loads(self.archives()[0].read_bytes())["originals"], self.rows)
         self.assertTrue(self.path.with_name("state.json.custody-recovery.tmp").exists())
@@ -379,8 +483,9 @@ class AttendedQuarantineTests(unittest.TestCase):
         def lost_result(source, target):
             replace(source, target)
             raise OSError("synthetic lost local result")
-        with patch.object(recovery.os, "replace", side_effect=lost_result), self.assertRaises(OSError):
+        with patch.object(recovery.os, "replace", side_effect=lost_result), self.assertRaises(OSError) as held:
             self.quarantine(pins)
+        self.assertEqual(held.exception.custody_phase, "replace-attempted-unconfirmed")
         self.assertEqual(json.loads(self.path.read_bytes()), {**self.state, "outbox": []})
         archive_before = self.archives()[0].read_bytes()
         with self.assertRaises(ValueError):
@@ -398,8 +503,9 @@ class AttendedQuarantineTests(unittest.TestCase):
                 if reads == 4:
                     raise OSError("synthetic unreadable replacement")
             return read(path, max_bytes)
-        with patch.object(recovery, "_read_state", new=lost_readback), self.assertRaises(OSError):
+        with patch.object(recovery, "_read_state", new=lost_readback), self.assertRaises(OSError) as held:
             self.quarantine(pins)
+        self.assertEqual(held.exception.custody_phase, "state-replaced-readback-unconfirmed")
         self.assertEqual(json.loads(self.path.read_bytes())["outbox"], [])
         self.assertEqual(len(self.archives()), 1)
         with self.assertRaises(ValueError):
@@ -487,6 +593,37 @@ class AttendedQuarantineTests(unittest.TestCase):
         self.assertTrue(restarted.state.was_seen(restarted.code_key("w", native_fixture.NAME, fixture.code)))
         self.assertEqual(restarted.state.d["outbox"], [])
         self.assertEqual(Path(result["archive"]).read_bytes(), archive)
+
+    def test_cli_failure_phases_are_fixed_payload_free_and_preserve_evidence(self):
+        import contextlib
+        import io
+        for failure, phase in [("archive", "archive-started"), ("replace", "replace-attempted-unconfirmed"),
+                               ("state", "state-replaced-readback-unconfirmed")]:
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "state.json"
+                path.write_bytes(self.path.read_bytes())
+                pins = recovery.inspect(path)
+                argv = ["custody_recovery", "--state", str(path), "quarantine-unknown", "--state-sha256", pins["stateSha256"],
+                        "--manifest-sha256", pins["quarantineUnknown"]["manifestSha256"], "--count", "3", "--reason", "Synthetic CLI phase review"]
+                protected = recovery.private_protection
+                def readback(given):
+                    if failure == "archive" and ".custody-quarantine-" in given.name or failure == "state" and given == path:
+                        raise ValueError("SYNTHETIC PRIVATE SECRET PATH PAYLOAD")
+                    return protected(given)
+                output, errors = io.StringIO(), io.StringIO()
+                with patch.object(sys, "argv", argv), patch.object(recovery, "private_protection", side_effect=readback), \
+                        patch.object(recovery.os, "replace", side_effect=OSError("SYNTHETIC PRIVATE SECRET PATH PAYLOAD")) if failure == "replace" else contextlib.nullcontext(), \
+                        contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                    result = recovery.main()
+                self.assertEqual(result, 2)
+                self.assertEqual(output.getvalue(), "")
+                self.assertIn("phase=" + phase + ";", errors.getvalue())
+                self.assertIn("preserve state, archive and temporary files", errors.getvalue())
+                self.assertNotIn("SYNTHETIC PRIVATE", errors.getvalue())
+                self.assertNotIn(str(path), errors.getvalue())
+                self.assertNotIn("nothing changed", errors.getvalue())
+                self.assertEqual(len(list(Path(folder).glob("*.custody-quarantine-*.json"))), 1)
+                self.assertEqual(json.loads(path.read_bytes())["outbox"], [] if failure == "state" else self.rows)
 
     def test_cli_runs_without_network_or_watcher_imports_and_rejects_queue_lane(self):
         script = Path(recovery.__file__).resolve()

@@ -104,6 +104,79 @@ def private_create(path: Path):
         raise
 
 
+def private_protection(path: Path) -> str:
+    """Read back owner-only protection; creation arguments alone are not proof."""
+    regular_identity(path)
+    if os.name == "posix":
+        info = path.stat()
+        if info.st_mode & 0o077 or info.st_uid != os.getuid():
+            raise ValueError("private owner-only protection not confirmed")
+        return "posix-owner-only"
+    if os.name != "nt":
+        raise ValueError("private protection readback unsupported")
+    import ctypes
+    from ctypes import wintypes
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_security = advapi.GetNamedSecurityInfoW
+    get_security.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                             ctypes.POINTER(wintypes.LPVOID), wintypes.LPVOID,
+                             ctypes.POINTER(wintypes.LPVOID), wintypes.LPVOID,
+                             ctypes.POINTER(wintypes.LPVOID)]
+    get_security.restype = wintypes.DWORD
+    convert = advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW
+    convert.argtypes = [wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD,
+                        ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(wintypes.DWORD)]
+    convert.restype = wintypes.BOOL
+    open_token = advapi.OpenProcessToken
+    open_token.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    open_token.restype = wintypes.BOOL
+    get_token = advapi.GetTokenInformation
+    get_token.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
+                          wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    get_token.restype = wintypes.BOOL
+    equal_sid = advapi.EqualSid
+    equal_sid.argtypes = [wintypes.LPVOID, wintypes.LPVOID]
+    equal_sid.restype = wintypes.BOOL
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.LocalFree.argtypes = [wintypes.LPVOID]
+    kernel.LocalFree.restype = wintypes.LPVOID
+    owner, dacl, descriptor = wintypes.LPVOID(), wintypes.LPVOID(), wintypes.LPVOID()
+    text, token = wintypes.LPWSTR(), wintypes.HANDLE()
+    # Read owner and DACL, not a parent/default descriptor. The exact protected
+    # DACL permits only SYSTEM and OWNER RIGHTS, with no inherited ACEs.
+    code = get_security(str(path), 1, 0x5, ctypes.byref(owner), None,
+                        ctypes.byref(dacl), None, ctypes.byref(descriptor))
+    if code:
+        raise ctypes.WinError(code)
+    try:
+        if not convert(descriptor, 1, 0x4, ctypes.byref(text), None):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if text.value not in ("D:P(A;;FA;;;SY)(A;;FA;;;OW)", "D:P(A;;FA;;;OW)(A;;FA;;;SY)"):
+            raise ValueError("private protected DACL not confirmed")
+        if not open_token(kernel.GetCurrentProcess(), 0x8, ctypes.byref(token)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        size = wintypes.DWORD()
+        get_token(token, 1, None, 0, ctypes.byref(size))
+        if not size.value:
+            raise ValueError("current user ownership not confirmed")
+        user = ctypes.create_string_buffer(size.value)
+        if not get_token(token, 1, user, size, ctypes.byref(size)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        user_sid = ctypes.cast(user, ctypes.POINTER(wintypes.LPVOID)).contents
+        if not owner or not dacl or not equal_sid(owner, user_sid):
+            raise ValueError("current user ownership not confirmed")
+        return "windows-protected-owner-system"
+    finally:
+        if token:
+            kernel.CloseHandle(token)
+        if text:
+            kernel.LocalFree(text)
+        if descriptor:
+            kernel.LocalFree(descriptor)
+
+
 class StateLease:
     """One cooperating writer; the kernel releases ownership after process death."""
     MARKER = b"OLYMPUS-STATE-ADVISORY-LOCK-V1\n"
@@ -327,6 +400,18 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
     published policy. No restoration, replay or automatic deletion is provided;
     this neither extends proof lifetimes nor claims that an erasure completed.
     """
+    progress = {"phase": "pre-archive"}
+    try:
+        return _quarantine_unknown(path, state_sha, manifest_sha, count, reason, progress)
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError) as error:
+        # Preserve the exception type for attended callers, but expose only this
+        # fixed phase through the CLI. Never include private exception text.
+        error.custody_phase = progress["phase"]
+        raise
+
+
+def _quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int,
+                        reason: str, progress: dict[str, str]) -> dict[str, Any]:
     path = reviewed_path(path)
     if (not re.fullmatch(r"[0-9a-f]{64}", state_sha) or not re.fullmatch(r"[0-9a-f]{64}", manifest_sha)
             or type(count) is not int or count <= 0):
@@ -363,8 +448,14 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
         if len(after) > QUARANTINE_MAX_BYTES or len(archive_raw) > QUARANTINE_MAX_BYTES:
             raise ValueError("attended recovery output size limit exceeded")
         archive = path.with_name(path.name + ".custody-quarantine-" + state_sha + "-" + manifest_sha + ".json")
+        tmp = path.with_name(path.name + ".custody-recovery.tmp")
+        # Even a dangling alias or directory is prior evidence. Discover it
+        # before creating an archive; never delete or overwrite it to continue.
+        if os.path.lexists(tmp):
+            raise FileExistsError("existing recovery replacement requires attended inspection")
         # Archive first, exclusively. A partial archive or any uncertain replace
         # result is evidence to inspect, never permission for an automatic repeat.
+        progress["phase"] = "archive-started"
         with private_create(archive) as stream:
             info = os.fstat(stream.fileno())
             archived_identity = (info.st_dev, info.st_ino)
@@ -375,10 +466,11 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
         if (regular_identity(archive) != archived_identity or archive.stat().st_size != len(archive_raw)
                 or _read_state(archive, QUARANTINE_MAX_BYTES) != archive_raw):
             raise ValueError("private archive readback differs; original state not replaced")
+        private_protection(archive)
+        progress["phase"] = "archive-verified"
         if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
                 or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
             raise ValueError("state changed after archive; original state not replaced")
-        tmp = path.with_name(path.name + ".custody-recovery.tmp")
         with private_create(tmp) as stream:
             if stream.write(after) != len(after):
                 raise OSError("private replacement write incomplete")
@@ -387,16 +479,21 @@ def quarantine_unknown(path: Path, state_sha: str, manifest_sha: str, count: int
         replacement = regular_identity(tmp)
         if tmp.stat().st_size != len(after) or _read_state(tmp, QUARANTINE_MAX_BYTES) != after:
             raise ValueError("private replacement readback differs; original state not replaced")
+        private_protection(tmp)
         if (regular_identity(path) != identity or path.stat().st_size > QUARANTINE_MAX_BYTES
                 or digest(_read_state(path, QUARANTINE_MAX_BYTES)) != state_sha):
             raise ValueError("state changed before replace; original state not replaced")
+        # A raised replace can still have committed. Do not infer nonapplication.
+        progress["phase"] = "replace-attempted-unconfirmed"
         os.replace(tmp, path)
+        progress["phase"] = "state-replaced-readback-unconfirmed"
         if regular_identity(path) != replacement or _read_state(path, QUARANTINE_MAX_BYTES) != after:
             raise ValueError("state replacement readback differs; inspect, never repeat blindly")
+        protection = private_protection(path)
         return {"action": "quarantined-unresolved", "stateSha256": digest(after), "archive": str(archive),
                 "manifestSha256": manifest_sha, "quarantinedCount": count, "deliveryAcknowledged": False,
                 "network": False, "dispatchAuthority": False, "outcome": "unknown", "replayed": False,
-                "createdAt": created, "reviewBy": created + 86400}
+                "createdAt": created, "reviewBy": created + 86400, "protection": protection}
 
 
 def inspect(path: Path) -> dict[str, Any]:
@@ -492,9 +589,17 @@ def main() -> int:
             result = recover(args.state, args.lane, args.action, args.state_sha256 or "", args.item_sha256 or "", args.reason or "")
         print(json.dumps(result))
         return 0
-    except (OSError, ValueError, TypeError, OverflowError, RecursionError):
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError) as error:
         # Never print exception data: a malformed private file can contain sensitive text.
-        print("custody recovery refused or outcome requires inspection; no network request was made", file=sys.stderr)
+        if args.action == "quarantine-unknown":
+            phase = getattr(error, "custody_phase", "pre-archive")
+            if phase not in ("pre-archive", "archive-started", "archive-verified",
+                              "replace-attempted-unconfirmed", "state-replaced-readback-unconfirmed"):
+                phase = "pre-archive"
+            print("custody quarantine held; phase=" + phase + "; stop writers and preserve state, archive and temporary "
+                  "files; compare state and archive hashes before attended recovery; no network request was made", file=sys.stderr)
+        else:
+            print("custody recovery refused or outcome requires inspection; no network request was made", file=sys.stderr)
         return 2
 
 
