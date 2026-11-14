@@ -222,6 +222,15 @@ async function pages1114() {
   verdict('INVARIANT', 'the Apply chooser keeps the optional Member/PvP link', !!chooser?.querySelector('a[data-activity-member203][href="#/vote/member/new"]'));
   const offending = texts.filter(([, t]) => t.includes('Apply as Core Raider') || t.includes('Apply as Crafter')).map(([p]) => p);
   verdict('RULING', '"Apply as Core Raider" and "Apply as Crafter" appear on no rendered page (Organization, Roles, Apply)', texts.length === 3 && offending.length === 0, 'on: ' + offending.join(','));
+  // Typed addresses, for a signed-in member with no saved application (nothing here concerns saved applications).
+  for (const route of ['#/vote/raider/office_25', '#/vote/artisan/office_27']) {
+    await page.go(route); await waitFor(() => !!mainOf()?.textContent.includes('Application track unavailable') || !!mainOf()?.querySelector('form'), route, 4000);
+    verdict('RULING', route + ' opens no form and reads "Application track unavailable"', !mainOf()?.querySelector('form') && !mainOf()?.querySelector('[data-target-office]') && mainOf()?.textContent.includes('Application track unavailable'));
+  }
+  for (const [route, office] of [['#/vote/raider/new', null], ['#/vote/artisan/office_07', 'office_07']]) {
+    await page.go(route); await waitFor(() => !!mainOf()?.querySelector('form'), route, 4000);
+    verdict('INVARIANT', route + ' opens the application form' + (office ? ' with its exact target' : ''), !!mainOf()?.querySelector('form') && (!office || !!mainOf()?.querySelector('[data-target-office="' + office + '"]')));
+  }
   return local;
 }
 
